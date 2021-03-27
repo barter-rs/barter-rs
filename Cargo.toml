@@ -3,9 +3,16 @@ name = "barter"
 version = "0.1.0"
 authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
 edition = "2018"
-description = "High-performance & modularised trading engine & back-testing components"
+description = "High-performance & modular trading engine & back-testing components"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+uuid = {version = "0.8", features = ["v4", "serde"]}
+serde = {version = "1.0", features = ["derive"]}
+serde_json = "1.0"
+csv = "1.1.5"
+chrono = {version = "0.4.19", features = ["serde"]}
+thiserror = "1.0.24"
+ta = "0.4.0"
