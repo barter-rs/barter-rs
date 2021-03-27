@@ -251,6 +251,7 @@ impl BarBuilder {
 }
 
 /// Parse supported timestamp strings to a Chrono Datetime<Utc> timestamp.
+// Todo: Create less hacky solution & add tests
 fn datetime_utc_parser<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
     where
         D: Deserializer<'de>,
