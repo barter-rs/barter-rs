@@ -32,6 +32,12 @@ impl Default for SignalEvent {
     }
 }
 
+impl SignalEvent {
+    pub fn builder() -> SignalEventBuilder {
+        SignalEventBuilder::new()
+    }
+}
+
 /// Describes the type of advisory signal the strategy is endorsing.
 #[derive(Debug, Clone, PartialOrd, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Decision {
