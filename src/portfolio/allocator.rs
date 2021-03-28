@@ -5,7 +5,7 @@ use crate::strategy::signal::{SignalStrength, Decision};
 
 use serde::Deserialize;
 
-/// Allocates an appropriate order quantity.
+/// Allocates an appropriate OrderEvent quantity.
 pub trait OrderAllocator {
     /// Returns an OrderEvent with a calculated order quantity based on the input order,
     /// SignalStrength and potential existing Position.
@@ -13,7 +13,7 @@ pub trait OrderAllocator {
                       signal_strength: SignalStrength) -> Result<OrderEvent, PortfolioError>;
 }
 
-/// Simple allocator that implements OrderAllocator. Order size is calculated by using the
+/// Default allocation manager that implements OrderAllocator. Order size is calculated by using the
 /// default_order_value, symbol close value, and SignalStrength.
 #[derive(Debug, Deserialize)]
 pub struct DefaultAllocator {
