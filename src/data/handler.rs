@@ -1,4 +1,3 @@
-use crate::error::BarterError;
 use crate::data::market::{MarketEvent, Bar};
 
 use std::vec::IntoIter;
@@ -148,5 +147,99 @@ impl HistoricDataHandlerBuilder {
         } else {
             Err(BuilderIncomplete())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_continue_with_symbol_data_remaining() {
+        let mut symbol_data_remaining = Vec::with_capacity(2);
+        symbol_data_remaining.push(Bar::default());
+
+        let data_handler = HistoricDataHandler::builder()
+            .exchange("BACKTEST".to_string())
+            .symbol("DOGE".to_string())
+            .all_symbol_data(symbol_data_remaining.into_iter())
+            .build()
+            .unwrap();
+
+        let actual_should_continue = data_handler.should_continue();
+
+        assert_eq!(actual_should_continue, true);
+    }
+
+    #[test]
+    fn should_not_continue_with_no_symbol_data_remaining() {
+        let symbol_data_remaining: Vec<Bar> = Vec::with_capacity(2);
+
+        let data_handler = HistoricDataHandler::builder()
+            .exchange("BACKTEST".to_string())
+            .symbol("DOGE".to_string())
+            .all_symbol_data(symbol_data_remaining.into_iter())
+            .build()
+            .unwrap();
+
+        let actual_should_continue = data_handler.should_continue();
+
+        assert_eq!(actual_should_continue, false);
+    }
+
+    #[test]
+    fn should_return_data_iterator_empty_error_when_generating_market_with_no_symbol_data() {
+        let symbol_data_remaining: Vec<Bar> = Vec::with_capacity(2);
+
+        let mut data_handler = HistoricDataHandler::builder()
+            .exchange("BACKTEST".to_string())
+            .symbol("DOGE".to_string())
+            .all_symbol_data(symbol_data_remaining.into_iter())
+            .build()
+            .unwrap();
+
+        assert!(
+            match data_handler.generate_market() {
+                Ok(_) => false,
+                Err(_) => true,
+            }
+        );
+    }
+
+    #[test]
+    fn should_return_market_event_when_generating_market_with_available_symbol_data() {
+        let mut symbol_data_remaining = Vec::with_capacity(2);
+        symbol_data_remaining.push(Bar::default());
+
+        let mut data_handler = HistoricDataHandler::builder()
+            .exchange("BACKTEST".to_string())
+            .symbol("DOGE".to_string())
+            .all_symbol_data(symbol_data_remaining.into_iter())
+            .build()
+            .unwrap();
+
+        assert!(
+            match data_handler.generate_market() {
+                Ok(_) => true,
+                Err(_) => false,
+            }
+        );
+    }
+
+    #[test]
+    fn should_return_correct_symbol_data_file_path() {
+        let input_config = Config {
+            data_directory: "directory/".to_string(),
+            file_type: "type".to_string(),
+            exchange: "exchange".to_string(),
+            symbol: "symbol".to_string(),
+            timeframe: "timeframe".to_string()
+        };
+
+        let actual = build_symbol_data_file_path(&input_config);
+
+        let expected = "directory/symbol_timeframe.type".to_string();
+
+        assert_eq!(actual, expected);
     }
 }
