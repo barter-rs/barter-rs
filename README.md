@@ -18,4 +18,3 @@ Rust library containing high-performance trading engine & back-testing component
 Todo Now:
 - Check inconsistency between Position & Component traits / method names eg/ PositionEnterer vs OrderGenerator.
 - Clean up access modifiers as I go along.
-- Think if a good way to deal with builder.build().unwrap -> currently in data & strategy trait methods...
