@@ -13,13 +13,13 @@ pub trait Continuer {
     fn should_continue(&self) -> bool;
 }
 
-/// Generates the latest MarketEvent, acting as the system heartbeat.
+/// Generates the latest [MarketEvent], acting as the system heartbeat.
 pub trait MarketGenerator {
-    /// Return the latest MarketEvent.
+    /// Return the latest [MarketEvent].
     fn generate_market(&mut self) -> Result<MarketEvent, DataError>;
 }
 
-/// Configuration for constructing a HistoricDataHandler via the new() constructor method.
+/// Configuration for constructing a [HistoricDataHandler] via the new() constructor method.
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub data_directory: String,
@@ -29,7 +29,7 @@ pub struct Config {
     pub timeframe: String,
 }
 
-/// MarketEvent data handler that implements Continuer & MarketGenerator. Simulates a live market
+/// [MarketEvent] data handler that implements [Continuer] & [MarketGenerator]. Simulates a live market
 /// feed via drip feeding historical data files.
 pub struct HistoricDataHandler {
     exchange: String,
@@ -59,7 +59,7 @@ impl MarketGenerator for HistoricDataHandler {
 }
 
 impl HistoricDataHandler {
-    /// Constructs a new HistoricDataHandler component using the provided configuration struct.
+    /// Constructs a new [HistoricDataHandler] component using the provided configuration struct.
     pub fn new(cfg: &Config) -> Self {
         let file_path = build_symbol_data_file_path(&cfg);
 
@@ -75,7 +75,7 @@ impl HistoricDataHandler {
             .expect("Failed to build HistoricDataHandler")
     }
 
-    /// Returns a HistoricDataHandlerBuilder instance.
+    /// Returns a [HistoricDataHandlerBuilder] instance.
     pub fn builder() -> HistoricDataHandlerBuilder {
         HistoricDataHandlerBuilder::new()
     }
@@ -86,7 +86,7 @@ pub fn build_symbol_data_file_path(config: &Config) -> String {
     format!("{}{}_{}.{}", config.data_directory, config.symbol, config.timeframe, config.file_type)
 }
 
-/// Loads symbol data into a vector of Bars from the provided file URI.
+/// Loads symbol data into a vector of [Bar] from the provided file URI.
 pub fn load_csv_bars(file_path: String) -> Result<Vec<Bar>, csv::Error> {
     // Read the file
     let mut reader = csv::ReaderBuilder::new()
@@ -107,7 +107,7 @@ pub fn load_csv_bars(file_path: String) -> Result<Vec<Bar>, csv::Error> {
     Ok(bar_data)
 }
 
-/// Builder to construct HistoricDataHandler instances.
+/// Builder to construct [HistoricDataHandler] instances.
 pub struct HistoricDataHandlerBuilder {
     exchange: Option<String>,
     symbol: Option<String>,
