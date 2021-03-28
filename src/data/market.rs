@@ -1,9 +1,10 @@
 use uuid::Uuid;
 use chrono::{DateTime, Utc, NaiveDateTime, NaiveDate};
-use crate::error::BarterError;
 use ta::{Open, High, Low, Close, Volume};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde::de::Error;
+use crate::data::error::DataError::{BuilderAttributesInvalid, BuilderIncomplete};
+use crate::data::error::DataError;
 
 /// Market data & related metadata produced by a data::handler implementation for the Strategy
 /// & Portfolio to interpret.
@@ -29,6 +30,7 @@ impl Default for MarketEvent {
 }
 
 impl MarketEvent {
+    /// Returns a MarketEventBuilder instance.
     pub fn builder() -> MarketEventBuilder {
         MarketEventBuilder::new()
     }
@@ -79,7 +81,7 @@ impl MarketEventBuilder {
         self
     }
 
-    pub fn build(self) -> Result<MarketEvent, BarterError> {
+    pub fn build(self) -> Result<MarketEvent, DataError> {
         if let (Some(trace_id), Some(timestamp), Some(exchange), Some(symbol), Some(bar)) =
         (self.trace_id, self.timestamp, self.exchange, self.symbol, self.bar)
         {
@@ -91,7 +93,7 @@ impl MarketEventBuilder {
                 bar,
             })
         } else {
-            Err(BarterError::BuilderIncomplete())
+            Err(BuilderIncomplete())
         }
     }
 }
@@ -157,6 +159,7 @@ impl Volume for Bar {
 }
 
 impl Bar {
+    /// Returns a BarBuilder instance.
     pub fn builder() -> BarBuilder {
         BarBuilder::new()
     }
@@ -214,7 +217,7 @@ impl BarBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Bar, BarterError> {
+    pub fn build(self) -> Result<Bar, DataError> {
         if let (Some(timestamp), Some(open), Some(high), Some(low), Some(close), Some(volume)) = (
             self.timestamp,
             self.open,
@@ -242,16 +245,15 @@ impl BarBuilder {
                 };
                 Ok(bar)
             } else {
-                Err(BarterError::BuilderAttributesInvalid())
+                Err(BuilderAttributesInvalid())
             }
         } else {
-            Err(BarterError::BuilderIncomplete())
+            Err(BuilderIncomplete())
         }
     }
 }
 
 /// Parse supported timestamp strings to a Chrono Datetime<Utc> timestamp.
-// Todo: Create less hacky solution & add tests
 fn datetime_utc_parser<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
     where
         D: Deserializer<'de>,
