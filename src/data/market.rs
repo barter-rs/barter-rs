@@ -30,13 +30,13 @@ impl Default for MarketEvent {
 }
 
 impl MarketEvent {
-    /// Returns a MarketEventBuilder instance.
+    /// Returns a [MarketEventBuilder] instance.
     pub fn builder() -> MarketEventBuilder {
         MarketEventBuilder::new()
     }
 }
 
-/// Builder to construct MarketEvent instances.
+/// Builder to construct [MarketEvent] instances.
 pub struct MarketEventBuilder {
     pub trace_id: Option<Uuid>,
     pub timestamp: Option<DateTime<Utc>>,
@@ -108,7 +108,7 @@ impl MarketEventBuilder {
     }
 }
 
-/// OHLCV data from a timeframe interval with the associated UTC timestamp.
+/// OHLCV data from a timeframe interval with the associated [DateTime] UTC timestamp.
 #[derive(Debug, PartialOrd, PartialEq, Deserialize, Serialize)]
 pub struct Bar {
     #[serde(rename = "Date")]
@@ -169,13 +169,13 @@ impl Volume for Bar {
 }
 
 impl Bar {
-    /// Returns a BarBuilder instance.
+    /// Returns a [BarBuilder] instance.
     pub fn builder() -> BarBuilder {
         BarBuilder::new()
     }
 }
 
-/// Builder to construct Bar instances.
+/// Builder to construct [Bar] instances.
 pub struct BarBuilder {
     timestamp: Option<DateTime<Utc>>,
     open: Option<f64>,
@@ -270,7 +270,7 @@ impl BarBuilder {
     }
 }
 
-/// Parse supported timestamp strings to a Chrono Datetime<Utc> timestamp.
+/// Parse supported timestamp strings to a Chrono [Datetime] UTC timestamp.
 fn datetime_utc_parser<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
     where
         D: Deserializer<'de>,
