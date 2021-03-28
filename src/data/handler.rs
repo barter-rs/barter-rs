@@ -9,11 +9,13 @@ use crate::data::error::DataError::{DataIteratorEmpty, BuilderIncomplete};
 
 /// Communicates if a process should continue.
 pub trait Continuer {
+    /// Return true if a process should continue.
     fn should_continue(&self) -> bool;
 }
 
 /// Generates the latest MarketEvent, acting as the system heartbeat.
 pub trait MarketGenerator {
+    /// Return the latest MarketEvent.
     fn generate_market(&mut self) -> Result<MarketEvent, DataError>;
 }
 
