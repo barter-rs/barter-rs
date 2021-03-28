@@ -1,7 +1,7 @@
 use uuid::Uuid;
+use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use crate::strategy::signal::Decision;
-use crate::execution::error::ExecutionError;
 use crate::portfolio::error::PortfolioError;
 use crate::portfolio::error::PortfolioError::BuilderIncomplete;
 
