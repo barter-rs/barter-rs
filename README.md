@@ -1,9 +1,9 @@
 # barter-rs
-
-Rust library containing high-performance trading engine & back-testing components.
+Rust library containing high-performance, modular trading engine & back-testing components.
 
 ## Todo Features:
 - 'Statistics' portfolio component that keeps running totals of important stats - expose via api?
+- Add latency, fees etc to the SimulatedExecution handler for increased realism.
 
 ## Tech Debt:
 1. Decide if I want to go full abstraction mode & have traits for all w/ generics (read 10.2 & 19.2 again)
