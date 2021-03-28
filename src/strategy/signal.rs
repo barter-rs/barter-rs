@@ -33,7 +33,7 @@ impl Default for SignalEvent {
 }
 
 impl SignalEvent {
-    /// Returns a SignalEventBuilder instance.
+    /// Returns a [SignalEventBuilder] instance.
     pub fn builder() -> SignalEventBuilder {
         SignalEventBuilder::new()
     }
@@ -55,7 +55,7 @@ impl Default for Decision {
 }
 
 impl Decision {
-    /// Determines if a Decision is (long or close_long).
+    /// Determines if a [Decision] is (long or close_long).
     pub fn is_long_or_close_long(&self) -> bool {
         match self {
             Decision::Long => true,
@@ -64,7 +64,7 @@ impl Decision {
         }
     }
 
-    /// Determines if a Decision is (short or close_short).
+    /// Determines if a [Decision] is (short or close_short).
     pub fn is_short_or_close_short(&self) -> bool {
         match self {
             Decision::Short => true,
@@ -73,7 +73,7 @@ impl Decision {
         }
     }
 
-    /// Determines if a Decision is an exit (close_long or close_short).
+    /// Determines if a [Decision] is an exit (close_long or close_short).
     pub fn is_exit(&self) -> bool {
         match self {
             Decision::CloseLong => true,
@@ -83,7 +83,7 @@ impl Decision {
     }
 }
 
-/// Builder to construct SignalEvent instances.
+/// Builder to construct [SignalEvent] instances.
 pub struct SignalEventBuilder {
     pub trace_id: Option<Uuid>,
     pub timestamp: Option<DateTime<Utc>>,
