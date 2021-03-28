@@ -83,8 +83,7 @@ impl MarketEventBuilder {
 
     pub fn build(self) -> Result<MarketEvent, DataError> {
         if let (Some(trace_id), Some(timestamp), Some(exchange), Some(symbol), Some(bar)) =
-        (self.trace_id, self.timestamp, self.exchange, self.symbol, self.bar)
-        {
+        (self.trace_id, self.timestamp, self.exchange, self.symbol, self.bar) {
             Ok(MarketEvent {
                 trace_id,
                 timestamp,
