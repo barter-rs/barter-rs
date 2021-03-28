@@ -45,4 +45,46 @@ impl SimulatedExecution {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
 
+    #[test]
+    fn should_generate_ok_fill_event_with_valid_order_event_provided() {
+        let simulated_execution = SimulatedExecution::new();
+
+        let mut input_order = OrderEvent::default();
+        input_order.quantity = 10.0;
+        input_order.close = 10.0;
+
+        let actual_result = simulated_execution.generate_fill(&input_order);
+
+        assert!(actual_result.is_ok() && actual_result.unwrap().fill_value_gross == 100.0)
+    }
+
+    #[test]
+    fn should_calculate_fill_value_gross_correctly() {
+        let mut input_order = OrderEvent::default();
+        input_order.quantity = 100.0;
+        input_order.close = 10.0;
+
+        let actual = SimulatedExecution::calculate_fill_value_gross(&input_order);
+
+        let expected = 100.0 * 10.0;
+
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn should_calculate_fill_value_gross_correctly_with_negative_order_quantity_provided() {
+        let mut input_order = OrderEvent::default();
+        input_order.quantity = -(100.0);
+        input_order.close = 10.0;
+
+        let actual = SimulatedExecution::calculate_fill_value_gross(&input_order);
+
+        let expected = (100.0 * 10.0) as f64;
+
+        assert_eq!(actual, expected)
+    }
+}

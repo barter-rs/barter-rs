@@ -1,6 +1,7 @@
 use crate::execution::error::ExecutionError;
 use crate::execution::error::ExecutionError::BuilderIncomplete;
 use uuid::Uuid;
+use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use crate::strategy::signal::Decision;
 
