@@ -33,6 +33,7 @@ impl Default for SignalEvent {
 }
 
 impl SignalEvent {
+    /// Returns a SignalEventBuilder instance.
     pub fn builder() -> SignalEventBuilder {
         SignalEventBuilder::new()
     }
@@ -135,8 +136,21 @@ impl SignalEventBuilder {
     }
 
     pub fn build(self) -> Result<SignalEvent, StrategyError> {
-        if let (Some(trace_id), Some(timestamp), Some(exchange), Some(symbol), Some(close), Some(signals)) =
-        (self.trace_id, self.timestamp, self.exchange, self.symbol, self.close, self.signals, ) {
+        if let (
+            Some(trace_id),
+            Some(timestamp),
+            Some(exchange),
+            Some(symbol),
+            Some(close),
+            Some(signals)
+        ) = (
+            self.trace_id,
+            self.timestamp,
+            self.exchange,
+            self.symbol,
+            self.close,
+            self.signals
+        ) {
             Ok(SignalEvent {
                 trace_id,
                 timestamp,
@@ -158,42 +172,36 @@ mod tests {
     #[test]
     fn should_return_decision_is_long_or_close_long() {
         let decision = Decision::Long;
-
         assert_eq!(decision.is_long_or_close_long(), true)
     }
 
     #[test]
     fn should_return_decision_is_not_long_or_close_long() {
         let decision = Decision::Short;
-
         assert_eq!(decision.is_long_or_close_long(), false)
     }
 
     #[test]
     fn should_return_decision_is_short_or_close_short() {
         let decision = Decision::CloseShort;
-
         assert_eq!(decision.is_short_or_close_short(), true)
     }
 
     #[test]
     fn should_return_decision_is_not_short_or_close_short() {
         let decision = Decision::Long;
-
         assert_eq!(decision.is_short_or_close_short(), false)
     }
 
     #[test]
     fn should_return_decision_is_exit() {
         let decision = Decision::CloseShort;
-
         assert_eq!(decision.is_exit(), true)
     }
 
     #[test]
     fn should_return_decision_is_not_exit() {
         let decision = Decision::Long;
-
         assert_eq!(decision.is_exit(), false)
     }
 }

@@ -82,8 +82,19 @@ impl MarketEventBuilder {
     }
 
     pub fn build(self) -> Result<MarketEvent, DataError> {
-        if let (Some(trace_id), Some(timestamp), Some(exchange), Some(symbol), Some(bar)) =
-        (self.trace_id, self.timestamp, self.exchange, self.symbol, self.bar) {
+        if let (
+            Some(trace_id),
+            Some(timestamp),
+            Some(exchange),
+            Some(symbol),
+            Some(bar)
+        ) = (
+            self.trace_id,
+            self.timestamp,
+            self.exchange,
+            self.symbol,
+            self.bar
+        ) {
             Ok(MarketEvent {
                 trace_id,
                 timestamp,
@@ -217,7 +228,14 @@ impl BarBuilder {
     }
 
     pub fn build(self) -> Result<Bar, DataError> {
-        if let (Some(timestamp), Some(open), Some(high), Some(low), Some(close), Some(volume)) = (
+        if let (
+            Some(timestamp),
+            Some(open),
+            Some(high),
+            Some(low),
+            Some(close),
+            Some(volume)
+        ) = (
             self.timestamp,
             self.open,
             self.high,
