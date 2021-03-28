@@ -3,13 +3,13 @@ use crate::execution::error::ExecutionError;
 use chrono::Utc;
 use crate::portfolio::order::OrderEvent;
 
-/// Generates a result FillEvent by executing an OrderEvent.
+/// Generates a result [FillEvent] by executing an [OrderEvent].
 pub trait FillGenerator {
-    /// Return a FillEvent from executing the input OrderEvent.
+    /// Return a [FillEvent] from executing the input [OrderEvent].
     fn generate_fill(&self, order: &OrderEvent) -> Result<FillEvent, ExecutionError>;
 }
 
-/// Simulated execution handler that executes OrderEvents to generate FillEvents via a
+/// Simulated execution handler that executes [OrderEvent]s to generate [FillEvent]s via a
 /// simulated broker interaction.
 pub struct SimulatedExecution {
 }
@@ -34,12 +34,12 @@ impl FillGenerator for SimulatedExecution {
 }
 
 impl SimulatedExecution {
-    /// Constructs a new SimulatedExecution component.
+    /// Constructs a new [SimulatedExecution] component.
     pub fn new() -> Self {
         SimulatedExecution{}
     }
 
-    /// Calculates the simulated gross fill value (excluding TotalFees) based on the input OrderEvent.
+    /// Calculates the simulated gross fill value (excluding TotalFees) based on the input [OrderEvent].
     fn calculate_fill_value_gross(order: &OrderEvent) -> f64 {
         order.quantity.abs() * order.close
     }

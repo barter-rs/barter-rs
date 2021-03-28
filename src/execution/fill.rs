@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use crate::strategy::signal::Decision;
 
-/// Fills are journals of work done by the execution handler. These are sent back to the portfolio
-/// so any relevant positions can be updated.
+/// Fills are journals of work done by an execution handler. These are sent back to the portfolio
+/// so any relevant [Position]s can be updated.
 #[derive(Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct FillEvent {
     pub trace_id: Uuid,
@@ -39,24 +39,13 @@ impl Default for FillEvent {
 }
 
 impl FillEvent {
-    /// Returns a FillEventBuilder instance.
+    /// Returns a [FillEventBuilder] instance.
     pub fn builder() -> FillEventBuilder {
         FillEventBuilder::new()
     }
-
-    // Todo: Impl the below and also add rustdocs, unit tests...
-    // pub fn parse_direction(&self) -> Result<Direction, PortfolioError> {
-    //     if self.decision.is_long_or_close_long() && self.quantity.is_sign_positive() {
-    //         Ok(Direction::Long)
-    //     } else if self.decision.is_short_or_close_short() && self.quantity.is_sign_negative() {
-    //         Ok(Direction::Short)
-    //     } else {
-    //         Err(PortfolioError::ParseDirectionError())
-    //     }
-    // }
 }
 
-/// Builder to construct FillEvent instances.
+/// Builder to construct [FillEvent] instances.
 pub struct FillEventBuilder {
     pub trace_id: Option<Uuid>,
     pub timestamp: Option<DateTime<Utc>>,
