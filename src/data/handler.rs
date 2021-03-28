@@ -59,7 +59,7 @@ impl MarketGenerator for HistoricDataHandler {
 }
 
 impl HistoricDataHandler {
-    /// Constructs a new HistoricDataHandler component using the provided Configuration struct.
+    /// Constructs a new HistoricDataHandler component using the provided configuration struct.
     pub fn new(cfg: &Config) -> Self {
         let file_path = build_symbol_data_file_path(&cfg);
 
