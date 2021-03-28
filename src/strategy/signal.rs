@@ -1,6 +1,7 @@
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
 use crate::strategy::error::StrategyError::BuilderIncomplete;
 use crate::strategy::error::StrategyError;
 
@@ -43,6 +44,35 @@ pub enum Decision {
 impl Default for Decision {
     fn default() -> Self {
         Self::Long
+    }
+}
+
+impl Decision {
+    /// Determines if a Decision is (long or close_long).
+    pub fn is_long_or_close_long(&self) -> bool {
+        match self {
+            Decision::Long => true,
+            Decision::CloseLong => true,
+            _ => false,
+        }
+    }
+
+    /// Determines if a Decision is (short or close_short).
+    pub fn is_short_or_close_short(&self) -> bool {
+        match self {
+            Decision::Short => true,
+            Decision::CloseShort => true,
+            _ => false,
+        }
+    }
+
+    /// Determines if a Decision is an exit (close_long or close_short).
+    pub fn is_exit(&self) -> bool {
+        match self {
+            Decision::CloseLong => true,
+            Decision::CloseShort => true,
+            _ => false,
+        }
     }
 }
 
@@ -112,5 +142,52 @@ impl SignalEventBuilder {
         } else {
             Err(BuilderIncomplete())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_return_decision_is_long_or_close_long() {
+        let decision = Decision::Long;
+
+        assert_eq!(decision.is_long_or_close_long(), true)
+    }
+
+    #[test]
+    fn should_return_decision_is_not_long_or_close_long() {
+        let decision = Decision::Short;
+
+        assert_eq!(decision.is_long_or_close_long(), false)
+    }
+
+    #[test]
+    fn should_return_decision_is_short_or_close_short() {
+        let decision = Decision::CloseShort;
+
+        assert_eq!(decision.is_short_or_close_short(), true)
+    }
+
+    #[test]
+    fn should_return_decision_is_not_short_or_close_short() {
+        let decision = Decision::Long;
+
+        assert_eq!(decision.is_short_or_close_short(), false)
+    }
+
+    #[test]
+    fn should_return_decision_is_exit() {
+        let decision = Decision::CloseShort;
+
+        assert_eq!(decision.is_exit(), true)
+    }
+
+    #[test]
+    fn should_return_decision_is_not_exit() {
+        let decision = Decision::Long;
+
+        assert_eq!(decision.is_exit(), false)
     }
 }
