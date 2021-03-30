@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use crate::strategy::signal::Decision;
 
 /// Fills are journals of work done by an execution handler. These are sent back to the portfolio
-/// so any relevant [Position]s can be updated.
+/// so it can apply updates.
 #[derive(Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct FillEvent {
     pub trace_id: Uuid,
@@ -28,11 +28,11 @@ impl Default for FillEvent {
             timestamp: Utc::now(),
             symbol: String::from("ETH-USD"),
             decision: Decision::default(),
-            quantity: 10.0,
+            quantity: 1.0,
             exchange: String::from("BINANCE"),
-            fill_value_gross: 10000.0,
-            exchange_fee: 250.0,
-            slippage_fee: 50.0,
+            fill_value_gross: 100.0,
+            exchange_fee: 0.0,
+            slippage_fee: 0.0,
             network_fee: 0.0,
         }
     }
