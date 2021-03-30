@@ -26,9 +26,9 @@ impl Default for OrderEvent {
             timestamp: Utc::now(),
             exchange: String::from("BINANCE"),
             symbol: String::from("ETH-USD"),
-            close: 1050.0,
+            close: 100.0,
             decision: Decision::default(),
-            quantity: 10.0,
+            quantity: 1.0,
             order_type: OrderType::default(),
         }
     }

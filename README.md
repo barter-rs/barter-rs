@@ -16,5 +16,4 @@ Rust library containing high-performance, modular trading engine & back-testing 
 
 
 Todo Now:
-- Check inconsistency between Position & Component traits / method names eg/ PositionEnterer vs OrderGenerator.
 - Clean up access modifiers as I go along.
