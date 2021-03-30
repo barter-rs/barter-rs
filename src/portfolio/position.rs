@@ -163,7 +163,9 @@ impl PositionUpdater for Position {
         let previous_profit_loss = self.unreal_profit_loss;
         self.unreal_profit_loss = self.calculate_unreal_profit_loss()?;
 
-        // Position value net change (including estimated fees)
+        // Position value net change reflecting the change in value_gross
+        // '-> unreal_profit_loss adjusts for Position Direction
+        // '-> estimated fees cancel out since Position:enter already adds them
         let position_value_change = self.unreal_profit_loss - previous_profit_loss;
 
         Ok(position_value_change)
