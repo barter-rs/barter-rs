@@ -26,7 +26,7 @@ impl Default for SignalEvent {
             timestamp: Utc::now(),
             exchange: String::from("BINANCE"),
             symbol: String::from("ETH-USD"),
-            close: 1050.0,
+            close: 100.0,
             signals: Default::default(),
         }
     }
@@ -55,22 +55,25 @@ impl Default for Decision {
 }
 
 impl Decision {
-    /// Determines if a [Decision] is (long or close_long).
-    pub fn is_long_or_close_long(&self) -> bool {
+    /// Determines if a [Decision] is Long.
+    pub fn is_long(&self) -> bool {
         match self {
             Decision::Long => true,
-            Decision::CloseLong => true,
             _ => false,
         }
     }
 
-    /// Determines if a [Decision] is (short or close_short).
-    pub fn is_short_or_close_short(&self) -> bool {
+    /// Determines if a [Decision] is Short.
+    pub fn is_short(&self) -> bool {
         match self {
             Decision::Short => true,
-            Decision::CloseShort => true,
             _ => false,
         }
+    }
+
+    /// Determines if a [Decision] is an entry (long or short).
+    pub fn is_entry(&self) -> bool {
+        self.is_short() || self.is_long()
     }
 
     /// Determines if a [Decision] is an exit (close_long or close_short).
@@ -170,27 +173,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn should_return_decision_is_long_or_close_long() {
+    fn should_return_decision_is_long() {
         let decision = Decision::Long;
-        assert_eq!(decision.is_long_or_close_long(), true)
+        assert_eq!(decision.is_long(), true)
     }
 
     #[test]
-    fn should_return_decision_is_not_long_or_close_long() {
+    fn should_return_decision_is_not_long() {
         let decision = Decision::Short;
-        assert_eq!(decision.is_long_or_close_long(), false)
+        assert_eq!(decision.is_long(), false)
     }
 
     #[test]
-    fn should_return_decision_is_short_or_close_short() {
-        let decision = Decision::CloseShort;
-        assert_eq!(decision.is_short_or_close_short(), true)
+    fn should_return_decision_is_short() {
+        let decision = Decision::Short;
+        assert_eq!(decision.is_short(), true)
     }
 
     #[test]
-    fn should_return_decision_is_not_short_or_close_short() {
+    fn should_return_decision_is_not_short() {
         let decision = Decision::Long;
-        assert_eq!(decision.is_short_or_close_short(), false)
+        assert_eq!(decision.is_short(), false)
+    }
+
+    #[test]
+    fn should_return_decision_is_entry() {
+        let decision = Decision::Long;
+        assert_eq!(decision.is_entry(), true)
+    }
+
+    #[test]
+    fn should_return_decision_is_not_entry() {
+        let decision = Decision::CloseLong;
+        assert_eq!(decision.is_entry(), false)
     }
 
     #[test]
