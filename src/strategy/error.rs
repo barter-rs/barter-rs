@@ -6,5 +6,3 @@ pub enum StrategyError {
     #[error("Failed to build struct due to incomplete attributes provided")]
     BuilderIncomplete(),
 }
-
-// Todo: Finished data, strategy, need to do execution & portfolio linking.

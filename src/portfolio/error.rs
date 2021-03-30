@@ -1,5 +1,7 @@
 use thiserror::Error;
+use crate::portfolio::repository::error::RepositoryError;
 
+/// All errors generated in the barter::portfolio module.
 #[derive(Error, Debug)]
 pub enum PortfolioError {
     #[error("Failed to build struct due to incomplete attributes provided")]
@@ -16,4 +18,7 @@ pub enum PortfolioError {
 
     #[error("Cannot exit Position with an entry decision FillEvent.")]
     CannotExitPositionWithEntryFill(),
+
+    #[error("Failed to interact with repository")]
+    RepositoryInteractionError(#[from] RepositoryError),
 }
