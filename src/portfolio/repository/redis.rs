@@ -1,9 +1,12 @@
 use uuid::Uuid;
+use serde::Deserialize;
 use crate::portfolio::position::Position;
 use crate::portfolio::repository::error::RepositoryError;
-use crate::portfolio::repository::error::RepositoryError::{JsonSerialisationError, WriteError, ReadError, JsonDeserialisationError, DeleteError};
+use crate::portfolio::repository::error::RepositoryError::{
+    JsonSerialisationError, WriteError, ReadError, JsonDeserialisationError, DeleteError};
 use crate::portfolio::error::PortfolioError;
 use crate::portfolio::error::PortfolioError::BuilderIncomplete;
+use redis::{RedisResult, ErrorKind, Connection, Commands};
 
 pub trait PositionHandler {
     fn set_position(&mut self, portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError>;
