@@ -5,7 +5,9 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use crate::portfolio::error::PortfolioError::{BuilderIncomplete, CalcProfitLossError, ParseEntryDirectionError, CannotExitPositionWithEntryFill, CannotEnterPositionWithExitFill};
+use crate::portfolio::error::PortfolioError::{
+    BuilderIncomplete, CalcProfitLossError, ParseEntryDirectionError,
+    CannotExitPositionWithEntryFill, CannotEnterPositionWithExitFill};
 
 /// Enters a new [Position].
 pub trait PositionEnterer {
