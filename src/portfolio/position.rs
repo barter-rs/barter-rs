@@ -6,7 +6,7 @@ use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use crate::portfolio::error::PortfolioError::{
-    BuilderIncomplete, CalcProfitLossError, ParseEntryDirectionError,
+    BuilderIncomplete, ParseEntryDirectionError,
     CannotExitPositionWithEntryFill, CannotEnterPositionWithExitFill};
 
 /// Enters a new [Position].
@@ -17,9 +17,8 @@ pub trait PositionEnterer {
 
 /// Updates an open [Position].
 pub trait PositionUpdater {
-    /// Updates an open [Position] using the latest input [MarketEvent]. Returns the
-    /// [PositionValueChange] caused by the update.
-    fn update(&mut self, market: &MarketEvent) -> Result<PositionValueChange, PortfolioError>;
+    /// Updates an open [Position] using the latest input [MarketEvent].
+    fn update(&mut self, market: &MarketEvent);
 }
 
 /// Exits an open [Position].
@@ -44,8 +43,6 @@ impl Default for Direction {
 /// Potential Fee types that can be incurred from a [FillEvent].
 #[derive(Debug, Clone, PartialOrd, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Fee {
-    /// Total of all other incurred fees.
-    TotalFees,
     /// Fee taken by the exchange/broker (eg/ commission).
     ExchangeFee,
     /// Order book slippage modelled as a fee.
@@ -84,6 +81,9 @@ pub struct Position {
     /// Map containing all incurred entry [Fee] types, and their associated [FeeAmount].
     pub enter_fees: HashMap<Fee, FeeAmount>,
 
+    /// Total of enter_fees incurred. Sum of every [Fee]'s [FeeAmount] in the enter_fees map.
+    pub enter_fees_total: f64,
+
     /// Enter average price excluding the entry [Fee::TotalFees].
     pub enter_avg_price_gross: f64,
 
@@ -92,6 +92,9 @@ pub struct Position {
 
     /// Map containing all incurred exit [Fee] type and their associated [FeeAmount].
     pub exit_fees: HashMap<Fee, FeeAmount>,
+
+    /// Total of exit_fees incurred. Sum of every [Fee]'s [FeeAmount] in the exit_fees map.
+    pub exit_fees_total: f64,
 
     /// Exit average price excluding the exit [Fee::TotalFees].
     pub exit_avg_price_gross: f64,
@@ -116,8 +119,7 @@ impl PositionEnterer for Position {
     fn enter(fill: &FillEvent) -> Result<Position, PortfolioError> {
         // Enter fees
         let mut enter_fees = HashMap::with_capacity(4);
-        let enter_total_fees = fill.exchange_fee + fill.slippage_fee + fill.network_fee;
-        enter_fees.insert(Fee::TotalFees, enter_total_fees);
+        let enter_fees_total = fill.exchange_fee + fill.slippage_fee + fill.network_fee;
         enter_fees.insert(Fee::ExchangeFee, fill.exchange_fee);
         enter_fees.insert(Fee::SlippageFee, fill.slippage_fee);
         enter_fees.insert(Fee::NetworkFee, fill.network_fee);
@@ -126,7 +128,7 @@ impl PositionEnterer for Position {
         let enter_avg_price_gross = Position::calculate_avg_price_gross(fill);
 
         // Unreal profit & loss
-        let unreal_profit_loss = -enter_total_fees * 2.0;
+        let unreal_profit_loss = -enter_fees_total * 2.0;
 
         Ok(Position {
             last_update_trace_id: fill.trace_id,
@@ -136,9 +138,11 @@ impl PositionEnterer for Position {
             direction: Position::parse_entry_direction(&fill)?,
             quantity: fill.quantity,
             enter_fees,
+            enter_fees_total,
             enter_avg_price_gross,
             enter_value_gross: fill.fill_value_gross,
             exit_fees: HashMap::with_capacity(4),
+            exit_fees_total: 0.0,
             exit_avg_price_gross: 0.0,
             exit_value_gross: 0.0,
             current_symbol_price: enter_avg_price_gross,
@@ -150,7 +154,7 @@ impl PositionEnterer for Position {
 }
 
 impl PositionUpdater for Position {
-    fn update(&mut self, market: &MarketEvent) -> Result<PositionValueChange, PortfolioError> {
+    fn update(&mut self, market: &MarketEvent) {
         self.last_update_trace_id = market.trace_id;
         self.last_update_timestamp = market.timestamp;
 
@@ -160,15 +164,7 @@ impl PositionUpdater for Position {
         self.current_value_gross = market.bar.close * self.quantity.abs();
 
         // Unreal profit & loss
-        let previous_profit_loss = self.unreal_profit_loss;
-        self.unreal_profit_loss = self.calculate_unreal_profit_loss()?;
-
-        // Position value net change reflecting the change in value_gross
-        // '-> unreal_profit_loss adjusts for Position Direction
-        // '-> estimated fees cancel out since Position:enter already adds them
-        let position_value_change = self.unreal_profit_loss - previous_profit_loss;
-
-        Ok(position_value_change)
+        self.unreal_profit_loss = self.calculate_unreal_profit_loss();
     }
 }
 
@@ -182,8 +178,7 @@ impl PositionExiter for Position {
         self.last_update_timestamp = fill.timestamp;
 
         // Exit fees
-        let exit_total_fees = fill.exchange_fee + fill.slippage_fee + fill.network_fee;
-        self.exit_fees.insert(Fee::TotalFees, exit_total_fees);
+        self.exit_fees_total = fill.exchange_fee + fill.slippage_fee + fill.network_fee;
         self.exit_fees.insert(Fee::ExchangeFee, fill.exchange_fee);
         self.exit_fees.insert(Fee::SlippageFee, fill.slippage_fee);
         self.exit_fees.insert(Fee::NetworkFee, fill.network_fee);
@@ -193,8 +188,9 @@ impl PositionExiter for Position {
         self.exit_avg_price_gross = Position::calculate_avg_price_gross(fill);
 
         // Result profit & loss
-        self.result_profit_loss = self.calculate_result_profit_loss()?;
+        self.result_profit_loss = self.calculate_result_profit_loss();
         self.unreal_profit_loss = self.result_profit_loss;
+
         Ok(())
     }
 }
@@ -209,9 +205,11 @@ impl Default for Position {
             direction: Direction::default(),
             quantity: 1.0,
             enter_fees: Default::default(),
+            enter_fees_total: 0.0,
             enter_avg_price_gross: 100.0,
             enter_value_gross: 100.0,
             exit_fees: Default::default(),
+            exit_fees_total: 0.0,
             exit_avg_price_gross: 0.0,
             exit_value_gross: 0.0,
             current_symbol_price: 100.0,
@@ -251,32 +249,23 @@ impl Position {
     }
 
     /// Calculate the approximate [Position::unreal_profit_loss] of a [Position].
-    pub fn calculate_unreal_profit_loss(&self) -> Result<f64, PortfolioError> {
-        let approx_total_fees = match self.enter_fees.get(&Fee::TotalFees) {
-            Some(fee) => fee * 2.0, // approximate
-            None => return Err(CalcProfitLossError()),
-        };
+    pub fn calculate_unreal_profit_loss(&self) -> f64 {
+        let approx_total_fees = self.enter_fees_total * 2.0;
 
-        Ok(match self.direction {
+        match self.direction {
             Direction::Long => self.current_value_gross - self.enter_value_gross - approx_total_fees,
             Direction::Short => self.enter_value_gross - self.current_value_gross - approx_total_fees,
-        })
+        }
     }
 
     /// Calculate the exact [Position::result_profit_loss] of a [Position].
-    pub fn calculate_result_profit_loss(&self) -> Result<f64, PortfolioError> {
-        let total_fees = match (
-            self.enter_fees.get(&Fee::TotalFees),
-            self.exit_fees.get(&Fee::TotalFees),
-        ) {
-            (Some(enter_fee), Some(exit_fee)) => enter_fee + exit_fee,
-            _ => return Err(CalcProfitLossError()),
-        };
+    pub fn calculate_result_profit_loss(&self) -> f64 {
+        let total_fees = self.enter_fees_total + self.exit_fees_total;
 
-        Ok(match self.direction {
+        match self.direction {
             Direction::Long => self.exit_value_gross - self.enter_value_gross - total_fees,
             Direction::Short => self.enter_value_gross - self.exit_value_gross - total_fees,
-        })
+        }
     }
 }
 
@@ -289,9 +278,11 @@ pub struct PositionBuilder {
     pub direction: Option<Direction>,
     pub quantity: Option<f64>,
     pub enter_fees: Option<HashMap<Fee, FeeAmount>>,
+    pub enter_fees_total: Option<f64>,
     pub enter_avg_price_gross: Option<f64>,
     pub enter_value_gross: Option<f64>,
     pub exit_fees: Option<HashMap<Fee, FeeAmount>>,
+    pub exit_fees_total: Option<f64>,
     pub exit_avg_price_gross: Option<f64>,
     pub exit_value_gross: Option<f64>,
     pub current_symbol_price: Option<f64>,
@@ -310,9 +301,11 @@ impl PositionBuilder {
             direction: None,
             quantity: None,
             enter_fees: None,
+            enter_fees_total: None,
             enter_avg_price_gross: None,
             enter_value_gross: None,
             exit_fees: None,
+            exit_fees_total: None,
             exit_avg_price_gross: None,
             exit_value_gross: None,
             current_symbol_price: None,
@@ -357,6 +350,11 @@ impl PositionBuilder {
         self
     }
 
+    pub fn enter_fees_total(mut self, value: f64) -> Self {
+        self.enter_fees_total = Some(value);
+        self
+    }
+
     pub fn enter_avg_price_gross(mut self, value: f64) -> Self {
         self.enter_avg_price_gross = Some(value);
         self
@@ -369,6 +367,11 @@ impl PositionBuilder {
 
     pub fn exit_fees(mut self, value: HashMap<Fee, FeeAmount>) -> Self {
         self.exit_fees = Some(value);
+        self
+    }
+
+    pub fn exit_fees_total(mut self, value: f64) -> Self {
+        self.exit_fees_total = Some(value);
         self
     }
 
@@ -411,9 +414,11 @@ impl PositionBuilder {
             Some(direction),
             Some(quantity),
             Some(enter_fees),
+            Some(enter_fees_total),
             Some(enter_avg_price_gross),
             Some(enter_value_gross),
             Some(exit_fees),
+            Some(exit_fees_total),
             Some(exit_avg_price_gross),
             Some(exit_value_gross),
             Some(current_symbol_price),
@@ -428,9 +433,11 @@ impl PositionBuilder {
             self.direction,
             self.quantity,
             self.enter_fees,
+            self.enter_fees_total,
             self.enter_avg_price_gross,
             self.enter_value_gross,
             self.exit_fees,
+            self.exit_fees_total,
             self.exit_avg_price_gross,
             self.exit_value_gross,
             self.current_symbol_price,
@@ -446,9 +453,11 @@ impl PositionBuilder {
                 direction,
                 quantity,
                 enter_fees,
+                enter_fees_total,
                 enter_avg_price_gross,
                 enter_value_gross,
                 exit_fees,
+                exit_fees_total,
                 exit_avg_price_gross,
                 exit_value_gross,
                 current_symbol_price,
@@ -481,18 +490,18 @@ mod tests {
 
         assert_eq!(position.direction, Direction::Long);
         assert_eq!(position.quantity, input_fill.quantity);
-        assert_eq!(*position.enter_fees.get(&Fee::TotalFees).unwrap(), 3.0);
+        assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), input_fill.exchange_fee);
         assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), input_fill.slippage_fee);
         assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), input_fill.network_fee);
         assert_eq!(position.enter_avg_price_gross, (input_fill.fill_value_gross / input_fill.quantity.abs()));
         assert_eq!(position.enter_value_gross, input_fill.fill_value_gross);
-        assert!(position.exit_fees.get(&Fee::TotalFees).is_none());
+        assert_eq!(position.exit_fees_total, 0.0);
         assert_eq!(position.exit_avg_price_gross, 0.0);
         assert_eq!(position.exit_value_gross, 0.0);
         assert_eq!(position.current_symbol_price, (input_fill.fill_value_gross / input_fill.quantity.abs()));
         assert_eq!(position.current_value_gross, input_fill.fill_value_gross);
-        assert_eq!(position.unreal_profit_loss, -6.0); // -2 * enter_fees::TotalFees
+        assert_eq!(position.unreal_profit_loss, -6.0); // -2 * enter_fees_total
         assert_eq!(position.result_profit_loss, 0.0);
     }
 
@@ -510,18 +519,18 @@ mod tests {
 
         assert_eq!(position.direction, Direction::Short);
         assert_eq!(position.quantity, input_fill.quantity);
-        assert_eq!(*position.enter_fees.get(&Fee::TotalFees).unwrap(), 3.0);
+        assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), input_fill.exchange_fee);
         assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), input_fill.slippage_fee);
         assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), input_fill.network_fee);
         assert_eq!(position.enter_avg_price_gross, (input_fill.fill_value_gross / input_fill.quantity.abs()));
         assert_eq!(position.enter_value_gross, input_fill.fill_value_gross);
-        assert!(position.exit_fees.get(&Fee::TotalFees).is_none());
+        assert_eq!(position.exit_fees_total, 0.0);
         assert_eq!(position.exit_avg_price_gross, 0.0);
         assert_eq!(position.exit_value_gross, 0.0);
         assert_eq!(position.current_symbol_price, (input_fill.fill_value_gross / input_fill.quantity.abs()));
         assert_eq!(position.current_value_gross, input_fill.fill_value_gross);
-        assert_eq!(position.unreal_profit_loss, -6.0); // -2 * enter_fees::TotalFees
+        assert_eq!(position.unreal_profit_loss, -6.0); // -2 * enter_fees_total
         assert_eq!(position.result_profit_loss, 0.0);
     }
 
@@ -603,7 +612,7 @@ mod tests {
         let mut position = Position::default();
         position.direction = Direction::Long;
         position.quantity = 1.0;
-        position.enter_fees.insert(Fee::TotalFees, 3.0);
+        position.enter_fees_total = 3.0;
         position.enter_fees.insert(Fee::ExchangeFee, 1.0);
         position.enter_fees.insert(Fee::SlippageFee, 1.0);
         position.enter_fees.insert(Fee::NetworkFee, 1.0);
@@ -611,19 +620,19 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = *position.enter_fees.get(&Fee::TotalFees).unwrap() * -2.0;
+        position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
         input_market.bar.close = 200.0; // +100.0 higher than current_symbol_price
 
-        // Update Position & return the PositionValueChange
-        let position_value_change = position.update(&input_market).unwrap();
+        // Update Position
+        position.update(&input_market);
 
         // Assert update hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Long);
         assert_eq!(position.quantity, 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::TotalFees).unwrap(), 3.0);
+        assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
@@ -631,7 +640,6 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position_value_change, 100.0);
         assert_eq!(position.current_symbol_price, input_market.bar.close);
         assert_eq!(position.current_value_gross, input_market.bar.close * position.quantity.abs());
 
@@ -645,7 +653,7 @@ mod tests {
         let mut position = Position::default();
         position.direction = Direction::Long;
         position.quantity = 1.0;
-        position.enter_fees.insert(Fee::TotalFees, 3.0);
+        position.enter_fees_total = 3.0;
         position.enter_fees.insert(Fee::ExchangeFee, 1.0);
         position.enter_fees.insert(Fee::SlippageFee, 1.0);
         position.enter_fees.insert(Fee::NetworkFee, 1.0);
@@ -653,19 +661,19 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = *position.enter_fees.get(&Fee::TotalFees).unwrap() * -2.0;
+        position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
         input_market.bar.close = 50.0; // -50.0 lower than current_symbol_price
 
         // Update Position & return the PositionValueChange
-        let position_value_change = position.update(&input_market).unwrap();
+        position.update(&input_market);
 
         // Assert update hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Long);
         assert_eq!(position.quantity, 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::TotalFees).unwrap(), 3.0);
+        assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
@@ -673,7 +681,6 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position_value_change, -50.0);
         assert_eq!(position.current_symbol_price, input_market.bar.close);
         assert_eq!(position.current_value_gross, input_market.bar.close * position.quantity.abs());
 
@@ -687,7 +694,7 @@ mod tests {
         let mut position = Position::default();
         position.direction = Direction::Short;
         position.quantity = -1.0;
-        position.enter_fees.insert(Fee::TotalFees, 3.0);
+        position.enter_fees_total = 3.0;
         position.enter_fees.insert(Fee::ExchangeFee, 1.0);
         position.enter_fees.insert(Fee::SlippageFee, 1.0);
         position.enter_fees.insert(Fee::NetworkFee, 1.0);
@@ -695,19 +702,19 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = *position.enter_fees.get(&Fee::TotalFees).unwrap() * -2.0;
+        position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
         input_market.bar.close = 50.0; // -50.0 lower than current_symbol_price
 
-        // Update Position & return the PositionValueChange
-        let position_value_change = position.update(&input_market).unwrap();
+        // Update Position
+        position.update(&input_market);
 
         // Assert update hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Short);
         assert_eq!(position.quantity, -1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::TotalFees).unwrap(), 3.0);
+        assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
@@ -715,7 +722,6 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position_value_change, 50.0); // value_gross_change * -1.0
         assert_eq!(position.current_symbol_price, input_market.bar.close);
         assert_eq!(position.current_value_gross, input_market.bar.close * position.quantity.abs());
 
@@ -729,7 +735,7 @@ mod tests {
         let mut position = Position::default();
         position.direction = Direction::Short;
         position.quantity = -1.0;
-        position.enter_fees.insert(Fee::TotalFees, 3.0);
+        position.enter_fees_total = 3.0;
         position.enter_fees.insert(Fee::ExchangeFee, 1.0);
         position.enter_fees.insert(Fee::SlippageFee, 1.0);
         position.enter_fees.insert(Fee::NetworkFee, 1.0);
@@ -737,19 +743,19 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = *position.enter_fees.get(&Fee::TotalFees).unwrap() * -2.0;
+        position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
         input_market.bar.close = 200.0; // +100.0 higher than current_symbol_price
 
-        // Update Position & return the PositionValueChange
-        let position_value_change = position.update(&input_market).unwrap();
+        // Update Position
+        position.update(&input_market);
 
         // Assert update hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Short);
         assert_eq!(position.quantity, -1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::TotalFees).unwrap(), 3.0);
+        assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
@@ -757,7 +763,6 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position_value_change, -100.0); // value_gross_change * -1.0
         assert_eq!(position.current_symbol_price, input_market.bar.close);
         assert_eq!(position.current_value_gross, input_market.bar.close * position.quantity.abs());
 
@@ -771,7 +776,7 @@ mod tests {
         let mut position = Position::default();
         position.direction = Direction::Long;
         position.quantity = 1.0;
-        position.enter_fees.insert(Fee::TotalFees, 3.0);
+        position.enter_fees_total = 3.0;
         position.enter_fees.insert(Fee::ExchangeFee, 1.0);
         position.enter_fees.insert(Fee::SlippageFee, 1.0);
         position.enter_fees.insert(Fee::NetworkFee, 1.0);
@@ -779,7 +784,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = *position.enter_fees.get(&Fee::TotalFees).unwrap() * -2.0;
+        position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
         // Input FillEvent
         let mut input_fill = FillEvent::default();
@@ -796,7 +801,7 @@ mod tests {
         // Assert exit hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Long);
         assert_eq!(position.quantity, 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::TotalFees).unwrap(), 3.0);
+        assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
@@ -804,7 +809,7 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert fields changed by exit are correct
-        assert_eq!(*position.exit_fees.get(&Fee::TotalFees).unwrap(), 3.0);
+        assert_eq!(position.exit_fees_total, 3.0);
         assert_eq!(*position.exit_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
         assert_eq!(*position.exit_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
         assert_eq!(*position.exit_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
@@ -822,7 +827,7 @@ mod tests {
         let mut position = Position::default();
         position.direction = Direction::Long;
         position.quantity = 1.0;
-        position.enter_fees.insert(Fee::TotalFees, 3.0);
+        position.enter_fees_total = 3.0;
         position.enter_fees.insert(Fee::ExchangeFee, 1.0);
         position.enter_fees.insert(Fee::SlippageFee, 1.0);
         position.enter_fees.insert(Fee::NetworkFee, 1.0);
@@ -830,7 +835,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = *position.enter_fees.get(&Fee::TotalFees).unwrap() * -2.0;
+        position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
         // Input FillEvent
         let mut input_fill = FillEvent::default();
@@ -847,7 +852,7 @@ mod tests {
         // Assert exit hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Long);
         assert_eq!(position.quantity, 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::TotalFees).unwrap(), 3.0);
+        assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
@@ -855,7 +860,7 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert fields changed by exit are correct
-        assert_eq!(*position.exit_fees.get(&Fee::TotalFees).unwrap(), 3.0);
+        assert_eq!(position.exit_fees_total, 3.0);
         assert_eq!(*position.exit_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
         assert_eq!(*position.exit_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
         assert_eq!(*position.exit_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
@@ -873,7 +878,7 @@ mod tests {
         let mut position = Position::default();
         position.direction = Direction::Short;
         position.quantity = -1.0;
-        position.enter_fees.insert(Fee::TotalFees, 3.0);
+        position.enter_fees_total = 3.0;
         position.enter_fees.insert(Fee::ExchangeFee, 1.0);
         position.enter_fees.insert(Fee::SlippageFee, 1.0);
         position.enter_fees.insert(Fee::NetworkFee, 1.0);
@@ -881,7 +886,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = *position.enter_fees.get(&Fee::TotalFees).unwrap() * -2.0;
+        position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
         // Input FillEvent
         let mut input_fill = FillEvent::default();
@@ -898,7 +903,7 @@ mod tests {
         // Assert exit hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Short);
         assert_eq!(position.quantity, -1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::TotalFees).unwrap(), 3.0);
+        assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
@@ -906,7 +911,7 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert fields changed by exit are correct
-        assert_eq!(*position.exit_fees.get(&Fee::TotalFees).unwrap(), 3.0);
+        assert_eq!(position.exit_fees_total, 3.0);
         assert_eq!(*position.exit_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
         assert_eq!(*position.exit_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
         assert_eq!(*position.exit_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
@@ -924,7 +929,7 @@ mod tests {
         let mut position = Position::default();
         position.direction = Direction::Short;
         position.quantity = -1.0;
-        position.enter_fees.insert(Fee::TotalFees, 3.0);
+        position.enter_fees_total = 3.0;
         position.enter_fees.insert(Fee::ExchangeFee, 1.0);
         position.enter_fees.insert(Fee::SlippageFee, 1.0);
         position.enter_fees.insert(Fee::NetworkFee, 1.0);
@@ -932,7 +937,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = *position.enter_fees.get(&Fee::TotalFees).unwrap() * -2.0;
+        position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
         // Input FillEvent
         let mut input_fill = FillEvent::default();
@@ -949,7 +954,7 @@ mod tests {
         // Assert exit hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Short);
         assert_eq!(position.quantity, -1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::TotalFees).unwrap(), 3.0);
+        assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
         assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
@@ -957,7 +962,7 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert fields changed by exit are correct
-        assert_eq!(*position.exit_fees.get(&Fee::TotalFees).unwrap(), 3.0);
+        assert_eq!(position.exit_fees_total, 3.0);
         assert_eq!(*position.exit_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
         assert_eq!(*position.exit_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
         assert_eq!(*position.exit_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
@@ -975,7 +980,7 @@ mod tests {
         let mut position = Position::default();
         position.direction = Direction::Short;
         position.quantity = -1.0;
-        position.enter_fees.insert(Fee::TotalFees, 3.0);
+        position.enter_fees_total = 3.0;
         position.enter_fees.insert(Fee::ExchangeFee, 1.0);
         position.enter_fees.insert(Fee::SlippageFee, 1.0);
         position.enter_fees.insert(Fee::NetworkFee, 1.0);
@@ -983,7 +988,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = *position.enter_fees.get(&Fee::TotalFees).unwrap() * -2.0;
+        position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
         // Input FillEvent
         let mut input_fill = FillEvent::default();
@@ -1009,7 +1014,7 @@ mod tests {
         let mut position = Position::default();
         position.direction = Direction::Short;
         position.quantity = -1.0;
-        position.enter_fees.insert(Fee::TotalFees, 3.0);
+        position.enter_fees_total = 3.0;
         position.enter_fees.insert(Fee::ExchangeFee, 1.0);
         position.enter_fees.insert(Fee::SlippageFee, 1.0);
         position.enter_fees.insert(Fee::NetworkFee, 1.0);
@@ -1017,7 +1022,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = *position.enter_fees.get(&Fee::TotalFees).unwrap() * -2.0;
+        position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
         // Input FillEvent
         let mut input_fill = FillEvent::default();
