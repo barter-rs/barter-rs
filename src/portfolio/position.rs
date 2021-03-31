@@ -84,7 +84,7 @@ pub struct Position {
     /// Total of enter_fees incurred. Sum of every [Fee]'s [FeeAmount] in the enter_fees map.
     pub enter_fees_total: f64,
 
-    /// Enter average price excluding the entry [Fee::TotalFees].
+    /// Enter average price excluding the entry_fees_total.
     pub enter_avg_price_gross: f64,
 
     /// abs(Quantity) * enter_avg_price_gross.
@@ -96,7 +96,7 @@ pub struct Position {
     /// Total of exit_fees incurred. Sum of every [Fee]'s [FeeAmount] in the exit_fees map.
     pub exit_fees_total: f64,
 
-    /// Exit average price excluding the exit [Fee::TotalFees].
+    /// Exit average price excluding the exit_fees_total.
     pub exit_avg_price_gross: f64,
 
     /// abs(Quantity) * exit_avg_price_gross.
