@@ -7,7 +7,7 @@ use crate::portfolio::repository::redis::{PositionHandler, ValueHandler, CashHan
 use uuid::Uuid;
 use crate::portfolio::risk::{DefaultRisk, OrderEvaluator};
 use crate::portfolio::allocator::{DefaultAllocator, OrderAllocator};
-use crate::portfolio::position::{PositionUpdater, PositionExiter, Position, Fee, PositionEnterer, Direction};
+use crate::portfolio::position::{PositionUpdater, PositionExiter, Position, PositionEnterer, Direction};
 use chrono::Utc;
 use crate::portfolio::error::PortfolioError::BuilderIncomplete;
 use std::collections::HashMap;
@@ -40,7 +40,6 @@ pub struct PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + C
 
 // Todo: Check over portfolio trait impls
 //  - extract testable methods out of the above methods to make it easier to test & read
-//  - Make EntryTotalFees it's own field, with a dirty bag for each individual fee
 //  - Swap exit and entry position in this function around - seems more clear
 
 impl<T> MarketUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
@@ -52,7 +51,7 @@ impl<T> MarketUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + V
         if let Some(mut position) = self.repository.get_position(&position_id)? {
 
             // Update Position
-            position.update(market)?;
+            position.update(market);
         }
 
         Ok(())
@@ -114,11 +113,8 @@ impl<T> FillUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + Val
             // Exit Position
             position.exit(fill)?;
 
-            // Update Portfolio cash & value on exit --> use result_profit_loss
-            let total_exit_fees = position.exit_fees.get(&Fee::TotalFees)
-                .expect("Exited Position contains None for exit_fees instead of Some");
-
-            current_cash += position.exit_value_gross - total_exit_fees;
+            // Update Portfolio cash & value on exit
+            current_cash += position.exit_value_gross - position.exit_fees_total;
             current_value += position.result_profit_loss;
 
         }
@@ -128,10 +124,7 @@ impl<T> FillUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + Val
             let position = Position::enter(&fill)?;
 
             // Update Portfolio cash entry
-            let total_enter_fees = position.enter_fees.get(&Fee::TotalFees)
-                .expect("Entered Position contains None enter_fees instead of Some");
-
-            current_cash += -position.enter_value_gross - total_enter_fees;
+            current_cash += -position.enter_value_gross - position.enter_fees_total;
 
             // Add to current Positions in repository
             self.repository.set_position(&self.id, &position)?;
