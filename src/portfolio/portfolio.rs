@@ -40,7 +40,6 @@ pub struct PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + C
 
 // Todo: Check over portfolio trait impls
 //  - extract testable methods out of the above methods to make it easier to test & read
-//  - Swap exit and entry position in this function around - seems more clear
 
 impl<T> MarketUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
     fn update_from_market(&mut self, market: &MarketEvent) -> Result<(), PortfolioError> {
