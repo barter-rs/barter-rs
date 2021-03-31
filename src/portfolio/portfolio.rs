@@ -12,18 +12,28 @@ use chrono::Utc;
 use crate::portfolio::error::PortfolioError::BuilderIncomplete;
 use std::collections::HashMap;
 
+/// Updates the Portfolio from an input [MarketEvent].
 pub trait MarketUpdater {
+    /// Determines if the Portfolio has any open [Position]s relating to the input [MarketEvent],
+    /// and if so updates it using the market data.
     fn update_from_market(&mut self, market: &MarketEvent) -> Result<(), PortfolioError>;
 }
 
+/// May generate an [OrderEvent] from an input advisory [SignalEvent].
 pub trait OrderGenerator {
+    /// May generate an [OrderEvent] after analysing an input advisory [SignalEvent].
     fn generate_order(&mut self, signal: &SignalEvent) -> Result<Option<OrderEvent>, PortfolioError>;
 }
 
+/// Updates the Portfolio from an input [FillEvent].
 pub trait FillUpdater {
+    /// Updates the Portfolio state using the input [FillEvent]. The [FillEvent] triggers a
+    /// [Position] entry or exit, and the Portfolio updates key fields such as current_cash and
+    /// current_value accordingly.
     fn update_from_fill(&mut self, fill: &FillEvent) -> Result<(), PortfolioError>;
 }
 
+/// Components for construction a [PersistedMetaPortfolio] via the new() constructor method.
 #[derive(Debug)]
 pub struct Components {
     pub allocator: DefaultAllocator,
@@ -31,15 +41,21 @@ pub struct Components {
     pub starting_cash: f64,
 }
 
+/// Portfolio with state persisted in a repository. Implements [MarketUpdater], [OrderGenerator],
+/// and [FillUpdater]. The Portfolio analyses an advisory [SignalEvent] from a Strategy and decides
+/// whether to place a corresponding [OrderEvent]. If a [Position] is opened, the Portfolio keeps
+/// track the it's state, as well as it's own.
 pub struct PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+    /// Unique ID for the [PersistedMetaPortfolio].
     id: Uuid,
+    /// Repository for the [PersistedMetaPortfolio] to persist it's state in. Implements
+    /// [PositionHandler], [ValueHandler], and [CashHandler].
     repository: T,
+    /// Allocation manager implements [OrderAllocator].
     allocation_manager: DefaultAllocator,
+    /// Risk manager implements [OrderEvaluator].
     risk_manager: DefaultRisk,
 }
-
-// Todo: Check over portfolio trait impls
-//  - extract testable methods out of the above methods to make it easier to test & read
 
 impl<T> MarketUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
     fn update_from_market(&mut self, market: &MarketEvent) -> Result<(), PortfolioError> {
@@ -138,6 +154,7 @@ impl<T> FillUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + Val
 }
 
 impl<T> PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+    /// Constructs a new [PersistedMetaPortfolio] component using the provided [Components] struct.
     pub fn new(components: Components, repository: T) -> Self {
         PersistedMetaPortfolio::builder()
             .id(Uuid::new_v4())
@@ -148,16 +165,19 @@ impl<T> PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + Cash
             .expect("Failed to build a PersistedMetaPortfolio")
     }
 
+    /// Returns a [PersistedMetaPortfolio] instance.
     pub fn builder() -> PersistedMetaPortfolioBuilder<T> {
         PersistedMetaPortfolioBuilder::new()
     }
 
+    /// Determines if the Portfolio has any cash to enter a new [Position].
     fn no_cash_to_enter_new_position(&mut self, position: &Option<&Position>) -> Result<bool, PortfolioError> {
         let current_cash = self.repository.get_current_cash(&self.id)?;
         Ok(position.is_none() && current_cash == 0.0)
     }
 }
 
+/// Builder to construct [PersistedMetaPortfolio] instances.
 pub struct PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHandler {
     id: Option<Uuid>,
     repository: Option<T>,
@@ -219,11 +239,13 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
     }
 }
 
-pub fn parse_signal_decisions<'a>(position: &'a Option<&Position>, signal_pairs: &'a HashMap<Decision, SignalStrength>) -> Option<(&'a Decision, &'a SignalStrength)> {
-    let signal_close_long = signal_pairs.get_key_value(&Decision::Long);
-    let signal_long = signal_pairs.get_key_value(&Decision::Long);
-    let signal_close_short = signal_pairs.get_key_value(&Decision::Long);
-    let signal_short = signal_pairs.get_key_value(&Decision::Long);
+/// Parses an incoming [SignalEvent]'s signals map. Determines what the net signal [Decision] will
+/// be, and it's associated [SignalStrength].
+pub fn parse_signal_decisions<'a>(position: &'a Option<&Position>, signals: &'a HashMap<Decision, SignalStrength>) -> Option<(&'a Decision, &'a SignalStrength)> {
+    let signal_close_long = signals.get_key_value(&Decision::Long);
+    let signal_long = signals.get_key_value(&Decision::Long);
+    let signal_close_short = signals.get_key_value(&Decision::Long);
+    let signal_short = signals.get_key_value(&Decision::Long);
 
     match position.is_some() {
         true => {
