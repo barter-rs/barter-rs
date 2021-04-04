@@ -131,7 +131,6 @@ impl<T> FillUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + Val
             // Update Portfolio cash & value on exit
             current_cash += position.exit_value_gross - position.exit_fees_total;
             current_value += position.result_profit_loss;
-
         }
 
         // ENTRY SCENARIO - FillEvent for Symbol-Exchange with no Position
