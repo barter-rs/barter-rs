@@ -242,34 +242,163 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
 /// Parses an incoming [SignalEvent]'s signals map. Determines what the net signal [Decision] will
 /// be, and it's associated [SignalStrength].
 pub fn parse_signal_decisions<'a>(position: &'a Option<&Position>, signals: &'a HashMap<Decision, SignalStrength>) -> Option<(&'a Decision, &'a SignalStrength)> {
-    let signal_close_long = signals.get_key_value(&Decision::Long);
+    let signal_close_long = signals.get_key_value(&Decision::CloseLong);
     let signal_long = signals.get_key_value(&Decision::Long);
-    let signal_close_short = signals.get_key_value(&Decision::Long);
-    let signal_short = signals.get_key_value(&Decision::Long);
+    let signal_close_short = signals.get_key_value(&Decision::CloseShort);
+    let signal_short = signals.get_key_value(&Decision::Short);
 
-    match position.is_some() {
-        true => {
-            match position.unwrap().direction {
-                Direction::Long => {
-                    if signal_close_long.is_some() {
-                        return signal_close_long;
-                    }
-                },
-                Direction::Short => {
-                    if signal_close_short.is_some() {
-                        return signal_close_short;
-                    }
+    if let Some(position) = position {
+        match position.direction {
+            Direction::Long => {
+                if signal_close_long.is_some() {
+                    return signal_close_long;
+                }
+            }
+            Direction::Short => {
+                if signal_close_short.is_some() {
+                    return signal_close_short;
                 }
             }
         }
-        false => {
-            if signal_long.is_some() {
-                return signal_long;
-            }
-            else if signal_short.is_some() {
-                return signal_short;
-            }
-        }
     }
+
+    if signal_long.is_some() && signal_short.is_some() {
+        return None;
+    }
+    if signal_long.is_some() {
+        return signal_long;
+    }
+    if signal_short.is_some() {
+        return signal_short;
+    }
+
     return None;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_signal_decisions_to_net_close_long() {
+        // Some(Position)
+        let mut position = Position::default();
+        position.direction = Direction::Long;
+        let position = Some(position);
+        let position = position.as_ref();
+
+        // Signals HashMap
+        let mut signals = HashMap::with_capacity(4);
+        signals.insert(Decision::CloseLong, 1.0);
+        signals.insert(Decision::Short, 1.0);
+
+        let actual = parse_signal_decisions(&position, &signals);
+
+        assert_eq!(actual.unwrap().0, &Decision::CloseLong);
+    }
+
+    #[test]
+    fn parse_signal_decisions_to_net_close_long_with_conflicting_signals() {
+        // Some(Position)
+        let mut position = Position::default();
+        position.direction = Direction::Long;
+        let position = Some(position);
+        let position = position.as_ref();
+
+        // Signals HashMap
+        let mut signals = HashMap::with_capacity(4);
+        signals.insert(Decision::CloseLong, 1.0);
+        signals.insert(Decision::CloseShort, 1.0);
+        signals.insert(Decision::Short, 1.0);
+        signals.insert(Decision::Long, 1.0);
+
+        let actual = parse_signal_decisions(&position, &signals);
+
+        assert_eq!(actual.unwrap().0, &Decision::CloseLong);
+    }
+
+    #[test]
+    fn parse_signal_decisions_to_net_close_short() {
+        // Some(Position)
+        let mut position = Position::default();
+        position.direction = Direction::Short;
+        let position = Some(position);
+        let position = position.as_ref();
+
+        // Signals HashMap
+        let mut signals = HashMap::with_capacity(4);
+        signals.insert(Decision::CloseShort, 1.0);
+        signals.insert(Decision::Long, 1.0);
+
+        let actual = parse_signal_decisions(&position, &signals);
+
+        assert_eq!(actual.unwrap().0, &Decision::CloseShort);
+    }
+
+    #[test]
+    fn parse_signal_decisions_to_net_close_short_with_conflicting_signals() {
+        // Some(Position)
+        let mut position = Position::default();
+        position.direction = Direction::Short;
+        let position = Some(position);
+        let position = position.as_ref();
+
+        // Signals HashMap
+        let mut signals = HashMap::with_capacity(4);
+        signals.insert(Decision::CloseShort, 1.0);
+        signals.insert(Decision::CloseLong, 1.0);
+        signals.insert(Decision::Short, 1.0);
+        signals.insert(Decision::Long, 1.0);
+
+        let actual = parse_signal_decisions(&position, &signals);
+
+        assert_eq!(actual.unwrap().0, &Decision::CloseShort);
+    }
+
+    #[test]
+    fn parse_signal_decisions_to_net_long() {
+        let position = None;
+        let position = position.as_ref();
+
+        // Signals HashMap
+        let mut signals = HashMap::with_capacity(4);
+        signals.insert(Decision::Long, 1.0);
+        signals.insert(Decision::CloseShort, 1.0);
+
+        let actual = parse_signal_decisions(&position, &signals);
+
+        assert_eq!(actual.unwrap().0, &Decision::Long);
+    }
+
+    #[test]
+    fn parse_signal_decisions_to_net_short() {
+        let position = None;
+        let position = position.as_ref();
+
+        // Signals HashMap
+        let mut signals = HashMap::with_capacity(4);
+        signals.insert(Decision::Short, 1.0);
+        signals.insert(Decision::CloseLong, 1.0);
+
+        let actual = parse_signal_decisions(&position, &signals);
+
+        assert_eq!(actual.unwrap().0, &Decision::Short);
+    }
+
+    #[test]
+    fn parse_signal_decisions_to_none_with_conflicting_signals() {
+        let position = None;
+        let position = position.as_ref();
+
+        // Signals HashMap
+        let mut signals = HashMap::with_capacity(4);
+        signals.insert(Decision::Long, 1.0);
+        signals.insert(Decision::CloseShort, 1.0);
+        signals.insert(Decision::Short, 1.0);
+        signals.insert(Decision::CloseLong, 1.0);
+
+        let actual = parse_signal_decisions(&position, &signals);
+
+        assert_eq!(actual, None);
+    }
 }
