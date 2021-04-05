@@ -31,3 +31,7 @@ pub mod portfolio;
 /// for the system.
 pub mod execution;
 
+/// Defines an [Event] enum that could be a [MarketEvent], [SignalEvent], [OrderEvent] or
+/// [FillEvent].
+pub mod event;
+
