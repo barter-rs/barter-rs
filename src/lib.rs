@@ -1,3 +1,12 @@
+use data::{market::MarketEvent, handler::{Continuer, MarketGenerator, HistoricDataHandler}};
+use strategy::{signal::SignalEvent, strategy::{SignalGenerator, RSIStrategy}};
+use portfolio::{
+    order::OrderEvent, position::Position,
+    portfolio::{MarketUpdater, OrderGenerator, FillUpdater, PersistedMetaPortfolio},
+    repository::redis::RedisRepository, allocator::OrderAllocator, risk::OrderEvaluator
+};
+use execution::{fill::FillEvent, handler::{FillGenerator, SimulatedExecution}};
+
 /// Defines a [MarketEvent], and provides the useful traits of [Continuer] and [MarketGenerator] for
 /// handling the generation of them. Contains implementations such as the [HistoricDataHandler] that
 /// simulates a live market feed and acts as the systems heartbeat.
