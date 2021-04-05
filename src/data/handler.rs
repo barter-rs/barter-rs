@@ -7,7 +7,7 @@ use chrono::Utc;
 use crate::data::error::DataError;
 use crate::data::error::DataError::{DataIteratorEmpty, BuilderIncomplete};
 
-/// Communicates if a process should continue.
+/// Determines if a process should continue.
 pub trait Continuer {
     /// Return true if a process should continue.
     fn should_continue(&self) -> bool;
