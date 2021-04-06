@@ -86,7 +86,7 @@ impl<T> OrderGenerator for PersistedMetaPortfolio<T> where T: PositionHandler + 
         }
 
         // Parse signals from Strategy to determine net signal & associated strength
-        let net_signal: (&Decision, &SignalStrength) =
+        let (signal_decision, signal_strength) =
             match parse_signal_decisions(&position, &signal.signals) {
                 None => return Ok(None),
                 Some(net_signal) => net_signal,
@@ -98,7 +98,7 @@ impl<T> OrderGenerator for PersistedMetaPortfolio<T> where T: PositionHandler + 
             .exchange(signal.exchange.clone())
             .symbol(signal.symbol.clone())
             .close(signal.close)
-            .decision(net_signal.0.clone())
+            .decision(signal_decision.clone())
             .quantity(0.0)
             .order_type(OrderType::default())
             .build()?;
@@ -106,7 +106,7 @@ impl<T> OrderGenerator for PersistedMetaPortfolio<T> where T: PositionHandler + 
         // OrderEvent size allocation
         order = self
             .allocation_manager
-            .allocate_order(order, position, *net_signal.1)?;
+            .allocate_order(order, position, *signal_strength)?;
 
         // OrderEvent risk evaluation - refine or cancel
         Ok(self.risk_manager.evaluate_order(order)?)
