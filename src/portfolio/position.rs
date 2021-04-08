@@ -390,7 +390,7 @@ impl PositionBuilder {
         self
     }
 
-    pub fn current_market_value(mut self, value: f64) -> Self {
+    pub fn current_value_gross(mut self, value: f64) -> Self {
         self.current_value_gross = Some(value);
         self
     }
