@@ -57,32 +57,22 @@ impl Default for Decision {
 impl Decision {
     /// Determines if a [Decision] is Long.
     pub fn is_long(&self) -> bool {
-        match self {
-            Decision::Long => true,
-            _ => false,
-        }
+        matches!(self, Decision::Long)
     }
 
     /// Determines if a [Decision] is Short.
     pub fn is_short(&self) -> bool {
-        match self {
-            Decision::Short => true,
-            _ => false,
-        }
+        matches!(self, Decision::Short)
     }
 
     /// Determines if a [Decision] is an entry (long or short).
     pub fn is_entry(&self) -> bool {
-        self.is_short() || self.is_long()
+        matches!(self, Decision::Short | Decision::Long)
     }
 
     /// Determines if a [Decision] is an exit (close_long or close_short).
     pub fn is_exit(&self) -> bool {
-        match self {
-            Decision::CloseLong => true,
-            Decision::CloseShort => true,
-            _ => false,
-        }
+        matches!(self, Decision::CloseLong | Decision::CloseShort)
     }
 }
 
