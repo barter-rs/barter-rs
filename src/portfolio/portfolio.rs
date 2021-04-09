@@ -275,7 +275,7 @@ pub fn parse_signal_decisions<'a>(position: &'a Option<&Position>, signals: &'a 
         return signal_short;
     }
 
-    return None;
+    None
 }
 
 #[cfg(test)]
