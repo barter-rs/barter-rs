@@ -93,16 +93,16 @@ impl<T> OrderGenerator for PersistedMetaPortfolio<T> where T: PositionHandler + 
                 Some(net_signal) => net_signal,
             };
 
-        let mut order = OrderEvent::builder()
-            .trace_id(signal.trace_id)
-            .timestamp(Utc::now())
-            .exchange(signal.exchange.clone())
-            .symbol(signal.symbol.clone())
-            .close(signal.close)
-            .decision(signal_decision.clone())
-            .quantity(0.0)
-            .order_type(OrderType::default())
-            .build()?;
+        let mut order = OrderEvent {
+            trace_id: signal.trace_id,
+            timestamp: Utc::now(),
+            exchange: signal.exchange.clone(),
+            symbol: signal.symbol.clone(),
+            close: signal.close,
+            decision: signal_decision.clone(),
+            quantity: 0.0,
+            order_type: OrderType::default()
+        };
 
         // OrderEvent size allocation
         order = self
