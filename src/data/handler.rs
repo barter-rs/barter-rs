@@ -97,7 +97,7 @@ pub fn load_csv_bars(file_path: String) -> Result<Vec<Bar>, csv::Error> {
     // Iterate through the lines & add the deserialised Bar struct to Vec<Bar>
     let deserialised_records_iter = reader.deserialize();
     let mut bar_data = match deserialised_records_iter.size_hint().1 {
-        None => Vec::new(),
+        None => Vec::with_capacity(deserialised_records_iter.size_hint().0),
         Some(approx_iter_size) => Vec::with_capacity(approx_iter_size),
     };
     for result_bar in deserialised_records_iter {
