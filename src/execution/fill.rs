@@ -11,10 +11,10 @@ use crate::strategy::signal::Decision;
 pub struct FillEvent {
     pub trace_id: Uuid,
     pub timestamp: DateTime<Utc>,
+    pub exchange: String,
     pub symbol: String,
     pub decision: Decision,     // LONG, CloseLong, SHORT or CloseShort
     pub quantity: f64,          // +ve or -ve Quantity depending on Decision
-    pub exchange: String,
     pub fill_value_gross: f64,  // abs(Quantity) * ClosePrice, excluding TotalFees
     pub exchange_fee: f64,      // All fees that Exchange imposes on the FillEvent
     pub slippage_fee: f64,      // Financial consequences of FillEvent Slippage modelled as a fee
@@ -26,10 +26,10 @@ impl Default for FillEvent {
         Self {
             trace_id: Uuid::new_v4(),
             timestamp: Utc::now(),
+            exchange: String::from("BINANCE"),
             symbol: String::from("ETH-USD"),
             decision: Decision::default(),
             quantity: 1.0,
-            exchange: String::from("BINANCE"),
             fill_value_gross: 100.0,
             exchange_fee: 0.0,
             slippage_fee: 0.0,
