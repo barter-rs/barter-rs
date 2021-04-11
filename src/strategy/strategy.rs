@@ -38,14 +38,14 @@ impl SignalGenerator for RSIStrategy {
             return Ok(None)
         }
 
-        Ok(Some(SignalEvent::builder()
-            .trace_id(market.trace_id)
-            .timestamp(Utc::now())
-            .exchange(market.exchange.clone())
-            .symbol(market.symbol.clone())
-            .close(market.bar.close)
-            .signals(signals)
-            .build()?))
+        Ok(Some(SignalEvent {
+            trace_id: market.trace_id,
+            timestamp: Utc::now(),
+            exchange: market.exchange.clone(),
+            symbol: market.symbol.clone(),
+            close: market.bar.close,
+            signals
+        }))
     }
 }
 
