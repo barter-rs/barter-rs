@@ -5,16 +5,16 @@ use crate::portfolio::repository::error::RepositoryError;
 #[derive(Error, Debug)]
 pub enum PortfolioError {
     #[error("Failed to build struct due to incomplete attributes provided")]
-    BuilderIncomplete(),
+    BuilderIncomplete,
 
     #[error("Failed to parse Position entry direction due to ambiguous fill quantity & Decision.")]
-    ParseEntryDirectionError(),
+    ParseEntryDirectionError,
 
     #[error("Cannot exit Position with an entry decision FillEvent.")]
-    CannotEnterPositionWithExitFill(),
+    CannotEnterPositionWithExitFill,
 
     #[error("Cannot exit Position with an entry decision FillEvent.")]
-    CannotExitPositionWithEntryFill(),
+    CannotExitPositionWithEntryFill,
 
     #[error("Failed to interact with repository")]
     RepositoryInteractionError(#[from] RepositoryError),

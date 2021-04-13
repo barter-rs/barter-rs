@@ -153,7 +153,7 @@ impl SignalEventBuilder {
                 signals,
             })
         } else {
-            Err(BuilderIncomplete())
+            Err(BuilderIncomplete)
         }
     }
 }

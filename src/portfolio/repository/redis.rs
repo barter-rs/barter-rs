@@ -53,14 +53,14 @@ impl PositionHandler for RedisRepository {
 
         let position_value = match serde_json::to_string(position) {
             Ok(position_str) => position_str,
-            Err(_) => return Err(JsonSerialisationError())
+            Err(_) => return Err(JsonSerialisationError)
         };
 
         let write_result: RedisResult<()> = self.conn.set(position_key, position_value);
 
         match write_result {
             Ok(_) => Ok(()),
-            Err(_) => Err(WriteError())
+            Err(_) => Err(WriteError)
         }
     }
 
@@ -72,14 +72,14 @@ impl PositionHandler for RedisRepository {
             Err(err) => {
                 return match err.kind() {
                     ErrorKind::TypeError => Ok(None),
-                    _ => Err(ReadError())
+                    _ => Err(ReadError)
                 }
             }
         };
 
         match serde_json::from_str(&*position_value) {
             Ok(position) => Ok(Some(position)),
-            Err(_) => Err(JsonDeserialisationError())
+            Err(_) => Err(JsonDeserialisationError)
         }
     }
 
@@ -90,7 +90,7 @@ impl PositionHandler for RedisRepository {
 
         match remove_result {
             Ok(_) => Ok(position),
-            Err(_) => Err(DeleteError())
+            Err(_) => Err(DeleteError)
         }
     }
 }
@@ -102,7 +102,7 @@ impl ValueHandler for RedisRepository {
 
         match write_result {
             Ok(_) => Ok(()),
-            Err(_) => Err(WriteError())
+            Err(_) => Err(WriteError)
         }
     }
 
@@ -119,7 +119,7 @@ impl CashHandler for RedisRepository {
 
         match write_result {
             Ok(_) => Ok(()),
-            Err(_) => Err(WriteError())
+            Err(_) => Err(WriteError)
         }
     }
 
@@ -155,7 +155,7 @@ impl RedisRepository {
     pub fn parse_read_f64_result(result: RedisResult<f64>) -> Result<f64, RepositoryError> {
         match result {
             Ok(f64_value) => Ok(f64_value),
-            Err(_) => Err(ReadError())
+            Err(_) => Err(ReadError)
         }
     }
 }
@@ -183,7 +183,7 @@ impl RedisRepositoryBuilder {
                 conn
             })
         } else {
-            Err(BuilderIncomplete())
+            Err(BuilderIncomplete)
         }
     }
 }
