@@ -1,5 +1,4 @@
 use crate::execution::error::ExecutionError;
-use crate::execution::error::ExecutionError::BuilderIncomplete;
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
@@ -173,7 +172,7 @@ impl FillEventBuilder {
                 fees,
             })
         } else {
-            Err(BuilderIncomplete)
+            Err(ExecutionError::BuilderIncomplete)
         }
     }
 }
