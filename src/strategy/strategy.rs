@@ -55,10 +55,9 @@ impl RSIStrategy {
         let rsi_indicator = RelativeStrengthIndex::new(config.rsi_period)
             .expect("Failed to construct RSI indicator");
 
-        RSIStrategy::builder()
-            .rsi(rsi_indicator)
-            .build()
-            .expect("Failed to build RSIStrategy")
+        Self {
+            rsi: rsi_indicator
+        }
     }
 
     /// Returns a [RSIStrategyBuilder] instance.
