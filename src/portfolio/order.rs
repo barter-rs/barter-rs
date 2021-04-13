@@ -152,7 +152,7 @@ impl OrderEventBuilder {
                 order_type,
             })
         } else {
-            Err(BuilderIncomplete())
+            Err(BuilderIncomplete)
         }
     }
 }

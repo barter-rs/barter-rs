@@ -150,7 +150,7 @@ impl PositionUpdater for Position {
 impl PositionExiter for Position {
     fn exit(&mut self, fill: &FillEvent) -> Result<(), PortfolioError> {
         if fill.decision.is_entry() {
-            return Err(PortfolioError::CannotExitPositionWithEntryFill())
+            return Err(PortfolioError::CannotExitPositionWithEntryFill)
         }
 
         self.last_update_trace_id = fill.trace_id;
@@ -214,8 +214,8 @@ impl Position {
         match fill.decision {
             Decision::Long if fill.quantity.is_sign_positive() => Ok(Direction::Long),
             Decision::Short if fill.quantity.is_sign_negative() => Ok(Direction::Short),
-            Decision::CloseLong | Decision::CloseShort => Err(PortfolioError::CannotEnterPositionWithExitFill()),
-            _ => Err(PortfolioError::ParseEntryDirectionError())
+            Decision::CloseLong | Decision::CloseShort => Err(PortfolioError::CannotEnterPositionWithExitFill),
+            _ => Err(PortfolioError::ParseEntryDirectionError)
         }
     }
 
@@ -437,7 +437,7 @@ impl PositionBuilder {
                 result_profit_loss
             })
         } else {
-            Err(PortfolioError::BuilderIncomplete())
+            Err(PortfolioError::BuilderIncomplete)
         }
     }
 }

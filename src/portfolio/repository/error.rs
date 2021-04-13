@@ -4,17 +4,17 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum RepositoryError {
     #[error("Failed to serialise struct to JSON")]
-    JsonSerialisationError(),
+    JsonSerialisationError,
 
     #[error("Failed to deserialise JSON to struct")]
-    JsonDeserialisationError(),
+    JsonDeserialisationError,
 
     #[error("Failed to write data to the repository")]
-    WriteError(),
+    WriteError,
 
     #[error("Failed to read data from the repository")]
-    ReadError(),
+    ReadError,
 
     #[error("Failed to delete data from the repository")]
-    DeleteError(),
+    DeleteError,
 }
