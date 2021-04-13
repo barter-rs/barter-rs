@@ -1,7 +1,6 @@
-use crate::execution::fill::FillEvent;
+use crate::execution::fill::{FillEvent, Fees, FeeAmount};
 use crate::portfolio::error::PortfolioError;
 use crate::data::market::MarketEvent;
-use std::collections::HashMap;
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
@@ -38,20 +37,6 @@ impl Default for Direction {
     }
 }
 
-/// Potential Fee types that can be incurred from a [FillEvent].
-#[derive(Debug, Clone, PartialOrd, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Fee {
-    /// Fee taken by the exchange/broker (eg/ commission).
-    ExchangeFee,
-    /// Order book slippage modelled as a fee.
-    SlippageFee,
-    /// Fee incurred by any required network transactions (eg/ GAS).
-    NetworkFee,
-}
-
-/// Fee amount as f64.
-pub type FeeAmount = f64;
-
 /// Change in [Position] market value caused by a Position.update().
 pub type PositionValueChange = f64;
 
@@ -76,11 +61,11 @@ pub struct Position {
     /// +ve or -ve quantity of symbol contracts opened.
     pub quantity: f64,
 
-    /// Map containing all incurred entry [Fee] types, and their associated [FeeAmount].
-    pub enter_fees: HashMap<Fee, FeeAmount>,
+    /// All fees types incurred from entering a [Position], and their associated [FeeAmount].
+    pub enter_fees: Fees,
 
-    /// Total of enter_fees incurred. Sum of every [Fee]'s [FeeAmount] in the enter_fees map.
-    pub enter_fees_total: f64,
+    /// Total of enter_fees incurred. Sum of every [FeeAmount] in [Fees] when entering a [Position].
+    pub enter_fees_total: FeeAmount,
 
     /// Enter average price excluding the entry_fees_total.
     pub enter_avg_price_gross: f64,
@@ -88,11 +73,11 @@ pub struct Position {
     /// abs(Quantity) * enter_avg_price_gross.
     pub enter_value_gross: f64,
 
-    /// Map containing all incurred exit [Fee] type and their associated [FeeAmount].
-    pub exit_fees: HashMap<Fee, FeeAmount>,
+    /// All fees types incurred from exiting a [Position], and their associated [FeeAmount].
+    pub exit_fees: Fees,
 
-    /// Total of exit_fees incurred. Sum of every [Fee]'s [FeeAmount] in the exit_fees map.
-    pub exit_fees_total: f64,
+    /// Total of exit_fees incurred. Sum of every [FeeAmount] in [Fees] when entering a [Position].
+    pub exit_fees_total: FeeAmount,
 
     /// Exit average price excluding the exit_fees_total.
     pub exit_avg_price_gross: f64,
@@ -116,11 +101,7 @@ pub struct Position {
 impl PositionEnterer for Position {
     fn enter(fill: &FillEvent) -> Result<Position, PortfolioError> {
         // Enter fees
-        let mut enter_fees = HashMap::with_capacity(4);
-        let enter_fees_total = fill.exchange_fee + fill.slippage_fee + fill.network_fee;
-        enter_fees.insert(Fee::ExchangeFee, fill.exchange_fee);
-        enter_fees.insert(Fee::SlippageFee, fill.slippage_fee);
-        enter_fees.insert(Fee::NetworkFee, fill.network_fee);
+        let enter_fees_total = fill.fees.calculate_total_fees();
 
         // Enter price
         let enter_avg_price_gross = Position::calculate_avg_price_gross(fill);
@@ -135,11 +116,11 @@ impl PositionEnterer for Position {
             symbol: fill.symbol.clone(),
             direction: Position::parse_entry_direction(&fill)?,
             quantity: fill.quantity,
-            enter_fees,
+            enter_fees: fill.fees.clone(),
             enter_fees_total,
             enter_avg_price_gross,
             enter_value_gross: fill.fill_value_gross,
-            exit_fees: HashMap::with_capacity(4),
+            exit_fees: Fees::default(),
             exit_fees_total: 0.0,
             exit_avg_price_gross: 0.0,
             exit_value_gross: 0.0,
@@ -176,10 +157,8 @@ impl PositionExiter for Position {
         self.last_update_timestamp = fill.timestamp;
 
         // Exit fees
-        self.exit_fees_total = fill.exchange_fee + fill.slippage_fee + fill.network_fee;
-        self.exit_fees.insert(Fee::ExchangeFee, fill.exchange_fee);
-        self.exit_fees.insert(Fee::SlippageFee, fill.slippage_fee);
-        self.exit_fees.insert(Fee::NetworkFee, fill.network_fee);
+        self.exit_fees = fill.fees.clone();
+        self.exit_fees_total = fill.fees.calculate_total_fees();
 
         // Exit value & price
         self.exit_value_gross = fill.fill_value_gross;
@@ -269,12 +248,12 @@ pub struct PositionBuilder {
     pub symbol: Option<String>,
     pub direction: Option<Direction>,
     pub quantity: Option<f64>,
-    pub enter_fees: Option<HashMap<Fee, FeeAmount>>,
-    pub enter_fees_total: Option<f64>,
+    pub enter_fees: Option<Fees>,
+    pub enter_fees_total: Option<FeeAmount>,
     pub enter_avg_price_gross: Option<f64>,
     pub enter_value_gross: Option<f64>,
-    pub exit_fees: Option<HashMap<Fee, FeeAmount>>,
-    pub exit_fees_total: Option<f64>,
+    pub exit_fees: Option<Fees>,
+    pub exit_fees_total: Option<FeeAmount>,
     pub exit_avg_price_gross: Option<f64>,
     pub exit_value_gross: Option<f64>,
     pub current_symbol_price: Option<f64>,
@@ -337,12 +316,12 @@ impl PositionBuilder {
         self
     }
 
-    pub fn enter_fees(mut self, value: HashMap<Fee, FeeAmount>) -> Self {
+    pub fn enter_fees(mut self, value: Fees) -> Self {
         self.enter_fees = Some(value);
         self
     }
 
-    pub fn enter_fees_total(mut self, value: f64) -> Self {
+    pub fn enter_fees_total(mut self, value: FeeAmount) -> Self {
         self.enter_fees_total = Some(value);
         self
     }
@@ -357,12 +336,12 @@ impl PositionBuilder {
         self
     }
 
-    pub fn exit_fees(mut self, value: HashMap<Fee, FeeAmount>) -> Self {
+    pub fn exit_fees(mut self, value: Fees) -> Self {
         self.exit_fees = Some(value);
         self
     }
 
-    pub fn exit_fees_total(mut self, value: f64) -> Self {
+    pub fn exit_fees_total(mut self, value: FeeAmount) -> Self {
         self.exit_fees_total = Some(value);
         self
     }
@@ -474,18 +453,20 @@ mod tests {
         input_fill.decision = Decision::Long;
         input_fill.quantity = 1.0;
         input_fill.fill_value_gross = 100.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         let position = Position::enter(&input_fill).unwrap();
 
         assert_eq!(position.direction, Direction::Long);
         assert_eq!(position.quantity, input_fill.quantity);
         assert_eq!(position.enter_fees_total, 3.0);
-        assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), input_fill.exchange_fee);
-        assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), input_fill.slippage_fee);
-        assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), input_fill.network_fee);
+        assert_eq!(position.enter_fees.exchange, input_fill.fees.exchange);
+        assert_eq!(position.enter_fees.slippage, input_fill.fees.slippage);
+        assert_eq!(position.enter_fees.network, input_fill.fees.network);
         assert_eq!(position.enter_avg_price_gross, (input_fill.fill_value_gross / input_fill.quantity.abs()));
         assert_eq!(position.enter_value_gross, input_fill.fill_value_gross);
         assert_eq!(position.exit_fees_total, 0.0);
@@ -503,18 +484,20 @@ mod tests {
         input_fill.decision = Decision::Short;
         input_fill.quantity = -1.0;
         input_fill.fill_value_gross = 100.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         let position = Position::enter(&input_fill).unwrap();
 
         assert_eq!(position.direction, Direction::Short);
         assert_eq!(position.quantity, input_fill.quantity);
         assert_eq!(position.enter_fees_total, 3.0);
-        assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), input_fill.exchange_fee);
-        assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), input_fill.slippage_fee);
-        assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), input_fill.network_fee);
+        assert_eq!(position.enter_fees.exchange, input_fill.fees.exchange);
+        assert_eq!(position.enter_fees.slippage, input_fill.fees.slippage);
+        assert_eq!(position.enter_fees.network, input_fill.fees.network);
         assert_eq!(position.enter_avg_price_gross, (input_fill.fill_value_gross / input_fill.quantity.abs()));
         assert_eq!(position.enter_value_gross, input_fill.fill_value_gross);
         assert_eq!(position.exit_fees_total, 0.0);
@@ -532,9 +515,11 @@ mod tests {
         input_fill.decision = Decision::CloseLong;
         input_fill.quantity = -1.0;
         input_fill.fill_value_gross = 100.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         if let Err(_) = Position::enter(&input_fill) {
             Ok(())
@@ -550,9 +535,11 @@ mod tests {
         input_fill.decision = Decision::CloseShort;
         input_fill.quantity = 1.0;
         input_fill.fill_value_gross = 100.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         if let Err(_) = Position::enter(&input_fill) {
             Ok(())
@@ -568,9 +555,11 @@ mod tests {
         input_fill.decision = Decision::Long;
         input_fill.quantity = -1.0;
         input_fill.fill_value_gross = 100.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         if let Err(_) = Position::enter(&input_fill) {
             Ok(())
@@ -586,9 +575,11 @@ mod tests {
         input_fill.decision = Decision::Short;
         input_fill.quantity = 1.0;
         input_fill.fill_value_gross = 100.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         if let Err(_) = Position::enter(&input_fill) {
             Ok(())
@@ -605,9 +596,11 @@ mod tests {
         position.direction = Direction::Long;
         position.quantity = 1.0;
         position.enter_fees_total = 3.0;
-        position.enter_fees.insert(Fee::ExchangeFee, 1.0);
-        position.enter_fees.insert(Fee::SlippageFee, 1.0);
-        position.enter_fees.insert(Fee::NetworkFee, 1.0);
+        position.enter_fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
@@ -625,9 +618,9 @@ mod tests {
         assert_eq!(position.direction, Direction::Long);
         assert_eq!(position.quantity, 1.0);
         assert_eq!(position.enter_fees_total, 3.0);
-        assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
+        assert_eq!(position.enter_fees.exchange, 1.0);
+        assert_eq!(position.enter_fees.slippage, 1.0);
+        assert_eq!(position.enter_fees.network, 1.0);
         assert_eq!(position.enter_avg_price_gross, 100.0);
         assert_eq!(position.enter_value_gross, 100.0);
 
@@ -646,9 +639,11 @@ mod tests {
         position.direction = Direction::Long;
         position.quantity = 1.0;
         position.enter_fees_total = 3.0;
-        position.enter_fees.insert(Fee::ExchangeFee, 1.0);
-        position.enter_fees.insert(Fee::SlippageFee, 1.0);
-        position.enter_fees.insert(Fee::NetworkFee, 1.0);
+        position.enter_fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
@@ -666,9 +661,9 @@ mod tests {
         assert_eq!(position.direction, Direction::Long);
         assert_eq!(position.quantity, 1.0);
         assert_eq!(position.enter_fees_total, 3.0);
-        assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
+        assert_eq!(position.enter_fees.exchange, 1.0);
+        assert_eq!(position.enter_fees.slippage, 1.0);
+        assert_eq!(position.enter_fees.network, 1.0);
         assert_eq!(position.enter_avg_price_gross, 100.0);
         assert_eq!(position.enter_value_gross, 100.0);
 
@@ -687,9 +682,11 @@ mod tests {
         position.direction = Direction::Short;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
-        position.enter_fees.insert(Fee::ExchangeFee, 1.0);
-        position.enter_fees.insert(Fee::SlippageFee, 1.0);
-        position.enter_fees.insert(Fee::NetworkFee, 1.0);
+        position.enter_fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
@@ -707,9 +704,9 @@ mod tests {
         assert_eq!(position.direction, Direction::Short);
         assert_eq!(position.quantity, -1.0);
         assert_eq!(position.enter_fees_total, 3.0);
-        assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
+        assert_eq!(position.enter_fees.exchange, 1.0);
+        assert_eq!(position.enter_fees.slippage, 1.0);
+        assert_eq!(position.enter_fees.network, 1.0);
         assert_eq!(position.enter_avg_price_gross, 100.0);
         assert_eq!(position.enter_value_gross, 100.0);
 
@@ -728,9 +725,11 @@ mod tests {
         position.direction = Direction::Short;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
-        position.enter_fees.insert(Fee::ExchangeFee, 1.0);
-        position.enter_fees.insert(Fee::SlippageFee, 1.0);
-        position.enter_fees.insert(Fee::NetworkFee, 1.0);
+        position.enter_fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
@@ -748,9 +747,9 @@ mod tests {
         assert_eq!(position.direction, Direction::Short);
         assert_eq!(position.quantity, -1.0);
         assert_eq!(position.enter_fees_total, 3.0);
-        assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
+        assert_eq!(position.enter_fees.exchange, 1.0);
+        assert_eq!(position.enter_fees.slippage, 1.0);
+        assert_eq!(position.enter_fees.network, 1.0);
         assert_eq!(position.enter_avg_price_gross, 100.0);
         assert_eq!(position.enter_value_gross, 100.0);
 
@@ -769,9 +768,11 @@ mod tests {
         position.direction = Direction::Long;
         position.quantity = 1.0;
         position.enter_fees_total = 3.0;
-        position.enter_fees.insert(Fee::ExchangeFee, 1.0);
-        position.enter_fees.insert(Fee::SlippageFee, 1.0);
-        position.enter_fees.insert(Fee::NetworkFee, 1.0);
+        position.enter_fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
@@ -783,9 +784,11 @@ mod tests {
         input_fill.decision = Decision::CloseLong;
         input_fill.quantity = -position.quantity;
         input_fill.fill_value_gross = 200.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         // Exit Position
         position.exit(&input_fill).unwrap();
@@ -794,17 +797,17 @@ mod tests {
         assert_eq!(position.direction, Direction::Long);
         assert_eq!(position.quantity, 1.0);
         assert_eq!(position.enter_fees_total, 3.0);
-        assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
+        assert_eq!(position.enter_fees.exchange, 1.0);
+        assert_eq!(position.enter_fees.slippage, 1.0);
+        assert_eq!(position.enter_fees.network, 1.0);
         assert_eq!(position.enter_avg_price_gross, 100.0);
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert fields changed by exit are correct
         assert_eq!(position.exit_fees_total, 3.0);
-        assert_eq!(*position.exit_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
-        assert_eq!(*position.exit_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
-        assert_eq!(*position.exit_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
+        assert_eq!(position.exit_fees.exchange, 1.0);
+        assert_eq!(position.exit_fees.slippage, 1.0);
+        assert_eq!(position.exit_fees.network, 1.0);
         assert_eq!(position.exit_value_gross, input_fill.fill_value_gross);
         assert_eq!(position.exit_avg_price_gross, input_fill.fill_value_gross / input_fill.quantity.abs());
 
@@ -820,9 +823,11 @@ mod tests {
         position.direction = Direction::Long;
         position.quantity = 1.0;
         position.enter_fees_total = 3.0;
-        position.enter_fees.insert(Fee::ExchangeFee, 1.0);
-        position.enter_fees.insert(Fee::SlippageFee, 1.0);
-        position.enter_fees.insert(Fee::NetworkFee, 1.0);
+        position.enter_fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
@@ -834,9 +839,11 @@ mod tests {
         input_fill.decision = Decision::CloseLong;
         input_fill.quantity = -position.quantity;
         input_fill.fill_value_gross = 50.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         // Exit Position
         position.exit(&input_fill).unwrap();
@@ -845,17 +852,17 @@ mod tests {
         assert_eq!(position.direction, Direction::Long);
         assert_eq!(position.quantity, 1.0);
         assert_eq!(position.enter_fees_total, 3.0);
-        assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
+        assert_eq!(position.enter_fees.exchange, 1.0);
+        assert_eq!(position.enter_fees.slippage, 1.0);
+        assert_eq!(position.enter_fees.network, 1.0);
         assert_eq!(position.enter_avg_price_gross, 100.0);
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert fields changed by exit are correct
         assert_eq!(position.exit_fees_total, 3.0);
-        assert_eq!(*position.exit_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
-        assert_eq!(*position.exit_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
-        assert_eq!(*position.exit_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
+        assert_eq!(position.exit_fees.exchange, 1.0);
+        assert_eq!(position.exit_fees.slippage, 1.0);
+        assert_eq!(position.exit_fees.network, 1.0);
         assert_eq!(position.exit_value_gross, input_fill.fill_value_gross);
         assert_eq!(position.exit_avg_price_gross, input_fill.fill_value_gross / input_fill.quantity.abs());
 
@@ -871,9 +878,11 @@ mod tests {
         position.direction = Direction::Short;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
-        position.enter_fees.insert(Fee::ExchangeFee, 1.0);
-        position.enter_fees.insert(Fee::SlippageFee, 1.0);
-        position.enter_fees.insert(Fee::NetworkFee, 1.0);
+        position.enter_fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
@@ -885,9 +894,11 @@ mod tests {
         input_fill.decision = Decision::CloseShort;
         input_fill.quantity = -position.quantity;
         input_fill.fill_value_gross = 50.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         // Exit Position
         position.exit(&input_fill).unwrap();
@@ -896,17 +907,17 @@ mod tests {
         assert_eq!(position.direction, Direction::Short);
         assert_eq!(position.quantity, -1.0);
         assert_eq!(position.enter_fees_total, 3.0);
-        assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
+        assert_eq!(position.enter_fees.exchange, 1.0);
+        assert_eq!(position.enter_fees.slippage, 1.0);
+        assert_eq!(position.enter_fees.network, 1.0);
         assert_eq!(position.enter_avg_price_gross, 100.0);
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert fields changed by exit are correct
         assert_eq!(position.exit_fees_total, 3.0);
-        assert_eq!(*position.exit_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
-        assert_eq!(*position.exit_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
-        assert_eq!(*position.exit_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
+        assert_eq!(position.exit_fees.exchange, 1.0);
+        assert_eq!(position.exit_fees.slippage, 1.0);
+        assert_eq!(position.exit_fees.network, 1.0);
         assert_eq!(position.exit_value_gross, input_fill.fill_value_gross);
         assert_eq!(position.exit_avg_price_gross, input_fill.fill_value_gross / input_fill.quantity.abs());
 
@@ -922,9 +933,11 @@ mod tests {
         position.direction = Direction::Short;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
-        position.enter_fees.insert(Fee::ExchangeFee, 1.0);
-        position.enter_fees.insert(Fee::SlippageFee, 1.0);
-        position.enter_fees.insert(Fee::NetworkFee, 1.0);
+        position.enter_fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
@@ -936,9 +949,11 @@ mod tests {
         input_fill.decision = Decision::CloseShort;
         input_fill.quantity = -position.quantity;
         input_fill.fill_value_gross = 200.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         // Exit Position
         position.exit(&input_fill).unwrap();
@@ -947,17 +962,17 @@ mod tests {
         assert_eq!(position.direction, Direction::Short);
         assert_eq!(position.quantity, -1.0);
         assert_eq!(position.enter_fees_total, 3.0);
-        assert_eq!(*position.enter_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
-        assert_eq!(*position.enter_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
+        assert_eq!(position.enter_fees.exchange, 1.0);
+        assert_eq!(position.enter_fees.slippage, 1.0);
+        assert_eq!(position.enter_fees.network, 1.0);
         assert_eq!(position.enter_avg_price_gross, 100.0);
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert fields changed by exit are correct
         assert_eq!(position.exit_fees_total, 3.0);
-        assert_eq!(*position.exit_fees.get(&Fee::ExchangeFee).unwrap(), 1.0);
-        assert_eq!(*position.exit_fees.get(&Fee::SlippageFee).unwrap(), 1.0);
-        assert_eq!(*position.exit_fees.get(&Fee::NetworkFee).unwrap(), 1.0);
+        assert_eq!(position.exit_fees.exchange, 1.0);
+        assert_eq!(position.exit_fees.slippage, 1.0);
+        assert_eq!(position.exit_fees.network, 1.0);
         assert_eq!(position.exit_value_gross, input_fill.fill_value_gross);
         assert_eq!(position.exit_avg_price_gross, input_fill.fill_value_gross / input_fill.quantity.abs());
 
@@ -973,9 +988,11 @@ mod tests {
         position.direction = Direction::Short;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
-        position.enter_fees.insert(Fee::ExchangeFee, 1.0);
-        position.enter_fees.insert(Fee::SlippageFee, 1.0);
-        position.enter_fees.insert(Fee::NetworkFee, 1.0);
+        position.enter_fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
@@ -987,9 +1004,11 @@ mod tests {
         input_fill.decision = Decision::Long;
         input_fill.quantity = position.quantity;
         input_fill.fill_value_gross = 200.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         // Exit Position
         if let Err(_) = position.exit(&input_fill) {
@@ -1007,9 +1026,11 @@ mod tests {
         position.direction = Direction::Short;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
-        position.enter_fees.insert(Fee::ExchangeFee, 1.0);
-        position.enter_fees.insert(Fee::SlippageFee, 1.0);
-        position.enter_fees.insert(Fee::NetworkFee, 1.0);
+        position.enter_fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
@@ -1021,9 +1042,11 @@ mod tests {
         input_fill.decision = Decision::Short;
         input_fill.quantity = -position.quantity;
         input_fill.fill_value_gross = 200.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         // Exit Position
         if let Err(_) = position.exit(&input_fill) {
