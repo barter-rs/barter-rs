@@ -9,7 +9,6 @@ use crate::portfolio::risk::{DefaultRisk, OrderEvaluator};
 use crate::portfolio::allocator::{DefaultAllocator, OrderAllocator};
 use crate::portfolio::position::{PositionUpdater, PositionExiter, Position, PositionEnterer, Direction};
 use chrono::Utc;
-use crate::portfolio::error::PortfolioError::BuilderIncomplete;
 use std::collections::HashMap;
 
 /// Updates the Portfolio from an input [MarketEvent].
@@ -236,7 +235,7 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
                 risk_manager,
             })
         } else {
-            Err(BuilderIncomplete)
+            Err(PortfolioError::BuilderIncomplete)
         }
     }
 }
