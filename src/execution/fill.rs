@@ -16,9 +16,7 @@ pub struct FillEvent {
     pub decision: Decision,     // LONG, CloseLong, SHORT or CloseShort
     pub quantity: f64,          // +ve or -ve Quantity depending on Decision
     pub fill_value_gross: f64,  // abs(Quantity) * ClosePrice, excluding TotalFees
-    pub exchange_fee: f64,      // All fees that Exchange imposes on the FillEvent
-    pub slippage_fee: f64,      // Financial consequences of FillEvent Slippage modelled as a fee
-    pub network_fee: f64,       // All fees incurred from transacting over the network (DEX) eg/ GAS
+    pub fees: Fees,
 }
 
 impl Default for FillEvent {
@@ -31,9 +29,11 @@ impl Default for FillEvent {
             decision: Decision::default(),
             quantity: 1.0,
             fill_value_gross: 100.0,
-            exchange_fee: 0.0,
-            slippage_fee: 0.0,
-            network_fee: 0.0,
+            fees: Fees {
+                exchange: 0.0,
+                slippage: 0.0,
+                network: 0.0
+            }
         }
     }
 }
@@ -45,6 +45,37 @@ impl FillEvent {
     }
 }
 
+/// All potential fees incurred by a [FillEvent].
+#[derive(Debug, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub struct Fees {
+    /// Fee taken by the exchange/broker (eg/ commission).
+    pub exchange: FeeAmount,
+    /// Order book slippage modelled as a fee.
+    pub slippage: FeeAmount,
+    /// Fee incurred by any required network transactions (eg/ GAS).
+    pub network: FeeAmount,
+}
+
+impl Default for Fees {
+    fn default() -> Self {
+        Self {
+            exchange: 0.0,
+            slippage: 0.0,
+            network: 0.0
+        }
+    }
+}
+
+impl Fees {
+    /// Calculates the sum of every [FeeAmount] in [Fees].
+    pub fn calculate_total_fees(&self) -> f64 {
+        self.exchange + self.network + self.slippage
+    }
+}
+
+/// Fee amount as f64.
+pub type FeeAmount = f64;
+
 /// Builder to construct [FillEvent] instances.
 pub struct FillEventBuilder {
     pub trace_id: Option<Uuid>,
@@ -54,9 +85,7 @@ pub struct FillEventBuilder {
     pub quantity: Option<f64>,
     pub exchange: Option<String>,
     pub fill_value_gross: Option<f64>,
-    pub exchange_fee: Option<f64>,
-    pub slippage_fee: Option<f64>,
-    pub network_fee: Option<f64>,
+    pub fees: Option<Fees>,
 }
 
 impl FillEventBuilder {
@@ -69,9 +98,7 @@ impl FillEventBuilder {
             quantity: None,
             exchange: None,
             fill_value_gross: None,
-            exchange_fee: None,
-            slippage_fee: None,
-            network_fee: None,
+            fees: None,
         }
     }
 
@@ -110,18 +137,8 @@ impl FillEventBuilder {
         self
     }
 
-    pub fn exchange_fee(mut self, value: f64) -> Self {
-        self.exchange_fee = Some(value);
-        self
-    }
-
-    pub fn slippage_fee(mut self, value: f64) -> Self {
-        self.slippage_fee = Some(value);
-        self
-    }
-
-    pub fn network_fee(mut self, value: f64) -> Self {
-        self.network_fee = Some(value);
+    pub fn fees(mut self, value: Fees) -> Self {
+        self.fees = Some(value);
         self
     }
 
@@ -134,9 +151,7 @@ impl FillEventBuilder {
             Some(quantity),
             Some(exchange),
             Some(fill_value_gross),
-            Some(exchange_fee),
-            Some(slippage_fee),
-            Some(network_fee),
+            Some(fees),
         ) = (
             self.trace_id,
             self.timestamp,
@@ -145,9 +160,7 @@ impl FillEventBuilder {
             self.quantity,
             self.exchange,
             self.fill_value_gross,
-            self.exchange_fee,
-            self.slippage_fee,
-            self.network_fee,
+            self.fees,
         ) {
             Ok(FillEvent {
                 trace_id,
@@ -157,9 +170,7 @@ impl FillEventBuilder {
                 quantity,
                 exchange,
                 fill_value_gross,
-                exchange_fee,
-                slippage_fee,
-                network_fee,
+                fees,
             })
         } else {
             Err(BuilderIncomplete())
