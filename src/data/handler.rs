@@ -67,12 +67,11 @@ impl HistoricDataHandler {
             .expect("Failed to load_csv_bars from provided filepath")
             .into_iter();
 
-        HistoricDataHandler::builder()
-            .exchange(cfg.exchange.clone())
-            .symbol(cfg.symbol.clone())
-            .all_symbol_data(bar_iter)
-            .build()
-            .expect("Failed to build HistoricDataHandler")
+        Self {
+            exchange: cfg.exchange.clone(),
+            symbol: cfg.symbol.clone(),
+            all_symbol_data: bar_iter,
+        }
     }
 
     /// Returns a [HistoricDataHandlerBuilder] instance.
