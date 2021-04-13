@@ -244,37 +244,27 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
 /// Parses an incoming [SignalEvent]'s signals map. Determines what the net signal [Decision] will
 /// be, and it's associated [SignalStrength].
 pub fn parse_signal_decisions<'a>(position: &'a Option<&Position>, signals: &'a HashMap<Decision, SignalStrength>) -> Option<(&'a Decision, &'a SignalStrength)> {
+    // Determine the presence of signals in the provided signals HashMap
     let signal_close_long = signals.get_key_value(&Decision::CloseLong);
     let signal_long = signals.get_key_value(&Decision::Long);
     let signal_close_short = signals.get_key_value(&Decision::CloseShort);
     let signal_short = signals.get_key_value(&Decision::Short);
 
+    // If an existing Position exists, check for net close signals
     if let Some(position) = position {
         match position.direction {
-            Direction::Long => {
-                if signal_close_long.is_some() {
-                    return signal_close_long;
-                }
-            }
-            Direction::Short => {
-                if signal_close_short.is_some() {
-                    return signal_close_short;
-                }
-            }
+            Direction::Long if signal_close_long.is_some() => return signal_close_long,
+            Direction::Short if signal_close_short.is_some() => return signal_close_short,
+            _ => {}
         }
     }
 
-    if signal_long.is_some() && signal_short.is_some() {
-        return None;
+    // Else check for net open signals
+    match (signal_long, signal_short) {
+        (Some(signal_long), None) => Some(signal_long),
+        (None, Some(signal_short)) => Some(signal_short),
+        _ => None,
     }
-    if signal_long.is_some() {
-        return signal_long;
-    }
-    if signal_short.is_some() {
-        return signal_short;
-    }
-
-    None
 }
 
 #[cfg(test)]
