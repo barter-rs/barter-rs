@@ -1,6 +1,6 @@
 [package]
 name = "barter"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
 edition = "2018"
 description = "High-performance & modular trading engine & back-testing components"
