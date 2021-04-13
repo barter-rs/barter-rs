@@ -1,4 +1,4 @@
-use crate::execution::fill::FillEvent;
+use crate::execution::fill::{FillEvent, Fees};
 use crate::execution::error::ExecutionError;
 use chrono::Utc;
 use crate::portfolio::order::OrderEvent;
@@ -25,9 +25,11 @@ impl FillGenerator for SimulatedExecution {
             decision: order.decision.clone(),
             quantity: order.quantity,
             fill_value_gross: SimulatedExecution::calculate_fill_value_gross(&order),
-            exchange_fee: 0.0,
-            slippage_fee: 0.0,
-            network_fee: 0.0
+            fees: Fees {
+                exchange: 0.0,
+                slippage: 0.0,
+                network: 0.0
+            },
         })
     }
 }

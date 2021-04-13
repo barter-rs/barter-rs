@@ -272,6 +272,7 @@ mod tests {
     use super::*;
     use crate::portfolio::repository::error::RepositoryError;
     use crate::portfolio::position::PositionBuilder;
+    use crate::execution::fill::Fees;
 
     #[derive(Default)]
     struct MockRepository {
@@ -606,9 +607,11 @@ mod tests {
         input_fill.decision = Decision::Long;
         input_fill.quantity = 1.0;
         input_fill.fill_value_gross = 100.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         let result = portfolio.update_from_fill(&input_fill);
         let updated_repository = portfolio.repository;
@@ -639,9 +642,11 @@ mod tests {
         input_fill.decision = Decision::Short;
         input_fill.quantity = -1.0;
         input_fill.fill_value_gross = 100.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         let result = portfolio.update_from_fill(&input_fill);
         let updated_repository = portfolio.repository;
@@ -680,9 +685,11 @@ mod tests {
         input_fill.decision = Decision::CloseLong;
         input_fill.quantity = -1.0;
         input_fill.fill_value_gross = 200.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         let result = portfolio.update_from_fill(&input_fill);
         let updated_repository = portfolio.repository;
@@ -722,9 +729,11 @@ mod tests {
         input_fill.decision = Decision::CloseLong;
         input_fill.quantity = -1.0;
         input_fill.fill_value_gross = 50.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         let result = portfolio.update_from_fill(&input_fill);
         let updated_repository = portfolio.repository;
@@ -764,9 +773,11 @@ mod tests {
         input_fill.decision = Decision::CloseShort;
         input_fill.quantity = 1.0;
         input_fill.fill_value_gross = 50.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         let result = portfolio.update_from_fill(&input_fill);
         let updated_repository = portfolio.repository;
@@ -806,9 +817,11 @@ mod tests {
         input_fill.decision = Decision::CloseShort;
         input_fill.quantity = 1.0;
         input_fill.fill_value_gross = 150.0;
-        input_fill.exchange_fee = 1.0;
-        input_fill.slippage_fee = 1.0;
-        input_fill.network_fee = 1.0;
+        input_fill.fees = Fees {
+            exchange: 1.0,
+            slippage: 1.0,
+            network: 1.0
+        };
 
         let result = portfolio.update_from_fill(&input_fill);
         let updated_repository = portfolio.repository;
