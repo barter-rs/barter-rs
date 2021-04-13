@@ -5,7 +5,6 @@ use uuid::Uuid;
 use serde::Deserialize;
 use chrono::Utc;
 use crate::data::error::DataError;
-use crate::data::error::DataError::{DataIteratorEmpty, BuilderIncomplete};
 
 /// Determines if a process should continue.
 pub trait Continuer {
@@ -46,7 +45,7 @@ impl Continuer for HistoricDataHandler {
 impl MarketGenerator for HistoricDataHandler {
     fn generate_market(&mut self) -> Result<MarketEvent, DataError> {
         match self.all_symbol_data.next() {
-            None => Err(DataIteratorEmpty),
+            None => Err(DataError::DataIteratorEmpty),
             Some(bar) => Ok(MarketEvent {
                 trace_id: Uuid::new_v4(),
                 timestamp: Utc::now(),
@@ -146,7 +145,7 @@ impl HistoricDataHandlerBuilder {
                 all_symbol_data,
             })
         } else {
-            Err(BuilderIncomplete)
+            Err(DataError::BuilderIncomplete)
         }
     }
 }

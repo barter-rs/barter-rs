@@ -2,10 +2,7 @@ use uuid::Uuid;
 use serde::Deserialize;
 use crate::portfolio::position::Position;
 use crate::portfolio::repository::error::RepositoryError;
-use crate::portfolio::repository::error::RepositoryError::{
-    JsonSerialisationError, WriteError, ReadError, JsonDeserialisationError, DeleteError};
 use crate::portfolio::error::PortfolioError;
-use crate::portfolio::error::PortfolioError::BuilderIncomplete;
 use redis::{RedisResult, ErrorKind, Connection, Commands};
 
 /// Handles the reading & writing of a [Position] to/from the persistence layer.
@@ -53,14 +50,14 @@ impl PositionHandler for RedisRepository {
 
         let position_value = match serde_json::to_string(position) {
             Ok(position_str) => position_str,
-            Err(_) => return Err(JsonSerialisationError)
+            Err(_) => return Err(RepositoryError::JsonSerialisationError)
         };
 
         let write_result: RedisResult<()> = self.conn.set(position_key, position_value);
 
         match write_result {
             Ok(_) => Ok(()),
-            Err(_) => Err(WriteError)
+            Err(_) => Err(RepositoryError::WriteError)
         }
     }
 
@@ -72,14 +69,14 @@ impl PositionHandler for RedisRepository {
             Err(err) => {
                 return match err.kind() {
                     ErrorKind::TypeError => Ok(None),
-                    _ => Err(ReadError)
+                    _ => Err(RepositoryError::ReadError)
                 }
             }
         };
 
         match serde_json::from_str(&*position_value) {
             Ok(position) => Ok(Some(position)),
-            Err(_) => Err(JsonDeserialisationError)
+            Err(_) => Err(RepositoryError::JsonDeserialisationError)
         }
     }
 
@@ -90,7 +87,7 @@ impl PositionHandler for RedisRepository {
 
         match remove_result {
             Ok(_) => Ok(position),
-            Err(_) => Err(DeleteError)
+            Err(_) => Err(RepositoryError::DeleteError)
         }
     }
 }
@@ -102,7 +99,7 @@ impl ValueHandler for RedisRepository {
 
         match write_result {
             Ok(_) => Ok(()),
-            Err(_) => Err(WriteError)
+            Err(_) => Err(RepositoryError::WriteError)
         }
     }
 
@@ -119,7 +116,7 @@ impl CashHandler for RedisRepository {
 
         match write_result {
             Ok(_) => Ok(()),
-            Err(_) => Err(WriteError)
+            Err(_) => Err(RepositoryError::WriteError)
         }
     }
 
@@ -155,7 +152,7 @@ impl RedisRepository {
     pub fn parse_read_f64_result(result: RedisResult<f64>) -> Result<f64, RepositoryError> {
         match result {
             Ok(f64_value) => Ok(f64_value),
-            Err(_) => Err(ReadError)
+            Err(_) => Err(RepositoryError::ReadError)
         }
     }
 }
@@ -183,7 +180,7 @@ impl RedisRepositoryBuilder {
                 conn
             })
         } else {
-            Err(BuilderIncomplete)
+            Err(PortfolioError::BuilderIncomplete)
         }
     }
 }

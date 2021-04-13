@@ -3,7 +3,6 @@ use chrono::{DateTime, Utc, NaiveDateTime, NaiveDate};
 use ta::{Open, High, Low, Close, Volume};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde::de::Error;
-use crate::data::error::DataError::{BuilderAttributesInvalid, BuilderIncomplete};
 use crate::data::error::DataError;
 
 /// Market data & related metadata produced by a data::handler implementation for the Strategy
@@ -103,7 +102,7 @@ impl MarketEventBuilder {
                 bar,
             })
         } else {
-            Err(BuilderIncomplete)
+            Err(DataError::BuilderIncomplete)
         }
     }
 }
@@ -262,10 +261,10 @@ impl BarBuilder {
                 };
                 Ok(bar)
             } else {
-                Err(BuilderAttributesInvalid)
+                Err(DataError::BuilderAttributesInvalid)
             }
         } else {
-            Err(BuilderIncomplete)
+            Err(DataError::BuilderIncomplete)
         }
     }
 }
