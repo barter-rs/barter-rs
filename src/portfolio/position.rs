@@ -5,9 +5,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use crate::portfolio::error::PortfolioError::{
-    BuilderIncomplete, ParseEntryDirectionError,
-    CannotExitPositionWithEntryFill, CannotEnterPositionWithExitFill};
+use crate::strategy::signal::Decision;
 
 /// Enters a new [Position].
 pub trait PositionEnterer {
@@ -171,7 +169,7 @@ impl PositionUpdater for Position {
 impl PositionExiter for Position {
     fn exit(&mut self, fill: &FillEvent) -> Result<(), PortfolioError> {
         if fill.decision.is_entry() {
-            return Err(CannotExitPositionWithEntryFill())
+            return Err(PortfolioError::CannotExitPositionWithEntryFill())
         }
 
         self.last_update_trace_id = fill.trace_id;
@@ -234,17 +232,11 @@ impl Position {
 
     /// Determine the [Position] entry [Direction] by analysing the input [FillEvent].
     pub fn parse_entry_direction(fill: &FillEvent) -> Result<Direction, PortfolioError> {
-        if fill.decision.is_long() && fill.quantity.is_sign_positive() {
-            Ok(Direction::Long)
-        }
-        else if fill.decision.is_short() && fill.quantity.is_sign_negative() {
-            Ok(Direction::Short)
-        }
-        else if fill.decision.is_exit() {
-            Err(CannotEnterPositionWithExitFill())
-        }
-        else {
-            Err(ParseEntryDirectionError())
+        match fill.decision {
+            Decision::Long if fill.quantity.is_sign_positive() => Ok(Direction::Long),
+            Decision::Short if fill.quantity.is_sign_negative() => Ok(Direction::Short),
+            Decision::CloseLong | Decision::CloseShort => Err(PortfolioError::CannotEnterPositionWithExitFill()),
+            _ => Err(PortfolioError::ParseEntryDirectionError())
         }
     }
 
@@ -466,7 +458,7 @@ impl PositionBuilder {
                 result_profit_loss
             })
         } else {
-            Err(BuilderIncomplete())
+            Err(PortfolioError::BuilderIncomplete())
         }
     }
 }
