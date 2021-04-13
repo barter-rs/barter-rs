@@ -46,7 +46,7 @@ impl Continuer for HistoricDataHandler {
 impl MarketGenerator for HistoricDataHandler {
     fn generate_market(&mut self) -> Result<MarketEvent, DataError> {
         match self.all_symbol_data.next() {
-            None => Err(DataIteratorEmpty()),
+            None => Err(DataIteratorEmpty),
             Some(bar) => Ok(MarketEvent {
                 trace_id: Uuid::new_v4(),
                 timestamp: Utc::now(),
@@ -146,7 +146,7 @@ impl HistoricDataHandlerBuilder {
                 all_symbol_data,
             })
         } else {
-            Err(BuilderIncomplete())
+            Err(BuilderIncomplete)
         }
     }
 }

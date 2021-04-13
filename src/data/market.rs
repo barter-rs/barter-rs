@@ -103,7 +103,7 @@ impl MarketEventBuilder {
                 bar,
             })
         } else {
-            Err(BuilderIncomplete())
+            Err(BuilderIncomplete)
         }
     }
 }
@@ -262,10 +262,10 @@ impl BarBuilder {
                 };
                 Ok(bar)
             } else {
-                Err(BuilderAttributesInvalid())
+                Err(BuilderAttributesInvalid)
             }
         } else {
-            Err(BuilderIncomplete())
+            Err(BuilderIncomplete)
         }
     }
 }

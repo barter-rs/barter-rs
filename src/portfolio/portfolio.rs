@@ -236,7 +236,7 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
                 risk_manager,
             })
         } else {
-            Err(BuilderIncomplete())
+            Err(BuilderIncomplete)
         }
     }
 }

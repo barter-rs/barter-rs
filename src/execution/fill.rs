@@ -173,7 +173,7 @@ impl FillEventBuilder {
                 fees,
             })
         } else {
-            Err(BuilderIncomplete())
+            Err(BuilderIncomplete)
         }
     }
 }

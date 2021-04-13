@@ -115,7 +115,7 @@ impl RSIStrategyBuilder {
         if let Some(rsi) = self.rsi {
             Ok(RSIStrategy { rsi })
         } else {
-            Err(BuilderIncomplete())
+            Err(BuilderIncomplete)
         }
     }
 }
