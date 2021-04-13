@@ -3,8 +3,11 @@ name = "barter"
 version = "0.2.1"
 authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
 edition = "2018"
-description = "High-performance & modular trading engine & back-testing components"
 license = "MIT"
+readme = "README.md"
+description = "High-performance & modular trading engine & back-testing components"
+keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
+categories = ["accessibility", "simulation"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
