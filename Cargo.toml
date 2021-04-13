@@ -1,10 +1,10 @@
 [package]
 name = "barter"
-version = "0.2.7"
+version = "0.2.8"
 authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
 edition = "2018"
 license = "MIT"
-documentation = "https://docs.rs/barter/0.2.7/barter"
+documentation = "https://docs.rs/barter/"
 repository = "https://gitlab.com/open-source-keir/financial-modelling/trading/barter-rs"
 readme = "README.md"
 description = "High-performance & modular trading engine & back-testing components"
