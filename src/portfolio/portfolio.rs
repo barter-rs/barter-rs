@@ -159,13 +159,12 @@ impl<T> FillUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + Val
 impl<T> PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
     /// Constructs a new [PersistedMetaPortfolio] component using the provided [Components] struct.
     pub fn new(components: Components, repository: T) -> Self {
-        PersistedMetaPortfolio::builder()
-            .id(Uuid::new_v4())
-            .repository(repository)
-            .allocation_manager(components.allocator)
-            .risk_manager(components.risk)
-            .build()
-            .expect("Failed to build a PersistedMetaPortfolio")
+        Self {
+            id: Uuid::new_v4(),
+            repository,
+            allocation_manager: components.allocator,
+            risk_manager: components.risk,
+        }
     }
 
     /// Returns a [PersistedMetaPortfolio] instance.
