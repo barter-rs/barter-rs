@@ -1,4 +1,4 @@
-use crate::execution::fill::FillEvent;
+use crate::execution::fill::{FillEvent, Fees};
 use crate::execution::error::ExecutionError;
 use chrono::Utc;
 use crate::portfolio::order::OrderEvent;
@@ -17,19 +17,20 @@ pub struct SimulatedExecution {
 impl FillGenerator for SimulatedExecution {
     fn generate_fill(&self, order: &OrderEvent) -> Result<FillEvent, ExecutionError> {
         // Assume for now that all orders are filled at the market price
-        Ok(FillEvent::builder()
-            .trace_id(order.trace_id)
-            .timestamp(Utc::now())
-            .symbol(order.symbol.clone())
-            .exchange(order.exchange.clone())
-            .quantity(order.quantity)
-            .decision(order.decision.clone())
-            .fill_value_gross(SimulatedExecution::calculate_fill_value_gross(&order))
-            .exchange_fee(0.0)
-            .slippage_fee(0.0)
-            .network_fee(0.0)
-            .build()?
-        )
+        Ok(FillEvent {
+            trace_id: order.trace_id,
+            timestamp: Utc::now(),
+            exchange: order.exchange.clone(),
+            symbol: order.symbol.clone(),
+            decision: order.decision.clone(),
+            quantity: order.quantity,
+            fill_value_gross: SimulatedExecution::calculate_fill_value_gross(&order),
+            fees: Fees {
+                exchange: 0.0,
+                slippage: 0.0,
+                network: 0.0
+            },
+        })
     }
 }
 

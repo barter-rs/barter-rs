@@ -38,14 +38,14 @@ impl SignalGenerator for RSIStrategy {
             return Ok(None)
         }
 
-        Ok(Some(SignalEvent::builder()
-            .trace_id(market.trace_id)
-            .timestamp(Utc::now())
-            .exchange(market.exchange.clone())
-            .symbol(market.symbol.clone())
-            .close(market.bar.close)
-            .signals(signals)
-            .build()?))
+        Ok(Some(SignalEvent {
+            trace_id: market.trace_id,
+            timestamp: Utc::now(),
+            exchange: market.exchange.clone(),
+            symbol: market.symbol.clone(),
+            close: market.bar.close,
+            signals
+        }))
     }
 }
 
@@ -55,10 +55,9 @@ impl RSIStrategy {
         let rsi_indicator = RelativeStrengthIndex::new(config.rsi_period)
             .expect("Failed to construct RSI indicator");
 
-        RSIStrategy::builder()
-            .rsi(rsi_indicator)
-            .build()
-            .expect("Failed to build RSIStrategy")
+        Self {
+            rsi: rsi_indicator
+        }
     }
 
     /// Returns a [RSIStrategyBuilder] instance.
@@ -116,7 +115,7 @@ impl RSIStrategyBuilder {
         if let Some(rsi) = self.rsi {
             Ok(RSIStrategy { rsi })
         } else {
-            Err(BuilderIncomplete())
+            Err(BuilderIncomplete)
         }
     }
 }

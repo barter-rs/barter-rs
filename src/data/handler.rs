@@ -5,9 +5,8 @@ use uuid::Uuid;
 use serde::Deserialize;
 use chrono::Utc;
 use crate::data::error::DataError;
-use crate::data::error::DataError::{DataIteratorEmpty, BuilderIncomplete};
 
-/// Communicates if a process should continue.
+/// Determines if a process should continue.
 pub trait Continuer {
     /// Return true if a process should continue.
     fn should_continue(&self) -> bool;
@@ -46,14 +45,14 @@ impl Continuer for HistoricDataHandler {
 impl MarketGenerator for HistoricDataHandler {
     fn generate_market(&mut self) -> Result<MarketEvent, DataError> {
         match self.all_symbol_data.next() {
-            None => Err(DataIteratorEmpty()),
-            Some(bar) => Ok(MarketEvent::builder()
-                .trace_id(Uuid::new_v4())
-                .timestamp(Utc::now())
-                .exchange(self.exchange.clone())
-                .symbol(self.symbol.clone())
-                .bar(bar)
-                .build()?),
+            None => Err(DataError::DataIteratorEmpty),
+            Some(bar) => Ok(MarketEvent {
+                trace_id: Uuid::new_v4(),
+                timestamp: Utc::now(),
+                exchange: self.exchange.clone(),
+                symbol: self.symbol.clone(),
+                bar,
+            }),
         }
     }
 }
@@ -67,12 +66,11 @@ impl HistoricDataHandler {
             .expect("Failed to load_csv_bars from provided filepath")
             .into_iter();
 
-        HistoricDataHandler::builder()
-            .exchange(cfg.exchange.clone())
-            .symbol(cfg.symbol.clone())
-            .all_symbol_data(bar_iter)
-            .build()
-            .expect("Failed to build HistoricDataHandler")
+        Self {
+            exchange: cfg.exchange.clone(),
+            symbol: cfg.symbol.clone(),
+            all_symbol_data: bar_iter,
+        }
     }
 
     /// Returns a [HistoricDataHandlerBuilder] instance.
@@ -97,7 +95,7 @@ pub fn load_csv_bars(file_path: String) -> Result<Vec<Bar>, csv::Error> {
     // Iterate through the lines & add the deserialised Bar struct to Vec<Bar>
     let deserialised_records_iter = reader.deserialize();
     let mut bar_data = match deserialised_records_iter.size_hint().1 {
-        None => Vec::new(),
+        None => Vec::with_capacity(deserialised_records_iter.size_hint().0),
         Some(approx_iter_size) => Vec::with_capacity(approx_iter_size),
     };
     for result_bar in deserialised_records_iter {
@@ -147,7 +145,7 @@ impl HistoricDataHandlerBuilder {
                 all_symbol_data,
             })
         } else {
-            Err(BuilderIncomplete())
+            Err(DataError::BuilderIncomplete)
         }
     }
 }
