@@ -8,6 +8,7 @@ use crate::strategy::error::StrategyError;
 /// Signal data produced by the strategy containing advisory signals for the portfolio to interpret.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SignalEvent {
+    pub event_type: &'static str,
     pub trace_id: Uuid,
     pub timestamp: DateTime<Utc>,
     pub exchange: String,
@@ -22,6 +23,7 @@ pub type SignalStrength = f32;
 impl Default for SignalEvent {
     fn default() -> Self {
         Self {
+            event_type: SignalEvent::EVENT_TYPE,
             trace_id: Uuid::new_v4(),
             timestamp: Utc::now(),
             exchange: String::from("BINANCE"),
@@ -33,6 +35,8 @@ impl Default for SignalEvent {
 }
 
 impl SignalEvent {
+    pub const EVENT_TYPE: &'static str = "SignalEvent";
+
     /// Returns a [SignalEventBuilder] instance.
     pub fn builder() -> SignalEventBuilder {
         SignalEventBuilder::new()
@@ -145,6 +149,7 @@ impl SignalEventBuilder {
             self.signals
         ) {
             Ok(SignalEvent {
+                event_type: SignalEvent::EVENT_TYPE,
                 trace_id,
                 timestamp,
                 exchange,

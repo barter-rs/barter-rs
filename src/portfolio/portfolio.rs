@@ -95,6 +95,7 @@ impl<T> OrderGenerator for PersistedMetaPortfolio<T> where T: PositionHandler + 
             };
 
         let mut order = OrderEvent {
+            event_type: OrderEvent::EVENT_TYPE,
             trace_id: signal.trace_id,
             timestamp: Utc::now(),
             exchange: signal.exchange.clone(),
