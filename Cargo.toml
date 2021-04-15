@@ -7,7 +7,7 @@ license = "MIT"
 documentation = "https://docs.rs/barter/"
 repository = "https://gitlab.com/open-source-keir/financial-modelling/trading/barter-rs"
 readme = "README.md"
-description = "High-performance & modular trading engine & back-testing components"
+description = "High performance & modular trading engine & backtesting components"
 keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
