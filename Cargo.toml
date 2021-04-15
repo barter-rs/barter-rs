@@ -1,6 +1,6 @@
 [package]
 name = "barter"
-version = "0.2.8"
+version = "0.2.9"
 authors = ["keirbailey <keirinvestment@gmail.com>"]
 edition = "2018"
 license = "MIT"
