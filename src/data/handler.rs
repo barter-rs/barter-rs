@@ -47,6 +47,7 @@ impl MarketGenerator for HistoricDataHandler {
         match self.all_symbol_data.next() {
             None => Err(DataError::DataIteratorEmpty),
             Some(bar) => Ok(MarketEvent {
+                event_type: MarketEvent::EVENT_TYPE,
                 trace_id: Uuid::new_v4(),
                 timestamp: Utc::now(),
                 exchange: self.exchange.clone(),

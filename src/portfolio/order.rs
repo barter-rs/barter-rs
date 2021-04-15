@@ -8,6 +8,7 @@ use crate::portfolio::error::PortfolioError;
 /// execute a trade.
 #[derive(Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct OrderEvent {
+    pub event_type: &'static str,
     pub trace_id: Uuid,
     pub timestamp: DateTime<Utc>,
     pub exchange: String,
@@ -21,6 +22,7 @@ pub struct OrderEvent {
 impl Default for OrderEvent {
     fn default() -> Self {
         Self {
+            event_type: OrderEvent::EVENT_TYPE,
             trace_id: Uuid::new_v4(),
             timestamp: Utc::now(),
             exchange: String::from("BINANCE"),
@@ -34,6 +36,8 @@ impl Default for OrderEvent {
 }
 
 impl OrderEvent {
+    pub const EVENT_TYPE: &'static str = "OrderEvent";
+
     /// Returns a OrderEventBuilder instance.
     pub fn builder() -> OrderEventBuilder {
         OrderEventBuilder::new()
@@ -141,6 +145,7 @@ impl OrderEventBuilder {
             self.order_type,
         ) {
             Ok(OrderEvent {
+                event_type: OrderEvent::EVENT_TYPE,
                 trace_id,
                 timestamp,
                 exchange,
