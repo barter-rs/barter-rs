@@ -39,6 +39,7 @@ impl SignalGenerator for RSIStrategy {
         }
 
         Ok(Some(SignalEvent {
+            event_type: SignalEvent::EVENT_TYPE,
             trace_id: market.trace_id,
             timestamp: Utc::now(),
             exchange: market.exchange.clone(),

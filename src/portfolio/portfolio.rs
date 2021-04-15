@@ -46,10 +46,12 @@ pub struct Components {
 /// track the it's state, as well as it's own.
 pub struct PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
     /// Unique ID for the [PersistedMetaPortfolio].
-    id: Uuid,
+    pub id: Uuid,
+    /// Starting cash for the Portfolio, used to persist the initial state to the repository.
+    pub starting_cash: f64,
     /// Repository for the [PersistedMetaPortfolio] to persist it's state in. Implements
     /// [PositionHandler], [ValueHandler], and [CashHandler].
-    repository: T,
+    pub repository: T,
     /// Allocation manager implements [OrderAllocator].
     allocation_manager: DefaultAllocator,
     /// Risk manager implements [OrderEvaluator].
@@ -93,6 +95,7 @@ impl<T> OrderGenerator for PersistedMetaPortfolio<T> where T: PositionHandler + 
             };
 
         let mut order = OrderEvent {
+            event_type: OrderEvent::EVENT_TYPE,
             trace_id: signal.trace_id,
             timestamp: Utc::now(),
             exchange: signal.exchange.clone(),
@@ -125,8 +128,9 @@ impl<T> FillUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + Val
         // EXIT SCENARIO - FillEvent for Symbol-Exchange with open Position
         if let Some(mut position) = self.repository.remove_position(&position_id)? {
 
-            // Exit Position
+            // Exit Position & persist in repository closed_positions
             position.exit(fill)?;
+            self.repository.set_closed_position(&self.id, &position)?;
 
             // Update Portfolio cash on exit - + enter_total_fees since included in result PnL
             current_cash += position.enter_value_gross + position.result_profit_loss + position.enter_fees_total;
@@ -160,6 +164,7 @@ impl<T> PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + Cash
     pub fn new(components: Components, repository: T) -> Self {
         Self {
             id: Uuid::new_v4(),
+            starting_cash: components.starting_cash,
             repository,
             allocation_manager: components.allocator,
             risk_manager: components.risk,
@@ -169,6 +174,13 @@ impl<T> PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + Cash
     /// Returns a [PersistedMetaPortfolio] instance.
     pub fn builder() -> PersistedMetaPortfolioBuilder<T> {
         PersistedMetaPortfolioBuilder::new()
+    }
+
+    /// Persist the initial [PersistedMetaPortfolio] state in the Repository.
+    pub fn initialise(&mut self) -> Result<(), PortfolioError> {
+        self.repository.set_current_cash(&self.id, self.starting_cash)?;
+        self.repository.set_current_value(&self.id, self.starting_cash)?;
+        Ok(())
     }
 
     /// Determines if the Portfolio has any cash to enter a new [Position].
@@ -181,6 +193,7 @@ impl<T> PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + Cash
 /// Builder to construct [PersistedMetaPortfolio] instances.
 pub struct PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHandler {
     id: Option<Uuid>,
+    starting_cash: Option<f64>,
     repository: Option<T>,
     allocation_manager: Option<DefaultAllocator>,
     risk_manager: Option<DefaultRisk>,
@@ -190,6 +203,7 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
     pub fn new() -> Self {
         Self {
             id: None,
+            starting_cash: None,
             repository: None,
             allocation_manager: None,
             risk_manager: None,
@@ -198,6 +212,11 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
 
     pub fn id(mut self, value: Uuid) -> Self {
         self.id = Some(value);
+        self
+    }
+
+    pub fn starting_cash(mut self, value: f64) -> Self {
+        self.starting_cash = Some(value);
         self
     }
 
@@ -219,21 +238,52 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
     pub fn build(self) -> Result<PersistedMetaPortfolio<T>, PortfolioError> {
         if let (
             Some(id),
+            Some(starting_cash),
             Some(repository),
             Some(allocation_manager),
             Some(risk_manager)
         ) = (
             self.id,
+            self.starting_cash,
             self.repository,
             self.allocation_manager,
             self.risk_manager,
         ) {
             Ok(PersistedMetaPortfolio {
                 id,
+                starting_cash,
                 repository,
                 allocation_manager,
                 risk_manager,
             })
+        } else {
+            Err(PortfolioError::BuilderIncomplete)
+        }
+    }
+
+    pub fn build_and_init(self) -> Result<PersistedMetaPortfolio<T>, PortfolioError> {
+        if let (
+            Some(id),
+            Some(starting_cash),
+            Some(repository),
+            Some(allocation_manager),
+            Some(risk_manager)
+        ) = (
+            self.id,
+            self.starting_cash,
+            self.repository,
+            self.allocation_manager,
+            self.risk_manager,
+        ) {
+            let mut portfolio = PersistedMetaPortfolio {
+                id,
+                starting_cash,
+                repository,
+                allocation_manager,
+                risk_manager,
+            };
+            portfolio.initialise()?;
+            Ok(portfolio)
         } else {
             Err(PortfolioError::BuilderIncomplete)
         }
@@ -251,10 +301,10 @@ pub fn parse_signal_decisions<'a>(position: &'a Option<&Position>, signals: &'a 
 
     // If an existing Position exists, check for net close signals
     if let Some(position) = position {
-        match position.direction {
-            Direction::Long if signal_close_long.is_some() => return signal_close_long,
-            Direction::Short if signal_close_short.is_some() => return signal_close_short,
-            _ => {}
+        return match position.direction {
+            Direction::Long if signal_close_long.is_some() => signal_close_long,
+            Direction::Short if signal_close_short.is_some() => signal_close_short,
+            _ => None,
         }
     }
 
@@ -278,6 +328,7 @@ mod tests {
         set_position: Option<fn(portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError>>,
         get_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
         remove_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
+        set_closed_position: Option<fn(portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError>>,
         set_current_value: Option<fn(portfolio_id: &Uuid, value: f64)  -> Result<(), RepositoryError>>,
         get_current_value: Option<fn(portfolio_id: &Uuid) -> Result<f64, RepositoryError>>,
         set_current_cash: Option<fn(portfolio_id: &Uuid, cash: f64)  -> Result<(), RepositoryError>>,
@@ -311,6 +362,10 @@ mod tests {
         fn remove_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError> {
             self.remove_position.unwrap()(position_id)
         }
+
+        fn set_closed_position(&mut self, portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError> {
+            self.set_closed_position.unwrap()(portfolio_id, position)
+        }
     }
 
     impl ValueHandler for MockRepository {
@@ -339,6 +394,7 @@ mod tests {
         where T: PositionHandler + ValueHandler + CashHandler {
         PersistedMetaPortfolio::builder()
             .id(Uuid::new_v4())
+            .starting_cash(1000.0)
             .repository(mock_repository)
             .allocation_manager(DefaultAllocator{ default_order_value: 100.0 })
             .risk_manager(DefaultRisk{})
@@ -361,7 +417,7 @@ mod tests {
                 input_position
             })
         )});
-        mock_repository.set_position = Some(|_, _| {Ok(())});
+        mock_repository.set_position = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
@@ -394,7 +450,7 @@ mod tests {
                 input_position
             })
         )});
-        mock_repository.set_position = Some(|_, _| {Ok(())});
+        mock_repository.set_position = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
@@ -427,7 +483,7 @@ mod tests {
                 input_position
             })
         )});
-        mock_repository.set_position = Some(|_, _| {Ok(())});
+        mock_repository.set_position = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
@@ -460,7 +516,7 @@ mod tests {
                 input_position
             })
         )});
-        mock_repository.set_position = Some(|_, _| {Ok(())});
+        mock_repository.set_position = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
@@ -481,8 +537,8 @@ mod tests {
     fn generate_no_order_with_no_position_and_no_cash() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_position = Some(|_| {Ok(None)});
-        mock_repository.get_current_cash = Some(|_| {Ok(0.0)});
+        mock_repository.get_position = Some(|_| Ok(None));
+        mock_repository.get_current_cash = Some(|_| Ok(0.0));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -497,8 +553,8 @@ mod tests {
     fn generate_no_order_with_position_and_no_cash() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_position = Some(|_| {Ok(Some(Position::default()))});
-        mock_repository.get_current_cash = Some(|_| {Ok(0.0)});
+        mock_repository.get_position = Some(|_| Ok(Some(Position::default())));
+        mock_repository.get_current_cash = Some(|_| Ok(0.0));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -513,8 +569,8 @@ mod tests {
     fn generate_order_long_with_no_position_and_input_net_long_signal() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_position = Some(|_| {Ok(None)});
-        mock_repository.get_current_cash = Some(|_| {Ok(100.0)});
+        mock_repository.get_position = Some(|_| Ok(None));
+        mock_repository.get_current_cash = Some(|_| Ok(100.0));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -530,8 +586,8 @@ mod tests {
     fn generate_order_short_with_no_position_and_input_net_short_signal() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_position = Some(|_| {Ok(None)});
-        mock_repository.get_current_cash = Some(|_| {Ok(100.0)});
+        mock_repository.get_position = Some(|_| Ok(None));
+        mock_repository.get_current_cash = Some(|_| Ok(100.0));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -554,7 +610,7 @@ mod tests {
                 position
             })
         )});
-        mock_repository.get_current_cash = Some(|_| {Ok(100.0)});
+        mock_repository.get_current_cash = Some(|_| Ok(100.0));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -577,7 +633,7 @@ mod tests {
                 position
             })
         )});
-        mock_repository.get_current_cash = Some(|_| {Ok(100.0)});
+        mock_repository.get_current_cash = Some(|_| Ok(100.0));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -593,12 +649,12 @@ mod tests {
     fn update_from_fill_entering_long_position() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_current_cash = Some(|_| {Ok(200.0)});
-        mock_repository.get_current_value = Some(|_| {Ok(200.0)});
-        mock_repository.remove_position = Some(|_| {Ok(None)});
-        mock_repository.set_position = Some(|_, _| {Ok(())});
-        mock_repository.set_current_value = Some(|_, _| {Ok(())});
-        mock_repository.set_current_cash = Some(|_, _| {Ok(())});
+        mock_repository.get_current_cash = Some(|_| Ok(200.0));
+        mock_repository.get_current_value = Some(|_| Ok(200.0));
+        mock_repository.remove_position = Some(|_| Ok(None));
+        mock_repository.set_position = Some(|_, _| Ok(()));
+        mock_repository.set_current_value = Some(|_, _| Ok(()));
+        mock_repository.set_current_cash = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -628,12 +684,12 @@ mod tests {
     fn update_from_fill_entering_short_position() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_current_cash = Some(|_| {Ok(200.0)});
-        mock_repository.get_current_value = Some(|_| {Ok(200.0)});
-        mock_repository.remove_position = Some(|_| {Ok(None)});
-        mock_repository.set_position = Some(|_, _| {Ok(())});
-        mock_repository.set_current_value = Some(|_, _| {Ok(())});
-        mock_repository.set_current_cash = Some(|_, _| {Ok(())});
+        mock_repository.get_current_cash = Some(|_| Ok(200.0));
+        mock_repository.get_current_value = Some(|_| Ok(200.0));
+        mock_repository.remove_position = Some(|_| Ok(None));
+        mock_repository.set_position = Some(|_, _| Ok(()));
+        mock_repository.set_current_value = Some(|_, _| Ok(()));
+        mock_repository.set_current_cash = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -663,8 +719,8 @@ mod tests {
     fn update_from_fill_exiting_long_position_in_profit() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_current_cash = Some(|_| {Ok(97.0)});
-        mock_repository.get_current_value = Some(|_| {Ok(200.0)});
+        mock_repository.get_current_cash = Some(|_| Ok(97.0));
+        mock_repository.get_current_value = Some(|_| Ok(200.0));
         mock_repository.remove_position = Some(|_| {Ok({
             Some({
                 let mut input_position = Position::default();
@@ -675,8 +731,9 @@ mod tests {
                 input_position
             })
         })});
-        mock_repository.set_current_value = Some(|_, _| {Ok(())});
-        mock_repository.set_current_cash = Some(|_, _| {Ok(())});
+        mock_repository.set_closed_position = Some(|_, _| Ok(()));
+        mock_repository.set_current_value = Some(|_, _| Ok(()));
+        mock_repository.set_current_cash = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -707,8 +764,8 @@ mod tests {
     fn update_from_fill_exiting_long_position_in_loss() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_current_cash = Some(|_| {Ok(97.0)});
-        mock_repository.get_current_value = Some(|_| {Ok(200.0)});
+        mock_repository.get_current_cash = Some(|_| Ok(97.0));
+        mock_repository.get_current_value = Some(|_| Ok(200.0));
         mock_repository.remove_position = Some(|_| {Ok({
             Some({
                 let mut input_position = Position::default();
@@ -719,8 +776,9 @@ mod tests {
                 input_position
             })
         })});
-        mock_repository.set_current_value = Some(|_, _| {Ok(())});
-        mock_repository.set_current_cash = Some(|_, _| {Ok(())});
+        mock_repository.set_closed_position = Some(|_, _| Ok(()));
+        mock_repository.set_current_value = Some(|_, _| Ok(()));
+        mock_repository.set_current_cash = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -751,8 +809,8 @@ mod tests {
     fn update_from_fill_exiting_short_position_in_profit() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_current_cash = Some(|_| {Ok(97.0)});
-        mock_repository.get_current_value = Some(|_| {Ok(200.0)});
+        mock_repository.get_current_cash = Some(|_| Ok(97.0));
+        mock_repository.get_current_value = Some(|_| Ok(200.0));
         mock_repository.remove_position = Some(|_| {Ok({
             Some({
                 let mut input_position = Position::default();
@@ -763,8 +821,9 @@ mod tests {
                 input_position
             })
         })});
-        mock_repository.set_current_value = Some(|_, _| {Ok(())});
-        mock_repository.set_current_cash = Some(|_, _| {Ok(())});
+        mock_repository.set_closed_position = Some(|_, _| Ok(()));
+        mock_repository.set_current_value = Some(|_, _| Ok(()));
+        mock_repository.set_current_cash = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -795,8 +854,8 @@ mod tests {
     fn update_from_fill_exiting_short_position_in_loss() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_current_cash = Some(|_| {Ok(97.0)});
-        mock_repository.get_current_value = Some(|_| {Ok(200.0)});
+        mock_repository.get_current_cash = Some(|_| Ok(97.0));
+        mock_repository.get_current_value = Some(|_| Ok(200.0));
         mock_repository.remove_position = Some(|_| {Ok({
             Some({
                 let mut input_position = Position::default();
@@ -807,8 +866,9 @@ mod tests {
                 input_position
             })
         })});
-        mock_repository.set_current_value = Some(|_, _| {Ok(())});
-        mock_repository.set_current_cash = Some(|_, _| {Ok(())});
+        mock_repository.set_closed_position = Some(|_, _| Ok(()));
+        mock_repository.set_current_value = Some(|_, _| Ok(()));
+        mock_repository.set_current_cash = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -854,6 +914,24 @@ mod tests {
     }
 
     #[test]
+    fn parse_signal_decisions_to_none_with_some_long_position_and_long_signal() {
+        // Some(Position)
+        let mut position = Position::default();
+        position.direction = Direction::Long;
+        let position = Some(position);
+        let position = position.as_ref();
+
+        // Signals HashMap
+        let mut signals = HashMap::with_capacity(4);
+        signals.insert(Decision::Long, 1.0);
+        signals.insert(Decision::CloseShort, 1.0);
+
+        let actual = parse_signal_decisions(&position, &signals);
+
+        assert!(actual.is_none())
+    }
+
+    #[test]
     fn parse_signal_decisions_to_net_close_long_with_conflicting_signals() {
         // Some(Position)
         let mut position = Position::default();
@@ -889,6 +967,24 @@ mod tests {
         let actual = parse_signal_decisions(&position, &signals);
 
         assert_eq!(actual.unwrap().0, &Decision::CloseShort);
+    }
+
+    #[test]
+    fn parse_signal_decisions_to_none_with_some_short_position_and_short_signal() {
+        // Some(Position)
+        let mut position = Position::default();
+        position.direction = Direction::Short;
+        let position = Some(position);
+        let position = position.as_ref();
+
+        // Signals HashMap
+        let mut signals = HashMap::with_capacity(4);
+        signals.insert(Decision::CloseLong, 1.0);
+        signals.insert(Decision::Short, 1.0);
+
+        let actual = parse_signal_decisions(&position, &signals);
+
+        assert!(actual.is_none())
     }
 
     #[test]

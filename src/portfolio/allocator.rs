@@ -2,7 +2,6 @@ use crate::portfolio::order::OrderEvent;
 use crate::portfolio::position::Position;
 use crate::portfolio::error::PortfolioError;
 use crate::strategy::signal::{SignalStrength, Decision};
-
 use serde::Deserialize;
 
 /// Allocates an appropriate OrderEvent quantity.
@@ -23,7 +22,9 @@ pub struct DefaultAllocator {
 impl OrderAllocator for DefaultAllocator {
     fn allocate_order(&self, mut order: OrderEvent, position: Option<&Position>,
                       signal_strength: SignalStrength) -> Result<OrderEvent, PortfolioError> {
-        let default_order_size = (self.default_order_value / order.close).floor();
+        // Calculate exact order_size, then round it to a more appropriate decimal place
+        let default_order_size = self.default_order_value / order.close;
+        let default_order_size = (default_order_size * 10000.0).floor() / 10000.0;
 
         match order.decision {
             // Entry
@@ -35,6 +36,7 @@ impl OrderAllocator for DefaultAllocator {
             // Exit
             _ => order.quantity = 0.0 - position.unwrap().quantity,
         }
+
         Ok(order)
     }
 }
@@ -107,7 +109,30 @@ mod tests {
     }
 
     #[test]
-    fn should_allocate_order_to_enter_close_position_with_correct_quantity() {
+    fn should_allocate_order_to_enter_long_position_with_non_zero_quantity() {
+        let default_order_value = 200.0;
+        let allocator = DefaultAllocator {default_order_value};
+
+        let order_close = 226.753403;
+        let mut input_order = OrderEvent::default();
+        input_order.close = order_close;
+        input_order.decision = Decision::Long;
+
+        let input_signal_strength = 1.0;
+
+        let actual_result = allocator.allocate_order(
+            input_order, None, input_signal_strength
+        ).unwrap().quantity;
+
+        let expected_order_size = ((default_order_value / order_close) * 10000.0).floor() / 10000.0;
+        let expected_result = expected_order_size * input_signal_strength as f64;
+
+        assert_ne!(actual_result, 0.0);
+        assert_eq!(actual_result, expected_result)
+    }
+
+    #[test]
+    fn should_allocate_order_to_enter_short_position_with_correct_quantity() {
         let default_order_value = 1000.0;
         let allocator = DefaultAllocator {default_order_value};
 
@@ -126,4 +151,29 @@ mod tests {
 
         assert_eq!(actual_result, expected_result)
     }
+
+    #[test]
+    fn should_allocate_order_to_enter_short_position_with_with_non_zero_quantity() {
+        let default_order_value = 200.0;
+        let allocator = DefaultAllocator {default_order_value};
+
+        let order_close = 226.753403;
+        let mut input_order = OrderEvent::default();
+        input_order.close = order_close;
+        input_order.decision = Decision::Short;
+
+        let input_signal_strength = 1.0;
+
+        let actual_result = allocator.allocate_order(
+            input_order, None, input_signal_strength
+        ).unwrap().quantity;
+
+        let expected_order_size = ((default_order_value / order_close) * 10000.0).floor() / 10000.0;
+        let expected_result = -expected_order_size * input_signal_strength as f64;
+
+        assert_ne!(actual_result, 0.0);
+        assert_eq!(actual_result, expected_result)
+    }
+
+
 }

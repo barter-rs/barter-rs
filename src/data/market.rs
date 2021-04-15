@@ -9,6 +9,7 @@ use crate::data::error::DataError;
 /// & Portfolio to interpret.
 #[derive(Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct MarketEvent {
+    pub event_type: &'static str,
     pub trace_id: Uuid,
     pub timestamp: DateTime<Utc>,
     pub exchange: String,
@@ -19,6 +20,7 @@ pub struct MarketEvent {
 impl Default for MarketEvent {
     fn default() -> Self {
         Self {
+            event_type: MarketEvent::EVENT_TYPE,
             trace_id: Uuid::new_v4(),
             timestamp: Utc::now(),
             exchange: String::from("BINANCE"),
@@ -29,6 +31,8 @@ impl Default for MarketEvent {
 }
 
 impl MarketEvent {
+    pub const EVENT_TYPE: &'static str = "MarketEvent";
+
     /// Returns a [MarketEventBuilder] instance.
     pub fn builder() -> MarketEventBuilder {
         MarketEventBuilder::new()
@@ -95,6 +99,7 @@ impl MarketEventBuilder {
             self.bar
         ) {
             Ok(MarketEvent {
+                event_type: MarketEvent::EVENT_TYPE,
                 trace_id,
                 timestamp,
                 exchange,
