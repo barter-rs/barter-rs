@@ -18,6 +18,7 @@ impl FillGenerator for SimulatedExecution {
     fn generate_fill(&self, order: &OrderEvent) -> Result<FillEvent, ExecutionError> {
         // Assume for now that all orders are filled at the market price
         Ok(FillEvent {
+            event_type: FillEvent::EVENT_TYPE,
             trace_id: order.trace_id,
             timestamp: Utc::now(),
             exchange: order.exchange.clone(),
