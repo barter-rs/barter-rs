@@ -109,7 +109,30 @@ mod tests {
     }
 
     #[test]
-    fn should_allocate_order_to_enter_close_position_with_correct_quantity() {
+    fn should_allocate_order_to_enter_long_position_with_non_zero_quantity() {
+        let default_order_value = 200.0;
+        let allocator = DefaultAllocator {default_order_value};
+
+        let order_close = 226.753403;
+        let mut input_order = OrderEvent::default();
+        input_order.close = order_close;
+        input_order.decision = Decision::Long;
+
+        let input_signal_strength = 1.0;
+
+        let actual_result = allocator.allocate_order(
+            input_order, None, input_signal_strength
+        ).unwrap().quantity;
+
+        let expected_order_size = ((default_order_value / order_close) * 10000.0).floor() / 10000.0;
+        let expected_result = expected_order_size * input_signal_strength as f64;
+
+        assert_ne!(actual_result, 0.0);
+        assert_eq!(actual_result, expected_result)
+    }
+
+    #[test]
+    fn should_allocate_order_to_enter_short_position_with_correct_quantity() {
         let default_order_value = 1000.0;
         let allocator = DefaultAllocator {default_order_value};
 
@@ -128,4 +151,29 @@ mod tests {
 
         assert_eq!(actual_result, expected_result)
     }
+
+    #[test]
+    fn should_allocate_order_to_enter_short_position_with_with_non_zero_quantity() {
+        let default_order_value = 200.0;
+        let allocator = DefaultAllocator {default_order_value};
+
+        let order_close = 226.753403;
+        let mut input_order = OrderEvent::default();
+        input_order.close = order_close;
+        input_order.decision = Decision::Short;
+
+        let input_signal_strength = 1.0;
+
+        let actual_result = allocator.allocate_order(
+            input_order, None, input_signal_strength
+        ).unwrap().quantity;
+
+        let expected_order_size = ((default_order_value / order_close) * 10000.0).floor() / 10000.0;
+        let expected_result = -expected_order_size * input_signal_strength as f64;
+
+        assert_ne!(actual_result, 0.0);
+        assert_eq!(actual_result, expected_result)
+    }
+
+
 }
