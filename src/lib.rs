@@ -45,12 +45,17 @@
 //! ## Strategy
 //! ```
 //! use barter::strategy::strategy::{Config as StrategyConfig, RSIStrategy, SignalGenerator};
+//! use barter::data::market::MarketEvent;
+//!
 //!
 //! let config = StrategyConfig {
 //!     rsi_period: 14,
 //! };
 //!
 //! let mut strategy = RSIStrategy::new(&config);
+//!
+//! let market_event = MarketEvent::default();
+//!
 //! let signal_event = strategy.generate_signal(&market_event);
 //! ```
 //!
@@ -61,6 +66,8 @@
 //! use barter::portfolio::risk::DefaultRisk;
 //! use barter::portfolio::repository::redis::RedisRepository;
 //! use barter::event::Event;
+//! use barter::portfolio::order::OrderEvent;
+//! use barter::portfolio::repository::redis::Config as RepositoryConfig;
 //!
 //! let components = Components {
 //!     allocator: DefaultAllocator{ default_order_value: 100.0 },
@@ -74,12 +81,14 @@
 //!
 //! let repository = RedisRepository::builder()
 //!     .conn(RedisRepository::setup_redis_connection(&repository_config))
-//!     .build().unwrap();
+//!     .build();
 //!
 //!
 //! let mut portfolio = PersistedMetaPortfolio::new(components, repository);
 //!
-//! match event {
+//! let some_event = Event::Order(OrderEvent::default());
+//!
+//! match some_event {
 //!     Event::Market(market) => {
 //!         portfolio.update_from_market(&market);
 //!     }
@@ -98,10 +107,13 @@
 //! ## Execution
 //! ```
 //! use barter::execution::handler::{SimulatedExecution, FillGenerator};
+//! use barter::portfolio::order::OrderEvent;
 //!
 //! let mut execution = SimulatedExecution::new();
 //!
-//! execution.generate_fill(&order_event);
+//! let order_event = OrderEvent::default();
+//!
+//! let fill_event = execution.generate_fill(&order_event);
 //! ```
 //!
 //! # Examples
