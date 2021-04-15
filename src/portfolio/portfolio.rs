@@ -127,9 +127,6 @@ impl<T> FillUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + Val
         // EXIT SCENARIO - FillEvent for Symbol-Exchange with open Position
         if let Some(mut position) = self.repository.remove_position(&position_id)? {
 
-            println!("\n{:?}", serde_json::to_string(&position).unwrap());
-            println!("{:?}\n", serde_json::to_string(&fill).unwrap());
-
             // Exit Position & persist in repository closed_positions
             position.exit(fill)?;
             self.repository.set_closed_position(&self.id, &position)?;
