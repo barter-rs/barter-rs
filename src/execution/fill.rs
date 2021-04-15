@@ -8,6 +8,7 @@ use crate::strategy::signal::Decision;
 /// so it can apply updates.
 #[derive(Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct FillEvent {
+    pub event_type: &'static str,
     pub trace_id: Uuid,
     pub timestamp: DateTime<Utc>,
     pub exchange: String,
@@ -21,6 +22,7 @@ pub struct FillEvent {
 impl Default for FillEvent {
     fn default() -> Self {
         Self {
+            event_type: FillEvent::EVENT_TYPE,
             trace_id: Uuid::new_v4(),
             timestamp: Utc::now(),
             exchange: String::from("BINANCE"),
@@ -38,6 +40,8 @@ impl Default for FillEvent {
 }
 
 impl FillEvent {
+    pub const EVENT_TYPE: &'static str = "FillEvent";
+
     /// Returns a [FillEventBuilder] instance.
     pub fn builder() -> FillEventBuilder {
         FillEventBuilder::new()
@@ -162,6 +166,7 @@ impl FillEventBuilder {
             self.fees,
         ) {
             Ok(FillEvent {
+                event_type: FillEvent::EVENT_TYPE,
                 trace_id,
                 timestamp,
                 symbol,
