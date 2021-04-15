@@ -127,6 +127,9 @@ impl<T> FillUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + Val
         // EXIT SCENARIO - FillEvent for Symbol-Exchange with open Position
         if let Some(mut position) = self.repository.remove_position(&position_id)? {
 
+            println!("\n{:?}", serde_json::to_string(&position).unwrap());
+            println!("{:?}\n", serde_json::to_string(&fill).unwrap());
+
             // Exit Position & persist in repository closed_positions
             position.exit(fill)?;
             self.repository.set_closed_position(&self.id, &position)?;
@@ -300,10 +303,10 @@ pub fn parse_signal_decisions<'a>(position: &'a Option<&Position>, signals: &'a 
 
     // If an existing Position exists, check for net close signals
     if let Some(position) = position {
-        match position.direction {
-            Direction::Long if signal_close_long.is_some() => return signal_close_long,
-            Direction::Short if signal_close_short.is_some() => return signal_close_short,
-            _ => {}
+        return match position.direction {
+            Direction::Long if signal_close_long.is_some() => signal_close_long,
+            Direction::Short if signal_close_short.is_some() => signal_close_short,
+            _ => None,
         }
     }
 
@@ -913,6 +916,24 @@ mod tests {
     }
 
     #[test]
+    fn parse_signal_decisions_to_none_with_some_long_position_and_long_signal() {
+        // Some(Position)
+        let mut position = Position::default();
+        position.direction = Direction::Long;
+        let position = Some(position);
+        let position = position.as_ref();
+
+        // Signals HashMap
+        let mut signals = HashMap::with_capacity(4);
+        signals.insert(Decision::Long, 1.0);
+        signals.insert(Decision::CloseShort, 1.0);
+
+        let actual = parse_signal_decisions(&position, &signals);
+
+        assert!(actual.is_none())
+    }
+
+    #[test]
     fn parse_signal_decisions_to_net_close_long_with_conflicting_signals() {
         // Some(Position)
         let mut position = Position::default();
@@ -948,6 +969,24 @@ mod tests {
         let actual = parse_signal_decisions(&position, &signals);
 
         assert_eq!(actual.unwrap().0, &Decision::CloseShort);
+    }
+
+    #[test]
+    fn parse_signal_decisions_to_none_with_some_short_position_and_short_signal() {
+        // Some(Position)
+        let mut position = Position::default();
+        position.direction = Direction::Short;
+        let position = Some(position);
+        let position = position.as_ref();
+
+        // Signals HashMap
+        let mut signals = HashMap::with_capacity(4);
+        signals.insert(Decision::CloseLong, 1.0);
+        signals.insert(Decision::Short, 1.0);
+
+        let actual = parse_signal_decisions(&position, &signals);
+
+        assert!(actual.is_none())
     }
 
     #[test]
