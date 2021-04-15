@@ -46,10 +46,12 @@ pub struct Components {
 /// track the it's state, as well as it's own.
 pub struct PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
     /// Unique ID for the [PersistedMetaPortfolio].
-    id: Uuid,
+    pub id: Uuid,
+    /// Starting cash for the Portfolio, used to persist the initial state to the repository.
+    pub starting_cash: f64,
     /// Repository for the [PersistedMetaPortfolio] to persist it's state in. Implements
     /// [PositionHandler], [ValueHandler], and [CashHandler].
-    repository: T,
+    pub repository: T,
     /// Allocation manager implements [OrderAllocator].
     allocation_manager: DefaultAllocator,
     /// Risk manager implements [OrderEvaluator].
@@ -160,6 +162,7 @@ impl<T> PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + Cash
     pub fn new(components: Components, repository: T) -> Self {
         Self {
             id: Uuid::new_v4(),
+            starting_cash: components.starting_cash,
             repository,
             allocation_manager: components.allocator,
             risk_manager: components.risk,
@@ -169,6 +172,13 @@ impl<T> PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + Cash
     /// Returns a [PersistedMetaPortfolio] instance.
     pub fn builder() -> PersistedMetaPortfolioBuilder<T> {
         PersistedMetaPortfolioBuilder::new()
+    }
+
+    /// Persist the initial [PersistedMetaPortfolio] state in the Repository.
+    pub fn initialise(&mut self) -> Result<(), PortfolioError> {
+        self.repository.set_current_cash(&self.id, self.starting_cash)?;
+        self.repository.set_current_value(&self.id, self.starting_cash)?;
+        Ok(())
     }
 
     /// Determines if the Portfolio has any cash to enter a new [Position].
@@ -181,6 +191,7 @@ impl<T> PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + Cash
 /// Builder to construct [PersistedMetaPortfolio] instances.
 pub struct PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHandler {
     id: Option<Uuid>,
+    starting_cash: Option<f64>,
     repository: Option<T>,
     allocation_manager: Option<DefaultAllocator>,
     risk_manager: Option<DefaultRisk>,
@@ -190,6 +201,7 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
     pub fn new() -> Self {
         Self {
             id: None,
+            starting_cash: None,
             repository: None,
             allocation_manager: None,
             risk_manager: None,
@@ -198,6 +210,11 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
 
     pub fn id(mut self, value: Uuid) -> Self {
         self.id = Some(value);
+        self
+    }
+
+    pub fn starting_cash(mut self, value: f64) -> Self {
+        self.starting_cash = Some(value);
         self
     }
 
@@ -219,21 +236,52 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
     pub fn build(self) -> Result<PersistedMetaPortfolio<T>, PortfolioError> {
         if let (
             Some(id),
+            Some(starting_cash),
             Some(repository),
             Some(allocation_manager),
             Some(risk_manager)
         ) = (
             self.id,
+            self.starting_cash,
             self.repository,
             self.allocation_manager,
             self.risk_manager,
         ) {
             Ok(PersistedMetaPortfolio {
                 id,
+                starting_cash,
                 repository,
                 allocation_manager,
                 risk_manager,
             })
+        } else {
+            Err(PortfolioError::BuilderIncomplete)
+        }
+    }
+
+    pub fn build_and_init(self) -> Result<PersistedMetaPortfolio<T>, PortfolioError> {
+        if let (
+            Some(id),
+            Some(starting_cash),
+            Some(repository),
+            Some(allocation_manager),
+            Some(risk_manager)
+        ) = (
+            self.id,
+            self.starting_cash,
+            self.repository,
+            self.allocation_manager,
+            self.risk_manager,
+        ) {
+            let mut portfolio = PersistedMetaPortfolio {
+                id,
+                starting_cash,
+                repository,
+                allocation_manager,
+                risk_manager,
+            };
+            portfolio.initialise()?;
+            Ok(portfolio)
         } else {
             Err(PortfolioError::BuilderIncomplete)
         }
@@ -278,6 +326,7 @@ mod tests {
         set_position: Option<fn(portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError>>,
         get_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
         remove_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
+        set_closed_position: Option<fn(portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError>>,
         set_current_value: Option<fn(portfolio_id: &Uuid, value: f64)  -> Result<(), RepositoryError>>,
         get_current_value: Option<fn(portfolio_id: &Uuid) -> Result<f64, RepositoryError>>,
         set_current_cash: Option<fn(portfolio_id: &Uuid, cash: f64)  -> Result<(), RepositoryError>>,
@@ -311,6 +360,10 @@ mod tests {
         fn remove_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError> {
             self.remove_position.unwrap()(position_id)
         }
+
+        fn set_closed_position(&mut self, portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError> {
+            self.set_closed_position.unwrap()(portfolio_id, position)
+        }
     }
 
     impl ValueHandler for MockRepository {
@@ -339,6 +392,7 @@ mod tests {
         where T: PositionHandler + ValueHandler + CashHandler {
         PersistedMetaPortfolio::builder()
             .id(Uuid::new_v4())
+            .starting_cash(1000.0)
             .repository(mock_repository)
             .allocation_manager(DefaultAllocator{ default_order_value: 100.0 })
             .risk_manager(DefaultRisk{})
