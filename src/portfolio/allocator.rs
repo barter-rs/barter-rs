@@ -2,7 +2,6 @@ use crate::portfolio::order::OrderEvent;
 use crate::portfolio::position::Position;
 use crate::portfolio::error::PortfolioError;
 use crate::strategy::signal::{SignalStrength, Decision};
-
 use serde::Deserialize;
 
 /// Allocates an appropriate OrderEvent quantity.
@@ -23,7 +22,9 @@ pub struct DefaultAllocator {
 impl OrderAllocator for DefaultAllocator {
     fn allocate_order(&self, mut order: OrderEvent, position: Option<&Position>,
                       signal_strength: SignalStrength) -> Result<OrderEvent, PortfolioError> {
-        let default_order_size = (self.default_order_value / order.close).floor();
+        // Calculate exact order_size, then round it to a more appropriate decimal place
+        let default_order_size = (self.default_order_value / order.close);
+        let default_order_size = (default_order_size * 10000.0).floor() / 10000.0;
 
         match order.decision {
             // Entry
@@ -35,6 +36,7 @@ impl OrderAllocator for DefaultAllocator {
             // Exit
             _ => order.quantity = 0.0 - position.unwrap().quantity,
         }
+
         Ok(order)
     }
 }
