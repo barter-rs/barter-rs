@@ -13,6 +13,8 @@ pub trait PositionHandler {
     fn get_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError>;
     /// Remove the [Position] found at it's position_id.
     fn remove_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError>;
+    /// Append a closed [Position] to the Portfolio's closed position list.
+    fn set_closed_position(&mut self, portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError>;
 }
 
 /// Handles the reading & writing of a Portfolio's current value to/from the persistence layer.
@@ -48,17 +50,14 @@ impl PositionHandler for RedisRepository {
     fn set_position(&mut self, portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError> {
         let position_key = determine_position_id(portfolio_id, &position.exchange, &position.symbol);
 
-        let position_value = match serde_json::to_string(position) {
-            Ok(position_str) => position_str,
-            Err(_) => return Err(RepositoryError::JsonSerialisationError)
-        };
+        let position_value = serde_json::to_string(position)
+            .map_err(|_err| RepositoryError::JsonSerialisationError)?;
 
-        let write_result: RedisResult<()> = self.conn.set(position_key, position_value);
+        let result = self.conn
+            .set(position_key, position_value)
+            .map_err(|_err| RepositoryError::WriteError)?;
 
-        match write_result {
-            Ok(_) => Ok(()),
-            Err(_) => Err(RepositoryError::WriteError)
-        }
+        Ok(result)
     }
 
     fn get_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError> {
@@ -83,46 +82,68 @@ impl PositionHandler for RedisRepository {
     fn remove_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError> {
         let position = self.get_position(position_id)?;
 
-        let remove_result: RedisResult<()> = self.conn.del(position_id);
+        self.conn
+            .del(position_id)
+            .map_err(|_err| RepositoryError::DeleteError)?;
 
-        match remove_result {
-            Ok(_) => Ok(position),
-            Err(_) => Err(RepositoryError::DeleteError)
-        }
+        Ok(position)
+    }
+
+    fn set_closed_position(&mut self, portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError> {
+        let closed_positions_key = determine_closed_positions_id(&portfolio_id);
+
+        let position_value = serde_json::to_string(position)
+            .map_err(|_err| RepositoryError::JsonSerialisationError)?;
+
+        let result = self.conn
+            .lpush(closed_positions_key, position_value)
+            .map_err(|_err| RepositoryError::WriteError)?;
+
+        Ok(result)
     }
 }
 
 impl ValueHandler for RedisRepository {
     fn set_current_value(&mut self, portfolio_id: &Uuid, value: f64) -> Result<(), RepositoryError> {
         let current_value_key = determine_value_id(portfolio_id);
-        let write_result: RedisResult<()> = self.conn.set(current_value_key, value);
 
-        match write_result {
-            Ok(_) => Ok(()),
-            Err(_) => Err(RepositoryError::WriteError)
-        }
+        let result = self.conn
+            .set(current_value_key, value)
+            .map_err(|_err| RepositoryError::WriteError)?;
+
+        Ok(result)
     }
 
     fn get_current_value(&mut self, portfolio_id: &Uuid) -> Result<f64, RepositoryError> {
         let current_value_key = determine_value_id(portfolio_id);
-        RedisRepository::parse_read_f64_result(self.conn.get(current_value_key))
+
+        let current_value: f64 = self.conn
+            .get(current_value_key)
+            .map_err(|_err| RepositoryError::ReadError)?;
+
+        Ok(current_value)
     }
 }
 
 impl CashHandler for RedisRepository {
     fn set_current_cash(&mut self, portfolio_id: &Uuid, cash: f64) -> Result<(), RepositoryError> {
         let current_cash_key = determine_cash_id(portfolio_id);
-        let write_result: RedisResult<()> = self.conn.set(current_cash_key, cash);
 
-        match write_result {
-            Ok(_) => Ok(()),
-            Err(_) => Err(RepositoryError::WriteError)
-        }
+        let result = self.conn
+            .set(current_cash_key, cash)
+            .map_err(|_err| RepositoryError::WriteError)?;
+
+        Ok(result)
     }
 
     fn get_current_cash(&mut self, portfolio_id: &Uuid) -> Result<f64, RepositoryError> {
         let current_cash_key = determine_cash_id(portfolio_id);
-        RedisRepository::parse_read_f64_result(self.conn.get(current_cash_key))
+
+        let current_cash = self.conn
+            .get(current_cash_key)
+            .map_err(|_err| RepositoryError::ReadError)?;
+
+        Ok(current_cash)
     }
 }
 
@@ -146,14 +167,6 @@ impl RedisRepository {
             .expect("Failed to create Redis client")
             .get_connection()
             .expect("Failed to connect to Redis")
-    }
-
-    /// Parses a f64 [RedisResult] and returns a regular Result<f64>.
-    pub fn parse_read_f64_result(result: RedisResult<f64>) -> Result<f64, RepositoryError> {
-        match result {
-            Ok(f64_value) => Ok(f64_value),
-            Err(_) => Err(RepositoryError::ReadError)
-        }
     }
 }
 
@@ -187,7 +200,12 @@ impl RedisRepositoryBuilder {
 
 /// Returns a [Position] unique identifier given a portfolio_id, exchange & symbol.
 pub fn determine_position_id(portfolio_id: &Uuid, exchange: &String, symbol: &String) -> String {
-    format!("{}_{}_{}", portfolio_id.to_string(), exchange, symbol)
+    format!("{}_{}_{}_{}", portfolio_id.to_string(), exchange, symbol, "position")
+}
+
+/// Returns a unique identifier for a Portfolio's closed positions, given a portfolio_id.
+pub fn determine_closed_positions_id(portfolio_id: &Uuid) -> String {
+    format!("{}_closed_positions", portfolio_id.to_string())
 }
 
 /// Returns a unique identifier for a Portfolio's current value, given a portfolio_id.
@@ -195,7 +213,7 @@ pub fn determine_value_id(portfolio_id: &Uuid) -> String {
     format!("{}_value", portfolio_id.to_string())
 }
 
-/// Returns a unique identifier for a Portfolio's current cash, given a portfolio_id.
+/// Returns a unique identifier for a Portfolio's current cash, given a portfolio_id.\
 pub fn determine_cash_id(portfolio_id: &Uuid) -> String {
     format!("{}_cash", portfolio_id.to_string())
 }
