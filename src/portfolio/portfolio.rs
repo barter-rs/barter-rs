@@ -127,8 +127,9 @@ impl<T> FillUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + Val
         // EXIT SCENARIO - FillEvent for Symbol-Exchange with open Position
         if let Some(mut position) = self.repository.remove_position(&position_id)? {
 
-            // Exit Position
+            // Exit Position & persist in repository closed_positions
             position.exit(fill)?;
+            self.repository.set_closed_position(&self.id, &position)?;
 
             // Update Portfolio cash on exit - + enter_total_fees since included in result PnL
             current_cash += position.enter_value_gross + position.result_profit_loss + position.enter_fees_total;
@@ -415,7 +416,7 @@ mod tests {
                 input_position
             })
         )});
-        mock_repository.set_position = Some(|_, _| {Ok(())});
+        mock_repository.set_position = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
@@ -448,7 +449,7 @@ mod tests {
                 input_position
             })
         )});
-        mock_repository.set_position = Some(|_, _| {Ok(())});
+        mock_repository.set_position = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
@@ -481,7 +482,7 @@ mod tests {
                 input_position
             })
         )});
-        mock_repository.set_position = Some(|_, _| {Ok(())});
+        mock_repository.set_position = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
@@ -514,7 +515,7 @@ mod tests {
                 input_position
             })
         )});
-        mock_repository.set_position = Some(|_, _| {Ok(())});
+        mock_repository.set_position = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
@@ -535,8 +536,8 @@ mod tests {
     fn generate_no_order_with_no_position_and_no_cash() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_position = Some(|_| {Ok(None)});
-        mock_repository.get_current_cash = Some(|_| {Ok(0.0)});
+        mock_repository.get_position = Some(|_| Ok(None));
+        mock_repository.get_current_cash = Some(|_| Ok(0.0));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -551,8 +552,8 @@ mod tests {
     fn generate_no_order_with_position_and_no_cash() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_position = Some(|_| {Ok(Some(Position::default()))});
-        mock_repository.get_current_cash = Some(|_| {Ok(0.0)});
+        mock_repository.get_position = Some(|_| Ok(Some(Position::default())));
+        mock_repository.get_current_cash = Some(|_| Ok(0.0));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -567,8 +568,8 @@ mod tests {
     fn generate_order_long_with_no_position_and_input_net_long_signal() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_position = Some(|_| {Ok(None)});
-        mock_repository.get_current_cash = Some(|_| {Ok(100.0)});
+        mock_repository.get_position = Some(|_| Ok(None));
+        mock_repository.get_current_cash = Some(|_| Ok(100.0));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -584,8 +585,8 @@ mod tests {
     fn generate_order_short_with_no_position_and_input_net_short_signal() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_position = Some(|_| {Ok(None)});
-        mock_repository.get_current_cash = Some(|_| {Ok(100.0)});
+        mock_repository.get_position = Some(|_| Ok(None));
+        mock_repository.get_current_cash = Some(|_| Ok(100.0));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -608,7 +609,7 @@ mod tests {
                 position
             })
         )});
-        mock_repository.get_current_cash = Some(|_| {Ok(100.0)});
+        mock_repository.get_current_cash = Some(|_| Ok(100.0));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -631,7 +632,7 @@ mod tests {
                 position
             })
         )});
-        mock_repository.get_current_cash = Some(|_| {Ok(100.0)});
+        mock_repository.get_current_cash = Some(|_| Ok(100.0));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -647,12 +648,12 @@ mod tests {
     fn update_from_fill_entering_long_position() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_current_cash = Some(|_| {Ok(200.0)});
-        mock_repository.get_current_value = Some(|_| {Ok(200.0)});
-        mock_repository.remove_position = Some(|_| {Ok(None)});
-        mock_repository.set_position = Some(|_, _| {Ok(())});
-        mock_repository.set_current_value = Some(|_, _| {Ok(())});
-        mock_repository.set_current_cash = Some(|_, _| {Ok(())});
+        mock_repository.get_current_cash = Some(|_| Ok(200.0));
+        mock_repository.get_current_value = Some(|_| Ok(200.0));
+        mock_repository.remove_position = Some(|_| Ok(None));
+        mock_repository.set_position = Some(|_, _| Ok(()));
+        mock_repository.set_current_value = Some(|_, _| Ok(()));
+        mock_repository.set_current_cash = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -682,12 +683,12 @@ mod tests {
     fn update_from_fill_entering_short_position() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_current_cash = Some(|_| {Ok(200.0)});
-        mock_repository.get_current_value = Some(|_| {Ok(200.0)});
-        mock_repository.remove_position = Some(|_| {Ok(None)});
-        mock_repository.set_position = Some(|_, _| {Ok(())});
-        mock_repository.set_current_value = Some(|_, _| {Ok(())});
-        mock_repository.set_current_cash = Some(|_, _| {Ok(())});
+        mock_repository.get_current_cash = Some(|_| Ok(200.0));
+        mock_repository.get_current_value = Some(|_| Ok(200.0));
+        mock_repository.remove_position = Some(|_| Ok(None));
+        mock_repository.set_position = Some(|_, _| Ok(()));
+        mock_repository.set_current_value = Some(|_, _| Ok(()));
+        mock_repository.set_current_cash = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -717,8 +718,8 @@ mod tests {
     fn update_from_fill_exiting_long_position_in_profit() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_current_cash = Some(|_| {Ok(97.0)});
-        mock_repository.get_current_value = Some(|_| {Ok(200.0)});
+        mock_repository.get_current_cash = Some(|_| Ok(97.0));
+        mock_repository.get_current_value = Some(|_| Ok(200.0));
         mock_repository.remove_position = Some(|_| {Ok({
             Some({
                 let mut input_position = Position::default();
@@ -729,8 +730,9 @@ mod tests {
                 input_position
             })
         })});
-        mock_repository.set_current_value = Some(|_, _| {Ok(())});
-        mock_repository.set_current_cash = Some(|_, _| {Ok(())});
+        mock_repository.set_closed_position = Some(|_, _| Ok(()));
+        mock_repository.set_current_value = Some(|_, _| Ok(()));
+        mock_repository.set_current_cash = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -761,8 +763,8 @@ mod tests {
     fn update_from_fill_exiting_long_position_in_loss() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_current_cash = Some(|_| {Ok(97.0)});
-        mock_repository.get_current_value = Some(|_| {Ok(200.0)});
+        mock_repository.get_current_cash = Some(|_| Ok(97.0));
+        mock_repository.get_current_value = Some(|_| Ok(200.0));
         mock_repository.remove_position = Some(|_| {Ok({
             Some({
                 let mut input_position = Position::default();
@@ -773,8 +775,9 @@ mod tests {
                 input_position
             })
         })});
-        mock_repository.set_current_value = Some(|_, _| {Ok(())});
-        mock_repository.set_current_cash = Some(|_, _| {Ok(())});
+        mock_repository.set_closed_position = Some(|_, _| Ok(()));
+        mock_repository.set_current_value = Some(|_, _| Ok(()));
+        mock_repository.set_current_cash = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -805,8 +808,8 @@ mod tests {
     fn update_from_fill_exiting_short_position_in_profit() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_current_cash = Some(|_| {Ok(97.0)});
-        mock_repository.get_current_value = Some(|_| {Ok(200.0)});
+        mock_repository.get_current_cash = Some(|_| Ok(97.0));
+        mock_repository.get_current_value = Some(|_| Ok(200.0));
         mock_repository.remove_position = Some(|_| {Ok({
             Some({
                 let mut input_position = Position::default();
@@ -817,8 +820,9 @@ mod tests {
                 input_position
             })
         })});
-        mock_repository.set_current_value = Some(|_, _| {Ok(())});
-        mock_repository.set_current_cash = Some(|_, _| {Ok(())});
+        mock_repository.set_closed_position = Some(|_, _| Ok(()));
+        mock_repository.set_current_value = Some(|_, _| Ok(()));
+        mock_repository.set_current_cash = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -849,8 +853,8 @@ mod tests {
     fn update_from_fill_exiting_short_position_in_loss() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_current_cash = Some(|_| {Ok(97.0)});
-        mock_repository.get_current_value = Some(|_| {Ok(200.0)});
+        mock_repository.get_current_cash = Some(|_| Ok(97.0));
+        mock_repository.get_current_value = Some(|_| Ok(200.0));
         mock_repository.remove_position = Some(|_| {Ok({
             Some({
                 let mut input_position = Position::default();
@@ -861,8 +865,9 @@ mod tests {
                 input_position
             })
         })});
-        mock_repository.set_current_value = Some(|_, _| {Ok(())});
-        mock_repository.set_current_cash = Some(|_, _| {Ok(())});
+        mock_repository.set_closed_position = Some(|_, _| Ok(()));
+        mock_repository.set_current_value = Some(|_, _| Ok(()));
+        mock_repository.set_current_cash = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
