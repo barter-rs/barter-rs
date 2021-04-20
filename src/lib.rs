@@ -68,6 +68,7 @@
 //! use barter::event::Event;
 //! use barter::portfolio::order::OrderEvent;
 //! use barter::portfolio::repository::redis::Config as RepositoryConfig;
+//! use barter::portfolio::repository::in_memory::InMemoryRepository;
 //!
 //! let components = Components {
 //!     allocator: DefaultAllocator{ default_order_value: 100.0 },
@@ -75,14 +76,7 @@
 //!     starting_cash: 10000.0,
 //! };
 //!
-//! let repository_config = RepositoryConfig {
-//!     uri: "redis://127.0.0.1:6969".to_string(),
-//! };
-//!
-//! let repository = RedisRepository::builder()
-//!     .conn(RedisRepository::setup_redis_connection(&repository_config))
-//!     .build();
-//!
+//! let repository = InMemoryRepository::new();
 //!
 //! let mut portfolio = MetaPortfolio::new(components, repository);
 //!
