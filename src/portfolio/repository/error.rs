@@ -17,4 +17,7 @@ pub enum RepositoryError {
 
     #[error("Failed to delete data from the repository")]
     DeleteError,
+
+    #[error("Failed to retrieve expected data due to it not being present")]
+    ExpectedDataNotPresentError
 }
