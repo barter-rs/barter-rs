@@ -119,7 +119,7 @@ impl<T> OrderGenerator for MetaPortfolio<T> where T: PositionHandler + ValueHand
 impl<T> FillUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
     fn update_from_fill(&mut self, fill: &FillEvent) -> Result<(), PortfolioError> {
 
-        // Get the Portfolio Cash from repository
+        // Get the Portfolio Cash from Repository
         let mut current_cash = self.repository.get_current_cash(&self.id)?;
 
         // Determine the position_id that is related to the input FillEvent
@@ -128,14 +128,14 @@ impl<T> FillUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler
         // EXIT SCENARIO - FillEvent for Symbol-Exchange with open Position
         if let Some(mut position) = self.repository.remove_position(&position_id)? {
 
-            // Exit Position & persist in repository closed_positions
+            // Exit Position & persist in Repository closed_positions
             position.exit(fill)?;
             self.repository.set_closed_position(&self.id, &position)?;
 
-            // Update Portfolio cash on exit - + enter_total_fees since included in result PnL
+            // Update Portfolio cash on exit - enter_total_fees added since included in result PnL calc
             current_cash += position.enter_value_gross + position.result_profit_loss + position.enter_fees_total;
 
-            // Update Portfolio cash on exit & persist in repository
+            // Update Portfolio value on exit & persist in Repository
             let mut current_value = self.repository.get_current_value(&self.id)?;
             current_value += position.result_profit_loss;
             self.repository.set_current_value(&self.id, current_value)?;
@@ -148,11 +148,11 @@ impl<T> FillUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler
             // Update Portfolio cash entry
             current_cash += -position.enter_value_gross - position.enter_fees_total;
 
-            // Add to current Positions in repository
+            // Add to current Positions in Repository
             self.repository.set_position(&self.id, &position)?;
         }
 
-        // Persist updated Portfolio cash in repository
+        // Persist updated Portfolio cash in Repository
         self.repository.set_current_cash(&self.id, current_cash)?;
 
         Ok(())
