@@ -61,13 +61,14 @@
 //!
 //! ## Portfolio
 //! ```
-//! use barter::portfolio::portfolio::{Components, PersistedMetaPortfolio, MarketUpdater, OrderGenerator, FillUpdater};
+//! use barter::portfolio::portfolio::{Components, MetaPortfolio, MarketUpdater, OrderGenerator, FillUpdater};
 //! use barter::portfolio::allocator::DefaultAllocator;
 //! use barter::portfolio::risk::DefaultRisk;
 //! use barter::portfolio::repository::redis::RedisRepository;
 //! use barter::event::Event;
 //! use barter::portfolio::order::OrderEvent;
 //! use barter::portfolio::repository::redis::Config as RepositoryConfig;
+//! use barter::portfolio::repository::in_memory::InMemoryRepository;
 //!
 //! let components = Components {
 //!     allocator: DefaultAllocator{ default_order_value: 100.0 },
@@ -75,16 +76,9 @@
 //!     starting_cash: 10000.0,
 //! };
 //!
-//! let repository_config = RepositoryConfig {
-//!     uri: "redis://127.0.0.1:6969".to_string(),
-//! };
+//! let repository = InMemoryRepository::new();
 //!
-//! let repository = RedisRepository::builder()
-//!     .conn(RedisRepository::setup_redis_connection(&repository_config))
-//!     .build();
-//!
-//!
-//! let mut portfolio = PersistedMetaPortfolio::new(components, repository);
+//! let mut portfolio = MetaPortfolio::new(components, repository);
 //!
 //! let some_event = Event::Order(OrderEvent::default());
 //!
@@ -134,7 +128,7 @@ pub mod strategy;
 /// Defines useful data structures such as an OrderEvent and Position. The Portfolio must
 /// interact with MarketEvents, SignalEvents, OrderEvents, and FillEvents. The useful traits
 /// MarketUpdater, OrderGenerator, & FillUpdater are provided that define the interactions
-/// with these events. Contains a PersistedMetaPortfolio implementation that persists state in a
+/// with these events. Contains a MetaPortfolio implementation that persists state in a
 /// RedisRepository. This also contains example implementations of a OrderAllocator &
 /// OrderEvaluator, and help the Portfolio make decisions on whether to generate OrderEvents and
 /// of what size.

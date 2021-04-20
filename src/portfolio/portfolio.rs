@@ -32,7 +32,7 @@ pub trait FillUpdater {
     fn update_from_fill(&mut self, fill: &FillEvent) -> Result<(), PortfolioError>;
 }
 
-/// Components for construction a [PersistedMetaPortfolio] via the new() constructor method.
+/// Components for construction a [MetaPortfolio] via the new() constructor method.
 #[derive(Debug)]
 pub struct Components {
     pub allocator: DefaultAllocator,
@@ -44,12 +44,12 @@ pub struct Components {
 /// and [FillUpdater]. The Portfolio analyses an advisory [SignalEvent] from a Strategy and decides
 /// whether to place a corresponding [OrderEvent]. If a [Position] is opened, the Portfolio keeps
 /// track the it's state, as well as it's own.
-pub struct PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
-    /// Unique ID for the [PersistedMetaPortfolio].
+pub struct MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+    /// Unique ID for the [MetaPortfolio].
     pub id: Uuid,
     /// Starting cash for the Portfolio, used to persist the initial state to the repository.
     pub starting_cash: f64,
-    /// Repository for the [PersistedMetaPortfolio] to persist it's state in. Implements
+    /// Repository for the [MetaPortfolio] to persist it's state in. Implements
     /// [PositionHandler], [ValueHandler], and [CashHandler].
     pub repository: T,
     /// Allocation manager implements [OrderAllocator].
@@ -58,7 +58,7 @@ pub struct PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + C
     risk_manager: DefaultRisk,
 }
 
-impl<T> MarketUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+impl<T> MarketUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
     fn update_from_market(&mut self, market: &MarketEvent) -> Result<(), PortfolioError> {
         // Determine the position_id & associated Option<Position> related to the input MarketEvent
         let position_id = determine_position_id(&self.id, &market.exchange, &market.symbol);
@@ -68,14 +68,14 @@ impl<T> MarketUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + V
 
             // Update Position
             position.update(market);
-            self.repository.set_position(&self.id, &position)?;
+            self.repository.set_position(&self.id, position)?;
         }
 
         Ok(())
     }
 }
 
-impl<T> OrderGenerator for PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+impl<T> OrderGenerator for MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
     fn generate_order(&mut self, signal: &SignalEvent) -> Result<Option<OrderEvent>, PortfolioError> {
         // Determine the position_id & associated Option<Position> related to input SignalEvent
         let position_id = determine_position_id(&self.id, &signal.exchange, &signal.symbol);
@@ -116,10 +116,10 @@ impl<T> OrderGenerator for PersistedMetaPortfolio<T> where T: PositionHandler + 
     }
 }
 
-impl<T> FillUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+impl<T> FillUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
     fn update_from_fill(&mut self, fill: &FillEvent) -> Result<(), PortfolioError> {
 
-        // Get the Portfolio Cash from repository
+        // Get the Portfolio Cash from Repository
         let mut current_cash = self.repository.get_current_cash(&self.id)?;
 
         // Determine the position_id that is related to the input FillEvent
@@ -128,16 +128,18 @@ impl<T> FillUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + Val
         // EXIT SCENARIO - FillEvent for Symbol-Exchange with open Position
         if let Some(mut position) = self.repository.remove_position(&position_id)? {
 
-            // Exit Position & persist in repository closed_positions
+            // Exit Position & persist in Repository closed_positions
             position.exit(fill)?;
-            self.repository.set_closed_position(&self.id, &position)?;
 
-            // Update Portfolio cash on exit - + enter_total_fees since included in result PnL
+            // Update Portfolio cash on exit - enter_total_fees added since included in result PnL calc
             current_cash += position.enter_value_gross + position.result_profit_loss + position.enter_fees_total;
 
-            // Update Portfolio cash on exit & persist in repository
+            // Update Portfolio value on exit & persist in Repository
             let mut current_value = self.repository.get_current_value(&self.id)?;
             current_value += position.result_profit_loss;
+
+            // Persist updated Portfolio value & exited Position in Repository
+            self.repository.set_closed_position(&self.id, position)?;
             self.repository.set_current_value(&self.id, current_value)?;
         }
 
@@ -148,19 +150,19 @@ impl<T> FillUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + Val
             // Update Portfolio cash entry
             current_cash += -position.enter_value_gross - position.enter_fees_total;
 
-            // Add to current Positions in repository
-            self.repository.set_position(&self.id, &position)?;
+            // Add to current Positions in Repository
+            self.repository.set_position(&self.id, position)?;
         }
 
-        // Persist updated Portfolio cash in repository
+        // Persist updated Portfolio cash in Repository
         self.repository.set_current_cash(&self.id, current_cash)?;
 
         Ok(())
     }
 }
 
-impl<T> PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
-    /// Constructs a new [PersistedMetaPortfolio] component using the provided [Components] struct.
+impl<T> MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+    /// Constructs a new [MetaPortfolio] component using the provided [Components] struct.
     pub fn new(components: Components, repository: T) -> Self {
         Self {
             id: Uuid::new_v4(),
@@ -171,12 +173,12 @@ impl<T> PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + Cash
         }
     }
 
-    /// Returns a [PersistedMetaPortfolio] instance.
-    pub fn builder() -> PersistedMetaPortfolioBuilder<T> {
-        PersistedMetaPortfolioBuilder::new()
+    /// Returns a [MetaPortfolio] instance.
+    pub fn builder() -> MetaPortfolioBuilder<T> {
+        MetaPortfolioBuilder::new()
     }
 
-    /// Persist the initial [PersistedMetaPortfolio] state in the Repository.
+    /// Persist the initial [MetaPortfolio] state in the Repository.
     pub fn initialise(&mut self) -> Result<(), PortfolioError> {
         self.repository.set_current_cash(&self.id, self.starting_cash)?;
         self.repository.set_current_value(&self.id, self.starting_cash)?;
@@ -190,8 +192,8 @@ impl<T> PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + Cash
     }
 }
 
-/// Builder to construct [PersistedMetaPortfolio] instances.
-pub struct PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHandler {
+/// Builder to construct [MetaPortfolio] instances.
+pub struct MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHandler {
     id: Option<Uuid>,
     starting_cash: Option<f64>,
     repository: Option<T>,
@@ -199,7 +201,7 @@ pub struct PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHand
     risk_manager: Option<DefaultRisk>,
 }
 
-impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHandler {
+impl<T> MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHandler {
     pub fn new() -> Self {
         Self {
             id: None,
@@ -235,7 +237,7 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
         self
     }
 
-    pub fn build(self) -> Result<PersistedMetaPortfolio<T>, PortfolioError> {
+    pub fn build(self) -> Result<MetaPortfolio<T>, PortfolioError> {
         if let (
             Some(id),
             Some(starting_cash),
@@ -249,7 +251,7 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
             self.allocation_manager,
             self.risk_manager,
         ) {
-            Ok(PersistedMetaPortfolio {
+            Ok(MetaPortfolio {
                 id,
                 starting_cash,
                 repository,
@@ -261,7 +263,7 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
         }
     }
 
-    pub fn build_and_init(self) -> Result<PersistedMetaPortfolio<T>, PortfolioError> {
+    pub fn build_and_init(self) -> Result<MetaPortfolio<T>, PortfolioError> {
         if let (
             Some(id),
             Some(starting_cash),
@@ -275,7 +277,7 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
             self.allocation_manager,
             self.risk_manager,
         ) {
-            let mut portfolio = PersistedMetaPortfolio {
+            let mut portfolio = MetaPortfolio {
                 id,
                 starting_cash,
                 repository,
@@ -325,10 +327,10 @@ mod tests {
 
     #[derive(Default)]
     struct MockRepository {
-        set_position: Option<fn(portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError>>,
+        set_position: Option<fn(portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>>,
         get_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
         remove_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
-        set_closed_position: Option<fn(portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError>>,
+        set_closed_position: Option<fn(portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>>,
         set_current_value: Option<fn(portfolio_id: &Uuid, value: f64)  -> Result<(), RepositoryError>>,
         get_current_value: Option<fn(portfolio_id: &Uuid) -> Result<f64, RepositoryError>>,
         set_current_cash: Option<fn(portfolio_id: &Uuid, cash: f64)  -> Result<(), RepositoryError>>,
@@ -339,7 +341,7 @@ mod tests {
     }
 
     impl PositionHandler for MockRepository {
-        fn set_position(&mut self, portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError> {
+        fn set_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
             self.position = Some(Position::builder()
                 .direction(position.direction.clone())
                 .current_symbol_price(position.current_symbol_price)
@@ -363,7 +365,7 @@ mod tests {
             self.remove_position.unwrap()(position_id)
         }
 
-        fn set_closed_position(&mut self, portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError> {
+        fn set_closed_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
             self.set_closed_position.unwrap()(portfolio_id, position)
         }
     }
@@ -390,9 +392,9 @@ mod tests {
         }
     }
 
-    fn build_mocked_portfolio<T>(mock_repository: T) -> Result<PersistedMetaPortfolio<T>, PortfolioError>
+    fn build_mocked_portfolio<T>(mock_repository: T) -> Result<MetaPortfolio<T>, PortfolioError>
         where T: PositionHandler + ValueHandler + CashHandler {
-        PersistedMetaPortfolio::builder()
+        MetaPortfolio::builder()
             .id(Uuid::new_v4())
             .starting_cash(1000.0)
             .repository(mock_repository)
