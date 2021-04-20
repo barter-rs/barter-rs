@@ -68,7 +68,7 @@ impl<T> MarketUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandl
 
             // Update Position
             position.update(market);
-            self.repository.set_position(&self.id, &position)?;
+            self.repository.set_position(&self.id, position)?;
         }
 
         Ok(())
@@ -130,7 +130,6 @@ impl<T> FillUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler
 
             // Exit Position & persist in Repository closed_positions
             position.exit(fill)?;
-            self.repository.set_closed_position(&self.id, &position)?;
 
             // Update Portfolio cash on exit - enter_total_fees added since included in result PnL calc
             current_cash += position.enter_value_gross + position.result_profit_loss + position.enter_fees_total;
@@ -138,6 +137,9 @@ impl<T> FillUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler
             // Update Portfolio value on exit & persist in Repository
             let mut current_value = self.repository.get_current_value(&self.id)?;
             current_value += position.result_profit_loss;
+
+            // Persist updated Portfolio value & exited Position in Repository
+            self.repository.set_closed_position(&self.id, position)?;
             self.repository.set_current_value(&self.id, current_value)?;
         }
 
@@ -149,7 +151,7 @@ impl<T> FillUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler
             current_cash += -position.enter_value_gross - position.enter_fees_total;
 
             // Add to current Positions in Repository
-            self.repository.set_position(&self.id, &position)?;
+            self.repository.set_position(&self.id, position)?;
         }
 
         // Persist updated Portfolio cash in Repository
@@ -325,10 +327,10 @@ mod tests {
 
     #[derive(Default)]
     struct MockRepository {
-        set_position: Option<fn(portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError>>,
+        set_position: Option<fn(portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>>,
         get_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
         remove_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
-        set_closed_position: Option<fn(portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError>>,
+        set_closed_position: Option<fn(portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>>,
         set_current_value: Option<fn(portfolio_id: &Uuid, value: f64)  -> Result<(), RepositoryError>>,
         get_current_value: Option<fn(portfolio_id: &Uuid) -> Result<f64, RepositoryError>>,
         set_current_cash: Option<fn(portfolio_id: &Uuid, cash: f64)  -> Result<(), RepositoryError>>,
@@ -339,7 +341,7 @@ mod tests {
     }
 
     impl PositionHandler for MockRepository {
-        fn set_position(&mut self, portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError> {
+        fn set_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
             self.position = Some(Position::builder()
                 .direction(position.direction.clone())
                 .current_symbol_price(position.current_symbol_price)
@@ -363,7 +365,7 @@ mod tests {
             self.remove_position.unwrap()(position_id)
         }
 
-        fn set_closed_position(&mut self, portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError> {
+        fn set_closed_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
             self.set_closed_position.unwrap()(portfolio_id, position)
         }
     }
