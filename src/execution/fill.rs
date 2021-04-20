@@ -49,7 +49,7 @@ impl FillEvent {
 }
 
 /// All potential fees incurred by a [FillEvent].
-#[derive(Debug, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct Fees {
     /// Fee taken by the exchange/broker (eg/ commission).
     pub exchange: FeeAmount,
