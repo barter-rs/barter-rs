@@ -41,7 +41,7 @@ impl Default for Direction {
 pub type PositionValueChange = f64;
 
 /// Data encapsulating an ongoing or closed Position..
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Position {
     /// Trace UUID of the last event to trigger a [Position] update.
     pub last_update_trace_id: Uuid,
