@@ -8,13 +8,13 @@ use redis::{RedisResult, ErrorKind, Connection, Commands};
 /// Handles the reading & writing of a [Position] to/from the persistence layer.
 pub trait PositionHandler {
     /// Upsert the [Position] at it's position_id.
-    fn set_position(&mut self, portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError>;
+    fn set_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>;
     /// Get the [Position] using it's position_id.
     fn get_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError>;
     /// Remove the [Position] found at it's position_id.
     fn remove_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError>;
     /// Append a closed [Position] to the Portfolio's closed position list.
-    fn set_closed_position(&mut self, portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError>;
+    fn set_closed_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>;
 }
 
 /// Handles the reading & writing of a Portfolio's current value to/from the persistence layer.
@@ -47,10 +47,10 @@ pub struct RedisRepository {
 }
 
 impl PositionHandler for RedisRepository {
-    fn set_position(&mut self, portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError> {
+    fn set_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
         let position_key = determine_position_id(portfolio_id, &position.exchange, &position.symbol);
 
-        let position_value = serde_json::to_string(position)
+        let position_value = serde_json::to_string(&position)
             .map_err(|_err| RepositoryError::JsonSerialisationError)?;
 
         let result = self.conn
@@ -89,10 +89,10 @@ impl PositionHandler for RedisRepository {
         Ok(position)
     }
 
-    fn set_closed_position(&mut self, portfolio_id: &Uuid, position: &Position) -> Result<(), RepositoryError> {
+    fn set_closed_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
         let closed_positions_key = determine_closed_positions_id(&portfolio_id);
 
-        let position_value = serde_json::to_string(position)
+        let position_value = serde_json::to_string(&position)
             .map_err(|_err| RepositoryError::JsonSerialisationError)?;
 
         let result = self.conn
@@ -148,12 +148,11 @@ impl CashHandler for RedisRepository {
 }
 
 impl RedisRepository {
-    /// Constructs a new [RedisRepository] component using the provided configuration struct.
-    pub fn new(connection: Connection) -> RedisRepository {
-        RedisRepository::builder()
-            .conn(connection)
-            .build()
-            .expect("Failed to build RedisRepository")
+    /// Constructs a new [RedisRepository] component using the provided Redis connection struct.
+    pub fn new(connection: Connection) -> Self {
+        Self {
+            conn: connection
+        }
     }
 
     /// Returns a [RedisRepositoryBuilder] instance.
