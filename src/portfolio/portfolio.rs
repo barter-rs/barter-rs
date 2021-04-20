@@ -32,7 +32,7 @@ pub trait FillUpdater {
     fn update_from_fill(&mut self, fill: &FillEvent) -> Result<(), PortfolioError>;
 }
 
-/// Components for construction a [PersistedMetaPortfolio] via the new() constructor method.
+/// Components for construction a [MetaPortfolio] via the new() constructor method.
 #[derive(Debug)]
 pub struct Components {
     pub allocator: DefaultAllocator,
@@ -44,12 +44,12 @@ pub struct Components {
 /// and [FillUpdater]. The Portfolio analyses an advisory [SignalEvent] from a Strategy and decides
 /// whether to place a corresponding [OrderEvent]. If a [Position] is opened, the Portfolio keeps
 /// track the it's state, as well as it's own.
-pub struct PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
-    /// Unique ID for the [PersistedMetaPortfolio].
+pub struct MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+    /// Unique ID for the [MetaPortfolio].
     pub id: Uuid,
     /// Starting cash for the Portfolio, used to persist the initial state to the repository.
     pub starting_cash: f64,
-    /// Repository for the [PersistedMetaPortfolio] to persist it's state in. Implements
+    /// Repository for the [MetaPortfolio] to persist it's state in. Implements
     /// [PositionHandler], [ValueHandler], and [CashHandler].
     pub repository: T,
     /// Allocation manager implements [OrderAllocator].
@@ -58,7 +58,7 @@ pub struct PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + C
     risk_manager: DefaultRisk,
 }
 
-impl<T> MarketUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+impl<T> MarketUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
     fn update_from_market(&mut self, market: &MarketEvent) -> Result<(), PortfolioError> {
         // Determine the position_id & associated Option<Position> related to the input MarketEvent
         let position_id = determine_position_id(&self.id, &market.exchange, &market.symbol);
@@ -75,7 +75,7 @@ impl<T> MarketUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + V
     }
 }
 
-impl<T> OrderGenerator for PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+impl<T> OrderGenerator for MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
     fn generate_order(&mut self, signal: &SignalEvent) -> Result<Option<OrderEvent>, PortfolioError> {
         // Determine the position_id & associated Option<Position> related to input SignalEvent
         let position_id = determine_position_id(&self.id, &signal.exchange, &signal.symbol);
@@ -116,7 +116,7 @@ impl<T> OrderGenerator for PersistedMetaPortfolio<T> where T: PositionHandler + 
     }
 }
 
-impl<T> FillUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+impl<T> FillUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
     fn update_from_fill(&mut self, fill: &FillEvent) -> Result<(), PortfolioError> {
 
         // Get the Portfolio Cash from repository
@@ -159,8 +159,8 @@ impl<T> FillUpdater for PersistedMetaPortfolio<T> where T: PositionHandler + Val
     }
 }
 
-impl<T> PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
-    /// Constructs a new [PersistedMetaPortfolio] component using the provided [Components] struct.
+impl<T> MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+    /// Constructs a new [MetaPortfolio] component using the provided [Components] struct.
     pub fn new(components: Components, repository: T) -> Self {
         Self {
             id: Uuid::new_v4(),
@@ -171,12 +171,12 @@ impl<T> PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + Cash
         }
     }
 
-    /// Returns a [PersistedMetaPortfolio] instance.
-    pub fn builder() -> PersistedMetaPortfolioBuilder<T> {
-        PersistedMetaPortfolioBuilder::new()
+    /// Returns a [MetaPortfolio] instance.
+    pub fn builder() -> MetaPortfolioBuilder<T> {
+        MetaPortfolioBuilder::new()
     }
 
-    /// Persist the initial [PersistedMetaPortfolio] state in the Repository.
+    /// Persist the initial [MetaPortfolio] state in the Repository.
     pub fn initialise(&mut self) -> Result<(), PortfolioError> {
         self.repository.set_current_cash(&self.id, self.starting_cash)?;
         self.repository.set_current_value(&self.id, self.starting_cash)?;
@@ -190,8 +190,8 @@ impl<T> PersistedMetaPortfolio<T> where T: PositionHandler + ValueHandler + Cash
     }
 }
 
-/// Builder to construct [PersistedMetaPortfolio] instances.
-pub struct PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHandler {
+/// Builder to construct [MetaPortfolio] instances.
+pub struct MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHandler {
     id: Option<Uuid>,
     starting_cash: Option<f64>,
     repository: Option<T>,
@@ -199,7 +199,7 @@ pub struct PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHand
     risk_manager: Option<DefaultRisk>,
 }
 
-impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHandler {
+impl<T> MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHandler {
     pub fn new() -> Self {
         Self {
             id: None,
@@ -235,7 +235,7 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
         self
     }
 
-    pub fn build(self) -> Result<PersistedMetaPortfolio<T>, PortfolioError> {
+    pub fn build(self) -> Result<MetaPortfolio<T>, PortfolioError> {
         if let (
             Some(id),
             Some(starting_cash),
@@ -249,7 +249,7 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
             self.allocation_manager,
             self.risk_manager,
         ) {
-            Ok(PersistedMetaPortfolio {
+            Ok(MetaPortfolio {
                 id,
                 starting_cash,
                 repository,
@@ -261,7 +261,7 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
         }
     }
 
-    pub fn build_and_init(self) -> Result<PersistedMetaPortfolio<T>, PortfolioError> {
+    pub fn build_and_init(self) -> Result<MetaPortfolio<T>, PortfolioError> {
         if let (
             Some(id),
             Some(starting_cash),
@@ -275,7 +275,7 @@ impl<T> PersistedMetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler
             self.allocation_manager,
             self.risk_manager,
         ) {
-            let mut portfolio = PersistedMetaPortfolio {
+            let mut portfolio = MetaPortfolio {
                 id,
                 starting_cash,
                 repository,
@@ -390,9 +390,9 @@ mod tests {
         }
     }
 
-    fn build_mocked_portfolio<T>(mock_repository: T) -> Result<PersistedMetaPortfolio<T>, PortfolioError>
+    fn build_mocked_portfolio<T>(mock_repository: T) -> Result<MetaPortfolio<T>, PortfolioError>
         where T: PositionHandler + ValueHandler + CashHandler {
-        PersistedMetaPortfolio::builder()
+        MetaPortfolio::builder()
             .id(Uuid::new_v4())
             .starting_cash(1000.0)
             .repository(mock_repository)
