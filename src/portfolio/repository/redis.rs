@@ -3,7 +3,7 @@ use serde::Deserialize;
 use crate::portfolio::position::Position;
 use crate::portfolio::repository::error::RepositoryError;
 use crate::portfolio::error::PortfolioError;
-use redis::{RedisResult, ErrorKind, Connection, Commands};
+use redis::{RedisResult, ErrorKind, Connection, Commands, RedisError};
 
 /// Handles the reading & writing of a [Position] to/from the persistence layer.
 pub trait PositionHandler {
@@ -15,6 +15,8 @@ pub trait PositionHandler {
     fn remove_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError>;
     /// Append a closed [Position] to the Portfolio's closed position list.
     fn set_closed_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>;
+    /// Get every closed [Position] associated with a Portfolio id.
+    fn get_closed_positions(&mut self, portfolio_id: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError>;
 }
 
 /// Handles the reading & writing of a Portfolio's current value to/from the persistence layer.
@@ -100,6 +102,29 @@ impl PositionHandler for RedisRepository {
             .map_err(|_err| RepositoryError::WriteError)?;
 
         Ok(result)
+    }
+
+    fn get_closed_positions(&mut self, portfolio_id: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError> {
+        let closed_positions_key = determine_closed_positions_id(portfolio_id);
+
+        let read_result: RedisResult<Vec<String>> = self.conn.get(closed_positions_key);
+
+        let closed_positions = match read_result {
+            Ok(closed_positions_value) => {
+                closed_positions_value
+            },
+            Err(err) => {
+                return match err.kind() {
+                    ErrorKind::TypeError => Ok(None),
+                    _ => Err(RepositoryError::ReadError)
+                }
+            }
+        }
+            .iter()
+            .map(|positions_string| serde_json::from_str(positions_string).unwrap())
+            .collect();
+
+        Ok(Some(closed_positions))
     }
 }
 
