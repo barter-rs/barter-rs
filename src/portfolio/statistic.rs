@@ -9,12 +9,12 @@ pub trait RollingStatistic {
 }
 
 // Todo: Do I want to add 'strategy name' to SignalEvent, and use <strategy>_<symbol> as map key?
-pub struct MetaStatistics {
+pub struct RollingStatistics {
     profit_loss: HashMap<String, ProfitLoss>,
     // sharpe_ratio: HashMap<String, f64>,
 }
 
-impl MetaStatistics {
+impl RollingStatistics {
     pub fn new() -> Self {
         Self {
             profit_loss: HashMap::new(),
