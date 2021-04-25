@@ -9,7 +9,7 @@ use std::collections::HashMap;
 /// cash & Positions. **Do not use in production - no fault tolerant guarantees!**
 pub struct InMemoryRepository {
     open_positions: HashMap<String, Position>,
-    closed_positions: HashMap<String, Position>,
+    closed_positions: HashMap<String, Vec<Position>>,
     current_values: HashMap<String, f64>,
     current_cashes: HashMap<String, f64>,
 }
@@ -17,6 +17,7 @@ pub struct InMemoryRepository {
 impl PositionHandler for InMemoryRepository {
     fn set_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
         let position_key = determine_position_id(portfolio_id, &position.exchange, &position.symbol);
+
         self.open_positions.insert(position_key, position);
         Ok(())
     }
@@ -26,6 +27,7 @@ impl PositionHandler for InMemoryRepository {
             None => return Ok(None),
             Some(position) => position,
         };
+
         self.open_positions.insert(position_id.clone(), position.clone());
 
         Ok(Some(position))
@@ -37,15 +39,34 @@ impl PositionHandler for InMemoryRepository {
 
     fn set_closed_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
         let closed_positions_key = determine_closed_positions_id(portfolio_id);
-        self.closed_positions.insert(closed_positions_key, position);
+
+        match self.closed_positions.get_mut(&*closed_positions_key) {
+            None => {
+                let mut new_closed_positions = Vec::new();
+                new_closed_positions.push(position);
+                self.closed_positions.insert(closed_positions_key, new_closed_positions);
+            },
+            Some(closed_positions) => {
+                closed_positions.push(position)
+            }
+        }
+
         Ok(())
+    }
+
+    fn get_closed_positions(&mut self, portfolio_id: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError> {
+        let closed_positions_key = determine_closed_positions_id(portfolio_id);
+
+        Ok(self.closed_positions.remove(&*closed_positions_key))
     }
 }
 
 impl ValueHandler for InMemoryRepository {
     fn set_current_value(&mut self, portfolio_id: &Uuid, value: f64) -> Result<(), RepositoryError> {
         let current_value_key = determine_value_id(portfolio_id);
+
         self.current_values.insert(current_value_key, value);
+
         Ok(())
     }
 
@@ -62,7 +83,9 @@ impl ValueHandler for InMemoryRepository {
 impl CashHandler for InMemoryRepository {
     fn set_current_cash(&mut self, portfolio_id: &Uuid, cash: f64) -> Result<(), RepositoryError> {
         let current_cash_key = determine_cash_id(portfolio_id);
+
         self.current_cashes.insert(current_cash_key, cash);
+
         Ok(())
     }
 
