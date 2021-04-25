@@ -1,24 +1,26 @@
 use crate::portfolio::position::{Position, Direction};
+use serde::{Deserialize, Serialize};
 
 // long count, short count, long average %, short average %,
 // average profit %, cum long %, cum short %, cum profit %, total profit <denomination>, avg duration trade
 // getOpenPositions() to aid backtest/trade performance by auto closing open positions
 
 /// Profit & Loss metrics in the base currency denomination (eg/ USD).
-struct ProfitLoss {
-    long_contracts: f64,
-    long_pnl: f64,
-    long_pnl_per_contract: f64,
-    short_contracts: f64,
-    short_pnl: f64,
-    short_pnl_per_contract: f64,
-    total_contracts: f64,
-    total_pnl: f64,
-    total_pnl_per_contract: f64,
+#[derive(Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub struct ProfitLoss {
+    pub long_contracts: f64,
+    pub long_pnl: f64,
+    pub long_pnl_per_contract: f64,
+    pub short_contracts: f64,
+    pub short_pnl: f64,
+    pub short_pnl_per_contract: f64,
+    pub total_contracts: f64,
+    pub total_pnl: f64,
+    pub total_pnl_per_contract: f64,
 }
 
 impl ProfitLoss {
-    fn init(position: &Position) -> Self {
+    pub fn init(position: &Position) -> Self {
         let total_contracts = position.quantity.abs();
         let total_pnl = position.result_profit_loss;
         let total_pnl_per_contract = total_pnl / total_contracts;
@@ -48,7 +50,7 @@ impl ProfitLoss {
         }
     }
 
-    fn next(&self, position: &Position) -> Self {
+    pub fn next(&self, position: &Position) -> Self {
         let next_total_contracts = self.total_contracts + position.quantity.abs();
         let next_total_pnl = self.total_pnl + position.result_profit_loss;
 
