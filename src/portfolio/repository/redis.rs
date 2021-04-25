@@ -3,7 +3,7 @@ use serde::Deserialize;
 use crate::portfolio::position::Position;
 use crate::portfolio::repository::error::RepositoryError;
 use crate::portfolio::error::PortfolioError;
-use redis::{RedisResult, ErrorKind, Connection, Commands, RedisError};
+use redis::{RedisResult, ErrorKind, Connection, Commands};
 
 /// Handles the reading & writing of a [Position] to/from the persistence layer.
 pub trait PositionHandler {
