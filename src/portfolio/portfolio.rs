@@ -331,6 +331,7 @@ mod tests {
         get_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
         remove_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
         set_closed_position: Option<fn(portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>>,
+        get_closed_positions: Option<fn(portfolio_id: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError>>,
         set_current_value: Option<fn(portfolio_id: &Uuid, value: f64)  -> Result<(), RepositoryError>>,
         get_current_value: Option<fn(portfolio_id: &Uuid) -> Result<f64, RepositoryError>>,
         set_current_cash: Option<fn(portfolio_id: &Uuid, cash: f64)  -> Result<(), RepositoryError>>,
@@ -367,6 +368,10 @@ mod tests {
 
         fn set_closed_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
             self.set_closed_position.unwrap()(portfolio_id, position)
+        }
+
+        fn get_closed_positions(&mut self, portfolio_id: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError> {
+            self.get_closed_positions.unwrap()(portfolio_id)
         }
     }
 
