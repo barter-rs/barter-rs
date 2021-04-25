@@ -142,5 +142,7 @@ pub mod execution;
 /// Defines an Event enum that could be a MarketEvent, SignalEvent, OrderEvent or
 /// FillEvent.
 pub mod event;
+
+/// Defines various performance metrics that can be used to evaluate trading.
 pub mod statistic;
 
