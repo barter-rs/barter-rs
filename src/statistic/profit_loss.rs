@@ -1,9 +1,6 @@
 use crate::portfolio::position::{Position, Direction};
 use serde::{Deserialize, Serialize};
-
-// long count, short count, long average %, short average %,
-// average profit %, cum long %, cum short %, cum profit %, total profit <denomination>, avg duration trade
-// getOpenPositions() to aid backtest/trade performance by auto closing open positions
+use crate::statistic::statistic::{StatisticRolling, StatisticInitialiser, StatisticTimeSeries};
 
 /// Profit & Loss metrics in the base currency denomination (eg/ USD).
 #[derive(Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
@@ -19,38 +16,47 @@ pub struct ProfitLoss {
     pub total_pnl_per_contract: f64,
 }
 
-impl ProfitLoss {
-    pub fn init(position: &Position) -> Self {
-        let total_contracts = position.quantity.abs();
-        let total_pnl = position.result_profit_loss;
-        let total_pnl_per_contract = total_pnl / total_contracts;
-
-        let (
-            long_contracts, long_pnl, long_pnl_per_contract,
-            short_contracts, short_pnl, short_pnl_per_contract
-        ) = match position.direction {
-            Direction::Long => {
-                (total_contracts, total_pnl, total_pnl_per_contract, 0.0, 0.0, 0.0)
-            }
-            Direction::Short => {
-                (0.0, 0.0, 0.0, total_contracts, total_pnl, total_pnl_per_contract)
-            }
-        };
-
+impl StatisticInitialiser for ProfitLoss {
+    fn init() -> Self {
         Self {
-            long_contracts,
-            long_pnl,
-            long_pnl_per_contract,
-            short_contracts,
-            short_pnl,
-            short_pnl_per_contract,
-            total_contracts,
-            total_pnl,
-            total_pnl_per_contract
+            long_contracts: 0.0,
+            long_pnl: 0.0,
+            long_pnl_per_contract: 0.0,
+            short_contracts: 0.0,
+            short_pnl: 0.0,
+            short_pnl_per_contract: 0.0,
+            total_contracts: 0.0,
+            total_pnl: 0.0,
+            total_pnl_per_contract: 0.0,
         }
     }
+}
 
-    pub fn next(&self, position: &Position) -> Self {
+impl StatisticRolling for ProfitLoss {
+    fn update(mut self, position: &Position) -> ProfitLoss {
+        self.total_contracts += position.quantity.abs();
+        self.total_pnl += position.result_profit_loss;
+        self.total_pnl_per_contract = self.total_pnl / self.total_contracts;
+
+        match position.direction {
+            Direction::Long => {
+                self.long_contracts += position.quantity.abs();
+                self.long_pnl += position.result_profit_loss;
+                self.long_pnl_per_contract = self.long_pnl / self.long_contracts;
+            }
+            Direction::Short => {
+                self.short_contracts += position.quantity.abs();
+                self.short_pnl += position.result_profit_loss;
+                self.short_pnl_per_contract = self.short_pnl / self.short_contracts;
+            }
+        }
+
+        self
+    }
+}
+
+impl StatisticTimeSeries for ProfitLoss {
+    fn generate_next(&self, position: &Position) -> Self {
         let next_total_contracts = self.total_contracts + position.quantity.abs();
         let next_total_pnl = self.total_pnl + position.result_profit_loss;
 
