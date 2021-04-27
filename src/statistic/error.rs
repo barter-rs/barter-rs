@@ -1,0 +1,11 @@
+use thiserror::Error;
+
+/// All errors generated in the barter::statistic module.
+#[derive(Error, Debug)]
+pub enum StatisticError {
+    #[error("Failed to build struct due to incomplete attributes provided")]
+    BuilderIncomplete,
+
+    #[error("Failed to build struct due to insufficient statistics provided")]
+    BuilderNoStatisticsProvided,
+}
