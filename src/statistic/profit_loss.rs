@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::statistic::statistic::{StatisticRolling, StatisticInitialiser, StatisticTimeSeries};
 
 /// Profit & Loss metrics in the base currency denomination (eg/ USD).
-#[derive(Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct ProfitLoss {
     pub long_contracts: f64,
     pub long_pnl: f64,
@@ -33,7 +33,7 @@ impl StatisticInitialiser for ProfitLoss {
 }
 
 impl StatisticRolling for ProfitLoss {
-    fn update(mut self, position: &Position) -> ProfitLoss {
+    fn update(&mut self, position: &Position) {
         self.total_contracts += position.quantity.abs();
         self.total_pnl += position.result_profit_loss;
         self.total_pnl_per_contract = self.total_pnl / self.total_contracts;
@@ -50,13 +50,15 @@ impl StatisticRolling for ProfitLoss {
                 self.short_pnl_per_contract = self.short_pnl / self.short_contracts;
             }
         }
+    }
 
-        self
+    fn print(&self) {
+        println!("{:?}", self.total_pnl)
     }
 }
 
 impl StatisticTimeSeries for ProfitLoss {
-    fn generate_next(&self, position: &Position) -> Self {
+    fn generate_next(&self, position: &Position) -> ProfitLoss {
         let next_total_contracts = self.total_contracts + position.quantity.abs();
         let next_total_pnl = self.total_pnl + position.result_profit_loss;
 
