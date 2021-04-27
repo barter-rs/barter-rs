@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use crate::portfolio::position::Position;
 use crate::statistic::error::StatisticError;
 use std::any::type_name;
+use std::fmt::{Display, Formatter};
+use std::fmt;
 
 pub trait StatisticInitialiser {
     fn init() -> Self;
@@ -9,15 +11,10 @@ pub trait StatisticInitialiser {
 
 pub trait StatisticRolling {
     fn update(&mut self, position: &Position);
-    fn print(&self);
 }
 
 pub trait StatisticTimeSeries {
     fn generate_next(&self, position: &Position) -> Self;
-}
-
-pub trait StatisticsGenerator {
-    fn generate_historic_statistics(&self, closed_positions: Vec<Position>);
 }
 
 pub struct StatisticsRolling<T> where T: StatisticRolling {
@@ -25,13 +22,25 @@ pub struct StatisticsRolling<T> where T: StatisticRolling {
     statistics: HashMap<String, HashMap<String, T>>,
 }
 
-impl<T> StatisticsRolling<T> where T: StatisticRolling + Clone {
+impl<T> StatisticsRolling<T> where T: StatisticRolling + Display + Clone {
     pub fn builder() -> StatisticsRollingBuilder<T> {
         StatisticsRollingBuilder::new()
     }
 }
 
-pub struct StatisticsRollingBuilder<T> where T: StatisticRolling + Clone {
+impl<T> Display for StatisticsRolling<T> where T: StatisticRolling + Display + Clone {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        for (symbol, statistics) in self.statistics.iter() {
+            write!(f, "{}: ", symbol)?;
+            for (statistic, value) in statistics {
+                write!(f, "{}: {}", statistic, value)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+pub struct StatisticsRollingBuilder<T> where T: StatisticRolling + Display + Clone {
     symbols: Option<Vec<String>>,
     closed_positions: Option<Vec<Position>>,
     statistic_counter: usize,
@@ -43,7 +52,7 @@ pub struct StatisticsRollingBuilder<T> where T: StatisticRolling + Clone {
 //  - Ensure that type_name returns the concrete impl!
 //  - Find a way for users to generate statistics at the end
 
-impl<T> StatisticsRollingBuilder<T> where T: StatisticRolling + Clone {
+impl<T> StatisticsRollingBuilder<T> where T: StatisticRolling + Display + Clone {
     pub fn new() -> Self {
         Self {
             symbols: None,
@@ -131,7 +140,6 @@ impl<T> StatisticsRollingBuilder<T> where T: StatisticRolling + Clone {
                         statistics
                             .values_mut()
                             .map(|stat| {
-                                stat.print();
                                 stat.update(&position)
                             })
                             .next();
