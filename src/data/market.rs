@@ -256,15 +256,14 @@ impl BarBuilder {
                 && volume >= 0.0
                 && low >= 0.0
             {
-                let bar = Bar {
+                Ok(Bar {
                     timestamp,
                     open,
                     high,
                     low,
                     close,
                     volume,
-                };
-                Ok(bar)
+                })
             } else {
                 Err(DataError::BuilderAttributesInvalid)
             }
