@@ -5,4 +5,3 @@ pub mod position;
 pub mod repository;
 pub mod allocator;
 pub mod risk;
-pub mod statistic;
