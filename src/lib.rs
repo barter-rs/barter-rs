@@ -146,3 +146,5 @@ pub mod event;
 /// Defines various performance metrics that can be used to evaluate trading.
 pub mod statistic;
 
+#[macro_use] extern crate prettytable;
+
