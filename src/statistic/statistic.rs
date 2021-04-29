@@ -2,8 +2,7 @@ use std::collections::HashMap;
 use crate::portfolio::position::Position;
 use crate::statistic::error::StatisticError;
 use std::any::type_name;
-use std::fmt::{Display, Formatter};
-use std::fmt;
+use prettytable::Table;
 
 pub trait StatisticInitialiser {
     fn init() -> Self;
@@ -11,6 +10,7 @@ pub trait StatisticInitialiser {
 
 pub trait StatisticRolling {
     fn update(&mut self, position: &Position);
+    fn print(&self);
 }
 
 pub trait StatisticTimeSeries {
@@ -22,37 +22,66 @@ pub struct StatisticsRolling<T> where T: StatisticRolling {
     statistics: HashMap<String, HashMap<String, T>>,
 }
 
-impl<T> StatisticsRolling<T> where T: StatisticRolling + Display + Clone {
+impl<T> StatisticsRolling<T> where T: StatisticRolling + Clone {
     pub fn builder() -> StatisticsRollingBuilder<T> {
         StatisticsRollingBuilder::new()
     }
-}
 
-impl<T> Display for StatisticsRolling<T> where T: StatisticRolling + Display + Clone {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    pub fn print(&self) {
+        // Create the table
+        let mut table = Table::new();
+
+        table.set_titles(row!["", "Stat1"]);
+        table.add_row(row!["ETH-USD", 50]);
+        table.add_row(row!["ETH-USD", 50]);
+
+        table.printstd();
+
+        let mut titles = Vec::new();
+
         for (symbol, statistics) in self.statistics.iter() {
-            write!(f, "{}: ", symbol)?;
-            for (statistic, value) in statistics {
-                write!(f, "{}: {}", statistic, value)?;
-            }
+
+            for (statistic, value) in statistics.iter() {
+
+                titles.push(statistic)
+
+            }r
         }
-        Ok(())
     }
 }
 
-pub struct StatisticsRollingBuilder<T> where T: StatisticRolling + Display + Clone {
+// impl<T> Display for StatisticsRolling<T> where T: StatisticRolling + Display + Clone {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+//         // for (symbol, statistics) in self.statistics.iter() {
+//         //     write!(f, "{}: ", symbol)?;
+//         //     for (statistic, value) in statistics {
+//         //         write!(f, "{}: {}", statistic, value)?;
+//         //     }
+//         // }
+//         // Ok(())
+//         for (symbol, statistics) in self.statistics.iter() {
+//             write!(f, "{} || ", symbol)?;
+//             for value in statistics.values() {
+//                 write!(f, "{}", value)?;
+//             }
+//         }
+//         Ok(())
+//     }
+// }
+
+pub struct StatisticsRollingBuilder<T> where T: StatisticRolling + Clone {
     symbols: Option<Vec<String>>,
     closed_positions: Option<Vec<Position>>,
     statistic_counter: usize,
     statistics: HashMap<String, T>,
 }
-
+// prettytable-rs = "0.8.0"
 // Todo - add constraints:
 //  - Ensure this is the initial statistic value!
-//  - Ensure that type_name returns the concrete impl!
-//  - Find a way for users to generate statistics at the end
+//  - Find a way for users to generate statistics at the end rather than coupled to builder
+//  - Find a better way of taking HashMap<symbol, HashMap<Statistic, Value>> & displaying it -> use Polar / pandas equiv?
 
-impl<T> StatisticsRollingBuilder<T> where T: StatisticRolling + Display + Clone {
+impl<T> StatisticsRollingBuilder<T> where T: StatisticRolling + Clone {
     pub fn new() -> Self {
         Self {
             symbols: None,

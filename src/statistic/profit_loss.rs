@@ -1,8 +1,6 @@
 use crate::portfolio::position::{Position, Direction};
 use serde::{Deserialize, Serialize};
 use crate::statistic::statistic::{StatisticRolling, StatisticInitialiser, StatisticTimeSeries};
-use std::fmt::{Display, Formatter};
-use std::fmt;
 
 /// Profit & Loss metrics in the base currency denomination (eg/ USD).
 #[derive(Debug, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
@@ -18,19 +16,29 @@ pub struct ProfitLoss {
     pub total_pnl_per_contract: f64,
 }
 
-impl Display for ProfitLoss {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "long_contracts: {}, cum_long_pnl: {}, long_pnl_per_contract: {}, \
-            short_contracts: {}, cum_short_pnl: {}, short_pnl_per_contract: {}, \
-            total_contracts: {}, cum_total_pnl: {}, total_pnl_per_contract: {}",
-            self.long_contracts, self.long_pnl, self.long_pnl_per_contract,
-            self.short_contracts, self.short_pnl, self.short_pnl_per_contract,
-            self.total_contracts, self.total_pnl, self.total_pnl_per_contract
-        )
-    }
-}
+// impl Display for ProfitLoss {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+//         write!(
+//             f,
+//             "long_contracts | cum_long_pnl | long_pnl_per_contract | \
+//             short_contracts | cum_short_pnl | short_pnl_per_contract | \
+//             total_contracts | cum_total_pnl | total_pnl_per_contract | \n\
+//             {} {} {} {} {} {} {} {} {}",
+//             self.long_contracts, self.long_pnl, self.long_pnl_per_contract,
+//             self.short_contracts, self.short_pnl, self.short_pnl_per_contract,
+//             self.total_contracts, self.total_pnl, self.total_pnl_per_contract
+//         )
+//         // write!(
+//         //     f,
+//         //     "long_contracts: {}, cum_long_pnl: {}, long_pnl_per_contract: {}, \
+//         //     short_contracts: {}, cum_short_pnl: {}, short_pnl_per_contract: {}, \
+//         //     total_contracts: {}, cum_total_pnl: {}, total_pnl_per_contract: {}",
+//         //     self.long_contracts, self.long_pnl, self.long_pnl_per_contract,
+//         //     self.short_contracts, self.short_pnl, self.short_pnl_per_contract,
+//         //     self.total_contracts, self.total_pnl, self.total_pnl_per_contract
+//         // )
+//     }
+// }
 
 impl StatisticInitialiser for ProfitLoss {
     fn init() -> Self {
@@ -66,6 +74,10 @@ impl StatisticRolling for ProfitLoss {
                 self.short_pnl_per_contract = self.short_pnl / self.short_contracts;
             }
         }
+    }
+
+    fn print(&self) {
+        todo!()
     }
 }
 
