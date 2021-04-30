@@ -7,8 +7,6 @@ use crate::statistic::error::StatisticError;
 
 // Todo:
 //  - &'static associated constants?
-//  - Do I even need to create the tear sheet with the symbol, just add it in when a Position arrives w/ new symbol
-//  - Clean up trait bounds... some need display, others dont...
 //  - Remove duplicated generate_statistics() method for pnl_sheet & tear_sheet -> interface? Delete all together?
 
 pub trait Summariser {
@@ -22,7 +20,7 @@ pub struct TradingStatistics<T> where T: MetricRolling {
     tear_sheet: TearSheet<T>
 }
 
-impl<T> TradingStatistics<T> where T: MetricRolling + Display {
+impl<T> TradingStatistics<T> where T: MetricRolling + Display + Clone {
     pub fn new(pnl_sheet: ProfitLossSheet, tear_sheet: TearSheet<T>) -> Self {
         Self {
             pnl_sheet,
@@ -141,21 +139,32 @@ impl ProfitLossSheet {
 }
 
 pub struct TearSheet<T> where T: MetricRolling {
+    init_metrics: HashMap<MetricID, T>,
     sheet: HashMap<SymbolID, HashMap<MetricID, T>>,
 }
 
-impl<T> Summariser for TearSheet<T> where T: MetricRolling + Display {
+impl<T> Summariser for TearSheet<T> where T: MetricRolling + Display + Clone {
     const SUMMARY_ID: &'static str = "Tear Sheet";
 
     fn update_summary(&mut self, position: &Position) {
-        if let Some(symbol_metrics) = self.sheet.get_mut(&*position.symbol) {
-            symbol_metrics
-                .values_mut()
-                .map(|metric| T::update(metric, position))
-                .next();
-        }
-        else {
-            panic!("Encountered position.symbol that is not in the tear_sheet.symbols list")
+        match self.sheet.get_mut(&*position.symbol) {
+            None => {
+                let mut first_symbol_metrics = self.init_metrics.clone();
+
+                first_symbol_metrics
+                    .values_mut()
+                    .map(|metric| T::update(metric, position))
+                    .next();
+
+                self.sheet.insert(position.symbol.clone(), first_symbol_metrics);
+            }
+
+            Some(symbol_metrics) => {
+                symbol_metrics
+                    .values_mut()
+                    .map(|metric| T::update(metric, position))
+                    .next();
+            }
         }
     }
 
@@ -179,6 +188,7 @@ impl<T> Summariser for TearSheet<T> where T: MetricRolling + Display {
 impl<T> TearSheet<T> where T: MetricRolling + Display + Clone {
     pub fn new() -> Self {
         Self {
+            init_metrics: HashMap::<MetricID, T>::new(),
             sheet: HashMap::<SymbolID, HashMap<MetricID, T>>::new()
         }
     }
@@ -195,21 +205,14 @@ impl<T> TearSheet<T> where T: MetricRolling + Display + Clone {
 }
 
 pub struct TearSheetBuilder<T> where T: MetricRolling {
-    symbols: Option<Vec<String>>,
     metrics: HashMap<MetricID, T>,
 }
 
 impl<T> TearSheetBuilder<T> where T: MetricRolling + Clone {
     pub fn new() -> Self {
         Self {
-            symbols: None,
             metrics: HashMap::<String, T>::new(),
         }
-    }
-
-    pub fn symbols(mut self, symbols: Vec<String>) -> Self {
-        self.symbols = Some(symbols);
-        self
     }
 
     pub fn metric(mut self, metric: T) -> Self {
@@ -224,26 +227,16 @@ impl<T> TearSheetBuilder<T> where T: MetricRolling + Clone {
     }
 
     pub fn build(self) -> Result<TearSheet<T>, StatisticError> {
-        if let Some(symbols) = self.symbols {
-
-            // Validate at least one metric has been added
-            if self.metrics.is_empty() {
-                return Err(StatisticError::BuilderNoMetricsProvided)
+        match self.metrics.is_empty() {
+            true => {
+                Err(StatisticError::BuilderNoMetricsProvided)
             }
-
-            let mut sheet = HashMap::with_capacity(symbols.len());
-
-            for symbol in symbols.into_iter() {
-                sheet.insert(symbol, self.metrics.clone());
+            false => {
+                Ok(TearSheet {
+                    init_metrics: self.metrics,
+                    sheet: HashMap::<SymbolID, HashMap<MetricID, T>>::new(),
+                })
             }
-
-            Ok(TearSheet {
-                sheet
-            })
-
-        } else {
-            Err(StatisticError::BuilderIncomplete)
         }
     }
 }
-
