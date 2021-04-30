@@ -6,15 +6,79 @@ use prettytable::{Row, Table};
 use crate::statistic::error::StatisticError;
 
 // Todo:
-//  - to_tuple...?
 //  - &'static associated constants?
-//  - Do I want to bin Display impl in favour of another method in MetricRolling eg/ print() ?
 //  - Do I even need to create the tear sheet with the symbol, just add it in when a Position arrives w/ new symbol
+//  - Clean up trait bounds... some need display, others dont...
 
 pub trait Summariser {
     const SUMMARY_ID: &'static str;
     fn update_summary(&mut self, position: &Position);
     fn print_table(&self);
+}
+
+pub struct TradingStatistics<T> where T: MetricRolling {
+    pnl_sheet: ProfitLossSheet,
+    tear_sheet: TearSheet<T>
+}
+
+impl<T> TradingStatistics<T> where T: MetricRolling + Display {
+    pub fn new(pnl_sheet: ProfitLossSheet, tear_sheet: TearSheet<T>) -> Self {
+        Self {
+            pnl_sheet,
+            tear_sheet,
+        }
+    }
+
+    pub fn builder() -> TradingStatisticsBuilder<T> {
+        TradingStatisticsBuilder::new()
+    }
+
+    pub fn generate_statistics(&mut self, positions: &Vec<Position>) {
+        for position in positions.iter() {
+            self.pnl_sheet.update_summary(position);
+            self.tear_sheet.update_summary(position);
+        }
+    }
+
+    pub fn print_statistics(&self) {
+        self.pnl_sheet.print_table();
+        self.tear_sheet.print_table();
+    }
+}
+
+pub struct TradingStatisticsBuilder<T> where T: MetricRolling {
+    pnl_sheet: Option<ProfitLossSheet>,
+    tear_sheet: Option<TearSheet<T>>,
+}
+
+impl<T> TradingStatisticsBuilder<T> where T: MetricRolling {
+    pub fn new() -> Self {
+        Self {
+            pnl_sheet: None,
+            tear_sheet: None
+        }
+    }
+
+    pub fn pnl_sheet(mut self, pnl_sheet: ProfitLossSheet) -> Self {
+        self.pnl_sheet = Some(pnl_sheet);
+        self
+    }
+
+    pub fn tear_sheet(mut self, tear_sheet: TearSheet<T>) -> Self {
+        self.tear_sheet = Some(tear_sheet);
+        self
+    }
+
+    pub fn build(self) -> Result<TradingStatistics<T>, StatisticError> {
+        if let (Some(pnl_sheet), Some(tear_sheet)) = (self.pnl_sheet, self.tear_sheet) {
+            Ok(TradingStatistics {
+                pnl_sheet,
+                tear_sheet
+            })
+        } else {
+            Err(StatisticError::BuilderIncomplete)
+        }
+    }
 }
 
 pub type SymbolID = String;
@@ -49,11 +113,11 @@ impl Summariser for ProfitLossSheet {
             "Total Contracts", "Total PnL", "Total PnL Per Contract"
         ]);
 
-        for (symbol, pnl_summary) in self.iter() {
+        for (symbol, pnl_summary) in self.sheet.iter() {
             pnl_sheet.add_row(row![symbol,
-                self.long_contracts, self.long_pnl, self.long_pnl_per_contract,
-                self.short_contracts, self.short_pnl, self.short_pnl_per_contract,
-                self.total_contracts, self.total_pnl, self.total_pnl_per_contract
+                pnl_summary.long_contracts, pnl_summary.long_pnl, pnl_summary.long_pnl_per_contract,
+                pnl_summary.short_contracts, pnl_summary.short_pnl, pnl_summary.short_pnl_per_contract,
+                pnl_summary.total_contracts, pnl_summary.total_pnl, pnl_summary.total_pnl_per_contract
             ]);
         }
 
@@ -65,6 +129,12 @@ impl ProfitLossSheet {
     pub fn new() -> Self {
         Self {
             sheet: HashMap::<SymbolID, ProfitLoss>::new()
+        }
+    }
+
+    pub fn generate_statistics(&mut self, positions: &Vec<Position>) {
+        for position in positions {
+            self.update_summary(position);
         }
     }
 }
