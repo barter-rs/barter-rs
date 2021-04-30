@@ -28,10 +28,6 @@ impl<T> TradingStatistics<T> where T: MetricRolling + Display + Clone {
         }
     }
 
-    pub fn builder() -> TradingStatisticsBuilder<T> {
-        TradingStatisticsBuilder::new()
-    }
-
     pub fn generate_statistics(&mut self, positions: &Vec<Position>) {
         for position in positions.iter() {
             self.pnl_sheet.update_summary(position);
@@ -40,43 +36,10 @@ impl<T> TradingStatistics<T> where T: MetricRolling + Display + Clone {
     }
 
     pub fn print_statistics(&self) {
+        println!("\n-- Profit & Loss Sheet --");
         self.pnl_sheet.print_table();
+        println!("\n-- Tear Sheet --");
         self.tear_sheet.print_table();
-    }
-}
-
-pub struct TradingStatisticsBuilder<T> where T: MetricRolling {
-    pnl_sheet: Option<ProfitLossSheet>,
-    tear_sheet: Option<TearSheet<T>>,
-}
-
-impl<T> TradingStatisticsBuilder<T> where T: MetricRolling {
-    pub fn new() -> Self {
-        Self {
-            pnl_sheet: None,
-            tear_sheet: None
-        }
-    }
-
-    pub fn pnl_sheet(mut self, pnl_sheet: ProfitLossSheet) -> Self {
-        self.pnl_sheet = Some(pnl_sheet);
-        self
-    }
-
-    pub fn tear_sheet(mut self, tear_sheet: TearSheet<T>) -> Self {
-        self.tear_sheet = Some(tear_sheet);
-        self
-    }
-
-    pub fn build(self) -> Result<TradingStatistics<T>, StatisticError> {
-        if let (Some(pnl_sheet), Some(tear_sheet)) = (self.pnl_sheet, self.tear_sheet) {
-            Ok(TradingStatistics {
-                pnl_sheet,
-                tear_sheet
-            })
-        } else {
-            Err(StatisticError::BuilderIncomplete)
-        }
     }
 }
 
