@@ -9,6 +9,7 @@ use crate::statistic::error::StatisticError;
 //  - &'static associated constants?
 //  - Do I even need to create the tear sheet with the symbol, just add it in when a Position arrives w/ new symbol
 //  - Clean up trait bounds... some need display, others dont...
+//  - Remove duplicated generate_statistics() method for pnl_sheet & tear_sheet -> interface? Delete all together?
 
 pub trait Summariser {
     const SUMMARY_ID: &'static str;
