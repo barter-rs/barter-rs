@@ -1,3 +1,3 @@
-pub mod profit_loss;
-pub mod statistic;
 pub mod error;
+pub mod metric;
+pub mod summary;
