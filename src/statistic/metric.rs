@@ -56,3 +56,17 @@ impl MetricRolling for ProfitLoss {
         }
     }
 }
+
+pub type PlaceHolderTearSheetMetric = f64;
+
+impl MetricRolling for PlaceHolderTearSheetMetric {
+    const METRIC_ID: &'static str = "Total PnL";
+
+    fn init() -> Self {
+        0.0
+    }
+
+    fn update(&mut self, position: &Position) {
+        *self += position.result_profit_loss;
+    }
+}
