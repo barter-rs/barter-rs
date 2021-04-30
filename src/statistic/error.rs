@@ -6,6 +6,6 @@ pub enum StatisticError {
     #[error("Failed to build struct due to incomplete attributes provided")]
     BuilderIncomplete,
 
-    #[error("Failed to build struct due to insufficient statistics provided")]
-    BuilderNoStatisticsProvided,
+    #[error("Failed to build struct due to insufficient metrics provided")]
+    BuilderNoMetricsProvided,
 }
