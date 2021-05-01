@@ -10,15 +10,14 @@ use crate::statistic::error::StatisticError;
 
 pub trait Summariser {
     const SUMMARY_ID: &'static str;
+    fn update_summary(&mut self, position: &Position);
+    fn print_table(&self);
 
     fn generate_summary(&mut self, positions: &Vec<Position>) {
         for position in positions {
             self.update_summary(position);
         }
     }
-
-    fn update_summary(&mut self, position: &Position);
-    fn print_table(&self);
 }
 
 pub struct TradingStatistics<T> where T: MetricRolling {
