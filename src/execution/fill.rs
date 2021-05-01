@@ -3,6 +3,7 @@ use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use crate::strategy::signal::Decision;
+use crate::data::market::MarketMeta;
 
 /// Fills are journals of work done by an execution handler. These are sent back to the portfolio
 /// so it can apply updates.
@@ -13,9 +14,10 @@ pub struct FillEvent {
     pub timestamp: DateTime<Utc>,
     pub exchange: String,
     pub symbol: String,
-    pub decision: Decision,     // LONG, CloseLong, SHORT or CloseShort
-    pub quantity: f64,          // +ve or -ve Quantity depending on Decision
-    pub fill_value_gross: f64,  // abs(Quantity) * ClosePrice, excluding TotalFees
+    pub market_meta: MarketMeta,    // Metadata propagated from source MarketEvent
+    pub decision: Decision,         // LONG, CloseLong, SHORT or CloseShort
+    pub quantity: f64,              // +ve or -ve Quantity depending on Decision
+    pub fill_value_gross: f64,      // abs(Quantity) * ClosePrice, excluding TotalFees
     pub fees: Fees,
 }
 
@@ -27,14 +29,11 @@ impl Default for FillEvent {
             timestamp: Utc::now(),
             exchange: String::from("BINANCE"),
             symbol: String::from("ETH-USD"),
+            market_meta: Default::default(),
             decision: Decision::default(),
             quantity: 1.0,
             fill_value_gross: 100.0,
-            fees: Fees {
-                exchange: 0.0,
-                slippage: 0.0,
-                network: 0.0
-            }
+            fees: Fees::default(),
         }
     }
 }
@@ -83,10 +82,11 @@ pub type FeeAmount = f64;
 pub struct FillEventBuilder {
     pub trace_id: Option<Uuid>,
     pub timestamp: Option<DateTime<Utc>>,
+    pub exchange: Option<String>,
     pub symbol: Option<String>,
+    pub market_meta: Option<MarketMeta>,
     pub decision: Option<Decision>,
     pub quantity: Option<f64>,
-    pub exchange: Option<String>,
     pub fill_value_gross: Option<f64>,
     pub fees: Option<Fees>,
 }
@@ -96,10 +96,11 @@ impl FillEventBuilder {
         Self {
             trace_id: None,
             timestamp: None,
+            exchange: None,
             symbol: None,
+            market_meta: None,
             decision: None,
             quantity: None,
-            exchange: None,
             fill_value_gross: None,
             fees: None,
         }
@@ -115,8 +116,18 @@ impl FillEventBuilder {
         self
     }
 
+    pub fn exchange(mut self, value: String) -> Self {
+        self.exchange = Some(value);
+        self
+    }
+
     pub fn symbol(mut self, value: String) -> Self {
         self.symbol = Some(value);
+        self
+    }
+
+    pub fn market_meta(mut self, value: MarketMeta) -> Self {
+        self.market_meta = Some(value);
         self
     }
 
@@ -127,11 +138,6 @@ impl FillEventBuilder {
 
     pub fn quantity(mut self, value: f64) -> Self {
         self.quantity = Some(value);
-        self
-    }
-
-    pub fn exchange(mut self, value: String) -> Self {
-        self.exchange = Some(value);
         self
     }
 
@@ -149,19 +155,21 @@ impl FillEventBuilder {
         if let (
             Some(trace_id),
             Some(timestamp),
+            Some(exchange),
             Some(symbol),
+            Some(market_meta),
             Some(decision),
             Some(quantity),
-            Some(exchange),
             Some(fill_value_gross),
             Some(fees),
         ) = (
             self.trace_id,
             self.timestamp,
+            self.exchange,
             self.symbol,
+            self.market_meta,
             self.decision,
             self.quantity,
-            self.exchange,
             self.fill_value_gross,
             self.fees,
         ) {
@@ -169,10 +177,11 @@ impl FillEventBuilder {
                 event_type: FillEvent::EVENT_TYPE,
                 trace_id,
                 timestamp,
+                exchange,
                 symbol,
+                market_meta,
                 decision,
                 quantity,
-                exchange,
                 fill_value_gross,
                 fees,
             })

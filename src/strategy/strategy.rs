@@ -1,4 +1,4 @@
-use crate::data::market::MarketEvent;
+use crate::data::market::{MarketEvent, MarketMeta};
 use crate::strategy::signal::{SignalEvent, Decision, SignalStrength};
 use crate::strategy::error::StrategyError;
 use ta::indicators::RelativeStrengthIndex;
@@ -44,7 +44,10 @@ impl SignalGenerator for RSIStrategy {
             timestamp: Utc::now(),
             exchange: market.exchange.clone(),
             symbol: market.symbol.clone(),
-            close: market.bar.close,
+            market_meta: MarketMeta {
+                close: market.bar.close,
+                timestamp: market.bar.timestamp,
+            },
             signals
         }))
     }
