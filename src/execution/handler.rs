@@ -32,6 +32,7 @@ impl FillGenerator for SimulatedExecution {
             timestamp: Utc::now(),
             exchange: order.exchange.clone(),
             symbol: order.symbol.clone(),
+            market_meta: order.market_meta.clone(),
             decision: order.decision.clone(),
             quantity: order.quantity,
             fill_value_gross,
@@ -50,7 +51,7 @@ impl SimulatedExecution {
 
     /// Calculates the simulated gross fill value (excluding TotalFees) based on the input [OrderEvent].
     fn calculate_fill_value_gross(order: &OrderEvent) -> f64 {
-        order.quantity.abs() * order.close
+        order.quantity.abs() * order.market_meta.close
     }
 
     /// Calculates the simulated [Fees] a [FillEvent] will incur, based on the input [OrderEvent].
@@ -79,7 +80,7 @@ mod tests {
 
         let mut input_order = OrderEvent::default();
         input_order.quantity = 10.0;
-        input_order.close = 10.0;
+        input_order.market_meta.close = 10.0;
 
         let actual_result = simulated_execution.generate_fill(&input_order);
 
@@ -100,7 +101,7 @@ mod tests {
     fn should_calculate_fill_value_gross_correctly() {
         let mut input_order = OrderEvent::default();
         input_order.quantity = 100.0;
-        input_order.close = 10.0;
+        input_order.market_meta.close = 10.0;
 
         let actual = SimulatedExecution::calculate_fill_value_gross(&input_order);
 
@@ -113,7 +114,7 @@ mod tests {
     fn should_calculate_fill_value_gross_correctly_with_negative_order_quantity_provided() {
         let mut input_order = OrderEvent::default();
         input_order.quantity = -(100.0);
-        input_order.close = 10.0;
+        input_order.market_meta.close = 10.0;
 
         let actual = SimulatedExecution::calculate_fill_value_gross(&input_order);
 

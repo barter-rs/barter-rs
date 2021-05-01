@@ -23,7 +23,7 @@ impl OrderAllocator for DefaultAllocator {
     fn allocate_order(&self, mut order: OrderEvent, position: Option<&Position>,
                       signal_strength: SignalStrength) -> Result<OrderEvent, PortfolioError> {
         // Calculate exact order_size, then round it to a more appropriate decimal place
-        let default_order_size = self.default_order_value / order.close;
+        let default_order_size = self.default_order_value / order.market_meta.close;
         let default_order_size = (default_order_size * 10000.0).floor() / 10000.0;
 
         match order.decision {
@@ -94,7 +94,7 @@ mod tests {
 
         let order_close = 10.0;
         let mut input_order = OrderEvent::default();
-        input_order.close = order_close;
+        input_order.market_meta.close = order_close;
         input_order.decision = Decision::Long;
 
         let input_signal_strength = 1.0;
@@ -115,7 +115,7 @@ mod tests {
 
         let order_close = 226.753403;
         let mut input_order = OrderEvent::default();
-        input_order.close = order_close;
+        input_order.market_meta.close = order_close;
         input_order.decision = Decision::Long;
 
         let input_signal_strength = 1.0;
@@ -138,7 +138,7 @@ mod tests {
 
         let order_close = 10.0;
         let mut input_order = OrderEvent::default();
-        input_order.close = order_close;
+        input_order.market_meta.close = order_close;
         input_order.decision = Decision::Short;
 
         let input_signal_strength = 1.0;
@@ -159,7 +159,7 @@ mod tests {
 
         let order_close = 226.753403;
         let mut input_order = OrderEvent::default();
-        input_order.close = order_close;
+        input_order.market_meta.close = order_close;
         input_order.decision = Decision::Short;
 
         let input_signal_strength = 1.0;
