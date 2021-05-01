@@ -7,10 +7,16 @@ use crate::statistic::error::StatisticError;
 
 // Todo:
 //  - &'static associated constants?
-//  - Remove duplicated generate_statistics() method for pnl_sheet & tear_sheet -> interface? Delete all together?
 
 pub trait Summariser {
     const SUMMARY_ID: &'static str;
+
+    fn generate_summary(&mut self, positions: &Vec<Position>) {
+        for position in positions {
+            self.update_summary(position);
+        }
+    }
+
     fn update_summary(&mut self, position: &Position);
     fn print_table(&self);
 }
@@ -93,12 +99,6 @@ impl ProfitLossSheet {
             sheet: HashMap::<SymbolID, ProfitLoss>::new()
         }
     }
-
-    pub fn generate_statistics(&mut self, positions: &Vec<Position>) {
-        for position in positions {
-            self.update_summary(position);
-        }
-    }
 }
 
 pub struct TearSheet<T> where T: MetricRolling {
@@ -158,12 +158,6 @@ impl<T> TearSheet<T> where T: MetricRolling + Display + Clone {
 
     pub fn builder() -> TearSheetBuilder<T> {
         TearSheetBuilder::new()
-    }
-
-    pub fn generate_statistics(&mut self, positions: &Vec<Position>) {
-        for position in positions {
-            self.update_summary(position);
-        }
     }
 }
 
