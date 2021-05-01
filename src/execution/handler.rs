@@ -11,6 +11,7 @@ pub trait FillGenerator {
 
 /// Configuration for constructing a [SimulatedExecution] via the new() constructor method.
 pub struct Config {
+    /// Simulated fee percentage to be used for each [Fees] field in decimal form (eg/ 0.01 for 1%)
     pub simulated_fees_pct: Fees,
 }
 
@@ -22,7 +23,9 @@ pub struct SimulatedExecution {
 
 impl FillGenerator for SimulatedExecution {
     fn generate_fill(&self, order: &OrderEvent) -> Result<FillEvent, ExecutionError> {
-        // Assume for now that all orders are filled at the market price
+        // Assume (for now) that all orders are filled at the market price
+        let fill_value_gross = SimulatedExecution::calculate_fill_value_gross(order);
+
         Ok(FillEvent {
             event_type: FillEvent::EVENT_TYPE,
             trace_id: order.trace_id,
@@ -31,12 +34,8 @@ impl FillGenerator for SimulatedExecution {
             symbol: order.symbol.clone(),
             decision: order.decision.clone(),
             quantity: order.quantity,
-            fill_value_gross: SimulatedExecution::calculate_fill_value_gross(&order),
-            fees: Fees {
-                exchange: 0.0,
-                slippage: 0.0,
-                network: 0.0
-            },
+            fill_value_gross,
+            fees: self.calculate_fees(&fill_value_gross),
         })
     }
 }
@@ -52,6 +51,15 @@ impl SimulatedExecution {
     /// Calculates the simulated gross fill value (excluding TotalFees) based on the input [OrderEvent].
     fn calculate_fill_value_gross(order: &OrderEvent) -> f64 {
         order.quantity.abs() * order.close
+    }
+
+    /// Calculates the simulated [Fees] a [FillEvent] will incur, based on the input [OrderEvent].
+    fn calculate_fees(&self, fill_value_gross: &f64) -> Fees {
+        Fees {
+            exchange: self.simulated_fees_pct.exchange * fill_value_gross,
+            slippage: self.simulated_fees_pct.slippage * fill_value_gross,
+            network: self.simulated_fees_pct.network * fill_value_gross
+        }
     }
 }
 
