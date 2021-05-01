@@ -100,7 +100,7 @@ impl<T> OrderGenerator for MetaPortfolio<T> where T: PositionHandler + ValueHand
             timestamp: Utc::now(),
             exchange: signal.exchange.clone(),
             symbol: signal.symbol.clone(),
-            close: signal.close,
+            market_meta: signal.market_meta.clone(),
             decision: signal_decision.clone(),
             quantity: 0.0,
             order_type: OrderType::default()

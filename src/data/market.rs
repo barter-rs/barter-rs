@@ -273,6 +273,25 @@ impl BarBuilder {
     }
 }
 
+/// Metadata detailing the [Bar] close price & it's associated timestamp. Used to propagate key
+/// market information in downstream [Event]s.
+#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct MarketMeta {
+    /// [Bar] close value from the source [MarketEvent].
+    pub close: f64,
+    /// [Bar] timestamp from the source [MarketEvent].
+    pub timestamp: DateTime<Utc>,
+}
+
+impl Default for MarketMeta {
+    fn default() -> Self {
+        Self {
+            close: 100.0,
+            timestamp: Utc::now(),
+        }
+    }
+}
+
 /// Parse supported timestamp strings to a Chrono [Datetime] UTC timestamp.
 fn datetime_utc_parser<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
     where
