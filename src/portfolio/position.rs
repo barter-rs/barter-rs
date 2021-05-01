@@ -24,30 +24,11 @@ pub trait PositionExiter {
     fn exit(&mut self, fill: &FillEvent) -> Result<(), PortfolioError>;
 }
 
-/// Direction of the [Position] when it was opened, Long or Short.
-#[derive(Debug, Clone, PartialOrd, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Direction {
-    Long,
-    Short,
-}
-
-impl Default for Direction {
-    fn default() -> Self {
-        Self::Long
-    }
-}
-
-/// Change in [Position] market value caused by a Position.update().
-pub type PositionValueChange = f64;
-
-/// Data encapsulating an ongoing or closed Position..
+/// Data encapsulating the state of an ongoing or closed [Position].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Position {
-    /// Trace UUID of the last event to trigger a [Position] update.
-    pub last_update_trace_id: Uuid,
-
-    /// Timestamp of the last event to trigger a [Position] update.
-    pub last_update_timestamp: DateTime<Utc>,
+    /// Metadata detailing trace UUIDs & timestamps associated with entering, updating & exiting.
+    pub meta: PositionMeta,
 
     /// Exchange associated with this [Position] instance.
     pub exchange: String,
@@ -100,6 +81,16 @@ pub struct Position {
 
 impl PositionEnterer for Position {
     fn enter(fill: &FillEvent) -> Result<Position, PortfolioError> {
+        // Initialise Position Metadata
+        let metadata = PositionMeta {
+            enter_trace_id: fill.trace_id,
+            enter_bar_timestamp: fill.market_meta.timestamp,
+            last_update_trace_id: fill.trace_id,
+            last_update_timestamp: fill.timestamp,
+            exit_trace_id: None,
+            exit_bar_timestamp: None,
+        };
+
         // Enter fees
         let enter_fees_total = fill.fees.calculate_total_fees();
 
@@ -110,8 +101,7 @@ impl PositionEnterer for Position {
         let unreal_profit_loss = -enter_fees_total * 2.0;
 
         Ok(Position {
-            last_update_trace_id: fill.trace_id,
-            last_update_timestamp: fill.timestamp,
+            meta: metadata,
             exchange: fill.exchange.clone(),
             symbol: fill.symbol.clone(),
             direction: Position::parse_entry_direction(&fill)?,
@@ -134,8 +124,8 @@ impl PositionEnterer for Position {
 
 impl PositionUpdater for Position {
     fn update(&mut self, market: &MarketEvent) {
-        self.last_update_trace_id = market.trace_id;
-        self.last_update_timestamp = market.timestamp;
+        self.meta.last_update_trace_id = market.trace_id;
+        self.meta.last_update_timestamp = market.timestamp;
 
         self.current_symbol_price = market.bar.close;
 
@@ -153,9 +143,12 @@ impl PositionExiter for Position {
             return Err(PortfolioError::CannotExitPositionWithEntryFill)
         }
 
-        self.last_update_trace_id = fill.trace_id;
-        self.last_update_timestamp = fill.timestamp;
-
+        // Metadata
+        self.meta.last_update_trace_id = fill.trace_id;
+        self.meta.last_update_timestamp = fill.timestamp;
+        self.meta.exit_trace_id = Some(fill.trace_id);
+        self.meta.exit_bar_timestamp = Some(fill.market_meta.timestamp);
+        
         // Exit fees
         self.exit_fees = fill.fees.clone();
         self.exit_fees_total = fill.fees.calculate_total_fees();
@@ -175,8 +168,7 @@ impl PositionExiter for Position {
 impl Default for Position {
     fn default() -> Self {
         Self {
-            last_update_trace_id: Uuid::new_v4(),
-            last_update_timestamp: Utc::now(),
+            meta: Default::default(),
             exchange: String::from("BINANCE"),
             symbol: String::from("ETH-USD"),
             direction: Direction::default(),
@@ -242,8 +234,7 @@ impl Position {
 
 /// Builder to construct [Position] instances.
 pub struct PositionBuilder {
-    pub last_update_trace_id: Option<Uuid>,
-    pub last_update_timestamp: Option<DateTime<Utc>>,
+    pub meta: Option<PositionMeta>,
     pub exchange: Option<String>,
     pub symbol: Option<String>,
     pub direction: Option<Direction>,
@@ -265,8 +256,7 @@ pub struct PositionBuilder {
 impl PositionBuilder {
     pub fn new() -> Self {
         Self {
-            last_update_trace_id: None,
-            last_update_timestamp: None,
+            meta: None,
             exchange: None,
             symbol: None,
             direction: None,
@@ -286,13 +276,8 @@ impl PositionBuilder {
         }
     }
 
-    pub fn last_update_trace_id(mut self, value: Uuid) -> Self {
-        self.last_update_trace_id = Some(value);
-        self
-    }
-
-    pub fn last_update_timestamp(mut self, value: DateTime<Utc>) -> Self {
-        self.last_update_timestamp = Some(value);
+    pub fn meta(mut self, value: PositionMeta) -> Self {
+        self.meta = Some(value);
         self
     }
 
@@ -378,8 +363,7 @@ impl PositionBuilder {
 
     pub fn build(self) -> Result<Position, PortfolioError> {
         if let (
-            Some(last_update_trace_id),
-            Some(last_update_timestamp),
+            Some(meta),
             Some(exchange),
             Some(symbol),
             Some(direction),
@@ -397,8 +381,7 @@ impl PositionBuilder {
             Some(unreal_profit_loss),
             Some(result_profit_loss),
         ) = (
-            self.last_update_trace_id,
-            self.last_update_timestamp,
+            self.meta,
             self.exchange,
             self.symbol,
             self.direction,
@@ -417,8 +400,7 @@ impl PositionBuilder {
             self.result_profit_loss,
         ) {
             Ok(Position {
-                last_update_trace_id,
-                last_update_timestamp,
+                meta,
                 exchange,
                 symbol,
                 direction,
@@ -439,6 +421,55 @@ impl PositionBuilder {
         } else {
             Err(PortfolioError::BuilderIncomplete)
         }
+    }
+}
+
+/// Metadata detailing the trace UUIDs & timestamps associated with entering, updating & exiting
+/// a [Position].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PositionMeta {
+    /// Trace UUID of the MarketEvent that triggered the entering of this [Position].
+    pub enter_trace_id: Uuid,
+
+    /// MarketEvent Bar timestamp that triggered the entering of this [Position].
+    pub enter_bar_timestamp: DateTime<Utc>,
+
+    /// Trace UUID of the last event to trigger a [Position] update.
+    pub last_update_trace_id: Uuid,
+
+    /// Event timestamp of the last event to trigger a [Position] update.9
+    pub last_update_timestamp: DateTime<Utc>,
+
+    /// Trace UUID of the MarketEvent that triggered the exiting of this [Position].
+    pub exit_trace_id: Option<Uuid>,
+
+    /// MarketEvent Bar timestamp that triggered the exiting of this [Position].
+    pub exit_bar_timestamp: Option<DateTime<Utc>>,
+}
+
+impl Default for PositionMeta {
+    fn default() -> Self {
+        Self {
+            enter_trace_id: Default::default(),
+            enter_bar_timestamp: Utc::now(),
+            last_update_trace_id: Default::default(),
+            last_update_timestamp: Utc::now(),
+            exit_trace_id: None,
+            exit_bar_timestamp: None
+        }
+    }
+}
+
+/// Direction of the [Position] when it was opened, Long or Short.
+#[derive(Debug, Clone, PartialOrd, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Direction {
+    Long,
+    Short,
+}
+
+impl Default for Direction {
+    fn default() -> Self {
+        Self::Long
     }
 }
 
@@ -654,7 +685,7 @@ mod tests {
         let mut input_market = MarketEvent::default();
         input_market.bar.close = 50.0; // -50.0 lower than current_symbol_price
 
-        // Update Position & return the PositionValueChange
+        // Update Position
         position.update(&input_market);
 
         // Assert update hasn't changed fields that are constant after creation

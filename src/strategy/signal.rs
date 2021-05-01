@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use crate::strategy::error::StrategyError::BuilderIncomplete;
 use crate::strategy::error::StrategyError;
+use crate::data::market::MarketMeta;
 
 /// Signal data produced by the strategy containing advisory signals for the portfolio to interpret.
 #[derive(Debug, Serialize, Deserialize)]
@@ -13,7 +14,8 @@ pub struct SignalEvent {
     pub timestamp: DateTime<Utc>,
     pub exchange: String,
     pub symbol: String,
-    pub close: f64,
+    /// Metadata propagated from source MarketEvent
+    pub market_meta: MarketMeta,
     pub signals: HashMap<Decision, SignalStrength>,
 }
 
@@ -28,7 +30,7 @@ impl Default for SignalEvent {
             timestamp: Utc::now(),
             exchange: String::from("BINANCE"),
             symbol: String::from("ETH-USD"),
-            close: 100.0,
+            market_meta: MarketMeta::default(),
             signals: Default::default(),
         }
     }
@@ -86,7 +88,7 @@ pub struct SignalEventBuilder {
     pub timestamp: Option<DateTime<Utc>>,
     pub exchange: Option<String>,
     pub symbol: Option<String>,
-    pub close: Option<f64>,
+    pub market_meta: Option<MarketMeta>,
     pub signals: Option<HashMap<Decision, SignalStrength>>,
 }
 
@@ -97,7 +99,7 @@ impl SignalEventBuilder {
             timestamp: None,
             exchange: None,
             symbol: None,
-            close: None,
+            market_meta: None,
             signals: None,
         }
     }
@@ -122,8 +124,8 @@ impl SignalEventBuilder {
         self
     }
 
-    pub fn close(mut self, value: f64) -> Self {
-        self.close = Some(value);
+    pub fn market_meta(mut self, value: MarketMeta) -> Self {
+        self.market_meta = Some(value);
         self
     }
 
@@ -138,14 +140,14 @@ impl SignalEventBuilder {
             Some(timestamp),
             Some(exchange),
             Some(symbol),
-            Some(close),
+            Some(market_meta),
             Some(signals)
         ) = (
             self.trace_id,
             self.timestamp,
             self.exchange,
             self.symbol,
-            self.close,
+            self.market_meta,
             self.signals
         ) {
             Ok(SignalEvent {
@@ -154,7 +156,7 @@ impl SignalEventBuilder {
                 timestamp,
                 exchange,
                 symbol,
-                close,
+                market_meta,
                 signals,
             })
         } else {
