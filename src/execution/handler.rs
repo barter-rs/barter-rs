@@ -9,9 +9,15 @@ pub trait FillGenerator {
     fn generate_fill(&self, order: &OrderEvent) -> Result<FillEvent, ExecutionError>;
 }
 
+/// Configuration for constructing a [SimulatedExecution] via the new() constructor method.
+pub struct Config {
+    pub simulated_fees_pct: Fees,
+}
+
 /// Simulated execution handler that executes [OrderEvent]s to generate [FillEvent]s via a
 /// simulated broker interaction.
 pub struct SimulatedExecution {
+    simulated_fees_pct: Fees,
 }
 
 impl FillGenerator for SimulatedExecution {
@@ -37,8 +43,10 @@ impl FillGenerator for SimulatedExecution {
 
 impl SimulatedExecution {
     /// Constructs a new [SimulatedExecution] component.
-    pub fn new() -> Self {
-        SimulatedExecution{}
+    pub fn new(cfg: &Config) -> Self {
+        Self {
+            simulated_fees_pct: cfg.simulated_fees_pct,
+        }
     }
 
     /// Calculates the simulated gross fill value (excluding TotalFees) based on the input [OrderEvent].
