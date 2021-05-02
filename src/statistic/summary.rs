@@ -5,9 +5,6 @@ use std::fmt::Display;
 use prettytable::{Row, Table};
 use crate::statistic::error::StatisticError;
 
-// Todo:
-//  - &'static associated constants?
-
 pub trait Summariser {
     const SUMMARY_ID: &'static str;
     fn update_summary(&mut self, position: &Position);
