@@ -1,3 +1,6 @@
+/// Grouping of Welford Online algorithms for calculating running values from one pass through.
+/// See link:
+/// https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
 pub struct WelfordOnline {}
 
 impl WelfordOnline {
