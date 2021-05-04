@@ -230,6 +230,11 @@ impl Position {
             Direction::Short => self.enter_value_gross - self.exit_value_gross - total_fees,
         }
     }
+
+    /// Calculate the PnL return of a closed [Position].
+    pub fn calculate_profit_loss_return(&self) -> f64 {
+        self.result_profit_loss / (self.enter_value_gross + self.enter_fees_total)
+    }
 }
 
 /// Builder to construct [Position] instances.
