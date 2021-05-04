@@ -231,9 +231,30 @@ impl Position {
         }
     }
 
-    /// Calculate the PnL return of a closed [Position].
+    /// Calculate the PnL return of a closed [Position] - assumed [Position::result_profit_loss] is
+    /// appropriately calculated.
     pub fn calculate_profit_loss_return(&self) -> f64 {
         self.result_profit_loss / (self.enter_value_gross + self.enter_fees_total)
+    }
+
+    /// Determines if a closed [Position] is a winning trade. Matches on exit_bar_timestamp to
+    /// determine if the [Position] is closed. If it is closed, the [Position::result_profit_loss]
+    /// is used, else None is returned.
+    pub fn is_win(&self) -> Option<bool> {
+        match self.meta.exit_bar_timestamp {
+            None => None,
+            Some(_) => Some(self.result_profit_loss > 0.0)
+        }
+    }
+
+    /// Determines if a closed [Position] is a losing trade. Matches on exit_bar_timestamp to
+    /// determine if the [Position] is closed. If it is closed, the [Position::result_profit_loss]
+    /// is used, else None is returned.
+    pub fn is_loss(&self) -> Option<bool> {
+        match self.meta.exit_bar_timestamp {
+            None => None,
+            Some(_) => Some(self.result_profit_loss <= 0.0)
+        }
     }
 }
 
