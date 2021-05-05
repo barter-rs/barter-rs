@@ -237,9 +237,9 @@ impl Position {
         self.result_profit_loss / (self.enter_value_gross + self.enter_fees_total)
     }
 
-    /// Determines if a closed [Position] is a winning trade. Matches on exit_bar_timestamp to
-    /// determine if the [Position] is closed. If it is closed, the [Position::result_profit_loss]
-    /// is used, else None is returned.
+    /// Determines if a [Position] is a winning trade. Matches on exit_bar_timestamp to ensure it is
+    /// closed. If so, [Position::result_profit_loss] is used to determine Some(is_win), else None
+    /// is returned.
     pub fn is_win(&self) -> Option<bool> {
         match self.meta.exit_bar_timestamp {
             None => None,
@@ -247,9 +247,9 @@ impl Position {
         }
     }
 
-    /// Determines if a closed [Position] is a losing trade. Matches on exit_bar_timestamp to
-    /// determine if the [Position] is closed. If it is closed, the [Position::result_profit_loss]
-    /// is used, else None is returned.
+    /// Determines if a [Position] is a losing trade. Matches on exit_bar_timestamp to ensure it is
+    /// closed. If so, [Position::result_profit_loss] is used to determine Some(is_win), else None
+    /// is returned.
     pub fn is_loss(&self) -> Option<bool> {
         match self.meta.exit_bar_timestamp {
             None => None,
