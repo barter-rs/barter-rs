@@ -1,50 +1,122 @@
 use crate::statistic::metric::MetricRolling;
 use crate::portfolio::position::Position;
+use chrono::{Duration, DateTime, Utc};
+use crate::statistic::dispersion::Dispersion;
+use crate::statistic::summary::Summariser;
 
-pub struct PnLReturnMean {
-    counter: usize,
-    mean: f64,
+#[derive(Debug, Clone, PartialOrd, PartialEq)]
+pub struct PnLReturnView {
+    pub start_timestamp: DateTime<Utc>,
+    pub duration: Duration,
+    pub total: DataSummary,
+    pub losses: DataSummary,
 }
 
-impl MetricRolling for PnLReturnMean {
-    const METRIC_ID: &'static str = "Profit & Loss Return Mean";
+impl Summariser for PnLReturnView {
+    const SUMMARY_ID: &'static str = "PnL Return Summary";
+
+    fn update_summary(&mut self, position: &Position) {
+        // Set start timestamp if it's the first trade of the session
+        if self.total.counter == 0 {
+            self.start_timestamp = position.meta.enter_bar_timestamp;
+        }
+
+        // Update duration of trading session
+        self.update_trading_session_duration(position);
+
+        // Update Total PnL Returns
+        self.total.update(position);
+
+        // Update Loss PnL Returns if relevant
+        if let Some(is_loss) = position.is_loss() {
+            if is_loss {
+                self.losses.update(position);
+            }
+        }
+    }
+
+    fn print_table(&self) {
+        todo!()
+    }
+}
+
+impl MetricRolling for PnLReturnView {
+    const METRIC_ID: &'static str = "PnL Return Summary";
 
     fn init() -> Self {
         Self {
-            counter: 0,
-            mean: 0.0
+            start_timestamp: Utc::now(),
+            duration: Duration::zero(),
+            total: DataSummary::default(),
+            losses: DataSummary::default()
         }
     }
 
     fn update(&mut self, position: &Position) {
-        // Update data set length counter
+    }
+}
+
+impl PnLReturnView {
+    fn update_trading_session_duration(&mut self, position: &Position) {
+        self.duration = match position.meta.exit_bar_timestamp {
+            None => {
+                // Since Position is not exited, estimate duration w/ last_update_timestamp
+                position.meta.last_update_timestamp.signed_duration_since(self.start_timestamp)
+            },
+            Some(exit_timestamp) => {
+                exit_timestamp.signed_duration_since(self.start_timestamp)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialOrd, PartialEq)]
+pub struct DataSummary {
+    pub counter: usize,
+    pub sum: f64,
+    pub mean: f64,
+    pub dispersion: Dispersion,
+}
+
+impl Default for DataSummary {
+    fn default() -> Self {
+        Self {
+            counter: 0,
+            sum: 0.0,
+            mean: 0.0,
+            dispersion: Dispersion::default()
+        }
+    }
+}
+
+impl MetricRolling for DataSummary {
+    const METRIC_ID: &'static str = "PnL Return";
+
+    fn init() -> Self {
+        Self {
+            counter: 0,
+            sum: 0.0,
+            mean: 0.0,
+            dispersion: Dispersion::default(),
+        }
+    }
+
+    fn update(&mut self, position: &Position) {
+        // Increment trade counter
         self.counter += 1;
 
-        // Calculate the PnL return of new Position data point
-        let pnl_return = position.result_profit_loss / (position.enter_value_gross + position.enter_fees_total);
+        // Calculate next PnL Return data point
+        let next_return = position.calculate_profit_loss_return();
 
-        // Calculate new mean
-        self.mean += (pnl_return - self.mean) / self.counter as f64;
-    }
-}
+        // Update Sum
+        self.sum += next_return;
 
-pub struct PnLReturnStandardDeviation {
-    counter: usize,
-    standard_deviation: f64,
-}
+        // Update Mean
+        let prev_mean = self.mean;
+        self.mean += (next_return - self.mean) / self.counter as f64;
 
-impl MetricRolling for PnLReturnStandardDeviation {
-    const METRIC_ID: &'static str = "Profit & Loss Return Standard Deviation";
-
-    fn init() -> Self {
-        Self {
-            counter: 0,
-            standard_deviation: 0.0
-        }
-    }
-
-    fn update(&mut self, position: &Position) {
-        todo!()
+        // Update Dispersion
+        self.dispersion.update(prev_mean, self.mean, next_return, self.counter);
     }
 }
 
@@ -52,43 +124,78 @@ impl MetricRolling for PnLReturnStandardDeviation {
 mod tests {
     use super::*;
 
-    #[test]
-    fn mean() {
-        let mut metric_mean = PnLReturnMean::init();
-
-        // First Position PnL Return = 10;
-        let mut first_position = Position::default();
-        first_position.result_profit_loss = 1000.0;
-        first_position.enter_value_gross = 100.0;
-
-        // Second Position PnL Return = 100;
-        let mut second_position = Position::default();
-        second_position.result_profit_loss = 10000.0;
-        second_position.enter_value_gross = 100.0;
-
-        // Third Position PnL Return = 10;
-        let mut third_position = Position::default();
-        third_position.result_profit_loss = 1000.0;
-        third_position.enter_value_gross = 100.0;
-
-        // First Update Mean
-        metric_mean.update(&first_position);
-        let actual_first_mean = metric_mean.mean;
-        let expected_first_mean = 10.0;                               // 10
-
-        // Second Update Mean
-        metric_mean.update(&second_position);
-        let actual_second_mean = metric_mean.mean;
-        let expected_second_mean = (10.0 + 100.0) / 2.0;              // 55
-
-        // Second Update Mean
-        metric_mean.update(&third_position);
-        let actual_third_mean = metric_mean.mean;
-        let expected_third_mean = (10.0 + 100.0 + 10.0) / 3.0;        // 40
-
-        assert_eq!(actual_first_mean, expected_first_mean);
-        assert_eq!(actual_second_mean, expected_second_mean);
-        assert_eq!(actual_third_mean, expected_third_mean);
-    }
+    // #[test]
+    // fn pnl_return_summary_update() {
+    //     // -- INPUT POSITIONS -- //
+    //     let base_timestamp = Utc::now();
+    //
+    //     let mut input_position_1 = Position::default();  // PnL Return = 10
+    //     input_position_1.meta.enter_bar_timestamp = base_timestamp;
+    //     input_position_1.meta.exit_bar_timestamp = Some(base_timestamp.checked_add_signed(Duration::days(1)).unwrap());
+    //     input_position_1.result_profit_loss = 1000.0;
+    //     input_position_1.enter_value_gross = 100.0;
+    //
+    //     let mut input_position_2 = Position::default();  // PnL Return = 100
+    //     input_position_2.meta.enter_bar_timestamp = base_timestamp.checked_add_signed(Duration::days(2)).unwrap();
+    //     input_position_2.meta.exit_bar_timestamp = Some(base_timestamp.checked_add_signed(Duration::days(3)).unwrap());
+    //     input_position_2.result_profit_loss = 10000.0;
+    //     input_position_2.enter_value_gross = 100.0;
+    //
+    //     let mut input_position_3 = Position::default(); // PnL Return = -10
+    //     input_position_3.meta.enter_bar_timestamp = base_timestamp.checked_add_signed(Duration::days(4)).unwrap();
+    //     input_position_3.meta.exit_bar_timestamp = Some(base_timestamp.checked_add_signed(Duration::days(5)).unwrap());
+    //     input_position_3.result_profit_loss = -1000.0;
+    //     input_position_3.enter_value_gross = 100.0;
+    //
+    //     let input_positions = vec![input_position_1, input_position_2, input_position_3];
+    //
+    //     // -- ACTUAL GENERATED PnL RETURN SUMMARIES --
+    //     let mut actual_pnl_summaries = Vec::new();
+    //
+    //     let mut pnl_summary = DataSummary::init();
+    //     for position in input_positions {
+    //         pnl_summary.update(&position);
+    //         actual_pnl_summaries.push(pnl_summary.clone())
+    //     }
+    //
+    //
+    //     // -- EXPECTED PnL RETURN SUMMARIES -- //
+    //     let pnl_return_1 = DataSummary {
+    //         counter: 1,
+    //         start_timestamp: base_timestamp,
+    //         duration: Duration::days(1),
+    //         sum: 10.0,
+    //         mean: 10.0,
+    //         recurrence_relation_m: 0.0,
+    //         variance: 0.0,
+    //         standard_deviation: 0.0
+    //     };
+    //
+    //     let pnl_return_2 = DataSummary {
+    //         counter: 2,
+    //         start_timestamp: base_timestamp,
+    //         duration: Duration::days(3),
+    //         sum: 110.0,
+    //         mean: 55.0,
+    //         recurrence_relation_m: 4050.0,
+    //         variance: 2025.0,
+    //         standard_deviation: 45.0
+    //     };
+    //
+    //     let pnl_return_3 = DataSummary {
+    //         counter: 3,
+    //         start_timestamp: base_timestamp,
+    //         duration: Duration::days(5),
+    //         sum: 100.0,
+    //         mean: 33.33333333333333,
+    //         recurrence_relation_m: 6866.666666666666,
+    //         variance: 2288.8888888888887,
+    //         standard_deviation: 47.84233364802441
+    //     };
+    //
+    //     // -- ASSERT ACTUAL EQUALS EXPECTED --
+    //     assert_eq!(actual_pnl_summaries[0], pnl_return_1);
+    //     assert_eq!(actual_pnl_summaries[1], pnl_return_2);
+    //     assert_eq!(actual_pnl_summaries[2], pnl_return_3);
+    // }
 }
-
