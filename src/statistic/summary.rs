@@ -5,6 +5,10 @@ use std::fmt::Display;
 use prettytable::{Row, Table};
 use crate::statistic::error::StatisticError;
 
+// pub trait TablePrinter {
+//     fn print_table(&self);
+// }
+
 pub trait Summariser {
     const SUMMARY_ID: &'static str;
     fn update_summary(&mut self, position: &Position);
