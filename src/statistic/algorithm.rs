@@ -4,12 +4,19 @@
 pub struct WelfordOnline;
 
 impl WelfordOnline {
-    /// Calculates the Welford Online recurrence relation M
+    /// Calculates the next mean.
+    pub fn calculate_mean<T>(mut prev_mean: T, next_value: T, count: T) -> T
+    where T: Copy + std::ops::Sub<Output = T> + std::ops::Div<Output = T> + std::ops::AddAssign {
+        prev_mean += (next_value - prev_mean) / count;
+        prev_mean
+    }
+
+    /// Calculates the next Welford Online recurrence relation M.
     pub fn calculate_recurrence_relation_m(prev_m: f64, prev_mean: f64, new_value: f64, new_mean: f64) -> f64 {
         prev_m + ((new_value - prev_mean) * (new_value - new_mean))
     }
 
-    /// Calculates the unbiased 'Sample' Variance using Bessel's correction (count - 1), and the
+    /// Calculates the next unbiased 'Sample' Variance using Bessel's correction (count - 1), and the
     /// Welford Online recurrence relation M.
     pub fn calculate_sample_variance(recurrence_relation_m: f64, count: usize) -> f64 {
         match count < 2 {
@@ -22,7 +29,7 @@ impl WelfordOnline {
         }
     }
 
-    /// Calculates the biased 'Population' Variance using the Welford Online recurrence relation M.
+    /// Calculates the next biased 'Population' Variance using the Welford Online recurrence relation M.
     pub fn calculate_population_variance(recurrence_relation_m: f64, count: usize) -> f64 {
         match count < 1 {
             true => {
@@ -38,6 +45,20 @@ impl WelfordOnline {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn calculate_mean() {
+        let inputs = vec![
+            (0, 100, 1), (100, 1000, 2), (550, 400, 3), (500, 540, 4), (510, 1200, 5), (648, 660, 6) // 650
+        ];
+
+        let expected = vec![100, 550, 500, 510, 648, 650];
+
+        for (input, expected) in inputs.iter().zip(expected.into_iter()) {
+            let actual_mean = WelfordOnline::calculate_mean(input.0, input.1, input.2);
+            assert_eq!(actual_mean, expected);
+        }
+    }
 
     #[test]
     fn calculate_recurrence_relation_m() {
@@ -89,7 +110,7 @@ mod tests {
     #[test]
     fn calculate_sample_variance() {
         let inputs = vec![
-            (0.0, 1.0), (1050.0, 5.0), (1012.5, 123223.0), (16200000000.0, 3.0), (99999.9999, 23232.0)
+            (0.0, 1), (1050.0, 5), (1012.5, 123223), (16200000000.0, 3), (99999.9999, 23232)
         ];
         let expected = vec![0.0, 262.5, (675.0/82148.0), 8100000000.0, 4.304592996427187];
 
@@ -102,7 +123,7 @@ mod tests {
     #[test]
     fn calculate_population_variance() {
         let inputs = vec![
-            (0.0, 1.0), (1050.0, 5.0), (1012.5, 123223.0), (16200000000.0, 3.0), (99999.9999, 23232.0)
+            (0.0, 1), (1050.0, 5), (1012.5, 123223), (16200000000.0, 3), (99999.9999, 23232)
         ];
         let expected = vec![0.0, 210.0, (1012.5/123223.0), 5400000000.0, 0.4304592996427187];
 
