@@ -3,6 +3,7 @@ use crate::portfolio::position::Position;
 use chrono::{Duration, DateTime, Utc};
 use crate::statistic::dispersion::Dispersion;
 use crate::statistic::summary::Summariser;
+use crate::statistic::algorithm::WelfordOnline;
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct PnLReturnView {
@@ -17,7 +18,7 @@ impl Summariser for PnLReturnView {
 
     fn update_summary(&mut self, position: &Position) {
         // Set start timestamp if it's the first trade of the session
-        if self.total.counter == 0 {
+        if self.total.count == 0 {
             self.start_timestamp = position.meta.enter_bar_timestamp;
         }
 
@@ -72,7 +73,7 @@ impl PnLReturnView {
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct DataSummary {
-    pub counter: usize,
+    pub count: usize,
     pub sum: f64,
     pub mean: f64,
     pub dispersion: Dispersion,
@@ -81,7 +82,7 @@ pub struct DataSummary {
 impl Default for DataSummary {
     fn default() -> Self {
         Self {
-            counter: 0,
+            count: 0,
             sum: 0.0,
             mean: 0.0,
             dispersion: Dispersion::default()
@@ -94,7 +95,7 @@ impl MetricRolling for DataSummary {
 
     fn init() -> Self {
         Self {
-            counter: 0,
+            count: 0,
             sum: 0.0,
             mean: 0.0,
             dispersion: Dispersion::default(),
@@ -103,7 +104,7 @@ impl MetricRolling for DataSummary {
 
     fn update(&mut self, position: &Position) {
         // Increment trade counter
-        self.counter += 1;
+        self.count += 1;
 
         // Calculate next PnL Return data point
         let next_return = position.calculate_profit_loss_return();
@@ -113,10 +114,10 @@ impl MetricRolling for DataSummary {
 
         // Update Mean
         let prev_mean = self.mean;
-        self.mean += (next_return - self.mean) / self.counter as f64;
+        self.mean = WelfordOnline::calculate_mean(self.mean, next_return, self.count);
 
         // Update Dispersion
-        self.dispersion.update(prev_mean, self.mean, next_return, self.counter);
+        self.dispersion.update(prev_mean, self.mean, next_return, self.count);
     }
 }
 
