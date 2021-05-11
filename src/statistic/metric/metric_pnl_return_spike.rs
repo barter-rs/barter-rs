@@ -29,7 +29,7 @@ impl SharpeRatio {
     fn update(&mut self, pnl_returns: &PnLReturnView) {
         // Update Trade Duration & Counter
         self.trading_duration = pnl_returns.duration;
-        self.trade_count = pnl_returns.total.counter;
+        self.trade_count = pnl_returns.total.count;
 
         // Calculate Sharpe Ratio Per Trade
         self.sharpe_ratio_per_trade = (pnl_returns.total.mean - self.risk_free_return)
@@ -66,7 +66,7 @@ impl SortinoRatio {
     fn update(&mut self, pnl_returns: &PnLReturnView) {
         // Update Trade Duration & Counter
         self.trading_duration = pnl_returns.duration;
-        self.trade_count = pnl_returns.total.counter;
+        self.trade_count = pnl_returns.total.count;
 
         // Calculate Sortino Ratio Per Trade
         self.sortino_rate_per_trade = (pnl_returns.total.mean - self.risk_free_return)
@@ -87,13 +87,13 @@ impl SortinoRatio {
 // Todo:
 //  - Split out drawdown into several metrics, ie/ MaxDrawdown, MaxDrawdown duration,
 //    Drawdown avg, Drawdown avg duration.
-//  - Centralise Mean calculation into one function, or perhaps it's own type w/ impl like Range?
+//  - Let Drawdown take returns instead and have starting_equity = 1.0 (normalised) -> current_equity *= position.pnl_return
 
 pub struct Drawdown {
     pub starting_equity: f64,
     pub current_equity: f64,
-    pub equity_range: Range,
     pub current_drawdown: f64,
+    pub equity_range: Range,
     pub avg_drawdown: f64,
     pub avg_drawdown_duration: Duration,
     pub max_drawdown: f64,
@@ -106,11 +106,11 @@ impl Drawdown {
         Self {
             starting_equity,
             current_equity: starting_equity,
+            current_drawdown: 0.0,
             equity_range: Range {
                 highest: starting_equity,
                 lowest: starting_equity,
             },
-            current_drawdown: 0.0,
             avg_drawdown: 0.0,
             avg_drawdown_duration: Duration,
             max_drawdown: 0.0,
