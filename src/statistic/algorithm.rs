@@ -125,7 +125,7 @@ mod tests {
         let inputs = vec![
             (0.0, 1), (1050.0, 5), (1012.5, 123223), (16200000000.0, 3), (99999.9999, 23232)
         ];
-        let expected = vec![0.0, 210.0, (1012.5/123223.0), 5400000000.0, 0.4304592996427187];
+        let expected = vec![0.0, 210.0, (1012.5/123223.0), 5400000000.0, 4.304407709194215];
 
         for (input, expected) in inputs.iter().zip(expected.into_iter()) {
             let actual_variance = WelfordOnline::calculate_population_variance(input.0, input.1);
