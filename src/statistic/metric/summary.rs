@@ -1,199 +1,59 @@
 use crate::portfolio::position::Position;
-use crate::statistic::metric::{MetricRolling, ProfitLoss};
-use std::collections::HashMap;
-use std::fmt::Display;
-use prettytable::{Row, Table};
-use crate::statistic::error::StatisticError;
+use chrono::{DateTime, Duration, Utc};
+use crate::statistic::metric::metric_pnl_return_spike::{SharpeRatio, SortinoRatio, Drawdown};
+use crate::statistic::metric::ratio::{SharpeRatio, SortinoRatio, CalmarRatio};
+use crate::statistic::metric::drawdown::Drawdown;
+use crate::statistic::metric::sharpe_ratio_spike::PnLReturnView;
+use crate::statistic::metric::summary_old::SummariserOld;
 
-// pub trait TablePrinter {
-//     fn print_table(&self);
-// }
+pub trait TablePrinter {
+    fn print_table(&self);
+}
 
 pub trait Summariser {
-    const SUMMARY_ID: &'static str;
+    // fn generate_summary(positions: &Vec<Position>) -> Self;
     fn update_summary(&mut self, position: &Position);
-    fn print_table(&self);
-
-    fn generate_summary(&mut self, positions: &Vec<Position>) {
-        for position in positions {
-            self.update_summary(position);
-        }
-    }
+    fn print(&self);
 }
 
-pub struct TradingStatistics<T> where T: MetricRolling {
-    pnl_sheet: ProfitLossSheet,
-    tear_sheet: TearSheet<T>
+pub struct SessionSummary {
+    pnl_returns: PnLReturnView,
+    tear_sheet: TearSheet,
 }
 
-impl<T> TradingStatistics<T> where T: MetricRolling + Display + Clone {
-    pub fn new(pnl_sheet: ProfitLossSheet, tear_sheet: TearSheet<T>) -> Self {
-        Self {
-            pnl_sheet,
-            tear_sheet,
-        }
+impl Summariser for SessionSummary {
+    fn update_summary(&mut self, position: &Position) {
+        self.pnl_returns.update_summary(position);
+        self.tear_sheet.update(position, &self.pnl_returns);
     }
 
-    pub fn generate_statistics(&mut self, positions: &Vec<Position>) {
-        for position in positions.iter() {
-            self.pnl_sheet.update_summary(position);
-            self.tear_sheet.update_summary(position);
-        }
-    }
-
-    pub fn print_statistics(&self) {
-        println!("\n-- Profit & Loss Sheet --");
-        self.pnl_sheet.print_table();
+    fn print(&self) {
         println!("\n-- Tear Sheet --");
-        self.tear_sheet.print_table();
+        self.meta.print_table();
     }
 }
 
-pub type SymbolID = String;
-pub type MetricID = String;
-
-pub struct ProfitLossSheet {
-    sheet: HashMap<SymbolID, ProfitLoss>,
+pub struct TearSheet {
+    drawdown: Drawdown,
+    sharpe_ratio: SharpeRatio,
+    sortino_ratio: SortinoRatio,
+    calmar_ratio: CalmarRatio,
 }
 
-impl Summariser for ProfitLossSheet {
-    const SUMMARY_ID: &'static str = "Profit & Loss Sheet";
-
-    fn update_summary(&mut self, position: &Position) {
-        match self.sheet.get_mut(&*position.symbol) {
-            None => {
-                let mut first_symbol_pnl = ProfitLoss::init();
-                first_symbol_pnl.update(position);
-                self.sheet.insert(position.symbol.clone(), first_symbol_pnl);
-            }
-            Some(symbol_pnl) => {
-                symbol_pnl.update(position);
-            }
-        }
-    }
-
-    fn print_table(&self) {
-        let mut pnl_sheet = Table::new();
-
-        pnl_sheet.set_titles(row!["",
-            "Long Contracts", "Long PnL", "Long PnL Per Contract",
-            "Short Contracts", "Short PnL", "Short PnL Per Contract",
-            "Total Contracts", "Total PnL", "Total PnL Per Contract"
-        ]);
-
-        for (symbol, pnl_summary) in self.sheet.iter() {
-            pnl_sheet.add_row(row![symbol,
-                pnl_summary.long_contracts, pnl_summary.long_pnl, pnl_summary.long_pnl_per_contract,
-                pnl_summary.short_contracts, pnl_summary.short_pnl, pnl_summary.short_pnl_per_contract,
-                pnl_summary.total_contracts, pnl_summary.total_pnl, pnl_summary.total_pnl_per_contract
-            ]);
-        }
-
-        pnl_sheet.printstd();
-    }
-}
-
-impl ProfitLossSheet {
-    pub fn new() -> Self {
+impl TearSheet {
+    pub fn new(risk_free_return: f64) -> Self {
         Self {
-            sheet: HashMap::<SymbolID, ProfitLoss>::new()
-        }
-    }
-}
-
-pub struct TearSheet<T> where T: MetricRolling {
-    init_metrics: HashMap<MetricID, T>,
-    sheet: HashMap<SymbolID, HashMap<MetricID, T>>,
-}
-
-impl<T> Summariser for TearSheet<T> where T: MetricRolling + Display + Clone {
-    const SUMMARY_ID: &'static str = "Tear Sheet";
-
-    fn update_summary(&mut self, position: &Position) {
-        match self.sheet.get_mut(&*position.symbol) {
-            None => {
-                let mut first_symbol_metrics = self.init_metrics.clone();
-
-                first_symbol_metrics
-                    .values_mut()
-                    .map(|metric| T::update(metric, position))
-                    .next();
-
-                self.sheet.insert(position.symbol.clone(), first_symbol_metrics);
-            }
-
-            Some(symbol_metrics) => {
-                symbol_metrics
-                    .values_mut()
-                    .map(|metric| T::update(metric, position))
-                    .next();
-            }
+            drawdown: Drawdown::init(1.0), // Todo: remove starting equity here
+            sharpe_ratio: SharpeRatio::init(risk_free_return),
+            sortino_ratio: SortinoRatio::init(risk_free_return),
+            calmar_ratio: CalmarRatio::init(risk_free_return),
         }
     }
 
-    fn print_table(&self) {
-        let mut tear_sheet = Table::new();
-        let mut titles = vec![""];
-
-        for (symbol, metrics) in self.sheet.iter() {
-            for (metric, value) in metrics.iter() {
-                titles.push(metric);
-                tear_sheet.add_row(row![symbol, value]);
-
-            }
-        }
-
-        tear_sheet.set_titles(Row::from(titles));
-        tear_sheet.printstd();
-    }
-}
-
-impl<T> TearSheet<T> where T: MetricRolling + Display + Clone {
-    pub fn new() -> Self {
-        Self {
-            init_metrics: HashMap::<MetricID, T>::new(),
-            sheet: HashMap::<SymbolID, HashMap<MetricID, T>>::new()
-        }
-    }
-
-    pub fn builder() -> TearSheetBuilder<T> {
-        TearSheetBuilder::new()
-    }
-}
-
-pub struct TearSheetBuilder<T> where T: MetricRolling {
-    metrics: HashMap<MetricID, T>,
-}
-
-impl<T> TearSheetBuilder<T> where T: MetricRolling + Clone {
-    pub fn new() -> Self {
-        Self {
-            metrics: HashMap::<String, T>::new(),
-        }
-    }
-
-    pub fn metric(mut self, metric: T) -> Self {
-        // Return without modification if metric name already exists in metrics Map
-        if self.metrics.contains_key(&*T::METRIC_ID) {
-            return self
-        }
-
-        // Insert new metric initial value into Map
-        self.metrics.insert(String::from(T::METRIC_ID), metric);
-        self
-    }
-
-    pub fn build(self) -> Result<TearSheet<T>, StatisticError> {
-        match self.metrics.is_empty() {
-            true => {
-                Err(StatisticError::BuilderNoMetricsProvided)
-            }
-            false => {
-                Ok(TearSheet {
-                    init_metrics: self.metrics,
-                    sheet: HashMap::<SymbolID, HashMap<MetricID, T>>::new(),
-                })
-            }
-        }
+    pub fn update(&mut self, position: &Position, pnl_return_view: &PnLReturnView) {
+        self.drawdown.update(position);
+        self.sharpe_ratio.update(pnl_return_view);
+        self.sortino_ratio.update(pnl_return_view);
+        self.calmar_ratio.update(pnl_return_view, self.drawdown.max_drawdown);
     }
 }
