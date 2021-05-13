@@ -1,5 +1,6 @@
 use crate::statistic::algorithm::WelfordOnline;
 
+/// Representation of a dataset using measures of dispersion - range, variance & standard deviation.
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct Dispersion {
     pub range: Range,
@@ -20,6 +21,8 @@ impl Default for Dispersion {
 }
 
 impl Dispersion {
+    /// Iteratively updates the measures of Dispersion given the previous mean, new mean, new value,
+    /// and the dataset count.
     pub fn update(&mut self, prev_mean: f64, new_mean: f64, new_value: f64, value_count: usize) {
         // Update Range
         self.range.update(new_value);
@@ -37,6 +40,8 @@ impl Dispersion {
     }
 }
 
+/// Measure of dispersion providing the highest and lowest value of a dataset. Lazy evaluation is
+/// used when calculating the range between them via the calculate() function.
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct Range {
     pub activated: bool,
@@ -55,6 +60,7 @@ impl Default for Range {
 }
 
 impl Range {
+    /// Initialises the Range with the provided first value of the dataset.
     fn init(first_value: f64) -> Self {
         Self {
             activated: false,
@@ -63,6 +69,7 @@ impl Range {
         }
     }
 
+    /// Iteratively updates the Range given the next value in the dataset.
     fn update(&mut self, new_value: f64) {
         match self.activated {
             true => {
@@ -82,6 +89,8 @@ impl Range {
         }
     }
 
+    /// Calculates the range between the highest and lowest value of a dataset. Provided to
+    /// allow lazy evaluation.
     fn calculate(&self) -> f64 {
         self.highest - self.lowest
     }
