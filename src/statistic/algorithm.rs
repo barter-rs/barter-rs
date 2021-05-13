@@ -48,60 +48,52 @@ mod tests {
 
     #[test]
     fn calculate_mean() {
+        struct Input { prev_mean: f64, next_value: f64, count: f64 };
+
         let inputs = vec![
-            (0, 100, 1), (100, 1000, 2), (550, 400, 3), (500, 540, 4), (510, 1200, 5), (648, 660, 6) // 650
+            Input { prev_mean: 0.0, next_value: 100.0, count: 1.0 },
+            Input { prev_mean: 100.0, next_value: 1000.0, count: 2.0 },
+            Input { prev_mean: 550.0, next_value: 400.0, count: 3.0 },
+            Input { prev_mean: 500.0, next_value: 540.0, count: 4.0 },
+            Input { prev_mean: 510.0, next_value: 1200.0, count: 5.0 },
+            Input { prev_mean: 648.0, next_value: 660.0, count: 6.0 },
         ];
 
-        let expected = vec![100, 550, 500, 510, 648, 650];
+        let expected = vec![100.0, 550.0, 500.0, 510.0, 648.0, 650.0];
 
         for (input, expected) in inputs.iter().zip(expected.into_iter()) {
-            let actual_mean = WelfordOnline::calculate_mean(input.0, input.1, input.2);
-            assert_eq!(actual_mean, expected);
+            let actual = WelfordOnline::calculate_mean(input.prev_mean, input.next_value, input.count);
+            assert_eq!(actual, expected);
         }
     }
 
     #[test]
     fn calculate_recurrence_relation_m() {
-        // -- INPUTS --
-        // dataset = [10, 100, -10]
-        let input_1 = (0.0, 0.0, 10.0, 10.0);
-        let input_2 = (0.0, 10.0, 100.0, 55.0);
-        let input_3 = (4050.0, 55.0, -10.0, (100.0/3.0));
-
-        // dataset = [-5, -50, -1000]
-        let input_4 = (0.0, 0.0, -5.0, -5.0);
-        let input_5 = (0.0, -5.0, -50.0, (-55.0/2.0));
-        let input_6 = (1012.5, (-55.0/2.0), -1000.0, (-1055.0/3.0));
-
-        // dataset = [90000, -90000, 0]
-        let input_7 = (0.0, 0.0, 90000.0, 90000.0);
-        let input_8 = (0.0, 90000.0, -90000.0, 0.0);
-        let input_9 = (16200000000.0, 0.0, 0.0, 0.0);
+        struct Input { prev_m: f64, prev_mean: f64, new_value: f64, new_mean: f64};
 
         let inputs = vec![
-            input_1, input_2, input_3, input_4, input_5, input_6, input_7, input_8, input_9
+            // dataset_1 = [10, 100, -10]
+            Input { prev_m: 0.0, prev_mean: 0.0, new_value: 10.0, new_mean: 10.0 },
+            Input { prev_m: 0.0, prev_mean: 10.0, new_value: 100.0, new_mean: 55.0 },
+            Input { prev_m: 4050.0, prev_mean: 55.0, new_value: -10.0, new_mean: (100.0/3.0) },
+            // dataset_2 = [-5, -50, -1000]
+            Input { prev_m: 0.0, prev_mean: 0.0, new_value: -5.0, new_mean: -5.0 },
+            Input { prev_m: 0.0, prev_mean: -5.0, new_value: -50.0, new_mean: (-55.0/2.0) },
+            Input { prev_m: 1012.5, prev_mean: (-55.0/2.0), new_value: -1000.0, new_mean: (100.0/3.0) },
+            // dataset_3 = [90000, -90000, 0]
+            Input { prev_m: 0.0, prev_mean: 0.0, new_value: 90000.0, new_mean: 90000.0 },
+            Input { prev_m: 1012.5, prev_mean: 90000.0, new_value: -90000.0, new_mean: 0.0 },
+            Input { prev_m: 16200000000.5, prev_mean: 0.0, new_value: 0.0, new_mean: 0.0 },
         ];
-
-        // -- EXPECTED OUTPUTS --
-        let expected_1 = 0.0;
-        let expected_2 = 4050.0;
-        let expected_3 = 20600.0/3.0;
-        let expected_4 = 0.0;
-        let expected_5 = 1012.5;
-        let expected_6 = 1894550.0/3.0;
-        let expected_7 = 0.0;
-        let expected_8 = 16200000000.0;
-        let expected_9 = 16200000000.0;
 
         let expected = vec![
-            expected_1, expected_2, expected_3, expected_4, expected_5, expected_6, expected_7, expected_8, expected_9
+            0.0, 4050.0, 20600.0/3.0, 0.0, 1012.5, 1894550.0/3.0, 0.0, 16200000000.0, 16200000000.0
         ];
 
-        // -- ASSERT ACTUAL EQUALS EXPECTED --
         for (input, expected) in inputs.iter().zip(expected.into_iter()) {
 
             let actual_m = WelfordOnline::calculate_recurrence_relation_m(
-                input.0, input.1, input.2, input.3);
+                input.prev_m, input.prev_mean, input.new_value, input.new_mean);
 
             assert_eq!(actual_m, expected)
         }
@@ -109,6 +101,7 @@ mod tests {
 
     #[test]
     fn calculate_sample_variance() {
+        // fn calculate_sample_variance(recurrence_relation_m: f64, count: usize) -> f64
         let inputs = vec![
             (0.0, 1), (1050.0, 5), (1012.5, 123223), (16200000000.0, 3), (99999.9999, 23232)
         ];
@@ -122,6 +115,7 @@ mod tests {
 
     #[test]
     fn calculate_population_variance() {
+        // fn calculate_population_variance(recurrence_relation_m: f64, count: usize) -> f64
         let inputs = vec![
             (0.0, 1), (1050.0, 5), (1012.5, 123223), (16200000000.0, 3), (99999.9999, 23232)
         ];
