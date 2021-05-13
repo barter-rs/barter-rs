@@ -143,7 +143,8 @@ pub mod execution;
 /// FillEvent.
 pub mod event;
 
-/// Defines various performance metrics that can be used to evaluate trading.
+/// Defines various iterative statistical methods that can be used to calculate trading performance
+/// metrics in one-pass .
 pub mod statistic;
 
 #[macro_use] extern crate prettytable;
