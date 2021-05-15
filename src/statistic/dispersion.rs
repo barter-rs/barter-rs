@@ -6,7 +6,7 @@ pub struct Dispersion {
     pub range: Range,
     pub recurrence_relation_m: f64,
     pub variance: f64,
-    pub standard_deviation: f64
+    pub std_dev: f64
 }
 
 impl Default for Dispersion {
@@ -15,7 +15,7 @@ impl Default for Dispersion {
             range: Range::default(),
             recurrence_relation_m: 0.0,
             variance: 0.0,
-            standard_deviation: 0.0
+            std_dev: 0.0
         }
     }
 }
@@ -36,7 +36,7 @@ impl Dispersion {
             self.recurrence_relation_m, value_count);
 
         // Update Standard Deviation
-        self.standard_deviation = self.variance.sqrt();
+        self.std_dev = self.variance.sqrt();
     }
 }
 
@@ -99,39 +99,42 @@ impl Range {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::statistic::metric::profit_loss::MetricRolling;
 
     #[test]
     fn dispersion() {
         let mut dispersion = Dispersion::default();
 
-        // Dataset  = [1.1, 1.2, 1.3, 1.4]
-        // Means    = [1.1, 1.15, 1.2, 1.25]
+        // Dataset  = [1.1, 1.2, 1.3, 1.4, 0.6]
+        // Means    = [1.1, 1.15, 1.2, 1.25, 1.12]
         // Inputs:
         struct UpdateInput { prev_mean: f64, new_mean: f64, new_value: f64, value_count: usize }
         let input_1 = UpdateInput{ prev_mean: 0.0, new_mean: 1.1, new_value: 1.1, value_count: 1 };
         let input_2 = UpdateInput{ prev_mean: 1.1, new_mean: 1.15, new_value: 1.2, value_count: 2 };
         let input_3 = UpdateInput{ prev_mean: 1.15, new_mean: 1.2, new_value: 1.3, value_count: 3 };
         let input_4 = UpdateInput{ prev_mean: 1.2, new_mean: 1.25, new_value: 1.4, value_count: 4 };
-        let inputs = vec![input_1, input_2, input_3, input_4];
+        let input_5 = UpdateInput{ prev_mean: 1.25, new_mean: 1.12, new_value: 0.6, value_count: 5 };
+        let inputs = vec![input_1, input_2, input_3, input_4, input_5];
 
         // Expected Outputs:
-        // Recurrence_M = [0.0, 0.005, ~0.02, ~0.05]
-        // Variance     = [0.0, 0.0025, ~1/150, ~0.0125]
-        // Std. Dev     = [0.0, 0.05, ~(6.sqrt()/30), ~(5.sqrt()/20)]
+        // Recurrence_M = [0.0, 0.005, ~0.02, ~0.05, 0.388]
+        // Variance     = [0.0, 0.0025, ~1/150, ~0.0125, 0.0776]
+        // Std. Dev     = [0.0, 0.05, ~(6.sqrt()/30), ~(5.sqrt()/20), ~(194.sqrt()/50)]
         let output_1 = Dispersion{ range: Range { activated: true, highest: 1.1, lowest: 1.1 },
-            recurrence_relation_m: 0.0, variance: 0.0, standard_deviation: 0.0 };
+            recurrence_relation_m: 0.0, variance: 0.0, std_dev: 0.0 };
 
         let output_2 = Dispersion{ range: Range { activated: true, highest: 1.2, lowest: 1.1 },
-            recurrence_relation_m: 0.005, variance: 0.0025, standard_deviation: 0.05 };
+            recurrence_relation_m: 0.005, variance: 0.0025, std_dev: 0.05 };
 
         let output_3 = Dispersion{ range: Range { activated: true, highest: 1.3, lowest: 1.1 },
-            recurrence_relation_m: 0.02, variance: 1.0/150.0, standard_deviation: (6.0_f64.sqrt()/30.0) };
+            recurrence_relation_m: 0.02, variance: 1.0/150.0, std_dev: (6.0_f64.sqrt()/30.0) };
 
         let output_4 = Dispersion{ range: Range { activated: true, highest: 1.4, lowest: 1.1 },
-            recurrence_relation_m: 0.05, variance: 0.0125, standard_deviation: (5.0_f64.sqrt()/20.0) };
+            recurrence_relation_m: 0.05, variance: 0.0125, std_dev: (5.0_f64.sqrt()/20.0) };
 
-        let outputs = vec![output_1, output_2, output_3, output_4];
+        let output_5 = Dispersion{ range: Range { activated: true, highest: 1.4, lowest: 0.6 },
+            recurrence_relation_m: 0.388, variance: 0.0776, std_dev: (194.0_f64.sqrt()/50.0) };
+
+        let outputs = vec![output_1, output_2, output_3, output_4, output_5];
 
         for (input, out) in inputs.into_iter().zip(outputs.into_iter()) {
             dispersion.update(input.prev_mean, input.new_mean, input.new_value, input.value_count);
@@ -148,7 +151,7 @@ mod tests {
             let variance_diff = dispersion.variance - out.variance;
             assert!(variance_diff < 1e-10);
 
-            let standard_dev_diff = dispersion.standard_deviation - out.standard_deviation;
+            let standard_dev_diff = dispersion.std_dev - out.std_dev;
             assert!(standard_dev_diff < 1e-10);
         }
     }

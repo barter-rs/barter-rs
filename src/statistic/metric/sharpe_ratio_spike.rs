@@ -1,9 +1,9 @@
-use crate::statistic::metric::MetricRolling;
 use crate::portfolio::position::Position;
 use chrono::{Duration, DateTime, Utc};
 use crate::statistic::dispersion::Dispersion;
-use crate::statistic::summary::Summariser;
 use crate::statistic::algorithm::WelfordOnline;
+use crate::statistic::metric::profit_loss::MetricRolling;
+use crate::statistic::metric::summary_old::SummariserOld;
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct PnLReturnView {
@@ -13,7 +13,18 @@ pub struct PnLReturnView {
     pub losses: DataSummary,
 }
 
-impl Summariser for PnLReturnView {
+impl Default for PnLReturnView {
+    fn default() -> Self {
+        Self {
+            start_timestamp: Utc::now(),
+            duration: Duration::zero(),
+            total: DataSummary::default(),
+            losses: DataSummary::default()
+        }
+    }
+}
+
+impl SummariserOld for PnLReturnView {
     const SUMMARY_ID: &'static str = "PnL Return Summary";
 
     fn update_summary(&mut self, position: &Position) {
@@ -114,7 +125,7 @@ impl MetricRolling for DataSummary {
 
         // Update Mean
         let prev_mean = self.mean;
-        self.mean = WelfordOnline::calculate_mean(self.mean, next_return, self.count);
+        self.mean = WelfordOnline::calculate_mean(self.mean, next_return, self.count as f64);
 
         // Update Dispersion
         self.dispersion.update(prev_mean, self.mean, next_return, self.count);
@@ -123,8 +134,8 @@ impl MetricRolling for DataSummary {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
+    // use super::*;
+    //
     // #[test]
     // fn pnl_return_summary_update() {
     //     // -- INPUT POSITIONS -- //
