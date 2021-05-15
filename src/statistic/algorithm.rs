@@ -79,11 +79,11 @@ mod tests {
             // dataset_2 = [-5, -50, -1000]
             Input { prev_m: 0.0, prev_mean: 0.0, new_value: -5.0, new_mean: -5.0 },
             Input { prev_m: 0.0, prev_mean: -5.0, new_value: -50.0, new_mean: (-55.0/2.0) },
-            Input { prev_m: 1012.5, prev_mean: (-55.0/2.0), new_value: -1000.0, new_mean: (100.0/3.0) },
+            Input { prev_m: 1012.5, prev_mean: (-55.0/2.0), new_value: -1000.0, new_mean: (-1055.0/3.0) },
             // dataset_3 = [90000, -90000, 0]
             Input { prev_m: 0.0, prev_mean: 0.0, new_value: 90000.0, new_mean: 90000.0 },
-            Input { prev_m: 1012.5, prev_mean: 90000.0, new_value: -90000.0, new_mean: 0.0 },
-            Input { prev_m: 16200000000.5, prev_mean: 0.0, new_value: 0.0, new_mean: 0.0 },
+            Input { prev_m: 0.0, prev_mean: 90000.0, new_value: -90000.0, new_mean: 0.0 },
+            Input { prev_m: 16200000000.0, prev_mean: 0.0, new_value: 0.0, new_mean: 0.0 },
         ];
 
         let expected = vec![
