@@ -3,6 +3,9 @@ use serde::Deserialize;
 use crate::statistic::summary::pnl::PnLReturnSummary;
 use crate::statistic::metric::ratio::{SharpeRatio, SortinoRatio, Ratio};
 use prettytable::{Row, Table};
+use chrono::{DateTime, Utc, Duration};
+
+// Todo: Add Mean trait? And/or other calculation traits, similar to std::op::add?
 
 pub trait TablePrinter {
     fn print_table(&self);
@@ -82,11 +85,19 @@ impl TablePrinter for TearSheet {
     fn print_table(&self) {
         let mut tear_sheet = Table::new();
 
+        // let titles = vec!["",
+        //                   "Avg. Drawdown", "Avg. Drawdown Duration", "Max Drawdown", "Max Drawdown Duration",
+        //                   "Sharpe Ratio", "Sortino Ratio", "Calmar Ratio"
+        // ];
+
         let titles = vec!["", "Sharpe Ratio", "Sortino Ratio"];
 
         tear_sheet.add_row(row!["Total",
+            // self.drawdown.avg_drawdown, self.drawdown.avg_drawdown_duration.to_string(),
+            // self.drawdown.max_drawdown, self.drawdown.max_drawdown_duration.to_string(),
             self.sharpe_ratio.daily().to_string(),
             self.sortino_ratio.daily().to_string(),
+            // self.calmar_ratio.calculate_daily().to_string(),
         ]);
 
         tear_sheet.set_titles(Row::from(titles));
