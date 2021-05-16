@@ -100,10 +100,19 @@
 //!
 //! ## Execution
 //! ```
-//! use barter::execution::handler::{SimulatedExecution, FillGenerator};
+//! use barter::execution::handler::{Config as ExecutionConfig, SimulatedExecution, FillGenerator};
 //! use barter::portfolio::order::OrderEvent;
+//! use barter::execution::fill::Fees;
 //!
-//! let mut execution = SimulatedExecution::new();
+//! let config = ExecutionConfig {
+//!     simulated_fees_pct: Fees {
+//!         exchange: 0.1,
+//!         slippage: 0.05, // Simulated slippage modelled as a Fee
+//!         network: 0.0,
+//!     }
+//! };
+//!
+//! let mut execution = SimulatedExecution::new(&config);
 //!
 //! let order_event = OrderEvent::default();
 //!
@@ -143,7 +152,9 @@ pub mod execution;
 /// FillEvent.
 pub mod event;
 
-/// Defines various performance metrics that can be used to evaluate trading.
+/// Defines various iterative statistical methods that can be used to calculate trading performance
+/// metrics in one-pass. A trading performance summary implementation has been provided containing
+/// several key metrics such as Sharpe Ratio, Calmar Ratio, CAGR, and Max Drawdown.
 pub mod statistic;
 
 #[macro_use] extern crate prettytable;

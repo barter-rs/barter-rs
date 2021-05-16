@@ -230,6 +230,32 @@ impl Position {
             Direction::Short => self.enter_value_gross - self.exit_value_gross - total_fees,
         }
     }
+
+    /// Calculate the PnL return of a closed [Position] - assumed [Position::result_profit_loss] is
+    /// appropriately calculated.
+    pub fn calculate_profit_loss_return(&self) -> f64 {
+        self.result_profit_loss / self.enter_value_gross
+    }
+
+    /// Determines if a [Position] is a winning trade. Matches on exit_bar_timestamp to ensure it is
+    /// closed. If so, [Position::result_profit_loss] is used to determine Some(is_win), else None
+    /// is returned.
+    pub fn is_win(&self) -> Option<bool> {
+        match self.meta.exit_bar_timestamp {
+            None => None,
+            Some(_) => Some(self.result_profit_loss > 0.0)
+        }
+    }
+
+    /// Determines if a [Position] is a losing trade. Matches on exit_bar_timestamp to ensure it is
+    /// closed. If so, [Position::result_profit_loss] is used to determine Some(is_win), else None
+    /// is returned.
+    pub fn is_loss(&self) -> Option<bool> {
+        match self.meta.exit_bar_timestamp {
+            None => None,
+            Some(_) => Some(self.result_profit_loss <= 0.0)
+        }
+    }
 }
 
 /// Builder to construct [Position] instances.
@@ -1185,6 +1211,160 @@ mod tests {
         }
         else {
             Err(String::from("parse_entry_direction() did not return an Err & it should."))
+        }
+    }
+
+    #[test]
+    fn calculate_unreal_profit_loss() {
+        let mut long_win = Position::default(); // Expected PnL = +8.0
+        long_win.direction = Direction::Long;
+        long_win.enter_value_gross = 100.0;
+        long_win.enter_fees_total = 1.0;
+        long_win.current_value_gross = 110.0;
+
+        let mut long_lose = Position::default(); // Expected PnL = -12.0
+        long_lose.direction = Direction::Long;
+        long_lose.enter_value_gross = 100.0;
+        long_lose.enter_fees_total = 1.0;
+        long_lose.current_value_gross = 90.0;
+
+        let mut short_win = Position::default(); // Expected PnL = +8.0
+        short_win.direction = Direction::Short;
+        short_win.enter_value_gross = 100.0;
+        short_win.enter_fees_total = 1.0;
+        short_win.current_value_gross = 90.0;
+
+        let mut short_lose = Position::default(); // Expected PnL = -12.0
+        short_lose.direction = Direction::Short;
+        short_lose.enter_value_gross = 100.0;
+        short_lose.enter_fees_total = 1.0;
+        short_lose.current_value_gross = 110.0;
+
+        let inputs = vec![long_win, long_lose, short_win, short_lose];
+
+        let expected_pnl = vec![8.0, -12.0, 8.0, -12.0];
+
+        for (position, expected) in inputs.into_iter().zip(expected_pnl.into_iter()) {
+            let actual = position.calculate_unreal_profit_loss();
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn calculate_real_profit_loss() {
+        let mut long_win = Position::default(); // Expected PnL = +18.0
+        long_win.direction = Direction::Long;
+        long_win.enter_value_gross = 100.0;
+        long_win.enter_fees_total = 1.0;
+        long_win.exit_value_gross = 120.0;
+        long_win.exit_fees_total = 1.0;
+
+        let mut long_lose = Position::default(); // Expected PnL = -22.0
+        long_lose.direction = Direction::Long;
+        long_lose.enter_value_gross = 100.0;
+        long_lose.enter_fees_total = 1.0;
+        long_lose.exit_value_gross = 80.0;
+        long_lose.exit_fees_total = 1.0;
+
+        let mut short_win = Position::default(); // Expected PnL = +18.0
+        short_win.direction = Direction::Short;
+        short_win.enter_value_gross = 100.0;
+        short_win.enter_fees_total = 1.0;
+        short_win.exit_value_gross = 80.0;
+        short_win.exit_fees_total = 1.0;
+
+        let mut short_lose = Position::default(); // Expected PnL = -22.0
+        short_lose.direction = Direction::Short;
+        short_lose.enter_value_gross = 100.0;
+        short_lose.enter_fees_total = 1.0;
+        short_lose.exit_value_gross = 120.0;
+        short_lose.exit_fees_total = 1.0;
+
+        let inputs = vec![long_win, long_lose, short_win, short_lose];
+
+        let expected_pnl = vec![18.0, -22.0, 18.0, -22.0];
+
+        for (position, expected) in inputs.into_iter().zip(expected_pnl.into_iter()) {
+            let actual = position.calculate_result_profit_loss();
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn calculate_profit_loss_return() {
+        let mut long_win = Position::default(); // Expected Return = 0.08
+        long_win.direction = Direction::Long;
+        long_win.enter_value_gross = 100.0;
+        long_win.result_profit_loss = 8.0;
+
+        let mut long_lose = Position::default(); // Expected Return = -0.12
+        long_lose.direction = Direction::Long;
+        long_lose.enter_value_gross = 100.0;
+        long_lose.result_profit_loss = -12.0;
+
+        let mut short_win = Position::default(); // Expected Return = 0.08
+        short_win.direction = Direction::Short;
+        short_win.enter_value_gross = 100.0;
+        short_win.result_profit_loss = 8.0;
+
+        let mut short_lose = Position::default(); // Expected Return = -0.12
+        short_lose.direction = Direction::Short;
+        short_lose.enter_value_gross = 100.0;
+        short_lose.result_profit_loss = -12.0;
+
+        let inputs = vec![long_win, long_lose, short_win, short_lose];
+
+        let expected_return = vec![0.08, -0.12, 0.08, -0.12];
+
+        for (position, expected) in inputs.into_iter().zip(expected_return.into_iter()) {
+            let actual = position.calculate_profit_loss_return();
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn position_is_win() {
+        let mut closed_win = Position::default();       // Expected is_win = Some(true)
+        closed_win.meta.exit_bar_timestamp = Some(Utc::now());
+        closed_win.result_profit_loss = 1.0;
+
+        let mut closed_loss = Position::default();      // Expected is_win = Some(false)
+        closed_loss.meta.exit_bar_timestamp = Some(Utc::now());
+        closed_loss.result_profit_loss = -1.0;
+
+        let mut unclosed = Position::default();         // Expected is_win = None
+        unclosed.meta.exit_bar_timestamp = None;
+
+        let inputs = vec![closed_win, closed_loss, unclosed];
+
+        let expected_is_win = vec![Some(true), Some(false), None];
+
+        for (position, expected) in inputs.into_iter().zip(expected_is_win.into_iter()) {
+            let actual = position.is_win();
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn position_is_loss() {
+        let mut closed_win = Position::default();       // Expected is_win = Some(false)
+        closed_win.meta.exit_bar_timestamp = Some(Utc::now());
+        closed_win.result_profit_loss = 1.0;
+
+        let mut closed_loss = Position::default();      // Expected is_win = Some(true)
+        closed_loss.meta.exit_bar_timestamp = Some(Utc::now());
+        closed_loss.result_profit_loss = -1.0;
+
+        let mut unclosed = Position::default();         // Expected is_win = None
+        unclosed.meta.exit_bar_timestamp = None;
+
+        let inputs = vec![closed_win, closed_loss, unclosed];
+
+        let expected_is_win = vec![Some(false), Some(true), None];
+
+        for (position, expected) in inputs.into_iter().zip(expected_is_win.into_iter()) {
+            let actual = position.is_loss();
+            assert_eq!(actual, expected);
         }
     }
 }
