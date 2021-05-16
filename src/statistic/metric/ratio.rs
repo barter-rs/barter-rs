@@ -1,5 +1,4 @@
-use chrono::Duration;
-use crate::statistic::metric::sharpe_ratio_spike::PnLReturnView;
+use crate::statistic::summary::pnl::PnLReturnSummary;
 
 pub trait Ratio {
     fn init(risk_free_return: f64) -> Self;
@@ -39,7 +38,7 @@ impl Ratio for SharpeRatio {
 }
 
 impl SharpeRatio {
-    pub fn update(&mut self, pnl_returns: &PnLReturnView) {
+    pub fn update(&mut self, pnl_returns: &PnLReturnSummary) {
         // Update Trades Per Day
         self.trades_per_day = pnl_returns.trades_per_day;
 
@@ -82,7 +81,7 @@ impl Ratio for SortinoRatio {
 }
 
 impl SortinoRatio {
-    pub fn update(&mut self, pnl_returns: &PnLReturnView) {
+    pub fn update(&mut self, pnl_returns: &PnLReturnSummary) {
         // Update Trades Per Day
         self.trades_per_day = pnl_returns.trades_per_day;
 
@@ -125,7 +124,7 @@ impl Ratio for CalmarRatio {
 }
 
 impl CalmarRatio {
-    pub fn update(&mut self, pnl_returns: &PnLReturnView, max_drawdown: f64) {
+    pub fn update(&mut self, pnl_returns: &PnLReturnSummary, max_drawdown: f64) {
         // Update Trades Per Day
         self.trades_per_day = pnl_returns.trades_per_day;
 
@@ -148,10 +147,11 @@ pub fn calculate_annual(ratio_per_trade: f64, trades_per_day: f64, trading_days:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::statistic::metric::profit_loss::MetricRolling;
+    use crate::statistic::summary::pnl::PnLReturnSummary;
+    use chrono::Duration;
 
-    fn sharpe_update_input(count: usize, mean: f64, duration: Duration, std_dev: f64) -> PnLReturnView {
-        let mut pnl_returns = PnLReturnView::init();
+    fn sharpe_update_input(count: usize, mean: f64, duration: Duration, std_dev: f64) -> PnLReturnSummary {
+        let mut pnl_returns = PnLReturnSummary::new();
         pnl_returns.total.count = count;
         pnl_returns.total.mean = mean;
         pnl_returns.duration = duration;
@@ -159,8 +159,8 @@ mod tests {
         pnl_returns
     }
 
-    fn sortino_update_input(count: usize, mean: f64, duration: Duration, loss_std_dev: f64) -> PnLReturnView {
-        let mut pnl_returns = PnLReturnView::init();
+    fn sortino_update_input(count: usize, mean: f64, duration: Duration, loss_std_dev: f64) -> PnLReturnSummary {
+        let mut pnl_returns = PnLReturnSummary::new();
         pnl_returns.total.count = count;
         pnl_returns.total.mean = mean;
         pnl_returns.duration = duration;
