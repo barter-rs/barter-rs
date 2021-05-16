@@ -51,19 +51,21 @@ mod tests {
         struct Input { prev_mean: f64, next_value: f64, count: f64 };
 
         let inputs = vec![
-            Input { prev_mean: 0.0, next_value: 100.0, count: 1.0 },
-            Input { prev_mean: 100.0, next_value: 1000.0, count: 2.0 },
-            Input { prev_mean: 550.0, next_value: 400.0, count: 3.0 },
-            Input { prev_mean: 500.0, next_value: 540.0, count: 4.0 },
-            Input { prev_mean: 510.0, next_value: 1200.0, count: 5.0 },
-            Input { prev_mean: 648.0, next_value: 660.0, count: 6.0 },
+            Input { prev_mean: 0.0, next_value: 0.1, count: 1.0 },
+            Input { prev_mean: 0.1, next_value: -0.2, count: 2.0 },
+            Input { prev_mean: -0.05, next_value: -0.05, count: 3.0 },
+            Input { prev_mean: -0.05, next_value: 0.2, count: 4.0 },
+            Input { prev_mean: 0.0125, next_value: 0.15, count: 5.0 },
+            Input { prev_mean: 0.04, next_value: -0.17, count: 6.0 },
         ];
 
-        let expected = vec![100.0, 550.0, 500.0, 510.0, 648.0, 650.0];
+        let expected = vec![0.1, -0.05, -0.05, 0.0125, 0.04, 0.05];
 
         for (input, expected) in inputs.iter().zip(expected.into_iter()) {
             let actual = WelfordOnline::calculate_mean(input.prev_mean, input.next_value, input.count);
-            assert_eq!(actual, expected);
+            let mean_diff = actual - expected;
+
+            assert!(mean_diff < 1e-10);
         }
     }
 
