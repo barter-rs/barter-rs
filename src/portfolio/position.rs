@@ -1240,11 +1240,11 @@ mod tests {
         short_lose.enter_fees_total = 1.0;
         short_lose.current_value_gross = 110.0;
 
-        let positions = vec![long_win, long_lose, short_win, short_lose];
+        let inputs = vec![long_win, long_lose, short_win, short_lose];
 
         let expected_pnl = vec![8.0, -12.0, 8.0, -12.0];
 
-        for (position, expected) in positions.into_iter().zip(expected_pnl.into_iter()) {
+        for (position, expected) in inputs.into_iter().zip(expected_pnl.into_iter()) {
             let actual = position.calculate_unreal_profit_loss();
             assert_eq!(actual, expected);
         }
@@ -1280,11 +1280,11 @@ mod tests {
         short_lose.exit_value_gross = 120.0;
         short_lose.exit_fees_total = 1.0;
 
-        let positions = vec![long_win, long_lose, short_win, short_lose];
+        let inputs = vec![long_win, long_lose, short_win, short_lose];
 
         let expected_pnl = vec![18.0, -22.0, 18.0, -22.0];
 
-        for (position, expected) in positions.into_iter().zip(expected_pnl.into_iter()) {
+        for (position, expected) in inputs.into_iter().zip(expected_pnl.into_iter()) {
             let actual = position.calculate_result_profit_loss();
             assert_eq!(actual, expected);
         }
@@ -1312,12 +1312,58 @@ mod tests {
         short_lose.enter_value_gross = 100.0;
         short_lose.result_profit_loss = -12.0;
 
-        let positions = vec![long_win, long_lose, short_win, short_lose];
+        let inputs = vec![long_win, long_lose, short_win, short_lose];
 
         let expected_return = vec![0.08, -0.12, 0.08, -0.12];
 
-        for (position, expected) in positions.into_iter().zip(expected_return.into_iter()) {
+        for (position, expected) in inputs.into_iter().zip(expected_return.into_iter()) {
             let actual = position.calculate_profit_loss_return();
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn position_is_win() {
+        let mut closed_win = Position::default();       // Expected is_win = Some(true)
+        closed_win.meta.exit_bar_timestamp = Some(Utc::now());
+        closed_win.result_profit_loss = 1.0;
+
+        let mut closed_loss = Position::default();      // Expected is_win = Some(false)
+        closed_loss.meta.exit_bar_timestamp = Some(Utc::now());
+        closed_loss.result_profit_loss = -1.0;
+
+        let mut unclosed = Position::default();         // Expected is_win = None
+        unclosed.meta.exit_bar_timestamp = None;
+
+        let inputs = vec![closed_win, closed_loss, unclosed];
+
+        let expected_is_win = vec![Some(true), Some(false), None];
+
+        for (position, expected) in inputs.into_iter().zip(expected_is_win.into_iter()) {
+            let actual = position.is_win();
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn position_is_loss() {
+        let mut closed_win = Position::default();       // Expected is_win = Some(false)
+        closed_win.meta.exit_bar_timestamp = Some(Utc::now());
+        closed_win.result_profit_loss = 1.0;
+
+        let mut closed_loss = Position::default();      // Expected is_win = Some(true)
+        closed_loss.meta.exit_bar_timestamp = Some(Utc::now());
+        closed_loss.result_profit_loss = -1.0;
+
+        let mut unclosed = Position::default();         // Expected is_win = None
+        unclosed.meta.exit_bar_timestamp = None;
+
+        let inputs = vec![closed_win, closed_loss, unclosed];
+
+        let expected_is_win = vec![Some(false), Some(true), None];
+
+        for (position, expected) in inputs.into_iter().zip(expected_is_win.into_iter()) {
+            let actual = position.is_loss();
             assert_eq!(actual, expected);
         }
     }
