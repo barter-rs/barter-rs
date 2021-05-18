@@ -1,5 +1,4 @@
-use chrono::Duration;
-use crate::statistic::metric::sharpe_ratio_spike::PnLReturnView;
+use crate::statistic::summary::pnl::PnLReturnSummary;
 
 pub trait Ratio {
     fn init(risk_free_return: f64) -> Self;
@@ -39,7 +38,7 @@ impl Ratio for SharpeRatio {
 }
 
 impl SharpeRatio {
-    pub fn update(&mut self, pnl_returns: &PnLReturnView) {
+    pub fn update(&mut self, pnl_returns: &PnLReturnSummary) {
         // Update Trades Per Day
         self.trades_per_day = pnl_returns.trades_per_day;
 
@@ -82,7 +81,7 @@ impl Ratio for SortinoRatio {
 }
 
 impl SortinoRatio {
-    pub fn update(&mut self, pnl_returns: &PnLReturnView) {
+    pub fn update(&mut self, pnl_returns: &PnLReturnSummary) {
         // Update Trades Per Day
         self.trades_per_day = pnl_returns.trades_per_day;
 
@@ -99,43 +98,43 @@ impl SortinoRatio {
     }
 }
 
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
-pub struct CalmarRatio {
-    pub risk_free_return: f64,
-    pub trades_per_day: f64,
-    pub calmar_ratio_per_trade: f64,
-}
-
-impl Ratio for CalmarRatio {
-    fn init(risk_free_return: f64) -> Self {
-        Self {
-            risk_free_return,
-            trades_per_day: 0.0,
-            calmar_ratio_per_trade: 0.0
-        }
-    }
-
-    fn ratio(&self) -> f64 {
-        self.calmar_ratio_per_trade
-    }
-
-    fn trades_per_day(&self) -> f64 {
-        self.trades_per_day
-    }
-}
-
-impl CalmarRatio {
-    pub fn update(&mut self, pnl_returns: &PnLReturnView, max_drawdown: f64) {
-        // Update Trades Per Day
-        self.trades_per_day = pnl_returns.trades_per_day;
-
-        // Calculate Calmar Ratio Per Trade // Todo: Ensure max_drawdown isn't periodised...
-        self.calmar_ratio_per_trade = match max_drawdown == 0.0 {
-            true => 0.0,
-            false => (pnl_returns.total.mean - self.risk_free_return) / max_drawdown,
-        };
-    }
-}
+// #[derive(Debug, Clone, PartialOrd, PartialEq)]
+// pub struct CalmarRatio {
+//     pub risk_free_return: f64,
+//     pub trades_per_day: f64,
+//     pub calmar_ratio_per_trade: f64,
+// }
+//
+// impl Ratio for CalmarRatio {
+//     fn init(risk_free_return: f64) -> Self {
+//         Self {
+//             risk_free_return,
+//             trades_per_day: 0.0,
+//             calmar_ratio_per_trade: 0.0
+//         }
+//     }
+//
+//     fn ratio(&self) -> f64 {
+//         self.calmar_ratio_per_trade
+//     }
+//
+//     fn trades_per_day(&self) -> f64 {
+//         self.trades_per_day
+//     }
+// }
+//
+// impl CalmarRatio {
+//     pub fn update(&mut self, pnl_returns: &PnLReturnSummary, max_drawdown: f64) {
+//         // Update Trades Per Day
+//         self.trades_per_day = pnl_returns.trades_per_day;
+//
+//         // Calculate Calmar Ratio Per Trade // Todo: Ensure max_drawdown isn't periodised...
+//         self.calmar_ratio_per_trade = match max_drawdown == 0.0 {
+//             true => 0.0,
+//             false => (pnl_returns.total.mean - self.risk_free_return) / max_drawdown,
+//         };
+//     }
+// }
 
 pub fn calculate_daily(ratio_per_trade: f64, trades_per_day: f64) -> f64 {
     ratio_per_trade * trades_per_day.sqrt()
@@ -148,10 +147,11 @@ pub fn calculate_annual(ratio_per_trade: f64, trades_per_day: f64, trading_days:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::statistic::metric::profit_loss::MetricRolling;
+    use crate::statistic::summary::pnl::PnLReturnSummary;
+    use chrono::Duration;
 
-    fn sharpe_update_input(count: usize, mean: f64, duration: Duration, std_dev: f64) -> PnLReturnView {
-        let mut pnl_returns = PnLReturnView::init();
+    fn sharpe_update_input(count: usize, mean: f64, duration: Duration, std_dev: f64) -> PnLReturnSummary {
+        let mut pnl_returns = PnLReturnSummary::new();
         pnl_returns.total.count = count;
         pnl_returns.total.mean = mean;
         pnl_returns.duration = duration;
@@ -159,8 +159,8 @@ mod tests {
         pnl_returns
     }
 
-    fn sortino_update_input(count: usize, mean: f64, duration: Duration, loss_std_dev: f64) -> PnLReturnView {
-        let mut pnl_returns = PnLReturnView::init();
+    fn sortino_update_input(count: usize, mean: f64, duration: Duration, loss_std_dev: f64) -> PnLReturnSummary {
+        let mut pnl_returns = PnLReturnSummary::new();
         pnl_returns.total.count = count;
         pnl_returns.total.mean = mean;
         pnl_returns.duration = duration;
