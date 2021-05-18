@@ -1,7 +1,8 @@
 use crate::execution::fill::{FillEvent, Fees};
 use crate::execution::error::ExecutionError;
-use chrono::Utc;
 use crate::portfolio::order::OrderEvent;
+use chrono::Utc;
+use serde::Deserialize;
 
 /// Generates a result [FillEvent] by executing an [OrderEvent].
 pub trait FillGenerator {
@@ -10,6 +11,7 @@ pub trait FillGenerator {
 }
 
 /// Configuration for constructing a [SimulatedExecution] via the new() constructor method.
+#[derive(Debug, Deserialize)]
 pub struct Config {
     /// Simulated fee percentage to be used for each [Fees] field in decimal form (eg/ 0.01 for 1%)
     pub simulated_fees_pct: Fees,
