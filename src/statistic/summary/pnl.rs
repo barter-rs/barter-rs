@@ -1,4 +1,4 @@
-use crate::statistic::summary::trading::PositionSummariser;
+use crate::statistic::summary::trading::{PositionSummariser, TablePrinter};
 use crate::portfolio::position::{Position, Direction};
 use crate::statistic::summary::data::DataSummary;
 use chrono::{Duration, DateTime, Utc};
@@ -46,7 +46,9 @@ impl PositionSummariser for PnLReturnSummary {
             }
         }
     }
+}
 
+impl TablePrinter for PnLReturnSummary {
     fn print(&self) {
         todo!()
     }
@@ -115,7 +117,9 @@ impl PositionSummariser for ProfitLossSummary {
             }
         }
     }
+}
 
+impl TablePrinter for ProfitLossSummary {
     fn print(&self) {
         todo!()
     }
