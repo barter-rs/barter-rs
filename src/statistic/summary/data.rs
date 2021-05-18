@@ -40,14 +40,10 @@ impl PositionSummariser for DataSummary {
         // Update Dispersion
         self.dispersion.update(prev_mean, self.mean, next_return, self.count);
     }
-
-    fn print(&self) {
-        self.print_table();
-    }
 }
 
 impl TablePrinter for DataSummary {
-    fn print_table(&self) {
+    fn print(&self) {
         todo!()
     }
 }

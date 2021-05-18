@@ -5,21 +5,19 @@ use crate::statistic::metric::ratio::{SharpeRatio, SortinoRatio, Ratio};
 use prettytable::{Row, Table};
 use chrono::{DateTime, Utc, Duration};
 
-// Todo: Add Mean trait? And/or other calculation traits, similar to std::op::add?
-
-pub trait TablePrinter {
-    fn print_table(&self);
-}
+// Todo: Add Mean trait? And/or other calculation traits, similar to std::op::add? YES
 
 pub trait PositionSummariser {
     fn update(&mut self, position: &Position);
-    fn print(&self);
-
     fn generate_summary(&mut self, positions: &Vec<Position>) {
         for position in positions.iter() {
             self.update(position)
         }
     }
+}
+
+pub trait TablePrinter {
+    fn print(&self);
 }
 
 #[derive(Debug, Deserialize)]
@@ -39,10 +37,12 @@ impl PositionSummariser for TradingSummary {
         self.pnl_returns.update(position);
         self.tear_sheet.update(position, &self.pnl_returns);
     }
+}
 
+impl TablePrinter for TradingSummary {
     fn print(&self) {
         println!("\n-- Tear Sheet --");
-        self.tear_sheet.print_table();
+        self.tear_sheet.print();
     }
 }
 
@@ -82,7 +82,7 @@ impl TearSheet {
 }
 
 impl TablePrinter for TearSheet {
-    fn print_table(&self) {
+    fn print(&self) {
         let mut tear_sheet = Table::new();
 
         // let titles = vec!["",
@@ -102,5 +102,17 @@ impl TablePrinter for TearSheet {
 
         tear_sheet.set_titles(Row::from(titles));
         tear_sheet.printstd();
+    }
+}
+
+pub fn calculate_trading_duration(start_timestamp: &DateTime<Utc>, position: &Position) -> Duration {
+    match position.meta.exit_bar_timestamp {
+        None => {
+            // Since Position is not exited, estimate duration w/ last_update_timestamp
+            position.meta.last_update_timestamp.signed_duration_since(start_timestamp.clone())
+        },
+        Some(exit_timestamp) => {
+            exit_timestamp.signed_duration_since(start_timestamp.clone())
+        }
     }
 }
