@@ -45,54 +45,54 @@ impl Dispersion {
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct Range {
     pub activated: bool,
-    pub highest: f64,
-    pub lowest: f64,
+    pub high: f64,
+    pub low: f64,
 }
 
 impl Default for Range {
     fn default() -> Self {
         Self {
             activated: false,
-            highest: 0.0,
-            lowest: 0.0,
+            high: 0.0,
+            low: 0.0,
         }
     }
 }
 
 impl Range {
     /// Initialises the Range with the provided first value of the dataset.
-    fn init(first_value: f64) -> Self {
+    pub fn init(first_value: f64) -> Self {
         Self {
             activated: false,
-            highest: first_value,
-            lowest: first_value,
+            high: first_value,
+            low: first_value,
         }
     }
 
     /// Iteratively updates the Range given the next value in the dataset.
-    fn update(&mut self, new_value: f64) {
+    pub fn update(&mut self, new_value: f64) {
         match self.activated {
             true => {
-                if new_value > self.highest {
-                    self.highest = new_value;
+                if new_value > self.high {
+                    self.high = new_value;
                 }
 
-                if new_value < self.lowest {
-                    self.lowest = new_value;
+                if new_value < self.low {
+                    self.low = new_value;
                 }
             }
             false => {
                 self.activated = true;
-                self.highest = new_value;
-                self.lowest = new_value;
+                self.high = new_value;
+                self.low = new_value;
             }
         }
     }
 
     /// Calculates the range between the highest and lowest value of a dataset. Provided to
     /// allow lazy evaluation.
-    fn calculate(&self) -> f64 {
-        self.highest - self.lowest
+    pub fn calculate(&self) -> f64 {
+        self.high - self.low
     }
 }
 
@@ -119,19 +119,19 @@ mod tests {
         // Recurrence_M = [0.0, 0.005, ~0.02, ~0.05, 0.388]
         // Variance     = [0.0, 0.0025, ~1/150, ~0.0125, 0.0776]
         // Std. Dev     = [0.0, 0.05, ~(6.sqrt()/30), ~(5.sqrt()/20), ~(194.sqrt()/50)]
-        let output_1 = Dispersion{ range: Range { activated: true, highest: 1.1, lowest: 1.1 },
+        let output_1 = Dispersion{ range: Range { activated: true, high: 1.1, low: 1.1 },
             recurrence_relation_m: 0.0, variance: 0.0, std_dev: 0.0 };
 
-        let output_2 = Dispersion{ range: Range { activated: true, highest: 1.2, lowest: 1.1 },
+        let output_2 = Dispersion{ range: Range { activated: true, high: 1.2, low: 1.1 },
             recurrence_relation_m: 0.005, variance: 0.0025, std_dev: 0.05 };
 
-        let output_3 = Dispersion{ range: Range { activated: true, highest: 1.3, lowest: 1.1 },
+        let output_3 = Dispersion{ range: Range { activated: true, high: 1.3, low: 1.1 },
             recurrence_relation_m: 0.02, variance: 1.0/150.0, std_dev: (6.0_f64.sqrt()/30.0) };
 
-        let output_4 = Dispersion{ range: Range { activated: true, highest: 1.4, lowest: 1.1 },
+        let output_4 = Dispersion{ range: Range { activated: true, high: 1.4, low: 1.1 },
             recurrence_relation_m: 0.05, variance: 0.0125, std_dev: (5.0_f64.sqrt()/20.0) };
 
-        let output_5 = Dispersion{ range: Range { activated: true, highest: 1.4, lowest: 0.6 },
+        let output_5 = Dispersion{ range: Range { activated: true, high: 1.4, low: 0.6 },
             recurrence_relation_m: 0.388, variance: 0.0776, std_dev: (194.0_f64.sqrt()/50.0) };
 
         let outputs = vec![output_1, output_2, output_3, output_4, output_5];
@@ -141,8 +141,8 @@ mod tests {
 
             // Range
             assert_eq!(dispersion.range.activated, out.range.activated);
-            assert_eq!(dispersion.range.highest, out.range.highest);
-            assert_eq!(dispersion.range.lowest, out.range.lowest);
+            assert_eq!(dispersion.range.high, out.range.high);
+            assert_eq!(dispersion.range.low, out.range.low);
 
             // Floating Point Comparisons
             let recurrence_diff = dispersion.recurrence_relation_m - out.recurrence_relation_m;
@@ -167,8 +167,8 @@ mod tests {
 
         let expected_range = Range {
             activated: true,
-            highest: 9999.0,
-            lowest: 0.1,
+            high: 9999.0,
+            low: 0.1,
         };
 
         assert_eq!(actual_range, expected_range);
