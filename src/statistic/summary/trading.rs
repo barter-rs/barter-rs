@@ -28,7 +28,7 @@ pub struct Config {
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct TradingSummary {
     pnl_returns: PnLReturnSummary,
-    drawdown: DrawdownSummary,
+    // drawdown: DrawdownSummary,
     tear_sheet: TearSheet,
 }
 
@@ -50,7 +50,7 @@ impl TradingSummary {
     pub fn new(cfg: &Config) -> Self {
         Self {
             pnl_returns: PnLReturnSummary::new(),
-            drawdown: DrawdownSummary {},
+            // drawdown: DrawdownSummary {},
             tear_sheet: TearSheet::new(cfg.risk_free_return)
         }
     }
