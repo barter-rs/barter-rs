@@ -5,6 +5,7 @@ use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use crate::strategy::signal::Decision;
+use crate::statistic::metric::drawdown::EquityPoint;
 
 /// Enters a new [Position].
 pub trait PositionEnterer {
@@ -20,14 +21,15 @@ pub trait PositionUpdater {
 
 /// Exits an open [Position].
 pub trait PositionExiter {
-    /// Exits an open [Position], given the input [FillEvent] returned from a execution::handler.
-    fn exit(&mut self, fill: &FillEvent) -> Result<(), PortfolioError>;
+    /// Exits an open [Position], given the input Portfolio equity & the [FillEvent] returned from
+    /// a execution::handler.
+    fn exit(&mut self, portfolio_value: f64, fill: &FillEvent) -> Result<(), PortfolioError>;
 }
 
 /// Data encapsulating the state of an ongoing or closed [Position].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Position {
-    /// Metadata detailing trace UUIDs & timestamps associated with entering, updating & exiting.
+    /// Metadata detailing trace UUIDs, timestamps & equity associated with entering, updating & exiting.
     pub meta: PositionMeta,
 
     /// Exchange associated with this [Position] instance.
@@ -89,6 +91,7 @@ impl PositionEnterer for Position {
             last_update_timestamp: fill.timestamp,
             exit_trace_id: None,
             exit_bar_timestamp: None,
+            exit_equity_point: None
         };
 
         // Enter fees
@@ -138,16 +141,10 @@ impl PositionUpdater for Position {
 }
 
 impl PositionExiter for Position {
-    fn exit(&mut self, fill: &FillEvent) -> Result<(), PortfolioError> {
+    fn exit(&mut self, mut portfolio_value: f64, fill: &FillEvent) -> Result<(), PortfolioError> {
         if fill.decision.is_entry() {
             return Err(PortfolioError::CannotExitPositionWithEntryFill)
         }
-
-        // Metadata
-        self.meta.last_update_trace_id = fill.trace_id;
-        self.meta.last_update_timestamp = fill.timestamp;
-        self.meta.exit_trace_id = Some(fill.trace_id);
-        self.meta.exit_bar_timestamp = Some(fill.market_meta.timestamp);
         
         // Exit fees
         self.exit_fees = fill.fees.clone();
@@ -161,8 +158,15 @@ impl PositionExiter for Position {
         self.result_profit_loss = self.calculate_result_profit_loss();
         self.unreal_profit_loss = self.result_profit_loss;
 
-        // Portfolio EquityPoint on exit
-        self.equity_on_exit.update(&self);
+        // Metadata
+        portfolio_value += self.result_profit_loss;
+        self.meta.last_update_trace_id = fill.trace_id;
+        self.meta.last_update_timestamp = fill.timestamp;
+        self.meta.exit_trace_id = Some(fill.trace_id);
+        self.meta.exit_equity_point = Some(EquityPoint {
+            equity: portfolio_value,
+            timestamp: fill.market_meta.timestamp
+        });
 
         Ok(())
     }
@@ -188,7 +192,6 @@ impl Default for Position {
             current_value_gross: 100.0,
             unreal_profit_loss: 0.0,
             result_profit_loss: 0.0,
-            equity_on_exit: EquityPoint::def
         }
     }
 }
@@ -475,6 +478,9 @@ pub struct PositionMeta {
 
     /// MarketEvent Bar timestamp that triggered the exiting of this [Position].
     pub exit_bar_timestamp: Option<DateTime<Utc>>,
+
+    /// Portfolio [EquityPoint] calculated after the [Position] exit.
+    pub exit_equity_point: Option<EquityPoint>,
 }
 
 impl Default for PositionMeta {
@@ -485,7 +491,8 @@ impl Default for PositionMeta {
             last_update_trace_id: Default::default(),
             last_update_timestamp: Utc::now(),
             exit_trace_id: None,
-            exit_bar_timestamp: None
+            exit_bar_timestamp: None,
+            exit_equity_point: None
         }
     }
 }
@@ -840,6 +847,9 @@ mod tests {
         position.current_value_gross = 100.0;
         position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
+        // Input Portfolio Current Value
+        let current_value = 10000.0;
+
         // Input FillEvent
         let mut input_fill = FillEvent::default();
         input_fill.decision = Decision::CloseLong;
@@ -852,7 +862,7 @@ mod tests {
         };
 
         // Exit Position
-        position.exit(&input_fill).unwrap();
+        position.exit(current_value, &input_fill).unwrap();
 
         // Assert exit hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Long);
@@ -875,6 +885,9 @@ mod tests {
         // exit_value_gross - enter_value_gross - total_fees
         assert_eq!(position.result_profit_loss, (200.0 - 100.0 - 6.0));
         assert_eq!(position.unreal_profit_loss, (200.0 - 100.0 - 6.0));
+
+        // Assert EquityPoint on Exit is correct
+        assert_eq!(position.meta.exit_equity_point.unwrap().equity, current_value + (200.0 - 100.0 - 6.0))
     }
 
     #[test]
@@ -895,6 +908,9 @@ mod tests {
         position.current_value_gross = 100.0;
         position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
+        // Input Portfolio Current Value
+        let current_value = 10000.0;
+
         // Input FillEvent
         let mut input_fill = FillEvent::default();
         input_fill.decision = Decision::CloseLong;
@@ -907,7 +923,7 @@ mod tests {
         };
 
         // Exit Position
-        position.exit(&input_fill).unwrap();
+        position.exit(current_value, &input_fill).unwrap();
 
         // Assert exit hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Long);
@@ -930,6 +946,9 @@ mod tests {
         // exit_value_gross - enter_value_gross - total_fees
         assert_eq!(position.result_profit_loss, (50.0 - 100.0 - 6.0));
         assert_eq!(position.unreal_profit_loss, (50.0 - 100.0 - 6.0));
+
+        // Assert EquityPoint on Exit is correct
+        assert_eq!(position.meta.exit_equity_point.unwrap().equity, current_value + (50.0 - 100.0 - 6.0))
     }
 
     #[test]
@@ -950,6 +969,9 @@ mod tests {
         position.current_value_gross = 100.0;
         position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
+        // Input Portfolio Current Value
+        let current_value = 10000.0;
+
         // Input FillEvent
         let mut input_fill = FillEvent::default();
         input_fill.decision = Decision::CloseShort;
@@ -962,7 +984,7 @@ mod tests {
         };
 
         // Exit Position
-        position.exit(&input_fill).unwrap();
+        position.exit(current_value, &input_fill).unwrap();
 
         // Assert exit hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Short);
@@ -985,6 +1007,9 @@ mod tests {
         // enter_value_gross - current_value_gross - approx_total_fees
         assert_eq!(position.result_profit_loss, (100.0 - 50.0 - 6.0));
         assert_eq!(position.unreal_profit_loss, (100.0 - 50.0 - 6.0));
+
+        // Assert EquityPoint on Exit is correct
+        assert_eq!(position.meta.exit_equity_point.unwrap().equity, current_value + (100.0 - 50.0 - 6.0))
     }
 
     #[test]
@@ -1005,6 +1030,9 @@ mod tests {
         position.current_value_gross = 100.0;
         position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
+        // Input Portfolio Current Value
+        let current_value = 10000.0;
+
         // Input FillEvent
         let mut input_fill = FillEvent::default();
         input_fill.decision = Decision::CloseShort;
@@ -1017,7 +1045,7 @@ mod tests {
         };
 
         // Exit Position
-        position.exit(&input_fill).unwrap();
+        position.exit(current_value, &input_fill).unwrap();
 
         // Assert exit hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Short);
@@ -1040,6 +1068,9 @@ mod tests {
         // enter_value_gross - current_value_gross - approx_total_fees
         assert_eq!(position.result_profit_loss, (100.0 - 200.0 - 6.0));
         assert_eq!(position.unreal_profit_loss, (100.0 - 200.0 - 6.0));
+
+        // Assert EquityPoint on Exit is correct
+        assert_eq!(position.meta.exit_equity_point.unwrap().equity, current_value + (100.0 - 200.0 - 6.0))
     }
 
     #[test]
@@ -1060,6 +1091,9 @@ mod tests {
         position.current_value_gross = 100.0;
         position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
+        // Input Portfolio Current Value
+        let current_value = 10000.0;
+
         // Input FillEvent
         let mut input_fill = FillEvent::default();
         input_fill.decision = Decision::Long;
@@ -1072,7 +1106,7 @@ mod tests {
         };
 
         // Exit Position
-        if let Err(_) = position.exit(&input_fill) {
+        if let Err(_) = position.exit(current_value, &input_fill) {
             Ok(())
         }
         else {
@@ -1098,6 +1132,9 @@ mod tests {
         position.current_value_gross = 100.0;
         position.unreal_profit_loss = position.enter_fees_total * -2.0;
 
+        // Input Portfolio Current Value
+        let current_value = 10000.0;
+
         // Input FillEvent
         let mut input_fill = FillEvent::default();
         input_fill.decision = Decision::Short;
@@ -1110,7 +1147,7 @@ mod tests {
         };
 
         // Exit Position
-        if let Err(_) = position.exit(&input_fill) {
+        if let Err(_) = position.exit(current_value, &input_fill) {
             Ok(())
         }
         else {
