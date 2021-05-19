@@ -8,59 +8,21 @@ use crate::portfolio::position::Position;
 
 // Todo: Create DrawdownSummary w/ MaxDrawdown, Durations, Avg Drawdown, etc etc
 
-
+#[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct MaxDrawdown {
-    pub current_equity: EquityPoint,
-    pub current_drawdown: Drawdown,
-    pub max_drawdown: Drawdown,
+    pub drawdown: Drawdown,
 }
 
 impl MaxDrawdown {
-    pub fn init(starting_equity: f64) -> Self {
+    pub fn init() -> Self {
         Self {
-            current_equity: EquityPoint {
-                equity: starting_equity,
-                timestamp: Utc::now(),
-            },
-            current_drawdown: Drawdown::init(starting_equity),
-            max_drawdown: Drawdown::init(starting_equity),
+            drawdown: Drawdown::default(),
         }
     }
 
-    pub fn update(&mut self, position: &Position) {
-        // Current equity
-        self.current_equity.update(position);
-
-        // Max Drawdown
-        match self.current_drawdown.update(&self.current_equity) {
-            None => {}
-            Some(drawdown) => {
-                if drawdown.drawdown > self.max_drawdown.drawdown {
-                    self.max_drawdown = drawdown;
-                }
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
-pub struct EquityPoint {
-    pub equity: f64,
-    pub timestamp: DateTime<Utc>,
-}
-
-impl EquityPoint {
-    pub fn update(&mut self, position: &Position) {
-        match position.meta.exit_bar_timestamp {
-            None => {
-                // Position is not exited
-                self.equity += position.unreal_profit_loss;
-                self.timestamp = position.meta.last_update_timestamp;
-            },
-            Some(exit_timestamp) => {
-                self.equity += position.result_profit_loss;
-                self.timestamp = exit_timestamp;
-            }
+    pub fn update(&mut self, drawdown: Drawdown) {
+        if drawdown.drawdown > self.drawdown.drawdown {
+            self.drawdown = drawdown;
         }
     }
 }
@@ -71,6 +33,17 @@ pub struct Drawdown {
     pub drawdown: f64,
     pub start_timestamp: DateTime<Utc>,
     pub duration: Duration
+}
+
+impl Default for Drawdown {
+    fn default() -> Self {
+        Self {
+            equity_range: Default::default(),
+            drawdown: 0.0,
+            start_timestamp: Utc::now(),
+            duration: Duration::zero(),
+        }
+    }
 }
 
 impl Drawdown {
@@ -116,7 +89,6 @@ impl Drawdown {
 
             // D) End of drawdown - equity has reached new peak (enters A)
             (false, true) => {
-                // Todo: This should really be current_equity > prev_range_high, not >=... test & try out alternatives
                 // Clone Drawdown from previous iteration to return
                 let finished_drawdown = Drawdown {
                     equity_range: self.equity_range.clone(),
@@ -146,6 +118,30 @@ impl Drawdown {
         (-self.equity_range.calculate()) / self.equity_range.high
     }
 }
+
+#[derive(Debug, Clone, PartialOrd, PartialEq)]
+pub struct EquityPoint {
+    pub equity: f64,
+    pub timestamp: DateTime<Utc>,
+}
+
+impl EquityPoint {
+    pub fn update(&mut self, position: &Position) {
+        match position.meta.exit_bar_timestamp {
+            None => {
+                // Position is not exited
+                self.equity += position.unreal_profit_loss;
+                self.timestamp = position.meta.last_update_timestamp;
+            },
+            Some(exit_timestamp) => {
+                self.equity += position.result_profit_loss;
+                self.timestamp = exit_timestamp;
+            }
+        }
+    }
+}
+
+
 
 
 
