@@ -1,4 +1,4 @@
-use crate::statistic::metric::drawdown::{Drawdown, AvgDrawdown, MaxDrawdown, EquityPoint};
+use crate::statistic::metric::drawdown::{Drawdown, AvgDrawdown, MaxDrawdown};
 use crate::statistic::summary::trading::PositionSummariser;
 use crate::portfolio::position::Position;
 
