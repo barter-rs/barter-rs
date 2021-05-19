@@ -128,14 +128,16 @@ impl<T> FillUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler
         // EXIT SCENARIO - FillEvent for Symbol-Exchange with open Position
         if let Some(mut position) = self.repository.remove_position(&position_id)? {
 
+            // Get the Portfolio Value from the Repository
+            let mut current_value = self.repository.get_current_value(&self.id)?;
+
             // Exit Position & persist in Repository closed_positions
-            position.exit(fill)?;
+            position.exit(current_value, fill)?;
 
             // Update Portfolio cash on exit - enter_total_fees added since included in result PnL calc
             current_cash += position.enter_value_gross + position.result_profit_loss + position.enter_fees_total;
 
-            // Update Portfolio value on exit & persist in Repository
-            let mut current_value = self.repository.get_current_value(&self.id)?;
+            // Update Portfolio value after exit & persist in Repository
             current_value += position.result_profit_loss;
 
             // Persist updated Portfolio value & exited Position in Repository
