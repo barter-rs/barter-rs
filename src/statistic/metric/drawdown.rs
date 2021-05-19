@@ -5,25 +5,6 @@ use crate::statistic::algorithm::WelfordOnline;
 use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
-pub struct MaxDrawdown {
-    pub drawdown: Drawdown,
-}
-
-impl MaxDrawdown {
-    pub fn init() -> Self {
-        Self {
-            drawdown: Drawdown::default(),
-        }
-    }
-
-    pub fn update(&mut self, drawdown: &Drawdown) {
-        if drawdown.drawdown.abs() >= self.drawdown.drawdown.abs() {
-            self.drawdown = drawdown.clone();
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct Drawdown {
     pub equity_range: Range,
     pub drawdown: f64,
@@ -110,6 +91,25 @@ impl Drawdown {
     fn calculate(&self) -> f64 {
         // range_low - range_high / range_high
         (-self.equity_range.calculate()) / self.equity_range.high
+    }
+}
+
+#[derive(Debug, Clone, PartialOrd, PartialEq)]
+pub struct MaxDrawdown {
+    pub drawdown: Drawdown,
+}
+
+impl MaxDrawdown {
+    pub fn init() -> Self {
+        Self {
+            drawdown: Drawdown::default(),
+        }
+    }
+
+    pub fn update(&mut self, drawdown: &Drawdown) {
+        if drawdown.drawdown.abs() >= self.drawdown.drawdown.abs() {
+            self.drawdown = drawdown.clone();
+        }
     }
 }
 
@@ -260,82 +260,6 @@ mod tests {
     use crate::portfolio::position::EquityPoint;
 
     #[test]
-    fn max_drawdown_update() {
-        struct TestCase {
-            input_drawdown: Drawdown,
-            expected_drawdown: Drawdown,
-        }
-
-        let base_timestamp = Utc::now();
-
-        let mut max_drawdown = MaxDrawdown::init();
-
-        let test_cases = vec![
-            TestCase { // Test case 0: First ever drawdown
-                input_drawdown: Drawdown {
-                    equity_range: Range { activated: true, high: 115.0, low: 90.0 },
-                    drawdown: (-25.0/110.0),
-                    start_timestamp: base_timestamp,
-                    duration: Duration::days(2),
-                },
-                expected_drawdown: Drawdown {
-                    equity_range: Range { activated: true, high: 115.0, low: 90.0 },
-                    drawdown: (-25.0/110.0),
-                    start_timestamp: base_timestamp,
-                    duration: Duration::days(2),
-                }
-            },
-            TestCase { // Test case 1: Larger drawdown
-                input_drawdown: Drawdown {
-                    equity_range: Range { activated: true, high: 200.0, low: 90.0 },
-                    drawdown: (-110.0/200.0),
-                    start_timestamp: base_timestamp.add(Duration::days(3)),
-                    duration: Duration::days(1),
-                },
-                expected_drawdown: Drawdown {
-                    equity_range: Range { activated: true, high: 200.0, low: 90.0 },
-                    drawdown: (-110.0/200.0),
-                    start_timestamp: base_timestamp.add(Duration::days(3)),
-                    duration: Duration::days(1),
-                }
-            },
-            TestCase { // Test case 1: Smaller drawdown
-                input_drawdown: Drawdown {
-                    equity_range: Range { activated: true, high: 300.0, low: 290.0 },
-                    drawdown: (-10.0/300.0),
-                    start_timestamp: base_timestamp.add(Duration::days(8)),
-                    duration: Duration::days(1),
-                },
-                expected_drawdown: Drawdown {
-                    equity_range: Range { activated: true, high: 200.0, low: 90.0 },
-                    drawdown: (-110.0/200.0),
-                    start_timestamp: base_timestamp.add(Duration::days(3)),
-                    duration: Duration::days(1),
-                }
-            },
-            TestCase { // Test case 1: Largest drawdown
-                input_drawdown: Drawdown {
-                    equity_range: Range { activated: true, high: 10000.0, low: 0.1 },
-                    drawdown: (-9999.9/10000.0),
-                    start_timestamp: base_timestamp.add(Duration::days(12)),
-                    duration: Duration::days(20),
-                },
-                expected_drawdown: Drawdown {
-                    equity_range: Range { activated: true, high: 10000.0, low: 0.1 },
-                    drawdown: (-9999.9/10000.0),
-                    start_timestamp: base_timestamp.add(Duration::days(12)),
-                    duration: Duration::days(20),
-                }
-            },
-        ];
-
-        for (index, test) in test_cases.into_iter().enumerate() {
-            max_drawdown.update(&test.input_drawdown);
-            assert_eq!(max_drawdown.drawdown, test.expected_drawdown, "Input: {:?}", index)
-        }
-    }
-
-    #[test]
     fn drawdown_update() {
         struct TestCase {
             input_equity: EquityPoint,
@@ -442,6 +366,82 @@ mod tests {
         for (index, test) in test_cases.into_iter().enumerate() {
             drawdown.update(&test.input_equity);
             assert_eq!(drawdown, test.expected_drawdown, "Input: {:?}", index)
+        }
+    }
+
+    #[test]
+    fn max_drawdown_update() {
+        struct TestCase {
+            input_drawdown: Drawdown,
+            expected_drawdown: Drawdown,
+        }
+
+        let base_timestamp = Utc::now();
+
+        let mut max_drawdown = MaxDrawdown::init();
+
+        let test_cases = vec![
+            TestCase { // Test case 0: First ever drawdown
+                input_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 115.0, low: 90.0 },
+                    drawdown: (-25.0/110.0),
+                    start_timestamp: base_timestamp,
+                    duration: Duration::days(2),
+                },
+                expected_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 115.0, low: 90.0 },
+                    drawdown: (-25.0/110.0),
+                    start_timestamp: base_timestamp,
+                    duration: Duration::days(2),
+                }
+            },
+            TestCase { // Test case 1: Larger drawdown
+                input_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 200.0, low: 90.0 },
+                    drawdown: (-110.0/200.0),
+                    start_timestamp: base_timestamp.add(Duration::days(3)),
+                    duration: Duration::days(1),
+                },
+                expected_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 200.0, low: 90.0 },
+                    drawdown: (-110.0/200.0),
+                    start_timestamp: base_timestamp.add(Duration::days(3)),
+                    duration: Duration::days(1),
+                }
+            },
+            TestCase { // Test case 1: Smaller drawdown
+                input_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 300.0, low: 290.0 },
+                    drawdown: (-10.0/300.0),
+                    start_timestamp: base_timestamp.add(Duration::days(8)),
+                    duration: Duration::days(1),
+                },
+                expected_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 200.0, low: 90.0 },
+                    drawdown: (-110.0/200.0),
+                    start_timestamp: base_timestamp.add(Duration::days(3)),
+                    duration: Duration::days(1),
+                }
+            },
+            TestCase { // Test case 1: Largest drawdown
+                input_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 10000.0, low: 0.1 },
+                    drawdown: (-9999.9/10000.0),
+                    start_timestamp: base_timestamp.add(Duration::days(12)),
+                    duration: Duration::days(20),
+                },
+                expected_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 10000.0, low: 0.1 },
+                    drawdown: (-9999.9/10000.0),
+                    start_timestamp: base_timestamp.add(Duration::days(12)),
+                    duration: Duration::days(20),
+                }
+            },
+        ];
+
+        for (index, test) in test_cases.into_iter().enumerate() {
+            max_drawdown.update(&test.input_drawdown);
+            assert_eq!(max_drawdown.drawdown, test.expected_drawdown, "Input: {:?}", index)
         }
     }
 
