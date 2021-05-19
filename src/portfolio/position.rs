@@ -5,7 +5,6 @@ use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use crate::strategy::signal::Decision;
-use crate::statistic::metric::drawdown::EquityPoint;
 
 /// Enters a new [Position].
 pub trait PositionEnterer {
@@ -497,6 +496,37 @@ impl Default for PositionMeta {
     }
 }
 
+#[derive(Debug, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub struct EquityPoint {
+    pub equity: f64,
+    pub timestamp: DateTime<Utc>,
+}
+
+impl Default for EquityPoint {
+    fn default() -> Self {
+        Self {
+            equity: 0.0,
+            timestamp: Utc::now(),
+        }
+    }
+}
+
+impl EquityPoint {
+    pub fn update(&mut self, position: &Position) {
+        match position.meta.exit_bar_timestamp {
+            None => {
+                // Position is not exited
+                self.equity += position.unreal_profit_loss;
+                self.timestamp = position.meta.last_update_timestamp;
+            },
+            Some(exit_timestamp) => {
+                self.equity += position.result_profit_loss;
+                self.timestamp = exit_timestamp;
+            }
+        }
+    }
+}
+
 /// Direction of the [Position] when it was opened, Long or Short.
 #[derive(Debug, Clone, PartialOrd, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Direction {
@@ -514,6 +544,8 @@ impl Default for Direction {
 mod tests {
     use super::*;
     use crate::strategy::signal::Decision;
+    use chrono::Duration;
+    use std::ops::Add;
 
     #[test]
     fn enter_new_position_with_long_decision_provided() {
@@ -1406,6 +1438,70 @@ mod tests {
         for (position, expected) in inputs.into_iter().zip(expected_is_win.into_iter()) {
             let actual = position.is_loss();
             assert_eq!(actual, expected);
+        }
+    }
+
+    fn equity_update_position_closed(exit_timestamp: DateTime<Utc>, result_pnl: f64) -> Position {
+        let mut position = Position::default();
+        position.meta.exit_bar_timestamp = Some(exit_timestamp);
+        position.result_profit_loss = result_pnl;
+        position
+    }
+
+    fn equity_update_position_open(last_update_timestamp: DateTime<Utc>, unreal_pnl: f64) -> Position {
+        let mut position = Position::default();
+        position.meta.last_update_timestamp = last_update_timestamp;
+        position.unreal_profit_loss = unreal_pnl;
+        position
+    }
+
+    #[test]
+    fn equity_point_update() {
+        struct TestCase {
+            position: Position,
+            expected_equity: f64,
+            expected_timestamp: DateTime<Utc>,
+        }
+
+        let base_timestamp = Utc::now();
+
+        let mut equity_point = EquityPoint {
+            equity: 100.0,
+            timestamp: base_timestamp
+        };
+
+        let test_cases = vec![
+            TestCase {
+                position: equity_update_position_closed(base_timestamp.add(Duration::days(1)), 10.0),
+                expected_equity: 110.0, expected_timestamp: base_timestamp.add(Duration::days(1))
+            },
+            TestCase {
+                position: equity_update_position_open(base_timestamp.add(Duration::days(2)), -10.0),
+                expected_equity: 100.0, expected_timestamp: base_timestamp.add(Duration::days(2))
+            },
+            TestCase {
+                position: equity_update_position_closed(base_timestamp.add(Duration::days(3)), -55.9),
+                expected_equity: 44.1, expected_timestamp: base_timestamp.add(Duration::days(3))
+            },
+            TestCase {
+                position: equity_update_position_open(base_timestamp.add(Duration::days(4)), 68.7),
+                expected_equity: 112.8, expected_timestamp: base_timestamp.add(Duration::days(4))
+            },
+            TestCase {
+                position: equity_update_position_closed(base_timestamp.add(Duration::days(5)), 99999.0),
+                expected_equity: 100111.8, expected_timestamp: base_timestamp.add(Duration::days(5))
+            },
+            TestCase {
+                position: equity_update_position_open(base_timestamp.add(Duration::days(5)), 0.2),
+                expected_equity: 100112.0, expected_timestamp: base_timestamp.add(Duration::days(5))
+            },
+        ];
+
+        for test in test_cases {
+            equity_point.update(&test.position);
+            let equity_diff = equity_point.equity - test.expected_equity;
+            assert!(equity_diff < 1e-10);
+            assert_eq!(equity_point.timestamp, test.expected_timestamp)
         }
     }
 }
