@@ -72,10 +72,10 @@ pub struct Position {
     /// abs(Quantity) * current_symbol_price.
     pub current_value_gross: f64,
 
-    /// Unrealised P&L whilst Position open.
+    /// Unrealised P&L whilst the [Position] is open.
     pub unreal_profit_loss: f64,
 
-    /// Realised P&L after Position closed.
+    /// Realised P&L after the [Position] has closed.
     pub result_profit_loss: f64,
 }
 
@@ -161,6 +161,9 @@ impl PositionExiter for Position {
         self.result_profit_loss = self.calculate_result_profit_loss();
         self.unreal_profit_loss = self.result_profit_loss;
 
+        // Portfolio EquityPoint on exit
+        self.equity_on_exit.update(&self);
+
         Ok(())
     }
 }
@@ -184,7 +187,8 @@ impl Default for Position {
             current_symbol_price: 100.0,
             current_value_gross: 100.0,
             unreal_profit_loss: 0.0,
-            result_profit_loss: 0.0
+            result_profit_loss: 0.0,
+            equity_on_exit: EquityPoint::def
         }
     }
 }
