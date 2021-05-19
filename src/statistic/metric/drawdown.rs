@@ -4,11 +4,6 @@ use crate::statistic::summary::trading::{PositionSummariser, calculate_trading_d
 use crate::portfolio::position::Position;
 use crate::statistic::algorithm::WelfordOnline;
 
-// Todo: Work out a better way to identify & error handle unclosed Position -> maybe just never
-//  handle them? Use a 'closed' boolean flag and throw errors if they are passed?
-
-// Todo: Create DrawdownSummary w/ MaxDrawdown, Durations, Avg Drawdown, etc etc
-
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct MaxDrawdown {
     pub drawdown: Drawdown,
@@ -122,6 +117,15 @@ impl Drawdown {
 pub struct EquityPoint {
     pub equity: f64,
     pub timestamp: DateTime<Utc>,
+}
+
+impl Default for EquityPoint {
+    fn default() -> Self {
+        Self {
+            equity: 0.0,
+            timestamp: Utc::now(),
+        }
+    }
 }
 
 impl EquityPoint {

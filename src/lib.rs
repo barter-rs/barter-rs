@@ -158,4 +158,3 @@ pub mod event;
 pub mod statistic;
 
 #[macro_use] extern crate prettytable;
-
