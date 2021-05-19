@@ -2,6 +2,7 @@ use crate::statistic::dispersion::Range;
 use chrono::{DateTime, Utc, Duration};
 use crate::statistic::summary::trading::{PositionSummariser, calculate_trading_duration};
 use crate::portfolio::position::Position;
+use crate::statistic::algorithm::WelfordOnline;
 
 // Todo: Work out a better way to identify & error handle unclosed Position -> maybe just never
 //  handle them? Use a 'closed' boolean flag and throw errors if they are passed?
@@ -20,9 +21,9 @@ impl MaxDrawdown {
         }
     }
 
-    pub fn update(&mut self, drawdown: Drawdown) {
-        if drawdown.drawdown > self.drawdown.drawdown {
-            self.drawdown = drawdown;
+    pub fn update(&mut self, drawdown: &Drawdown) {
+        if drawdown.drawdown.abs() >= self.drawdown.drawdown.abs() {
+            self.drawdown = drawdown.clone();
         }
     }
 }
@@ -59,8 +60,6 @@ impl Drawdown {
             duration: Duration::zero(),
         }
     }
-
-
 
     pub fn update(&mut self, current: &EquityPoint) -> Option<Drawdown> {
         match (self.is_waiting_for_peak(), current.equity > self.equity_range.high) {
@@ -138,6 +137,50 @@ impl EquityPoint {
                 self.timestamp = exit_timestamp;
             }
         }
+    }
+}
+
+
+#[derive(Debug, Clone, PartialOrd, PartialEq)]
+pub struct AvgDrawdown {
+    count: usize,
+    pub mean_drawdown: f64,
+    pub mean_duration: Duration,
+    mean_duration_milliseconds: i64,
+}
+
+impl Default for AvgDrawdown {
+    fn default() -> Self {
+        Self {
+            count: 0,
+            mean_drawdown: 0.0,
+            mean_duration_milliseconds: 0,
+            mean_duration: Duration::zero(),
+        }
+    }
+}
+
+impl AvgDrawdown {
+    pub fn init() -> Self {
+        Self::default()
+    }
+
+    pub fn update(&mut self, drawdown: &Drawdown) {
+        self.count += 1;
+
+        self.mean_drawdown = WelfordOnline::calculate_mean(
+            self.mean_drawdown,
+            drawdown.drawdown,
+            self.count as f64
+        );
+
+        self.mean_duration_milliseconds = WelfordOnline::calculate_mean(
+            self.mean_duration_milliseconds,
+            drawdown.duration.num_milliseconds(),
+            self.count as i64
+        );
+
+        self.mean_duration = Duration::milliseconds(self.mean_duration_milliseconds);
     }
 }
 
@@ -243,67 +286,79 @@ mod tests {
     use super::*;
     use std::ops::Add;
 
-    fn equity_update_position_closed(exit_timestamp: DateTime<Utc>, result_pnl: f64) -> Position {
-        let mut position = Position::default();
-        position.meta.exit_bar_timestamp = Some(exit_timestamp);
-        position.result_profit_loss = result_pnl;
-        position
-    }
-
-    fn equity_update_position_open(last_update_timestamp: DateTime<Utc>, unreal_pnl: f64) -> Position {
-        let mut position = Position::default();
-        position.meta.last_update_timestamp = last_update_timestamp;
-        position.unreal_profit_loss = unreal_pnl;
-        position
-    }
-
     #[test]
-    fn equity_point_update() {
+    fn max_drawdown_update() {
         struct TestCase {
-            position: Position,
-            expected_equity: f64,
-            expected_timestamp: DateTime<Utc>,
+            input_drawdown: Drawdown,
+            expected_drawdown: Drawdown,
         }
 
         let base_timestamp = Utc::now();
 
-        let mut equity_point = EquityPoint {
-            equity: 100.0,
-            timestamp: base_timestamp
-        };
+        let mut max_drawdown = MaxDrawdown::init();
 
         let test_cases = vec![
-            TestCase {
-                position: equity_update_position_closed(base_timestamp.add(Duration::days(1)), 10.0),
-                expected_equity: 110.0, expected_timestamp: base_timestamp.add(Duration::days(1))
+            TestCase { // Test case 0: First ever drawdown
+                input_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 115.0, low: 90.0 },
+                    drawdown: (-25.0/110.0),
+                    start_timestamp: base_timestamp,
+                    duration: Duration::days(2),
+                },
+                expected_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 115.0, low: 90.0 },
+                    drawdown: (-25.0/110.0),
+                    start_timestamp: base_timestamp,
+                    duration: Duration::days(2),
+                }
             },
-            TestCase {
-                position: equity_update_position_open(base_timestamp.add(Duration::days(2)), -10.0),
-                expected_equity: 100.0, expected_timestamp: base_timestamp.add(Duration::days(2))
+            TestCase { // Test case 1: Larger drawdown
+                input_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 200.0, low: 90.0 },
+                    drawdown: (-110.0/200.0),
+                    start_timestamp: base_timestamp.add(Duration::days(3)),
+                    duration: Duration::days(1),
+                },
+                expected_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 200.0, low: 90.0 },
+                    drawdown: (-110.0/200.0),
+                    start_timestamp: base_timestamp.add(Duration::days(3)),
+                    duration: Duration::days(1),
+                }
             },
-            TestCase {
-                position: equity_update_position_closed(base_timestamp.add(Duration::days(3)), -55.9),
-                expected_equity: 44.1, expected_timestamp: base_timestamp.add(Duration::days(3))
+            TestCase { // Test case 1: Smaller drawdown
+                input_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 300.0, low: 290.0 },
+                    drawdown: (-10.0/300.0),
+                    start_timestamp: base_timestamp.add(Duration::days(8)),
+                    duration: Duration::days(1),
+                },
+                expected_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 200.0, low: 90.0 },
+                    drawdown: (-110.0/200.0),
+                    start_timestamp: base_timestamp.add(Duration::days(3)),
+                    duration: Duration::days(1),
+                }
             },
-            TestCase {
-                position: equity_update_position_open(base_timestamp.add(Duration::days(4)), 68.7),
-                expected_equity: 112.8, expected_timestamp: base_timestamp.add(Duration::days(4))
-            },
-            TestCase {
-                position: equity_update_position_closed(base_timestamp.add(Duration::days(5)), 99999.0),
-                expected_equity: 100111.8, expected_timestamp: base_timestamp.add(Duration::days(5))
-            },
-            TestCase {
-                position: equity_update_position_open(base_timestamp.add(Duration::days(5)), 0.2),
-                expected_equity: 100112.0, expected_timestamp: base_timestamp.add(Duration::days(5))
+            TestCase { // Test case 1: Largest drawdown
+                input_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 10000.0, low: 0.1 },
+                    drawdown: (-9999.9/10000.0),
+                    start_timestamp: base_timestamp.add(Duration::days(12)),
+                    duration: Duration::days(20),
+                },
+                expected_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 10000.0, low: 0.1 },
+                    drawdown: (-9999.9/10000.0),
+                    start_timestamp: base_timestamp.add(Duration::days(12)),
+                    duration: Duration::days(20),
+                }
             },
         ];
 
-        for test in test_cases {
-            equity_point.update(&test.position);
-            let equity_diff = equity_point.equity - test.expected_equity;
-            assert!(equity_diff < 1e-10);
-            assert_eq!(equity_point.timestamp, test.expected_timestamp)
+        for (index, test) in test_cases.into_iter().enumerate() {
+            max_drawdown.update(&test.input_drawdown);
+            assert_eq!(max_drawdown.drawdown, test.expected_drawdown, "Input: {:?}", index)
         }
     }
 
@@ -414,6 +469,132 @@ mod tests {
         for (index, test) in test_cases.into_iter().enumerate() {
             drawdown.update(&test.input_equity);
             assert_eq!(drawdown, test.expected_drawdown, "Input: {:?}", index)
+        }
+    }
+
+    fn equity_update_position_closed(exit_timestamp: DateTime<Utc>, result_pnl: f64) -> Position {
+        let mut position = Position::default();
+        position.meta.exit_bar_timestamp = Some(exit_timestamp);
+        position.result_profit_loss = result_pnl;
+        position
+    }
+
+    fn equity_update_position_open(last_update_timestamp: DateTime<Utc>, unreal_pnl: f64) -> Position {
+        let mut position = Position::default();
+        position.meta.last_update_timestamp = last_update_timestamp;
+        position.unreal_profit_loss = unreal_pnl;
+        position
+    }
+
+    #[test]
+    fn equity_point_update() {
+        struct TestCase {
+            position: Position,
+            expected_equity: f64,
+            expected_timestamp: DateTime<Utc>,
+        }
+
+        let base_timestamp = Utc::now();
+
+        let mut equity_point = EquityPoint {
+            equity: 100.0,
+            timestamp: base_timestamp
+        };
+
+        let test_cases = vec![
+            TestCase {
+                position: equity_update_position_closed(base_timestamp.add(Duration::days(1)), 10.0),
+                expected_equity: 110.0, expected_timestamp: base_timestamp.add(Duration::days(1))
+            },
+            TestCase {
+                position: equity_update_position_open(base_timestamp.add(Duration::days(2)), -10.0),
+                expected_equity: 100.0, expected_timestamp: base_timestamp.add(Duration::days(2))
+            },
+            TestCase {
+                position: equity_update_position_closed(base_timestamp.add(Duration::days(3)), -55.9),
+                expected_equity: 44.1, expected_timestamp: base_timestamp.add(Duration::days(3))
+            },
+            TestCase {
+                position: equity_update_position_open(base_timestamp.add(Duration::days(4)), 68.7),
+                expected_equity: 112.8, expected_timestamp: base_timestamp.add(Duration::days(4))
+            },
+            TestCase {
+                position: equity_update_position_closed(base_timestamp.add(Duration::days(5)), 99999.0),
+                expected_equity: 100111.8, expected_timestamp: base_timestamp.add(Duration::days(5))
+            },
+            TestCase {
+                position: equity_update_position_open(base_timestamp.add(Duration::days(5)), 0.2),
+                expected_equity: 100112.0, expected_timestamp: base_timestamp.add(Duration::days(5))
+            },
+        ];
+
+        for test in test_cases {
+            equity_point.update(&test.position);
+            let equity_diff = equity_point.equity - test.expected_equity;
+            assert!(equity_diff < 1e-10);
+            assert_eq!(equity_point.timestamp, test.expected_timestamp)
+        }
+    }
+
+    #[test]
+    fn avg_drawdown_update() {
+        struct TestCase {
+            input_drawdown: Drawdown,
+            expected_avg_drawdown: AvgDrawdown,
+        }
+
+        let base_timestamp = Utc::now();
+
+        let mut avg_drawdown = AvgDrawdown::init();
+
+        let test_cases = vec![
+            TestCase { // Test case 0: First ever drawdown
+                input_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 100.0, low: 50.0 },
+                    drawdown: (-50.0/100.0),
+                    start_timestamp: base_timestamp,
+                    duration: Duration::days(2),
+                },
+                expected_avg_drawdown: AvgDrawdown {
+                    count: 1,
+                    mean_drawdown: -0.5,
+                    mean_duration: Duration::days(2),
+                    mean_duration_milliseconds: Duration::days(2).num_milliseconds(),
+                }
+            },
+            TestCase { // Test case 1
+                input_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 200.0, low: 100.0 },
+                    drawdown: (-100.0/200.0),
+                    start_timestamp: base_timestamp,
+                    duration: Duration::days(2),
+                },
+                expected_avg_drawdown: AvgDrawdown {
+                    count: 2,
+                    mean_drawdown: -0.5,
+                    mean_duration: Duration::days(2),
+                    mean_duration_milliseconds: Duration::days(2).num_milliseconds(),
+                }
+            },
+            TestCase { // Test case 2
+                input_drawdown: Drawdown {
+                    equity_range: Range { activated: true, high: 1000.0, low: 820.0 },
+                    drawdown: (-180.0/1000.0),
+                    start_timestamp: base_timestamp,
+                    duration: Duration::days(5),
+                },
+                expected_avg_drawdown: AvgDrawdown {
+                    count: 3,
+                    mean_drawdown: (-59.0/150.0),
+                    mean_duration: Duration::days(3),
+                    mean_duration_milliseconds: Duration::days(3).num_milliseconds(),
+                }
+            },
+        ];
+
+        for (index, test) in test_cases.into_iter().enumerate() {
+            avg_drawdown.update(&test.input_drawdown);
+            assert_eq!(avg_drawdown, test.expected_avg_drawdown, "Input: {:?}", index)
         }
     }
 }
