@@ -4,8 +4,7 @@ use crate::statistic::summary::pnl::PnLReturnSummary;
 use crate::statistic::metric::ratio::{SharpeRatio, SortinoRatio, Ratio};
 use prettytable::{Row, Table};
 use chrono::{DateTime, Utc, Duration};
-
-// Todo: Add Mean trait? And/or other calculation traits, similar to std::op::add? YES
+use crate::statistic::summary::drawdown::DrawdownSummary;
 
 pub trait PositionSummariser {
     fn update(&mut self, position: &Position);
@@ -29,6 +28,7 @@ pub struct Config {
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct TradingSummary {
     pnl_returns: PnLReturnSummary,
+    drawdown: DrawdownSummary,
     tear_sheet: TearSheet,
 }
 
@@ -50,6 +50,7 @@ impl TradingSummary {
     pub fn new(cfg: &Config) -> Self {
         Self {
             pnl_returns: PnLReturnSummary::new(),
+            drawdown: DrawdownSummary {},
             tear_sheet: TearSheet::new(cfg.risk_free_return)
         }
     }
