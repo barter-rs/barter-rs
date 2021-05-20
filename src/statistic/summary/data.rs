@@ -2,6 +2,7 @@ use crate::statistic::dispersion::Dispersion;
 use crate::statistic::summary::trading::{PositionSummariser, TablePrinter};
 use crate::portfolio::position::Position;
 use crate::statistic::algorithm::WelfordOnline;
+use prettytable::{Row, Table};
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct DataSummary {
@@ -22,39 +23,116 @@ impl Default for DataSummary {
     }
 }
 
-impl PositionSummariser for DataSummary {
-    fn update(&mut self, position: &Position) {
-        // Increment trade counter
+impl DataSummary {
+    pub fn update(&mut self, next_value: f64) {
+        // Increment counter
         self.count += 1;
 
-        // Calculate next PnL Return data point
-        let next_return = position.calculate_profit_loss_return();
-
         // Update Sum
-        self.sum += next_return;
+        self.sum += next_value;
 
         // Update Mean
         let prev_mean = self.mean;
-        self.mean = WelfordOnline::calculate_mean(self.mean, next_return, self.count as f64);
+        self.mean = WelfordOnline::calculate_mean(self.mean, next_value, self.count as f64);
 
         // Update Dispersion
-        self.dispersion.update(prev_mean, self.mean, next_return, self.count);
+        self.dispersion.update(prev_mean, self.mean, next_value, self.count);
     }
 }
 
 impl TablePrinter for DataSummary {
     fn print(&self) {
-        todo!()
+
+        let mut data_summary = Table::new();
+
+        let titles = vec!["",
+            "Count", "Sum", "Mean", "Variance", "Std. Dev", "Range High", "Range Low"];
+
+        data_summary.add_row(row!["",
+            self.count,
+            format!("{:.3}", self.sum),
+            format!("{:.3}", self.mean),
+            format!("{:.3}", self.dispersion.variance),
+            format!("{:.3}", self.dispersion.std_dev),
+            format!("{:.3}", self.dispersion.range.high),
+            format!("{:.3}", self.dispersion.range.low),
+        ]);
+
+        data_summary.set_titles(Row::from(titles));
+        data_summary.printstd();
     }
 }
 
-impl DataSummary {
-    fn new() -> Self {
-        Self {
-            count: 0,
-            sum: 0.0,
-            mean: 0.0,
-            dispersion: Dispersion::default(),
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::statistic::dispersion::Range;
+
+    #[test]
+    fn update_data_summary_with_position() {
+        struct TestCase {
+            input_next_value: f64,
+            expected_summary: DataSummary,
+        }
+
+        let mut data_summary = DataSummary::default();
+
+        let test_cases = vec![
+            TestCase { // Test case 0
+                input_next_value: 1.1,
+                expected_summary: DataSummary {
+                    count: 1,
+                    sum: 1.1,
+                    mean: 1.1,
+                    dispersion: Dispersion {
+                        range: Range { activated: true, high: 1.1, low: 1.1 },
+                        recurrence_relation_m: 0.00, variance: 0.0, std_dev: 0.0
+                    }
+                }
+            },
+            TestCase { // Test case 1
+                input_next_value: 1.2,
+                expected_summary: DataSummary {
+                    count: 2,
+                    sum: 2.3,
+                    mean: (2.3/2.0),
+                    dispersion: Dispersion {
+                        range: Range { activated: true, high: 1.2, low: 1.1 },
+                        recurrence_relation_m: 0.005, variance: 0.0025, std_dev: 0.05
+                    }
+                }
+            },
+            TestCase { // Test case 2
+                input_next_value: 1.3,
+                expected_summary: DataSummary {
+                    count: 3,
+                    sum: (2.3 + 1.3),
+                    mean: (3.6/3.0),
+                    dispersion: Dispersion {
+                        range: Range { activated: true, high: 1.3, low: 1.1 },
+                        recurrence_relation_m: 0.02, variance: 1.0/150.0, std_dev: (6.0_f64.sqrt()/30.0)
+                    }
+                }
+            },
+        ];
+
+        for (index, test) in test_cases.into_iter().enumerate() {
+            data_summary.update(test.input_next_value);
+            assert_eq!(data_summary.count, test.expected_summary.count, "Count Input: {:?}", index);
+            assert_eq!(data_summary.sum, test.expected_summary.sum, "Sum Input: {:?}", index);
+            assert_eq!(data_summary.mean, test.expected_summary.mean, "Mean Input: {:?}", index);
+
+            let recurrence_diff = data_summary.dispersion.recurrence_relation_m
+                - test.expected_summary.dispersion.recurrence_relation_m;
+            assert!(recurrence_diff < 1e-10, "Recurrence Input: {:?}", index);
+
+            let variance_diff = data_summary.dispersion.variance
+                - test.expected_summary.dispersion.variance;
+            assert!(variance_diff < 1e-10, "Variance Input: {:?}", index);
+
+            let std_dev_diff = data_summary.dispersion.std_dev
+                - test.expected_summary.dispersion.std_dev;
+            assert!(std_dev_diff < 1e-10, "Std. Dev. Input: {:?}", index);
         }
     }
 }
