@@ -31,12 +31,17 @@ impl TablePrinter for DrawdownSummary {
         let mut drawdown_summary = Table::new();
 
         let titles = vec!["",
-            "Max Drawdown", "Max Drawdown Duration", "Avg. Drawdown", "Avg. Drawdown Duration",
+            "Count", "Max Drawdown", "Max Drawdown Days", "Avg. Drawdown", "Avg. Drawdown Days",
         ];
 
+        // Todo: Check if Max Drawdown is correct - Calculation doesn't seem right based on backtest start and end!
+
         drawdown_summary.add_row(row!["Total",
-            self.max_drawdown.drawdown.drawdown, self.max_drawdown.drawdown.duration.to_string(),
-            self.avg_drawdown.mean_drawdown, self.avg_drawdown.mean_duration.to_string()
+            self.avg_drawdown.count,
+            format!("{:.3}", self.max_drawdown.drawdown.drawdown),
+            self.max_drawdown.drawdown.duration.num_days().to_string(),
+            format!("{:.3}", self.avg_drawdown.mean_drawdown),
+            self.avg_drawdown.mean_duration.num_days().to_string(),
         ]);
 
         drawdown_summary.set_titles(Row::from(titles));
