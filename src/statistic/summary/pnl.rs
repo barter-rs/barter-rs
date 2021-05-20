@@ -55,12 +55,16 @@ impl TablePrinter for PnLReturnSummary {
         let mut pnl_returns = Table::new();
 
         let titles = vec!["",
-            "Trades", "Trading Duration Days", "Trades Per Day",
+            "Trades", "Wins", "Losses", "Trading Days", "Trades Per Day",
             "Mean Return", "Std. Dev. Return", "Loss Mean Return",
             "Biggest Win", "Biggest Loss"];
 
+        let wins = self.total.count - self.losses.count;
+
         pnl_returns.add_row(row!["Total",
             self.total.count.to_string(),
+            wins,
+            self.losses.count,
             self.duration.num_days().to_string(),
             format!("{:.3}", self.trades_per_day),
             format!("{:.3}", self.total.mean),
