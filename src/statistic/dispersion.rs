@@ -101,7 +101,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dispersion() {
+    fn update_dispersion() {
         let mut dispersion = Dispersion::default();
 
         // Dataset  = [1.1, 1.2, 1.3, 1.4, 0.6]
@@ -157,7 +157,7 @@ mod tests {
     }
 
     #[test]
-    fn range() {
+    fn update_range() {
         let dataset  = [0.1, 1.01, 1.02, 1.03, 1.04, 1.05, 1.06, 1.07, 9999.0];
         let mut actual_range = Range::default();
 
