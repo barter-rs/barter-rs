@@ -3,6 +3,7 @@ use crate::portfolio::position::{Position, Direction};
 use crate::statistic::summary::data::DataSummary;
 use chrono::{Duration, DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use prettytable::{Row, Table};
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct PnLReturnSummary {
@@ -36,21 +37,41 @@ impl PositionSummariser for PnLReturnSummary {
         self.update_trading_session_duration(position);
         self.update_trades_per_day();
 
+        // Calculate the Position PnL Return
+        let pnl_return = position.calculate_profit_loss_return();
+
         // Update Total PnL Returns
-        self.total.update(position);
+        self.total.update(pnl_return);
 
         // Update Loss PnL Returns if relevant
-        if let Some(is_loss) = position.is_loss() {
-            if is_loss {
-                self.losses.update(position);
-            }
+        if pnl_return.is_sign_negative() {
+            self.losses.update(pnl_return);
         }
     }
 }
 
 impl TablePrinter for PnLReturnSummary {
     fn print(&self) {
-        todo!()
+        let mut pnl_returns = Table::new();
+
+        let titles = vec!["",
+            "Trades", "Trading Duration Days", "Trades Per Day",
+            "Mean Return", "Std. Dev. Return", "Loss Mean Return",
+            "Biggest Win", "Biggest Loss"];
+
+        pnl_returns.add_row(row!["Total",
+            self.total.count.to_string(),
+            self.duration.num_days().to_string(),
+            format!("{:.3}", self.trades_per_day),
+            format!("{:.3}", self.total.mean),
+            format!("{:.3}", self.total.dispersion.std_dev),
+            format!("{:.3}", self.losses.mean),
+            format!("{:.3}", self.total.dispersion.range.high),
+            format!("{:.3}", self.total.dispersion.range.low),
+        ]);
+
+        pnl_returns.set_titles(Row::from(titles));
+        pnl_returns.printstd();
     }
 }
 
@@ -145,6 +166,19 @@ impl ProfitLossSummary {
 mod tests {
     use super::*;
     use chrono::{Utc, Duration};
+
+    #[test]
+    fn update_pnl_return_summary() {
+        struct TestCase {
+            input_position: Position,
+            expected_summary: PnLReturnSummary,
+        }
+
+
+
+
+
+    }
 
     #[test]
     fn update_trading_session_duration_with_non_exited_position() {
