@@ -267,7 +267,7 @@ mod tests {
 
         for (index, test) in test_cases.into_iter().enumerate() {
             drawdown.update(&test.input_equity);
-            assert_eq!(drawdown, test.expected_drawdown, "Input: {:?}", index)
+            assert_eq!(drawdown, test.expected_drawdown, "Test case: {:?}", index)
         }
     }
 
@@ -343,7 +343,7 @@ mod tests {
 
         for (index, test) in test_cases.into_iter().enumerate() {
             max_drawdown.update(&test.input_drawdown);
-            assert_eq!(max_drawdown.drawdown, test.expected_drawdown, "Input: {:?}", index)
+            assert_eq!(max_drawdown.drawdown, test.expected_drawdown, "Test case: {:?}", index)
         }
     }
 
@@ -405,7 +405,7 @@ mod tests {
 
         for (index, test) in test_cases.into_iter().enumerate() {
             avg_drawdown.update(&test.input_drawdown);
-            assert_eq!(avg_drawdown, test.expected_avg_drawdown, "Input: {:?}", index)
+            assert_eq!(avg_drawdown, test.expected_avg_drawdown, "Test case: {:?}", index)
         }
     }
 }
