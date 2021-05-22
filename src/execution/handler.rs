@@ -64,15 +64,6 @@ impl SimulatedExecution {
             network: self.fees_pct.network * fill_value_gross
         }
     }
-
-    /// Calculates the simulated [Fees] a [FillEvent] will incur, based on the input [OrderEvent].
-    fn calculate_fees(&self, fill_value_gross: &f64) -> Fees {
-        Fees {
-            exchange: self.fees_pct.exchange * fill_value_gross,
-            slippage: self.fees_pct.slippage * fill_value_gross,
-            network: self.fees_pct.network * fill_value_gross
-        }
-    }
 }
 
 #[cfg(test)]
