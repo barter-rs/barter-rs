@@ -64,6 +64,15 @@ impl SimulatedExecution {
             network: self.fees_pct.network * fill_value_gross
         }
     }
+
+    /// Calculates the simulated [Fees] a [FillEvent] will incur, based on the input [OrderEvent].
+    fn calculate_fees(&self, fill_value_gross: &f64) -> Fees {
+        Fees {
+            exchange: self.fees_pct.exchange * fill_value_gross,
+            slippage: self.fees_pct.slippage * fill_value_gross,
+            network: self.fees_pct.network * fill_value_gross
+        }
+    }
 }
 
 #[cfg(test)]
@@ -123,5 +132,28 @@ mod tests {
         let expected = (100.0 * 10.0) as f64;
 
         assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn should_calculate_simulated_fees_correctly() {
+        let simulated_execution = SimulatedExecution::new(&Config {
+            simulated_fees_pct: Fees {
+                exchange: 0.5,
+                slippage: 0.1,
+                network: 0.001,
+            }
+        });
+
+        let input_fill_value_gross = 100.0;
+
+        let actual_result = simulated_execution.calculate_fees(&input_fill_value_gross);
+
+        let expected = Fees {
+            exchange: 50.0,
+            slippage: 10.0,
+            network: 0.1,
+        };
+
+        assert_eq!(actual_result, expected)
     }
 }
