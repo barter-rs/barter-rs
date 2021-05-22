@@ -98,43 +98,43 @@ impl SortinoRatio {
     }
 }
 
-// #[derive(Debug, Clone, PartialOrd, PartialEq)]
-// pub struct CalmarRatio {
-//     pub risk_free_return: f64,
-//     pub trades_per_day: f64,
-//     pub calmar_ratio_per_trade: f64,
-// }
-//
-// impl Ratio for CalmarRatio {
-//     fn init(risk_free_return: f64) -> Self {
-//         Self {
-//             risk_free_return,
-//             trades_per_day: 0.0,
-//             calmar_ratio_per_trade: 0.0
-//         }
-//     }
-//
-//     fn ratio(&self) -> f64 {
-//         self.calmar_ratio_per_trade
-//     }
-//
-//     fn trades_per_day(&self) -> f64 {
-//         self.trades_per_day
-//     }
-// }
-//
-// impl CalmarRatio {
-//     pub fn update(&mut self, pnl_returns: &PnLReturnSummary, max_drawdown: f64) {
-//         // Update Trades Per Day
-//         self.trades_per_day = pnl_returns.trades_per_day;
-//
-//         // Calculate Calmar Ratio Per Trade // Todo: Ensure max_drawdown isn't periodised...
-//         self.calmar_ratio_per_trade = match max_drawdown == 0.0 {
-//             true => 0.0,
-//             false => (pnl_returns.total.mean - self.risk_free_return) / max_drawdown,
-//         };
-//     }
-// }
+#[derive(Debug, Clone, PartialOrd, PartialEq)]
+pub struct CalmarRatio {
+    pub risk_free_return: f64,
+    pub trades_per_day: f64,
+    pub calmar_ratio_per_trade: f64,
+}
+
+impl Ratio for CalmarRatio {
+    fn init(risk_free_return: f64) -> Self {
+        Self {
+            risk_free_return,
+            trades_per_day: 0.0,
+            calmar_ratio_per_trade: 0.0
+        }
+    }
+
+    fn ratio(&self) -> f64 {
+        self.calmar_ratio_per_trade
+    }
+
+    fn trades_per_day(&self) -> f64 {
+        self.trades_per_day
+    }
+}
+
+impl CalmarRatio {
+    pub fn update(&mut self, pnl_returns: &PnLReturnSummary, max_drawdown: f64) {
+        // Update Trades Per Day
+        self.trades_per_day = pnl_returns.trades_per_day;
+
+        // Calculate Calmar Ratio Per Trade
+        self.calmar_ratio_per_trade = match max_drawdown == 0.0 {
+            true => 0.0,
+            false => (pnl_returns.total.mean - self.risk_free_return) / max_drawdown.abs(),
+        };
+    }
+}
 
 pub fn calculate_daily(ratio_per_trade: f64, trades_per_day: f64) -> f64 {
     ratio_per_trade * trades_per_day.sqrt()
@@ -150,21 +150,26 @@ mod tests {
     use crate::statistic::summary::pnl::PnLReturnSummary;
     use chrono::Duration;
 
-    fn sharpe_update_input(count: usize, mean: f64, duration: Duration, std_dev: f64) -> PnLReturnSummary {
+    fn sharpe_ratio_input(count: usize, mean: f64, std_dev: f64) -> PnLReturnSummary {
         let mut pnl_returns = PnLReturnSummary::new();
         pnl_returns.total.count = count;
         pnl_returns.total.mean = mean;
-        pnl_returns.duration = duration;
         pnl_returns.total.dispersion.std_dev = std_dev;
         pnl_returns
     }
 
-    fn sortino_update_input(count: usize, mean: f64, duration: Duration, loss_std_dev: f64) -> PnLReturnSummary {
+    fn sortino_update_input(count: usize, mean: f64, loss_std_dev: f64) -> PnLReturnSummary {
         let mut pnl_returns = PnLReturnSummary::new();
         pnl_returns.total.count = count;
         pnl_returns.total.mean = mean;
-        pnl_returns.duration = duration;
         pnl_returns.losses.dispersion.std_dev = loss_std_dev;
+        pnl_returns
+    }
+
+    fn calmar_ratio_returns_input(count: usize, mean: f64) -> PnLReturnSummary {
+        let mut pnl_returns = PnLReturnSummary::new();
+        pnl_returns.total.count = count;
+        pnl_returns.total.mean = mean;
         pnl_returns
     }
 
@@ -172,25 +177,41 @@ mod tests {
     fn sharpe_ratio_update() {
         let mut sharpe = SharpeRatio::init(0.0);
 
-        // Dataset  = [1.1, 1.2, 1.3, 1.4, 0.6]
-        // Means    = [1.1, 1.15, 1.2, 1.25, 1.12]
-        // Std. Dev = [0.0, 0.05, ~(6.sqrt()/30), ~(5.sqrt()/20), ~(194.sqrt()/50)]
-        let inputs = vec![
-            sharpe_update_input(1, 1.1, Duration::days(10), 0.0),                     // 1st trade, 10% profit
-            sharpe_update_input(2, 1.15, Duration::days(10), 0.05),                   // 2nd trade, 20% profit
-            sharpe_update_input(3, 1.2, Duration::days(10), 6.0_f64.sqrt()/30.0),     // 3rd trade, 30% profit
-            sharpe_update_input(4, 1.25, Duration::days(10), 5.0_f64.sqrt()/20.0),    // 4th trade, 40% profit
-            sharpe_update_input(5, 1.12, Duration::days(10), 194.0_f64.sqrt()/50.0),  // 5th trade, -40% profit
+        struct TestCase {
+            input_return: PnLReturnSummary,
+            expected_sharpe: f64,
+        }
+
+        // Returns  = [0.1, 0.2, 0.3, 0.4, -0.4]
+        // Means    = [0.1, 0.15, 0.2, 0.25, 0.12]
+        // Std. Dev = [0.0, 0.05, (1/150).sqrt(), (0.0125).sqrt(), (0.388/5).sqrt()]
+        let test_cases = vec![
+            TestCase { // Test case 0: 1st trade, 10% profit
+                input_return: sharpe_ratio_input(1, 0.1, 0.0),
+                expected_sharpe: 0.0
+            },
+            TestCase { // Test case 1: 2nd trade, 20% profit
+                input_return: sharpe_ratio_input(2, 0.15, 0.05),
+                expected_sharpe: 3.0
+            },
+            TestCase { // Test case 2: 3rd trade, 30% profit
+                input_return: sharpe_ratio_input(3, 0.2, (1.0_f64/150.0_f64).sqrt()),
+                expected_sharpe: 6.0_f64.sqrt()
+            },
+            TestCase { // Test case 3: 4th trade, 40% profit
+                input_return: sharpe_ratio_input(4, 0.25, (0.0125_f64).sqrt()),
+                expected_sharpe: 5.0_f64.sqrt()
+            },
+            TestCase { // Test case 4: 5th trade, -40% profit
+                input_return: sharpe_ratio_input(5, 0.12, (0.388_f64/5.0_f64).sqrt()),
+                expected_sharpe: ((3.0 * 194_f64.sqrt())/97.0)
+            },
         ];
 
-        let outputs = vec![
-            0.0, 23.0, (6.0 * 6.0_f64.sqrt()), (5.0 * 5.0_f64.sqrt()), ((28.0 * 194_f64.sqrt())/97.0)
-        ];
-
-        for (input, out) in inputs.into_iter().zip(outputs.into_iter()) {
-            sharpe.update(&input);
-            let sharpe_diff = sharpe.sharpe_ratio_per_trade - out;
-            assert!(sharpe_diff < 1e-10);
+        for (index, test) in test_cases.into_iter().enumerate() {
+            sharpe.update(&test.input_return);
+            let sharpe_diff = sharpe.sharpe_ratio_per_trade - test.expected_sharpe;
+            assert!(sharpe_diff < 1e-10, "Test case: {:?}", index);
         }
     }
 
@@ -198,47 +219,100 @@ mod tests {
     fn sortino_ratio_update() {
         let mut sortino = SortinoRatio::init(0.0);
 
-        // Dataset       = [1.1, 1.2, 1.3, 1.4, 0.6, 0.4]
-        // Means         = [1.1, 1.15, 1.2, 1.25, 1.12, 1.0]
-        // Loss Std. Dev = [0.0, 0.0, 0.0, 0.0, 0.0, 0.1]
-        let inputs = vec![
-            sortino_update_input(1, 1.1, Duration::days(10), 0.0),   // 1st trade, 10% profit
-            sortino_update_input(2, 1.15, Duration::days(10), 0.0),  // 2nd trade, 20% profit
-            sortino_update_input(3, 1.2, Duration::days(10), 0.0),   // 3rd trade, 30% profit
-            sortino_update_input(4, 1.25, Duration::days(10), 0.0),  // 4th trade, 40% profit
-            sortino_update_input(5, 1.12, Duration::days(10), 0.0),  // 5th trade, -40% profit
-            sortino_update_input(6, 1.0, Duration::days(10), 0.1),   // 6th trade, -60% profit
+        struct TestCase {
+            input_return: PnLReturnSummary,
+            expected_sortino: f64,
+        }
+
+        // Returns       = [0.1, 0.2, 0.3, 0.4, -0.4, -0.6, -0.7]
+        // Means         = [0.1, 0.15, 0.2, 0.25, 0.12, 0.0, -0.1]
+        // Loss Std. Dev = [0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.12472191]
+
+        let test_cases = vec![
+            TestCase { // Test case 0: 1st trade, 10% profit
+                input_return: sortino_update_input(1, 0.1,0.0),
+                expected_sortino: 0.0
+            },
+            TestCase { // Test case 1: 2nd trade, 20% profit
+                input_return: sortino_update_input(2, 0.15, 0.0),
+                expected_sortino: 0.0
+            },
+            TestCase { // Test case 2: 3rd trade, 30% profit
+                input_return: sortino_update_input(3, 0.2, 0.0),
+                expected_sortino: 0.0
+            },
+            TestCase { // Test case 3: 4th trade, 40% profit
+                input_return: sortino_update_input(4, 0.25, 0.0),
+                expected_sortino: 0.0
+            },
+            TestCase { // Test case 4: 5th trade, -40% profit
+                input_return: sortino_update_input(5, 0.12, 0.0),
+                expected_sortino: 0.0
+            },
+            TestCase { // Test case 5: 6th trade, -60% profit
+                input_return: sortino_update_input(6, 0.0,0.1),
+                expected_sortino: 0.0
+            },
+            TestCase { // Test case 5: 6th trade, -70% profit
+                input_return: sortino_update_input(7, -0.1,0.12472191),
+                expected_sortino: -0.8017837443
+            },
         ];
 
-        let outputs = vec![0.0, 0.0, 0.0, 0.0, 0.0, 10.0];
-
-        for (input, out) in inputs.into_iter().zip(outputs.into_iter()) {
-            sortino.update(&input);
-            let sortino_diff = sortino.sortino_ratio_per_trade - out;
-            assert!(sortino_diff < 1e-10);
+        for (index, test) in test_cases.into_iter().enumerate() {
+            sortino.update(&test.input_return);
+            let sortino_diff = sortino.sortino_ratio_per_trade - test.expected_sortino;
+            assert!(sortino_diff < 1e-10, "Test case: {:?}", index);
         }
     }
 
     #[test]
     fn calmar_ratio_update() {
-        // let mut calmar = CalmarRatio::init(0.0);
-        //
-        // // Dataset       = [1.1, 0.5, 1.4, 0.2, 2.0]
-        // // Means         = [1.1, 0.8, 1.0, 0.8, 1.04]
-        // // Equity Points = [1.1, 0.55, 0.77, 0.154, 0.308] (highest= 1.1)
-        // // Max Drawdown  = [0.0, 0.55, 0.55, 0.0, 0.0, 0.1]
-        //
-        // let mut input_pnl_returns_1 = PnLReturnView::init();
-        // input_pnl_returns_1.total.count = 1;                    // 1st trade, 10% profit
-        // input_pnl_returns_1.total.mean = 1.1;
-        // input_pnl_returns_1.duration = Duration::days(10);
-        // let input_max_drawdown_1 = 0.0;
-        //
-        // let mut input_pnl_returns_2 = PnLReturnView::init();
-        // input_pnl_returns_2.total.count = 1;                    // 2nd trade, -50% profit
-        // input_pnl_returns_2.total.mean = 0.8;
-        // input_pnl_returns_2.duration = Duration::days(10);
-        // let input_max_drawdown_1 = 0.5;
+        let mut calmar = CalmarRatio::init(0.0);
+
+        struct TestCase {
+            input_return: PnLReturnSummary,
+            input_max_dd: f64,
+            expected_calmar: f64,
+        }
+
+        // Returns       = [0.5, -0.7, 0.8, 1.4, -0.8]
+        // Means         = [0.5, -0.1, 0.2, 0.5, 0.24]
+        // Equity Points = [1.5, 0.45, 0.81, 1.944, 0.3888] (highest= 1.944, lowest after highest = 0.3888)
+        // Max Drawdown  = [0.0, -0.7, -0.7, -0.7, -0.8]
+        let test_cases = vec![
+            TestCase { // Test case 0
+                input_return: calmar_ratio_returns_input(1, 0.5),
+                input_max_dd: 0.0,
+                expected_calmar: 0.0
+            },
+            TestCase { // Test case 1
+                input_return: calmar_ratio_returns_input(2, -0.5),
+                input_max_dd: -0.70,
+                expected_calmar: (-0.1/0.7)
+            },
+            TestCase { // Test case 2
+                input_return: calmar_ratio_returns_input(3, 0.2),
+                input_max_dd: -0.7,
+                expected_calmar: (0.2/0.7)
+            },
+            TestCase { // Test case 3
+                input_return: calmar_ratio_returns_input(4, 0.5),
+                input_max_dd: -0.7,
+                expected_calmar: (0.5/0.7)
+            },
+            TestCase { // Test case 4
+                input_return: calmar_ratio_returns_input(5, 0.24),
+                input_max_dd: -0.8,
+                expected_calmar: (0.24/0.8)
+            },
+        ];
+
+        for (index, test) in test_cases.into_iter().enumerate() {
+            calmar.update(&test.input_return, test.input_max_dd);
+            let calmar_diff = calmar.calmar_ratio_per_trade - test.expected_calmar;
+            assert!(calmar_diff < 1e-10, "Test case: {:?}", index);
+        }
     }
 
     #[test]
