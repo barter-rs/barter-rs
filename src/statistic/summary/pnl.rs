@@ -177,11 +177,6 @@ mod tests {
             input_position: Position,
             expected_summary: PnLReturnSummary,
         }
-
-
-
-
-
     }
 
     #[test]

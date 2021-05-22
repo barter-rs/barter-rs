@@ -34,8 +34,6 @@ impl TablePrinter for DrawdownSummary {
             "Count", "Max Drawdown", "Max Drawdown Days", "Avg. Drawdown", "Avg. Drawdown Days",
         ];
 
-        // Todo: Check if Max Drawdown is correct - Calculation doesn't seem right based on backtest start and end!
-
         drawdown_summary.add_row(row!["Total",
             self.avg_drawdown.count,
             format!("{:.3}", self.max_drawdown.drawdown.drawdown),
