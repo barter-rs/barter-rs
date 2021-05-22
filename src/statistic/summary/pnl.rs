@@ -80,7 +80,7 @@ impl TablePrinter for PnLReturnSummary {
 }
 
 impl PnLReturnSummary {
-    const SECONDS_IN_YEAR: f64 = 86400.0;
+    const SECONDS_IN_DAY: f64 = 86400.0;
 
     pub fn new() -> Self {
         Self {
@@ -106,7 +106,7 @@ impl PnLReturnSummary {
 
     fn update_trades_per_day(&mut self) {
         self.trades_per_day = self.total.count as f64
-            / (self.duration.num_seconds() as f64 / PnLReturnSummary::SECONDS_IN_YEAR)
+            / (self.duration.num_seconds() as f64 / PnLReturnSummary::SECONDS_IN_DAY)
     }
 }
 
