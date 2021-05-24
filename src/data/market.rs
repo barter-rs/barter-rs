@@ -40,6 +40,7 @@ impl MarketEvent {
 }
 
 /// Builder to construct [MarketEvent] instances.
+#[derive(Debug, Default)]
 pub struct MarketEventBuilder {
     pub trace_id: Option<Uuid>,
     pub timestamp: Option<DateTime<Utc>>,
@@ -50,13 +51,7 @@ pub struct MarketEventBuilder {
 
 impl MarketEventBuilder {
     pub fn new() -> Self {
-        Self {
-            trace_id: None,
-            timestamp: None,
-            exchange: None,
-            symbol: None,
-            bar: None,
-        }
+        Self::default()
     }
 
     pub fn trace_id(mut self, value: Uuid) -> Self {
@@ -180,6 +175,7 @@ impl Bar {
 }
 
 /// Builder to construct [Bar] instances.
+#[derive(Debug, Default)]
 pub struct BarBuilder {
     timestamp: Option<DateTime<Utc>>,
     open: Option<f64>,
@@ -191,14 +187,7 @@ pub struct BarBuilder {
 
 impl BarBuilder {
     pub fn new() -> Self {
-        Self {
-            timestamp: None,
-            open: None,
-            high: None,
-            low: None,
-            close: None,
-            volume: None,
-        }
+        Self::default()
     }
 
     pub fn timestamp(mut self, value: DateTime<Utc>) -> Self {

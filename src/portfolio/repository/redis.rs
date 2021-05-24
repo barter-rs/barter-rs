@@ -195,15 +195,14 @@ impl RedisRepository {
 }
 
 /// Builder to construct [RedisRepository] instances.
+#[derive(Default)]
 pub struct RedisRepositoryBuilder {
     conn: Option<Connection>,
 }
 
 impl RedisRepositoryBuilder {
     pub fn new() -> Self {
-        Self {
-            conn: None
-        }
+        Self::default()
     }
 
     pub fn conn(mut self, value: Connection) -> Self {

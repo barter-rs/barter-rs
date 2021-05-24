@@ -83,6 +83,7 @@ impl Decision {
 }
 
 /// Builder to construct [SignalEvent] instances.
+#[derive(Debug, Default)]
 pub struct SignalEventBuilder {
     pub trace_id: Option<Uuid>,
     pub timestamp: Option<DateTime<Utc>>,
@@ -94,14 +95,7 @@ pub struct SignalEventBuilder {
 
 impl SignalEventBuilder {
     pub fn new() -> Self {
-        Self {
-            trace_id: None,
-            timestamp: None,
-            exchange: None,
-            symbol: None,
-            market_meta: None,
-            signals: None,
-        }
+        Self::default()
     }
 
     pub fn trace_id(mut self, value: Uuid) -> Self {

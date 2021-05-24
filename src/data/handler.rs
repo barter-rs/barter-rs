@@ -107,6 +107,7 @@ pub fn load_csv_bars(file_path: String) -> Result<Vec<Bar>, csv::Error> {
 }
 
 /// Builder to construct [HistoricDataHandler] instances.
+#[derive(Debug, Default)]
 pub struct HistoricDataHandlerBuilder {
     exchange: Option<String>,
     symbol: Option<String>,
@@ -115,11 +116,7 @@ pub struct HistoricDataHandlerBuilder {
 
 impl HistoricDataHandlerBuilder {
     pub fn new() -> Self {
-        Self {
-            exchange: None,
-            symbol: None,
-            all_symbol_data: None,
-        }
+        Self::default()
     }
 
     pub fn symbol(mut self, value: String) -> Self {
