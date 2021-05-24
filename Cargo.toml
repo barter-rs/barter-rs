@@ -1,6 +1,6 @@
 [package]
 name = "barter"
-version = "0.2.11"
+version = "0.3.0"
 authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
 edition = "2018"
 license = "MIT"
@@ -22,4 +22,3 @@ chrono = {version = "0.4.19", features = ["serde"]}
 thiserror = "1.0.24"
 ta = "0.4.0"
 redis = "0.20.0"
-prettytable-rs = "0.8.0"
