@@ -8,7 +8,7 @@ documentation = "https://docs.rs/barter/"
 repository = "https://gitlab.com/open-source-keir/financial-modelling/trading/barter-rs"
 readme = "README.md"
 description = "High performance & modular trading engine & backtesting components"
-keywords = ["trading", "backtesting", "statistics", "crypto", "stocks", "investment"]
+keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
