@@ -12,7 +12,7 @@ pub struct Dispersion {
 impl Dispersion {
     /// Iteratively updates the measures of Dispersion given the previous mean, new mean, new value,
     /// and the dataset count.
-    pub fn update(&mut self, prev_mean: f64, new_mean: f64, new_value: f64, value_count: usize) {
+    pub fn update(&mut self, prev_mean: f64, new_mean: f64, new_value: f64, value_count: u64) {
         // Update Range
         self.range.update(new_value);
 
@@ -86,7 +86,7 @@ mod tests {
         // Dataset  = [1.1, 1.2, 1.3, 1.4, 0.6]
         // Means    = [1.1, 1.15, 1.2, 1.25, 1.12]
         // Inputs:
-        struct UpdateInput { prev_mean: f64, new_mean: f64, new_value: f64, value_count: usize }
+        struct UpdateInput { prev_mean: f64, new_mean: f64, new_value: f64, value_count: u64 }
         let input_1 = UpdateInput{ prev_mean: 0.0, new_mean: 1.1, new_value: 1.1, value_count: 1 };
         let input_2 = UpdateInput{ prev_mean: 1.1, new_mean: 1.15, new_value: 1.2, value_count: 2 };
         let input_3 = UpdateInput{ prev_mean: 1.15, new_mean: 1.2, new_value: 1.3, value_count: 3 };

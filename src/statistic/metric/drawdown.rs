@@ -114,7 +114,7 @@ impl MaxDrawdown {
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct AvgDrawdown {
-    pub count: usize,
+    pub count: u64,
     pub mean_drawdown: f64,
     pub mean_duration: Duration,
     mean_duration_milliseconds: i64,

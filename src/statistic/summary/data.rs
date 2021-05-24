@@ -5,7 +5,7 @@ use prettytable::{Row, Table};
 
 #[derive(Debug, Default, Clone, PartialOrd, PartialEq)]
 pub struct DataSummary {
-    pub count: usize,
+    pub count: u64,
     pub sum: f64,
     pub mean: f64,
     pub dispersion: Dispersion,
