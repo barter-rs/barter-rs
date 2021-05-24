@@ -3,7 +3,7 @@
 //!
 //!
 //! # Overview
-//! The **main components** are **Data**, **Strategy**, **Portfolio** & **Execution**.
+//! The **main components** are **Data**, **Strategy**, **Portfolio**, **Execution** & **Statistic**.
 //!
 //! Each components is stand-alone & de-coupled. Their behaviour is captured
 //! in a set of useful traits that define how each component responds to external events.
@@ -18,27 +18,36 @@
 //! and run it as a micro-service. On the other hand, it can also be run in conjunction with the other
 //! components to provide a Portfolio for an individual trading pair.
 //!
+//! The **Statistic** component contains metrics used to analyse trading session performance.
+//! One-pass dispersion algorithms are utilised to analyse each closed Position and efficiently update
+//! a PnL Return Summary. This summary, in conjunction with the closed Position, is used to calculate
+//! key metrics such as Sharpe Ratio, Calmar Ratio and Max Drawdown. All metrics can be updated on
+//! the fly and used by the Portfolio's allocation & risk management.
+//!
 //! **Example high-level data architecture using these components in this** [README].
 //!
 //! # Getting Started
 //! ## Data Handler
 //! ```
-//! use barter::data::handler::{Config as DataConfig, HistoricDataHandler, Continuer, MarketGenerator};
 //!
-//! let config = DataConfig {
-//!     data_directory: "resources/data/".to_string(),
-//!     file_type: "csv".to_string(),
-//!     exchange: "BINANCE".to_string(),
-//!     symbol: "ETH-USD".to_string(),
-//!     timeframe: "1D".to_string(),
-//! };
+//! use barter::data::handler::{HistoricDataHandler, MarketGenerator, Continuer};
+//! use barter::data::market::Bar;
 //!
-//! let mut data = HistoricDataHandler::new(&config);
+//! // Or create with HistoricDataHandler::new(...) and pass a symbol data file to be parsed!
+//! let mut data = HistoricDataHandler::builder()
+//!     .symbol("ETH-USD".to_string())
+//!     .exchange("BINANCE".to_string())
+//!     .all_symbol_data(vec![Bar::default()].into_iter())
+//!     .build().unwrap();
 //!
 //! loop {
 //!     if data.should_continue() {
 //!         let market_event = data.generate_market().unwrap();
+//!     } else {
+//!         // Pass closed Positions to statistics module for performance analysis
+//!         break;
 //!     }
+//!
 //! }
 //! ```
 //!
@@ -117,6 +126,27 @@
 //! let order_event = OrderEvent::default();
 //!
 //! let fill_event = execution.generate_fill(&order_event);
+//! ```
+//!
+//! ## Statistic
+//! ```
+//! use barter::statistic::summary::trading::{Config as StatisticConfig, TradingSummary, PositionSummariser, TablePrinter};
+//! use barter::portfolio::position::Position;
+//!
+//! // Do some automated trading with barter components that generates a vector of closed Positions
+//! let positions = vec![Position::default(), Position::default()];
+//!
+//! let config = StatisticConfig {
+//!     starting_equity: 10000.0,
+//!     trading_days_per_year: 253,
+//!     risk_free_return: 0.5,
+//! };
+//!
+//! let mut trading_summary = TradingSummary::new(&config);
+//!
+//! trading_summary.generate_summary(&positions);
+//!
+//! trading_summary.print();
 //! ```
 //!
 //! # Examples
