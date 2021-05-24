@@ -5,7 +5,6 @@ use ta::indicators::RelativeStrengthIndex;
 use ta::Next;
 use chrono::Utc;
 use serde::Deserialize;
-use crate::strategy::error::StrategyError::BuilderIncomplete;
 use std::collections::HashMap;
 
 /// May generate an advisory [SignalEvent] as a result of analysing an input [MarketEvent].
