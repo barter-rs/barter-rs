@@ -48,7 +48,7 @@ impl FillEvent {
 }
 
 /// All potential fees incurred by a [FillEvent].
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct Fees {
     /// Fee taken by the exchange/broker (eg/ commission).
     pub exchange: FeeAmount,
@@ -56,16 +56,6 @@ pub struct Fees {
     pub slippage: FeeAmount,
     /// Fee incurred by any required network transactions (eg/ GAS).
     pub network: FeeAmount,
-}
-
-impl Default for Fees {
-    fn default() -> Self {
-        Self {
-            exchange: 0.0,
-            slippage: 0.0,
-            network: 0.0
-        }
-    }
 }
 
 impl Fees {
