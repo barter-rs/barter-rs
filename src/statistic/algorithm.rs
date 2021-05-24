@@ -1,12 +1,10 @@
 /// Grouping of Welford Online algorithms for calculating running values from one pass through.
 /// See link:
 /// https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
-pub struct WelfordOnline;
-
-impl WelfordOnline {
+pub mod welford_online {
     /// Calculates the next mean.
     pub fn calculate_mean<T>(mut prev_mean: T, next_value: T, count: T) -> T
-    where T: Copy + std::ops::Sub<Output = T> + std::ops::Div<Output = T> + std::ops::AddAssign {
+        where T: Copy + std::ops::Sub<Output = T> + std::ops::Div<Output = T> + std::ops::AddAssign {
         prev_mean += (next_value - prev_mean) / count;
         prev_mean
     }
@@ -62,7 +60,7 @@ mod tests {
         let expected = vec![0.1, -0.05, -0.05, 0.0125, 0.04, 0.05];
 
         for (input, expected) in inputs.iter().zip(expected.into_iter()) {
-            let actual = WelfordOnline::calculate_mean(input.prev_mean, input.next_value, input.count);
+            let actual = welford_online::calculate_mean(input.prev_mean, input.next_value, input.count);
             let mean_diff = actual - expected;
 
             assert!(mean_diff < 1e-10);
@@ -94,7 +92,7 @@ mod tests {
 
         for (input, expected) in inputs.iter().zip(expected.into_iter()) {
 
-            let actual_m = WelfordOnline::calculate_recurrence_relation_m(
+            let actual_m = welford_online::calculate_recurrence_relation_m(
                 input.prev_m, input.prev_mean, input.new_value, input.new_mean);
 
             assert_eq!(actual_m, expected)
@@ -110,7 +108,7 @@ mod tests {
         let expected = vec![0.0, 262.5, (675.0/82148.0), 8100000000.0, 4.304592996427187];
 
         for (input, expected) in inputs.iter().zip(expected.into_iter()) {
-            let actual_variance = WelfordOnline::calculate_sample_variance(input.0, input.1);
+            let actual_variance = welford_online::calculate_sample_variance(input.0, input.1);
             assert_eq!(actual_variance, expected);
         }
     }
@@ -124,7 +122,7 @@ mod tests {
         let expected = vec![0.0, 210.0, (1012.5/123223.0), 5400000000.0, 4.304407709194215];
 
         for (input, expected) in inputs.iter().zip(expected.into_iter()) {
-            let actual_variance = WelfordOnline::calculate_population_variance(input.0, input.1);
+            let actual_variance = welford_online::calculate_population_variance(input.0, input.1);
             assert_eq!(actual_variance, expected);
         }
     }

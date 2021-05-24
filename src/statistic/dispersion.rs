@@ -1,4 +1,4 @@
-use crate::statistic::algorithm::WelfordOnline;
+use crate::statistic::algorithm::welford_online;
 
 /// Representation of a dataset using measures of dispersion - range, variance & standard deviation.
 #[derive(Debug, Default, Clone, PartialOrd, PartialEq)]
@@ -17,11 +17,11 @@ impl Dispersion {
         self.range.update(new_value);
 
         // Update Welford Online recurrence relation M
-        self.recurrence_relation_m = WelfordOnline::calculate_recurrence_relation_m(
+        self.recurrence_relation_m = welford_online::calculate_recurrence_relation_m(
             self.recurrence_relation_m, prev_mean, new_value, new_mean);
 
         // Update Population Variance
-        self.variance = WelfordOnline::calculate_population_variance(
+        self.variance = welford_online::calculate_population_variance(
             self.recurrence_relation_m, value_count);
 
         // Update Standard Deviation
