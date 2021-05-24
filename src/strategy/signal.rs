@@ -2,7 +2,6 @@ use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
-use crate::strategy::error::StrategyError::BuilderIncomplete;
 use crate::strategy::error::StrategyError;
 use crate::data::market::MarketMeta;
 
