@@ -141,16 +141,15 @@ impl HistoricDataHandlerBuilder {
     }
 
     pub fn build(self) -> Result<HistoricDataHandler, DataError> {
-        if let (Some(exchange), Some(symbol), Some(all_symbol_data)) =
-        (self.exchange, self.symbol, self.all_symbol_data) {
-            Ok(HistoricDataHandler {
-                exchange,
-                symbol,
-                all_symbol_data,
-            })
-        } else {
-            Err(DataError::BuilderIncomplete)
-        }
+        let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
+        let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
+        let all_symbol_data = self.all_symbol_data.ok_or(DataError::BuilderIncomplete)?;
+
+        Ok(HistoricDataHandler {
+            exchange,
+            symbol,
+            all_symbol_data,
+        })
     }
 }
 

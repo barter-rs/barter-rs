@@ -411,65 +411,43 @@ impl PositionBuilder {
     }
 
     pub fn build(self) -> Result<Position, PortfolioError> {
-        if let (
-            Some(meta),
-            Some(exchange),
-            Some(symbol),
-            Some(direction),
-            Some(quantity),
-            Some(enter_fees),
-            Some(enter_fees_total),
-            Some(enter_avg_price_gross),
-            Some(enter_value_gross),
-            Some(exit_fees),
-            Some(exit_fees_total),
-            Some(exit_avg_price_gross),
-            Some(exit_value_gross),
-            Some(current_symbol_price),
-            Some(current_value_gross),
-            Some(unreal_profit_loss),
-            Some(result_profit_loss),
-        ) = (
-            self.meta,
-            self.exchange,
-            self.symbol,
-            self.direction,
-            self.quantity,
-            self.enter_fees,
-            self.enter_fees_total,
-            self.enter_avg_price_gross,
-            self.enter_value_gross,
-            self.exit_fees,
-            self.exit_fees_total,
-            self.exit_avg_price_gross,
-            self.exit_value_gross,
-            self.current_symbol_price,
-            self.current_value_gross,
-            self.unreal_profit_loss,
-            self.result_profit_loss,
-        ) {
-            Ok(Position {
-                meta,
-                exchange,
-                symbol,
-                direction,
-                quantity,
-                enter_fees,
-                enter_fees_total,
-                enter_avg_price_gross,
-                enter_value_gross,
-                exit_fees,
-                exit_fees_total,
-                exit_avg_price_gross,
-                exit_value_gross,
-                current_symbol_price,
-                current_value_gross,
-                unreal_profit_loss,
-                result_profit_loss
-            })
-        } else {
-            Err(PortfolioError::BuilderIncomplete)
-        }
+        let meta = self.meta.ok_or(PortfolioError::BuilderIncomplete)?;
+        let exchange = self.exchange.ok_or(PortfolioError::BuilderIncomplete)?;
+        let symbol = self.symbol.ok_or(PortfolioError::BuilderIncomplete)?;
+        let direction = self.direction.ok_or(PortfolioError::BuilderIncomplete)?;
+        let quantity = self.quantity.ok_or(PortfolioError::BuilderIncomplete)?;
+        let enter_fees = self.enter_fees.ok_or(PortfolioError::BuilderIncomplete)?;
+        let enter_fees_total = self.enter_fees_total.ok_or(PortfolioError::BuilderIncomplete)?;
+        let enter_avg_price_gross = self.enter_avg_price_gross.ok_or(PortfolioError::BuilderIncomplete)?;
+        let enter_value_gross = self.enter_value_gross.ok_or(PortfolioError::BuilderIncomplete)?;
+        let exit_fees = self.exit_fees.ok_or(PortfolioError::BuilderIncomplete)?;
+        let exit_fees_total = self.exit_fees_total.ok_or(PortfolioError::BuilderIncomplete)?;
+        let exit_avg_price_gross = self.exit_avg_price_gross.ok_or(PortfolioError::BuilderIncomplete)?;
+        let exit_value_gross = self.exit_value_gross.ok_or(PortfolioError::BuilderIncomplete)?;
+        let current_symbol_price = self.current_symbol_price.ok_or(PortfolioError::BuilderIncomplete)?;
+        let current_value_gross = self.current_value_gross.ok_or(PortfolioError::BuilderIncomplete)?;
+        let unreal_profit_loss = self.unreal_profit_loss.ok_or(PortfolioError::BuilderIncomplete)?;
+        let result_profit_loss = self.result_profit_loss.ok_or(PortfolioError::BuilderIncomplete)?;
+
+        Ok(Position {
+            meta,
+            exchange,
+            symbol,
+            direction,
+            quantity,
+            enter_fees,
+            enter_fees_total,
+            enter_avg_price_gross,
+            enter_value_gross,
+            exit_fees,
+            exit_fees_total,
+            exit_avg_price_gross,
+            exit_value_gross,
+            current_symbol_price,
+            current_value_gross,
+            unreal_profit_loss,
+            result_profit_loss
+        })
     }
 }
 
