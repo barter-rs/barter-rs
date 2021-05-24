@@ -251,57 +251,38 @@ impl<T> MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHa
     }
 
     pub fn build(self) -> Result<MetaPortfolio<T>, PortfolioError> {
-        if let (
-            Some(id),
-            Some(starting_cash),
-            Some(repository),
-            Some(allocation_manager),
-            Some(risk_manager)
-        ) = (
-            self.id,
-            self.starting_cash,
-            self.repository,
-            self.allocation_manager,
-            self.risk_manager,
-        ) {
-            Ok(MetaPortfolio {
-                id,
-                starting_cash,
-                repository,
-                allocation_manager,
-                risk_manager,
-            })
-        } else {
-            Err(PortfolioError::BuilderIncomplete)
-        }
+        let id = self.id.ok_or(PortfolioError::BuilderIncomplete)?;
+        let starting_cash = self.starting_cash.ok_or(PortfolioError::BuilderIncomplete)?;
+        let repository = self.repository.ok_or(PortfolioError::BuilderIncomplete)?;
+        let allocation_manager = self.allocation_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+        let risk_manager = self.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+
+        Ok(MetaPortfolio {
+            id,
+            starting_cash,
+            repository,
+            allocation_manager,
+            risk_manager,
+        })
     }
 
     pub fn build_and_init(self) -> Result<MetaPortfolio<T>, PortfolioError> {
-        if let (
-            Some(id),
-            Some(starting_cash),
-            Some(repository),
-            Some(allocation_manager),
-            Some(risk_manager)
-        ) = (
-            self.id,
-            self.starting_cash,
-            self.repository,
-            self.allocation_manager,
-            self.risk_manager,
-        ) {
-            let mut portfolio = MetaPortfolio {
-                id,
-                starting_cash,
-                repository,
-                allocation_manager,
-                risk_manager,
-            };
-            portfolio.initialise()?;
-            Ok(portfolio)
-        } else {
-            Err(PortfolioError::BuilderIncomplete)
-        }
+        let id = self.id.ok_or(PortfolioError::BuilderIncomplete)?;
+        let starting_cash = self.starting_cash.ok_or(PortfolioError::BuilderIncomplete)?;
+        let repository = self.repository.ok_or(PortfolioError::BuilderIncomplete)?;
+        let allocation_manager = self.allocation_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+        let risk_manager = self.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+
+        let mut portfolio = MetaPortfolio {
+            id,
+            starting_cash,
+            repository,
+            allocation_manager,
+            risk_manager,
+        };
+
+        portfolio.initialise()?;
+        Ok(portfolio)
     }
 }
 
