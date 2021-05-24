@@ -1,6 +1,6 @@
 use crate::statistic::dispersion::Range;
 use chrono::{DateTime, Utc, Duration};
-use crate::statistic::algorithm::WelfordOnline;
+use crate::statistic::algorithm::welford_online;
 use crate::portfolio::position::EquityPoint;
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
@@ -139,13 +139,13 @@ impl AvgDrawdown {
     pub fn update(&mut self, drawdown: &Drawdown) {
         self.count += 1;
 
-        self.mean_drawdown = WelfordOnline::calculate_mean(
+        self.mean_drawdown = welford_online::calculate_mean(
             self.mean_drawdown,
             drawdown.drawdown,
             self.count as f64
         );
 
-        self.mean_duration_milliseconds = WelfordOnline::calculate_mean(
+        self.mean_duration_milliseconds = welford_online::calculate_mean(
             self.mean_duration_milliseconds,
             drawdown.duration.num_milliseconds(),
             self.count as i64
