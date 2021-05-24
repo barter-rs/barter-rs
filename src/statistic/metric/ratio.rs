@@ -7,7 +7,7 @@ pub trait Ratio {
     fn daily(&self) -> f64 {
         calculate_daily(self.ratio(), self.trades_per_day())
     }
-    fn annual(&self, trading_days: usize) -> f64 {
+    fn annual(&self, trading_days: u32) -> f64 {
         calculate_annual(self.ratio(), self.trades_per_day(), trading_days)
     }
 }
@@ -140,7 +140,7 @@ pub fn calculate_daily(ratio_per_trade: f64, trades_per_day: f64) -> f64 {
     ratio_per_trade * trades_per_day.sqrt()
 }
 
-pub fn calculate_annual(ratio_per_trade: f64, trades_per_day: f64, trading_days: usize) -> f64 {
+pub fn calculate_annual(ratio_per_trade: f64, trades_per_day: f64, trading_days: u32) -> f64 {
     calculate_daily(ratio_per_trade, trades_per_day) * (trading_days as f64).sqrt()
 }
 
@@ -149,7 +149,7 @@ mod tests {
     use super::*;
     use crate::statistic::summary::pnl::PnLReturnSummary;
 
-    fn sharpe_ratio_input(count: usize, mean: f64, std_dev: f64) -> PnLReturnSummary {
+    fn sharpe_ratio_input(count: u64, mean: f64, std_dev: f64) -> PnLReturnSummary {
         let mut pnl_returns = PnLReturnSummary::new();
         pnl_returns.total.count = count;
         pnl_returns.total.mean = mean;
@@ -157,7 +157,7 @@ mod tests {
         pnl_returns
     }
 
-    fn sortino_update_input(count: usize, mean: f64, loss_std_dev: f64) -> PnLReturnSummary {
+    fn sortino_update_input(count: u64, mean: f64, loss_std_dev: f64) -> PnLReturnSummary {
         let mut pnl_returns = PnLReturnSummary::new();
         pnl_returns.total.count = count;
         pnl_returns.total.mean = mean;
@@ -165,7 +165,7 @@ mod tests {
         pnl_returns
     }
 
-    fn calmar_ratio_returns_input(count: usize, mean: f64) -> PnLReturnSummary {
+    fn calmar_ratio_returns_input(count: u64, mean: f64) -> PnLReturnSummary {
         let mut pnl_returns = PnLReturnSummary::new();
         pnl_returns.total.count = count;
         pnl_returns.total.mean = mean;
@@ -344,7 +344,7 @@ mod tests {
         struct TestCase {
             ratio_per_trade: f64,
             trades_per_day: f64,
-            trading_days: usize,
+            trading_days: u32,
             expected_annual: f64,
         }
 
