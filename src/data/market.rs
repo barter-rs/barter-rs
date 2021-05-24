@@ -54,29 +54,39 @@ impl MarketEventBuilder {
         Self::default()
     }
 
-    pub fn trace_id(mut self, value: Uuid) -> Self {
-        self.trace_id = Some(value);
-        self
+    pub fn trace_id(self, value: Uuid) -> Self {
+        Self {
+            trace_id: Some(value),
+            ..self
+        }
     }
 
-    pub fn timestamp(mut self, value: DateTime<Utc>) -> Self {
-        self.timestamp = Some(value);
-        self
+    pub fn timestamp(self, value: DateTime<Utc>) -> Self {
+        Self {
+            timestamp: Some(value),
+            ..self
+        }
     }
 
-    pub fn exchange(mut self, value: String) -> Self {
-        self.exchange = Some(value);
-        self
+    pub fn exchange(self, value: String) -> Self {
+        Self {
+            exchange: Some(value),
+            ..self
+        }
     }
 
-    pub fn symbol(mut self, value: String) -> Self {
-        self.symbol = Some(value);
-        self
+    pub fn symbol(self, value: String) -> Self {
+        Self {
+            symbol: Some(value),
+            ..self
+        }
     }
 
-    pub fn bar(mut self, value: Bar) -> Self {
-        self.bar = Some(value);
-        self
+    pub fn bar(self, value: Bar) -> Self {
+        Self {
+            bar: Some(value),
+            ..self
+        }
     }
 
     pub fn build(self) -> Result<MarketEvent, DataError> {
@@ -190,34 +200,46 @@ impl BarBuilder {
         Self::default()
     }
 
-    pub fn timestamp(mut self, value: DateTime<Utc>) -> Self {
-        self.timestamp = Some(value);
-        self
+    pub fn timestamp(self, value: DateTime<Utc>) -> Self {
+        Self {
+            timestamp: Some(value),
+            ..self
+        }
     }
 
-    pub fn open(mut self, value: f64) -> Self {
-        self.open = Some(value);
-        self
+    pub fn open(self, value: f64) -> Self {
+        Self {
+            open: Some(value),
+            ..self
+        }
     }
 
-    pub fn high(mut self, value: f64) -> Self {
-        self.high = Some(value);
-        self
+    pub fn high(self, value: f64) -> Self {
+        Self {
+            high: Some(value),
+            ..self
+        }
     }
 
-    pub fn low(mut self, value: f64) -> Self {
-        self.low = Some(value);
-        self
+    pub fn low(self, value: f64) -> Self {
+        Self {
+            low: Some(value),
+            ..self
+        }
     }
 
-    pub fn close(mut self, value: f64) -> Self {
-        self.close = Some(value);
-        self
+    pub fn close(self, value: f64) -> Self {
+        Self {
+            close: Some(value),
+            ..self
+        }
     }
 
-    pub fn volume(mut self, value: f64) -> Self {
-        self.volume = Some(value);
-        self
+    pub fn volume(self, value: f64) -> Self {
+        Self {
+            volume: Some(value),
+            ..self
+        }
     }
 
     pub fn build(self) -> Result<Bar, DataError> {

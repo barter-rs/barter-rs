@@ -215,29 +215,39 @@ impl<T> MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHa
         }
     }
 
-    pub fn id(mut self, value: Uuid) -> Self {
-        self.id = Some(value);
-        self
+    pub fn id(self, value: Uuid) -> Self {
+        Self {
+            id: Some(value),
+            ..self
+        }
     }
 
-    pub fn starting_cash(mut self, value: f64) -> Self {
-        self.starting_cash = Some(value);
-        self
+    pub fn starting_cash(self, value: f64) -> Self {
+        Self {
+            starting_cash: Some(value),
+            ..self
+        }
     }
 
-    pub fn repository(mut self, value: T) -> Self {
-        self.repository = Some(value);
-        self
+    pub fn repository(self, value: T) -> Self {
+        Self {
+            repository: Some(value),
+            ..self
+        }
     }
 
-    pub fn allocation_manager(mut self, value: DefaultAllocator) -> Self {
-        self.allocation_manager = Some(value);
-        self
+    pub fn allocation_manager(self, value: DefaultAllocator) -> Self {
+        Self {
+            allocation_manager: Some(value),
+            ..self
+        }
     }
 
-    pub fn risk_manager(mut self, value: DefaultRisk) -> Self {
-        self.risk_manager = Some(value);
-        self
+    pub fn risk_manager(self, value: DefaultRisk) -> Self {
+        Self {
+            risk_manager: Some(value),
+            ..self
+        }
     }
 
     pub fn build(self) -> Result<MetaPortfolio<T>, PortfolioError> {

@@ -119,19 +119,25 @@ impl HistoricDataHandlerBuilder {
         Self::default()
     }
 
-    pub fn symbol(mut self, value: String) -> Self {
-        self.symbol = Some(value);
-        self
+    pub fn symbol(self, value: String) -> Self {
+        Self {
+            symbol: Some(value),
+            ..self
+        }
     }
 
-    pub fn exchange(mut self, value: String) -> Self {
-        self.exchange = Some(value);
-        self
+    pub fn exchange(self, value: String) -> Self {
+        Self {
+            exchange: Some(value),
+            ..self
+        }
     }
 
-    pub fn all_symbol_data(mut self, value: IntoIter<Bar>) -> Self {
-        self.all_symbol_data = Some(value);
-        self
+    pub fn all_symbol_data(self, value: IntoIter<Bar>) -> Self {
+        Self {
+            all_symbol_data: Some(value),
+            ..self
+        }
     }
 
     pub fn build(self) -> Result<HistoricDataHandler, DataError> {
