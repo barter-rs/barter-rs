@@ -18,7 +18,7 @@ impl WelfordOnline {
 
     /// Calculates the next unbiased 'Sample' Variance using Bessel's correction (count - 1), and the
     /// Welford Online recurrence relation M.
-    pub fn calculate_sample_variance(recurrence_relation_m: f64, count: usize) -> f64 {
+    pub fn calculate_sample_variance(recurrence_relation_m: f64, count: u64) -> f64 {
         match count < 2 {
             true => {
                 0.0
@@ -30,7 +30,7 @@ impl WelfordOnline {
     }
 
     /// Calculates the next biased 'Population' Variance using the Welford Online recurrence relation M.
-    pub fn calculate_population_variance(recurrence_relation_m: f64, count: usize) -> f64 {
+    pub fn calculate_population_variance(recurrence_relation_m: f64, count: u64) -> f64 {
         match count < 1 {
             true => {
                 0.0
@@ -103,7 +103,7 @@ mod tests {
 
     #[test]
     fn calculate_sample_variance() {
-        // fn calculate_sample_variance(recurrence_relation_m: f64, count: usize) -> f64
+        // fn calculate_sample_variance(recurrence_relation_m: f64, count: u64) -> f64
         let inputs = vec![
             (0.0, 1), (1050.0, 5), (1012.5, 123223), (16200000000.0, 3), (99999.9999, 23232)
         ];
@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn calculate_population_variance() {
-        // fn calculate_population_variance(recurrence_relation_m: f64, count: usize) -> f64
+        // fn calculate_population_variance(recurrence_relation_m: f64, count: u64) -> f64
         let inputs = vec![
             (0.0, 1), (1050.0, 5), (1012.5, 123223), (16200000000.0, 3), (99999.9999, 23232)
         ];
