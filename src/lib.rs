@@ -19,7 +19,7 @@
 //! components to provide a Portfolio for an individual trading pair.
 //!
 //! The **Statistic** component contains metrics used to analyse trading session performance.
-//! One-pass dispersion algorithms are utilised to analyse each closed Position and efficiently update
+//! One-pass dispersion algorithms analyse each closed Position and efficiently update
 //! a PnL Return Summary. This summary, in conjunction with the closed Position, is used to calculate
 //! key metrics such as Sharpe Ratio, Calmar Ratio and Max Drawdown. All metrics can be updated on
 //! the fly and used by the Portfolio's allocation & risk management.

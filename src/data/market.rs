@@ -264,7 +264,7 @@ impl BarBuilder {
 }
 
 /// Metadata detailing the [Bar] close price & it's associated timestamp. Used to propagate key
-/// market information in downstream [Event]s.
+/// market information in downstream Events.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct MarketMeta {
     /// [Bar] close value from the source [MarketEvent].
