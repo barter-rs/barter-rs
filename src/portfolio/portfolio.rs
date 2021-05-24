@@ -195,6 +195,7 @@ impl<T> MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
 }
 
 /// Builder to construct [MetaPortfolio] instances.
+#[derive(Debug, Default)]
 pub struct MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHandler {
     id: Option<Uuid>,
     starting_cash: Option<f64>,
@@ -210,7 +211,7 @@ impl<T> MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHa
             starting_cash: None,
             repository: None,
             allocation_manager: None,
-            risk_manager: None,
+            risk_manager: None
         }
     }
 
