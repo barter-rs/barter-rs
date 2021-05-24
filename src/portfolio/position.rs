@@ -242,26 +242,6 @@ impl Position {
     pub fn calculate_profit_loss_return(&self) -> f64 {
         self.result_profit_loss / self.enter_value_gross
     }
-
-    /// Determines if a [Position] is a winning trade. Matches on exit_bar_timestamp to ensure it is
-    /// closed. If so, [Position::result_profit_loss] is used to determine Some(is_win), else None
-    /// is returned.
-    pub fn is_win(&self) -> Option<bool> {
-        match self.meta.exit_bar_timestamp {
-            None => None,
-            Some(_) => Some(self.result_profit_loss > 0.0)
-        }
-    }
-
-    /// Determines if a [Position] is a losing trade. Matches on exit_bar_timestamp to ensure it is
-    /// closed. If so, [Position::result_profit_loss] is used to determine Some(is_win), else None
-    /// is returned.
-    pub fn is_loss(&self) -> Option<bool> {
-        match self.meta.exit_bar_timestamp {
-            None => None,
-            Some(_) => Some(self.result_profit_loss <= 0.0)
-        }
-    }
 }
 
 /// Builder to construct [Position] instances.
@@ -1386,52 +1366,6 @@ mod tests {
 
         for (position, expected) in inputs.into_iter().zip(expected_return.into_iter()) {
             let actual = position.calculate_profit_loss_return();
-            assert_eq!(actual, expected);
-        }
-    }
-
-    #[test]
-    fn position_is_win() {
-        let mut closed_win = Position::default();       // Expected is_win = Some(true)
-        closed_win.meta.exit_bar_timestamp = Some(Utc::now());
-        closed_win.result_profit_loss = 1.0;
-
-        let mut closed_loss = Position::default();      // Expected is_win = Some(false)
-        closed_loss.meta.exit_bar_timestamp = Some(Utc::now());
-        closed_loss.result_profit_loss = -1.0;
-
-        let mut unclosed = Position::default();         // Expected is_win = None
-        unclosed.meta.exit_bar_timestamp = None;
-
-        let inputs = vec![closed_win, closed_loss, unclosed];
-
-        let expected_is_win = vec![Some(true), Some(false), None];
-
-        for (position, expected) in inputs.into_iter().zip(expected_is_win.into_iter()) {
-            let actual = position.is_win();
-            assert_eq!(actual, expected);
-        }
-    }
-
-    #[test]
-    fn position_is_loss() {
-        let mut closed_win = Position::default();       // Expected is_win = Some(false)
-        closed_win.meta.exit_bar_timestamp = Some(Utc::now());
-        closed_win.result_profit_loss = 1.0;
-
-        let mut closed_loss = Position::default();      // Expected is_win = Some(true)
-        closed_loss.meta.exit_bar_timestamp = Some(Utc::now());
-        closed_loss.result_profit_loss = -1.0;
-
-        let mut unclosed = Position::default();         // Expected is_win = None
-        unclosed.meta.exit_bar_timestamp = None;
-
-        let inputs = vec![closed_win, closed_loss, unclosed];
-
-        let expected_is_win = vec![Some(false), Some(true), None];
-
-        for (position, expected) in inputs.into_iter().zip(expected_is_win.into_iter()) {
-            let actual = position.is_loss();
             assert_eq!(actual, expected);
         }
     }
