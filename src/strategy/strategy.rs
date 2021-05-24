@@ -111,9 +111,11 @@ impl RSIStrategyBuilder {
         Self::default()
     }
 
-    pub fn rsi(mut self, value: RelativeStrengthIndex) -> Self {
-        self.rsi = Some(value);
-        self
+    pub fn rsi(self, value: RelativeStrengthIndex) -> Self {
+        Self {
+            rsi: Some(value),
+            ..self
+        }
     }
 
     pub fn build(self) -> Result<RSIStrategy, StrategyError> {

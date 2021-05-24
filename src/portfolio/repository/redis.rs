@@ -205,9 +205,11 @@ impl RedisRepositoryBuilder {
         Self::default()
     }
 
-    pub fn conn(mut self, value: Connection) -> Self {
-        self.conn = Some(value);
-        self
+    pub fn conn(self, value: Connection) -> Self {
+        Self {
+            conn: Some(value),
+            ..self
+        }
     }
 
     pub fn build(self) -> Result<RedisRepository, PortfolioError> {
