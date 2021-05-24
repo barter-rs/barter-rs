@@ -291,89 +291,123 @@ impl PositionBuilder {
         Self::default()
     }
 
-    pub fn meta(mut self, value: PositionMeta) -> Self {
-        self.meta = Some(value);
-        self
+    pub fn meta(self, value: PositionMeta) -> Self {
+        Self {
+            meta: Some(value),
+            ..self
+        }
     }
 
-    pub fn exchange(mut self, value: String) -> Self {
-        self.exchange = Some(value);
-        self
+    pub fn exchange(self, value: String) -> Self {
+        Self {
+            exchange: Some(value),
+            ..self
+        }
     }
 
-    pub fn symbol(mut self, value: String) -> Self {
-        self.symbol = Some(value);
-        self
+    pub fn symbol(self, value: String) -> Self {
+        Self {
+            symbol: Some(value),
+            ..self
+        }
     }
 
-    pub fn direction(mut self, value: Direction) -> Self {
-        self.direction = Some(value);
-        self
+    pub fn direction(self, value: Direction) -> Self {
+        Self {
+            direction: Some(value),
+            ..self
+        }
     }
 
-    pub fn quantity(mut self, value: f64) -> Self {
-        self.quantity = Some(value);
-        self
+    pub fn quantity(self, value: f64) -> Self {
+        Self {
+            quantity: Some(value),
+            ..self
+        }
     }
 
-    pub fn enter_fees(mut self, value: Fees) -> Self {
-        self.enter_fees = Some(value);
-        self
+    pub fn enter_fees(self, value: Fees) -> Self {
+        Self {
+            enter_fees: Some(value),
+            ..self
+        }
     }
 
-    pub fn enter_fees_total(mut self, value: FeeAmount) -> Self {
-        self.enter_fees_total = Some(value);
-        self
+    pub fn enter_fees_total(self, value: FeeAmount) -> Self {
+        Self {
+            enter_fees_total: Some(value),
+            ..self
+        }
     }
 
-    pub fn enter_avg_price_gross(mut self, value: f64) -> Self {
-        self.enter_avg_price_gross = Some(value);
-        self
+    pub fn enter_avg_price_gross(self, value: f64) -> Self {
+        Self {
+            enter_avg_price_gross: Some(value),
+            ..self
+        }
     }
 
-    pub fn enter_value_gross(mut self, value: f64) -> Self {
-        self.enter_value_gross = Some(value);
-        self
+    pub fn enter_value_gross(self, value: f64) -> Self {
+        Self {
+            enter_value_gross: Some(value),
+            ..self
+        }
     }
 
-    pub fn exit_fees(mut self, value: Fees) -> Self {
-        self.exit_fees = Some(value);
-        self
+    pub fn exit_fees(self, value: Fees) -> Self {
+        Self {
+            exit_fees: Some(value),
+            ..self
+        }
     }
 
-    pub fn exit_fees_total(mut self, value: FeeAmount) -> Self {
-        self.exit_fees_total = Some(value);
-        self
+    pub fn exit_fees_total(self, value: FeeAmount) -> Self {
+        Self {
+            exit_fees_total: Some(value),
+            ..self
+        }
     }
 
-    pub fn exit_avg_price_gross(mut self, value: f64) -> Self {
-        self.exit_avg_price_gross = Some(value);
-        self
+    pub fn exit_avg_price_gross(self, value: f64) -> Self {
+        Self {
+            exit_avg_price_gross: Some(value),
+            ..self
+        }
     }
 
-    pub fn exit_value_gross(mut self, value: f64) -> Self {
-        self.exit_value_gross = Some(value);
-        self
+    pub fn exit_value_gross(self, value: f64) -> Self {
+        Self {
+            exit_value_gross: Some(value),
+            ..self
+        }
     }
 
-    pub fn current_symbol_price(mut self, value: f64) -> Self {
-        self.current_symbol_price = Some(value);
-        self
+    pub fn current_symbol_price(self, value: f64) -> Self {
+        Self {
+            current_symbol_price: Some(value),
+            ..self
+        }
     }
 
-    pub fn current_value_gross(mut self, value: f64) -> Self {
-        self.current_value_gross = Some(value);
-        self
+    pub fn current_value_gross(self, value: f64) -> Self {
+        Self {
+            current_value_gross: Some(value),
+            ..self
+        }
     }
 
-    pub fn unreal_profit_loss(mut self, value: f64) -> Self {
-        self.unreal_profit_loss = Some(value);
-        self
+    pub fn unreal_profit_loss(self, value: f64) -> Self {
+        Self {
+            unreal_profit_loss: Some(value),
+            ..self
+        }
     }
 
-    pub fn result_profit_loss(mut self, value: f64) -> Self {
-        self.result_profit_loss = Some(value);
-        self
+    pub fn result_profit_loss(self, value: f64) -> Self {
+        Self {
+            result_profit_loss: Some(value),
+            ..self
+        }
     }
 
     pub fn build(self) -> Result<Position, PortfolioError> {
