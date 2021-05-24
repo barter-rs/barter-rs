@@ -1,6 +1,6 @@
 use crate::statistic::dispersion::Dispersion;
 use crate::statistic::summary::trading::TablePrinter;
-use crate::statistic::algorithm::WelfordOnline;
+use crate::statistic::algorithm::welford_online;
 use prettytable::{Row, Table};
 
 #[derive(Debug, Default, Clone, PartialOrd, PartialEq)]
@@ -21,7 +21,7 @@ impl DataSummary {
 
         // Update Mean
         let prev_mean = self.mean;
-        self.mean = WelfordOnline::calculate_mean(self.mean, next_value, self.count as f64);
+        self.mean = welford_online::calculate_mean(self.mean, next_value, self.count as f64);
 
         // Update Dispersion
         self.dispersion.update(prev_mean, self.mean, next_value, self.count);
