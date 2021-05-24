@@ -97,49 +97,67 @@ impl FillEventBuilder {
         Self::default()
     }
 
-    pub fn trace_id(mut self, value: Uuid) -> Self {
-        self.trace_id = Some(value);
-        self
+    pub fn trace_id(self, value: Uuid) -> Self {
+        Self {
+            trace_id: Some(value),
+            ..self
+        }
     }
 
-    pub fn timestamp(mut self, value: DateTime<Utc>) -> Self {
-        self.timestamp = Some(value);
-        self
+    pub fn timestamp(self, value: DateTime<Utc>) -> Self {
+        Self {
+            timestamp: Some(value),
+            ..self
+        }
     }
 
-    pub fn exchange(mut self, value: String) -> Self {
-        self.exchange = Some(value);
-        self
+    pub fn exchange(self, value: String) -> Self {
+        Self {
+            exchange: Some(value),
+            ..self
+        }
     }
 
-    pub fn symbol(mut self, value: String) -> Self {
-        self.symbol = Some(value);
-        self
+    pub fn symbol(self, value: String) -> Self {
+        Self {
+            exchange: Some(value),
+            ..self
+        }
     }
 
-    pub fn market_meta(mut self, value: MarketMeta) -> Self {
-        self.market_meta = Some(value);
-        self
+    pub fn market_meta(self, value: MarketMeta) -> Self {
+        Self {
+            market_meta: Some(value),
+            ..self
+        }
     }
 
-    pub fn decision(mut self, value: Decision) -> Self {
-        self.decision = Some(value);
-        self
+    pub fn decision(self, value: Decision) -> Self {
+        Self {
+            decision: Some(value),
+            ..self
+        }
     }
 
-    pub fn quantity(mut self, value: f64) -> Self {
-        self.quantity = Some(value);
-        self
+    pub fn quantity(self, value: f64) -> Self {
+        Self {
+            quantity: Some(value),
+            ..self
+        }
     }
 
-    pub fn fill_value_gross(mut self, value: f64) -> Self {
-        self.fill_value_gross = Some(value);
-        self
+    pub fn fill_value_gross(self, value: f64) -> Self {
+        Self {
+            fill_value_gross: Some(value),
+            ..self
+        }
     }
 
-    pub fn fees(mut self, value: Fees) -> Self {
-        self.fees = Some(value);
-        self
+    pub fn fees(self, value: Fees) -> Self {
+        Self {
+            fees: Some(value),
+            ..self
+        }
     }
 
     pub fn build(self) -> Result<FillEvent, ExecutionError> {
