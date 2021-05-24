@@ -101,13 +101,14 @@ impl RSIStrategy {
 }
 
 /// Builder to construct [RSIStrategy] instances.
+#[derive(Debug, Default)]
 pub struct RSIStrategyBuilder {
     rsi: Option<RelativeStrengthIndex>,
 }
 
 impl RSIStrategyBuilder {
     pub fn new() -> Self {
-        Self { rsi: None }
+        Self::default()
     }
 
     pub fn rsi(mut self, value: RelativeStrengthIndex) -> Self {

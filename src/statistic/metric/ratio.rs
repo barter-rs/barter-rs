@@ -148,7 +148,6 @@ pub fn calculate_annual(ratio_per_trade: f64, trades_per_day: f64, trading_days:
 mod tests {
     use super::*;
     use crate::statistic::summary::pnl::PnLReturnSummary;
-    use chrono::Duration;
 
     fn sharpe_ratio_input(count: usize, mean: f64, std_dev: f64) -> PnLReturnSummary {
         let mut pnl_returns = PnLReturnSummary::new();

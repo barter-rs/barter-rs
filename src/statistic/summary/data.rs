@@ -1,6 +1,5 @@
 use crate::statistic::dispersion::Dispersion;
-use crate::statistic::summary::trading::{PositionSummariser, TablePrinter};
-use crate::portfolio::position::Position;
+use crate::statistic::summary::trading::TablePrinter;
 use crate::statistic::algorithm::WelfordOnline;
 use prettytable::{Row, Table};
 
