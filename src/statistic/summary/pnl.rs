@@ -110,7 +110,7 @@ impl PnLReturnSummary {
     }
 }
 
-#[derive(Debug, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct ProfitLossSummary {
     pub long_contracts: f64,
     pub long_pnl: f64,
@@ -152,17 +152,7 @@ impl TablePrinter for ProfitLossSummary {
 
 impl ProfitLossSummary {
     pub fn new() -> Self {
-        Self {
-            long_contracts: 0.0,
-            long_pnl: 0.0,
-            long_pnl_per_contract: 0.0,
-            short_contracts: 0.0,
-            short_pnl: 0.0,
-            short_pnl_per_contract: 0.0,
-            total_contracts: 0.0,
-            total_pnl: 0.0,
-            total_pnl_per_contract: 0.0,
-        }
+        Self::default()
     }
 }
 
