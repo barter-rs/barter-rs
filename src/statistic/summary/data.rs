@@ -3,23 +3,12 @@ use crate::statistic::summary::trading::TablePrinter;
 use crate::statistic::algorithm::WelfordOnline;
 use prettytable::{Row, Table};
 
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Default, Clone, PartialOrd, PartialEq)]
 pub struct DataSummary {
     pub count: usize,
     pub sum: f64,
     pub mean: f64,
     pub dispersion: Dispersion,
-}
-
-impl Default for DataSummary {
-    fn default() -> Self {
-        Self {
-            count: 0,
-            sum: 0.0,
-            mean: 0.0,
-            dispersion: Dispersion::default()
-        }
-    }
 }
 
 impl DataSummary {
