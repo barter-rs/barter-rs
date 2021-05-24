@@ -2,8 +2,8 @@ use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
-use crate::strategy::error::StrategyError::BuilderIncomplete;
 use crate::strategy::error::StrategyError;
+use crate::data::market::MarketMeta;
 
 /// Signal data produced by the strategy containing advisory signals for the portfolio to interpret.
 #[derive(Debug, Serialize, Deserialize)]
@@ -13,7 +13,8 @@ pub struct SignalEvent {
     pub timestamp: DateTime<Utc>,
     pub exchange: String,
     pub symbol: String,
-    pub close: f64,
+    /// Metadata propagated from source MarketEvent
+    pub market_meta: MarketMeta,
     pub signals: HashMap<Decision, SignalStrength>,
 }
 
@@ -28,7 +29,7 @@ impl Default for SignalEvent {
             timestamp: Utc::now(),
             exchange: String::from("BINANCE"),
             symbol: String::from("ETH-USD"),
-            close: 100.0,
+            market_meta: MarketMeta::default(),
             signals: Default::default(),
         }
     }
@@ -81,85 +82,80 @@ impl Decision {
 }
 
 /// Builder to construct [SignalEvent] instances.
+#[derive(Debug, Default)]
 pub struct SignalEventBuilder {
     pub trace_id: Option<Uuid>,
     pub timestamp: Option<DateTime<Utc>>,
     pub exchange: Option<String>,
     pub symbol: Option<String>,
-    pub close: Option<f64>,
+    pub market_meta: Option<MarketMeta>,
     pub signals: Option<HashMap<Decision, SignalStrength>>,
 }
 
 impl SignalEventBuilder {
     pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn trace_id(self, value: Uuid) -> Self {
         Self {
-            trace_id: None,
-            timestamp: None,
-            exchange: None,
-            symbol: None,
-            close: None,
-            signals: None,
+            trace_id: Some(value),
+            ..self
         }
     }
 
-    pub fn trace_id(mut self, value: Uuid) -> Self {
-        self.trace_id = Some(value);
-        self
+    pub fn timestamp(self, value: DateTime<Utc>) -> Self {
+        Self {
+            timestamp: Some(value),
+            ..self
+        }
     }
 
-    pub fn timestamp(mut self, value: DateTime<Utc>) -> Self {
-        self.timestamp = Some(value);
-        self
+    pub fn exchange(self, value: String) -> Self {
+        Self {
+            exchange: Some(value),
+            ..self
+        }
     }
 
-    pub fn exchange(mut self, value: String) -> Self {
-        self.exchange = Some(value);
-        self
+    pub fn symbol(self, value: String) -> Self {
+        Self {
+            symbol: Some(value),
+            ..self
+        }
     }
 
-    pub fn symbol(mut self, value: String) -> Self {
-        self.symbol = Some(value);
-        self
+    pub fn market_meta(self, value: MarketMeta) -> Self {
+        Self {
+            market_meta: Some(value),
+            ..self
+        }
     }
 
-    pub fn close(mut self, value: f64) -> Self {
-        self.close = Some(value);
-        self
-    }
-
-    pub fn signals(mut self, value: HashMap<Decision, SignalStrength>) -> Self {
-        self.signals = Some(value);
-        self
+    pub fn signals(self, value: HashMap<Decision, SignalStrength>) -> Self {
+        Self {
+            signals: Some(value),
+            ..self
+        }
     }
 
     pub fn build(self) -> Result<SignalEvent, StrategyError> {
-        if let (
-            Some(trace_id),
-            Some(timestamp),
-            Some(exchange),
-            Some(symbol),
-            Some(close),
-            Some(signals)
-        ) = (
-            self.trace_id,
-            self.timestamp,
-            self.exchange,
-            self.symbol,
-            self.close,
-            self.signals
-        ) {
-            Ok(SignalEvent {
-                event_type: SignalEvent::EVENT_TYPE,
-                trace_id,
-                timestamp,
-                exchange,
-                symbol,
-                close,
-                signals,
-            })
-        } else {
-            Err(BuilderIncomplete)
-        }
+        let trace_id = self.trace_id.ok_or(StrategyError::BuilderIncomplete)?;
+        let timestamp = self.timestamp.ok_or(StrategyError::BuilderIncomplete)?;
+        let exchange = self.exchange.ok_or(StrategyError::BuilderIncomplete)?;
+        let symbol = self.symbol.ok_or(StrategyError::BuilderIncomplete)?;
+        let market_meta = self.market_meta.ok_or(StrategyError::BuilderIncomplete)?;
+        let signals = self.signals.ok_or(StrategyError::BuilderIncomplete)?;
+
+        Ok(SignalEvent {
+            event_type: SignalEvent::EVENT_TYPE,
+            trace_id,
+            timestamp,
+            exchange,
+            symbol,
+            market_meta,
+            signals,
+        })
     }
 }
 

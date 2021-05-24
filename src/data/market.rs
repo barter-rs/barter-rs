@@ -40,6 +40,7 @@ impl MarketEvent {
 }
 
 /// Builder to construct [MarketEvent] instances.
+#[derive(Debug, Default)]
 pub struct MarketEventBuilder {
     pub trace_id: Option<Uuid>,
     pub timestamp: Option<DateTime<Utc>>,
@@ -50,65 +51,59 @@ pub struct MarketEventBuilder {
 
 impl MarketEventBuilder {
     pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn trace_id(self, value: Uuid) -> Self {
         Self {
-            trace_id: None,
-            timestamp: None,
-            exchange: None,
-            symbol: None,
-            bar: None,
+            trace_id: Some(value),
+            ..self
         }
     }
 
-    pub fn trace_id(mut self, value: Uuid) -> Self {
-        self.trace_id = Some(value);
-        self
+    pub fn timestamp(self, value: DateTime<Utc>) -> Self {
+        Self {
+            timestamp: Some(value),
+            ..self
+        }
     }
 
-    pub fn timestamp(mut self, value: DateTime<Utc>) -> Self {
-        self.timestamp = Some(value);
-        self
+    pub fn exchange(self, value: String) -> Self {
+        Self {
+            exchange: Some(value),
+            ..self
+        }
     }
 
-    pub fn exchange(mut self, value: String) -> Self {
-        self.exchange = Some(value);
-        self
+    pub fn symbol(self, value: String) -> Self {
+        Self {
+            symbol: Some(value),
+            ..self
+        }
     }
 
-    pub fn symbol(mut self, value: String) -> Self {
-        self.symbol = Some(value);
-        self
-    }
-
-    pub fn bar(mut self, value: Bar) -> Self {
-        self.bar = Some(value);
-        self
+    pub fn bar(self, value: Bar) -> Self {
+        Self {
+            bar: Some(value),
+            ..self
+        }
     }
 
     pub fn build(self) -> Result<MarketEvent, DataError> {
-        if let (
-            Some(trace_id),
-            Some(timestamp),
-            Some(exchange),
-            Some(symbol),
-            Some(bar)
-        ) = (
-            self.trace_id,
-            self.timestamp,
-            self.exchange,
-            self.symbol,
-            self.bar
-        ) {
-            Ok(MarketEvent {
-                event_type: MarketEvent::EVENT_TYPE,
-                trace_id,
-                timestamp,
-                exchange,
-                symbol,
-                bar,
-            })
-        } else {
-            Err(DataError::BuilderIncomplete)
-        }
+        let trace_id = self.trace_id.ok_or(DataError::BuilderIncomplete)?;
+        let timestamp = self.timestamp.ok_or(DataError::BuilderIncomplete)?;
+        let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
+        let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
+        let bar = self.bar.ok_or(DataError::BuilderIncomplete)?;
+
+        Ok(MarketEvent {
+            event_type: MarketEvent::EVENT_TYPE,
+            trace_id,
+            timestamp,
+            exchange,
+            symbol,
+            bar,
+        })
     }
 }
 
@@ -180,6 +175,7 @@ impl Bar {
 }
 
 /// Builder to construct [Bar] instances.
+#[derive(Debug, Default)]
 pub struct BarBuilder {
     timestamp: Option<DateTime<Utc>>,
     open: Option<f64>,
@@ -191,85 +187,97 @@ pub struct BarBuilder {
 
 impl BarBuilder {
     pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn timestamp(self, value: DateTime<Utc>) -> Self {
         Self {
-            timestamp: None,
-            open: None,
-            high: None,
-            low: None,
-            close: None,
-            volume: None,
+            timestamp: Some(value),
+            ..self
         }
     }
 
-    pub fn timestamp(mut self, value: DateTime<Utc>) -> Self {
-        self.timestamp = Some(value);
-        self
+    pub fn open(self, value: f64) -> Self {
+        Self {
+            open: Some(value),
+            ..self
+        }
     }
 
-    pub fn open(mut self, value: f64) -> Self {
-        self.open = Some(value);
-        self
+    pub fn high(self, value: f64) -> Self {
+        Self {
+            high: Some(value),
+            ..self
+        }
     }
 
-    pub fn high(mut self, value: f64) -> Self {
-        self.high = Some(value);
-        self
+    pub fn low(self, value: f64) -> Self {
+        Self {
+            low: Some(value),
+            ..self
+        }
     }
 
-    pub fn low(mut self, value: f64) -> Self {
-        self.low = Some(value);
-        self
+    pub fn close(self, value: f64) -> Self {
+        Self {
+            close: Some(value),
+            ..self
+        }
     }
 
-    pub fn close(mut self, value: f64) -> Self {
-        self.close = Some(value);
-        self
-    }
-
-    pub fn volume(mut self, value: f64) -> Self {
-        self.volume = Some(value);
-        self
+    pub fn volume(self, value: f64) -> Self {
+        Self {
+            volume: Some(value),
+            ..self
+        }
     }
 
     pub fn build(self) -> Result<Bar, DataError> {
-        if let (
-            Some(timestamp),
-            Some(open),
-            Some(high),
-            Some(low),
-            Some(close),
-            Some(volume)
-        ) = (
-            self.timestamp,
-            self.open,
-            self.high,
-            self.low,
-            self.close,
-            self.volume,
-        ) {
-            // Validate
-            if low <= open
-                && low <= close
-                && low <= high
-                && high >= open
-                && high >= close
-                && volume >= 0.0
-                && low >= 0.0
-            {
-                let bar = Bar {
-                    timestamp,
-                    open,
-                    high,
-                    low,
-                    close,
-                    volume,
-                };
-                Ok(bar)
-            } else {
-                Err(DataError::BuilderAttributesInvalid)
-            }
+        let timestamp = self.timestamp.ok_or(DataError::BuilderIncomplete)?;
+        let open = self.open.ok_or(DataError::BuilderIncomplete)?;
+        let high = self.high.ok_or(DataError::BuilderIncomplete)?;
+        let low = self.low.ok_or(DataError::BuilderIncomplete)?;
+        let close = self.close.ok_or(DataError::BuilderIncomplete)?;
+        let volume = self.volume.ok_or(DataError::BuilderIncomplete)?;
+
+        // Validate
+        if low <= open
+            && low <= close
+            && low <= high
+            && high >= open
+            && high >= close
+            && volume >= 0.0
+            && low >= 0.0
+        {
+            Ok(Bar {
+                timestamp,
+                open,
+                high,
+                low,
+                close,
+                volume,
+            })
         } else {
-            Err(DataError::BuilderIncomplete)
+            Err(DataError::BuilderAttributesInvalid)
+        }
+    }
+}
+
+/// Metadata detailing the [Bar] close price & it's associated timestamp. Used to propagate key
+/// market information in downstream Events.
+#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct MarketMeta {
+    /// [Bar] close value from the source [MarketEvent].
+    pub close: f64,
+    /// [Bar] timestamp from the source [MarketEvent].
+    pub timestamp: DateTime<Utc>,
+}
+
+impl Default for MarketMeta {
+    fn default() -> Self {
+        Self {
+            close: 100.0,
+            timestamp: Utc::now(),
         }
     }
 }

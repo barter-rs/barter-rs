@@ -100,7 +100,7 @@ impl<T> OrderGenerator for MetaPortfolio<T> where T: PositionHandler + ValueHand
             timestamp: Utc::now(),
             exchange: signal.exchange.clone(),
             symbol: signal.symbol.clone(),
-            close: signal.close,
+            market_meta: signal.market_meta.clone(),
             decision: signal_decision.clone(),
             quantity: 0.0,
             order_type: OrderType::default()
@@ -128,14 +128,16 @@ impl<T> FillUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler
         // EXIT SCENARIO - FillEvent for Symbol-Exchange with open Position
         if let Some(mut position) = self.repository.remove_position(&position_id)? {
 
+            // Get the Portfolio Value from the Repository
+            let mut current_value = self.repository.get_current_value(&self.id)?;
+
             // Exit Position & persist in Repository closed_positions
-            position.exit(fill)?;
+            position.exit(current_value, fill)?;
 
             // Update Portfolio cash on exit - enter_total_fees added since included in result PnL calc
             current_cash += position.enter_value_gross + position.result_profit_loss + position.enter_fees_total;
 
-            // Update Portfolio value on exit & persist in Repository
-            let mut current_value = self.repository.get_current_value(&self.id)?;
+            // Update Portfolio value after exit & persist in Repository
             current_value += position.result_profit_loss;
 
             // Persist updated Portfolio value & exited Position in Repository
@@ -193,6 +195,7 @@ impl<T> MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
 }
 
 /// Builder to construct [MetaPortfolio] instances.
+#[derive(Debug, Default)]
 pub struct MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHandler {
     id: Option<Uuid>,
     starting_cash: Option<f64>,
@@ -208,87 +211,78 @@ impl<T> MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHa
             starting_cash: None,
             repository: None,
             allocation_manager: None,
-            risk_manager: None,
+            risk_manager: None
         }
     }
 
-    pub fn id(mut self, value: Uuid) -> Self {
-        self.id = Some(value);
-        self
+    pub fn id(self, value: Uuid) -> Self {
+        Self {
+            id: Some(value),
+            ..self
+        }
     }
 
-    pub fn starting_cash(mut self, value: f64) -> Self {
-        self.starting_cash = Some(value);
-        self
+    pub fn starting_cash(self, value: f64) -> Self {
+        Self {
+            starting_cash: Some(value),
+            ..self
+        }
     }
 
-    pub fn repository(mut self, value: T) -> Self {
-        self.repository = Some(value);
-        self
+    pub fn repository(self, value: T) -> Self {
+        Self {
+            repository: Some(value),
+            ..self
+        }
     }
 
-    pub fn allocation_manager(mut self, value: DefaultAllocator) -> Self {
-        self.allocation_manager = Some(value);
-        self
+    pub fn allocation_manager(self, value: DefaultAllocator) -> Self {
+        Self {
+            allocation_manager: Some(value),
+            ..self
+        }
     }
 
-    pub fn risk_manager(mut self, value: DefaultRisk) -> Self {
-        self.risk_manager = Some(value);
-        self
+    pub fn risk_manager(self, value: DefaultRisk) -> Self {
+        Self {
+            risk_manager: Some(value),
+            ..self
+        }
     }
 
     pub fn build(self) -> Result<MetaPortfolio<T>, PortfolioError> {
-        if let (
-            Some(id),
-            Some(starting_cash),
-            Some(repository),
-            Some(allocation_manager),
-            Some(risk_manager)
-        ) = (
-            self.id,
-            self.starting_cash,
-            self.repository,
-            self.allocation_manager,
-            self.risk_manager,
-        ) {
-            Ok(MetaPortfolio {
-                id,
-                starting_cash,
-                repository,
-                allocation_manager,
-                risk_manager,
-            })
-        } else {
-            Err(PortfolioError::BuilderIncomplete)
-        }
+        let id = self.id.ok_or(PortfolioError::BuilderIncomplete)?;
+        let starting_cash = self.starting_cash.ok_or(PortfolioError::BuilderIncomplete)?;
+        let repository = self.repository.ok_or(PortfolioError::BuilderIncomplete)?;
+        let allocation_manager = self.allocation_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+        let risk_manager = self.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+
+        Ok(MetaPortfolio {
+            id,
+            starting_cash,
+            repository,
+            allocation_manager,
+            risk_manager,
+        })
     }
 
     pub fn build_and_init(self) -> Result<MetaPortfolio<T>, PortfolioError> {
-        if let (
-            Some(id),
-            Some(starting_cash),
-            Some(repository),
-            Some(allocation_manager),
-            Some(risk_manager)
-        ) = (
-            self.id,
-            self.starting_cash,
-            self.repository,
-            self.allocation_manager,
-            self.risk_manager,
-        ) {
-            let mut portfolio = MetaPortfolio {
-                id,
-                starting_cash,
-                repository,
-                allocation_manager,
-                risk_manager,
-            };
-            portfolio.initialise()?;
-            Ok(portfolio)
-        } else {
-            Err(PortfolioError::BuilderIncomplete)
-        }
+        let id = self.id.ok_or(PortfolioError::BuilderIncomplete)?;
+        let starting_cash = self.starting_cash.ok_or(PortfolioError::BuilderIncomplete)?;
+        let repository = self.repository.ok_or(PortfolioError::BuilderIncomplete)?;
+        let allocation_manager = self.allocation_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+        let risk_manager = self.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+
+        let mut portfolio = MetaPortfolio {
+            id,
+            starting_cash,
+            repository,
+            allocation_manager,
+            risk_manager,
+        };
+
+        portfolio.initialise()?;
+        Ok(portfolio)
     }
 }
 
@@ -331,6 +325,7 @@ mod tests {
         get_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
         remove_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
         set_closed_position: Option<fn(portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>>,
+        get_closed_positions: Option<fn(portfolio_id: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError>>,
         set_current_value: Option<fn(portfolio_id: &Uuid, value: f64)  -> Result<(), RepositoryError>>,
         get_current_value: Option<fn(portfolio_id: &Uuid) -> Result<f64, RepositoryError>>,
         set_current_cash: Option<fn(portfolio_id: &Uuid, cash: f64)  -> Result<(), RepositoryError>>,
@@ -367,6 +362,10 @@ mod tests {
 
         fn set_closed_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
             self.set_closed_position.unwrap()(portfolio_id, position)
+        }
+
+        fn get_closed_positions(&mut self, portfolio_id: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError> {
+            self.get_closed_positions.unwrap()(portfolio_id)
         }
     }
 

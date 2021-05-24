@@ -1,11 +1,10 @@
-use crate::data::market::MarketEvent;
+use crate::data::market::{MarketEvent, MarketMeta};
 use crate::strategy::signal::{SignalEvent, Decision, SignalStrength};
 use crate::strategy::error::StrategyError;
 use ta::indicators::RelativeStrengthIndex;
 use ta::Next;
 use chrono::Utc;
 use serde::Deserialize;
-use crate::strategy::error::StrategyError::BuilderIncomplete;
 use std::collections::HashMap;
 
 /// May generate an advisory [SignalEvent] as a result of analysing an input [MarketEvent].
@@ -44,7 +43,10 @@ impl SignalGenerator for RSIStrategy {
             timestamp: Utc::now(),
             exchange: market.exchange.clone(),
             symbol: market.symbol.clone(),
-            close: market.bar.close,
+            market_meta: MarketMeta {
+                close: market.bar.close,
+                timestamp: market.bar.timestamp,
+            },
             signals
         }))
     }
@@ -98,26 +100,27 @@ impl RSIStrategy {
 }
 
 /// Builder to construct [RSIStrategy] instances.
+#[derive(Debug, Default)]
 pub struct RSIStrategyBuilder {
     rsi: Option<RelativeStrengthIndex>,
 }
 
 impl RSIStrategyBuilder {
     pub fn new() -> Self {
-        Self { rsi: None }
+        Self::default()
     }
 
-    pub fn rsi(mut self, value: RelativeStrengthIndex) -> Self {
-        self.rsi = Some(value);
-        self
+    pub fn rsi(self, value: RelativeStrengthIndex) -> Self {
+        Self {
+            rsi: Some(value),
+            ..self
+        }
     }
 
     pub fn build(self) -> Result<RSIStrategy, StrategyError> {
-        if let Some(rsi) = self.rsi {
-            Ok(RSIStrategy { rsi })
-        } else {
-            Err(BuilderIncomplete)
-        }
+        let rsi = self.rsi.ok_or(StrategyError::BuilderIncomplete)?;
+
+        Ok(RSIStrategy { rsi })
     }
 }
 

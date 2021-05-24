@@ -107,6 +107,7 @@ pub fn load_csv_bars(file_path: String) -> Result<Vec<Bar>, csv::Error> {
 }
 
 /// Builder to construct [HistoricDataHandler] instances.
+#[derive(Debug, Default)]
 pub struct HistoricDataHandlerBuilder {
     exchange: Option<String>,
     symbol: Option<String>,
@@ -115,39 +116,40 @@ pub struct HistoricDataHandlerBuilder {
 
 impl HistoricDataHandlerBuilder {
     pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn symbol(self, value: String) -> Self {
         Self {
-            exchange: None,
-            symbol: None,
-            all_symbol_data: None,
+            symbol: Some(value),
+            ..self
         }
     }
 
-    pub fn symbol(mut self, value: String) -> Self {
-        self.symbol = Some(value);
-        self
+    pub fn exchange(self, value: String) -> Self {
+        Self {
+            exchange: Some(value),
+            ..self
+        }
     }
 
-    pub fn exchange(mut self, value: String) -> Self {
-        self.exchange = Some(value);
-        self
-    }
-
-    pub fn all_symbol_data(mut self, value: IntoIter<Bar>) -> Self {
-        self.all_symbol_data = Some(value);
-        self
+    pub fn all_symbol_data(self, value: IntoIter<Bar>) -> Self {
+        Self {
+            all_symbol_data: Some(value),
+            ..self
+        }
     }
 
     pub fn build(self) -> Result<HistoricDataHandler, DataError> {
-        if let (Some(exchange), Some(symbol), Some(all_symbol_data)) =
-        (self.exchange, self.symbol, self.all_symbol_data) {
-            Ok(HistoricDataHandler {
-                exchange,
-                symbol,
-                all_symbol_data,
-            })
-        } else {
-            Err(DataError::BuilderIncomplete)
-        }
+        let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
+        let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
+        let all_symbol_data = self.all_symbol_data.ok_or(DataError::BuilderIncomplete)?;
+
+        Ok(HistoricDataHandler {
+            exchange,
+            symbol,
+            all_symbol_data,
+        })
     }
 }
 
