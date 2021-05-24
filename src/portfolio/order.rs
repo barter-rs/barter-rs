@@ -60,6 +60,7 @@ impl Default for OrderType {
 }
 
 /// Builder to construct OrderEvent instances.
+#[derive(Debug, Default)]
 pub struct OrderEventBuilder {
     pub trace_id: Option<Uuid>,
     pub timestamp: Option<DateTime<Utc>>,
@@ -73,16 +74,7 @@ pub struct OrderEventBuilder {
 
 impl OrderEventBuilder {
     pub fn new() -> Self {
-        Self {
-            trace_id: None,
-            timestamp: None,
-            exchange: None,
-            symbol: None,
-            market_meta: None,
-            decision: None,
-            quantity: None,
-            order_type: None,
-        }
+        Self::default()
     }
 
     pub fn trace_id(mut self, value: Uuid) -> Self {

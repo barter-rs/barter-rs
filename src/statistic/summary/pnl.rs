@@ -173,10 +173,10 @@ mod tests {
 
     #[test]
     fn update_pnl_return_summary() {
-        struct TestCase {
-            input_position: Position,
-            expected_summary: PnLReturnSummary,
-        }
+        // struct TestCase {
+        //     input_position: Position,
+        //     expected_summary: PnLReturnSummary,
+        // }
     }
 
     #[test]

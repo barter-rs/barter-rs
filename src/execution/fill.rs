@@ -79,6 +79,7 @@ impl Fees {
 pub type FeeAmount = f64;
 
 /// Builder to construct [FillEvent] instances.
+#[derive(Debug, Default)]
 pub struct FillEventBuilder {
     pub trace_id: Option<Uuid>,
     pub timestamp: Option<DateTime<Utc>>,
@@ -93,17 +94,7 @@ pub struct FillEventBuilder {
 
 impl FillEventBuilder {
     pub fn new() -> Self {
-        Self {
-            trace_id: None,
-            timestamp: None,
-            exchange: None,
-            symbol: None,
-            market_meta: None,
-            decision: None,
-            quantity: None,
-            fill_value_gross: None,
-            fees: None,
-        }
+        Self::default()
     }
 
     pub fn trace_id(mut self, value: Uuid) -> Self {

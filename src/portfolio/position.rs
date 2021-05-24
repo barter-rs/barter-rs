@@ -265,6 +265,7 @@ impl Position {
 }
 
 /// Builder to construct [Position] instances.
+#[derive(Debug, Default)]
 pub struct PositionBuilder {
     pub meta: Option<PositionMeta>,
     pub exchange: Option<String>,
@@ -287,25 +288,7 @@ pub struct PositionBuilder {
 
 impl PositionBuilder {
     pub fn new() -> Self {
-        Self {
-            meta: None,
-            exchange: None,
-            symbol: None,
-            direction: None,
-            quantity: None,
-            enter_fees: None,
-            enter_fees_total: None,
-            enter_avg_price_gross: None,
-            enter_value_gross: None,
-            exit_fees: None,
-            exit_fees_total: None,
-            exit_avg_price_gross: None,
-            exit_value_gross: None,
-            current_symbol_price: None,
-            current_value_gross: None,
-            unreal_profit_loss: None,
-            result_profit_loss: None
-        }
+        Self::default()
     }
 
     pub fn meta(mut self, value: PositionMeta) -> Self {
