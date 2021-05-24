@@ -471,6 +471,7 @@ impl Default for PositionMeta {
     }
 }
 
+/// Equity value at a point in time.
 #[derive(Debug, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct EquityPoint {
     pub equity: f64,
@@ -487,6 +488,7 @@ impl Default for EquityPoint {
 }
 
 impl EquityPoint {
+    /// Updates using the input [Position]'s PnL & associated timestamp.
     pub fn update(&mut self, position: &Position) {
         match position.meta.exit_bar_timestamp {
             None => {
