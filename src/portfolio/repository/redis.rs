@@ -213,13 +213,9 @@ impl RedisRepositoryBuilder {
     }
 
     pub fn build(self) -> Result<RedisRepository, PortfolioError> {
-        if let Some(conn) = self.conn {
-            Ok(RedisRepository {
-                conn
-            })
-        } else {
-            Err(PortfolioError::BuilderIncomplete)
-        }
+        let conn = self.conn.ok_or(PortfolioError::BuilderIncomplete)?;
+
+        Ok(RedisRepository { conn })
     }
 }
 

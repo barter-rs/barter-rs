@@ -134,38 +134,25 @@ impl OrderEventBuilder {
     }
 
     pub fn build(self) -> Result<OrderEvent, PortfolioError> {
-        if let (
-            Some(trace_id),
-            Some(timestamp),
-            Some(exchange),
-            Some(symbol),
-            Some(market_meta),
-            Some(decision),
-            Some(quantity),
-            Some(order_type),
-        ) = (
-            self.trace_id,
-            self.timestamp,
-            self.exchange,
-            self.symbol,
-            self.market_meta,
-            self.decision,
-            self.quantity,
-            self.order_type,
-        ) {
-            Ok(OrderEvent {
-                event_type: OrderEvent::EVENT_TYPE,
-                trace_id,
-                timestamp,
-                exchange,
-                symbol,
-                market_meta,
-                decision,
-                quantity,
-                order_type,
-            })
-        } else {
-            Err(PortfolioError::BuilderIncomplete)
-        }
+        let trace_id = self.trace_id.ok_or(PortfolioError::BuilderIncomplete)?;
+        let timestamp = self.timestamp.ok_or(PortfolioError::BuilderIncomplete)?;
+        let exchange = self.exchange.ok_or(PortfolioError::BuilderIncomplete)?;
+        let symbol = self.symbol.ok_or(PortfolioError::BuilderIncomplete)?;
+        let market_meta = self.market_meta.ok_or(PortfolioError::BuilderIncomplete)?;
+        let decision = self.decision.ok_or(PortfolioError::BuilderIncomplete)?;
+        let quantity = self.quantity.ok_or(PortfolioError::BuilderIncomplete)?;
+        let order_type = self.order_type.ok_or(PortfolioError::BuilderIncomplete)?;
+
+        Ok(OrderEvent {
+            event_type: OrderEvent::EVENT_TYPE,
+            trace_id,
+            timestamp,
+            exchange,
+            symbol,
+            market_meta,
+            decision,
+            quantity,
+            order_type,
+        })
     }
 }
