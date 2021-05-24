@@ -141,33 +141,22 @@ impl SignalEventBuilder {
     }
 
     pub fn build(self) -> Result<SignalEvent, StrategyError> {
-        if let (
-            Some(trace_id),
-            Some(timestamp),
-            Some(exchange),
-            Some(symbol),
-            Some(market_meta),
-            Some(signals)
-        ) = (
-            self.trace_id,
-            self.timestamp,
-            self.exchange,
-            self.symbol,
-            self.market_meta,
-            self.signals
-        ) {
-            Ok(SignalEvent {
-                event_type: SignalEvent::EVENT_TYPE,
-                trace_id,
-                timestamp,
-                exchange,
-                symbol,
-                market_meta,
-                signals,
-            })
-        } else {
-            Err(BuilderIncomplete)
-        }
+        let trace_id = self.trace_id.ok_or(StrategyError::BuilderIncomplete)?;
+        let timestamp = self.timestamp.ok_or(StrategyError::BuilderIncomplete)?;
+        let exchange = self.exchange.ok_or(StrategyError::BuilderIncomplete)?;
+        let symbol = self.symbol.ok_or(StrategyError::BuilderIncomplete)?;
+        let market_meta = self.market_meta.ok_or(StrategyError::BuilderIncomplete)?;
+        let signals = self.signals.ok_or(StrategyError::BuilderIncomplete)?;
+
+        Ok(SignalEvent {
+            event_type: SignalEvent::EVENT_TYPE,
+            trace_id,
+            timestamp,
+            exchange,
+            symbol,
+            market_meta,
+            signals,
+        })
     }
 }
 

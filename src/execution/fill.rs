@@ -161,41 +161,27 @@ impl FillEventBuilder {
     }
 
     pub fn build(self) -> Result<FillEvent, ExecutionError> {
-        if let (
-            Some(trace_id),
-            Some(timestamp),
-            Some(exchange),
-            Some(symbol),
-            Some(market_meta),
-            Some(decision),
-            Some(quantity),
-            Some(fill_value_gross),
-            Some(fees),
-        ) = (
-            self.trace_id,
-            self.timestamp,
-            self.exchange,
-            self.symbol,
-            self.market_meta,
-            self.decision,
-            self.quantity,
-            self.fill_value_gross,
-            self.fees,
-        ) {
-            Ok(FillEvent {
-                event_type: FillEvent::EVENT_TYPE,
-                trace_id,
-                timestamp,
-                exchange,
-                symbol,
-                market_meta,
-                decision,
-                quantity,
-                fill_value_gross,
-                fees,
-            })
-        } else {
-            Err(ExecutionError::BuilderIncomplete)
-        }
+        let trace_id = self.trace_id.ok_or(ExecutionError::BuilderIncomplete)?;
+        let timestamp = self.timestamp.ok_or(ExecutionError::BuilderIncomplete)?;
+        let exchange = self.exchange.ok_or(ExecutionError::BuilderIncomplete)?;
+        let symbol = self.symbol.ok_or(ExecutionError::BuilderIncomplete)?;
+        let market_meta = self.market_meta.ok_or(ExecutionError::BuilderIncomplete)?;
+        let decision = self.decision.ok_or(ExecutionError::BuilderIncomplete)?;
+        let quantity = self.quantity.ok_or(ExecutionError::BuilderIncomplete)?;
+        let fill_value_gross = self.fill_value_gross.ok_or(ExecutionError::BuilderIncomplete)?;
+        let fees = self.fees.ok_or(ExecutionError::BuilderIncomplete)?;
+
+        Ok(FillEvent {
+            event_type: FillEvent::EVENT_TYPE,
+            trace_id,
+            timestamp,
+            exchange,
+            symbol,
+            market_meta,
+            decision,
+            quantity,
+            fill_value_gross,
+            fees,
+        })
     }
 }

@@ -90,30 +90,20 @@ impl MarketEventBuilder {
     }
 
     pub fn build(self) -> Result<MarketEvent, DataError> {
-        if let (
-            Some(trace_id),
-            Some(timestamp),
-            Some(exchange),
-            Some(symbol),
-            Some(bar)
-        ) = (
-            self.trace_id,
-            self.timestamp,
-            self.exchange,
-            self.symbol,
-            self.bar
-        ) {
-            Ok(MarketEvent {
-                event_type: MarketEvent::EVENT_TYPE,
-                trace_id,
-                timestamp,
-                exchange,
-                symbol,
-                bar,
-            })
-        } else {
-            Err(DataError::BuilderIncomplete)
-        }
+        let trace_id = self.trace_id.ok_or(DataError::BuilderIncomplete)?;
+        let timestamp = self.timestamp.ok_or(DataError::BuilderIncomplete)?;
+        let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
+        let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
+        let bar = self.bar.ok_or(DataError::BuilderIncomplete)?;
+
+        Ok(MarketEvent {
+            event_type: MarketEvent::EVENT_TYPE,
+            trace_id,
+            timestamp,
+            exchange,
+            symbol,
+            bar,
+        })
     }
 }
 
@@ -243,43 +233,32 @@ impl BarBuilder {
     }
 
     pub fn build(self) -> Result<Bar, DataError> {
-        if let (
-            Some(timestamp),
-            Some(open),
-            Some(high),
-            Some(low),
-            Some(close),
-            Some(volume)
-        ) = (
-            self.timestamp,
-            self.open,
-            self.high,
-            self.low,
-            self.close,
-            self.volume,
-        ) {
-            // Validate
-            if low <= open
-                && low <= close
-                && low <= high
-                && high >= open
-                && high >= close
-                && volume >= 0.0
-                && low >= 0.0
-            {
-                Ok(Bar {
-                    timestamp,
-                    open,
-                    high,
-                    low,
-                    close,
-                    volume,
-                })
-            } else {
-                Err(DataError::BuilderAttributesInvalid)
-            }
+        let timestamp = self.timestamp.ok_or(DataError::BuilderIncomplete)?;
+        let open = self.open.ok_or(DataError::BuilderIncomplete)?;
+        let high = self.high.ok_or(DataError::BuilderIncomplete)?;
+        let low = self.low.ok_or(DataError::BuilderIncomplete)?;
+        let close = self.close.ok_or(DataError::BuilderIncomplete)?;
+        let volume = self.volume.ok_or(DataError::BuilderIncomplete)?;
+
+        // Validate
+        if low <= open
+            && low <= close
+            && low <= high
+            && high >= open
+            && high >= close
+            && volume >= 0.0
+            && low >= 0.0
+        {
+            Ok(Bar {
+                timestamp,
+                open,
+                high,
+                low,
+                close,
+                volume,
+            })
         } else {
-            Err(DataError::BuilderIncomplete)
+            Err(DataError::BuilderAttributesInvalid)
         }
     }
 }

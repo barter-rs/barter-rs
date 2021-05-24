@@ -119,11 +119,9 @@ impl RSIStrategyBuilder {
     }
 
     pub fn build(self) -> Result<RSIStrategy, StrategyError> {
-        if let Some(rsi) = self.rsi {
-            Ok(RSIStrategy { rsi })
-        } else {
-            Err(BuilderIncomplete)
-        }
+        let rsi = self.rsi.ok_or(StrategyError::BuilderIncomplete)?;
+
+        Ok(RSIStrategy { rsi })
     }
 }
 
