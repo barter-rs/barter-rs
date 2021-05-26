@@ -1,6 +1,5 @@
-/// Grouping of Welford Online algorithms for calculating running values from one pass through.
-/// See link:
-/// https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+/// Grouping of [Welford Online](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm)
+/// algorithms for calculating running values such as mean and variance in one pass through.
 pub mod welford_online {
     /// Calculates the next mean.
     pub fn calculate_mean<T>(mut prev_mean: T, next_value: T, count: T) -> T
