@@ -1,4 +1,3 @@
-use crate::data::error::DataError;
 use crate::data::handler::Continuer;
 use crate::data::market::MarketEvent;
 use barter_data::client::ClientConfig;
@@ -12,16 +11,17 @@ use tokio_stream::StreamExt;
 use uuid::Uuid;
 
 // Todo:
-//  - Normalise barter & barter-data Candle/Bar structs to use same definition
-//  - Work out how to shutdown data feed gracefully
+//  - Impl shutdown data feed - could use a terminus_rx field and let user work out the rest (eg/ REST API, etc)
 //  - Can DateType be inferred by compiler when I create object, since i'll return
 //  - Strings -> &str in consume_candles etc?
 //  - Add builder method for LiveDataHandler
 //  - Impl MarketGenerator / change the trait?
+//  - Remove returning of Result<> for MarketGenerator, SignalGenerator
 //  - Cannot return error from generate market because infinite loop would be faster
 //    than candle interval, unless there is a relevant DataError variant. Use Option<MarketEvent>?
 //  - Impl Display for ExchangeName to remove hack in generate_market() that uses Debug
 
+#[derive(Debug, Deserialize)]
 pub struct Config {
     pub client: ClientConfig,
     pub exchange: ExchangeName,
@@ -49,14 +49,14 @@ impl Continuer for LiveCandleHandler {
 }
 
 impl LiveCandleHandler {
-    async fn generate_market(&mut self) -> Result<Option<MarketEvent>, DataError> {
+    pub async fn generate_market(&mut self) -> Option<MarketEvent> {
         // Consume next candle if it's available
         let candle = match self.data_stream.next().await {
             Some(candle) => candle,
-            _ => return Ok(None),
+            _ => return None,
         };
 
-        Ok(Some(
+        Some(
             MarketEvent {
                 event_type: MarketEvent::EVENT_TYPE,
                 trace_id: Uuid::new_v4(),
@@ -65,16 +65,18 @@ impl LiveCandleHandler {
                 symbol: self.symbol.clone(),
                 candle,
             }
-        ))
+        )
     }
 
-    pub async fn new<Exchange>(cfg: Config) -> Self
+    pub async fn new<Exchange>(cfg: &Config) -> Self
     where
         Exchange: ExchangeClient,
     {
         // Determine ExchangeClient instance & construct
         let mut exchange = match cfg.exchange {
-            ExchangeName::Binance => Binance::new(cfg.client)
+            ExchangeName::Binance => Binance::new(ClientConfig {
+                rate_limit_per_second: cfg.client.rate_limit_per_second,
+            })
         }.await.unwrap();
 
         let data_stream = exchange
@@ -82,11 +84,11 @@ impl LiveCandleHandler {
             .await.unwrap();
 
         Self {
-            exchange: cfg.exchange,
-            symbol: cfg.symbol,
-            interval: cfg.interval,
+            exchange: cfg.exchange.clone(),
+            symbol: cfg.symbol.clone(),
+            interval: cfg.interval.clone(),
             data_stream,
-            can_continue: false
+            can_continue: true
         }
     }
 }
