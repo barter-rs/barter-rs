@@ -1,9 +1,6 @@
 use crate::portfolio::position::Position;
+use crate::portfolio::repository::{CashHandler, determine_cash_id, determine_closed_positions_id, determine_position_id, determine_value_id, PositionHandler, ValueHandler};
 use crate::portfolio::repository::error::RepositoryError;
-use crate::portfolio::repository::redis::{
-    determine_cash_id, determine_closed_positions_id, determine_position_id, determine_value_id,
-    CashHandler, PositionHandler, ValueHandler,
-};
 use std::collections::HashMap;
 use uuid::Uuid;
 
