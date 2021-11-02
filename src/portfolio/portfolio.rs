@@ -6,9 +6,7 @@ use crate::portfolio::order::{OrderEvent, OrderType};
 use crate::portfolio::position::{
     Direction, Position, PositionEnterer, PositionExiter, PositionUpdater,
 };
-use crate::portfolio::repository::redis::{
-    determine_position_id, CashHandler, PositionHandler, ValueHandler,
-};
+use crate::portfolio::repository::{CashHandler, determine_position_id, PositionHandler, ValueHandler};
 use crate::portfolio::risk::{DefaultRisk, OrderEvaluator};
 use crate::strategy::signal::{Decision, SignalEvent, SignalStrength};
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
