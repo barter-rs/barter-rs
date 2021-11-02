@@ -1,8 +1,8 @@
 use crate::data::error::DataError;
+use barter_data::model::Candle;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
-use ta::{Close, High, Low, Open, Volume};
 use uuid::Uuid;
 
 /// Market data & related metadata produced by a data::handler implementation for the Strategy
@@ -14,7 +14,7 @@ pub struct MarketEvent {
     pub timestamp: DateTime<Utc>,
     pub exchange: String,
     pub symbol: String,
-    pub bar: Bar,
+    pub candle: Candle,
 }
 
 impl Default for MarketEvent {
@@ -25,7 +25,7 @@ impl Default for MarketEvent {
             timestamp: Utc::now(),
             exchange: String::from("BINANCE"),
             symbol: String::from("ETH-USD"),
-            bar: Bar::default(),
+            candle: Candle::default(),
         }
     }
 }
@@ -46,7 +46,7 @@ pub struct MarketEventBuilder {
     pub timestamp: Option<DateTime<Utc>>,
     pub exchange: Option<String>,
     pub symbol: Option<String>,
-    pub bar: Option<Bar>,
+    pub candle: Option<Candle>,
 }
 
 impl MarketEventBuilder {
@@ -82,9 +82,9 @@ impl MarketEventBuilder {
         }
     }
 
-    pub fn bar(self, value: Bar) -> Self {
+    pub fn candle(self, value: Candle) -> Self {
         Self {
-            bar: Some(value),
+            candle: Some(value),
             ..self
         }
     }
@@ -94,7 +94,7 @@ impl MarketEventBuilder {
         let timestamp = self.timestamp.ok_or(DataError::BuilderIncomplete)?;
         let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
         let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
-        let bar = self.bar.ok_or(DataError::BuilderIncomplete)?;
+        let candle = self.candle.ok_or(DataError::BuilderIncomplete)?;
 
         Ok(MarketEvent {
             event_type: MarketEvent::EVENT_TYPE,
@@ -102,164 +102,8 @@ impl MarketEventBuilder {
             timestamp,
             exchange,
             symbol,
-            bar,
+            candle,
         })
-    }
-}
-
-/// OHLCV data from a timeframe interval with the associated [DateTime] UTC timestamp.
-#[derive(Debug, PartialOrd, PartialEq, Deserialize, Serialize)]
-pub struct Bar {
-    #[serde(rename = "Date")]
-    #[serde(deserialize_with = "datetime_utc_parser")]
-    pub timestamp: DateTime<Utc>,
-    #[serde(rename = "Open")]
-    pub open: f64,
-    #[serde(rename = "High")]
-    pub high: f64,
-    #[serde(rename = "Low")]
-    pub low: f64,
-    #[serde(rename = "Adj Close")]
-    pub close: f64,
-    pub volume: f64,
-}
-
-impl Default for Bar {
-    fn default() -> Self {
-        Self {
-            timestamp: Utc::now(),
-            open: 1000.0,
-            high: 1100.0,
-            low: 900.0,
-            close: 1050.0,
-            volume: 1000000000.0,
-        }
-    }
-}
-
-impl Open for Bar {
-    fn open(&self) -> f64 {
-        self.open
-    }
-}
-
-impl High for Bar {
-    fn high(&self) -> f64 {
-        self.high
-    }
-}
-
-impl Low for Bar {
-    fn low(&self) -> f64 {
-        self.low
-    }
-}
-
-impl Close for Bar {
-    fn close(&self) -> f64 {
-        self.close
-    }
-}
-
-impl Volume for Bar {
-    fn volume(&self) -> f64 {
-        self.volume
-    }
-}
-
-impl Bar {
-    /// Returns a [BarBuilder] instance.
-    pub fn builder() -> BarBuilder {
-        BarBuilder::new()
-    }
-}
-
-/// Builder to construct [Bar] instances.
-#[derive(Debug, Default)]
-pub struct BarBuilder {
-    timestamp: Option<DateTime<Utc>>,
-    open: Option<f64>,
-    high: Option<f64>,
-    low: Option<f64>,
-    close: Option<f64>,
-    volume: Option<f64>,
-}
-
-impl BarBuilder {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn timestamp(self, value: DateTime<Utc>) -> Self {
-        Self {
-            timestamp: Some(value),
-            ..self
-        }
-    }
-
-    pub fn open(self, value: f64) -> Self {
-        Self {
-            open: Some(value),
-            ..self
-        }
-    }
-
-    pub fn high(self, value: f64) -> Self {
-        Self {
-            high: Some(value),
-            ..self
-        }
-    }
-
-    pub fn low(self, value: f64) -> Self {
-        Self {
-            low: Some(value),
-            ..self
-        }
-    }
-
-    pub fn close(self, value: f64) -> Self {
-        Self {
-            close: Some(value),
-            ..self
-        }
-    }
-
-    pub fn volume(self, value: f64) -> Self {
-        Self {
-            volume: Some(value),
-            ..self
-        }
-    }
-
-    pub fn build(self) -> Result<Bar, DataError> {
-        let timestamp = self.timestamp.ok_or(DataError::BuilderIncomplete)?;
-        let open = self.open.ok_or(DataError::BuilderIncomplete)?;
-        let high = self.high.ok_or(DataError::BuilderIncomplete)?;
-        let low = self.low.ok_or(DataError::BuilderIncomplete)?;
-        let close = self.close.ok_or(DataError::BuilderIncomplete)?;
-        let volume = self.volume.ok_or(DataError::BuilderIncomplete)?;
-
-        // Validate
-        if low <= open
-            && low <= close
-            && low <= high
-            && high >= open
-            && high >= close
-            && volume >= 0.0
-            && low >= 0.0
-        {
-            Ok(Bar {
-                timestamp,
-                open,
-                high,
-                low,
-                close,
-                volume,
-            })
-        } else {
-            Err(DataError::BuilderAttributesInvalid)
-        }
     }
 }
 
