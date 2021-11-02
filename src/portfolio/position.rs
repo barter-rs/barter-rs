@@ -129,10 +129,10 @@ impl PositionUpdater for Position {
         self.meta.last_update_trace_id = market.trace_id;
         self.meta.last_update_timestamp = market.timestamp;
 
-        self.current_symbol_price = market.bar.close;
+        self.current_symbol_price = market.candle.close;
 
         // Market value gross
-        self.current_value_gross = market.bar.close * self.quantity.abs();
+        self.current_value_gross = market.candle.close * self.quantity.abs();
 
         // Unreal profit & loss
         self.unreal_profit_loss = self.calculate_unreal_profit_loss();
@@ -731,7 +731,7 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.bar.close = 200.0; // +100.0 higher than current_symbol_price
+        input_market.candle.close = 200.0; // +100.0 higher than current_symbol_price
 
         // Update Position
         position.update(&input_market);
@@ -747,10 +747,10 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position.current_symbol_price, input_market.bar.close);
+        assert_eq!(position.current_symbol_price, input_market.candle.close);
         assert_eq!(
             position.current_value_gross,
-            input_market.bar.close * position.quantity.abs()
+            input_market.candle.close * position.quantity.abs()
         );
 
         // current_value_gross - enter_value_gross - approx_total_fees
@@ -777,7 +777,7 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.bar.close = 50.0; // -50.0 lower than current_symbol_price
+        input_market.candle.close = 50.0; // -50.0 lower than current_symbol_price
 
         // Update Position
         position.update(&input_market);
@@ -793,10 +793,10 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position.current_symbol_price, input_market.bar.close);
+        assert_eq!(position.current_symbol_price, input_market.candle.close);
         assert_eq!(
             position.current_value_gross,
-            input_market.bar.close * position.quantity.abs()
+            input_market.candle.close * position.quantity.abs()
         );
 
         // current_value_gross - enter_value_gross - approx_total_fees
@@ -823,7 +823,7 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.bar.close = 50.0; // -50.0 lower than current_symbol_price
+        input_market.candle.close = 50.0; // -50.0 lower than current_symbol_price
 
         // Update Position
         position.update(&input_market);
@@ -839,10 +839,10 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position.current_symbol_price, input_market.bar.close);
+        assert_eq!(position.current_symbol_price, input_market.candle.close);
         assert_eq!(
             position.current_value_gross,
-            input_market.bar.close * position.quantity.abs()
+            input_market.candle.close * position.quantity.abs()
         );
 
         // enter_value_gross - current_value_gross - approx_total_fees
@@ -869,7 +869,7 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.bar.close = 200.0; // +100.0 higher than current_symbol_price
+        input_market.candle.close = 200.0; // +100.0 higher than current_symbol_price
 
         // Update Position
         position.update(&input_market);
@@ -885,10 +885,10 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position.current_symbol_price, input_market.bar.close);
+        assert_eq!(position.current_symbol_price, input_market.candle.close);
         assert_eq!(
             position.current_value_gross,
-            input_market.bar.close * position.quantity.abs()
+            input_market.candle.close * position.quantity.abs()
         );
 
         // enter_value_gross - current_value_gross - approx_total_fees

@@ -504,7 +504,7 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.bar.close = 200.0; // +100.0 on input_position.current_symbol_price
+        input_market.candle.close = 200.0; // +100.0 on input_position.current_symbol_price
 
         let result = portfolio.update_from_market(&input_market);
         let updated_position = portfolio.repository.position.unwrap();
@@ -540,7 +540,7 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.bar.close = 50.0; // -50.0 on input_position.current_symbol_price
+        input_market.candle.close = 50.0; // -50.0 on input_position.current_symbol_price
 
         let result = portfolio.update_from_market(&input_market);
         let updated_position = portfolio.repository.position.unwrap();
@@ -576,7 +576,7 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.bar.close = 50.0; // -50.0 on input_position.current_symbol_price
+        input_market.candle.close = 50.0; // -50.0 on input_position.current_symbol_price
 
         let result = portfolio.update_from_market(&input_market);
         let updated_position = portfolio.repository.position.unwrap();
@@ -612,7 +612,7 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.bar.close = 200.0; // +100.0 on input_position.current_symbol_price
+        input_market.candle.close = 200.0; // +100.0 on input_position.current_symbol_price
 
         let result = portfolio.update_from_market(&input_market);
         let updated_position = portfolio.repository.position.unwrap();
