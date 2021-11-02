@@ -1,9 +1,9 @@
-use crate::statistic::summary::trading::{PositionSummariser, TablePrinter};
-use crate::portfolio::position::{Position, Direction};
+use crate::portfolio::position::{Direction, Position};
 use crate::statistic::summary::data::DataSummary;
-use chrono::{Duration, DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use crate::statistic::summary::trading::{PositionSummariser, TablePrinter};
+use chrono::{DateTime, Duration, Utc};
 use prettytable::{Row, Table};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct PnLReturnSummary {
@@ -21,7 +21,7 @@ impl Default for PnLReturnSummary {
             duration: Duration::zero(),
             trades_per_day: 0.0,
             total: DataSummary::default(),
-            losses: DataSummary::default()
+            losses: DataSummary::default(),
         }
     }
 }
@@ -54,14 +54,24 @@ impl TablePrinter for PnLReturnSummary {
     fn print(&self) {
         let mut pnl_returns = Table::new();
 
-        let titles = vec!["",
-            "Trades", "Wins", "Losses", "Trading Days", "Trades Per Day",
-            "Mean Return", "Std. Dev. Return", "Loss Mean Return",
-            "Biggest Win", "Biggest Loss"];
+        let titles = vec![
+            "",
+            "Trades",
+            "Wins",
+            "Losses",
+            "Trading Days",
+            "Trades Per Day",
+            "Mean Return",
+            "Std. Dev. Return",
+            "Loss Mean Return",
+            "Biggest Win",
+            "Biggest Loss",
+        ];
 
         let wins = self.total.count - self.losses.count;
 
-        pnl_returns.add_row(row!["Total",
+        pnl_returns.add_row(row![
+            "Total",
             self.total.count.to_string(),
             wins,
             self.losses.count,
@@ -88,7 +98,7 @@ impl PnLReturnSummary {
             duration: Duration::zero(),
             trades_per_day: 0.0,
             total: Default::default(),
-            losses: Default::default()
+            losses: Default::default(),
         }
     }
 
@@ -96,11 +106,12 @@ impl PnLReturnSummary {
         self.duration = match position.meta.exit_bar_timestamp {
             None => {
                 // Since Position is not exited, estimate duration w/ last_update_timestamp
-                position.meta.last_update_timestamp.signed_duration_since(self.start_timestamp)
-            },
-            Some(exit_timestamp) => {
-                exit_timestamp.signed_duration_since(self.start_timestamp)
+                position
+                    .meta
+                    .last_update_timestamp
+                    .signed_duration_since(self.start_timestamp)
             }
+            Some(exit_timestamp) => exit_timestamp.signed_duration_since(self.start_timestamp),
         }
     }
 
@@ -159,7 +170,7 @@ impl ProfitLossSummary {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{Utc, Duration};
+    use chrono::{Duration, Utc};
 
     #[test]
     fn update_pnl_return_summary() {
@@ -179,7 +190,8 @@ mod tests {
         let mut input_position = Position::default();
         input_position.meta.exit_bar_timestamp = None;
         input_position.meta.last_update_timestamp = base_timestamp
-            .checked_add_signed(Duration::days(10)).unwrap();
+            .checked_add_signed(Duration::days(10))
+            .unwrap();
 
         pnl_return_view.update_trading_session_duration(&input_position);
 
@@ -196,8 +208,11 @@ mod tests {
         pnl_return_view.start_timestamp = base_timestamp;
 
         let mut input_position = Position::default();
-        input_position.meta.exit_bar_timestamp = Some(base_timestamp
-            .checked_add_signed(Duration::days(15)).unwrap());
+        input_position.meta.exit_bar_timestamp = Some(
+            base_timestamp
+                .checked_add_signed(Duration::days(15))
+                .unwrap(),
+        );
 
         pnl_return_view.update_trading_session_duration(&input_position);
 

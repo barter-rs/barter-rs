@@ -44,9 +44,7 @@ impl SharpeRatio {
 
         // Calculate Sharpe Ratio Per Trade
         self.sharpe_ratio_per_trade = match pnl_returns.total.dispersion.std_dev == 0.0 {
-            true => {
-                0.0
-            }
+            true => 0.0,
             false => {
                 (pnl_returns.total.mean - self.risk_free_return)
                     / pnl_returns.total.dispersion.std_dev
@@ -67,7 +65,7 @@ impl Ratio for SortinoRatio {
         Self {
             risk_free_return,
             trades_per_day: 0.0,
-            sortino_ratio_per_trade: 0.0
+            sortino_ratio_per_trade: 0.0,
         }
     }
 
@@ -87,9 +85,7 @@ impl SortinoRatio {
 
         // Calculate Sortino Ratio Per Trade
         self.sortino_ratio_per_trade = match pnl_returns.losses.dispersion.std_dev == 0.0 {
-            true => {
-                0.0
-            }
+            true => 0.0,
             false => {
                 (pnl_returns.total.mean - self.risk_free_return)
                     / pnl_returns.losses.dispersion.std_dev
@@ -110,7 +106,7 @@ impl Ratio for CalmarRatio {
         Self {
             risk_free_return,
             trades_per_day: 0.0,
-            calmar_ratio_per_trade: 0.0
+            calmar_ratio_per_trade: 0.0,
         }
     }
 
@@ -185,25 +181,30 @@ mod tests {
         // Means    = [0.1, 0.15, 0.2, 0.25, 0.12]
         // Std. Dev = [0.0, 0.05, (1/150).sqrt(), (0.0125).sqrt(), (0.388/5).sqrt()]
         let test_cases = vec![
-            TestCase { // Test case 0: 1st trade, 10% profit
+            TestCase {
+                // Test case 0: 1st trade, 10% profit
                 input_return: sharpe_ratio_input(1, 0.1, 0.0),
-                expected_sharpe: 0.0
+                expected_sharpe: 0.0,
             },
-            TestCase { // Test case 1: 2nd trade, 20% profit
+            TestCase {
+                // Test case 1: 2nd trade, 20% profit
                 input_return: sharpe_ratio_input(2, 0.15, 0.05),
-                expected_sharpe: 3.0
+                expected_sharpe: 3.0,
             },
-            TestCase { // Test case 2: 3rd trade, 30% profit
-                input_return: sharpe_ratio_input(3, 0.2, (1.0_f64/150.0_f64).sqrt()),
-                expected_sharpe: 6.0_f64.sqrt()
+            TestCase {
+                // Test case 2: 3rd trade, 30% profit
+                input_return: sharpe_ratio_input(3, 0.2, (1.0_f64 / 150.0_f64).sqrt()),
+                expected_sharpe: 6.0_f64.sqrt(),
             },
-            TestCase { // Test case 3: 4th trade, 40% profit
+            TestCase {
+                // Test case 3: 4th trade, 40% profit
                 input_return: sharpe_ratio_input(4, 0.25, (0.0125_f64).sqrt()),
-                expected_sharpe: 5.0_f64.sqrt()
+                expected_sharpe: 5.0_f64.sqrt(),
             },
-            TestCase { // Test case 4: 5th trade, -40% profit
-                input_return: sharpe_ratio_input(5, 0.12, (0.388_f64/5.0_f64).sqrt()),
-                expected_sharpe: ((3.0 * 194_f64.sqrt())/97.0)
+            TestCase {
+                // Test case 4: 5th trade, -40% profit
+                input_return: sharpe_ratio_input(5, 0.12, (0.388_f64 / 5.0_f64).sqrt()),
+                expected_sharpe: ((3.0 * 194_f64.sqrt()) / 97.0),
             },
         ];
 
@@ -228,33 +229,40 @@ mod tests {
         // Loss Std. Dev = [0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.12472191]
 
         let test_cases = vec![
-            TestCase { // Test case 0: 1st trade, 10% profit
-                input_return: sortino_update_input(1, 0.1,0.0),
-                expected_sortino: 0.0
+            TestCase {
+                // Test case 0: 1st trade, 10% profit
+                input_return: sortino_update_input(1, 0.1, 0.0),
+                expected_sortino: 0.0,
             },
-            TestCase { // Test case 1: 2nd trade, 20% profit
+            TestCase {
+                // Test case 1: 2nd trade, 20% profit
                 input_return: sortino_update_input(2, 0.15, 0.0),
-                expected_sortino: 0.0
+                expected_sortino: 0.0,
             },
-            TestCase { // Test case 2: 3rd trade, 30% profit
+            TestCase {
+                // Test case 2: 3rd trade, 30% profit
                 input_return: sortino_update_input(3, 0.2, 0.0),
-                expected_sortino: 0.0
+                expected_sortino: 0.0,
             },
-            TestCase { // Test case 3: 4th trade, 40% profit
+            TestCase {
+                // Test case 3: 4th trade, 40% profit
                 input_return: sortino_update_input(4, 0.25, 0.0),
-                expected_sortino: 0.0
+                expected_sortino: 0.0,
             },
-            TestCase { // Test case 4: 5th trade, -40% profit
+            TestCase {
+                // Test case 4: 5th trade, -40% profit
                 input_return: sortino_update_input(5, 0.12, 0.0),
-                expected_sortino: 0.0
+                expected_sortino: 0.0,
             },
-            TestCase { // Test case 5: 6th trade, -60% profit
-                input_return: sortino_update_input(6, 0.0,0.1),
-                expected_sortino: 0.0
+            TestCase {
+                // Test case 5: 6th trade, -60% profit
+                input_return: sortino_update_input(6, 0.0, 0.1),
+                expected_sortino: 0.0,
             },
-            TestCase { // Test case 5: 6th trade, -70% profit
-                input_return: sortino_update_input(7, -0.1,0.12472191),
-                expected_sortino: -0.8017837443
+            TestCase {
+                // Test case 5: 6th trade, -70% profit
+                input_return: sortino_update_input(7, -0.1, 0.12472191),
+                expected_sortino: -0.8017837443,
             },
         ];
 
@@ -280,30 +288,35 @@ mod tests {
         // Equity Points = [1.5, 0.45, 0.81, 1.944, 0.3888] (highest= 1.944, lowest after highest = 0.3888)
         // Max Drawdown  = [0.0, -0.7, -0.7, -0.7, -0.8]
         let test_cases = vec![
-            TestCase { // Test case 0
+            TestCase {
+                // Test case 0
                 input_return: calmar_ratio_returns_input(1, 0.5),
                 input_max_dd: 0.0,
-                expected_calmar: 0.0
+                expected_calmar: 0.0,
             },
-            TestCase { // Test case 1
+            TestCase {
+                // Test case 1
                 input_return: calmar_ratio_returns_input(2, -0.5),
                 input_max_dd: -0.70,
-                expected_calmar: (-0.1/0.7)
+                expected_calmar: (-0.1 / 0.7),
             },
-            TestCase { // Test case 2
+            TestCase {
+                // Test case 2
                 input_return: calmar_ratio_returns_input(3, 0.2),
                 input_max_dd: -0.7,
-                expected_calmar: (0.2/0.7)
+                expected_calmar: (0.2 / 0.7),
             },
-            TestCase { // Test case 3
+            TestCase {
+                // Test case 3
                 input_return: calmar_ratio_returns_input(4, 0.5),
                 input_max_dd: -0.7,
-                expected_calmar: (0.5/0.7)
+                expected_calmar: (0.5 / 0.7),
             },
-            TestCase { // Test case 4
+            TestCase {
+                // Test case 4
                 input_return: calmar_ratio_returns_input(5, 0.24),
                 input_max_dd: -0.8,
-                expected_calmar: (0.24/0.8)
+                expected_calmar: (0.24 / 0.8),
             },
         ];
 
@@ -323,14 +336,46 @@ mod tests {
         }
 
         let test_cases = vec![
-            TestCase { ratio_per_trade: -1.0, trades_per_day: 0.1, expected_daily: -0.31622776601683794 },
-            TestCase { ratio_per_trade: -1.0, trades_per_day: 1.0, expected_daily: -1.0 },
-            TestCase { ratio_per_trade: 0.0, trades_per_day: 0.1, expected_daily: 0.0 },
-            TestCase { ratio_per_trade: 0.0, trades_per_day: 1.0, expected_daily: 0.0 },
-            TestCase { ratio_per_trade: 1.0, trades_per_day: 0.1, expected_daily: 0.31622776601683794 },
-            TestCase { ratio_per_trade: 1.0, trades_per_day: 1.0, expected_daily: 1.0 },
-            TestCase { ratio_per_trade: 100.0, trades_per_day: 0.1, expected_daily: 31.622776601683793 },
-            TestCase { ratio_per_trade: 100.0, trades_per_day: 1.0, expected_daily: 100.0 },
+            TestCase {
+                ratio_per_trade: -1.0,
+                trades_per_day: 0.1,
+                expected_daily: -0.31622776601683794,
+            },
+            TestCase {
+                ratio_per_trade: -1.0,
+                trades_per_day: 1.0,
+                expected_daily: -1.0,
+            },
+            TestCase {
+                ratio_per_trade: 0.0,
+                trades_per_day: 0.1,
+                expected_daily: 0.0,
+            },
+            TestCase {
+                ratio_per_trade: 0.0,
+                trades_per_day: 1.0,
+                expected_daily: 0.0,
+            },
+            TestCase {
+                ratio_per_trade: 1.0,
+                trades_per_day: 0.1,
+                expected_daily: 0.31622776601683794,
+            },
+            TestCase {
+                ratio_per_trade: 1.0,
+                trades_per_day: 1.0,
+                expected_daily: 1.0,
+            },
+            TestCase {
+                ratio_per_trade: 100.0,
+                trades_per_day: 0.1,
+                expected_daily: 31.622776601683793,
+            },
+            TestCase {
+                ratio_per_trade: 100.0,
+                trades_per_day: 1.0,
+                expected_daily: 100.0,
+            },
         ];
 
         for test in test_cases {
@@ -349,18 +394,59 @@ mod tests {
         }
 
         let test_cases = vec![
-            TestCase { ratio_per_trade: -1.0, trades_per_day: 0.1, trading_days: 252, expected_annual: -5.019960159204453 },
-            TestCase { ratio_per_trade: -1.0, trades_per_day: 1.0, trading_days: 365, expected_annual: -19.1049731745428 },
-            TestCase { ratio_per_trade: 0.0, trades_per_day: 0.1, trading_days: 252, expected_annual: 0.0 },
-            TestCase { ratio_per_trade: 0.0, trades_per_day: 1.0, trading_days: 365, expected_annual: 0.0 },
-            TestCase { ratio_per_trade: 1.0, trades_per_day: 0.1, trading_days: 252, expected_annual: 5.019960159204453 },
-            TestCase { ratio_per_trade: 1.0, trades_per_day: 1.0, trading_days: 365, expected_annual: 19.1049731745428 },
-            TestCase { ratio_per_trade: 100.0, trades_per_day: 0.1, trading_days: 252, expected_annual: 501.99601592044536 },
-            TestCase { ratio_per_trade: 100.0, trades_per_day: 1.0, trading_days: 365, expected_annual: 1910.49731745428 },
+            TestCase {
+                ratio_per_trade: -1.0,
+                trades_per_day: 0.1,
+                trading_days: 252,
+                expected_annual: -5.019960159204453,
+            },
+            TestCase {
+                ratio_per_trade: -1.0,
+                trades_per_day: 1.0,
+                trading_days: 365,
+                expected_annual: -19.1049731745428,
+            },
+            TestCase {
+                ratio_per_trade: 0.0,
+                trades_per_day: 0.1,
+                trading_days: 252,
+                expected_annual: 0.0,
+            },
+            TestCase {
+                ratio_per_trade: 0.0,
+                trades_per_day: 1.0,
+                trading_days: 365,
+                expected_annual: 0.0,
+            },
+            TestCase {
+                ratio_per_trade: 1.0,
+                trades_per_day: 0.1,
+                trading_days: 252,
+                expected_annual: 5.019960159204453,
+            },
+            TestCase {
+                ratio_per_trade: 1.0,
+                trades_per_day: 1.0,
+                trading_days: 365,
+                expected_annual: 19.1049731745428,
+            },
+            TestCase {
+                ratio_per_trade: 100.0,
+                trades_per_day: 0.1,
+                trading_days: 252,
+                expected_annual: 501.99601592044536,
+            },
+            TestCase {
+                ratio_per_trade: 100.0,
+                trades_per_day: 1.0,
+                trading_days: 365,
+                expected_annual: 1910.49731745428,
+            },
         ];
 
         for test in test_cases {
-            let actual = calculate_annual(test.ratio_per_trade, test.trades_per_day, test.trading_days);
+            let actual =
+                calculate_annual(test.ratio_per_trade, test.trades_per_day, test.trading_days);
             assert_eq!(actual, test.expected_annual)
         }
     }
