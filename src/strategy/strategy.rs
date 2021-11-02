@@ -23,7 +23,7 @@ impl SignalGenerator for RSIStrategy {
     fn generate_signal(
         &mut self,
         market: &MarketEvent,
-    ) -> Result<Option<SignalEvent>, StrategyError> {
+    ) -> Option<SignalEvent> {
         // Calculate the next RSI value using the new MarketEvent.Bar data
         let rsi = self.rsi.next(&market.candle);
 
@@ -32,10 +32,10 @@ impl SignalGenerator for RSIStrategy {
 
         // If signals map is empty, return no SignalEvent
         if signals.is_empty() {
-            return Ok(None);
+            return None;
         }
 
-        Ok(Some(SignalEvent {
+        Some(SignalEvent {
             event_type: SignalEvent::EVENT_TYPE,
             trace_id: market.trace_id,
             timestamp: Utc::now(),
@@ -46,7 +46,7 @@ impl SignalGenerator for RSIStrategy {
                 timestamp: market.candle.timestamp,
             },
             signals,
-        }))
+        })
     }
 }
 
