@@ -1,6 +1,6 @@
 use crate::portfolio::position::{Direction, Position};
 use crate::statistic::summary::data::DataSummary;
-use crate::statistic::summary::trading::{PositionSummariser, TablePrinter};
+use crate::statistic::summary::{PositionSummariser, TablePrinter};
 use chrono::{DateTime, Duration, Utc};
 use prettytable::{Row, Table};
 use serde::{Deserialize, Serialize};
