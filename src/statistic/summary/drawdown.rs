@@ -1,6 +1,6 @@
-use crate::statistic::metric::drawdown::{Drawdown, AvgDrawdown, MaxDrawdown};
-use crate::statistic::summary::trading::{PositionSummariser, TablePrinter};
 use crate::portfolio::position::Position;
+use crate::statistic::metric::drawdown::{AvgDrawdown, Drawdown, MaxDrawdown};
+use crate::statistic::summary::trading::{PositionSummariser, TablePrinter};
 use prettytable::{Row, Table};
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
@@ -30,11 +30,17 @@ impl TablePrinter for DrawdownSummary {
     fn print(&self) {
         let mut drawdown_summary = Table::new();
 
-        let titles = vec!["",
-            "Count", "Max Drawdown", "Max Drawdown Days", "Avg. Drawdown", "Avg. Drawdown Days",
+        let titles = vec![
+            "",
+            "Count",
+            "Max Drawdown",
+            "Max Drawdown Days",
+            "Avg. Drawdown",
+            "Avg. Drawdown Days",
         ];
 
-        drawdown_summary.add_row(row!["Total",
+        drawdown_summary.add_row(row![
+            "Total",
             self.avg_drawdown.count,
             format!("{:.3}", self.max_drawdown.drawdown.drawdown),
             self.max_drawdown.drawdown.duration.num_days().to_string(),

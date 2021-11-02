@@ -1,9 +1,9 @@
-use uuid::Uuid;
-use chrono::{DateTime, Utc, NaiveDateTime, NaiveDate};
-use ta::{Open, High, Low, Close, Volume};
-use serde::{Deserialize, Deserializer, Serialize};
-use serde::de::Error;
 use crate::data::error::DataError;
+use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
+use serde::de::Error;
+use serde::{Deserialize, Deserializer, Serialize};
+use ta::{Close, High, Low, Open, Volume};
+use uuid::Uuid;
 
 /// Market data & related metadata produced by a data::handler implementation for the Strategy
 /// & Portfolio to interpret.
@@ -284,8 +284,8 @@ impl Default for MarketMeta {
 
 /// Parse supported timestamp strings to a Chrono [Datetime] UTC timestamp.
 fn datetime_utc_parser<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
-    where
-        D: Deserializer<'de>,
+where
+    D: Deserializer<'de>,
 {
     let input: &str = Deserialize::deserialize(deserializer)?;
 
@@ -295,7 +295,7 @@ fn datetime_utc_parser<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Erro
         Err(_) => None,
     };
     if let Some(datetime_fixed) = datetime_fixed {
-        return Ok(DateTime::<Utc>::from(datetime_fixed))
+        return Ok(DateTime::<Utc>::from(datetime_fixed));
     }
 
     // If input &str is a NaiveDateTime
@@ -320,7 +320,6 @@ fn datetime_utc_parser<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Erro
         "Timestamp format not supported by deserializer",
     ))
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -350,7 +349,9 @@ mod tests {
 
     #[test]
     fn test_bar_builder_validation() {
-        fn assert_valid((timestamp, open, high, low, close, volume): (DateTime<Utc>, f64, f64, f64, f64, f64)) {
+        fn assert_valid(
+            (timestamp, open, high, low, close, volume): (DateTime<Utc>, f64, f64, f64, f64, f64),
+        ) {
             let result = Bar::builder()
                 .timestamp(timestamp)
                 .open(open)
@@ -362,7 +363,9 @@ mod tests {
             assert!(result.is_ok())
         }
 
-        fn assert_invalid((timestamp, open, high, low, close, volume): (DateTime<Utc>, f64, f64, f64, f64, f64)) {
+        fn assert_invalid(
+            (timestamp, open, high, low, close, volume): (DateTime<Utc>, f64, f64, f64, f64, f64),
+        ) {
             let result = Bar::builder()
                 .timestamp(timestamp)
                 .open(open)

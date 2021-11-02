@@ -187,4 +187,5 @@ pub mod event;
 /// several key metrics such as Sharpe Ratio, Calmar Ratio, CAGR, and Max Drawdown.
 pub mod statistic;
 
-#[macro_use] extern crate prettytable;
+#[macro_use]
+extern crate prettytable;

@@ -1,9 +1,9 @@
-use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
-use crate::strategy::error::StrategyError;
 use crate::data::market::MarketMeta;
+use crate::strategy::error::StrategyError;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use uuid::Uuid;
 
 /// Signal data produced by the strategy containing advisory signals for the portfolio to interpret.
 #[derive(Debug, Serialize, Deserialize)]
