@@ -1,15 +1,19 @@
 use crate::data::market::MarketEvent;
-use crate::strategy::signal::{SignalEvent, Decision, SignalStrength};
 use crate::execution::fill::FillEvent;
-use crate::portfolio::order::{OrderEvent, OrderType};
-use crate::portfolio::error::PortfolioError;
-use crate::portfolio::repository::redis::{PositionHandler, ValueHandler, CashHandler, determine_position_id};
-use uuid::Uuid;
-use crate::portfolio::risk::{DefaultRisk, OrderEvaluator};
 use crate::portfolio::allocator::{DefaultAllocator, OrderAllocator};
-use crate::portfolio::position::{PositionUpdater, PositionExiter, Position, PositionEnterer, Direction};
+use crate::portfolio::error::PortfolioError;
+use crate::portfolio::order::{OrderEvent, OrderType};
+use crate::portfolio::position::{
+    Direction, Position, PositionEnterer, PositionExiter, PositionUpdater,
+};
+use crate::portfolio::repository::redis::{
+    determine_position_id, CashHandler, PositionHandler, ValueHandler,
+};
+use crate::portfolio::risk::{DefaultRisk, OrderEvaluator};
+use crate::strategy::signal::{Decision, SignalEvent, SignalStrength};
 use chrono::Utc;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 /// Updates the Portfolio from an input [MarketEvent].
 pub trait MarketUpdater {
@@ -21,7 +25,10 @@ pub trait MarketUpdater {
 /// May generate an [OrderEvent] from an input advisory [SignalEvent].
 pub trait OrderGenerator {
     /// May generate an [OrderEvent] after analysing an input advisory [SignalEvent].
-    fn generate_order(&mut self, signal: &SignalEvent) -> Result<Option<OrderEvent>, PortfolioError>;
+    fn generate_order(
+        &mut self,
+        signal: &SignalEvent,
+    ) -> Result<Option<OrderEvent>, PortfolioError>;
 }
 
 /// Updates the Portfolio from an input [FillEvent].
@@ -44,7 +51,10 @@ pub struct Components {
 /// and [FillUpdater]. The Portfolio analyses an advisory [SignalEvent] from a Strategy and decides
 /// whether to place a corresponding [OrderEvent]. If a [Position] is opened, the Portfolio keeps
 /// track the it's state, as well as it's own.
-pub struct MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+pub struct MetaPortfolio<T>
+where
+    T: PositionHandler + ValueHandler + CashHandler,
+{
     /// Unique ID for the [MetaPortfolio].
     pub id: Uuid,
     /// Starting cash for the Portfolio, used to persist the initial state to the repository.
@@ -58,14 +68,16 @@ pub struct MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandle
     risk_manager: DefaultRisk,
 }
 
-impl<T> MarketUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+impl<T> MarketUpdater for MetaPortfolio<T>
+where
+    T: PositionHandler + ValueHandler + CashHandler,
+{
     fn update_from_market(&mut self, market: &MarketEvent) -> Result<(), PortfolioError> {
         // Determine the position_id & associated Option<Position> related to the input MarketEvent
         let position_id = determine_position_id(&self.id, &market.exchange, &market.symbol);
 
         // If Portfolio contains an open Position for the MarketEvent Symbol-Exchange combination
         if let Some(mut position) = self.repository.get_position(&position_id)? {
-
             // Update Position
             position.update(market);
             self.repository.set_position(&self.id, position)?;
@@ -75,8 +87,14 @@ impl<T> MarketUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandl
     }
 }
 
-impl<T> OrderGenerator for MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
-    fn generate_order(&mut self, signal: &SignalEvent) -> Result<Option<OrderEvent>, PortfolioError> {
+impl<T> OrderGenerator for MetaPortfolio<T>
+where
+    T: PositionHandler + ValueHandler + CashHandler,
+{
+    fn generate_order(
+        &mut self,
+        signal: &SignalEvent,
+    ) -> Result<Option<OrderEvent>, PortfolioError> {
         // Determine the position_id & associated Option<Position> related to input SignalEvent
         let position_id = determine_position_id(&self.id, &signal.exchange, &signal.symbol);
 
@@ -103,7 +121,7 @@ impl<T> OrderGenerator for MetaPortfolio<T> where T: PositionHandler + ValueHand
             market_meta: signal.market_meta.clone(),
             decision: signal_decision.clone(),
             quantity: 0.0,
-            order_type: OrderType::default()
+            order_type: OrderType::default(),
         };
 
         // OrderEvent size allocation
@@ -116,9 +134,11 @@ impl<T> OrderGenerator for MetaPortfolio<T> where T: PositionHandler + ValueHand
     }
 }
 
-impl<T> FillUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+impl<T> FillUpdater for MetaPortfolio<T>
+where
+    T: PositionHandler + ValueHandler + CashHandler,
+{
     fn update_from_fill(&mut self, fill: &FillEvent) -> Result<(), PortfolioError> {
-
         // Get the Portfolio Cash from Repository
         let mut current_cash = self.repository.get_current_cash(&self.id)?;
 
@@ -127,7 +147,6 @@ impl<T> FillUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler
 
         // EXIT SCENARIO - FillEvent for Symbol-Exchange with open Position
         if let Some(mut position) = self.repository.remove_position(&position_id)? {
-
             // Get the Portfolio Value from the Repository
             let mut current_value = self.repository.get_current_value(&self.id)?;
 
@@ -135,7 +154,9 @@ impl<T> FillUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler
             position.exit(current_value, fill)?;
 
             // Update Portfolio cash on exit - enter_total_fees added since included in result PnL calc
-            current_cash += position.enter_value_gross + position.result_profit_loss + position.enter_fees_total;
+            current_cash += position.enter_value_gross
+                + position.result_profit_loss
+                + position.enter_fees_total;
 
             // Update Portfolio value after exit & persist in Repository
             current_value += position.result_profit_loss;
@@ -144,7 +165,6 @@ impl<T> FillUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler
             self.repository.set_closed_position(&self.id, position)?;
             self.repository.set_current_value(&self.id, current_value)?;
         }
-
         // ENTRY SCENARIO - FillEvent for Symbol-Exchange with no Position
         else {
             let position = Position::enter(&fill)?;
@@ -163,7 +183,10 @@ impl<T> FillUpdater for MetaPortfolio<T> where T: PositionHandler + ValueHandler
     }
 }
 
-impl<T> MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
+impl<T> MetaPortfolio<T>
+where
+    T: PositionHandler + ValueHandler + CashHandler,
+{
     /// Constructs a new [MetaPortfolio] component using the provided [Components] struct.
     pub fn new(components: Components, repository: T) -> Self {
         Self {
@@ -182,13 +205,18 @@ impl<T> MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
 
     /// Persist the initial [MetaPortfolio] state in the Repository.
     pub fn initialise(&mut self) -> Result<(), PortfolioError> {
-        self.repository.set_current_cash(&self.id, self.starting_cash)?;
-        self.repository.set_current_value(&self.id, self.starting_cash)?;
+        self.repository
+            .set_current_cash(&self.id, self.starting_cash)?;
+        self.repository
+            .set_current_value(&self.id, self.starting_cash)?;
         Ok(())
     }
 
     /// Determines if the Portfolio has any cash to enter a new [Position].
-    fn no_cash_to_enter_new_position(&mut self, position: &Option<&Position>) -> Result<bool, PortfolioError> {
+    fn no_cash_to_enter_new_position(
+        &mut self,
+        position: &Option<&Position>,
+    ) -> Result<bool, PortfolioError> {
         let current_cash = self.repository.get_current_cash(&self.id)?;
         Ok(position.is_none() && current_cash == 0.0)
     }
@@ -196,7 +224,10 @@ impl<T> MetaPortfolio<T> where T: PositionHandler + ValueHandler + CashHandler {
 
 /// Builder to construct [MetaPortfolio] instances.
 #[derive(Debug, Default)]
-pub struct MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHandler {
+pub struct MetaPortfolioBuilder<T>
+where
+    T: PositionHandler + ValueHandler + CashHandler,
+{
     id: Option<Uuid>,
     starting_cash: Option<f64>,
     repository: Option<T>,
@@ -204,14 +235,17 @@ pub struct MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + Cas
     risk_manager: Option<DefaultRisk>,
 }
 
-impl<T> MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHandler {
+impl<T> MetaPortfolioBuilder<T>
+where
+    T: PositionHandler + ValueHandler + CashHandler,
+{
     pub fn new() -> Self {
         Self {
             id: None,
             starting_cash: None,
             repository: None,
             allocation_manager: None,
-            risk_manager: None
+            risk_manager: None,
         }
     }
 
@@ -252,9 +286,13 @@ impl<T> MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHa
 
     pub fn build(self) -> Result<MetaPortfolio<T>, PortfolioError> {
         let id = self.id.ok_or(PortfolioError::BuilderIncomplete)?;
-        let starting_cash = self.starting_cash.ok_or(PortfolioError::BuilderIncomplete)?;
+        let starting_cash = self
+            .starting_cash
+            .ok_or(PortfolioError::BuilderIncomplete)?;
         let repository = self.repository.ok_or(PortfolioError::BuilderIncomplete)?;
-        let allocation_manager = self.allocation_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+        let allocation_manager = self
+            .allocation_manager
+            .ok_or(PortfolioError::BuilderIncomplete)?;
         let risk_manager = self.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?;
 
         Ok(MetaPortfolio {
@@ -268,9 +306,13 @@ impl<T> MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHa
 
     pub fn build_and_init(self) -> Result<MetaPortfolio<T>, PortfolioError> {
         let id = self.id.ok_or(PortfolioError::BuilderIncomplete)?;
-        let starting_cash = self.starting_cash.ok_or(PortfolioError::BuilderIncomplete)?;
+        let starting_cash = self
+            .starting_cash
+            .ok_or(PortfolioError::BuilderIncomplete)?;
         let repository = self.repository.ok_or(PortfolioError::BuilderIncomplete)?;
-        let allocation_manager = self.allocation_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+        let allocation_manager = self
+            .allocation_manager
+            .ok_or(PortfolioError::BuilderIncomplete)?;
         let risk_manager = self.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?;
 
         let mut portfolio = MetaPortfolio {
@@ -288,7 +330,10 @@ impl<T> MetaPortfolioBuilder<T> where T: PositionHandler + ValueHandler + CashHa
 
 /// Parses an incoming [SignalEvent]'s signals map. Determines what the net signal [Decision] will
 /// be, and it's associated [SignalStrength].
-pub fn parse_signal_decisions<'a>(position: &'a Option<&Position>, signals: &'a HashMap<Decision, SignalStrength>) -> Option<(&'a Decision, &'a SignalStrength)> {
+pub fn parse_signal_decisions<'a>(
+    position: &'a Option<&Position>,
+    signals: &'a HashMap<Decision, SignalStrength>,
+) -> Option<(&'a Decision, &'a SignalStrength)> {
     // Determine the presence of signals in the provided signals HashMap
     let signal_close_long = signals.get_key_value(&Decision::CloseLong);
     let signal_long = signals.get_key_value(&Decision::Long);
@@ -301,7 +346,7 @@ pub fn parse_signal_decisions<'a>(position: &'a Option<&Position>, signals: &'a 
             Direction::Long if signal_close_long.is_some() => signal_close_long,
             Direction::Short if signal_close_short.is_some() => signal_close_short,
             _ => None,
-        }
+        };
     }
 
     // Else check for net open signals
@@ -315,20 +360,25 @@ pub fn parse_signal_decisions<'a>(position: &'a Option<&Position>, signals: &'a 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::portfolio::repository::error::RepositoryError;
-    use crate::portfolio::position::PositionBuilder;
     use crate::execution::fill::Fees;
+    use crate::portfolio::position::PositionBuilder;
+    use crate::portfolio::repository::error::RepositoryError;
 
     #[derive(Default)]
     struct MockRepository {
-        set_position: Option<fn(portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>>,
+        set_position:
+            Option<fn(portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>>,
         get_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
-        remove_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
-        set_closed_position: Option<fn(portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>>,
-        get_closed_positions: Option<fn(portfolio_id: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError>>,
-        set_current_value: Option<fn(portfolio_id: &Uuid, value: f64)  -> Result<(), RepositoryError>>,
+        remove_position:
+            Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
+        set_closed_position:
+            Option<fn(portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>>,
+        get_closed_positions:
+            Option<fn(portfolio_id: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError>>,
+        set_current_value:
+            Option<fn(portfolio_id: &Uuid, value: f64) -> Result<(), RepositoryError>>,
         get_current_value: Option<fn(portfolio_id: &Uuid) -> Result<f64, RepositoryError>>,
-        set_current_cash: Option<fn(portfolio_id: &Uuid, cash: f64)  -> Result<(), RepositoryError>>,
+        set_current_cash: Option<fn(portfolio_id: &Uuid, cash: f64) -> Result<(), RepositoryError>>,
         get_current_cash: Option<fn(portfolio_id: &Uuid) -> Result<f64, RepositoryError>>,
         position: Option<PositionBuilder>,
         value: Option<f64>,
@@ -336,41 +386,64 @@ mod tests {
     }
 
     impl PositionHandler for MockRepository {
-        fn set_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
-            self.position = Some(Position::builder()
-                .direction(position.direction.clone())
-                .current_symbol_price(position.current_symbol_price)
-                .current_value_gross(position.current_value_gross)
-                .enter_fees_total(position.enter_fees_total)
-                .enter_value_gross(position.enter_value_gross)
-                .enter_avg_price_gross(position.enter_avg_price_gross)
-                .exit_fees_total(position.exit_fees_total)
-                .exit_value_gross(position.exit_value_gross)
-                .exit_avg_price_gross(position.exit_avg_price_gross)
-                .unreal_profit_loss(position.unreal_profit_loss)
-                .result_profit_loss(position.result_profit_loss));
+        fn set_position(
+            &mut self,
+            portfolio_id: &Uuid,
+            position: Position,
+        ) -> Result<(), RepositoryError> {
+            self.position = Some(
+                Position::builder()
+                    .direction(position.direction.clone())
+                    .current_symbol_price(position.current_symbol_price)
+                    .current_value_gross(position.current_value_gross)
+                    .enter_fees_total(position.enter_fees_total)
+                    .enter_value_gross(position.enter_value_gross)
+                    .enter_avg_price_gross(position.enter_avg_price_gross)
+                    .exit_fees_total(position.exit_fees_total)
+                    .exit_value_gross(position.exit_value_gross)
+                    .exit_avg_price_gross(position.exit_avg_price_gross)
+                    .unreal_profit_loss(position.unreal_profit_loss)
+                    .result_profit_loss(position.result_profit_loss),
+            );
             self.set_position.unwrap()(portfolio_id, position)
         }
 
-        fn get_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError> {
+        fn get_position(
+            &mut self,
+            position_id: &String,
+        ) -> Result<Option<Position>, RepositoryError> {
             self.get_position.unwrap()(position_id)
         }
 
-        fn remove_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError> {
+        fn remove_position(
+            &mut self,
+            position_id: &String,
+        ) -> Result<Option<Position>, RepositoryError> {
             self.remove_position.unwrap()(position_id)
         }
 
-        fn set_closed_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
+        fn set_closed_position(
+            &mut self,
+            portfolio_id: &Uuid,
+            position: Position,
+        ) -> Result<(), RepositoryError> {
             self.set_closed_position.unwrap()(portfolio_id, position)
         }
 
-        fn get_closed_positions(&mut self, portfolio_id: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError> {
+        fn get_closed_positions(
+            &mut self,
+            portfolio_id: &Uuid,
+        ) -> Result<Option<Vec<Position>>, RepositoryError> {
             self.get_closed_positions.unwrap()(portfolio_id)
         }
     }
 
     impl ValueHandler for MockRepository {
-        fn set_current_value(&mut self, portfolio_id: &Uuid, value: f64) -> Result<(), RepositoryError> {
+        fn set_current_value(
+            &mut self,
+            portfolio_id: &Uuid,
+            value: f64,
+        ) -> Result<(), RepositoryError> {
             self.value = Some(value);
             self.set_current_value.unwrap()(portfolio_id, value)
         }
@@ -381,7 +454,11 @@ mod tests {
     }
 
     impl CashHandler for MockRepository {
-        fn set_current_cash(&mut self, portfolio_id: &Uuid, cash: f64) -> Result<(), RepositoryError> {
+        fn set_current_cash(
+            &mut self,
+            portfolio_id: &Uuid,
+            cash: f64,
+        ) -> Result<(), RepositoryError> {
             self.cash = Some(cash);
             self.set_current_cash.unwrap()(portfolio_id, cash)
         }
@@ -392,13 +469,17 @@ mod tests {
     }
 
     fn build_mocked_portfolio<T>(mock_repository: T) -> Result<MetaPortfolio<T>, PortfolioError>
-        where T: PositionHandler + ValueHandler + CashHandler {
+    where
+        T: PositionHandler + ValueHandler + CashHandler,
+    {
         MetaPortfolio::builder()
             .id(Uuid::new_v4())
             .starting_cash(1000.0)
             .repository(mock_repository)
-            .allocation_manager(DefaultAllocator{ default_order_value: 100.0 })
-            .risk_manager(DefaultRisk{})
+            .allocation_manager(DefaultAllocator {
+                default_order_value: 100.0,
+            })
+            .risk_manager(DefaultRisk {})
             .build()
     }
 
@@ -406,8 +487,8 @@ mod tests {
     fn update_from_market_with_long_position_increasing_in_value() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_position = Some(|_| {Ok(
-            Some({
+        mock_repository.get_position = Some(|_| {
+            Ok(Some({
                 let mut input_position = Position::default();
                 input_position.direction = Direction::Long;
                 input_position.quantity = 1.0;
@@ -416,8 +497,8 @@ mod tests {
                 input_position.current_value_gross = 100.0;
                 input_position.unreal_profit_loss = -3.0; // -3.0 from entry fees
                 input_position
-            })
-        )});
+            }))
+        });
         mock_repository.set_position = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
@@ -432,15 +513,18 @@ mod tests {
         assert_eq!(updated_position.current_symbol_price.unwrap(), 200.0);
         assert_eq!(updated_position.current_value_gross.unwrap(), 200.0);
         // Unreal PnL Long = current_value_gross - enter_value_gross - enter_fees_total*2
-        assert_eq!(updated_position.unreal_profit_loss.unwrap(), 200.0 - 100.0 - 6.0);
+        assert_eq!(
+            updated_position.unreal_profit_loss.unwrap(),
+            200.0 - 100.0 - 6.0
+        );
     }
 
     #[test]
     fn update_from_market_with_long_position_decreasing_in_value() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_position = Some(|_| {Ok(
-            Some({
+        mock_repository.get_position = Some(|_| {
+            Ok(Some({
                 let mut input_position = Position::default();
                 input_position.direction = Direction::Long;
                 input_position.quantity = 1.0;
@@ -449,8 +533,8 @@ mod tests {
                 input_position.current_value_gross = 100.0;
                 input_position.unreal_profit_loss = -3.0; // -3.0 from entry fees
                 input_position
-            })
-        )});
+            }))
+        });
         mock_repository.set_position = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
@@ -465,15 +549,18 @@ mod tests {
         assert_eq!(updated_position.current_symbol_price.unwrap(), 50.0);
         assert_eq!(updated_position.current_value_gross.unwrap(), 50.0);
         // Unreal PnL Long = current_value_gross - enter_value_gross - enter_fees_total*2
-        assert_eq!(updated_position.unreal_profit_loss.unwrap(), 50.0 - 100.0 - 6.0);
+        assert_eq!(
+            updated_position.unreal_profit_loss.unwrap(),
+            50.0 - 100.0 - 6.0
+        );
     }
 
     #[test]
     fn update_from_market_with_short_position_increasing_in_value() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_position = Some(|_| {Ok(
-            Some({
+        mock_repository.get_position = Some(|_| {
+            Ok(Some({
                 let mut input_position = Position::default();
                 input_position.direction = Direction::Short;
                 input_position.quantity = -1.0;
@@ -482,8 +569,8 @@ mod tests {
                 input_position.current_value_gross = 100.0;
                 input_position.unreal_profit_loss = -3.0; // -3.0 from entry fees
                 input_position
-            })
-        )});
+            }))
+        });
         mock_repository.set_position = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
@@ -498,15 +585,18 @@ mod tests {
         assert_eq!(updated_position.current_symbol_price.unwrap(), 50.0);
         assert_eq!(updated_position.current_value_gross.unwrap(), 50.0);
         // Unreal PnL Short = enter_value_gross - current_value_gross - enter_fees_total*2
-        assert_eq!(updated_position.unreal_profit_loss.unwrap(), 100.0 - 50.0 - 6.0);
+        assert_eq!(
+            updated_position.unreal_profit_loss.unwrap(),
+            100.0 - 50.0 - 6.0
+        );
     }
 
     #[test]
     fn update_from_market_with_short_position_decreasing_in_value() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_position = Some(|_| {Ok(
-            Some({
+        mock_repository.get_position = Some(|_| {
+            Ok(Some({
                 let mut input_position = Position::default();
                 input_position.direction = Direction::Short;
                 input_position.quantity = -1.0;
@@ -515,8 +605,8 @@ mod tests {
                 input_position.current_value_gross = 100.0;
                 input_position.unreal_profit_loss = -3.0; // -3.0 from entry fees
                 input_position
-            })
-        )});
+            }))
+        });
         mock_repository.set_position = Some(|_, _| Ok(()));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
@@ -531,7 +621,10 @@ mod tests {
         assert_eq!(updated_position.current_symbol_price.unwrap(), 200.0);
         assert_eq!(updated_position.current_value_gross.unwrap(), 200.0);
         // Unreal PnL Short = enter_value_gross - current_value_gross - enter_fees_total*2
-        assert_eq!(updated_position.unreal_profit_loss.unwrap(), 100.0 - 200.0 - 6.0);
+        assert_eq!(
+            updated_position.unreal_profit_loss.unwrap(),
+            100.0 - 200.0 - 6.0
+        );
     }
 
     #[test]
@@ -604,13 +697,13 @@ mod tests {
     fn generate_order_close_long_with_long_position_and_input_net_close_long_signal() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_position = Some(|_| {Ok(
-            Some({
+        mock_repository.get_position = Some(|_| {
+            Ok(Some({
                 let mut position = Position::default();
                 position.direction = Direction::Long;
                 position
-            })
-        )});
+            }))
+        });
         mock_repository.get_current_cash = Some(|_| Ok(100.0));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
@@ -627,13 +720,13 @@ mod tests {
     fn generate_order_close_short_with_short_position_and_input_net_close_short_signal() {
         // Build Portfolio
         let mut mock_repository = MockRepository::default();
-        mock_repository.get_position = Some(|_| {Ok(
-            Some({
+        mock_repository.get_position = Some(|_| {
+            Ok(Some({
                 let mut position = Position::default();
                 position.direction = Direction::Short;
                 position
-            })
-        )});
+            }))
+        });
         mock_repository.get_current_cash = Some(|_| Ok(100.0));
         let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
 
@@ -666,7 +759,7 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         let result = portfolio.update_from_fill(&input_fill);
@@ -701,7 +794,7 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         let result = portfolio.update_from_fill(&input_fill);
@@ -722,16 +815,18 @@ mod tests {
         let mut mock_repository = MockRepository::default();
         mock_repository.get_current_cash = Some(|_| Ok(97.0));
         mock_repository.get_current_value = Some(|_| Ok(200.0));
-        mock_repository.remove_position = Some(|_| {Ok({
-            Some({
-                let mut input_position = Position::default();
-                input_position.direction = Direction::Long;
-                input_position.quantity = 1.0;
-                input_position.enter_fees_total = 3.0;
-                input_position.enter_value_gross = 100.0;
-                input_position
+        mock_repository.remove_position = Some(|_| {
+            Ok({
+                Some({
+                    let mut input_position = Position::default();
+                    input_position.direction = Direction::Long;
+                    input_position.quantity = 1.0;
+                    input_position.enter_fees_total = 3.0;
+                    input_position.enter_value_gross = 100.0;
+                    input_position
+                })
             })
-        })});
+        });
         mock_repository.set_closed_position = Some(|_, _| Ok(()));
         mock_repository.set_current_value = Some(|_, _| Ok(()));
         mock_repository.set_current_cash = Some(|_, _| Ok(()));
@@ -745,7 +840,7 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         let result = portfolio.update_from_fill(&input_fill);
@@ -767,16 +862,18 @@ mod tests {
         let mut mock_repository = MockRepository::default();
         mock_repository.get_current_cash = Some(|_| Ok(97.0));
         mock_repository.get_current_value = Some(|_| Ok(200.0));
-        mock_repository.remove_position = Some(|_| {Ok({
-            Some({
-                let mut input_position = Position::default();
-                input_position.direction = Direction::Long;
-                input_position.quantity = 1.0;
-                input_position.enter_fees_total = 3.0;
-                input_position.enter_value_gross = 100.0;
-                input_position
+        mock_repository.remove_position = Some(|_| {
+            Ok({
+                Some({
+                    let mut input_position = Position::default();
+                    input_position.direction = Direction::Long;
+                    input_position.quantity = 1.0;
+                    input_position.enter_fees_total = 3.0;
+                    input_position.enter_value_gross = 100.0;
+                    input_position
+                })
             })
-        })});
+        });
         mock_repository.set_closed_position = Some(|_, _| Ok(()));
         mock_repository.set_current_value = Some(|_, _| Ok(()));
         mock_repository.set_current_cash = Some(|_, _| Ok(()));
@@ -790,7 +887,7 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         let result = portfolio.update_from_fill(&input_fill);
@@ -812,16 +909,18 @@ mod tests {
         let mut mock_repository = MockRepository::default();
         mock_repository.get_current_cash = Some(|_| Ok(97.0));
         mock_repository.get_current_value = Some(|_| Ok(200.0));
-        mock_repository.remove_position = Some(|_| {Ok({
-            Some({
-                let mut input_position = Position::default();
-                input_position.direction = Direction::Short;
-                input_position.quantity = -1.0;
-                input_position.enter_fees_total = 3.0;
-                input_position.enter_value_gross = 100.0;
-                input_position
+        mock_repository.remove_position = Some(|_| {
+            Ok({
+                Some({
+                    let mut input_position = Position::default();
+                    input_position.direction = Direction::Short;
+                    input_position.quantity = -1.0;
+                    input_position.enter_fees_total = 3.0;
+                    input_position.enter_value_gross = 100.0;
+                    input_position
+                })
             })
-        })});
+        });
         mock_repository.set_closed_position = Some(|_, _| Ok(()));
         mock_repository.set_current_value = Some(|_, _| Ok(()));
         mock_repository.set_current_cash = Some(|_, _| Ok(()));
@@ -835,7 +934,7 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         let result = portfolio.update_from_fill(&input_fill);
@@ -857,16 +956,18 @@ mod tests {
         let mut mock_repository = MockRepository::default();
         mock_repository.get_current_cash = Some(|_| Ok(97.0));
         mock_repository.get_current_value = Some(|_| Ok(200.0));
-        mock_repository.remove_position = Some(|_| {Ok({
-            Some({
-                let mut input_position = Position::default();
-                input_position.direction = Direction::Short;
-                input_position.quantity = -1.0;
-                input_position.enter_fees_total = 3.0;
-                input_position.enter_value_gross = 100.0;
-                input_position
+        mock_repository.remove_position = Some(|_| {
+            Ok({
+                Some({
+                    let mut input_position = Position::default();
+                    input_position.direction = Direction::Short;
+                    input_position.quantity = -1.0;
+                    input_position.enter_fees_total = 3.0;
+                    input_position.enter_value_gross = 100.0;
+                    input_position
+                })
             })
-        })});
+        });
         mock_repository.set_closed_position = Some(|_, _| Ok(()));
         mock_repository.set_current_value = Some(|_, _| Ok(()));
         mock_repository.set_current_cash = Some(|_, _| Ok(()));
@@ -880,7 +981,7 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         let result = portfolio.update_from_fill(&input_fill);

@@ -1,10 +1,10 @@
-use crate::data::market::{MarketEvent, Bar};
+use crate::data::market::{Bar, MarketEvent};
 
+use crate::data::error::DataError;
+use chrono::Utc;
+use serde::Deserialize;
 use std::vec::IntoIter;
 use uuid::Uuid;
-use serde::Deserialize;
-use chrono::Utc;
-use crate::data::error::DataError;
 
 /// Determines if a process should continue.
 pub trait Continuer {
@@ -82,7 +82,10 @@ impl HistoricDataHandler {
 
 /// Builds a URI using the provided Configuration struct that points to a symbol data file.
 pub fn build_symbol_data_file_path(config: &Config) -> String {
-    format!("{}{}_{}.{}", config.data_directory, config.symbol, config.timeframe, config.file_type)
+    format!(
+        "{}{}_{}.{}",
+        config.data_directory, config.symbol, config.timeframe, config.file_type
+    )
 }
 
 /// Loads symbol data into a vector of [Bar] from the provided file URI.
@@ -201,12 +204,10 @@ mod tests {
             .build()
             .unwrap();
 
-        assert!(
-            match data_handler.generate_market() {
-                Ok(_) => false,
-                Err(_) => true,
-            }
-        );
+        assert!(match data_handler.generate_market() {
+            Ok(_) => false,
+            Err(_) => true,
+        });
     }
 
     #[test]
@@ -221,12 +222,10 @@ mod tests {
             .build()
             .unwrap();
 
-        assert!(
-            match data_handler.generate_market() {
-                Ok(_) => true,
-                Err(_) => false,
-            }
-        );
+        assert!(match data_handler.generate_market() {
+            Ok(_) => true,
+            Err(_) => false,
+        });
     }
 
     #[test]
@@ -236,7 +235,7 @@ mod tests {
             file_type: "type".to_string(),
             exchange: "exchange".to_string(),
             symbol: "symbol".to_string(),
-            timeframe: "timeframe".to_string()
+            timeframe: "timeframe".to_string(),
         };
 
         let actual = build_symbol_data_file_path(&input_config);

@@ -1,9 +1,9 @@
-use crate::execution::error::ExecutionError;
-use uuid::Uuid;
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
-use crate::strategy::signal::Decision;
 use crate::data::market::MarketMeta;
+use crate::execution::error::ExecutionError;
+use crate::strategy::signal::Decision;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Fills are journals of work done by an execution handler. These are sent back to the portfolio
 /// so it can apply updates.
@@ -14,10 +14,10 @@ pub struct FillEvent {
     pub timestamp: DateTime<Utc>,
     pub exchange: String,
     pub symbol: String,
-    pub market_meta: MarketMeta,    // Metadata propagated from source MarketEvent
-    pub decision: Decision,         // LONG, CloseLong, SHORT or CloseShort
-    pub quantity: f64,              // +ve or -ve Quantity depending on Decision
-    pub fill_value_gross: f64,      // abs(Quantity) * ClosePrice, excluding TotalFees
+    pub market_meta: MarketMeta, // Metadata propagated from source MarketEvent
+    pub decision: Decision,      // LONG, CloseLong, SHORT or CloseShort
+    pub quantity: f64,           // +ve or -ve Quantity depending on Decision
+    pub fill_value_gross: f64,   // abs(Quantity) * ClosePrice, excluding TotalFees
     pub fees: Fees,
 }
 
@@ -158,7 +158,9 @@ impl FillEventBuilder {
         let market_meta = self.market_meta.ok_or(ExecutionError::BuilderIncomplete)?;
         let decision = self.decision.ok_or(ExecutionError::BuilderIncomplete)?;
         let quantity = self.quantity.ok_or(ExecutionError::BuilderIncomplete)?;
-        let fill_value_gross = self.fill_value_gross.ok_or(ExecutionError::BuilderIncomplete)?;
+        let fill_value_gross = self
+            .fill_value_gross
+            .ok_or(ExecutionError::BuilderIncomplete)?;
         let fees = self.fees.ok_or(ExecutionError::BuilderIncomplete)?;
 
         Ok(FillEvent {
