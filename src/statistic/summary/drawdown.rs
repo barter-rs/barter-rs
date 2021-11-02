@@ -1,6 +1,6 @@
 use crate::portfolio::position::Position;
 use crate::statistic::metric::drawdown::{AvgDrawdown, Drawdown, MaxDrawdown};
-use crate::statistic::summary::trading::{PositionSummariser, TablePrinter};
+use crate::statistic::summary::{PositionSummariser, TablePrinter};
 use prettytable::{Row, Table};
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]

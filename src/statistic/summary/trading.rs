@@ -2,22 +2,10 @@ use crate::portfolio::position::Position;
 use crate::statistic::metric::ratio::{CalmarRatio, Ratio, SharpeRatio, SortinoRatio};
 use crate::statistic::summary::drawdown::DrawdownSummary;
 use crate::statistic::summary::pnl::PnLReturnSummary;
+use crate::statistic::summary::{PositionSummariser, TablePrinter};
 use chrono::{DateTime, Duration, Utc};
 use prettytable::{Row, Table};
 use serde::Deserialize;
-
-pub trait PositionSummariser {
-    fn update(&mut self, position: &Position);
-    fn generate_summary(&mut self, positions: &Vec<Position>) {
-        for position in positions.iter() {
-            self.update(position)
-        }
-    }
-}
-
-pub trait TablePrinter {
-    fn print(&self);
-}
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
