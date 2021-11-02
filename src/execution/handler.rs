@@ -1,14 +1,9 @@
+use crate::execution::FillGenerator;
 use crate::execution::error::ExecutionError;
 use crate::execution::fill::{Fees, FillEvent};
 use crate::portfolio::order::OrderEvent;
 use chrono::Utc;
 use serde::Deserialize;
-
-/// Generates a result [FillEvent] by executing an [OrderEvent].
-pub trait FillGenerator {
-    /// Return a [FillEvent] from executing the input [OrderEvent].
-    fn generate_fill(&self, order: &OrderEvent) -> Result<FillEvent, ExecutionError>;
-}
 
 /// Configuration for constructing a [SimulatedExecution] via the new() constructor method.
 #[derive(Debug, Deserialize)]
