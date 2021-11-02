@@ -33,7 +33,7 @@ impl SignalGenerator for RSIStrategy {
         market: &MarketEvent,
     ) -> Result<Option<SignalEvent>, StrategyError> {
         // Calculate the next RSI value using the new MarketEvent.Bar data
-        let rsi = self.rsi.next(&market.bar);
+        let rsi = self.rsi.next(&market.candle);
 
         // Generate advisory signals map
         let signals = RSIStrategy::generate_signals_map(rsi);
@@ -50,8 +50,8 @@ impl SignalGenerator for RSIStrategy {
             exchange: market.exchange.clone(),
             symbol: market.symbol.clone(),
             market_meta: MarketMeta {
-                close: market.bar.close,
-                timestamp: market.bar.timestamp,
+                close: market.candle.close,
+                timestamp: market.candle.timestamp,
             },
             signals,
         }))
