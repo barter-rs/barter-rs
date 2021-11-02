@@ -1,4 +1,5 @@
 use crate::data::market::{MarketEvent, MarketMeta};
+use crate::strategy::SignalGenerator;
 use crate::strategy::error::StrategyError;
 use crate::strategy::signal::{Decision, SignalEvent, SignalStrength};
 use chrono::Utc;
@@ -6,15 +7,6 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use ta::indicators::RelativeStrengthIndex;
 use ta::Next;
-
-/// May generate an advisory [SignalEvent] as a result of analysing an input [MarketEvent].
-pub trait SignalGenerator {
-    /// Return Some([SignalEvent]), given an input [MarketEvent].
-    fn generate_signal(
-        &mut self,
-        market: &MarketEvent,
-    ) -> Result<Option<SignalEvent>, StrategyError>;
-}
 
 /// Configuration for constructing a [RSIStrategy] via the new() constructor method.
 #[derive(Debug, Deserialize)]
