@@ -1,5 +1,5 @@
-use crate::portfolio::order::{OrderType, OrderEvent};
 use crate::portfolio::error::PortfolioError;
+use crate::portfolio::order::{OrderEvent, OrderType};
 use serde::Deserialize;
 
 /// Evaluates the risk associated with an OrderEvent to determine if it should be actioned. It can

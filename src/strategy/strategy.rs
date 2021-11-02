@@ -1,16 +1,19 @@
 use crate::data::market::{MarketEvent, MarketMeta};
-use crate::strategy::signal::{SignalEvent, Decision, SignalStrength};
 use crate::strategy::error::StrategyError;
-use ta::indicators::RelativeStrengthIndex;
-use ta::Next;
+use crate::strategy::signal::{Decision, SignalEvent, SignalStrength};
 use chrono::Utc;
 use serde::Deserialize;
 use std::collections::HashMap;
+use ta::indicators::RelativeStrengthIndex;
+use ta::Next;
 
 /// May generate an advisory [SignalEvent] as a result of analysing an input [MarketEvent].
 pub trait SignalGenerator {
     /// Return Some([SignalEvent]), given an input [MarketEvent].
-    fn generate_signal(&mut self, market: &MarketEvent) -> Result<Option<SignalEvent>, StrategyError>;
+    fn generate_signal(
+        &mut self,
+        market: &MarketEvent,
+    ) -> Result<Option<SignalEvent>, StrategyError>;
 }
 
 /// Configuration for constructing a [RSIStrategy] via the new() constructor method.
@@ -25,7 +28,10 @@ pub struct RSIStrategy {
 }
 
 impl SignalGenerator for RSIStrategy {
-    fn generate_signal(&mut self, market: &MarketEvent) -> Result<Option<SignalEvent>, StrategyError> {
+    fn generate_signal(
+        &mut self,
+        market: &MarketEvent,
+    ) -> Result<Option<SignalEvent>, StrategyError> {
         // Calculate the next RSI value using the new MarketEvent.Bar data
         let rsi = self.rsi.next(&market.bar);
 
@@ -34,7 +40,7 @@ impl SignalGenerator for RSIStrategy {
 
         // If signals map is empty, return no SignalEvent
         if signals.is_empty() {
-            return Ok(None)
+            return Ok(None);
         }
 
         Ok(Some(SignalEvent {
@@ -47,7 +53,7 @@ impl SignalGenerator for RSIStrategy {
                 close: market.bar.close,
                 timestamp: market.bar.timestamp,
             },
-            signals
+            signals,
         }))
     }
 }
@@ -58,9 +64,7 @@ impl RSIStrategy {
         let rsi_indicator = RelativeStrengthIndex::new(config.rsi_period)
             .expect("Failed to construct RSI indicator");
 
-        Self {
-            rsi: rsi_indicator
-        }
+        Self { rsi: rsi_indicator }
     }
 
     /// Returns a [RSIStrategyBuilder] instance.
@@ -135,8 +139,8 @@ mod tests {
         let actual_signals = RSIStrategy::generate_signals_map(input_rsi);
 
         assert!(
-            actual_signals.contains_key(&Decision::Long) &&
-                actual_signals.contains_key(&Decision::CloseShort)
+            actual_signals.contains_key(&Decision::Long)
+                && actual_signals.contains_key(&Decision::CloseShort)
         )
     }
 }
