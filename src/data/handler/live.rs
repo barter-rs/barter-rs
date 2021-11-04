@@ -26,9 +26,6 @@ pub struct Config {
     pub interval: String,
 }
 
-// /// [MarketEvent] data handler that implements [Continuer] & [MarketGenerator]. Simulates a live market
-// /// feed via drip feeding historical data files.
-
 /// [MarketEvent] data handler that consumes a live [UnboundedReceiverStream] of [Candle]s. Implements
 /// [Continuer] & [MarketGenerator].
 pub struct LiveCandleHandler {
