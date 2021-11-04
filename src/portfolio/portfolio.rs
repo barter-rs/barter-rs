@@ -6,10 +6,12 @@ use crate::portfolio::order::{OrderEvent, OrderType};
 use crate::portfolio::position::{
     Direction, Position, PositionEnterer, PositionExiter, PositionUpdater,
 };
-use crate::portfolio::repository::{CashHandler, determine_position_id, PositionHandler, ValueHandler};
+use crate::portfolio::repository::{
+    determine_position_id, CashHandler, PositionHandler, ValueHandler,
+};
 use crate::portfolio::risk::{DefaultRisk, OrderEvaluator};
-use crate::strategy::signal::{Decision, SignalEvent, SignalStrength};
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
+use crate::strategy::signal::{Decision, SignalEvent, SignalStrength};
 use chrono::Utc;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -334,11 +336,11 @@ pub fn parse_signal_decisions<'a>(
 
 #[cfg(test)]
 mod tests {
-    use barter_data::model::MarketData;
     use super::*;
     use crate::execution::fill::Fees;
     use crate::portfolio::position::PositionBuilder;
     use crate::portfolio::repository::error::RepositoryError;
+    use barter_data::model::MarketData;
 
     #[derive(Default)]
     struct MockRepository {

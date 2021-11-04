@@ -1,7 +1,7 @@
 use crate::statistic::algorithm::welford_online;
 use crate::statistic::dispersion::Dispersion;
-use prettytable::{Row, Table};
 use crate::statistic::summary::TablePrinter;
+use prettytable::{Row, Table};
 
 #[derive(Debug, Default, Clone, PartialOrd, PartialEq)]
 pub struct DataSummary {
