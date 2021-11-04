@@ -7,6 +7,7 @@ use chrono::{DateTime, Duration, Utc};
 use prettytable::{Row, Table};
 use serde::Deserialize;
 
+/// Configuration for construction a [TradingSummary] via the new() constructor method.
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub starting_equity: f64,
@@ -43,6 +44,7 @@ impl TablePrinter for TradingSummary {
 }
 
 impl TradingSummary {
+    /// Constructs a new [TradingSummary].
     pub fn new(cfg: &Config) -> Self {
         Self {
             pnl_returns: PnLReturnSummary::new(),
