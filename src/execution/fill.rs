@@ -65,7 +65,7 @@ impl Fees {
     }
 }
 
-/// Fee amount as f64.
+/// Communicative type alias for Fee amount as f64.
 pub type FeeAmount = f64;
 
 /// Builder to construct [FillEvent] instances.
