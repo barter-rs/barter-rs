@@ -14,10 +14,10 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 use uuid::Uuid;
 
-/// Communicative type alias for represent a termination command received via a oneshot channel.
+/// Communicative type alias to represent a termination command received via a oneshot channel.
 type TerminateCommand = String;
 
-///
+/// Configuration for constructing a [LiveCandleHandler] via the new() constructor method.
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub client: ClientConfig,
@@ -26,7 +26,11 @@ pub struct Config {
     pub interval: String,
 }
 
-///
+// /// [MarketEvent] data handler that implements [Continuer] & [MarketGenerator]. Simulates a live market
+// /// feed via drip feeding historical data files.
+
+/// [MarketEvent] data handler that consumes a live [UnboundedReceiverStream] of [Candle]s. Implements
+/// [Continuer] & [MarketGenerator].
 pub struct LiveCandleHandler {
     pub exchange: ExchangeName,
     pub symbol: String,
