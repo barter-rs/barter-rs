@@ -334,6 +334,7 @@ pub fn parse_signal_decisions<'a>(
 
 #[cfg(test)]
 mod tests {
+    use barter_data::model::MarketData;
     use super::*;
     use crate::execution::fill::Fees;
     use crate::portfolio::position::PositionBuilder;
@@ -479,7 +480,11 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.candle.close = 200.0; // +100.0 on input_position.current_symbol_price
+        match input_market.data {
+            // candle.close +100.0 on input_position.current_symbol_price
+            MarketData::Candle(ref mut candle) => candle.close = 200.0,
+            MarketData::Trade(ref mut trade) => trade.price = 200.0,
+        };
 
         let result = portfolio.update_from_market(&input_market);
         let updated_position = portfolio.repository.position.unwrap();
@@ -515,7 +520,11 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.candle.close = 50.0; // -50.0 on input_position.current_symbol_price
+        match input_market.data {
+            // -50.0 on input_position.current_symbol_price
+            MarketData::Candle(ref mut candle) => candle.close = 50.0,
+            MarketData::Trade(ref mut trade) => trade.price = 50.0,
+        };
 
         let result = portfolio.update_from_market(&input_market);
         let updated_position = portfolio.repository.position.unwrap();
@@ -551,7 +560,11 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.candle.close = 50.0; // -50.0 on input_position.current_symbol_price
+        match input_market.data {
+            // -50.0 on input_position.current_symbol_price
+            MarketData::Candle(ref mut candle) => candle.close = 50.0,
+            MarketData::Trade(ref mut trade) => trade.price = 50.0,
+        };
 
         let result = portfolio.update_from_market(&input_market);
         let updated_position = portfolio.repository.position.unwrap();
@@ -587,7 +600,12 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.candle.close = 200.0; // +100.0 on input_position.current_symbol_price
+
+        match input_market.data {
+            // +100.0 on input_position.current_symbol_price
+            MarketData::Candle(ref mut candle) => candle.close = 200.0,
+            MarketData::Trade(ref mut trade) => trade.price = 200.0,
+        };
 
         let result = portfolio.update_from_market(&input_market);
         let updated_position = portfolio.repository.position.unwrap();

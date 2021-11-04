@@ -1,26 +1,24 @@
-use crate::data::handler::Continuer;
+use crate::data::handler::{Continuer, Continuation};
 use crate::data::market::MarketEvent;
 use barter_data::client::ClientConfig;
 use barter_data::client::binance::Binance;
 use barter_data::ExchangeClient;
-use barter_data::model::Candle;
+use barter_data::model::{Candle, MarketData};
 use serde::{Deserialize, Serialize};
+use log::{info, warn};
 use chrono::Utc;
+use tokio::sync::oneshot::error::TryRecvError;
+use tokio::sync::oneshot::Receiver;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 use uuid::Uuid;
+use crate::data::error::DataError;
 
-// Todo:
-//  - Impl shutdown data feed - could use a terminus_rx field and let user work out the rest (eg/ REST API, etc)
-//  - Can DateType be inferred by compiler when I create object, since i'll return
-//  - Strings -> &str in consume_candles etc?
-//  - Add builder method for LiveDataHandler
-//  - Impl MarketGenerator / change the trait?
-//  - Remove returning of Result<> for MarketGenerator, SignalGenerator
-//  - Cannot return error from generate market because infinite loop would be faster
-//    than candle interval, unless there is a relevant DataError variant. Use Option<MarketEvent>?
-//  - Impl Display for ExchangeName to remove hack in generate_market() that uses Debug
 
+///
+type TerminateCommand = String;
+
+///
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub client: ClientConfig,
@@ -29,22 +27,38 @@ pub struct Config {
     pub interval: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+///
+#[derive(Debug, Deserialize, Serialize, PartialOrd, PartialEq, Clone)]
 pub enum ExchangeName { Binance, }
 
-// enum DataType { Trade, Candle, Kline, }
-
+///
 pub struct LiveCandleHandler {
     pub exchange: ExchangeName,
     pub symbol: String,
     pub interval: String,
     pub data_stream: UnboundedReceiverStream<Candle>,
-    pub can_continue: bool,
+    pub termination_rx: Receiver<TerminateCommand>,
 }
 
 impl Continuer for LiveCandleHandler {
-    fn should_continue(&self) -> bool {
-        self.can_continue
+    fn should_continue(&mut self) -> Continuation {
+        // Check terminus channel to determine if we should continue
+        match self.termination_rx.try_recv() {
+            Ok(message) => {
+                info!("Stopping LiveCandleHandler after receiving termination message: {:?}", message);
+                Continuation::Stop
+            },
+            Err(err) => {
+                match err {
+                    TryRecvError::Empty => Continuation::Continue,
+                    TryRecvError::Closed => {
+                        warn!("Stopping LiveCandleHandler after External terminus transmitter dropped \
+                                without sending a termination message");
+                        Continuation::Stop
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -63,15 +77,12 @@ impl LiveCandleHandler {
                 timestamp: Utc::now(),
                 exchange: format!("{:?}", self.exchange.clone()),
                 symbol: self.symbol.clone(),
-                candle,
+                data: MarketData::Candle(candle)
             }
         )
     }
 
-    pub async fn new<Exchange>(cfg: &Config) -> Self
-    where
-        Exchange: ExchangeClient,
-    {
+    pub async fn new<DataType>(cfg: &Config, termination_rx: Receiver<TerminateCommand>) -> Self {
         // Determine ExchangeClient instance & construct
         let mut exchange = match cfg.exchange {
             ExchangeName::Binance => Binance::new(ClientConfig {
@@ -88,7 +99,74 @@ impl LiveCandleHandler {
             symbol: cfg.symbol.clone(),
             interval: cfg.interval.clone(),
             data_stream,
-            can_continue: true
+            termination_rx,
         }
+    }
+}
+
+/// Builder to construct [LiveCandleHandler] instances.
+#[derive(Debug, Default)]
+pub struct LiveCandleHandlerBuilder {
+    pub exchange: Option<ExchangeName>,
+    pub symbol: Option<String>,
+    pub interval: Option<String>,
+    pub data_stream: Option<UnboundedReceiverStream<Candle>>,
+    pub termination_rx: Option<Receiver<TerminateCommand>>,
+}
+
+impl LiveCandleHandlerBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn exchange(self, value: ExchangeName) -> Self {
+        Self {
+            exchange: Some(value),
+            ..self
+        }
+    }
+
+    pub fn symbol(self, value: String) -> Self {
+        Self {
+            symbol: Some(value),
+            ..self
+        }
+    }
+
+    pub fn interval(self, value: String) -> Self {
+        Self {
+            interval: Some(value),
+            ..self
+        }
+    }
+
+    pub fn data_stream(self, value: UnboundedReceiverStream<Candle>) -> Self {
+        Self {
+            data_stream: Some(value),
+            ..self
+        }
+    }
+
+    pub fn termination_rx(self, value: Receiver<TerminateCommand>) -> Self {
+        Self {
+            termination_rx: Some(value),
+            ..self
+        }
+    }
+
+    pub fn build(self) -> Result<LiveCandleHandler, DataError> {
+        let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
+        let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
+        let interval = self.interval.ok_or(DataError::BuilderIncomplete)?;
+        let data_stream = self.data_stream.ok_or(DataError::BuilderIncomplete)?;
+        let termination_rx = self.termination_rx.ok_or(DataError::BuilderIncomplete)?;
+
+        Ok(LiveCandleHandler {
+            exchange,
+            symbol,
+            interval,
+            data_stream,
+            termination_rx
+        })
     }
 }
