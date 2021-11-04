@@ -15,6 +15,7 @@ categories = ["accessibility", "simulation"]
 
 [dependencies]
 barter-data = { path = "../barter-data-rs" }
+log = "0.4.14"
 tokio = { version = "1.12.0", features = ["full"] }
 tokio-stream = { version = "0.1.7", features = ["sync"] }
 uuid = {version = "0.8", features = ["v4", "serde"]}

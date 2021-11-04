@@ -48,7 +48,7 @@ mod tests {
             prev_mean: f64,
             next_value: f64,
             count: f64,
-        };
+        }
 
         let inputs = vec![
             Input {
@@ -101,7 +101,7 @@ mod tests {
             prev_mean: f64,
             new_value: f64,
             new_mean: f64,
-        };
+        }
 
         let inputs = vec![
             // dataset_1 = [10, 100, -10]
