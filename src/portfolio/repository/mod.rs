@@ -38,7 +38,7 @@ pub trait PositionHandler {
 pub trait ValueHandler {
     /// Upsert the Portfolio current value as it's portfolio_id.
     fn set_current_value(&mut self, portfolio_id: &Uuid, value: f64)
-                         -> Result<(), RepositoryError>;
+        -> Result<(), RepositoryError>;
     /// Get the Portfolio current value using it's portfolio_id.
     fn get_current_value(&mut self, portfolio_id: &Uuid) -> Result<f64, RepositoryError>;
 }

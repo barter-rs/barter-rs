@@ -1,21 +1,20 @@
-use crate::data::handler::{Continuer, Continuation};
+use crate::data::error::DataError;
+use crate::data::handler::{Continuation, Continuer};
 use crate::data::market::MarketEvent;
-use barter_data::client::ClientConfig;
 use barter_data::client::binance::Binance;
-use barter_data::ExchangeClient;
+use barter_data::client::{ClientConfig, ClientName as ExchangeName};
 use barter_data::model::{Candle, MarketData};
-use serde::{Deserialize, Serialize};
-use log::{info, warn};
+use barter_data::ExchangeClient;
 use chrono::Utc;
+use log::{info, warn};
+use serde::Deserialize;
 use tokio::sync::oneshot::error::TryRecvError;
 use tokio::sync::oneshot::Receiver;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 use uuid::Uuid;
-use crate::data::error::DataError;
 
-
-///
+/// Communicative type alias for represent a termination command received via a oneshot channel.
 type TerminateCommand = String;
 
 ///
@@ -26,10 +25,6 @@ pub struct Config {
     pub symbol: String,
     pub interval: String,
 }
-
-///
-#[derive(Debug, Deserialize, Serialize, PartialOrd, PartialEq, Clone)]
-pub enum ExchangeName { Binance, }
 
 ///
 pub struct LiveCandleHandler {
@@ -45,9 +40,12 @@ impl Continuer for LiveCandleHandler {
         // Check terminus channel to determine if we should continue
         match self.termination_rx.try_recv() {
             Ok(message) => {
-                info!("Stopping LiveCandleHandler after receiving termination message: {:?}", message);
+                info!(
+                    "Stopping LiveCandleHandler after receiving termination message: {:?}",
+                    message
+                );
                 Continuation::Stop
-            },
+            }
             Err(err) => {
                 match err {
                     TryRecvError::Empty => Continuation::Continue,
@@ -70,29 +68,30 @@ impl LiveCandleHandler {
             _ => return None,
         };
 
-        Some(
-            MarketEvent {
-                event_type: MarketEvent::EVENT_TYPE,
-                trace_id: Uuid::new_v4(),
-                timestamp: Utc::now(),
-                exchange: format!("{:?}", self.exchange.clone()),
-                symbol: self.symbol.clone(),
-                data: MarketData::Candle(candle)
-            }
-        )
+        Some(MarketEvent {
+            event_type: MarketEvent::EVENT_TYPE,
+            trace_id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            exchange: format!("{:?}", self.exchange.clone()),
+            symbol: self.symbol.clone(),
+            data: MarketData::Candle(candle),
+        })
     }
 
-    pub async fn new<DataType>(cfg: &Config, termination_rx: Receiver<TerminateCommand>) -> Self {
+    pub async fn new(cfg: &Config, termination_rx: Receiver<TerminateCommand>) -> Self {
         // Determine ExchangeClient instance & construct
         let mut exchange = match cfg.exchange {
             ExchangeName::Binance => Binance::new(ClientConfig {
                 rate_limit_per_second: cfg.client.rate_limit_per_second,
-            })
-        }.await.unwrap();
+            }),
+        }
+        .await
+        .unwrap();
 
         let data_stream = exchange
             .consume_candles(cfg.symbol.clone(), &*cfg.interval.clone())
-            .await.unwrap();
+            .await
+            .unwrap();
 
         Self {
             exchange: cfg.exchange.clone(),
@@ -166,7 +165,7 @@ impl LiveCandleHandlerBuilder {
             symbol,
             interval,
             data_stream,
-            termination_rx
+            termination_rx,
         })
     }
 }

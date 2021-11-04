@@ -1,11 +1,11 @@
 use crate::data::market::{MarketEvent, MarketMeta};
-use crate::strategy::SignalGenerator;
 use crate::strategy::error::StrategyError;
 use crate::strategy::signal::{Decision, SignalEvent, SignalStrength};
+use crate::strategy::SignalGenerator;
+use barter_data::model::MarketData;
 use chrono::Utc;
 use serde::Deserialize;
 use std::collections::HashMap;
-use barter_data::model::MarketData;
 use ta::indicators::RelativeStrengthIndex;
 use ta::Next;
 
@@ -21,10 +21,7 @@ pub struct RSIStrategy {
 }
 
 impl SignalGenerator for RSIStrategy {
-    fn generate_signal(
-        &mut self,
-        market: &MarketEvent,
-    ) -> Option<SignalEvent> {
+    fn generate_signal(&mut self, market: &MarketEvent) -> Option<SignalEvent> {
         // Check if it's a MarketEvent with a candle
         let candle = match &market.data {
             MarketData::Candle(candle) => candle,
