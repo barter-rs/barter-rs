@@ -20,8 +20,7 @@ type TerminateCommand = String;
 /// Configuration for constructing a [LiveCandleHandler] via the new() constructor method.
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub client: ClientConfig,
-    pub exchange: ExchangeName,
+    pub rate_limit_per_second: u64,
     pub symbol: String,
     pub interval: String,
 }
@@ -79,23 +78,23 @@ impl LiveCandleHandler {
         })
     }
 
-    pub async fn new(cfg: &Config, termination_rx: Receiver<TerminateCommand>) -> Self {
+    pub async fn new(cfg: &Config, exchange: ExchangeName, termination_rx: Receiver<TerminateCommand>) -> Self {
         // Determine ExchangeClient instance & construct
-        let mut exchange = match cfg.exchange {
+        let mut exchange_client = match exchange {
             ExchangeName::Binance => Binance::new(ClientConfig {
-                rate_limit_per_second: cfg.client.rate_limit_per_second,
+                rate_limit_per_second: cfg.rate_limit_per_second,
             }),
         }
         .await
         .unwrap();
 
-        let data_stream = exchange
+        let data_stream = exchange_client
             .consume_candles(cfg.symbol.clone(), &*cfg.interval.clone())
             .await
             .unwrap();
 
         Self {
-            exchange: cfg.exchange.clone(),
+            exchange,
             symbol: cfg.symbol.clone(),
             interval: cfg.interval.clone(),
             data_stream,
