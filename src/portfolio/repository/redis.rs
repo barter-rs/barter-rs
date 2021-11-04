@@ -1,7 +1,10 @@
 use crate::portfolio::error::PortfolioError;
 use crate::portfolio::position::Position;
-use crate::portfolio::repository::{CashHandler, determine_cash_id, determine_closed_positions_id, determine_position_id, determine_value_id, PositionHandler, ValueHandler};
 use crate::portfolio::repository::error::RepositoryError;
+use crate::portfolio::repository::{
+    determine_cash_id, determine_closed_positions_id, determine_position_id, determine_value_id,
+    CashHandler, PositionHandler, ValueHandler,
+};
 use redis::{Commands, Connection, ErrorKind, RedisResult};
 use serde::Deserialize;
 use uuid::Uuid;

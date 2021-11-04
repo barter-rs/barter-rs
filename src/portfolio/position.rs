@@ -1,8 +1,8 @@
-use barter_data::model::MarketData;
 use crate::data::market::MarketEvent;
 use crate::execution::fill::{FeeAmount, Fees, FillEvent};
 use crate::portfolio::error::PortfolioError;
 use crate::strategy::signal::Decision;
+use barter_data::model::MarketData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -130,9 +130,8 @@ impl PositionUpdater for Position {
         // Determine close from MarketData
         let close = match &market.data {
             MarketData::Trade(trade) => trade.price,
-            MarketData::Candle(candle) => candle.close
+            MarketData::Candle(candle) => candle.close,
         };
-
 
         self.meta.last_update_trace_id = market.trace_id;
         self.meta.last_update_timestamp = market.timestamp;
@@ -764,7 +763,10 @@ mod tests {
             MarketData::Candle(candle) => candle.close,
         };
         assert_eq!(position.current_symbol_price, close);
-        assert_eq!(position.current_value_gross, close * position.quantity.abs());
+        assert_eq!(
+            position.current_value_gross,
+            close * position.quantity.abs()
+        );
 
         // current_value_gross - enter_value_gross - approx_total_fees
         assert_eq!(position.unreal_profit_loss, (200.0 - 100.0 - 6.0));
@@ -816,7 +818,10 @@ mod tests {
             MarketData::Candle(candle) => candle.close,
         };
         assert_eq!(position.current_symbol_price, close);
-        assert_eq!(position.current_value_gross, close * position.quantity.abs());
+        assert_eq!(
+            position.current_value_gross,
+            close * position.quantity.abs()
+        );
 
         // current_value_gross - enter_value_gross - approx_total_fees
         assert_eq!(position.unreal_profit_loss, (50.0 - 100.0 - 6.0));
@@ -868,7 +873,10 @@ mod tests {
             MarketData::Candle(candle) => candle.close,
         };
         assert_eq!(position.current_symbol_price, close);
-        assert_eq!(position.current_value_gross, close * position.quantity.abs());
+        assert_eq!(
+            position.current_value_gross,
+            close * position.quantity.abs()
+        );
 
         // enter_value_gross - current_value_gross - approx_total_fees
         assert_eq!(position.unreal_profit_loss, (100.0 - 50.0 - 6.0));
@@ -920,7 +928,10 @@ mod tests {
             MarketData::Candle(candle) => candle.close,
         };
         assert_eq!(position.current_symbol_price, close);
-        assert_eq!(position.current_value_gross, close * position.quantity.abs());
+        assert_eq!(
+            position.current_value_gross,
+            close * position.quantity.abs()
+        );
 
         // enter_value_gross - current_value_gross - approx_total_fees
         assert_eq!(position.unreal_profit_loss, (100.0 - 200.0 - 6.0));
