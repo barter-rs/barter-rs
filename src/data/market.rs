@@ -1,5 +1,5 @@
 use crate::data::error::DataError;
-use barter_data::model::Candle;
+use barter_data::model::{Candle, MarketData};
 use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -14,7 +14,7 @@ pub struct MarketEvent {
     pub timestamp: DateTime<Utc>,
     pub exchange: String,
     pub symbol: String,
-    pub candle: Candle,
+    pub data: MarketData,
 }
 
 impl Default for MarketEvent {
@@ -25,7 +25,7 @@ impl Default for MarketEvent {
             timestamp: Utc::now(),
             exchange: String::from("BINANCE"),
             symbol: String::from("ETH-USD"),
-            candle: Candle::default(),
+            data: MarketData::Candle(Candle::default()),
         }
     }
 }
@@ -46,7 +46,7 @@ pub struct MarketEventBuilder {
     pub timestamp: Option<DateTime<Utc>>,
     pub exchange: Option<String>,
     pub symbol: Option<String>,
-    pub candle: Option<Candle>,
+    pub data: Option<MarketData>,
 }
 
 impl MarketEventBuilder {
@@ -82,9 +82,9 @@ impl MarketEventBuilder {
         }
     }
 
-    pub fn candle(self, value: Candle) -> Self {
+    pub fn data(self, value: MarketData) -> Self {
         Self {
-            candle: Some(value),
+            data: Some(value),
             ..self
         }
     }
@@ -94,7 +94,7 @@ impl MarketEventBuilder {
         let timestamp = self.timestamp.ok_or(DataError::BuilderIncomplete)?;
         let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
         let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
-        let candle = self.candle.ok_or(DataError::BuilderIncomplete)?;
+        let data = self.data.ok_or(DataError::BuilderIncomplete)?;
 
         Ok(MarketEvent {
             event_type: MarketEvent::EVENT_TYPE,
@@ -102,7 +102,7 @@ impl MarketEventBuilder {
             timestamp,
             exchange,
             symbol,
-            candle,
+            data,
         })
     }
 }
@@ -176,7 +176,7 @@ mod tests {
             .timestamp(Utc::now())
             .exchange(String::from("GRAND_EXCHANGE"))
             .symbol(String::from("PANTALOONS"))
-            .bar(Bar::default())
+            .data(MarketData::Candle(Candle::default()))
             .build();
         assert!(ok_result.is_ok());
 
@@ -185,67 +185,9 @@ mod tests {
             .timestamp(Utc::now())
             .exchange(String::from("GRAND_EXCHANGE"))
             .symbol(String::from("PANTALOONS"))
-            // No bar attribute added to builder
+            // No MarketData attribute added to builder
             .build();
 
         assert!(err_result.is_err())
-    }
-
-    #[test]
-    fn test_bar_builder_validation() {
-        fn assert_valid(
-            (timestamp, open, high, low, close, volume): (DateTime<Utc>, f64, f64, f64, f64, f64),
-        ) {
-            let result = Bar::builder()
-                .timestamp(timestamp)
-                .open(open)
-                .high(high)
-                .low(low)
-                .close(close)
-                .volume(volume)
-                .build();
-            assert!(result.is_ok())
-        }
-
-        fn assert_invalid(
-            (timestamp, open, high, low, close, volume): (DateTime<Utc>, f64, f64, f64, f64, f64),
-        ) {
-            let result = Bar::builder()
-                .timestamp(timestamp)
-                .open(open)
-                .high(high)
-                .low(low)
-                .close(close)
-                .volume(volume)
-                .build();
-            assert!(result.is_err())
-        }
-
-        let valid_records = vec![
-            // timestamp, open, high, low, close, volume
-            (Utc::now(), 20.0, 25.0, 15.0, 21.0, 7500.0),
-            (Utc::now(), 10.0, 10.0, 10.0, 10.0, 10.0),
-            (Utc::now(), 0.0, 0.0, 0.0, 0.0, 0.0),
-        ];
-        for record in valid_records {
-            assert_valid(record)
-        }
-
-        let invalid_records = vec![
-            // timestamp, open, high, low, close, volume
-            (Utc::now(), -1.0, 25.0, 15.0, 21.0, 7500.0),
-            (Utc::now(), 20.0, -1.0, 15.0, 21.0, 7500.0),
-            (Utc::now(), 20.0, 25.0, -1.0, 21.0, 7500.0),
-            (Utc::now(), 20.0, 25.0, 15.0, -1.0, -7500.0),
-            (Utc::now(), 20.0, 25.0, 15.0, 21.0, -1.0),
-            (Utc::now(), 14.9, 25.0, 15.0, 21.0, 7500.0),
-            (Utc::now(), 25.1, 25.0, 15.0, 21.0, 7500.0),
-            (Utc::now(), 20.0, 25.0, 15.0, 14.9, 7500.0),
-            (Utc::now(), 20.0, 25.0, 15.0, 25.1, 7500.0),
-            (Utc::now(), 20.0, 15.0, 25.0, 21.0, 7500.0),
-        ];
-        for record in invalid_records {
-            assert_invalid(record)
-        }
     }
 }

@@ -29,7 +29,6 @@
 //! # Getting Started
 //! ## Data Handler
 //! ```
-//!
 //! use barter::data::handler::{HistoricDataHandler, MarketGenerator, Continuer};
 //! use barter::data::market::Bar;
 //!
@@ -53,9 +52,9 @@
 //!
 //! ## Strategy
 //! ```
-//! use barter::strategy::strategy::{Config as StrategyConfig, RSIStrategy, SignalGenerator};
+//! use barter::strategy::SignalGenerator;
+//! use barter::strategy::strategy::{Config as StrategyConfig, RSIStrategy};
 //! use barter::data::market::MarketEvent;
-//!
 //!
 //! let config = StrategyConfig {
 //!     rsi_period: 14,
@@ -70,12 +69,13 @@
 //!
 //! ## Portfolio
 //! ```
-//! use barter::portfolio::portfolio::{Components, MetaPortfolio, MarketUpdater, OrderGenerator, FillUpdater};
+//! use barter::portfolio::{MarketUpdater, OrderGenerator, FillUpdater};
 //! use barter::portfolio::allocator::DefaultAllocator;
 //! use barter::portfolio::risk::DefaultRisk;
 //! use barter::portfolio::repository::redis::RedisRepository;
 //! use barter::event::Event;
 //! use barter::portfolio::order::OrderEvent;
+//! use barter::portfolio::portfolio::{Components, MetaPortfolio};
 //! use barter::portfolio::repository::redis::Config as RepositoryConfig;
 //! use barter::portfolio::repository::in_memory::InMemoryRepository;
 //!
@@ -109,9 +109,10 @@
 //!
 //! ## Execution
 //! ```
-//! use barter::execution::handler::{Config as ExecutionConfig, SimulatedExecution, FillGenerator};
+//! use barter::execution::handler::{Config as ExecutionConfig, SimulatedExecution};
 //! use barter::portfolio::order::OrderEvent;
 //! use barter::execution::fill::Fees;
+//! use barter::execution::FillGenerator;
 //!
 //! let config = ExecutionConfig {
 //!     simulated_fees_pct: Fees {
@@ -130,8 +131,9 @@
 //!
 //! ## Statistic
 //! ```
-//! use barter::statistic::summary::trading::{Config as StatisticConfig, TradingSummary, PositionSummariser, TablePrinter};
+//! use barter::statistic::summary::trading::{Config as StatisticConfig, TradingSummary};
 //! use barter::portfolio::position::Position;
+//! use barter::statistic::summary::{PositionSummariser, TablePrinter};
 //!
 //! // Do some automated trading with barter components that generates a vector of closed Positions
 //! let positions = vec![Position::default(), Position::default()];
