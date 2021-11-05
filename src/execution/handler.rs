@@ -1,6 +1,6 @@
-use crate::execution::FillGenerator;
 use crate::execution::error::ExecutionError;
 use crate::execution::fill::{Fees, FillEvent};
+use crate::execution::FillGenerator;
 use crate::portfolio::order::OrderEvent;
 use chrono::Utc;
 use serde::Deserialize;

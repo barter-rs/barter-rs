@@ -2,6 +2,7 @@ use crate::data::market::MarketEvent;
 use crate::execution::fill::{FeeAmount, Fees, FillEvent};
 use crate::portfolio::error::PortfolioError;
 use crate::strategy::signal::Decision;
+use barter_data::model::MarketData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -126,13 +127,19 @@ impl PositionEnterer for Position {
 
 impl PositionUpdater for Position {
     fn update(&mut self, market: &MarketEvent) {
+        // Determine close from MarketData
+        let close = match &market.data {
+            MarketData::Trade(trade) => trade.price,
+            MarketData::Candle(candle) => candle.close,
+        };
+
         self.meta.last_update_trace_id = market.trace_id;
         self.meta.last_update_timestamp = market.timestamp;
 
-        self.current_symbol_price = market.candle.close;
+        self.current_symbol_price = close;
 
         // Market value gross
-        self.current_value_gross = market.candle.close * self.quantity.abs();
+        self.current_value_gross = close * self.quantity.abs();
 
         // Unreal profit & loss
         self.unreal_profit_loss = self.calculate_unreal_profit_loss();
@@ -731,7 +738,11 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.candle.close = 200.0; // +100.0 higher than current_symbol_price
+        match input_market.data {
+            // +100.0 higher than current_symbol_price
+            MarketData::Candle(ref mut candle) => candle.close = 200.0,
+            MarketData::Trade(ref mut trade) => trade.price = 200.0,
+        };
 
         // Update Position
         position.update(&input_market);
@@ -747,10 +758,14 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position.current_symbol_price, input_market.candle.close);
+        let close = match &input_market.data {
+            MarketData::Trade(trade) => trade.price,
+            MarketData::Candle(candle) => candle.close,
+        };
+        assert_eq!(position.current_symbol_price, close);
         assert_eq!(
             position.current_value_gross,
-            input_market.candle.close * position.quantity.abs()
+            close * position.quantity.abs()
         );
 
         // current_value_gross - enter_value_gross - approx_total_fees
@@ -777,7 +792,12 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.candle.close = 50.0; // -50.0 lower than current_symbol_price
+
+        match input_market.data {
+            // -50.0 lower than current_symbol_price
+            MarketData::Candle(ref mut candle) => candle.close = 50.0,
+            MarketData::Trade(ref mut trade) => trade.price = 50.0,
+        };
 
         // Update Position
         position.update(&input_market);
@@ -793,10 +813,14 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position.current_symbol_price, input_market.candle.close);
+        let close = match &input_market.data {
+            MarketData::Trade(trade) => trade.price,
+            MarketData::Candle(candle) => candle.close,
+        };
+        assert_eq!(position.current_symbol_price, close);
         assert_eq!(
             position.current_value_gross,
-            input_market.candle.close * position.quantity.abs()
+            close * position.quantity.abs()
         );
 
         // current_value_gross - enter_value_gross - approx_total_fees
@@ -823,7 +847,12 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.candle.close = 50.0; // -50.0 lower than current_symbol_price
+
+        match input_market.data {
+            // -50.0 lower than current_symbol_price
+            MarketData::Candle(ref mut candle) => candle.close = 50.0,
+            MarketData::Trade(ref mut trade) => trade.price = 50.0,
+        };
 
         // Update Position
         position.update(&input_market);
@@ -839,10 +868,14 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position.current_symbol_price, input_market.candle.close);
+        let close = match &input_market.data {
+            MarketData::Trade(trade) => trade.price,
+            MarketData::Candle(candle) => candle.close,
+        };
+        assert_eq!(position.current_symbol_price, close);
         assert_eq!(
             position.current_value_gross,
-            input_market.candle.close * position.quantity.abs()
+            close * position.quantity.abs()
         );
 
         // enter_value_gross - current_value_gross - approx_total_fees
@@ -869,7 +902,12 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.candle.close = 200.0; // +100.0 higher than current_symbol_price
+
+        match input_market.data {
+            // +100.0 higher than current_symbol_price
+            MarketData::Candle(ref mut candle) => candle.close = 200.0,
+            MarketData::Trade(ref mut trade) => trade.price = 200.0,
+        };
 
         // Update Position
         position.update(&input_market);
@@ -885,10 +923,14 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position.current_symbol_price, input_market.candle.close);
+        let close = match &input_market.data {
+            MarketData::Trade(trade) => trade.price,
+            MarketData::Candle(candle) => candle.close,
+        };
+        assert_eq!(position.current_symbol_price, close);
         assert_eq!(
             position.current_value_gross,
-            input_market.candle.close * position.quantity.abs()
+            close * position.quantity.abs()
         );
 
         // enter_value_gross - current_value_gross - approx_total_fees
