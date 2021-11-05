@@ -4,10 +4,10 @@ pub mod live;
 use crate::data::market::MarketEvent;
 use serde::{Deserialize, Serialize};
 
-/// Determines if a process should continue.
+/// Determines if a process can continue.
 pub trait Continuer {
-    /// Return true if a process should continue.
-    fn should_continue(&mut self) -> Continuation;
+    /// Returns a [Continuation] to communicate if a process can continue.
+    fn can_continue(&mut self) -> Continuation;
 }
 
 /// Generates the latest [MarketEvent], acting as the system heartbeat.
