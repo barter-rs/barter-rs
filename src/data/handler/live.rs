@@ -83,6 +83,8 @@ impl LiveCandleHandler {
         })
     }
 
+    /// Constructs a new [LiveCandleHandler] component using the provided [Config] struct, as well
+    /// as a oneshot::[Receiver] for receiving [TerminateCommand]s.
     pub async fn new(cfg: &Config, termination_rx: Receiver<TerminateCommand>) -> Self {
         // Determine ExchangeClient instance & construct
         let mut exchange_client = match cfg.exchange {
@@ -105,6 +107,11 @@ impl LiveCandleHandler {
             data_stream,
             termination_rx,
         }
+    }
+
+    /// Returns a [LiveCandleHandlerBuilder] instance.
+    pub fn builder() -> LiveCandleHandlerBuilder {
+        LiveCandleHandlerBuilder::new()
     }
 }
 
