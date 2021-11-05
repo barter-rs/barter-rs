@@ -175,7 +175,7 @@ where
         }
     }
 
-    /// Returns a [MetaPortfolio] instance.
+    /// Returns a [MetaPortfolioBuilder] instance.
     pub fn builder() -> MetaPortfolioBuilder<T> {
         MetaPortfolioBuilder::new()
     }
