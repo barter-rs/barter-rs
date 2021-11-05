@@ -6,16 +6,10 @@ use barter_data::client::{ClientConfig, ClientName as ExchangeName};
 use barter_data::model::{Candle, MarketData};
 use barter_data::ExchangeClient;
 use chrono::Utc;
-use log::{info, warn};
 use serde::Deserialize;
-use tokio::sync::broadcast::error::TryRecvError;
-use tokio::sync::broadcast::Receiver;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 use uuid::Uuid;
-
-/// Communicative type alias to represent a termination command received via a oneshot channel.
-pub type TerminateCommand = String;
 
 /// Configuration for constructing a [LiveCandleHandler] via the new() constructor method.
 #[derive(Debug, Deserialize)]
@@ -33,35 +27,11 @@ pub struct LiveCandleHandler {
     pub symbol: String,
     pub interval: String,
     pub data_stream: UnboundedReceiverStream<Candle>,
-    pub termination_rx: Receiver<TerminateCommand>,
 }
 
 impl Continuer for LiveCandleHandler {
-    fn should_continue(&mut self) -> Continuation {
-        // Check terminus channel to determine if we should continue
-        match self.termination_rx.try_recv() {
-            Ok(message) => {
-                info!(
-                    "Stopping LiveCandleHandler after receiving termination message: {:?}",
-                    message
-                );
-                Continuation::Stop
-            }
-            Err(err) => {
-                match err {
-                    TryRecvError::Empty => Continuation::Continue,
-                    TryRecvError::Closed => {
-                        warn!("Stopping LiveCandleHandler after External terminus transmitter dropped \
-                                without sending a termination message");
-                        Continuation::Stop
-                    }
-                    TryRecvError::Lagged(_) => {
-                        info!("Stopping LiveCandleHandler - termination message lost");
-                        Continuation::Stop
-                    }
-                }
-            }
-        }
+    fn can_continue(&mut self) -> Continuation {
+        Continuation::Continue
     }
 }
 
@@ -85,7 +55,7 @@ impl LiveCandleHandler {
 
     /// Constructs a new [LiveCandleHandler] component using the provided [Config] struct, as well
     /// as a oneshot::[Receiver] for receiving [TerminateCommand]s.
-    pub async fn new(cfg: &Config, termination_rx: Receiver<TerminateCommand>) -> Self {
+    pub async fn new(cfg: &Config) -> Self {
         // Determine ExchangeClient instance & construct
         let mut exchange_client = match cfg.exchange {
             ExchangeName::Binance => Binance::new(ClientConfig {
@@ -105,7 +75,6 @@ impl LiveCandleHandler {
             symbol: cfg.symbol.clone(),
             interval: cfg.interval.clone(),
             data_stream,
-            termination_rx,
         }
     }
 
@@ -122,7 +91,6 @@ pub struct LiveCandleHandlerBuilder {
     pub symbol: Option<String>,
     pub interval: Option<String>,
     pub data_stream: Option<UnboundedReceiverStream<Candle>>,
-    pub termination_rx: Option<Receiver<TerminateCommand>>,
 }
 
 impl LiveCandleHandlerBuilder {
@@ -158,27 +126,17 @@ impl LiveCandleHandlerBuilder {
         }
     }
 
-    pub fn termination_rx(self, value: Receiver<TerminateCommand>) -> Self {
-        Self {
-            termination_rx: Some(value),
-            ..self
-        }
-    }
-
     pub fn build(self) -> Result<LiveCandleHandler, DataError> {
         let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
         let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
         let interval = self.interval.ok_or(DataError::BuilderIncomplete)?;
         let data_stream = self.data_stream.ok_or(DataError::BuilderIncomplete)?;
-        let termination_rx = self.termination_rx.ok_or(DataError::BuilderIncomplete)?;
 
         Ok(LiveCandleHandler {
-
             exchange,
             symbol,
             interval,
             data_stream,
-            termination_rx,
         })
     }
 }
