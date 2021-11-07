@@ -15,6 +15,7 @@ use crate::strategy::signal::{Decision, SignalEvent, SignalStrength};
 use chrono::Utc;
 use std::collections::HashMap;
 use uuid::Uuid;
+use crate::portfolio::repository::error::RepositoryError;
 
 /// Components for construction a [MetaPortfolio] via the new() constructor method.
 #[derive(Debug)]
@@ -157,6 +158,31 @@ where
         self.repository.set_current_cash(&self.id, current_cash)?;
 
         Ok(())
+    }
+}
+
+impl<T> PositionHandler for MetaPortfolio<T>
+where
+    T: PositionHandler + ValueHandler + CashHandler,
+{
+    fn set_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
+        self.repository.set_position(&portfolio_id, position)
+    }
+
+    fn get_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError> {
+        self.repository.get_position(position_id)
+    }
+
+    fn remove_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError> {
+        self.repository.remove_position(position_id)
+    }
+
+    fn set_closed_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
+        self.repository.set_closed_position(&portfolio_id, position)
+    }
+
+    fn get_closed_positions(&mut self, portfolio_id: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError> {
+        self.repository.get_closed_positions(&portfolio_id)
     }
 }
 
