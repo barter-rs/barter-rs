@@ -1,15 +1,21 @@
 use crate::data::error::DataError;
-use crate::data::handler::{Continuation, Continuer};
+use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::data::market::MarketEvent;
 use barter_data::client::binance::Binance;
 use barter_data::client::{ClientConfig, ClientName as ExchangeName};
 use barter_data::model::{Candle, MarketData};
 use barter_data::ExchangeClient;
+use log::debug;
+use std::sync::mpsc::{channel, Receiver};
 use chrono::Utc;
 use serde::Deserialize;
-use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 use uuid::Uuid;
+
+// Todo:
+//  - Ensure there is a proper pattern for .expect() in barter componenet new() methods
+//     '--> Should LiveCandleHandler::new() return a Result<>?
+//            '--> See what makes sense in barter-execution / backtester
 
 /// Configuration for constructing a [LiveCandleHandler] via the new() constructor method.
 #[derive(Debug, Deserialize)]
@@ -26,7 +32,7 @@ pub struct LiveCandleHandler {
     pub exchange: ExchangeName,
     pub symbol: String,
     pub interval: String,
-    pub data_stream: UnboundedReceiverStream<Candle>,
+    candle_rx: Receiver<Candle>,
 }
 
 impl Continuer for LiveCandleHandler {
@@ -35,13 +41,10 @@ impl Continuer for LiveCandleHandler {
     }
 }
 
-impl LiveCandleHandler {
-    pub async fn generate_market(&mut self) -> Option<MarketEvent> {
-        // Consume next candle if it's available
-        let candle = match self.data_stream.next().await {
-            Some(candle) => candle,
-            _ => return None,
-        };
+impl MarketGenerator for LiveCandleHandler {
+    fn generate_market(&mut self) -> Option<MarketEvent> {
+        // Consume next candle
+        let candle = self.candle_rx.recv().unwrap();
 
         Some(MarketEvent {
             event_type: MarketEvent::EVENT_TYPE,
@@ -52,29 +55,44 @@ impl LiveCandleHandler {
             data: MarketData::Candle(candle),
         })
     }
+}
 
+impl LiveCandleHandler {
     /// Constructs a new [LiveCandleHandler] component using the provided [Config] struct, as well
     /// as a oneshot::[Receiver] for receiving [TerminateCommand]s.
     pub async fn new(cfg: &Config) -> Self {
-        // Determine ExchangeClient instance & construct
+        // Determine ExchangeClient type & construct
         let mut exchange_client = match cfg.exchange {
             ExchangeName::Binance => Binance::new(ClientConfig {
                 rate_limit_per_minute: cfg.rate_limit_per_minute,
             }),
         }
-        .await
-        .unwrap();
-
-        let data_stream = exchange_client
-            .consume_candles(cfg.symbol.clone(), &*cfg.interval.clone())
             .await
-            .unwrap();
+            .expect("Failed to construct exchange Client instance");
+
+        // Subscribe to candle stream via exchange Client
+        let mut candle_stream = exchange_client
+            .consume_candles(cfg.symbol.clone(), &cfg.interval)
+            .await
+            .expect("Failed to consume_candles for via exchange Client instance");
+
+        // Spawn Tokio task to async consume_candles from Client and transmit to a sync candle_rx
+        let (candle_tx, candle_rx) = channel();
+        tokio::spawn(async move {
+            // Send any received Candles from Client to the LiveCandleHandler candle_rx
+            if let Some(candle) = candle_stream.next().await {
+                if candle_tx.send(candle).is_err() {
+                    debug!("Receiver for exchange Candles has been dropped - closing channel");
+                    return
+                }
+            }
+        });
 
         Self {
             exchange: cfg.exchange.clone(),
             symbol: cfg.symbol.clone(),
             interval: cfg.interval.clone(),
-            data_stream,
+            candle_rx,
         }
     }
 
@@ -90,7 +108,7 @@ pub struct LiveCandleHandlerBuilder {
     pub exchange: Option<ExchangeName>,
     pub symbol: Option<String>,
     pub interval: Option<String>,
-    pub data_stream: Option<UnboundedReceiverStream<Candle>>,
+    pub candle_rx: Option<Receiver<Candle>>,
 }
 
 impl LiveCandleHandlerBuilder {
@@ -119,9 +137,9 @@ impl LiveCandleHandlerBuilder {
         }
     }
 
-    pub fn data_stream(self, value: UnboundedReceiverStream<Candle>) -> Self {
+    pub fn candle_rx(self, value: Receiver<Candle>) -> Self {
         Self {
-            data_stream: Some(value),
+            candle_rx: Some(value),
             ..self
         }
     }
@@ -130,13 +148,13 @@ impl LiveCandleHandlerBuilder {
         let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
         let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
         let interval = self.interval.ok_or(DataError::BuilderIncomplete)?;
-        let data_stream = self.data_stream.ok_or(DataError::BuilderIncomplete)?;
+        let candle_rx = self.candle_rx.ok_or(DataError::BuilderIncomplete)?;
 
         Ok(LiveCandleHandler {
             exchange,
             symbol,
             interval,
-            data_stream,
+            candle_rx,
         })
     }
 }
