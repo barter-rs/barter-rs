@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 /// Determines if a process can continue.
 pub trait Continuer {
     /// Returns a [Continuation] to communicate if a process can continue.
-    fn can_continue(&mut self) -> Continuation;
+    fn can_continue(&self) -> &Continuation;
 }
 
 /// Generates the latest [MarketEvent], acting as the system heartbeat.
