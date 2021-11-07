@@ -13,7 +13,7 @@ use tokio_stream::StreamExt;
 use uuid::Uuid;
 
 // Todo:
-//  - Ensure there is a proper pattern for .expect() in barter componenet new() methods
+//  - Ensure there is a proper pattern for .expect() in barter component new() methods
 //     '--> Should LiveCandleHandler::new() return a Result<>?
 //            '--> See what makes sense in barter-execution / backtester
 
@@ -33,18 +33,25 @@ pub struct LiveCandleHandler {
     pub symbol: String,
     pub interval: String,
     candle_rx: Receiver<Candle>,
+    can_continue: Continuation,
 }
 
 impl Continuer for LiveCandleHandler {
-    fn can_continue(&mut self) -> Continuation {
-        Continuation::Continue
+    fn can_continue(&self) -> &Continuation {
+        &self.can_continue
     }
 }
 
 impl MarketGenerator for LiveCandleHandler {
     fn generate_market(&mut self) -> Option<MarketEvent> {
         // Consume next candle
-        let candle = self.candle_rx.recv().unwrap();
+        let candle = match self.candle_rx.recv() {
+            Ok(candle) => candle,
+            Err(_) => {
+                self.can_continue = Continuation::Stop;
+                return None
+            },
+        };
 
         Some(MarketEvent {
             event_type: MarketEvent::EVENT_TYPE,
@@ -93,6 +100,7 @@ impl LiveCandleHandler {
             symbol: cfg.symbol.clone(),
             interval: cfg.interval.clone(),
             candle_rx,
+            can_continue: Continuation::Continue
         }
     }
 
@@ -155,6 +163,7 @@ impl LiveCandleHandlerBuilder {
             symbol,
             interval,
             candle_rx,
+            can_continue: Continuation::Continue
         })
     }
 }
