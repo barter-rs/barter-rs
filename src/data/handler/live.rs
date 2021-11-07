@@ -12,11 +12,6 @@ use serde::Deserialize;
 use tokio_stream::StreamExt;
 use uuid::Uuid;
 
-// Todo:
-//  - Ensure there is a proper pattern for .expect() in barter component new() methods
-//     '--> Should LiveCandleHandler::new() return a Result<>?
-//            '--> See what makes sense in barter-execution / backtester
-
 /// Configuration for constructing a [LiveCandleHandler] via the new() constructor method.
 #[derive(Debug, Deserialize)]
 pub struct Config {
