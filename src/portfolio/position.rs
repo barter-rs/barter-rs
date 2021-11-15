@@ -1,10 +1,11 @@
-use crate::execution::fill::{FillEvent, Fees, FeeAmount};
-use crate::portfolio::error::PortfolioError;
 use crate::data::market::MarketEvent;
-use uuid::Uuid;
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
+use crate::execution::fill::{FeeAmount, Fees, FillEvent};
+use crate::portfolio::error::PortfolioError;
 use crate::strategy::signal::Decision;
+use barter_data::model::MarketData;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Enters a new [Position].
 pub trait PositionEnterer {
@@ -90,7 +91,7 @@ impl PositionEnterer for Position {
             last_update_timestamp: fill.timestamp,
             exit_trace_id: None,
             exit_bar_timestamp: None,
-            exit_equity_point: None
+            exit_equity_point: None,
         };
 
         // Enter fees
@@ -126,13 +127,19 @@ impl PositionEnterer for Position {
 
 impl PositionUpdater for Position {
     fn update(&mut self, market: &MarketEvent) {
+        // Determine close from MarketData
+        let close = match &market.data {
+            MarketData::Trade(trade) => trade.price,
+            MarketData::Candle(candle) => candle.close,
+        };
+
         self.meta.last_update_trace_id = market.trace_id;
         self.meta.last_update_timestamp = market.timestamp;
 
-        self.current_symbol_price = market.bar.close;
+        self.current_symbol_price = close;
 
         // Market value gross
-        self.current_value_gross = market.bar.close * self.quantity.abs();
+        self.current_value_gross = close * self.quantity.abs();
 
         // Unreal profit & loss
         self.unreal_profit_loss = self.calculate_unreal_profit_loss();
@@ -142,9 +149,9 @@ impl PositionUpdater for Position {
 impl PositionExiter for Position {
     fn exit(&mut self, mut portfolio_value: f64, fill: &FillEvent) -> Result<(), PortfolioError> {
         if fill.decision.is_entry() {
-            return Err(PortfolioError::CannotExitPositionWithEntryFill)
+            return Err(PortfolioError::CannotExitPositionWithEntryFill);
         }
-        
+
         // Exit fees
         self.exit_fees = fill.fees.clone();
         self.exit_fees_total = fill.fees.calculate_total_fees();
@@ -164,7 +171,7 @@ impl PositionExiter for Position {
         self.meta.exit_trace_id = Some(fill.trace_id);
         self.meta.exit_equity_point = Some(EquityPoint {
             equity: portfolio_value,
-            timestamp: fill.market_meta.timestamp
+            timestamp: fill.market_meta.timestamp,
         });
 
         Ok(())
@@ -212,8 +219,10 @@ impl Position {
         match fill.decision {
             Decision::Long if fill.quantity.is_sign_positive() => Ok(Direction::Long),
             Decision::Short if fill.quantity.is_sign_negative() => Ok(Direction::Short),
-            Decision::CloseLong | Decision::CloseShort => Err(PortfolioError::CannotEnterPositionWithExitFill),
-            _ => Err(PortfolioError::ParseEntryDirectionError)
+            Decision::CloseLong | Decision::CloseShort => {
+                Err(PortfolioError::CannotEnterPositionWithExitFill)
+            }
+            _ => Err(PortfolioError::ParseEntryDirectionError),
         }
     }
 
@@ -222,8 +231,12 @@ impl Position {
         let approx_total_fees = self.enter_fees_total * 2.0;
 
         match self.direction {
-            Direction::Long => self.current_value_gross - self.enter_value_gross - approx_total_fees,
-            Direction::Short => self.enter_value_gross - self.current_value_gross - approx_total_fees,
+            Direction::Long => {
+                self.current_value_gross - self.enter_value_gross - approx_total_fees
+            }
+            Direction::Short => {
+                self.enter_value_gross - self.current_value_gross - approx_total_fees
+            }
         }
     }
 
@@ -397,17 +410,37 @@ impl PositionBuilder {
         let direction = self.direction.ok_or(PortfolioError::BuilderIncomplete)?;
         let quantity = self.quantity.ok_or(PortfolioError::BuilderIncomplete)?;
         let enter_fees = self.enter_fees.ok_or(PortfolioError::BuilderIncomplete)?;
-        let enter_fees_total = self.enter_fees_total.ok_or(PortfolioError::BuilderIncomplete)?;
-        let enter_avg_price_gross = self.enter_avg_price_gross.ok_or(PortfolioError::BuilderIncomplete)?;
-        let enter_value_gross = self.enter_value_gross.ok_or(PortfolioError::BuilderIncomplete)?;
+        let enter_fees_total = self
+            .enter_fees_total
+            .ok_or(PortfolioError::BuilderIncomplete)?;
+        let enter_avg_price_gross = self
+            .enter_avg_price_gross
+            .ok_or(PortfolioError::BuilderIncomplete)?;
+        let enter_value_gross = self
+            .enter_value_gross
+            .ok_or(PortfolioError::BuilderIncomplete)?;
         let exit_fees = self.exit_fees.ok_or(PortfolioError::BuilderIncomplete)?;
-        let exit_fees_total = self.exit_fees_total.ok_or(PortfolioError::BuilderIncomplete)?;
-        let exit_avg_price_gross = self.exit_avg_price_gross.ok_or(PortfolioError::BuilderIncomplete)?;
-        let exit_value_gross = self.exit_value_gross.ok_or(PortfolioError::BuilderIncomplete)?;
-        let current_symbol_price = self.current_symbol_price.ok_or(PortfolioError::BuilderIncomplete)?;
-        let current_value_gross = self.current_value_gross.ok_or(PortfolioError::BuilderIncomplete)?;
-        let unreal_profit_loss = self.unreal_profit_loss.ok_or(PortfolioError::BuilderIncomplete)?;
-        let result_profit_loss = self.result_profit_loss.ok_or(PortfolioError::BuilderIncomplete)?;
+        let exit_fees_total = self
+            .exit_fees_total
+            .ok_or(PortfolioError::BuilderIncomplete)?;
+        let exit_avg_price_gross = self
+            .exit_avg_price_gross
+            .ok_or(PortfolioError::BuilderIncomplete)?;
+        let exit_value_gross = self
+            .exit_value_gross
+            .ok_or(PortfolioError::BuilderIncomplete)?;
+        let current_symbol_price = self
+            .current_symbol_price
+            .ok_or(PortfolioError::BuilderIncomplete)?;
+        let current_value_gross = self
+            .current_value_gross
+            .ok_or(PortfolioError::BuilderIncomplete)?;
+        let unreal_profit_loss = self
+            .unreal_profit_loss
+            .ok_or(PortfolioError::BuilderIncomplete)?;
+        let result_profit_loss = self
+            .result_profit_loss
+            .ok_or(PortfolioError::BuilderIncomplete)?;
 
         Ok(Position {
             meta,
@@ -426,7 +459,7 @@ impl PositionBuilder {
             current_symbol_price,
             current_value_gross,
             unreal_profit_loss,
-            result_profit_loss
+            result_profit_loss,
         })
     }
 }
@@ -466,7 +499,7 @@ impl Default for PositionMeta {
             last_update_timestamp: Utc::now(),
             exit_trace_id: None,
             exit_bar_timestamp: None,
-            exit_equity_point: None
+            exit_equity_point: None,
         }
     }
 }
@@ -495,7 +528,7 @@ impl EquityPoint {
                 // Position is not exited
                 self.equity += position.unreal_profit_loss;
                 self.timestamp = position.meta.last_update_timestamp;
-            },
+            }
             Some(exit_timestamp) => {
                 self.equity += position.result_profit_loss;
                 self.timestamp = exit_timestamp;
@@ -533,7 +566,7 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         let position = Position::enter(&input_fill).unwrap();
@@ -544,12 +577,18 @@ mod tests {
         assert_eq!(position.enter_fees.exchange, input_fill.fees.exchange);
         assert_eq!(position.enter_fees.slippage, input_fill.fees.slippage);
         assert_eq!(position.enter_fees.network, input_fill.fees.network);
-        assert_eq!(position.enter_avg_price_gross, (input_fill.fill_value_gross / input_fill.quantity.abs()));
+        assert_eq!(
+            position.enter_avg_price_gross,
+            (input_fill.fill_value_gross / input_fill.quantity.abs())
+        );
         assert_eq!(position.enter_value_gross, input_fill.fill_value_gross);
         assert_eq!(position.exit_fees_total, 0.0);
         assert_eq!(position.exit_avg_price_gross, 0.0);
         assert_eq!(position.exit_value_gross, 0.0);
-        assert_eq!(position.current_symbol_price, (input_fill.fill_value_gross / input_fill.quantity.abs()));
+        assert_eq!(
+            position.current_symbol_price,
+            (input_fill.fill_value_gross / input_fill.quantity.abs())
+        );
         assert_eq!(position.current_value_gross, input_fill.fill_value_gross);
         assert_eq!(position.unreal_profit_loss, -6.0); // -2 * enter_fees_total
         assert_eq!(position.result_profit_loss, 0.0);
@@ -564,7 +603,7 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         let position = Position::enter(&input_fill).unwrap();
@@ -575,12 +614,18 @@ mod tests {
         assert_eq!(position.enter_fees.exchange, input_fill.fees.exchange);
         assert_eq!(position.enter_fees.slippage, input_fill.fees.slippage);
         assert_eq!(position.enter_fees.network, input_fill.fees.network);
-        assert_eq!(position.enter_avg_price_gross, (input_fill.fill_value_gross / input_fill.quantity.abs()));
+        assert_eq!(
+            position.enter_avg_price_gross,
+            (input_fill.fill_value_gross / input_fill.quantity.abs())
+        );
         assert_eq!(position.enter_value_gross, input_fill.fill_value_gross);
         assert_eq!(position.exit_fees_total, 0.0);
         assert_eq!(position.exit_avg_price_gross, 0.0);
         assert_eq!(position.exit_value_gross, 0.0);
-        assert_eq!(position.current_symbol_price, (input_fill.fill_value_gross / input_fill.quantity.abs()));
+        assert_eq!(
+            position.current_symbol_price,
+            (input_fill.fill_value_gross / input_fill.quantity.abs())
+        );
         assert_eq!(position.current_value_gross, input_fill.fill_value_gross);
         assert_eq!(position.unreal_profit_loss, -6.0); // -2 * enter_fees_total
         assert_eq!(position.result_profit_loss, 0.0);
@@ -595,19 +640,21 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         if let Err(_) = Position::enter(&input_fill) {
             Ok(())
-        }
-        else {
-            Err(String::from("Position::enter did not return an Err and it should have."))
+        } else {
+            Err(String::from(
+                "Position::enter did not return an Err and it should have.",
+            ))
         }
     }
 
     #[test]
-    fn enter_new_position_and_return_err_with_close_short_decision_provided() -> Result<(), String> {
+    fn enter_new_position_and_return_err_with_close_short_decision_provided() -> Result<(), String>
+    {
         let mut input_fill = FillEvent::default();
         input_fill.decision = Decision::CloseShort;
         input_fill.quantity = 1.0;
@@ -615,19 +662,21 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         if let Err(_) = Position::enter(&input_fill) {
             Ok(())
-        }
-        else {
-            Err(String::from("Position::enter did not return an Err and it should have."))
+        } else {
+            Err(String::from(
+                "Position::enter did not return an Err and it should have.",
+            ))
         }
     }
 
     #[test]
-    fn enter_new_position_and_return_err_with_negative_quantity_long_decision_provided() -> Result<(), String> {
+    fn enter_new_position_and_return_err_with_negative_quantity_long_decision_provided(
+    ) -> Result<(), String> {
         let mut input_fill = FillEvent::default();
         input_fill.decision = Decision::Long;
         input_fill.quantity = -1.0;
@@ -635,19 +684,21 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         if let Err(_) = Position::enter(&input_fill) {
             Ok(())
-        }
-        else {
-            Err(String::from("Position::enter did not return an Err and it should have."))
+        } else {
+            Err(String::from(
+                "Position::enter did not return an Err and it should have.",
+            ))
         }
     }
 
     #[test]
-    fn enter_new_position_and_return_err_with_positive_quantity_short_decision_provided() -> Result<(), String> {
+    fn enter_new_position_and_return_err_with_positive_quantity_short_decision_provided(
+    ) -> Result<(), String> {
         let mut input_fill = FillEvent::default();
         input_fill.decision = Decision::Short;
         input_fill.quantity = 1.0;
@@ -655,14 +706,15 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         if let Err(_) = Position::enter(&input_fill) {
             Ok(())
-        }
-        else {
-            Err(String::from("Position::enter did not return an Err and it should have."))
+        } else {
+            Err(String::from(
+                "Position::enter did not return an Err and it should have.",
+            ))
         }
     }
 
@@ -676,7 +728,7 @@ mod tests {
         position.enter_fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
@@ -686,7 +738,11 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.bar.close = 200.0; // +100.0 higher than current_symbol_price
+        match input_market.data {
+            // +100.0 higher than current_symbol_price
+            MarketData::Candle(ref mut candle) => candle.close = 200.0,
+            MarketData::Trade(ref mut trade) => trade.price = 200.0,
+        };
 
         // Update Position
         position.update(&input_market);
@@ -702,8 +758,15 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position.current_symbol_price, input_market.bar.close);
-        assert_eq!(position.current_value_gross, input_market.bar.close * position.quantity.abs());
+        let close = match &input_market.data {
+            MarketData::Trade(trade) => trade.price,
+            MarketData::Candle(candle) => candle.close,
+        };
+        assert_eq!(position.current_symbol_price, close);
+        assert_eq!(
+            position.current_value_gross,
+            close * position.quantity.abs()
+        );
 
         // current_value_gross - enter_value_gross - approx_total_fees
         assert_eq!(position.unreal_profit_loss, (200.0 - 100.0 - 6.0));
@@ -719,7 +782,7 @@ mod tests {
         position.enter_fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
@@ -729,7 +792,12 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.bar.close = 50.0; // -50.0 lower than current_symbol_price
+
+        match input_market.data {
+            // -50.0 lower than current_symbol_price
+            MarketData::Candle(ref mut candle) => candle.close = 50.0,
+            MarketData::Trade(ref mut trade) => trade.price = 50.0,
+        };
 
         // Update Position
         position.update(&input_market);
@@ -745,8 +813,15 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position.current_symbol_price, input_market.bar.close);
-        assert_eq!(position.current_value_gross, input_market.bar.close * position.quantity.abs());
+        let close = match &input_market.data {
+            MarketData::Trade(trade) => trade.price,
+            MarketData::Candle(candle) => candle.close,
+        };
+        assert_eq!(position.current_symbol_price, close);
+        assert_eq!(
+            position.current_value_gross,
+            close * position.quantity.abs()
+        );
 
         // current_value_gross - enter_value_gross - approx_total_fees
         assert_eq!(position.unreal_profit_loss, (50.0 - 100.0 - 6.0));
@@ -762,7 +837,7 @@ mod tests {
         position.enter_fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
@@ -772,7 +847,12 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.bar.close = 50.0; // -50.0 lower than current_symbol_price
+
+        match input_market.data {
+            // -50.0 lower than current_symbol_price
+            MarketData::Candle(ref mut candle) => candle.close = 50.0,
+            MarketData::Trade(ref mut trade) => trade.price = 50.0,
+        };
 
         // Update Position
         position.update(&input_market);
@@ -788,8 +868,15 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position.current_symbol_price, input_market.bar.close);
-        assert_eq!(position.current_value_gross, input_market.bar.close * position.quantity.abs());
+        let close = match &input_market.data {
+            MarketData::Trade(trade) => trade.price,
+            MarketData::Candle(candle) => candle.close,
+        };
+        assert_eq!(position.current_symbol_price, close);
+        assert_eq!(
+            position.current_value_gross,
+            close * position.quantity.abs()
+        );
 
         // enter_value_gross - current_value_gross - approx_total_fees
         assert_eq!(position.unreal_profit_loss, (100.0 - 50.0 - 6.0));
@@ -805,7 +892,7 @@ mod tests {
         position.enter_fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
@@ -815,7 +902,12 @@ mod tests {
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
-        input_market.bar.close = 200.0; // +100.0 higher than current_symbol_price
+
+        match input_market.data {
+            // +100.0 higher than current_symbol_price
+            MarketData::Candle(ref mut candle) => candle.close = 200.0,
+            MarketData::Trade(ref mut trade) => trade.price = 200.0,
+        };
 
         // Update Position
         position.update(&input_market);
@@ -831,8 +923,15 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        assert_eq!(position.current_symbol_price, input_market.bar.close);
-        assert_eq!(position.current_value_gross, input_market.bar.close * position.quantity.abs());
+        let close = match &input_market.data {
+            MarketData::Trade(trade) => trade.price,
+            MarketData::Candle(candle) => candle.close,
+        };
+        assert_eq!(position.current_symbol_price, close);
+        assert_eq!(
+            position.current_value_gross,
+            close * position.quantity.abs()
+        );
 
         // enter_value_gross - current_value_gross - approx_total_fees
         assert_eq!(position.unreal_profit_loss, (100.0 - 200.0 - 6.0));
@@ -848,7 +947,7 @@ mod tests {
         position.enter_fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
@@ -867,7 +966,7 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         // Exit Position
@@ -889,14 +988,20 @@ mod tests {
         assert_eq!(position.exit_fees.slippage, 1.0);
         assert_eq!(position.exit_fees.network, 1.0);
         assert_eq!(position.exit_value_gross, input_fill.fill_value_gross);
-        assert_eq!(position.exit_avg_price_gross, input_fill.fill_value_gross / input_fill.quantity.abs());
+        assert_eq!(
+            position.exit_avg_price_gross,
+            input_fill.fill_value_gross / input_fill.quantity.abs()
+        );
 
         // exit_value_gross - enter_value_gross - total_fees
         assert_eq!(position.result_profit_loss, (200.0 - 100.0 - 6.0));
         assert_eq!(position.unreal_profit_loss, (200.0 - 100.0 - 6.0));
 
         // Assert EquityPoint on Exit is correct
-        assert_eq!(position.meta.exit_equity_point.unwrap().equity, current_value + (200.0 - 100.0 - 6.0))
+        assert_eq!(
+            position.meta.exit_equity_point.unwrap().equity,
+            current_value + (200.0 - 100.0 - 6.0)
+        )
     }
 
     #[test]
@@ -909,7 +1014,7 @@ mod tests {
         position.enter_fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
@@ -928,7 +1033,7 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         // Exit Position
@@ -950,14 +1055,20 @@ mod tests {
         assert_eq!(position.exit_fees.slippage, 1.0);
         assert_eq!(position.exit_fees.network, 1.0);
         assert_eq!(position.exit_value_gross, input_fill.fill_value_gross);
-        assert_eq!(position.exit_avg_price_gross, input_fill.fill_value_gross / input_fill.quantity.abs());
+        assert_eq!(
+            position.exit_avg_price_gross,
+            input_fill.fill_value_gross / input_fill.quantity.abs()
+        );
 
         // exit_value_gross - enter_value_gross - total_fees
         assert_eq!(position.result_profit_loss, (50.0 - 100.0 - 6.0));
         assert_eq!(position.unreal_profit_loss, (50.0 - 100.0 - 6.0));
 
         // Assert EquityPoint on Exit is correct
-        assert_eq!(position.meta.exit_equity_point.unwrap().equity, current_value + (50.0 - 100.0 - 6.0))
+        assert_eq!(
+            position.meta.exit_equity_point.unwrap().equity,
+            current_value + (50.0 - 100.0 - 6.0)
+        )
     }
 
     #[test]
@@ -970,7 +1081,7 @@ mod tests {
         position.enter_fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
@@ -989,7 +1100,7 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         // Exit Position
@@ -1011,14 +1122,20 @@ mod tests {
         assert_eq!(position.exit_fees.slippage, 1.0);
         assert_eq!(position.exit_fees.network, 1.0);
         assert_eq!(position.exit_value_gross, input_fill.fill_value_gross);
-        assert_eq!(position.exit_avg_price_gross, input_fill.fill_value_gross / input_fill.quantity.abs());
+        assert_eq!(
+            position.exit_avg_price_gross,
+            input_fill.fill_value_gross / input_fill.quantity.abs()
+        );
 
         // enter_value_gross - current_value_gross - approx_total_fees
         assert_eq!(position.result_profit_loss, (100.0 - 50.0 - 6.0));
         assert_eq!(position.unreal_profit_loss, (100.0 - 50.0 - 6.0));
 
         // Assert EquityPoint on Exit is correct
-        assert_eq!(position.meta.exit_equity_point.unwrap().equity, current_value + (100.0 - 50.0 - 6.0))
+        assert_eq!(
+            position.meta.exit_equity_point.unwrap().equity,
+            current_value + (100.0 - 50.0 - 6.0)
+        )
     }
 
     #[test]
@@ -1031,7 +1148,7 @@ mod tests {
         position.enter_fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
@@ -1050,7 +1167,7 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         // Exit Position
@@ -1072,14 +1189,20 @@ mod tests {
         assert_eq!(position.exit_fees.slippage, 1.0);
         assert_eq!(position.exit_fees.network, 1.0);
         assert_eq!(position.exit_value_gross, input_fill.fill_value_gross);
-        assert_eq!(position.exit_avg_price_gross, input_fill.fill_value_gross / input_fill.quantity.abs());
+        assert_eq!(
+            position.exit_avg_price_gross,
+            input_fill.fill_value_gross / input_fill.quantity.abs()
+        );
 
         // enter_value_gross - current_value_gross - approx_total_fees
         assert_eq!(position.result_profit_loss, (100.0 - 200.0 - 6.0));
         assert_eq!(position.unreal_profit_loss, (100.0 - 200.0 - 6.0));
 
         // Assert EquityPoint on Exit is correct
-        assert_eq!(position.meta.exit_equity_point.unwrap().equity, current_value + (100.0 - 200.0 - 6.0))
+        assert_eq!(
+            position.meta.exit_equity_point.unwrap().equity,
+            current_value + (100.0 - 200.0 - 6.0)
+        )
     }
 
     #[test]
@@ -1092,7 +1215,7 @@ mod tests {
         position.enter_fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
@@ -1111,15 +1234,16 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         // Exit Position
         if let Err(_) = position.exit(current_value, &input_fill) {
             Ok(())
-        }
-        else {
-            Err(String::from("Position::exit did not return an Err and it should have."))
+        } else {
+            Err(String::from(
+                "Position::exit did not return an Err and it should have.",
+            ))
         }
     }
 
@@ -1133,7 +1257,7 @@ mod tests {
         position.enter_fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
@@ -1152,15 +1276,16 @@ mod tests {
         input_fill.fees = Fees {
             exchange: 1.0,
             slippage: 1.0,
-            network: 1.0
+            network: 1.0,
         };
 
         // Exit Position
         if let Err(_) = position.exit(current_value, &input_fill) {
             Ok(())
-        }
-        else {
-            Err(String::from("Position::exit did not return an Err and it should have."))
+        } else {
+            Err(String::from(
+                "Position::exit did not return an Err and it should have.",
+            ))
         }
     }
 
@@ -1209,58 +1334,66 @@ mod tests {
     }
 
     #[test]
-    fn parse_entry_direction_and_return_err_with_close_long_decision_provided() -> Result<(), String> {
+    fn parse_entry_direction_and_return_err_with_close_long_decision_provided() -> Result<(), String>
+    {
         let mut input_fill = FillEvent::default();
         input_fill.decision = Decision::CloseLong;
         input_fill.quantity = -1.0;
 
         if let Err(_) = Position::parse_entry_direction(&input_fill) {
             Ok(())
-        }
-        else {
-            Err(String::from("parse_entry_direction() did not return an Err & it should."))
+        } else {
+            Err(String::from(
+                "parse_entry_direction() did not return an Err & it should.",
+            ))
         }
     }
 
     #[test]
-    fn parse_entry_direction_and_return_err_with_close_short_decision_provided() -> Result<(), String> {
+    fn parse_entry_direction_and_return_err_with_close_short_decision_provided(
+    ) -> Result<(), String> {
         let mut input_fill = FillEvent::default();
         input_fill.decision = Decision::CloseShort;
         input_fill.quantity = 1.0;
 
         if let Err(_) = Position::parse_entry_direction(&input_fill) {
             Ok(())
-        }
-        else {
-            Err(String::from("parse_entry_direction() did not return an Err & it should."))
+        } else {
+            Err(String::from(
+                "parse_entry_direction() did not return an Err & it should.",
+            ))
         }
     }
 
     #[test]
-    fn parse_entry_direction_and_return_err_with_negative_quantity_long_decision_provided() -> Result<(), String> {
+    fn parse_entry_direction_and_return_err_with_negative_quantity_long_decision_provided(
+    ) -> Result<(), String> {
         let mut input_fill = FillEvent::default();
         input_fill.decision = Decision::Long;
         input_fill.quantity = -1.0;
 
         if let Err(_) = Position::parse_entry_direction(&input_fill) {
             Ok(())
-        }
-        else {
-            Err(String::from("parse_entry_direction() did not return an Err & it should."))
+        } else {
+            Err(String::from(
+                "parse_entry_direction() did not return an Err & it should.",
+            ))
         }
     }
 
     #[test]
-    fn parse_entry_direction_and_return_err_with_positive_quantity_short_decision_provided() -> Result<(), String> {
+    fn parse_entry_direction_and_return_err_with_positive_quantity_short_decision_provided(
+    ) -> Result<(), String> {
         let mut input_fill = FillEvent::default();
         input_fill.decision = Decision::Short;
         input_fill.quantity = 1.0;
 
         if let Err(_) = Position::parse_entry_direction(&input_fill) {
             Ok(())
-        }
-        else {
-            Err(String::from("parse_entry_direction() did not return an Err & it should."))
+        } else {
+            Err(String::from(
+                "parse_entry_direction() did not return an Err & it should.",
+            ))
         }
     }
 
@@ -1379,7 +1512,10 @@ mod tests {
         position
     }
 
-    fn equity_update_position_open(last_update_timestamp: DateTime<Utc>, unreal_pnl: f64) -> Position {
+    fn equity_update_position_open(
+        last_update_timestamp: DateTime<Utc>,
+        unreal_pnl: f64,
+    ) -> Position {
         let mut position = Position::default();
         position.meta.last_update_timestamp = last_update_timestamp;
         position.unreal_profit_loss = unreal_pnl;
@@ -1398,33 +1534,48 @@ mod tests {
 
         let mut equity_point = EquityPoint {
             equity: 100.0,
-            timestamp: base_timestamp
+            timestamp: base_timestamp,
         };
 
         let test_cases = vec![
             TestCase {
-                position: equity_update_position_closed(base_timestamp.add(Duration::days(1)), 10.0),
-                expected_equity: 110.0, expected_timestamp: base_timestamp.add(Duration::days(1))
+                position: equity_update_position_closed(
+                    base_timestamp.add(Duration::days(1)),
+                    10.0,
+                ),
+                expected_equity: 110.0,
+                expected_timestamp: base_timestamp.add(Duration::days(1)),
             },
             TestCase {
                 position: equity_update_position_open(base_timestamp.add(Duration::days(2)), -10.0),
-                expected_equity: 100.0, expected_timestamp: base_timestamp.add(Duration::days(2))
+                expected_equity: 100.0,
+                expected_timestamp: base_timestamp.add(Duration::days(2)),
             },
             TestCase {
-                position: equity_update_position_closed(base_timestamp.add(Duration::days(3)), -55.9),
-                expected_equity: 44.1, expected_timestamp: base_timestamp.add(Duration::days(3))
+                position: equity_update_position_closed(
+                    base_timestamp.add(Duration::days(3)),
+                    -55.9,
+                ),
+                expected_equity: 44.1,
+                expected_timestamp: base_timestamp.add(Duration::days(3)),
             },
             TestCase {
                 position: equity_update_position_open(base_timestamp.add(Duration::days(4)), 68.7),
-                expected_equity: 112.8, expected_timestamp: base_timestamp.add(Duration::days(4))
+                expected_equity: 112.8,
+                expected_timestamp: base_timestamp.add(Duration::days(4)),
             },
             TestCase {
-                position: equity_update_position_closed(base_timestamp.add(Duration::days(5)), 99999.0),
-                expected_equity: 100111.8, expected_timestamp: base_timestamp.add(Duration::days(5))
+                position: equity_update_position_closed(
+                    base_timestamp.add(Duration::days(5)),
+                    99999.0,
+                ),
+                expected_equity: 100111.8,
+                expected_timestamp: base_timestamp.add(Duration::days(5)),
             },
             TestCase {
                 position: equity_update_position_open(base_timestamp.add(Duration::days(5)), 0.2),
-                expected_equity: 100112.0, expected_timestamp: base_timestamp.add(Duration::days(5))
+                expected_equity: 100112.0,
+                expected_timestamp: base_timestamp.add(Duration::days(5)),
             },
         ];
 
