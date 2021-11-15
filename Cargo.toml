@@ -1,6 +1,6 @@
 [package]
 name = "barter"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
 edition = "2018"
 license = "MIT"
@@ -14,16 +14,30 @@ categories = ["accessibility", "simulation"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-barter-data = { path = "../barter-data-rs" }
+# Barter Ecosystem
+barter-data = "0.2.0"
+
+# Logging
 log = "0.4.14"
+
+# Async
 tokio = { version = "1.12.0", features = ["full"] }
 tokio-stream = { version = "0.1.7", features = ["sync"] }
-uuid = {version = "0.8", features = ["v4", "serde"]}
-serde = {version = "1.0", features = ["derive"]}
-serde_json = "1.0"
-csv = "1.1.5"
-chrono = {version = "0.4.19", features = ["serde"]}
-thiserror = "1.0.24"
-ta = "0.4.0"
+
+# Error
+thiserror = "1.0.30"
+
+# SerDe
+serde = { version = "1.0.130", features = ["derive"] }
+serde_json = "1.0.68"
+
+# Persistence
 redis = "0.20.0"
+
+# Strategy
+ta = "0.4.0"
+
+# Misc
+uuid = {version = "0.8", features = ["v4", "serde"]}
+chrono = {version = "0.4.19", features = ["serde"]}
 prettytable-rs = "0.8.0"
