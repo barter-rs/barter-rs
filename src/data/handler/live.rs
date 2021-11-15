@@ -5,10 +5,10 @@ use barter_data::client::binance::Binance;
 use barter_data::client::{ClientConfig, ClientName as ExchangeName};
 use barter_data::model::{Candle, MarketData};
 use barter_data::ExchangeClient;
-use log::debug;
-use std::sync::mpsc::{channel, Receiver};
 use chrono::Utc;
+use log::debug;
 use serde::Deserialize;
+use std::sync::mpsc::{channel, Receiver};
 use tokio_stream::StreamExt;
 use uuid::Uuid;
 
@@ -44,8 +44,8 @@ impl MarketGenerator for LiveCandleHandler {
             Ok(candle) => candle,
             Err(_) => {
                 self.can_continue = Continuation::Stop;
-                return None
-            },
+                return None;
+            }
         };
 
         Some(MarketEvent {
@@ -70,8 +70,8 @@ impl LiveCandleHandler {
                 rate_limit_per_minute: cfg.rate_limit_per_minute,
             }),
         }
-            .await
-            .expect("Failed to construct exchange Client instance");
+        .await
+        .expect("Failed to construct exchange Client instance");
 
         // Subscribe to candle stream via exchange Client
         let mut candle_stream = exchange_client
@@ -87,7 +87,7 @@ impl LiveCandleHandler {
                 if let Some(candle) = candle_stream.next().await {
                     if candle_tx.send(candle).is_err() {
                         debug!("Receiver for exchange Candles has been dropped - closing channel");
-                        return
+                        return;
                     }
                 }
             }
@@ -98,7 +98,7 @@ impl LiveCandleHandler {
             symbol: cfg.symbol.clone(),
             interval: cfg.interval.clone(),
             candle_rx,
-            can_continue: Continuation::Continue
+            can_continue: Continuation::Continue,
         }
     }
 
@@ -161,7 +161,7 @@ impl LiveCandleHandlerBuilder {
             symbol,
             interval,
             candle_rx,
-            can_continue: Continuation::Continue
+            can_continue: Continuation::Continue,
         })
     }
 }
