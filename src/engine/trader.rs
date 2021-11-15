@@ -1,6 +1,6 @@
+use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::engine::error::EngineError;
 use crate::engine::TerminationMessage;
-use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::event::Event;
 use crate::execution::FillGenerator;
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
@@ -23,11 +23,11 @@ enum Termination {
 /// Lego components for constructing a [Trader] via the new() constructor method.
 #[derive(Debug)]
 pub struct TraderLego<Portfolio, Data, Strategy, Execution>
-    where
-        Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug,
-        Data: Continuer + MarketGenerator + Debug,
-        Strategy: SignalGenerator + Debug,
-        Execution: FillGenerator + Debug,
+where
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug,
+    Data: Continuer + MarketGenerator + Debug,
+    Strategy: SignalGenerator + Debug,
+    Execution: FillGenerator + Debug,
 {
     /// broadcast::Receiver for receiving remote shutdown [TerminationMessage]s.
     pub termination_rx: broadcast::Receiver<TerminationMessage>,
@@ -49,11 +49,11 @@ pub struct TraderLego<Portfolio, Data, Strategy, Execution>
 /// termination_rx.
 #[derive(Debug)]
 pub struct Trader<Portfolio, Data, Strategy, Execution>
-    where
-        Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-        Data: Continuer + MarketGenerator + Send,
-        Strategy: SignalGenerator + Send,
-        Execution: FillGenerator + Send,
+where
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    Data: Continuer + MarketGenerator + Send,
+    Strategy: SignalGenerator + Send,
+    Execution: FillGenerator + Send,
 {
     /// broadcast::Receiver for receiving remote shutdown [TerminationMessage]s.
     termination_rx: broadcast::Receiver<TerminationMessage>,
@@ -72,15 +72,18 @@ pub struct Trader<Portfolio, Data, Strategy, Execution>
 }
 
 impl<Portfolio, Data, Strategy, Execution> Trader<Portfolio, Data, Strategy, Execution>
-    where
-        Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug,
-        Data: Continuer + MarketGenerator + Debug + Send,
-        Strategy: SignalGenerator + Debug + Send,
-        Execution: FillGenerator + Debug + Send,
+where
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug,
+    Data: Continuer + MarketGenerator + Debug + Send,
+    Strategy: SignalGenerator + Debug + Send,
+    Execution: FillGenerator + Debug + Send,
 {
     /// Constructs a new [Trader] instance using the provided [TraderLego].
     pub fn new(lego: TraderLego<Portfolio, Data, Strategy, Execution>) -> Self {
-        debug!("Constructing a new Trader instance with TraderLego: {:?}", lego);
+        debug!(
+            "Constructing a new Trader instance with TraderLego: {:?}",
+            lego
+        );
         Self {
             termination_rx: lego.termination_rx,
             event_q: VecDeque::with_capacity(4),
@@ -208,11 +211,11 @@ impl<Portfolio, Data, Strategy, Execution> Trader<Portfolio, Data, Strategy, Exe
 /// Builder to construct [Trader] instances.
 #[derive(Debug)]
 pub struct TraderBuilder<Portfolio, Data, Strategy, Execution>
-    where
-        Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-        Data: Continuer + MarketGenerator,
-        Strategy: SignalGenerator,
-        Execution: FillGenerator,
+where
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    Data: Continuer + MarketGenerator,
+    Strategy: SignalGenerator,
+    Execution: FillGenerator,
 {
     termination_rx: Option<broadcast::Receiver<TerminationMessage>>,
     event_q: Option<VecDeque<Event>>,
@@ -223,11 +226,11 @@ pub struct TraderBuilder<Portfolio, Data, Strategy, Execution>
 }
 
 impl<Portfolio, Data, Strategy, Execution> TraderBuilder<Portfolio, Data, Strategy, Execution>
-    where
-        Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-        Data: Continuer + MarketGenerator + Send,
-        Strategy: SignalGenerator + Send,
-        Execution: FillGenerator + Send,
+where
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    Data: Continuer + MarketGenerator + Send,
+    Strategy: SignalGenerator + Send,
+    Execution: FillGenerator + Send,
 {
     fn new() -> Self {
         Self {
@@ -236,7 +239,7 @@ impl<Portfolio, Data, Strategy, Execution> TraderBuilder<Portfolio, Data, Strate
             portfolio: None,
             data: None,
             strategy: None,
-            execution: None
+            execution: None,
         }
     }
 
