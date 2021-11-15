@@ -17,9 +17,10 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use crate::portfolio::repository::error::RepositoryError;
 
-/// Components for construction a [MetaPortfolio] via the new() constructor method.
+/// Lego components for constructing & initialising a [MetaPortfolio] via the init() constructor
+/// method.
 #[derive(Debug)]
-pub struct Components {
+pub struct PortfolioLego {
     pub allocator: DefaultAllocator,
     pub risk: DefaultRisk,
     pub starting_cash: f64,
@@ -192,7 +193,7 @@ where
 {
     /// Constructs a new [MetaPortfolio] component using the provided [Components] struct, and
     /// persists the initial [MetaPortfolio] state in the Repository.
-    pub fn init(components: Components, repository: T) -> Result<Self, PortfolioError> {
+    pub fn init(components: PortfolioLego, repository: T) -> Result<Self, PortfolioError> {
         // Construct MetaPortfolio instance
         let mut portfolio = Self {
             id: Uuid::new_v4(),

@@ -29,24 +29,37 @@
 //! # Getting Started
 //! ## Data Handler
 //! ```
-//! use barter::data::handler::{HistoricDataHandler, MarketGenerator, Continuer};
-//! use barter::data::market::Bar;
+//! use barter::data::handler::{Continuer, MarketGenerator};
+//! use barter::data::handler::live::{LiveCandleHandler, Config as DataConfig};
+//! use barter::data::handler::Continuation;
+//! use barter_data::client::ClientName as ExchangeName;
 //!
-//! // Or create with HistoricDataHandler::new(...) and pass a symbol data file to be parsed!
-//! let mut data = HistoricDataHandler::builder()
-//!     .symbol("ETH-USD".to_string())
-//!     .exchange("BINANCE".to_string())
-//!     .all_symbol_data(vec![Bar::default()].into_iter())
-//!     .build().unwrap();
+//! #[tokio::main]
+//! async fn main() {
 //!
-//! loop {
-//!     if data.should_continue() {
-//!         let market_event = data.generate_market().unwrap();
-//!     } else {
-//!         // Pass closed Positions to statistics module for performance analysis
+//!     let config = DataConfig {
+//!         rate_limit_per_minute: 120,
+//!         exchange: ExchangeName::Binance,
+//!         symbol: "btcusdt".to_string(),
+//!         interval: "1m".to_string()
+//!     };
+//!
+//!     let mut data = LiveCandleHandler::init(&config).await;
+//!
+//!     loop {
+//!         match data.can_continue() {
+//!             Continuation::Continue => {
+//!                 // Generate MarketEvent and add it to an EventQ
+//!                 let market_event = data.generate_market().unwrap();
+//!             },
+//!             Continuation::Stop => {
+//!                 // Pass closed Positions to statistics module for performance analysis
+//!                 break;
+//!             }
+//!         }
+//!         // Breaking so infinite doc-test does not occur with live candle feed
 //!         break;
 //!     }
-//!
 //! }
 //! ```
 //!
@@ -75,11 +88,11 @@
 //! use barter::portfolio::repository::redis::RedisRepository;
 //! use barter::event::Event;
 //! use barter::portfolio::order::OrderEvent;
-//! use barter::portfolio::portfolio::{Components, MetaPortfolio};
+//! use barter::portfolio::portfolio::{PortfolioLego, MetaPortfolio};
 //! use barter::portfolio::repository::redis::Config as RepositoryConfig;
 //! use barter::portfolio::repository::in_memory::InMemoryRepository;
 //!
-//! let components = Components {
+//! let components = PortfolioLego {
 //!     allocator: DefaultAllocator{ default_order_value: 100.0 },
 //!     risk: DefaultRisk{},
 //!     starting_cash: 10000.0,
@@ -87,7 +100,7 @@
 //!
 //! let repository = InMemoryRepository::new();
 //!
-//! let mut portfolio = MetaPortfolio::new(components, repository);
+//! let mut portfolio = MetaPortfolio::init(components, repository).unwrap();
 //!
 //! let some_event = Event::Order(OrderEvent::default());
 //!
@@ -157,8 +170,8 @@
 //! [README]: https://crates.io/crates/barter
 
 /// Defines a MarketEvent, and provides the useful traits of Continuer and MarketGenerator for
-/// handling the generation of them. Contains implementations such as the HistoricDataHandler that
-/// simulates a live market feed and acts as the systems heartbeat.
+/// handling the generation of them. Contains implementations such as the LiveCandleHandler that
+/// generates a live market feed and acts as the system heartbeat.
 pub mod data;
 
 /// Defines a SignalEvent, and provides the SignalGenerator trait for handling the generation of
