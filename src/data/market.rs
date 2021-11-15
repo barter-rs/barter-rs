@@ -1,8 +1,7 @@
 use crate::data::error::DataError;
 use barter_data::model::{Candle, MarketData};
-use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
-use serde::de::Error;
-use serde::{Deserialize, Deserializer, Serialize};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Market data & related metadata produced by a data::handler implementation for the Strategy
@@ -124,45 +123,6 @@ impl Default for MarketMeta {
             timestamp: Utc::now(),
         }
     }
-}
-
-/// Parse supported timestamp strings to a Chrono [Datetime] UTC timestamp.
-fn datetime_utc_parser<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let input: &str = Deserialize::deserialize(deserializer)?;
-
-    // If input &str is a DateTime<Utc>
-    let datetime_fixed = match DateTime::parse_from_rfc3339(input) {
-        Ok(datetime_fixed) => Some(datetime_fixed),
-        Err(_) => None,
-    };
-    if let Some(datetime_fixed) = datetime_fixed {
-        return Ok(DateTime::<Utc>::from(datetime_fixed));
-    }
-
-    // If input &str is a NaiveDateTime
-    let naive_datetime = match NaiveDateTime::parse_from_str(input, "%Y-%m-%d %H:%M:%S") {
-        Ok(naive_datetime) => Some(naive_datetime),
-        Err(_) => None,
-    };
-    if let Some(naive_datetime) = naive_datetime {
-        return Ok(DateTime::<Utc>::from_utc(naive_datetime, Utc));
-    }
-
-    // If input &str is a NaiveDate
-    let naive_date = match NaiveDate::parse_from_str(input, "%Y-%m-%d") {
-        Ok(naive_date) => Some(naive_date),
-        Err(_) => None,
-    };
-    if let Some(naive_date) = naive_date {
-        return Ok(DateTime::<Utc>::from_utc(naive_date.and_hms(0, 0, 0), Utc));
-    }
-
-    Err(D::Error::custom(
-        "Timestamp format not supported by deserializer",
-    ))
 }
 
 #[cfg(test)]

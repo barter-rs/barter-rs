@@ -29,38 +29,34 @@
 //! # Getting Started
 //! ## Data Handler
 //! ```
-//! use barter::data::handler::{Continuer, MarketGenerator};
-//! use barter::data::handler::live::{LiveCandleHandler, Config as DataConfig};
-//! use barter::data::handler::Continuation;
-//! use barter_data::client::ClientName as ExchangeName;
+//! use barter_data::model::Candle;
+//! use barter::data::handler::{Continuation, Continuer, MarketGenerator};
+//! use barter::data::handler::historic::{HistoricCandleHandler, HistoricDataLego};
 //!
-//! #[tokio::main]
-//! async fn main() {
+//! let lego = HistoricDataLego {
+//!     exchange: "Binance".to_string(),
+//!     symbol: "btcusdt".to_string(),
+//!     candle_iterator: vec![Candle::default()].into_iter(),
+//! };
 //!
-//!     let config = DataConfig {
-//!         rate_limit_per_minute: 120,
-//!         exchange: ExchangeName::Binance,
-//!         symbol: "btcusdt".to_string(),
-//!         interval: "1m".to_string()
-//!     };
+//! let mut data = HistoricCandleHandler::new(lego);
 //!
-//!     let mut data = LiveCandleHandler::init(&config).await;
-//!
-//!     loop {
-//!         match data.can_continue() {
-//!             Continuation::Continue => {
-//!                 // Generate MarketEvent and add it to an EventQ
-//!                 let market_event = data.generate_market().unwrap();
-//!             },
-//!             Continuation::Stop => {
-//!                 // Pass closed Positions to statistics module for performance analysis
-//!                 break;
+//! loop {
+//!     let market_event = match data.can_continue() {
+//!         Continuation::Continue => {
+//!             match data.generate_market() {
+//!                 Some(market_event) => market_event,
+//!                 None => continue,
 //!             }
+//!
+//!         },
+//!         Continuation::Stop => {
+//!             // Pass closed Positions to Statistic module for performance analysis
+//!             break;
 //!         }
-//!         // Breaking so infinite doc-test does not occur with live candle feed
-//!         break;
-//!     }
+//!     };
 //! }
+//!
 //! ```
 //!
 //! ## Strategy
