@@ -62,7 +62,7 @@ impl MarketGenerator for LiveCandleHandler {
 impl LiveCandleHandler {
     /// Constructs a new [LiveCandleHandler] component using the provided [Config] struct, as well
     /// as a oneshot::[Receiver] for receiving [TerminateCommand]s.
-    pub async fn new(cfg: &Config) -> Self {
+    pub async fn init(cfg: &Config) -> Self {
         // Determine ExchangeClient type & construct
         let mut exchange_client = match cfg.exchange {
             ExchangeName::Binance => Binance::new(ClientConfig {
