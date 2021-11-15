@@ -191,16 +191,16 @@ impl<T> MetaPortfolio<T>
 where
     T: PositionHandler + ValueHandler + CashHandler,
 {
-    /// Constructs a new [MetaPortfolio] component using the provided [Components] struct, and
+    /// Constructs a new [MetaPortfolio] component using the provided [PortfolioLego] components, and
     /// persists the initial [MetaPortfolio] state in the Repository.
-    pub fn init(components: PortfolioLego, repository: T) -> Result<Self, PortfolioError> {
+    pub fn init(lego: PortfolioLego, repository: T) -> Result<Self, PortfolioError> {
         // Construct MetaPortfolio instance
         let mut portfolio = Self {
             id: Uuid::new_v4(),
-            starting_cash: components.starting_cash,
+            starting_cash: lego.starting_cash,
             repository,
-            allocation_manager: components.allocator,
-            risk_manager: components.risk,
+            allocation_manager: lego.allocator,
+            risk_manager: lego.risk,
         };
 
         // Initialise MetaPortfolio state in the Repository
