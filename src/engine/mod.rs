@@ -1,16 +1,16 @@
 pub mod error;
 pub mod trader;
 
+use crate::data::handler::{Continuer, MarketGenerator};
 use crate::engine::error::EngineError;
 use crate::engine::trader::Trader;
-use crate::data::handler::{Continuer, MarketGenerator};
 use crate::execution::FillGenerator;
-use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
 use crate::portfolio::repository::PositionHandler;
+use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
 use crate::statistic::summary::{PositionSummariser, TablePrinter};
 use crate::strategy::SignalGenerator;
-use std::fmt::Debug;
 use log::{info, warn};
+use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use tokio::sync::{broadcast, oneshot};
@@ -22,12 +22,12 @@ pub type TerminationMessage = String;
 /// Lego components for constructing an [Engine] via the new() constructor method.
 #[derive(Debug)]
 pub struct EngineLego<Statistic, Portfolio, Data, Strategy, Execution>
-    where
-        Statistic: PositionSummariser + TablePrinter,
-        Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
-        Data: Continuer + MarketGenerator + Send,
-        Strategy: SignalGenerator + Send,
-        Execution: FillGenerator + Send,
+where
+    Statistic: PositionSummariser + TablePrinter,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
+    Data: Continuer + MarketGenerator + Send,
+    Strategy: SignalGenerator + Send,
+    Execution: FillGenerator + Send,
 {
     /// oneshot::Receiver for receiving remote shutdown [TerminationMessage]s.
     pub termination_rx: oneshot::Receiver<TerminationMessage>,
@@ -48,12 +48,12 @@ pub struct EngineLego<Statistic, Portfolio, Data, Strategy, Execution>
 /// termination_rx.
 #[derive(Debug)]
 pub struct Engine<Statistic, Portfolio, Data, Strategy, Execution>
-    where
-        Statistic: PositionSummariser + TablePrinter,
-        Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug + Send,
-        Data: Continuer + MarketGenerator + Debug + Send,
-        Strategy: SignalGenerator + Debug + Send,
-        Execution: FillGenerator + Debug + Send,
+where
+    Statistic: PositionSummariser + TablePrinter,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug + Send,
+    Data: Continuer + MarketGenerator + Debug + Send,
+    Strategy: SignalGenerator + Debug + Send,
+    Execution: FillGenerator + Debug + Send,
 {
     /// oneshot::Receiver for receiving remote shutdown [TerminationMessage]s.
     termination_rx: oneshot::Receiver<TerminationMessage>,
@@ -69,13 +69,14 @@ pub struct Engine<Statistic, Portfolio, Data, Strategy, Execution>
 }
 
 impl<Statistic, Portfolio, Data, Strategy, Execution>
-Engine<Statistic, Portfolio, Data, Strategy, Execution>
-    where
-        Statistic: PositionSummariser + TablePrinter,
-        Portfolio: PositionHandler + MarketUpdater + OrderGenerator + FillUpdater + Debug + Send + 'static,
-        Data: Continuer + MarketGenerator + Debug + Send + 'static,
-        Strategy: SignalGenerator + Debug + Send + 'static,
-        Execution: FillGenerator + Debug + Send + 'static,
+    Engine<Statistic, Portfolio, Data, Strategy, Execution>
+where
+    Statistic: PositionSummariser + TablePrinter,
+    Portfolio:
+        PositionHandler + MarketUpdater + OrderGenerator + FillUpdater + Debug + Send + 'static,
+    Data: Continuer + MarketGenerator + Debug + Send + 'static,
+    Strategy: SignalGenerator + Debug + Send + 'static,
+    Execution: FillGenerator + Debug + Send + 'static,
 {
     /// Constructs a new trading [Engine] instance using the provided [EngineLego].
     pub fn new(lego: EngineLego<Statistic, Portfolio, Data, Strategy, Execution>) -> Self {
@@ -99,25 +100,27 @@ Engine<Statistic, Portfolio, Data, Strategy, Execution>
     /// period's statistics are generated & printed with the provided Statistic component.
     pub async fn run(mut self) {
         // Run each Trader instance on it's own thread
-        self.traders
-            .into_iter()
-            .for_each(|trader| {
-                thread::spawn(move || trader.run());
-            });
+        self.traders.into_iter().for_each(|trader| {
+            thread::spawn(move || trader.run());
+        });
 
         // Await remote TerminationMessage command
         let termination_message = match self.termination_rx.await {
             Ok(message) => message,
             Err(_) => {
-                let message = String::from("Remote termination sender has been dropped - terminating Engine");
+                let message =
+                    String::from("Remote termination sender has been dropped - terminating Engine");
                 warn!("{}", message);
                 message
-            },
+            }
         };
 
         // Propagate TerminationMessage command to every Trader instance
         if let Err(err) = self.traders_termination_tx.send(termination_message) {
-            warn!("Error occured while propagating TerminationMessage to Trader instances: {}", err);
+            warn!(
+                "Error occured while propagating TerminationMessage to Trader instances: {}",
+                err
+            );
         }
 
         // Unlock Portfolio Mutex to access backtest information
@@ -126,7 +129,7 @@ Engine<Statistic, Portfolio, Data, Strategy, Execution>
             Err(err) => {
                 warn!("Mutex poisoned with error: {}", err);
                 err.into_inner()
-            },
+            }
         };
 
         // Generate TradingSummary
@@ -143,12 +146,12 @@ Engine<Statistic, Portfolio, Data, Strategy, Execution>
 /// Builder to construct [Engine] instances.
 #[derive(Debug)]
 pub struct EngineBuilder<Statistic, Portfolio, Data, Strategy, Execution>
-    where
-        Statistic: PositionSummariser + TablePrinter,
-        Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug + Send,
-        Data: Continuer + MarketGenerator + Debug + Send,
-        Strategy: SignalGenerator + Debug + Send,
-        Execution: FillGenerator + Debug + Send,
+where
+    Statistic: PositionSummariser + TablePrinter,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug + Send,
+    Data: Continuer + MarketGenerator + Debug + Send,
+    Strategy: SignalGenerator + Debug + Send,
+    Execution: FillGenerator + Debug + Send,
 {
     termination_rx: Option<oneshot::Receiver<TerminationMessage>>,
     traders_termination_tx: Option<broadcast::Sender<TerminationMessage>>,
@@ -157,13 +160,14 @@ pub struct EngineBuilder<Statistic, Portfolio, Data, Strategy, Execution>
     traders: Option<Vec<Trader<Portfolio, Data, Strategy, Execution>>>,
 }
 
-impl<Statistic, Portfolio, Data, Strategy, Execution> EngineBuilder<Statistic, Portfolio, Data, Strategy, Execution>
-    where
-        Statistic: PositionSummariser + TablePrinter,
-        Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug + Send,
-        Data: Continuer + MarketGenerator + Debug + Send,
-        Strategy: SignalGenerator + Debug + Send,
-        Execution: FillGenerator + Debug + Send,
+impl<Statistic, Portfolio, Data, Strategy, Execution>
+    EngineBuilder<Statistic, Portfolio, Data, Strategy, Execution>
+where
+    Statistic: PositionSummariser + TablePrinter,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug + Send,
+    Data: Continuer + MarketGenerator + Debug + Send,
+    Strategy: SignalGenerator + Debug + Send,
+    Execution: FillGenerator + Debug + Send,
 {
     fn new() -> Self {
         Self {
@@ -171,7 +175,7 @@ impl<Statistic, Portfolio, Data, Strategy, Execution> EngineBuilder<Statistic, P
             traders_termination_tx: None,
             statistics: None,
             portfolio: None,
-            traders: None
+            traders: None,
         }
     }
 
@@ -210,9 +214,13 @@ impl<Statistic, Portfolio, Data, Strategy, Execution> EngineBuilder<Statistic, P
         }
     }
 
-    pub fn build(self) -> Result<Engine<Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
+    pub fn build(
+        self,
+    ) -> Result<Engine<Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
         let termination_rx = self.termination_rx.ok_or(EngineError::BuilderIncomplete)?;
-        let traders_termination_tx = self.traders_termination_tx.ok_or(EngineError::BuilderIncomplete)?;
+        let traders_termination_tx = self
+            .traders_termination_tx
+            .ok_or(EngineError::BuilderIncomplete)?;
         let statistics = self.statistics.ok_or(EngineError::BuilderIncomplete)?;
         let portfolio = self.portfolio.ok_or(EngineError::BuilderIncomplete)?;
         let traders = self.traders.ok_or(EngineError::BuilderIncomplete)?;
@@ -222,7 +230,7 @@ impl<Statistic, Portfolio, Data, Strategy, Execution> EngineBuilder<Statistic, P
             traders_termination_tx,
             statistics,
             portfolio,
-            traders
+            traders,
         })
     }
 }
