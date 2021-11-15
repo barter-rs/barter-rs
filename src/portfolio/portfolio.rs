@@ -286,7 +286,7 @@ where
         }
     }
 
-    pub fn build(self) -> Result<MetaPortfolio<T>, PortfolioError> {
+    fn build(self) -> Result<MetaPortfolio<T>, PortfolioError> {
         let id = self.id.ok_or(PortfolioError::BuilderIncomplete)?;
         let starting_cash = self.starting_cash.ok_or(PortfolioError::BuilderIncomplete)?;
         let repository = self.repository.ok_or(PortfolioError::BuilderIncomplete)?;
@@ -478,7 +478,7 @@ mod tests {
         MetaPortfolio::builder()
             .id(Uuid::new_v4())
             .starting_cash(1000.0)
-            .repository()
+            .repository(mock_repository)
             .allocation_manager(DefaultAllocator {
                 default_order_value: 100.0,
             })
