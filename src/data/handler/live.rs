@@ -81,11 +81,13 @@ impl LiveCandleHandler {
         // Spawn Tokio task to async consume_candles from Client and transmit to a sync candle_rx
         let (candle_tx, candle_rx) = channel();
         tokio::spawn(async move {
-            // Send any received Candles from Client to the LiveCandleHandler candle_rx
-            if let Some(candle) = candle_stream.next().await {
-                if candle_tx.send(candle).is_err() {
-                    debug!("Receiver for exchange Candles has been dropped - closing channel");
-                    return
+            loop {
+                // Send any received Candles from Client to the LiveCandleHandler candle_rx
+                if let Some(candle) = candle_stream.next().await {
+                    if candle_tx.send(candle).is_err() {
+                        debug!("Receiver for exchange Candles has been dropped - closing channel");
+                        return
+                    }
                 }
             }
         });
