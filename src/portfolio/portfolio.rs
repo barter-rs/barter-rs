@@ -190,29 +190,28 @@ impl<T> MetaPortfolio<T>
 where
     T: PositionHandler + ValueHandler + CashHandler,
 {
-    /// Constructs a new [MetaPortfolio] component using the provided [Components] struct.
-    pub fn new(components: Components, repository: T) -> Self {
-        Self {
+    /// Constructs a new [MetaPortfolio] component using the provided [Components] struct, and
+    /// persists the initial [MetaPortfolio] state in the Repository.
+    pub fn init(components: Components, repository: T) -> Result<Self, PortfolioError> {
+        // Construct MetaPortfolio instance
+        let mut portfolio = Self {
             id: Uuid::new_v4(),
             starting_cash: components.starting_cash,
             repository,
             allocation_manager: components.allocator,
             risk_manager: components.risk,
-        }
+        };
+
+        // Initialise MetaPortfolio state in the Repository
+        portfolio.repository.set_current_cash(&portfolio.id, portfolio.starting_cash)?;
+        portfolio.repository.set_current_value(&portfolio.id, portfolio.starting_cash)?;
+
+        Ok(portfolio)
     }
 
     /// Returns a [MetaPortfolioBuilder] instance.
     pub fn builder() -> MetaPortfolioBuilder<T> {
         MetaPortfolioBuilder::new()
-    }
-
-    /// Persist the initial [MetaPortfolio] state in the Repository.
-    pub fn initialise(&mut self) -> Result<(), PortfolioError> {
-        self.repository
-            .set_current_cash(&self.id, self.starting_cash)?;
-        self.repository
-            .set_current_value(&self.id, self.starting_cash)?;
-        Ok(())
     }
 
     /// Determines if the Portfolio has any cash to enter a new [Position].
@@ -287,26 +286,6 @@ where
         }
     }
 
-    pub fn build(self) -> Result<MetaPortfolio<T>, PortfolioError> {
-        let id = self.id.ok_or(PortfolioError::BuilderIncomplete)?;
-        let starting_cash = self
-            .starting_cash
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-        let repository = self.repository.ok_or(PortfolioError::BuilderIncomplete)?;
-        let allocation_manager = self
-            .allocation_manager
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-        let risk_manager = self.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?;
-
-        Ok(MetaPortfolio {
-            id,
-            starting_cash,
-            repository,
-            allocation_manager,
-            risk_manager,
-        })
-    }
-
     pub fn build_and_init(self) -> Result<MetaPortfolio<T>, PortfolioError> {
         let id = self.id.ok_or(PortfolioError::BuilderIncomplete)?;
         let starting_cash = self
@@ -326,7 +305,10 @@ where
             risk_manager,
         };
 
-        portfolio.initialise()?;
+        // Initialise MetaPortfolio state in the Repository
+        portfolio.repository.set_current_cash(&id, starting_cash)?;
+        portfolio.repository.set_current_value(&id, starting_cash)?;
+
         Ok(portfolio)
     }
 }
