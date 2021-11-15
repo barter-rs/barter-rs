@@ -286,6 +286,23 @@ where
         }
     }
 
+    pub fn build(self) -> Result<MetaPortfolio<T>, PortfolioError> {
+        let id = self.id.ok_or(PortfolioError::BuilderIncomplete)?;
+        let starting_cash = self.starting_cash.ok_or(PortfolioError::BuilderIncomplete)?;
+        let repository = self.repository.ok_or(PortfolioError::BuilderIncomplete)?;
+        let allocation_manager = self.allocation_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+        let risk_manager = self.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+
+        Ok(MetaPortfolio {
+            id,
+            starting_cash,
+            repository,
+            allocation_manager,
+            risk_manager,
+        })
+    }
+
+
     pub fn build_and_init(self) -> Result<MetaPortfolio<T>, PortfolioError> {
         let id = self.id.ok_or(PortfolioError::BuilderIncomplete)?;
         let starting_cash = self
@@ -461,7 +478,7 @@ mod tests {
         MetaPortfolio::builder()
             .id(Uuid::new_v4())
             .starting_cash(1000.0)
-            .repository(mock_repository)
+            .repository()
             .allocation_manager(DefaultAllocator {
                 default_order_value: 100.0,
             })
