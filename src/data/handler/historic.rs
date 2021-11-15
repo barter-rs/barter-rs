@@ -1,6 +1,6 @@
+use crate::data::error::DataError;
 use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::data::market::MarketEvent;
-use crate::data::error::DataError;
 use barter_data::model::{Candle, MarketData};
 use chrono::Utc;
 use std::vec::IntoIter;
@@ -26,7 +26,7 @@ impl Continuer for HistoricCandleHandler {
     fn can_continue(&self) -> &Continuation {
         match self.candle_iterator.len() != 0 {
             true => &Continuation::Continue,
-            false => &Continuation::Stop
+            false => &Continuation::Stop,
         }
     }
 }
@@ -35,16 +35,14 @@ impl MarketGenerator for HistoricCandleHandler {
     fn generate_market(&mut self) -> Option<MarketEvent> {
         match self.candle_iterator.next() {
             None => None,
-            Some(candle) => Some(
-                MarketEvent {
-                    event_type: MarketEvent::EVENT_TYPE,
-                    trace_id: Uuid::new_v4(),
-                    timestamp: Utc::now(),
-                    exchange: self.exchange.clone(),
-                    symbol: self.symbol.clone(),
-                    data: MarketData::Candle(candle)
-                }
-            )
+            Some(candle) => Some(MarketEvent {
+                event_type: MarketEvent::EVENT_TYPE,
+                trace_id: Uuid::new_v4(),
+                timestamp: Utc::now(),
+                exchange: self.exchange.clone(),
+                symbol: self.symbol.clone(),
+                data: MarketData::Candle(candle),
+            }),
         }
     }
 }

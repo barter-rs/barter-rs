@@ -6,6 +6,7 @@ use crate::portfolio::order::{OrderEvent, OrderType};
 use crate::portfolio::position::{
     Direction, Position, PositionEnterer, PositionExiter, PositionUpdater,
 };
+use crate::portfolio::repository::error::RepositoryError;
 use crate::portfolio::repository::{
     determine_position_id, CashHandler, PositionHandler, ValueHandler,
 };
@@ -15,7 +16,6 @@ use crate::strategy::signal::{Decision, SignalEvent, SignalStrength};
 use chrono::Utc;
 use std::collections::HashMap;
 use uuid::Uuid;
-use crate::portfolio::repository::error::RepositoryError;
 
 /// Lego components for constructing & initialising a [MetaPortfolio] via the init() constructor
 /// method.
@@ -174,7 +174,10 @@ where
         self.repository.get_position(position_id)
     }
 
-    fn remove_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError> {
+    fn remove_position(
+        &mut self,
+        position_id: &String,
+    ) -> Result<Option<Position>, RepositoryError> {
         self.repository.remove_position(position_id)
     }
 
@@ -204,8 +207,12 @@ where
         };
 
         // Initialise MetaPortfolio state in the Repository
-        portfolio.repository.set_current_cash(&portfolio.id, portfolio.starting_cash)?;
-        portfolio.repository.set_current_value(&portfolio.id, portfolio.starting_cash)?;
+        portfolio
+            .repository
+            .set_current_cash(&portfolio.id, portfolio.starting_cash)?;
+        portfolio
+            .repository
+            .set_current_value(&portfolio.id, portfolio.starting_cash)?;
 
         Ok(portfolio)
     }
@@ -471,15 +478,25 @@ mod tests {
         build_uninitialised_portfolio(builder)
     }
 
-    fn build_uninitialised_portfolio<T>(builder: MetaPortfolioBuilder<T>) -> Result<MetaPortfolio<T>, PortfolioError>
+    fn build_uninitialised_portfolio<T>(
+        builder: MetaPortfolioBuilder<T>,
+    ) -> Result<MetaPortfolio<T>, PortfolioError>
     where
         T: PositionHandler + ValueHandler + CashHandler,
     {
         let id = builder.id.ok_or(PortfolioError::BuilderIncomplete)?;
-        let starting_cash = builder.starting_cash.ok_or(PortfolioError::BuilderIncomplete)?;
-        let repository = builder.repository.ok_or(PortfolioError::BuilderIncomplete)?;
-        let allocation_manager = builder.allocation_manager.ok_or(PortfolioError::BuilderIncomplete)?;
-        let risk_manager = builder.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+        let starting_cash = builder
+            .starting_cash
+            .ok_or(PortfolioError::BuilderIncomplete)?;
+        let repository = builder
+            .repository
+            .ok_or(PortfolioError::BuilderIncomplete)?;
+        let allocation_manager = builder
+            .allocation_manager
+            .ok_or(PortfolioError::BuilderIncomplete)?;
+        let risk_manager = builder
+            .risk_manager
+            .ok_or(PortfolioError::BuilderIncomplete)?;
 
         Ok(MetaPortfolio {
             id,
