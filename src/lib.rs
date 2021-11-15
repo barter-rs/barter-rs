@@ -29,33 +29,41 @@
 //! # Getting Started
 //! ## Data Handler
 //! ```
+//! use barter_data::model::Candle;
+//! use barter::data::handler::{Continuation, Continuer, MarketGenerator};
+//! use barter::data::handler::historic::{HistoricCandleHandler, HistoricDataLego};
 //!
-//! use barter::data::handler::{HistoricDataHandler, MarketGenerator, Continuer};
-//! use barter::data::market::Bar;
+//! let lego = HistoricDataLego {
+//!     exchange: "Binance".to_string(),
+//!     symbol: "btcusdt".to_string(),
+//!     candle_iterator: vec![Candle::default()].into_iter(),
+//! };
 //!
-//! // Or create with HistoricDataHandler::new(...) and pass a symbol data file to be parsed!
-//! let mut data = HistoricDataHandler::builder()
-//!     .symbol("ETH-USD".to_string())
-//!     .exchange("BINANCE".to_string())
-//!     .all_symbol_data(vec![Bar::default()].into_iter())
-//!     .build().unwrap();
+//! let mut data = HistoricCandleHandler::new(lego);
 //!
 //! loop {
-//!     if data.should_continue() {
-//!         let market_event = data.generate_market().unwrap();
-//!     } else {
-//!         // Pass closed Positions to statistics module for performance analysis
-//!         break;
-//!     }
+//!     let market_event = match data.can_continue() {
+//!         Continuation::Continue => {
+//!             match data.generate_market() {
+//!                 Some(market_event) => market_event,
+//!                 None => continue,
+//!             }
 //!
+//!         },
+//!         Continuation::Stop => {
+//!             // Pass closed Positions to Statistic module for performance analysis
+//!             break;
+//!         }
+//!     };
 //! }
+//!
 //! ```
 //!
 //! ## Strategy
 //! ```
-//! use barter::strategy::strategy::{Config as StrategyConfig, RSIStrategy, SignalGenerator};
+//! use barter::strategy::SignalGenerator;
+//! use barter::strategy::strategy::{Config as StrategyConfig, RSIStrategy};
 //! use barter::data::market::MarketEvent;
-//!
 //!
 //! let config = StrategyConfig {
 //!     rsi_period: 14,
@@ -70,16 +78,17 @@
 //!
 //! ## Portfolio
 //! ```
-//! use barter::portfolio::portfolio::{Components, MetaPortfolio, MarketUpdater, OrderGenerator, FillUpdater};
+//! use barter::portfolio::{MarketUpdater, OrderGenerator, FillUpdater};
 //! use barter::portfolio::allocator::DefaultAllocator;
 //! use barter::portfolio::risk::DefaultRisk;
 //! use barter::portfolio::repository::redis::RedisRepository;
 //! use barter::event::Event;
 //! use barter::portfolio::order::OrderEvent;
+//! use barter::portfolio::portfolio::{PortfolioLego, MetaPortfolio};
 //! use barter::portfolio::repository::redis::Config as RepositoryConfig;
 //! use barter::portfolio::repository::in_memory::InMemoryRepository;
 //!
-//! let components = Components {
+//! let components = PortfolioLego {
 //!     allocator: DefaultAllocator{ default_order_value: 100.0 },
 //!     risk: DefaultRisk{},
 //!     starting_cash: 10000.0,
@@ -87,7 +96,7 @@
 //!
 //! let repository = InMemoryRepository::new();
 //!
-//! let mut portfolio = MetaPortfolio::new(components, repository);
+//! let mut portfolio = MetaPortfolio::init(components, repository).unwrap();
 //!
 //! let some_event = Event::Order(OrderEvent::default());
 //!
@@ -109,9 +118,10 @@
 //!
 //! ## Execution
 //! ```
-//! use barter::execution::handler::{Config as ExecutionConfig, SimulatedExecution, FillGenerator};
+//! use barter::execution::handler::{Config as ExecutionConfig, SimulatedExecution};
 //! use barter::portfolio::order::OrderEvent;
 //! use barter::execution::fill::Fees;
+//! use barter::execution::FillGenerator;
 //!
 //! let config = ExecutionConfig {
 //!     simulated_fees_pct: Fees {
@@ -130,8 +140,9 @@
 //!
 //! ## Statistic
 //! ```
-//! use barter::statistic::summary::trading::{Config as StatisticConfig, TradingSummary, PositionSummariser, TablePrinter};
+//! use barter::statistic::summary::trading::{Config as StatisticConfig, TradingSummary};
 //! use barter::portfolio::position::Position;
+//! use barter::statistic::summary::{PositionSummariser, TablePrinter};
 //!
 //! // Do some automated trading with barter components that generates a vector of closed Positions
 //! let positions = vec![Position::default(), Position::default()];
@@ -155,8 +166,8 @@
 //! [README]: https://crates.io/crates/barter
 
 /// Defines a MarketEvent, and provides the useful traits of Continuer and MarketGenerator for
-/// handling the generation of them. Contains implementations such as the HistoricDataHandler that
-/// simulates a live market feed and acts as the systems heartbeat.
+/// handling the generation of them. Contains implementations such as the LiveCandleHandler that
+/// generates a live market feed and acts as the system heartbeat.
 pub mod data;
 
 /// Defines a SignalEvent, and provides the SignalGenerator trait for handling the generation of
@@ -187,4 +198,5 @@ pub mod event;
 /// several key metrics such as Sharpe Ratio, Calmar Ratio, CAGR, and Max Drawdown.
 pub mod statistic;
 
-#[macro_use] extern crate prettytable;
+#[macro_use]
+extern crate prettytable;

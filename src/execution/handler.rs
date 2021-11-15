@@ -1,14 +1,9 @@
-use crate::execution::fill::{FillEvent, Fees};
 use crate::execution::error::ExecutionError;
+use crate::execution::fill::{Fees, FillEvent};
+use crate::execution::FillGenerator;
 use crate::portfolio::order::OrderEvent;
 use chrono::Utc;
 use serde::Deserialize;
-
-/// Generates a result [FillEvent] by executing an [OrderEvent].
-pub trait FillGenerator {
-    /// Return a [FillEvent] from executing the input [OrderEvent].
-    fn generate_fill(&self, order: &OrderEvent) -> Result<FillEvent, ExecutionError>;
-}
 
 /// Configuration for constructing a [SimulatedExecution] via the new() constructor method.
 #[derive(Debug, Deserialize)]
@@ -61,7 +56,7 @@ impl SimulatedExecution {
         Fees {
             exchange: self.fees_pct.exchange * fill_value_gross,
             slippage: self.fees_pct.slippage * fill_value_gross,
-            network: self.fees_pct.network * fill_value_gross
+            network: self.fees_pct.network * fill_value_gross,
         }
     }
 }
@@ -77,7 +72,7 @@ mod tests {
                 exchange: 0.1,
                 slippage: 0.05,
                 network: 0.0,
-            }
+            },
         });
 
         let mut input_order = OrderEvent::default();
@@ -90,7 +85,7 @@ mod tests {
         let expected_fees = Fees {
             exchange: 10.0,
             slippage: 5.0,
-            network: 0.0
+            network: 0.0,
         };
 
         assert!(actual_result.is_ok());
@@ -132,7 +127,7 @@ mod tests {
                 exchange: 0.5,
                 slippage: 0.1,
                 network: 0.001,
-            }
+            },
         });
 
         let input_fill_value_gross = 100.0;
