@@ -165,8 +165,8 @@ impl<T> PositionHandler for MetaPortfolio<T>
 where
     T: PositionHandler + ValueHandler + CashHandler,
 {
-    fn set_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
-        self.repository.set_position(&portfolio_id, position)
+    fn set_position(&mut self, _: &Uuid, position: Position) -> Result<(), RepositoryError> {
+        self.repository.set_position(&self.id, position)
     }
 
     fn get_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError> {
@@ -177,12 +177,12 @@ where
         self.repository.remove_position(position_id)
     }
 
-    fn set_closed_position(&mut self, portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError> {
-        self.repository.set_closed_position(&portfolio_id, position)
+    fn set_closed_position(&mut self, _: &Uuid, position: Position) -> Result<(), RepositoryError> {
+        self.repository.set_closed_position(&self.id, position)
     }
 
-    fn get_closed_positions(&mut self, portfolio_id: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError> {
-        self.repository.get_closed_positions(&portfolio_id)
+    fn get_closed_positions(&mut self, _: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError> {
+        self.repository.get_closed_positions(&self.id)
     }
 }
 
