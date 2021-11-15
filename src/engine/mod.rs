@@ -1,3 +1,7 @@
+pub mod error;
+
+use serde::{Deserialize, Serialize};
+
 /// Communicative type alias to represent a termination message received via a termination channel.
 pub type TerminationMessage = String;
 
