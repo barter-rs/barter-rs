@@ -1,12 +1,11 @@
-//! [Barter] is an open-source Rust library containing **high-performance**, **modular** trading
-//! engine & backtesting **components**.
-//!
+//! [Barter] is an open-source Rust library containing **high-performance** & **modular** components
+//! for constructing both **live-trading & backtesting engines**.
 //!
 //! # Overview
 //! The **main components** are **Data**, **Strategy**, **Portfolio**, **Execution** & **Statistic**.
 //!
 //! Each components is stand-alone & de-coupled. Their behaviour is captured
-//! in a set of useful traits that define how each component responds to external events.
+//! in a set of communicative traits that define how each component responds to external events.
 //!
 //! The **Data**, **Strategy** & **Execution components** are designed to be used by **one trading
 //! pair only** (eg/ ETH-USD on Binance). In order to **trade multiple pairs** on multiple exchanges,
@@ -14,9 +13,7 @@
 //!
 //! The **Portfolio** component is designed in order to **manage infinite trading pairs simultaneously**,
 //! creating a **centralised state machine** for managing trades across different asset classes,
-//! exchanges, and trading pairs. It's likely you might want to build an API on top of a Portfolio
-//! and run it as a micro-service. On the other hand, it can also be run in conjunction with the other
-//! components to provide a Portfolio for an individual trading pair.
+//! exchanges, and trading pairs.
 //!
 //! The **Statistic** component contains metrics used to analyse trading session performance.
 //! One-pass dispersion algorithms analyse each closed Position and efficiently update
