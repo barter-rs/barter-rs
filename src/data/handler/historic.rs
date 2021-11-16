@@ -60,7 +60,7 @@ impl HistoricCandleHandler {
 
     /// Returns a [HistoricCandleHandlerBuilder] instance.
     pub fn builder() -> HistoricCandleHandlerBuilder {
-        HistoricDataHandlerBuilder::new()
+        HistoricCandleHandlerBuilder::new()
     }
 }
 
