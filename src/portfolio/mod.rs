@@ -14,7 +14,7 @@ pub mod risk;
 
 /// Updates the Portfolio from an input [MarketEvent].
 pub trait MarketUpdater {
-    /// Determines if the Portfolio has any open [Position]s relating to the input [MarketEvent],
+    /// Determines if the Portfolio has an open Position relating to the input [MarketEvent],
     /// and if so updates it using the market data.
     fn update_from_market(&mut self, market: &MarketEvent) -> Result<(), PortfolioError>;
 }
@@ -31,7 +31,7 @@ pub trait OrderGenerator {
 /// Updates the Portfolio from an input [FillEvent].
 pub trait FillUpdater {
     /// Updates the Portfolio state using the input [FillEvent]. The [FillEvent] triggers a
-    /// [Position] entry or exit, and the Portfolio updates key fields such as current_cash and
+    /// Position entry or exit, and the Portfolio updates key fields such as current_cash and
     /// current_value accordingly.
     fn update_from_fill(&mut self, fill: &FillEvent) -> Result<(), PortfolioError>;
 }

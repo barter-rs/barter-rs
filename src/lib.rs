@@ -1,5 +1,5 @@
 //! # Barter
-//! [Barter] is an open-source Rust framework for building **event-driven live-trading & backtesting systems**.
+//! [`Barter`] is an open-source Rust framework for building **event-driven live-trading & backtesting systems**.
 //! Algorithmic trade with the peace of mind that comes from knowing your strategies have been
 //! backtested with a near-identical trading Engine.
 //! It is:
@@ -8,29 +8,37 @@
 //! * **Customisable**: A set of traits define how every Barter component communicates, providing a highly extensible
 //! framework for trading.
 //!
+//! See [`Readme`].
+//!
 //! ## Overview
-//! The **main components** are **Data**, **Strategy**, **Portfolio**, **Execution** & **Statistic**.
+//! Barter is an open-source Rust framework for building **event-driven live-trading & backtesting systems**. It provides
+//! a high-performance, easy to customise, trading Engine that enables backtesting strategies on a near-identical system
+//! to live trading. At a high level, it provides several de-coupled components that interact via a set of traits:
+
+//! * **Data**: Continuer & MarketGenerator traits govern the generation of a MarketEvents data feed that acts as the system
+//! heartbeat. For example, a LiveCandleHandler implementation is provided utilising [`Barter-Data`]'s WebSocket functionality to
+//! provide a live market Candle data feed to the system.
+//! * **Strategy**: The SignalGenerator trait governs potential generation of SignalEvents after analysing incoming
+//! MarketEvents. SignalEvents are advisory signals sent to the Portfolio for analysis.
+//! * **Portfolio**: MarketUpdater, OrderGenerator, and FillUpdater govern global state Portfolio implementations. A
+//! Portfolio may generate OrderEvents after receiving advisory SignalEvents from a Strategy. The Portfolio's state
+//! updates after receiving MarketEvents and FillEvents.
+//! * **Execution**: The FillGenerator trait governs the generation of FillEvents after receiving OrderEvents from the
+//! Portfolio. For example, a SimulatedExecution handler implementation is provided for simulating any exchange execution
+//! behaviour required in dry-trading or backtesting runs.
+//! * **Statistic**: Provides metrics such as Sharpe Ratio, Calmar Ratio, and Max Drawdown to analyse trading session
+//! performance. One-pass dispersion algorithms analyse each closed Position and efficiently calculates a trading summary.
+//! * **Trader**: Capable of trading a single market pair using a customisable selection of it's own Data, Strategy &
+//! Execution instances, as well as shared access to a global Portfolio.
+//! * **Engine**: Multi-threaded trading Engine capable of trading with an arbitrary number of Trader market pairs. Each
+//! contained Trader instance operates on its own thread.
 //!
-//! Each components is stand-alone & de-coupled. Their behaviour is captured
-//! in a set of communicative traits that define how each component responds to external events.
+//! [`Barter`]: https://gitlab.com/open-source-keir/financial-modelling/trading/barter-rs
+//! [`Barter-Data`]: https://crates.io/crates/barter-data
+//! [`Readme`]: https://crates.io/crates/barter
 //!
-//! The **Data**, **Strategy** & **Execution components** are designed to be used by **one trading
-//! pair only** (eg/ ETH-USD on Binance). In order to **trade multiple pairs** on multiple exchanges,
-//! **many combinations** of these three components should be constructed and **run concurrently**.
-//!
-//! The **Portfolio** component is designed in order to **manage infinite trading pairs simultaneously**,
-//! creating a **centralised state machine** for managing trades across different asset classes,
-//! exchanges, and trading pairs.
-//!
-//! The **Statistic** component contains metrics used to analyse trading session performance.
-//! One-pass dispersion algorithms analyse each closed Position and efficiently update
-//! a PnL Return Summary. This summary, in conjunction with the closed Position, is used to calculate
-//! key metrics such as Sharpe Ratio, Calmar Ratio and Max Drawdown. All metrics can be updated on
-//! the fly and used by the Portfolio's allocation & risk management.
-//!
-//!
-//! # Getting Started
-//! ## Data Handler
+//! ## Getting Started
+//! ### Data Handler
 //! ```
 //! use barter_data::model::Candle;
 //! use barter::data::handler::{Continuation, Continuer, MarketGenerator};
@@ -62,7 +70,7 @@
 //!
 //! ```
 //!
-//! ## Strategy
+//! ### Strategy
 //! ```
 //! use barter::strategy::SignalGenerator;
 //! use barter::strategy::strategy::{Config as StrategyConfig, RSIStrategy};
@@ -79,7 +87,7 @@
 //! let signal_event = strategy.generate_signal(&market_event);
 //! ```
 //!
-//! ## Portfolio
+//! ### Portfolio
 //! ```
 //! use barter::portfolio::{MarketUpdater, OrderGenerator, FillUpdater};
 //! use barter::portfolio::allocator::DefaultAllocator;
@@ -119,7 +127,7 @@
 //! }
 //! ```
 //!
-//! ## Execution
+//! ### Execution
 //! ```
 //! use barter::execution::handler::{Config as ExecutionConfig, SimulatedExecution};
 //! use barter::portfolio::order::OrderEvent;
@@ -141,7 +149,7 @@
 //! let fill_event = execution.generate_fill(&order_event);
 //! ```
 //!
-//! ## Statistic
+//! ### Statistic
 //! ```
 //! use barter::statistic::summary::trading::{Config as StatisticConfig, TradingSummary};
 //! use barter::portfolio::position::Position;
@@ -163,10 +171,8 @@
 //! trading_summary.print();
 //! ```
 //!
-//! # Examples
-//!
-//! [Barter]: https://gitlab.com/open-source-keir/financial-modelling/trading/barter-rs
-//! [README]: https://crates.io/crates/barter
+//! ### Engine & Traders
+//! [See Readme Engine Example](https://crates.io/crates/barter#example)
 
 /// Defines a MarketEvent, and provides the useful traits of Continuer and MarketGenerator for
 /// handling the generation of them. Contains implementations such as the LiveCandleHandler that
@@ -201,7 +207,9 @@ pub mod event;
 /// several key metrics such as Sharpe Ratio, Calmar Ratio, CAGR, and Max Drawdown.
 pub mod statistic;
 
-/// Todo:
+/// Multi-threaded trading Engine capable of trading with an arbitrary number market pairs. Contains
+/// a Trader instance for each market pair that consists of it's own Data, Strategy &
+/// Execution instances, as well as shared access to a global Portfolio.
 pub mod engine;
 
 #[macro_use]

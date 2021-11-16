@@ -21,7 +21,7 @@ pub struct Config {
     pub interval: String,
 }
 
-/// [MarketEvent] data handler that consumes a live [UnboundedReceiverStream] of [Candle]s. Implements
+/// [MarketEvent] data handler that consumes a live UnboundedReceiverStream of [Candle]s. Implements
 /// [Continuer] & [MarketGenerator].
 pub struct LiveCandleHandler {
     pub exchange: ExchangeName,
@@ -62,7 +62,7 @@ impl MarketGenerator for LiveCandleHandler {
 impl LiveCandleHandler {
     /// Initialises an [ExchangeClient] and candle stream, as well as constructs a new
     /// [LiveCandleHandler] component using the provided [Config] struct, as well
-    /// as a candle mpsc::Receiver, and a oneshot::[Receiver] for receiving [TerminateCommand]s.
+    /// as a candle mpsc::Receiver, and a oneshot::[Receiver] for receiving TerminateCommands.
     pub async fn init(cfg: &Config) -> Self {
         // Determine ExchangeClient type & construct
         let mut exchange_client = match cfg.exchange {
