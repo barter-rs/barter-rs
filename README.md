@@ -58,8 +58,10 @@ contained Trader instance operates on its own thread.
 
 ## Example
 * **For brevity**: Imports are not included. 
-* **For simplicity**: Remote shutdown is not orchestrated via the engine_termination_rx, this should be added as per 
-your taste (eg/ HTTP endpoint). 
+* **For simplicity**: 
+  * Engine and Trader(s) are configuration with hard-coded values rather than loaded in configuration values.
+  * Remote shutdown is not orchestrated via the engine_termination_rx, this should be added as per 
+  your taste (eg/ HTTP endpoint). 
 
 ```rust,no_run
 #[tokio::main]
