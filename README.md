@@ -145,7 +145,7 @@ as providing an example multi-timeframe Strategy using the utilities.
 ## Licence
 This project is licensed under the [MIT license].
 
-[MIT license]: https://github.com/tokio-rs/tokio/blob/master/LICENSE
+[MIT license]: https://gitlab.com/open-source-keir/financial-modelling/trading/barter-rs/-/blob/master/LICENSE
 
 ### Contribution
 Unless you explicitly state otherwise, any contribution intentionally submitted
