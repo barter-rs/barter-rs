@@ -7,7 +7,7 @@ license = "MIT"
 documentation = "https://docs.rs/barter/"
 repository = "https://gitlab.com/open-source-keir/financial-modelling/trading/barter-rs"
 readme = "README.md"
-description = "High performance & modular trading engine & backtesting components"
+description = "Event-driven Rust framework for building live-trading & backtesting engines"
 keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
@@ -15,7 +15,7 @@ categories = ["accessibility", "simulation"]
 
 [dependencies]
 # Barter Ecosystem
-barter-data = "0.2.0"
+barter-data = "0.2.3"
 
 # Logging
 log = "0.4.14"
