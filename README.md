@@ -66,13 +66,13 @@ contained Trader instance operates on its own thread.
 ```rust,no_run
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    --- Setup Logger & Load Config For Engine & Trader Instances---
+    // Setup Logger & Load Config For Engine & Trader Instances Here
 
-    // --- Create termination channels ---
+    // Create termination channels
     let (engine_termination_tx, engine_termination_rx) = oneshot::channel();    // Engine graceful remote shutdown
     let (traders_termination_tx, _) = broadcast::channel(1);                    // Shutdown channel to broadcast remote shutdown to every Trader instance
 
-    // --- Build global shared-state MetaPortfolio ---
+    // Build global shared-state MetaPortfolio
     let portfolio = Arc::new(Mutex::new(
         MetaPortfolio::builder()
             .id(Uuid::new_v4())
@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .expect("failed to build & initialise MetaPortfolio"),
     ));
     
-    // --- Build Trader(s) ---
+    // Build Trader(s)
     let mut traders = Vec::new();
     traders.push(
         Trader::builder()
@@ -106,7 +106,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .expect("failed to build trader")
     );
     
-    // --- Build Engine ---
+    // Build Engine
     let engine = Engine::builder()
         .termination_rx(engine_termination_rx)
         .traders_termination_tx(traders_termination_tx)
