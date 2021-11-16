@@ -6,7 +6,7 @@ use chrono::Utc;
 use std::vec::IntoIter;
 use uuid::Uuid;
 
-/// Configuration for constructing a [HistoricDataHandler] via the new() constructor method.
+/// Configuration for constructing a [HistoricCandleHandler] via the new() constructor method.
 #[derive(Debug)]
 pub struct HistoricDataLego {
     pub exchange: String,
@@ -48,7 +48,7 @@ impl MarketGenerator for HistoricCandleHandler {
 }
 
 impl HistoricCandleHandler {
-    /// Constructs a new [HistoricDataHandler] component using the provided [HistoricDataLego]
+    /// Constructs a new [HistoricCandleHandler] component using the provided [HistoricDataLego]
     /// components.
     pub fn new(lego: HistoricDataLego) -> Self {
         Self {
@@ -58,21 +58,21 @@ impl HistoricCandleHandler {
         }
     }
 
-    /// Returns a [HistoricDataHandlerBuilder] instance.
-    pub fn builder() -> HistoricDataHandlerBuilder {
+    /// Returns a [HistoricCandleHandlerBuilder] instance.
+    pub fn builder() -> HistoricCandleHandlerBuilder {
         HistoricDataHandlerBuilder::new()
     }
 }
 
-/// Builder to construct [HistoricDataHandler] instances.
+/// Builder to construct [HistoricCandleHandler] instances.
 #[derive(Debug, Default)]
-pub struct HistoricDataHandlerBuilder {
+pub struct HistoricCandleHandlerBuilder {
     exchange: Option<String>,
     symbol: Option<String>,
     candle_iterator: Option<IntoIter<Candle>>,
 }
 
-impl HistoricDataHandlerBuilder {
+impl HistoricCandleHandlerBuilder {
     pub fn new() -> Self {
         Self::default()
     }

@@ -106,13 +106,13 @@ impl MarketEventBuilder {
     }
 }
 
-/// Metadata detailing the [Bar] close price & it's associated timestamp. Used to propagate key
+/// Metadata detailing the [Candle] close price & it's associated timestamp. Used to propagate key
 /// market information in downstream Events.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct MarketMeta {
-    /// [Bar] close value from the source [MarketEvent].
+    /// [Candle] close value from the source [MarketEvent].
     pub close: f64,
-    /// [Bar] timestamp from the source [MarketEvent].
+    /// [Candle] timestamp from the source [MarketEvent].
     pub timestamp: DateTime<Utc>,
 }
 
