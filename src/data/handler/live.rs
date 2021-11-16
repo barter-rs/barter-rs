@@ -66,7 +66,7 @@ impl LiveCandleHandler {
     pub async fn init(cfg: &Config) -> Self {
         // Determine ExchangeClient type & construct
         let mut exchange_client = match cfg.exchange {
-            ExchangeName::Binance => Binance::new(ClientConfig {
+            ExchangeName::Binance => Binance::init(ClientConfig {
                 rate_limit_per_minute: cfg.rate_limit_per_minute,
             }),
         }
