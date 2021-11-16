@@ -30,7 +30,7 @@ framework for trading.
 
 [`Barter`]: https://crates.io/crates/barter
 [`Barter-Data`]: https://crates.io/crates/barter-data
-[API Documentation]: https://docs.rs/barter-data/latest/barter
+[API Documentation]: https://docs.rs/barter/latest/barter/
 [Chat]: https://discord.gg/wE7RqhnQMV
 
 ## Overview

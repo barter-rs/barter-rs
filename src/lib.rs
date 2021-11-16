@@ -1,7 +1,14 @@
-//! [Barter] is an open-source Rust library containing **high-performance** & **modular** components
-//! for constructing both **live-trading & backtesting engines**.
+//! # Barter
+//! [Barter] is an open-source Rust framework for building **event-driven live-trading & backtesting systems**.
+//! Algorithmic trade with the peace of mind that comes from knowing your strategies have been
+//! backtested with a near-identical trading Engine.
+//! It is:
+//! * **Fast**: Barter provides a multi-threaded trading Engine framework built in high-performance Rust (in-rust-we-trust).
+//! * **Easy**: Barter provides a modularised data architecture that focuses on simplicity.
+//! * **Customisable**: A set of traits define how every Barter component communicates, providing a highly extensible
+//! framework for trading.
 //!
-//! # Overview
+//! ## Overview
 //! The **main components** are **Data**, **Strategy**, **Portfolio**, **Execution** & **Statistic**.
 //!
 //! Each components is stand-alone & de-coupled. Their behaviour is captured
@@ -21,7 +28,6 @@
 //! key metrics such as Sharpe Ratio, Calmar Ratio and Max Drawdown. All metrics can be updated on
 //! the fly and used by the Portfolio's allocation & risk management.
 //!
-//! **Example high-level data architecture using these components in this** [README].
 //!
 //! # Getting Started
 //! ## Data Handler
