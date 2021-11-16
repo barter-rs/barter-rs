@@ -1,13 +1,13 @@
 [package]
 name = "barter"
-version = "0.5.3"
+version = "0.5.4"
 authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
 edition = "2018"
 license = "MIT"
 documentation = "https://docs.rs/barter/"
 repository = "https://gitlab.com/open-source-keir/financial-modelling/trading/barter-rs"
 readme = "README.md"
-description = "Event-driven Rust framework for building live-trading & backtesting engines"
+description = "Framework for building event-driven live-trading & backtesting engines"
 keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
