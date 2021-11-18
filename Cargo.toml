@@ -15,7 +15,7 @@ categories = ["accessibility", "simulation"]
 
 [dependencies]
 # Barter Ecosystem
-barter-data = "0.2.3"
+barter-data = "0.2.6"
 
 # Logging
 log = "0.4.14"
