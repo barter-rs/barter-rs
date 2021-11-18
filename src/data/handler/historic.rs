@@ -14,6 +14,7 @@ pub struct HistoricDataLego {
     pub candle_iterator: IntoIter<Candle>,
 }
 
+#[derive(Debug)]
 /// [MarketEvent] data handler that implements [Continuer] & [MarketGenerator]. Simulates a live market
 /// feed via drip feeding historical data files as a series of [MarketEvent]s.
 pub struct HistoricCandleHandler {
