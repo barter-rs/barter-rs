@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use crate::portfolio::error::PortfolioError;
 use crate::portfolio::position::Position;
 use crate::portfolio::repository::error::RepositoryError;
@@ -20,6 +21,12 @@ pub struct Config {
 /// cash & Positions.
 pub struct RedisRepository {
     conn: Connection,
+}
+
+impl Debug for RedisRepository {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RedisRepository").finish()
+    }
 }
 
 impl PositionHandler for RedisRepository {

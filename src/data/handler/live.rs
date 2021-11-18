@@ -2,7 +2,7 @@ use crate::data::error::DataError;
 use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::data::market::MarketEvent;
 use barter_data::client::binance::Binance;
-use barter_data::client::{ClientConfig, ClientName as ExchangeName};
+use barter_data::client::ClientName as ExchangeName;
 use barter_data::model::{Candle, MarketData};
 use barter_data::ExchangeClient;
 use chrono::Utc;
@@ -15,7 +15,6 @@ use uuid::Uuid;
 /// Configuration for constructing a [LiveCandleHandler] via the new() constructor method.
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub rate_limit_per_minute: u64,
     pub exchange: ExchangeName,
     pub symbol: String,
     pub interval: String,
@@ -23,6 +22,7 @@ pub struct Config {
 
 /// [MarketEvent] data handler that consumes a live UnboundedReceiverStream of [Candle]s. Implements
 /// [Continuer] & [MarketGenerator].
+#[derive(Debug)]
 pub struct LiveCandleHandler {
     pub exchange: ExchangeName,
     pub symbol: String,
@@ -66,9 +66,7 @@ impl LiveCandleHandler {
     pub async fn init(cfg: &Config) -> Self {
         // Determine ExchangeClient type & construct
         let mut exchange_client = match cfg.exchange {
-            ExchangeName::Binance => Binance::init(ClientConfig {
-                rate_limit_per_minute: cfg.rate_limit_per_minute,
-            }),
+            ExchangeName::Binance => Binance::init(),
         }
         .await
         .expect("Failed to construct exchange Client instance");

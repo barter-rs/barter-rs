@@ -12,6 +12,7 @@ pub struct Config {
     pub simulated_fees_pct: Fees,
 }
 
+#[derive(Debug)]
 /// Simulated execution handler that executes [OrderEvent]s to generate [FillEvent]s via a
 /// simulated broker interaction.
 pub struct SimulatedExecution {

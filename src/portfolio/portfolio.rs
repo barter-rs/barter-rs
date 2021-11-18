@@ -30,6 +30,7 @@ pub struct PortfolioLego {
 /// and [FillUpdater]. The Portfolio analyses an advisory [SignalEvent] from a Strategy and decides
 /// whether to place a corresponding [OrderEvent]. If a [Position] is opened, the Portfolio keeps
 /// track the it's state, as well as it's own.
+#[derive(Debug)]
 pub struct MetaPortfolio<T>
 where
     T: PositionHandler + ValueHandler + CashHandler,

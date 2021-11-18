@@ -15,6 +15,7 @@ pub struct Config {
     pub rsi_period: usize,
 }
 
+#[derive(Debug)]
 /// Example RSI based strategy that implements [SignalGenerator].
 pub struct RSIStrategy {
     rsi: RelativeStrengthIndex,

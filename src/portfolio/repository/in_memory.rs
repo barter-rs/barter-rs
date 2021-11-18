@@ -10,6 +10,7 @@ use uuid::Uuid;
 /// In-Memory repository for Proof Of Concepts. Implements [PositionHandler], [ValueHandler] &
 /// [CashHandler]. Used by a Proof Of Concept Portfolio implementation to save the current value,
 /// cash & Positions. **Do not use in production - no fault tolerant guarantees!**
+#[derive(Debug)]
 pub struct InMemoryRepository {
     open_positions: HashMap<String, Position>,
     closed_positions: HashMap<String, Vec<Position>>,
