@@ -9,7 +9,7 @@ use crate::portfolio::repository::PositionHandler;
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
 use crate::statistic::summary::{PositionSummariser, TablePrinter};
 use crate::strategy::SignalGenerator;
-use log::{info, warn};
+use tracing::{info, warn};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use std::thread;
