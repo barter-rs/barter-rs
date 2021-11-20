@@ -1,13 +1,13 @@
-use crate::data::error::DataError;
 use crate::data::handler::{Continuation, Continuer, MarketGenerator};
+use crate::data::error::DataError;
 use crate::data::market::MarketEvent;
-use barter_data::client::binance::Binance;
-use barter_data::client::ClientName as ExchangeName;
-use barter_data::model::{Candle, MarketData};
 use barter_data::ExchangeClient;
-use chrono::Utc;
-use log::debug;
+use barter_data::client::binance::Binance;
+use barter_data::model::{Candle, MarketData};
+use barter_data::client::ClientName as ExchangeName;
+use tracing::debug;
 use serde::Deserialize;
+use chrono::Utc;
 use std::sync::mpsc::{channel, Receiver};
 use tokio_stream::StreamExt;
 use uuid::Uuid;
@@ -39,7 +39,7 @@ impl Continuer for LiveCandleHandler {
 
 impl MarketGenerator for LiveCandleHandler {
     fn generate_market(&mut self) -> Option<MarketEvent> {
-        // Consume next candle
+        // Consume next Candle
         let candle = match self.candle_rx.recv() {
             Ok(candle) => candle,
             Err(_) => {
@@ -60,22 +60,22 @@ impl MarketGenerator for LiveCandleHandler {
 }
 
 impl LiveCandleHandler {
-    /// Initialises an [ExchangeClient] and candle stream, as well as constructs a new
+    /// Initialises an [ExchangeClient] and [Candle] stream, as well as constructs a new
     /// [LiveCandleHandler] component using the provided [Config] struct, as well
-    /// as a candle mpsc::Receiver, and a oneshot::[Receiver] for receiving TerminateCommands.
+    /// as a [Candle] mpsc::Receiver, and a oneshot::[Receiver] for receiving TerminateCommands.
     pub async fn init(cfg: &Config) -> Self {
         // Determine ExchangeClient type & construct
         let mut exchange_client = match cfg.exchange {
             ExchangeName::Binance => Binance::init(),
         }
-        .await
-        .expect("Failed to construct exchange Client instance");
+            .await
+            .expect("Failed to construct exchange Client instance");
 
-        // Subscribe to candle stream via exchange Client
+        // Subscribe to Candle stream via exchange Client
         let mut candle_stream = exchange_client
             .consume_candles(cfg.symbol.clone(), &cfg.interval)
             .await
-            .expect("Failed to consume_candles for via exchange Client instance");
+            .expect("Failed to consume_candles via exchange Client instance");
 
         // Spawn Tokio task to async consume_candles from Client and transmit to a sync candle_rx
         let (candle_tx, candle_rx) = channel();
@@ -84,7 +84,7 @@ impl LiveCandleHandler {
                 // Send any received Candles from Client to the LiveCandleHandler candle_rx
                 if let Some(candle) = candle_stream.next().await {
                     if candle_tx.send(candle).is_err() {
-                        debug!("Receiver for exchange Candles has been dropped - closing channel");
+                        debug!("LiveCandleHandler receiver for Candles has been dropped - closing channel");
                         return;
                     }
                 }
