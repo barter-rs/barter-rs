@@ -9,11 +9,11 @@ use crate::portfolio::repository::PositionHandler;
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
 use crate::statistic::summary::{PositionSummariser, TablePrinter};
 use crate::strategy::SignalGenerator;
-use tracing::{info, warn};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use tokio::sync::{broadcast, oneshot};
+use tracing::{info, warn};
 use uuid::Uuid;
 
 /// Communicative type alias to represent a termination message received via a termination channel.
