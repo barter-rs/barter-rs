@@ -1,15 +1,15 @@
-use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::data::error::DataError;
+use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::data::market::MarketEvent;
-use barter_data::ExchangeClient;
 use barter_data::client::binance::Binance;
-use barter_data::model::{Candle, MarketData};
 use barter_data::client::ClientName as ExchangeName;
-use tracing::debug;
-use serde::Deserialize;
+use barter_data::model::{Candle, MarketData};
+use barter_data::ExchangeClient;
 use chrono::Utc;
+use serde::Deserialize;
 use std::sync::mpsc::{channel, Receiver};
 use tokio_stream::StreamExt;
+use tracing::debug;
 use uuid::Uuid;
 
 /// Configuration for constructing a [LiveCandleHandler] via the new() constructor method.
@@ -68,8 +68,8 @@ impl LiveCandleHandler {
         let mut exchange_client = match cfg.exchange {
             ExchangeName::Binance => Binance::init(),
         }
-            .await
-            .expect("Failed to construct exchange Client instance");
+        .await
+        .expect("Failed to construct exchange Client instance");
 
         // Subscribe to Candle stream via exchange Client
         let mut candle_stream = exchange_client

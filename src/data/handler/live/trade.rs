@@ -1,15 +1,15 @@
 use crate::data::error::DataError;
-use crate::data::market::MarketEvent;
 use crate::data::handler::{Continuation, Continuer, MarketGenerator};
+use crate::data::market::MarketEvent;
 use barter_data::client::binance::Binance;
-use barter_data::ExchangeClient;
 use barter_data::client::ClientName as ExchangeName;
 use barter_data::model::{MarketData, Trade};
-use serde::Deserialize;
-use tracing::debug;
-use std::sync::mpsc::{channel, Receiver};
+use barter_data::ExchangeClient;
 use chrono::Utc;
+use serde::Deserialize;
+use std::sync::mpsc::{channel, Receiver};
 use tokio_stream::StreamExt;
+use tracing::debug;
 use uuid::Uuid;
 
 /// Configuration for constructing a [LiveTradeHandler] via the new() constructor method.
@@ -65,7 +65,9 @@ impl LiveTradeHandler {
         // Determine ExchangeClient type & construct
         let mut exchange_client = match cfg.exchange {
             ExchangeName::Binance => Binance::init(),
-        }.await.expect("Failed to construct exchange Client instance");
+        }
+        .await
+        .expect("Failed to construct exchange Client instance");
 
         // Subscribe to Trade stream via exchange Client
         let mut trade_stream = exchange_client

@@ -1,4 +1,3 @@
-use std::fmt::{Debug, Formatter};
 use crate::portfolio::error::PortfolioError;
 use crate::portfolio::position::Position;
 use crate::portfolio::repository::error::RepositoryError;
@@ -8,6 +7,7 @@ use crate::portfolio::repository::{
 };
 use redis::{Commands, Connection, ErrorKind, RedisResult};
 use serde::Deserialize;
+use std::fmt::{Debug, Formatter};
 use uuid::Uuid;
 
 /// Configuration for constructing a [RedisRepository] via the new() constructor method.
