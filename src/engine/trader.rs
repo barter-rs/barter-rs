@@ -5,13 +5,13 @@ use crate::event::Event;
 use crate::execution::FillGenerator;
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
 use crate::strategy::SignalGenerator;
-use tracing::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::error::TryRecvError;
+use tracing::{debug, info, warn};
 
 /// Communicates if a process has received a termination command.
 #[derive(Debug, Deserialize, Serialize)]
