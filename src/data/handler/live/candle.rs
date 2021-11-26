@@ -14,7 +14,6 @@ use uuid::Uuid;
 /// Configuration for constructing a [LiveCandleHandler] via the new() constructor method.
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub exchange: ExchangeName,
     pub symbol: String,
     pub interval: String,
 }
@@ -23,7 +22,6 @@ pub struct Config {
 /// [Continuer] & [MarketGenerator].
 #[derive(Debug)]
 pub struct LiveCandleHandler {
-    pub exchange: ExchangeName,
     pub symbol: String,
     pub interval: String,
     candle_rx: Receiver<Candle>,
@@ -84,7 +82,6 @@ impl LiveCandleHandler {
         });
 
         Self {
-            exchange: cfg.exchange.clone(),
             symbol: cfg.symbol.clone(),
             interval: cfg.interval.clone(),
             candle_rx,
@@ -101,7 +98,6 @@ impl LiveCandleHandler {
 /// Builder to construct [LiveCandleHandler] instances.
 #[derive(Debug, Default)]
 pub struct LiveCandleHandlerBuilder {
-    pub exchange: Option<ExchangeName>,
     pub symbol: Option<String>,
     pub interval: Option<String>,
     pub candle_rx: Option<Receiver<Candle>>,
@@ -110,13 +106,6 @@ pub struct LiveCandleHandlerBuilder {
 impl LiveCandleHandlerBuilder {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn exchange(self, value: ExchangeName) -> Self {
-        Self {
-            exchange: Some(value),
-            ..self
-        }
     }
 
     pub fn symbol(self, value: String) -> Self {
@@ -141,13 +130,11 @@ impl LiveCandleHandlerBuilder {
     }
 
     pub fn build(self) -> Result<LiveCandleHandler, DataError> {
-        let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
         let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
         let interval = self.interval.ok_or(DataError::BuilderIncomplete)?;
         let candle_rx = self.candle_rx.ok_or(DataError::BuilderIncomplete)?;
 
         Ok(LiveCandleHandler {
-            exchange,
             symbol,
             interval,
             candle_rx,

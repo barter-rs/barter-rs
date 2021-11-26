@@ -14,7 +14,6 @@ use uuid::Uuid;
 /// Configuration for constructing a [LiveTradeHandler] via the new() constructor method.
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub exchange: ExchangeName,
     pub symbol: String,
 }
 
@@ -22,7 +21,6 @@ pub struct Config {
 /// [Continuer] & [MarketGenerator].
 #[derive(Debug)]
 pub struct LiveTradeHandler {
-    pub exchange: ExchangeName,
     pub symbol: String,
     trade_rx: Receiver<Trade>,
     can_continue: Continuation,
@@ -82,7 +80,6 @@ impl LiveTradeHandler {
         });
 
         Self {
-            exchange: cfg.exchange.clone(),
             symbol: cfg.symbol.clone(),
             trade_rx,
             can_continue: Continuation::Continue,
@@ -98,7 +95,6 @@ impl LiveTradeHandler {
 /// Builder to construct [LiveTradeHandler] instances.
 #[derive(Debug, Default)]
 pub struct LiveTradeHandlerBuilder {
-    pub exchange: Option<ExchangeName>,
     pub symbol: Option<String>,
     pub trade_rx: Option<Receiver<Trade>>,
 }
@@ -106,13 +102,6 @@ pub struct LiveTradeHandlerBuilder {
 impl LiveTradeHandlerBuilder {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn exchange(self, value: ExchangeName) -> Self {
-        Self {
-            exchange: Some(value),
-            ..self
-        }
     }
 
     pub fn symbol(self, value: String) -> Self {
@@ -130,12 +119,10 @@ impl LiveTradeHandlerBuilder {
     }
 
     pub fn build(self) -> Result<LiveTradeHandler, DataError> {
-        let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
         let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
         let trade_rx = self.trade_rx.ok_or(DataError::BuilderIncomplete)?;
 
         Ok(LiveTradeHandler {
-            exchange,
             symbol,
             trade_rx,
             can_continue: Continuation::Continue,
