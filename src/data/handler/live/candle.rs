@@ -1,7 +1,6 @@
 use crate::data::error::DataError;
 use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::data::market::MarketEvent;
-use barter_data::client::binance::Binance;
 use barter_data::client::ClientName as ExchangeName;
 use barter_data::model::{Candle, MarketData};
 use barter_data::ExchangeClient;
@@ -60,17 +59,10 @@ impl MarketGenerator for LiveCandleHandler {
 }
 
 impl LiveCandleHandler {
-    /// Initialises an [ExchangeClient] and [Candle] stream, as well as constructs a new
-    /// [LiveCandleHandler] component using the provided [Config] struct, as well
-    /// as a [Candle] mpsc::Receiver, and a oneshot::[Receiver] for receiving TerminateCommands.
-    pub async fn init(cfg: &Config) -> Self {
-        // Determine ExchangeClient type & construct
-        let mut exchange_client = match cfg.exchange {
-            ExchangeName::Binance => Binance::init(),
-        }
-        .await
-        .expect("Failed to construct exchange Client instance");
-
+    /// Constructs a new [LiveCandlerHandler] component using the provided [Config]. The injected
+    /// [ExchangeClient] is used to subscribe to a [Candle] stream. An asynchronous task is spawned
+    /// to consume [Candle]s and route them to the [LiveCandleHandler]'s sync::mpsc::Receiver.
+    pub async fn init<Client: ExchangeClient>(cfg: &Config, mut exchange_client: Client) -> Self {
         // Subscribe to Candle stream via exchange Client
         let mut candle_stream = exchange_client
             .consume_candles(cfg.symbol.clone(), &cfg.interval)
