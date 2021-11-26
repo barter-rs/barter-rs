@@ -1,6 +1,6 @@
 [package]
 name = "barter"
-version = "0.5.9"
+version = "0.5.10"
 authors = ["keirbailey <keirinvestment@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -15,7 +15,7 @@ categories = ["accessibility", "simulation"]
 
 [dependencies]
 # Barter Ecosystem
-barter-data = "0.2.8"
+barter-data = "0.2.9"
 
 # Logging
 tracing = "0.1.29"
