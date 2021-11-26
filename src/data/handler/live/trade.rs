@@ -1,7 +1,6 @@
 use crate::data::error::DataError;
 use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::data::market::MarketEvent;
-use barter_data::client::binance::Binance;
 use barter_data::client::ClientName as ExchangeName;
 use barter_data::model::{MarketData, Trade};
 use barter_data::ExchangeClient;
@@ -58,17 +57,10 @@ impl MarketGenerator for LiveTradeHandler {
 }
 
 impl LiveTradeHandler {
-    /// Initialises an [ExchangeClient] and [Trade] stream, as well as constructs a new
-    /// [LiveTradeHandler] component using the provided [Config] struct, as well
-    /// as a [Trade] mpsc::Receiver, and a oneshot::[Receiver] for receiving TerminateCommands.
-    pub async fn init(cfg: &Config) -> Self {
-        // Determine ExchangeClient type & construct
-        let mut exchange_client = match cfg.exchange {
-            ExchangeName::Binance => Binance::init(),
-        }
-        .await
-        .expect("Failed to construct exchange Client instance");
-
+    /// Constructs a new [LiveTradeHandler] component using the provided [Config]. The injected
+    /// [ExchangeClient] is used to subscribe to a [Trade] stream. An asynchronous task is spawned
+    /// to consume [Trade]s and route them to the [LiveTradeHandler]'s sync::mpsc::Receiver.
+    pub async fn init<Client: ExchangeClient>(cfg: &Config, mut exchange_client: Client) -> Self {
         // Subscribe to Trade stream via exchange Client
         let mut trade_stream = exchange_client
             .consume_trades(cfg.symbol.clone())
