@@ -178,6 +178,7 @@ where
                         // Send FillEvent to EventSink
                         self.event_sink.send(Event::Fill(fill));
                     }
+
                     _ => {}
                 }
             }
