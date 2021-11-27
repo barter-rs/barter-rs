@@ -15,7 +15,8 @@ categories = ["accessibility", "simulation"]
 
 [dependencies]
 # Barter Ecosystem
-barter-data = "0.2.9"
+#barter-data = "0.2.9"
+barter-data = {path = "../barter-data-rs"}
 
 # Logging
 tracing = "0.1.29"
