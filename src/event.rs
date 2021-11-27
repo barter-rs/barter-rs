@@ -3,6 +3,7 @@ use crate::execution::fill::FillEvent;
 use crate::portfolio::order::OrderEvent;
 use crate::strategy::signal::SignalEvent;
 use crate::portfolio::position::Position;
+use serde::Serialize;
 use tokio::sync::mpsc;
 use tracing::warn;
 
@@ -10,7 +11,7 @@ use tracing::warn;
 /// are vital to the [Trader](crate::engine::trader::Trader) event loop, dictating the trading
 /// sequence. The closed [Position] Event is a representation of work done by the system, and is
 /// useful for analysing performance & reconciliations.
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub enum Event {
     Market(MarketEvent),
     Signal(SignalEvent),
@@ -21,7 +22,7 @@ pub enum Event {
 
 /// Sink for sending [Event]s to an external source. Useful for event-sourcing, real-time
 /// dashboards & general monitoring.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EventSink {
     event_tx: mpsc::UnboundedSender<Event>,
 }
