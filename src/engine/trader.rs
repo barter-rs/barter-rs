@@ -1,7 +1,7 @@
 use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::engine::error::EngineError;
 use crate::engine::TerminationMessage;
-use crate::event::Event;
+use crate::event::{Event, EventSink};
 use crate::execution::FillGenerator;
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
 use crate::strategy::SignalGenerator;
@@ -31,6 +31,8 @@ where
 {
     /// broadcast::Receiver for receiving remote shutdown [TerminationMessage]s.
     pub termination_rx: broadcast::Receiver<TerminationMessage>,
+    /// Sink for sending every [Event] the [Trader] encounters to an external source of choice.
+    pub event_sink: EventSink,
     /// Shared-access to a global Portfolio instance that implements [MarketUpdater],
     /// [OrderGenerator] & [FillUpdater]. Generates [Event::Order]s, as well as reacts to
     /// [Event::Market]s, [Event::Signal]s, [Event::Fill]s.
@@ -57,6 +59,8 @@ where
 {
     /// broadcast::Receiver for receiving remote shutdown [TerminationMessage]s.
     termination_rx: broadcast::Receiver<TerminationMessage>,
+    /// Sink for sending every [Event] the [Trader] encounters to an external source of choice.
+    event_sink: EventSink,
     /// Queue for storing [Event]s used by the trading loop in the run() method.
     event_q: VecDeque<Event>,
     /// Shared-access to a global Portfolio instance that implements [MarketUpdater],
@@ -86,6 +90,7 @@ where
         );
         Self {
             termination_rx: lego.termination_rx,
+            event_sink: lego.event_sink,
             event_q: VecDeque::with_capacity(4),
             portfolio: lego.portfolio,
             data: lego.data,
@@ -127,7 +132,9 @@ where
                             .expect("Failed to unlock Mutex<Portfolio - poisoned")
                             .update_from_market(&market)
                             .expect("Failed to update portfolio from market");
-                        debug!("{}", &serde_json::to_string(&market).unwrap());
+
+                        // Send MarketEvent to EventSink
+                        self.event_sink.send(Event::Market(market));
                     }
 
                     Event::Signal(signal) => {
@@ -140,7 +147,9 @@ where
                         {
                             self.event_q.push_back(Event::Order(order));
                         }
-                        debug!("{}", &serde_json::to_string(&signal).unwrap());
+
+                        // Send SignalEvent to EventSink
+                        self.event_sink.send(Event::Signal(signal));
                     }
 
                     Event::Order(order) => {
@@ -149,17 +158,28 @@ where
                                 .generate_fill(&order)
                                 .expect("Failed to generate fill"),
                         ));
-                        debug!("{}", &serde_json::to_string(&order).unwrap());
+
+                        // Send OrderEvent to EventSink
+                        self.event_sink.send(Event::Order(order));
                     }
 
                     Event::Fill(fill) => {
-                        self.portfolio
+                        // If FillEvent was an EXIT, send closed Position to EventSink
+                        if let Some(closed_position) = self
+                            .portfolio
                             .lock()
                             .expect("Failed to unlock Mutex<Portfolio - poisoned")
                             .update_from_fill(&fill)
-                            .expect("Failed to update portfolio from fill");
-                        info!("{}", &serde_json::to_string(&fill).unwrap());
+                            .expect("Failed to update portfolio from fill")
+                        {
+                            self.event_sink.send(Event::ClosedPosition(closed_position));
+                        }
+
+                        // Send FillEvent to EventSink
+                        self.event_sink.send(Event::Fill(fill));
                     }
+
+                    _ => {}
                 }
             }
         }
@@ -218,6 +238,7 @@ where
     Execution: FillGenerator,
 {
     termination_rx: Option<broadcast::Receiver<TerminationMessage>>,
+    event_sink: Option<EventSink>,
     event_q: Option<VecDeque<Event>>,
     portfolio: Option<Arc<Mutex<Portfolio>>>,
     data: Option<Data>,
@@ -235,6 +256,7 @@ where
     fn new() -> Self {
         Self {
             termination_rx: None,
+            event_sink: None,
             event_q: None,
             portfolio: None,
             data: None,
@@ -246,6 +268,13 @@ where
     pub fn termination_rx(self, value: broadcast::Receiver<TerminationMessage>) -> Self {
         Self {
             termination_rx: Some(value),
+            ..self
+        }
+    }
+
+    pub fn event_sink(self, value: EventSink) -> Self {
+        Self {
+            event_sink: Some(value),
             ..self
         }
     }
@@ -280,6 +309,7 @@ where
 
     pub fn build(self) -> Result<Trader<Portfolio, Data, Strategy, Execution>, EngineError> {
         let termination_rx = self.termination_rx.ok_or(EngineError::BuilderIncomplete)?;
+        let event_sink = self.event_sink.ok_or(EngineError::BuilderIncomplete)?;
         let portfolio = self.portfolio.ok_or(EngineError::BuilderIncomplete)?;
         let data = self.data.ok_or(EngineError::BuilderIncomplete)?;
         let strategy = self.strategy.ok_or(EngineError::BuilderIncomplete)?;
@@ -287,6 +317,7 @@ where
 
         Ok(Trader {
             termination_rx,
+            event_sink,
             event_q: VecDeque::with_capacity(4),
             portfolio,
             data,

@@ -124,6 +124,7 @@
 //!     Event::Fill(fill) => {
 //!         portfolio.update_from_fill(&fill);
 //!     }
+//!     _ => {}
 //! }
 //! ```
 //!
@@ -198,8 +199,8 @@ pub mod portfolio;
 /// for the system.
 pub mod execution;
 
-/// Defines an Event enum that could be a MarketEvent, SignalEvent, OrderEvent or
-/// FillEvent.
+/// Defines an Event enum that could be a MarketEvent, SignalEvent, OrderEvent, FillEvent or
+/// Position.
 pub mod event;
 
 /// Defines various iterative statistical methods that can be used to calculate trading performance
