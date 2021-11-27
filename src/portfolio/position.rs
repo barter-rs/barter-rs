@@ -105,7 +105,7 @@ impl PositionEnterer for Position {
 
         Ok(Position {
             meta: metadata,
-            exchange: fill.exchange.clone(),
+            exchange: fill.exchange.to_owned(),
             symbol: fill.symbol.clone(),
             direction: Position::parse_entry_direction(&fill)?,
             quantity: fill.quantity,
@@ -182,7 +182,7 @@ impl Default for Position {
     fn default() -> Self {
         Self {
             meta: Default::default(),
-            exchange: String::from("BINANCE"),
+            exchange: "Binance".to_owned(),
             symbol: String::from("ETH-USD"),
             direction: Direction::default(),
             quantity: 1.0,
