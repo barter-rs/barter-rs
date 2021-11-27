@@ -54,7 +54,7 @@ where
 {
     fn update_from_market(&mut self, market: &MarketEvent) -> Result<(), PortfolioError> {
         // Determine the position_id & associated Option<Position> related to the input MarketEvent
-        let position_id = determine_position_id(&self.id, &market.exchange, &market.symbol);
+        let position_id = determine_position_id(&self.id, market.exchange, &market.symbol);
 
         // If Portfolio contains an open Position for the MarketEvent Symbol-Exchange combination
         if let Some(mut position) = self.repository.get_position(&position_id)? {
@@ -76,7 +76,7 @@ where
         signal: &SignalEvent,
     ) -> Result<Option<OrderEvent>, PortfolioError> {
         // Determine the position_id & associated Option<Position> related to input SignalEvent
-        let position_id = determine_position_id(&self.id, &signal.exchange, &signal.symbol);
+        let position_id = determine_position_id(&self.id, signal.exchange, &signal.symbol);
 
         let position = self.repository.get_position(&position_id)?;
         let position = position.as_ref();
@@ -96,7 +96,7 @@ where
             event_type: OrderEvent::EVENT_TYPE,
             trace_id: signal.trace_id,
             timestamp: Utc::now(),
-            exchange: signal.exchange.clone(),
+            exchange: signal.exchange,
             symbol: signal.symbol.clone(),
             market_meta: signal.market_meta.clone(),
             decision: signal_decision.clone(),
@@ -143,7 +143,8 @@ where
                 current_value += position.result_profit_loss;
 
                 // Persist updated Portfolio value & exited Position in Repository
-                self.repository.set_closed_position(&self.id, position.clone())?;
+                self.repository
+                    .set_closed_position(&self.id, position.clone())?;
                 self.repository.set_current_value(&self.id, current_value)?;
 
                 Some(position)

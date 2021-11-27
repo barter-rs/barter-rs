@@ -1,8 +1,8 @@
 use crate::data::market::MarketEvent;
 use crate::execution::fill::FillEvent;
 use crate::portfolio::order::OrderEvent;
-use crate::strategy::signal::SignalEvent;
 use crate::portfolio::position::Position;
+use crate::strategy::signal::SignalEvent;
 use serde::Serialize;
 use tokio::sync::mpsc;
 use tracing::warn;

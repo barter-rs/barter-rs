@@ -12,7 +12,7 @@ pub struct OrderEvent {
     pub event_type: &'static str,
     pub trace_id: Uuid,
     pub timestamp: DateTime<Utc>,
-    pub exchange: String,
+    pub exchange: &'static str,
     pub symbol: String,
     pub market_meta: MarketMeta, // Metadata propagated from source MarketEvent
     pub decision: Decision,      // LONG, CloseLong, SHORT or CloseShort
@@ -26,7 +26,7 @@ impl Default for OrderEvent {
             event_type: OrderEvent::EVENT_TYPE,
             trace_id: Uuid::new_v4(),
             timestamp: Utc::now(),
-            exchange: String::from("BINANCE"),
+            exchange: "Binance",
             symbol: String::from("ETH-USD"),
             market_meta: MarketMeta::default(),
             decision: Decision::default(),
@@ -64,7 +64,7 @@ impl Default for OrderType {
 pub struct OrderEventBuilder {
     pub trace_id: Option<Uuid>,
     pub timestamp: Option<DateTime<Utc>>,
-    pub exchange: Option<String>,
+    pub exchange: Option<&'static str>,
     pub symbol: Option<String>,
     pub market_meta: Option<MarketMeta>,
     pub decision: Option<Decision>,
@@ -91,7 +91,7 @@ impl OrderEventBuilder {
         }
     }
 
-    pub fn exchange(self, value: String) -> Self {
+    pub fn exchange(self, value: &'static str) -> Self {
         Self {
             exchange: Some(value),
             ..self
