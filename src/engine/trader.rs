@@ -164,20 +164,19 @@ where
                     }
 
                     Event::Fill(fill) => {
-                        let closed_position = self
+                        // If FillEvent was an EXIT, send closed Position to EventSink
+                        if let Some(closed_position) = self
                             .portfolio
                             .lock()
                             .expect("Failed to unlock Mutex<Portfolio - poisoned")
                             .update_from_fill(&fill)
-                            .expect("Failed to update portfolio from fill");
+                            .expect("Failed to update portfolio from fill")
+                        {
+                            self.event_sink.send(Event::ClosedPosition(closed_position));
+                        }
 
                         // Send FillEvent to EventSink
                         self.event_sink.send(Event::Fill(fill));
-
-                        // If FillEvent was an EXIT, send closed Position to EventSink
-                        if let Some(position) = closed_position {
-                            self.event_sink.send(Event::ClosedPosition(position));
-                        }
                     }
                     _ => {}
                 }
