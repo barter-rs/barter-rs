@@ -41,7 +41,7 @@ impl FillGenerator for SimulatedExecution {
 
 impl SimulatedExecution {
     /// Constructs a new [SimulatedExecution] component.
-    pub fn new(cfg: &Config) -> Self {
+    pub fn new(cfg: Config) -> Self {
         Self {
             fees_pct: cfg.simulated_fees_pct,
         }
@@ -68,7 +68,7 @@ mod tests {
 
     #[test]
     fn should_generate_ok_fill_event_with_valid_order_event_provided() {
-        let simulated_execution = SimulatedExecution::new(&Config {
+        let simulated_execution = SimulatedExecution::new(Config {
             simulated_fees_pct: Fees {
                 exchange: 0.1,
                 slippage: 0.05,
@@ -123,7 +123,7 @@ mod tests {
 
     #[test]
     fn should_calculate_simulated_fees_correctly() {
-        let simulated_execution = SimulatedExecution::new(&Config {
+        let simulated_execution = SimulatedExecution::new(Config {
             simulated_fees_pct: Fees {
                 exchange: 0.5,
                 slippage: 0.1,

@@ -60,7 +60,7 @@ impl LiveCandleHandler {
     /// Constructs a new [LiveCandleHandler] component using the provided [Config]. The injected
     /// [ExchangeClient] is used to subscribe to a [Candle] stream. An asynchronous task is spawned
     /// to consume [Candle]s and route them to the [LiveCandleHandler]'s sync::mpsc::Receiver.
-    pub async fn init<Client: ExchangeClient>(cfg: &Config, mut exchange_client: Client) -> Self {
+    pub async fn init<Client: ExchangeClient>(cfg: Config, mut exchange_client: Client) -> Self {
         // Subscribe to Candle stream via exchange Client
         let mut candle_stream = exchange_client
             .consume_candles(cfg.symbol.clone(), &cfg.interval)
@@ -83,8 +83,8 @@ impl LiveCandleHandler {
 
         Self {
             exchange: Client::EXCHANGE_NAME,
-            symbol: cfg.symbol.clone(),
-            interval: cfg.interval.clone(),
+            symbol: cfg.symbol,
+            interval: cfg.interval,
             candle_rx,
             can_continue: Continuation::Continue,
         }

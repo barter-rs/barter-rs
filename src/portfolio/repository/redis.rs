@@ -188,8 +188,8 @@ impl RedisRepository {
     }
 
     /// Establish & return a Redis connection.
-    pub fn setup_redis_connection(cfg: &Config) -> Connection {
-        redis::Client::open(&*cfg.uri)
+    pub fn setup_redis_connection(cfg: Config) -> Connection {
+        redis::Client::open(cfg.uri)
             .expect("Failed to create Redis client")
             .get_connection()
             .expect("Failed to connect to Redis")
