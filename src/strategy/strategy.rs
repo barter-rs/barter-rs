@@ -44,7 +44,7 @@ impl SignalGenerator for RSIStrategy {
             event_type: SignalEvent::EVENT_TYPE,
             trace_id: market.trace_id,
             timestamp: Utc::now(),
-            exchange: market.exchange.clone(),
+            exchange: market.exchange,
             symbol: market.symbol.clone(),
             market_meta: MarketMeta {
                 close: candle.close,

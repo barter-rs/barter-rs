@@ -45,7 +45,7 @@
 //! use barter::data::handler::historic::{HistoricCandleHandler, HistoricDataLego};
 //!
 //! let lego = HistoricDataLego {
-//!     exchange: "Binance".to_string(),
+//!     exchange: "Binance",
 //!     symbol: "btcusdt".to_string(),
 //!     candle_iterator: vec![Candle::default()].into_iter(),
 //! };

@@ -11,7 +11,7 @@ pub struct MarketEvent {
     pub event_type: &'static str,
     pub trace_id: Uuid,
     pub timestamp: DateTime<Utc>,
-    pub exchange: String,
+    pub exchange: &'static str,
     pub symbol: String,
     pub data: MarketData,
 }
@@ -22,7 +22,7 @@ impl Default for MarketEvent {
             event_type: MarketEvent::EVENT_TYPE,
             trace_id: Uuid::new_v4(),
             timestamp: Utc::now(),
-            exchange: String::from("BINANCE"),
+            exchange: "BINANCE",
             symbol: String::from("ETH-USD"),
             data: MarketData::Candle(Candle::default()),
         }
@@ -43,7 +43,7 @@ impl MarketEvent {
 pub struct MarketEventBuilder {
     pub trace_id: Option<Uuid>,
     pub timestamp: Option<DateTime<Utc>>,
-    pub exchange: Option<String>,
+    pub exchange: Option<&'static str>,
     pub symbol: Option<String>,
     pub data: Option<MarketData>,
 }
@@ -67,7 +67,7 @@ impl MarketEventBuilder {
         }
     }
 
-    pub fn exchange(self, value: String) -> Self {
+    pub fn exchange(self, value: &'static str) -> Self {
         Self {
             exchange: Some(value),
             ..self
@@ -134,7 +134,7 @@ mod tests {
         let ok_result = MarketEvent::builder()
             .trace_id(Uuid::new_v4())
             .timestamp(Utc::now())
-            .exchange(String::from("GRAND_EXCHANGE"))
+            .exchange("Grand Exchange")
             .symbol(String::from("PANTALOONS"))
             .data(MarketData::Candle(Candle::default()))
             .build();
@@ -143,7 +143,7 @@ mod tests {
         let err_result = MarketEvent::builder()
             .trace_id(Uuid::new_v4())
             .timestamp(Utc::now())
-            .exchange(String::from("GRAND_EXCHANGE"))
+            .exchange("Grand Exchange")
             .symbol(String::from("PANTALOONS"))
             // No MarketData attribute added to builder
             .build();

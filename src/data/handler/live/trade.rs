@@ -1,7 +1,6 @@
 use crate::data::error::DataError;
 use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::data::market::MarketEvent;
-use barter_data::client::ClientName as ExchangeName;
 use barter_data::model::{MarketData, Trade};
 use barter_data::ExchangeClient;
 use chrono::Utc;
@@ -14,7 +13,6 @@ use uuid::Uuid;
 /// Configuration for constructing a [LiveTradeHandler] via the new() constructor method.
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub exchange: ExchangeName,
     pub symbol: String,
 }
 
@@ -22,7 +20,7 @@ pub struct Config {
 /// [Continuer] & [MarketGenerator].
 #[derive(Debug)]
 pub struct LiveTradeHandler {
-    pub exchange: ExchangeName,
+    pub exchange: &'static str,
     pub symbol: String,
     trade_rx: Receiver<Trade>,
     can_continue: Continuation,
@@ -49,7 +47,7 @@ impl MarketGenerator for LiveTradeHandler {
             event_type: MarketEvent::EVENT_TYPE,
             trace_id: Uuid::new_v4(),
             timestamp: Utc::now(),
-            exchange: format!("{:?}", self.exchange.clone()),
+            exchange: self.exchange,
             symbol: self.symbol.clone(),
             data: MarketData::Trade(trade),
         })
@@ -82,7 +80,7 @@ impl LiveTradeHandler {
         });
 
         Self {
-            exchange: cfg.exchange.clone(),
+            exchange: Client::EXCHANGE_NAME,
             symbol: cfg.symbol.clone(),
             trade_rx,
             can_continue: Continuation::Continue,
@@ -98,7 +96,7 @@ impl LiveTradeHandler {
 /// Builder to construct [LiveTradeHandler] instances.
 #[derive(Debug, Default)]
 pub struct LiveTradeHandlerBuilder {
-    pub exchange: Option<ExchangeName>,
+    pub exchange: Option<&'static str>,
     pub symbol: Option<String>,
     pub trade_rx: Option<Receiver<Trade>>,
 }
@@ -108,7 +106,7 @@ impl LiveTradeHandlerBuilder {
         Self::default()
     }
 
-    pub fn exchange(self, value: ExchangeName) -> Self {
+    pub fn exchange(self, value: &'static str) -> Self {
         Self {
             exchange: Some(value),
             ..self
