@@ -124,6 +124,7 @@
 //!     Event::Fill(fill) => {
 //!         portfolio.update_from_fill(&fill);
 //!     }
+//!     _ => {}
 //! }
 //! ```
 //!
