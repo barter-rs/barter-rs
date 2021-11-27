@@ -52,7 +52,7 @@ pub trait CashHandler {
 }
 
 /// Returns a [Position] unique identifier given a portfolio_id, exchange & symbol.
-pub fn determine_position_id(portfolio_id: &Uuid, exchange: &String, symbol: &String) -> String {
+pub fn determine_position_id(portfolio_id: &Uuid, exchange: &str, symbol: &String) -> String {
     format!(
         "{}_{}_{}_{}",
         portfolio_id.to_string(),

@@ -9,7 +9,7 @@ use uuid::Uuid;
 /// Configuration for constructing a [HistoricCandleHandler] via the new() constructor method.
 #[derive(Debug)]
 pub struct HistoricDataLego {
-    pub exchange: String,
+    pub exchange: &'static str,
     pub symbol: String,
     pub candle_iterator: IntoIter<Candle>,
 }
@@ -18,7 +18,7 @@ pub struct HistoricDataLego {
 /// [MarketEvent] data handler that implements [Continuer] & [MarketGenerator]. Simulates a live market
 /// feed via drip feeding historical data files as a series of [MarketEvent]s.
 pub struct HistoricCandleHandler {
-    exchange: String,
+    exchange: &'static str,
     symbol: String,
     candle_iterator: IntoIter<Candle>,
 }
@@ -40,7 +40,7 @@ impl MarketGenerator for HistoricCandleHandler {
                 event_type: MarketEvent::EVENT_TYPE,
                 trace_id: Uuid::new_v4(),
                 timestamp: Utc::now(),
-                exchange: self.exchange.clone(),
+                exchange: self.exchange,
                 symbol: self.symbol.clone(),
                 data: MarketData::Candle(candle),
             }),
@@ -68,7 +68,7 @@ impl HistoricCandleHandler {
 /// Builder to construct [HistoricCandleHandler] instances.
 #[derive(Debug, Default)]
 pub struct HistoricCandleHandlerBuilder {
-    exchange: Option<String>,
+    exchange: Option<&'static str>,
     symbol: Option<String>,
     candle_iterator: Option<IntoIter<Candle>>,
 }
@@ -85,7 +85,7 @@ impl HistoricCandleHandlerBuilder {
         }
     }
 
-    pub fn exchange(self, value: String) -> Self {
+    pub fn exchange(self, value: &'static str) -> Self {
         Self {
             exchange: Some(value),
             ..self
@@ -122,7 +122,7 @@ mod tests {
         symbol_data_remaining.push(Candle::default());
 
         let data_handler = HistoricCandleHandler::builder()
-            .exchange("BACKTEST".to_string())
+            .exchange("Backtest")
             .symbol("DOGE".to_string())
             .candle_iterator(symbol_data_remaining.into_iter())
             .build()
@@ -138,7 +138,7 @@ mod tests {
         let symbol_data_remaining: Vec<Candle> = Vec::with_capacity(2);
 
         let data_handler = HistoricCandleHandler::builder()
-            .exchange("BACKTEST".to_string())
+            .exchange("Backtest")
             .symbol("DOGE".to_string())
             .candle_iterator(symbol_data_remaining.into_iter())
             .build()

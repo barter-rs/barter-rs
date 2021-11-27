@@ -11,7 +11,7 @@ pub struct SignalEvent {
     pub event_type: &'static str,
     pub trace_id: Uuid,
     pub timestamp: DateTime<Utc>,
-    pub exchange: String,
+    pub exchange: &'static str,
     pub symbol: String,
     /// Metadata propagated from source MarketEvent
     pub market_meta: MarketMeta,
@@ -27,7 +27,7 @@ impl Default for SignalEvent {
             event_type: SignalEvent::EVENT_TYPE,
             trace_id: Uuid::new_v4(),
             timestamp: Utc::now(),
-            exchange: String::from("BINANCE"),
+            exchange: "Binance",
             symbol: String::from("ETH-USD"),
             market_meta: MarketMeta::default(),
             signals: Default::default(),
@@ -86,7 +86,7 @@ impl Decision {
 pub struct SignalEventBuilder {
     pub trace_id: Option<Uuid>,
     pub timestamp: Option<DateTime<Utc>>,
-    pub exchange: Option<String>,
+    pub exchange: Option<&'static str>,
     pub symbol: Option<String>,
     pub market_meta: Option<MarketMeta>,
     pub signals: Option<HashMap<Decision, SignalStrength>>,
@@ -111,7 +111,7 @@ impl SignalEventBuilder {
         }
     }
 
-    pub fn exchange(self, value: String) -> Self {
+    pub fn exchange(self, value: &'static str) -> Self {
         Self {
             exchange: Some(value),
             ..self
