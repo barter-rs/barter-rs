@@ -118,48 +118,55 @@ impl<T> FillUpdater for MetaPortfolio<T>
 where
     T: PositionHandler + ValueHandler + CashHandler,
 {
-    fn update_from_fill(&mut self, fill: &FillEvent) -> Result<(), PortfolioError> {
+    fn update_from_fill(&mut self, fill: &FillEvent) -> Result<Option<Position>, PortfolioError> {
         // Get the Portfolio Cash from Repository
         let mut current_cash = self.repository.get_current_cash(&self.id)?;
 
         // Determine the position_id that is related to the input FillEvent
         let position_id = determine_position_id(&self.id, &fill.exchange, &fill.symbol);
 
-        // EXIT SCENARIO - FillEvent for Symbol-Exchange with open Position
-        if let Some(mut position) = self.repository.remove_position(&position_id)? {
-            // Get the Portfolio Value from the Repository
-            let mut current_value = self.repository.get_current_value(&self.id)?;
+        let closed_position = match self.repository.remove_position(&position_id)? {
+            // EXIT SCENARIO - FillEvent for Symbol-Exchange with open Position
+            Some(mut position) => {
+                // Get the Portfolio Value from the Repository
+                let mut current_value = self.repository.get_current_value(&self.id)?;
 
-            // Exit Position & persist in Repository closed_positions
-            position.exit(current_value, fill)?;
+                // Exit Position & persist in Repository closed_positions
+                position.exit(current_value, fill)?;
 
-            // Update Portfolio cash on exit - enter_total_fees added since included in result PnL calc
-            current_cash += position.enter_value_gross
-                + position.result_profit_loss
-                + position.enter_fees_total;
+                // Update Portfolio cash on exit - enter_total_fees added since included in result PnL calc
+                current_cash += position.enter_value_gross
+                    + position.result_profit_loss
+                    + position.enter_fees_total;
 
-            // Update Portfolio value after exit & persist in Repository
-            current_value += position.result_profit_loss;
+                // Update Portfolio value after exit & persist in Repository
+                current_value += position.result_profit_loss;
 
-            // Persist updated Portfolio value & exited Position in Repository
-            self.repository.set_closed_position(&self.id, position)?;
-            self.repository.set_current_value(&self.id, current_value)?;
-        }
-        // ENTRY SCENARIO - FillEvent for Symbol-Exchange with no Position
-        else {
-            let position = Position::enter(&fill)?;
+                // Persist updated Portfolio value & exited Position in Repository
+                self.repository.set_closed_position(&self.id, position.clone())?;
+                self.repository.set_current_value(&self.id, current_value)?;
 
-            // Update Portfolio cash entry
-            current_cash += -position.enter_value_gross - position.enter_fees_total;
+                Some(position)
+            }
 
-            // Add to current Positions in Repository
-            self.repository.set_position(&self.id, position)?;
-        }
+            // ENTRY SCENARIO - FillEvent for Symbol-Exchange with no Position
+            None => {
+                let position = Position::enter(&fill)?;
+
+                // Update Portfolio cash entry
+                current_cash += -position.enter_value_gross - position.enter_fees_total;
+
+                // Add to current Positions in Repository
+                self.repository.set_position(&self.id, position)?;
+
+                None
+            }
+        };
 
         // Persist updated Portfolio cash in Repository
         self.repository.set_current_cash(&self.id, current_cash)?;
 
-        Ok(())
+        Ok(closed_position)
     }
 }
 
