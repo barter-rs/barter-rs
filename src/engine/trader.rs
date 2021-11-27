@@ -143,7 +143,8 @@ where
                             .lock()
                             .expect("Failed to unlock Mutex<Portfolio - poisoned")
                             .generate_order(&signal)
-                            .expect("Failed to generate order") {
+                            .expect("Failed to generate order")
+                        {
                             self.event_q.push_back(Event::Order(order));
                         }
 
@@ -163,7 +164,8 @@ where
                     }
 
                     Event::Fill(fill) => {
-                        let closed_position = self.portfolio
+                        let closed_position = self
+                            .portfolio
                             .lock()
                             .expect("Failed to unlock Mutex<Portfolio - poisoned")
                             .update_from_fill(&fill)

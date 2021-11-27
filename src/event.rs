@@ -1,8 +1,8 @@
 use crate::data::market::MarketEvent;
-use crate::strategy::signal::SignalEvent;
+use crate::execution::fill::FillEvent;
 use crate::portfolio::order::OrderEvent;
 use crate::portfolio::position::Position;
-use crate::execution::fill::FillEvent;
+use crate::strategy::signal::SignalEvent;
 use tokio::sync::mpsc;
 use tracing::warn;
 
@@ -12,7 +12,7 @@ pub enum Event {
     Signal(SignalEvent),
     Order(OrderEvent),
     Fill(FillEvent),
-    ClosedPosition(Position)
+    ClosedPosition(Position),
 }
 
 #[derive(Debug)]
