@@ -80,7 +80,7 @@
 //!     rsi_period: 14,
 //! };
 //!
-//! let mut strategy = RSIStrategy::new(&config);
+//! let mut strategy = RSIStrategy::new(config);
 //!
 //! let market_event = MarketEvent::default();
 //!
@@ -143,7 +143,7 @@
 //!     }
 //! };
 //!
-//! let mut execution = SimulatedExecution::new(&config);
+//! let mut execution = SimulatedExecution::new(config);
 //!
 //! let order_event = OrderEvent::default();
 //!
@@ -165,7 +165,7 @@
 //!     risk_free_return: 0.5,
 //! };
 //!
-//! let mut trading_summary = TradingSummary::new(&config);
+//! let mut trading_summary = TradingSummary::new(config);
 //!
 //! trading_summary.generate_summary(&positions);
 //!

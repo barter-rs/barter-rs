@@ -58,7 +58,7 @@ impl LiveTradeHandler {
     /// Constructs a new [LiveTradeHandler] component using the provided [Config]. The injected
     /// [ExchangeClient] is used to subscribe to a [Trade] stream. An asynchronous task is spawned
     /// to consume [Trade]s and route them to the [LiveTradeHandler]'s sync::mpsc::Receiver.
-    pub async fn init<Client: ExchangeClient>(cfg: &Config, mut exchange_client: Client) -> Self {
+    pub async fn init<Client: ExchangeClient>(cfg: Config, mut exchange_client: Client) -> Self {
         // Subscribe to Trade stream via exchange Client
         let mut trade_stream = exchange_client
             .consume_trades(cfg.symbol.clone())
@@ -81,7 +81,7 @@ impl LiveTradeHandler {
 
         Self {
             exchange: Client::EXCHANGE_NAME,
-            symbol: cfg.symbol.clone(),
+            symbol: cfg.symbol,
             trade_rx,
             can_continue: Continuation::Continue,
         }
