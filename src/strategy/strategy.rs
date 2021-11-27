@@ -57,7 +57,7 @@ impl SignalGenerator for RSIStrategy {
 
 impl RSIStrategy {
     /// Constructs a new [RSIStrategy] component using the provided configuration struct.
-    pub fn new(config: &Config) -> Self {
+    pub fn new(config: Config) -> Self {
         let rsi_indicator = RelativeStrengthIndex::new(config.rsi_period)
             .expect("Failed to construct RSI indicator");
 

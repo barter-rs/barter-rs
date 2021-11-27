@@ -45,7 +45,7 @@ impl TablePrinter for TradingSummary {
 
 impl TradingSummary {
     /// Constructs a new [TradingSummary].
-    pub fn new(cfg: &Config) -> Self {
+    pub fn new(cfg: Config) -> Self {
         Self {
             pnl_returns: PnLReturnSummary::new(),
             drawdown: DrawdownSummary::new(cfg.starting_equity),
