@@ -2,6 +2,7 @@ use crate::data::market::MarketEvent;
 use crate::execution::fill::FillEvent;
 use crate::portfolio::error::PortfolioError;
 use crate::portfolio::order::OrderEvent;
+use crate::portfolio::position::Position;
 use crate::strategy::signal::SignalEvent;
 
 pub mod allocator;
@@ -33,5 +34,5 @@ pub trait FillUpdater {
     /// Updates the Portfolio state using the input [FillEvent]. The [FillEvent] triggers a
     /// Position entry or exit, and the Portfolio updates key fields such as current_cash and
     /// current_value accordingly.
-    fn update_from_fill(&mut self, fill: &FillEvent) -> Result<(), PortfolioError>;
+    fn update_from_fill(&mut self, fill: &FillEvent) -> Result<Option<Position>, PortfolioError>;
 }

@@ -59,7 +59,7 @@ impl MarketGenerator for LiveCandleHandler {
 }
 
 impl LiveCandleHandler {
-    /// Constructs a new [LiveCandlerHandler] component using the provided [Config]. The injected
+    /// Constructs a new [LiveCandleHandler] component using the provided [Config]. The injected
     /// [ExchangeClient] is used to subscribe to a [Candle] stream. An asynchronous task is spawned
     /// to consume [Candle]s and route them to the [LiveCandleHandler]'s sync::mpsc::Receiver.
     pub async fn init<Client: ExchangeClient>(cfg: &Config, mut exchange_client: Client) -> Self {
