@@ -71,6 +71,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create termination channels
     let (engine_termination_tx, engine_termination_rx) = oneshot::channel();    // Engine graceful remote shutdown
     let (traders_termination_tx, _) = broadcast::channel(1);                    // Shutdown channel to broadcast remote shutdown to every Trader instance
+    
+    // Create EventSink channel to listen to all Engine Events in real-time
+    let (event_tx, event_rx) = unbounded_channel();
+    let event_sink = EventSink::new();
 
     // Build global shared-state MetaPortfolio
     let portfolio = Arc::new(Mutex::new(
@@ -89,6 +93,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     traders.push(
         Trader::builder()
             .termination_rx(traders_termination_tx.subscribe())
+            .event_sink(event_sink.clone())
             .portfolio(Arc::clone(&portfolio))
             .data(HistoricCandleHandler::new(HistoricDataLego { 
                 exchange: "Binance".to_string(),
@@ -115,6 +120,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .traders(traders)
         .build()
         .expect("failed to build engine");
+        
+    // Listen to Engine Events & do something with them
+    tokio::spawn(listen_to_events(event_rx));
         
     // --- Run Trading Session Until Remote Shutdown ---
     engine.run().await;
