@@ -3,39 +3,51 @@ use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::data::market::MarketEvent;
 use barter_data::model::{Candle, MarketData};
 use chrono::Utc;
-use std::vec::IntoIter;
 use uuid::Uuid;
 
 /// Configuration for constructing a [HistoricCandleHandler] via the new() constructor method.
 #[derive(Debug)]
-pub struct HistoricDataLego {
+pub struct HistoricDataLego<IntoCandles>
+where
+    IntoCandles: IntoIterator<Item = Candle>
+{
     pub exchange: &'static str,
     pub symbol: String,
-    pub candle_iterator: IntoIter<Candle>,
+    pub candles: IntoCandles,
 }
 
 #[derive(Debug)]
 /// [MarketEvent] data handler that implements [Continuer] & [MarketGenerator]. Simulates a live market
 /// feed via drip feeding historical data files as a series of [MarketEvent]s.
-pub struct HistoricCandleHandler {
+pub struct HistoricCandleHandler<Candles>
+where
+    Candles: Iterator<Item = Candle>
+{
     exchange: &'static str,
     symbol: String,
-    candle_iterator: IntoIter<Candle>,
+    can_continue: Continuation,
+    candles: Candles,
 }
 
-impl Continuer for HistoricCandleHandler {
+impl<Candles> Continuer for HistoricCandleHandler<Candles>
+where
+    Candles: Iterator<Item = Candle>
+{
     fn can_continue(&self) -> &Continuation {
-        match self.candle_iterator.len() != 0 {
-            true => &Continuation::Continue,
-            false => &Continuation::Stop,
-        }
+        &self.can_continue
     }
 }
 
-impl MarketGenerator for HistoricCandleHandler {
+impl<Candles> MarketGenerator for HistoricCandleHandler<Candles>
+where
+    Candles: Iterator<Item = Candle>
+{
     fn generate_market(&mut self) -> Option<MarketEvent> {
-        match self.candle_iterator.next() {
-            None => None,
+        match self.candles.into_iter().next() {
+            None => {
+                self.can_continue = Continuation::Stop;
+                None
+            },
             Some(candle) => Some(MarketEvent {
                 event_type: MarketEvent::EVENT_TYPE,
                 trace_id: Uuid::new_v4(),
@@ -48,69 +60,83 @@ impl MarketGenerator for HistoricCandleHandler {
     }
 }
 
-impl HistoricCandleHandler {
+impl<Candles> HistoricCandleHandler<Candles>
+where
+    Candles: Iterator<Item = Candle>
+{
     /// Constructs a new [HistoricCandleHandler] component using the provided [HistoricDataLego]
     /// components.
-    pub fn new(lego: HistoricDataLego) -> Self {
+    pub fn new<IntoCandles>(lego: HistoricDataLego<IntoCandles>) -> Self
+    where
+        IntoCandles: IntoIterator<Item = Candle>
+    {
         Self {
             exchange: lego.exchange,
             symbol: lego.symbol,
-            candle_iterator: lego.candle_iterator,
+            can_continue: Continuation::Continue,
+            candles: lego.candles.into_iter(),
         }
     }
 
-    /// Returns a [HistoricCandleHandlerBuilder] instance.
-    pub fn builder() -> HistoricCandleHandlerBuilder {
-        HistoricCandleHandlerBuilder::new()
-    }
+    // /// Returns a [HistoricCandleHandlerBuilder] instance.
+    // pub fn builder<IntoCandles: IntoIterator<Item = Candle> + Default>() -> HistoricCandleHandlerBuilder<IntoCandles> {
+    //     HistoricCandleHandlerBuilder::new()
+    // }
 }
 
-/// Builder to construct [HistoricCandleHandler] instances.
-#[derive(Debug, Default)]
-pub struct HistoricCandleHandlerBuilder {
-    exchange: Option<&'static str>,
-    symbol: Option<String>,
-    candle_iterator: Option<IntoIter<Candle>>,
-}
-
-impl HistoricCandleHandlerBuilder {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn symbol(self, value: String) -> Self {
-        Self {
-            symbol: Some(value),
-            ..self
-        }
-    }
-
-    pub fn exchange(self, value: &'static str) -> Self {
-        Self {
-            exchange: Some(value),
-            ..self
-        }
-    }
-
-    pub fn candle_iterator(self, value: IntoIter<Candle>) -> Self {
-        Self {
-            candle_iterator: Some(value),
-            ..self
-        }
-    }
-
-    pub fn build(self) -> Result<HistoricCandleHandler, DataError> {
-        let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
-        let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
-        let candle_iterator = self.candle_iterator.ok_or(DataError::BuilderIncomplete)?;
-
-        Ok(HistoricCandleHandler {
-            exchange,
-            symbol,
-            candle_iterator,
-        })
-    }
-}
+// /// Builder to construct [HistoricCandleHandler] instances.
+// #[derive(Debug, Default)]
+// pub struct HistoricCandleHandlerBuilder<IntoCandles>
+// where
+//     IntoCandles: IntoIterator<Item = Candle> + Default,
+// {
+//     exchange: Option<&'static str>,
+//     symbol: Option<String>,
+//     candles: Option<IntoCandles>,
+// }
+//
+// impl<IntoCandles> HistoricCandleHandlerBuilder<IntoCandles>
+// where
+//     IntoCandles: IntoIterator<Item = Candle> + Default,
+// {
+//     pub fn new() -> Self {
+//         Self::default()
+//     }
+//
+//     pub fn symbol(self, value: String) -> Self {
+//         Self {
+//             symbol: Some(value),
+//             ..self
+//         }
+//     }
+//
+//     pub fn exchange(self, value: &'static str) -> Self {
+//         Self {
+//             exchange: Some(value),
+//             ..self
+//         }
+//     }
+//
+//     pub fn candles(self, value: IntoCandles) -> Self {
+//         Self {
+//             candles: Some(value),
+//             ..self
+//         }
+//     }
+//
+//     pub fn build<Candles: Iterator<Item = Candle>>(self) -> Result<HistoricCandleHandler<Candles>, DataError> {
+//         let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
+//         let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
+//         let candles = self.candles.ok_or(DataError::BuilderIncomplete)?.into_iter()
+//
+//         Ok(HistoricCandleHandler {
+//             exchange,
+//             symbol,
+//             can_continue: Continuation::Continue,
+//             candles: candles.into_iter(),
+//         })
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -124,7 +150,7 @@ mod tests {
         let data_handler = HistoricCandleHandler::builder()
             .exchange("Backtest")
             .symbol("DOGE".to_string())
-            .candle_iterator(symbol_data_remaining.into_iter())
+            .candles(symbol_data_remaining.into_iter())
             .build()
             .unwrap();
 
@@ -140,7 +166,7 @@ mod tests {
         let data_handler = HistoricCandleHandler::builder()
             .exchange("Backtest")
             .symbol("DOGE".to_string())
-            .candle_iterator(symbol_data_remaining.into_iter())
+            .candles(symbol_data_remaining.into_iter())
             .build()
             .unwrap();
 
