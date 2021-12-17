@@ -21,7 +21,7 @@ barter-data = "0.2.10"
 tracing = "0.1.29"
 
 # Async
-tokio = { version = "1.14.0", features = ["full"] }
+tokio = { version = "1.14.0", features = ["sync"] }
 tokio-stream = { version = "0.1.7", features = ["sync"] }
 
 # Error
