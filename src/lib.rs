@@ -47,7 +47,7 @@
 //! let lego = HistoricDataLego {
 //!     exchange: "Binance",
 //!     symbol: "btcusdt".to_string(),
-//!     candle_iterator: vec![Candle::default()].into_iter(),
+//!     candles: vec![Candle::default()].into_iter(),
 //! };
 //!
 //! let mut data = HistoricCandleHandler::new(lego);
@@ -60,7 +60,7 @@
 //!                 None => continue,
 //!             }
 //!
-//!         },
+//!         }
 //!         Continuation::Stop => {
 //!             // Pass closed Positions to Statistic module for performance analysis
 //!             break;
