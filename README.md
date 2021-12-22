@@ -74,7 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Create EventSink channel to listen to all Engine Events in real-time
     let (event_tx, event_rx) = unbounded_channel();
-    let event_sink = EventSink::new();
+    let event_sink = EventSink::new(event_tx);
 
     // Build global shared-state MetaPortfolio
     let portfolio = Arc::new(Mutex::new(
@@ -95,18 +95,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .termination_rx(traders_termination_tx.subscribe())
             .event_sink(event_sink.clone())
             .portfolio(Arc::clone(&portfolio))
-            .data(HistoricCandleHandler::new(HistoricDataLego { 
-                exchange: "Binance".to_string(),
+            .data(HistoricCandleHandler::new(HistoricDataLego {
+                exchange: "binance",
                 symbol: "btcusdt".to_string(),
-                candles: vec![Candle::default()].into_iter(),
-            })
+                candles: vec![Candle::default()].into_iter()
+            }))
             .strategy(RSIStrategy::new(StrategyConfig { rsi_period: 14 }))
             .execution(SimulatedExecution::new(ExecutionConfig {
-                simulates_fees_pct: Fees {
-                    exchange: 0.1,
-                    slippage: 0.05,
-                    network: 0.0,}
-            }))
+                simulated_fees_pct: Fees {
+                        exchange: 0.1,
+                        slippage: 0.05,
+                        network: 0.0,}
+                }))
             .build()
             .expect("failed to build trader")
     );
@@ -115,7 +115,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let engine = Engine::builder()
         .termination_rx(engine_termination_rx)
         .traders_termination_tx(traders_termination_tx)
-        .statistics(TradingSummary::new(&config.statistics))
+        .statistics(TradingSummary::new(StatisticConfig {
+            starting_equity: 1000.0,
+            trading_days_per_year: 365,
+            risk_free_return: 0.0
+        }))
         .portfolio(portfolio)
         .traders(traders)
         .build()
