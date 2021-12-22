@@ -98,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .data(HistoricCandleHandler::new(HistoricDataLego { 
                 exchange: "Binance".to_string(),
                 symbol: "btcusdt".to_string(),
-                candle_iterator: vec![Candle::default()].into_iter(),
+                candles: vec![Candle::default()].into_iter(),
             })
             .strategy(RSIStrategy::new(StrategyConfig { rsi_period: 14 }))
             .execution(SimulatedExecution::new(ExecutionConfig {
