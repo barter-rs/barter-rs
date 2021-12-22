@@ -11,7 +11,6 @@ use crate::statistic::summary::{PositionSummariser, TablePrinter};
 use crate::strategy::SignalGenerator;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use tokio::sync::{broadcast, oneshot};
 use tracing::{info, warn};
 use uuid::Uuid;
@@ -99,29 +98,38 @@ where
     /// via the [Engine]'s termination_rx. After remote shutdown has been initiated, the trading
     /// period's statistics are generated & printed with the provided Statistic component.
     pub async fn run(mut self) {
-        // Run each Trader instance on it's own thread
-        self.traders.into_iter().for_each(|trader| {
-            thread::spawn(move || trader.run());
-        });
+        // Run each Trader instance on it's own Tokio task
+        let traders_finished = futures::future::join_all(
+            self
+                .traders
+                .into_iter()
+                .map(|trader| tokio::spawn(async { trader.run() }))
+        );
 
-        // Await remote TerminationMessage command
-        let termination_message = match self.termination_rx.await {
-            Ok(message) => message,
-            Err(_) => {
-                let message =
-                    String::from("Remote termination sender has been dropped - terminating Engine");
-                warn!("{}", message);
-                message
+        // Await remote TerminationMessage command or for all Traders to stop organically
+        tokio::select! {
+            // Traders finish organically
+            _ = traders_finished => {},
+
+            // Engine TerminationMessage received, propagate command to every Trader instance
+            termination_rx_result = self.termination_rx => {
+                let termination_message = match termination_rx_result {
+                    Ok(message) => message,
+                    Err(_) => {
+                        let message = "Remote termination sender dropped - terminating Engine";
+                        warn!("{}", message);
+                        message.to_owned()
+                    }
+                };
+
+                if let Err(err) = self.traders_termination_tx.send(termination_message) {
+                    warn!(
+                        "Error occurred while propagating TerminationMessage to Trader instances: {}",
+                        err
+                    );
+                }
             }
         };
-
-        // Propagate TerminationMessage command to every Trader instance
-        if let Err(err) = self.traders_termination_tx.send(termination_message) {
-            warn!(
-                "Error occured while propagating TerminationMessage to Trader instances: {}",
-                err
-            );
-        }
 
         // Unlock Portfolio Mutex to access backtest information
         let mut portfolio = match self.portfolio.lock() {
