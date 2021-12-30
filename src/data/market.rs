@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 /// Market data & related metadata produced by a data::handler implementation for the Strategy
 /// & Portfolio to interpret.
-#[derive(Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
 pub struct MarketEvent {
     pub event_type: &'static str,
     pub trace_id: Uuid,
@@ -108,7 +108,7 @@ impl MarketEventBuilder {
 
 /// Metadata detailing the [Candle] close price & it's associated timestamp. Used to propagate key
 /// market information in downstream Events.
-#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Copy, Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct MarketMeta {
     /// [Candle] close value from the source [MarketEvent].
     pub close: f64,

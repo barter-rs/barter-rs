@@ -9,14 +9,14 @@ use std::collections::HashMap;
 use ta::indicators::RelativeStrengthIndex;
 use ta::Next;
 
-/// Configuration for constructing a [RSIStrategy] via the new() constructor method.
+/// Configuration for constructing a [`RSIStrategy`] via the new() constructor method.
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub rsi_period: usize,
 }
 
 #[derive(Debug)]
-/// Example RSI based strategy that implements [SignalGenerator].
+/// Example RSI based strategy that implements [`SignalGenerator`].
 pub struct RSIStrategy {
     rsi: RelativeStrengthIndex,
 }
@@ -41,7 +41,7 @@ impl SignalGenerator for RSIStrategy {
         }
 
         Some(SignalEvent {
-            event_type: SignalEvent::EVENT_TYPE,
+            event_type: SignalEvent::ORGANIC_SIGNAL,
             trace_id: market.trace_id,
             timestamp: Utc::now(),
             exchange: market.exchange,
@@ -56,7 +56,7 @@ impl SignalGenerator for RSIStrategy {
 }
 
 impl RSIStrategy {
-    /// Constructs a new [RSIStrategy] component using the provided configuration struct.
+    /// Constructs a new [`RSIStrategy`] component using the provided configuration struct.
     pub fn new(config: Config) -> Self {
         let rsi_indicator = RelativeStrengthIndex::new(config.rsi_period)
             .expect("Failed to construct RSI indicator");
@@ -64,13 +64,13 @@ impl RSIStrategy {
         Self { rsi: rsi_indicator }
     }
 
-    /// Returns a [RSIStrategyBuilder] instance.
+    /// Returns a [`RSIStrategyBuilder`] instance.
     pub fn builder() -> RSIStrategyBuilder {
         RSIStrategyBuilder::new()
     }
 
-    /// Given the latest RSI value for a symbol, generates a map containing the [SignalStrength] for
-    /// [Decision] under consideration.
+    /// Given the latest RSI value for a symbol, generates a map containing the [`SignalStrength`] for
+    /// [`Decision`] under consideration.
     fn generate_signals_map(rsi: f64) -> HashMap<Decision, SignalStrength> {
         let mut signals = HashMap::with_capacity(4);
         if rsi < 40.0 {
@@ -94,13 +94,13 @@ impl RSIStrategy {
         signals
     }
 
-    /// Calculates the [SignalStrength] of a particular [Decision].
+    /// Calculates the [`SignalStrength`] of a particular [`Decision`].
     fn calculate_signal_strength() -> f32 {
         1.0
     }
 }
 
-/// Builder to construct [RSIStrategy] instances.
+/// Builder to construct [`RSIStrategy`] instances.
 #[derive(Debug, Default)]
 pub struct RSIStrategyBuilder {
     rsi: Option<RelativeStrengthIndex>,

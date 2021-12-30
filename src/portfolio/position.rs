@@ -6,37 +6,50 @@ use barter_data::model::MarketData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use crate::{ExchangeId, SymbolId};
 
-/// Enters a new [Position].
+/// Enters a new [`Position`].
 pub trait PositionEnterer {
-    /// Returns a new [Position], given an input [FillEvent].
-    fn enter(fill: &FillEvent) -> Result<Position, PortfolioError>;
+    /// Returns a new [`Position`], given an input [`FillEvent`] & an associated engine_id.
+    fn enter(engine_id: &Uuid, fill: &FillEvent) -> Result<Position, PortfolioError>;
 }
 
-/// Updates an open [Position].
+/// Updates an open [`Position`].
 pub trait PositionUpdater {
-    /// Updates an open [Position] using the latest input [MarketEvent].
-    fn update(&mut self, market: &MarketEvent);
+    /// Updates an open [`Position`] using the latest input [`MarketEvent`], returning a
+    /// [`PositionUpdate`] that communicates the open [`Position`]'s change in state.
+    fn update(&mut self, market: &MarketEvent) -> PositionUpdate;
 }
 
-/// Exits an open [Position].
+/// Exits an open [`Position`].
 pub trait PositionExiter {
-    /// Exits an open [Position], given the input Portfolio equity & the [FillEvent] returned from
-    /// a execution::handler.
-    fn exit(&mut self, portfolio_value: f64, fill: &FillEvent) -> Result<(), PortfolioError>;
+    /// Exits an open [`Position`], given the input Portfolio equity & the [`FillEvent`] returned
+    /// from an Execution handler.
+    fn exit(&mut self, portfolio_value: f64, fill: &FillEvent) -> Result<PositionExit, PortfolioError>;
 }
 
-/// Data encapsulating the state of an ongoing or closed [Position].
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Communicates a String represents a unique [`Position`] identifier.
+pub type PositionId = String;
+
+/// Returns a unique identifier for a [`Position`] given an engine_Id, exchange & symbol.
+pub fn determine_position_id(engine_id: &Uuid, exchange: ExchangeId, symbol: &SymbolId) -> PositionId {
+    format!("{}_trader_{}_{}_position", engine_id, exchange, symbol)
+}
+
+/// Data encapsulating the state of an ongoing or closed [`Position`].
+#[derive(Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
 pub struct Position {
+    /// Unique identifier for a [`Position`] generated from an engine_id, [`ExchangeId`] & [`SymbolId`].
+    pub position_id: PositionId,
+
     /// Metadata detailing trace UUIDs, timestamps & equity associated with entering, updating & exiting.
     pub meta: PositionMeta,
 
-    /// Exchange associated with this [Position] instance.
+    /// Exchange associated with this [`Position`] instance.
     pub exchange: String,
 
-    /// Ticker symbol associated with this [Position] instance.
-    pub symbol: String,
+    /// Ticker symbol associated with this [`Position`] instance.
+    pub symbol: SymbolId,
 
     /// Long or Short.
     pub direction: Direction,
@@ -44,10 +57,10 @@ pub struct Position {
     /// +ve or -ve quantity of symbol contracts opened.
     pub quantity: f64,
 
-    /// All fees types incurred from entering a [Position], and their associated [FeeAmount].
+    /// All fees types incurred from entering a [`Position`], and their associated [`FeeAmount`].
     pub enter_fees: Fees,
 
-    /// Total of enter_fees incurred. Sum of every [FeeAmount] in [Fees] when entering a [Position].
+    /// Total of enter_fees incurred. Sum of every [`FeeAmount`] in [`Fees`] when entering a [`Position`].
     pub enter_fees_total: FeeAmount,
 
     /// Enter average price excluding the entry_fees_total.
@@ -56,10 +69,10 @@ pub struct Position {
     /// abs(Quantity) * enter_avg_price_gross.
     pub enter_value_gross: f64,
 
-    /// All fees types incurred from exiting a [Position], and their associated [FeeAmount].
+    /// All fees types incurred from exiting a [`Position`], and their associated [`FeeAmount`].
     pub exit_fees: Fees,
 
-    /// Total of exit_fees incurred. Sum of every [FeeAmount] in [Fees] when entering a [Position].
+    /// Total of exit_fees incurred. Sum of every [`FeeAmount`] in [`Fees`] when entering a [`Position`].
     pub exit_fees_total: FeeAmount,
 
     /// Exit average price excluding the exit_fees_total.
@@ -74,23 +87,23 @@ pub struct Position {
     /// abs(Quantity) * current_symbol_price.
     pub current_value_gross: f64,
 
-    /// Unrealised P&L whilst the [Position] is open.
-    pub unreal_profit_loss: f64,
+    /// Unrealised P&L whilst the [`Position`] is open.
+    pub unrealised_profit_loss: f64,
 
-    /// Realised P&L after the [Position] has closed.
-    pub result_profit_loss: f64,
+    /// Realised P&L after the [`Position`] has closed.
+    pub realised_profit_loss: f64,
 }
 
 impl PositionEnterer for Position {
-    fn enter(fill: &FillEvent) -> Result<Position, PortfolioError> {
+    fn enter(engine_id: &Uuid, fill: &FillEvent) -> Result<Position, PortfolioError> {
         // Initialise Position Metadata
         let metadata = PositionMeta {
             enter_trace_id: fill.trace_id,
-            enter_bar_timestamp: fill.market_meta.timestamp,
+            enter_timestamp: fill.market_meta.timestamp,
             last_update_trace_id: fill.trace_id,
             last_update_timestamp: fill.timestamp,
             exit_trace_id: None,
-            exit_bar_timestamp: None,
+            exit_timestamp: None,
             exit_equity_point: None,
         };
 
@@ -101,15 +114,16 @@ impl PositionEnterer for Position {
         let enter_avg_price_gross = Position::calculate_avg_price_gross(fill);
 
         // Unreal profit & loss
-        let unreal_profit_loss = -enter_fees_total * 2.0;
+        let unrealised_profit_loss = -enter_fees_total * 2.0;
 
         Ok(Position {
-            meta: metadata,
+            position_id: determine_position_id(engine_id, fill.exchange, &fill.symbol),
             exchange: fill.exchange.to_owned(),
             symbol: fill.symbol.clone(),
+            meta: metadata,
             direction: Position::parse_entry_direction(&fill)?,
             quantity: fill.quantity,
-            enter_fees: fill.fees.clone(),
+            enter_fees: fill.fees,
             enter_fees_total,
             enter_avg_price_gross,
             enter_value_gross: fill.fill_value_gross,
@@ -119,14 +133,14 @@ impl PositionEnterer for Position {
             exit_value_gross: 0.0,
             current_symbol_price: enter_avg_price_gross,
             current_value_gross: fill.fill_value_gross,
-            unreal_profit_loss,
-            result_profit_loss: 0.0,
+            unrealised_profit_loss,
+            realised_profit_loss: 0.0,
         })
     }
 }
 
 impl PositionUpdater for Position {
-    fn update(&mut self, market: &MarketEvent) {
+    fn update(&mut self, market: &MarketEvent) -> PositionUpdate {
         // Determine close from MarketData
         let close = match &market.data {
             MarketData::Trade(trade) => trade.price,
@@ -142,18 +156,21 @@ impl PositionUpdater for Position {
         self.current_value_gross = close * self.quantity.abs();
 
         // Unreal profit & loss
-        self.unreal_profit_loss = self.calculate_unreal_profit_loss();
+        self.unrealised_profit_loss = self.calculate_unrealised_profit_loss();
+
+        // Return a PositionUpdate event that communicates the change in state
+        PositionUpdate::from(self)
     }
 }
 
 impl PositionExiter for Position {
-    fn exit(&mut self, mut portfolio_value: f64, fill: &FillEvent) -> Result<(), PortfolioError> {
+    fn exit(&mut self, mut portfolio_value: f64, fill: &FillEvent) -> Result<PositionExit, PortfolioError> {
         if fill.decision.is_entry() {
             return Err(PortfolioError::CannotExitPositionWithEntryFill);
         }
 
         // Exit fees
-        self.exit_fees = fill.fees.clone();
+        self.exit_fees = fill.fees;
         self.exit_fees_total = fill.fees.calculate_total_fees();
 
         // Exit value & price
@@ -161,30 +178,32 @@ impl PositionExiter for Position {
         self.exit_avg_price_gross = Position::calculate_avg_price_gross(fill);
 
         // Result profit & loss
-        self.result_profit_loss = self.calculate_result_profit_loss();
-        self.unreal_profit_loss = self.result_profit_loss;
+        self.realised_profit_loss = self.calculate_realised_profit_loss();
+        self.unrealised_profit_loss = self.realised_profit_loss;
 
         // Metadata
-        portfolio_value += self.result_profit_loss;
+        portfolio_value += self.realised_profit_loss;
         self.meta.last_update_trace_id = fill.trace_id;
         self.meta.last_update_timestamp = fill.timestamp;
         self.meta.exit_trace_id = Some(fill.trace_id);
+        self.meta.exit_timestamp = Some(fill.timestamp);
         self.meta.exit_equity_point = Some(EquityPoint {
             equity: portfolio_value,
             timestamp: fill.market_meta.timestamp,
         });
 
-        Ok(())
+        Ok(PositionExit::from(self))
     }
 }
 
 impl Default for Position {
     fn default() -> Self {
         Self {
+            position_id: "engine_id_trader_exchange_symbol_position".to_string(),
+            exchange: "binance".to_owned(),
+            symbol: "ETH-USD".to_string(),
             meta: Default::default(),
-            exchange: "Binance".to_owned(),
-            symbol: String::from("ETH-USD"),
-            direction: Direction::default(),
+            direction: Default::default(),
             quantity: 1.0,
             enter_fees: Default::default(),
             enter_fees_total: 0.0,
@@ -196,8 +215,8 @@ impl Default for Position {
             exit_value_gross: 0.0,
             current_symbol_price: 100.0,
             current_value_gross: 100.0,
-            unreal_profit_loss: 0.0,
-            result_profit_loss: 0.0,
+            unrealised_profit_loss: 0.0,
+            realised_profit_loss: 0.0,
         }
     }
 }
@@ -226,8 +245,8 @@ impl Position {
         }
     }
 
-    /// Calculate the approximate [Position::unreal_profit_loss] of a [Position].
-    pub fn calculate_unreal_profit_loss(&self) -> f64 {
+    /// Calculate the approximate [Position::unrealised_profit_loss] of a [Position].
+    pub fn calculate_unrealised_profit_loss(&self) -> f64 {
         let approx_total_fees = self.enter_fees_total * 2.0;
 
         match self.direction {
@@ -240,8 +259,8 @@ impl Position {
         }
     }
 
-    /// Calculate the exact [Position::result_profit_loss] of a [Position].
-    pub fn calculate_result_profit_loss(&self) -> f64 {
+    /// Calculate the exact [Position::realised_profit_loss] of a [Position].
+    pub fn calculate_realised_profit_loss(&self) -> f64 {
         let total_fees = self.enter_fees_total + self.exit_fees_total;
 
         match self.direction {
@@ -250,19 +269,20 @@ impl Position {
         }
     }
 
-    /// Calculate the PnL return of a closed [Position] - assumed [Position::result_profit_loss] is
+    /// Calculate the PnL return of a closed [Position] - assumed [Position::realised_profit_loss] is
     /// appropriately calculated.
     pub fn calculate_profit_loss_return(&self) -> f64 {
-        self.result_profit_loss / self.enter_value_gross
+        self.realised_profit_loss / self.enter_value_gross
     }
 }
 
 /// Builder to construct [Position] instances.
 #[derive(Debug, Default)]
 pub struct PositionBuilder {
-    pub meta: Option<PositionMeta>,
+    pub position_id: Option<PositionId>,
     pub exchange: Option<String>,
-    pub symbol: Option<String>,
+    pub symbol: Option<SymbolId>,
+    pub meta: Option<PositionMeta>,
     pub direction: Option<Direction>,
     pub quantity: Option<f64>,
     pub enter_fees: Option<Fees>,
@@ -275,8 +295,8 @@ pub struct PositionBuilder {
     pub exit_value_gross: Option<f64>,
     pub current_symbol_price: Option<f64>,
     pub current_value_gross: Option<f64>,
-    pub unreal_profit_loss: Option<f64>,
-    pub result_profit_loss: Option<f64>,
+    pub unrealised_profit_loss: Option<f64>,
+    pub realised_profit_loss: Option<f64>,
 }
 
 impl PositionBuilder {
@@ -284,9 +304,9 @@ impl PositionBuilder {
         Self::default()
     }
 
-    pub fn meta(self, value: PositionMeta) -> Self {
+    pub fn position_id(self, value: PositionId) -> Self {
         Self {
-            meta: Some(value),
+            position_id: Some(value),
             ..self
         }
     }
@@ -298,9 +318,16 @@ impl PositionBuilder {
         }
     }
 
-    pub fn symbol(self, value: String) -> Self {
+    pub fn symbol(self, value: SymbolId) -> Self {
         Self {
             symbol: Some(value),
+            ..self
+        }
+    }
+
+    pub fn meta(self, value: PositionMeta) -> Self {
+        Self {
+            meta: Some(value),
             ..self
         }
     }
@@ -389,24 +416,25 @@ impl PositionBuilder {
         }
     }
 
-    pub fn unreal_profit_loss(self, value: f64) -> Self {
+    pub fn unrealised_profit_loss(self, value: f64) -> Self {
         Self {
-            unreal_profit_loss: Some(value),
+            unrealised_profit_loss: Some(value),
             ..self
         }
     }
 
-    pub fn result_profit_loss(self, value: f64) -> Self {
+    pub fn realised_profit_loss(self, value: f64) -> Self {
         Self {
-            result_profit_loss: Some(value),
+            realised_profit_loss: Some(value),
             ..self
         }
     }
 
     pub fn build(self) -> Result<Position, PortfolioError> {
-        let meta = self.meta.ok_or(PortfolioError::BuilderIncomplete)?;
+        let position_id = self.position_id.ok_or(PortfolioError::BuilderIncomplete)?;
         let exchange = self.exchange.ok_or(PortfolioError::BuilderIncomplete)?;
         let symbol = self.symbol.ok_or(PortfolioError::BuilderIncomplete)?;
+        let meta = self.meta.ok_or(PortfolioError::BuilderIncomplete)?;
         let direction = self.direction.ok_or(PortfolioError::BuilderIncomplete)?;
         let quantity = self.quantity.ok_or(PortfolioError::BuilderIncomplete)?;
         let enter_fees = self.enter_fees.ok_or(PortfolioError::BuilderIncomplete)?;
@@ -435,17 +463,18 @@ impl PositionBuilder {
         let current_value_gross = self
             .current_value_gross
             .ok_or(PortfolioError::BuilderIncomplete)?;
-        let unreal_profit_loss = self
-            .unreal_profit_loss
+        let unrealised_profit_loss = self
+            .unrealised_profit_loss
             .ok_or(PortfolioError::BuilderIncomplete)?;
-        let result_profit_loss = self
-            .result_profit_loss
+        let realised_profit_loss = self
+            .realised_profit_loss
             .ok_or(PortfolioError::BuilderIncomplete)?;
 
         Ok(Position {
-            meta,
+            position_id,
             exchange,
             symbol,
+            meta,
             direction,
             quantity,
             enter_fees,
@@ -458,33 +487,33 @@ impl PositionBuilder {
             exit_value_gross,
             current_symbol_price,
             current_value_gross,
-            unreal_profit_loss,
-            result_profit_loss,
+            unrealised_profit_loss,
+            realised_profit_loss,
         })
     }
 }
 
 /// Metadata detailing the trace UUIDs & timestamps associated with entering, updating & exiting
 /// a [Position].
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
 pub struct PositionMeta {
     /// Trace UUID of the MarketEvent that triggered the entering of this [Position].
     pub enter_trace_id: Uuid,
 
-    /// MarketEvent Bar timestamp that triggered the entering of this [Position].
-    pub enter_bar_timestamp: DateTime<Utc>,
+    /// MarketEvent timestamp that triggered the entering of this [Position].
+    pub enter_timestamp: DateTime<Utc>,
 
     /// Trace UUID of the last event to trigger a [Position] update.
     pub last_update_trace_id: Uuid,
 
-    /// Event timestamp of the last event to trigger a [Position] update.9
+    /// Event timestamp of the last event to trigger a [Position] update.
     pub last_update_timestamp: DateTime<Utc>,
 
     /// Trace UUID of the MarketEvent that triggered the exiting of this [Position].
     pub exit_trace_id: Option<Uuid>,
 
-    /// MarketEvent Bar timestamp that triggered the exiting of this [Position].
-    pub exit_bar_timestamp: Option<DateTime<Utc>>,
+    /// MarketEvent timestamp that triggered the exiting of this [Position].
+    pub exit_timestamp: Option<DateTime<Utc>>,
 
     /// Portfolio [EquityPoint] calculated after the [Position] exit.
     pub exit_equity_point: Option<EquityPoint>,
@@ -494,18 +523,18 @@ impl Default for PositionMeta {
     fn default() -> Self {
         Self {
             enter_trace_id: Default::default(),
-            enter_bar_timestamp: Utc::now(),
+            enter_timestamp: Utc::now(),
             last_update_trace_id: Default::default(),
             last_update_timestamp: Utc::now(),
             exit_trace_id: None,
-            exit_bar_timestamp: None,
+            exit_timestamp: None,
             exit_equity_point: None,
         }
     }
 }
 
 /// Equity value at a point in time.
-#[derive(Debug, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct EquityPoint {
     pub equity: f64,
     pub timestamp: DateTime<Utc>,
@@ -523,14 +552,14 @@ impl Default for EquityPoint {
 impl EquityPoint {
     /// Updates using the input [Position]'s PnL & associated timestamp.
     pub fn update(&mut self, position: &Position) {
-        match position.meta.exit_bar_timestamp {
+        match position.meta.exit_timestamp {
             None => {
                 // Position is not exited
-                self.equity += position.unreal_profit_loss;
+                self.equity += position.unrealised_profit_loss;
                 self.timestamp = position.meta.last_update_timestamp;
             }
             Some(exit_timestamp) => {
-                self.equity += position.result_profit_loss;
+                self.equity += position.realised_profit_loss;
                 self.timestamp = exit_timestamp;
             }
         }
@@ -538,7 +567,7 @@ impl EquityPoint {
 }
 
 /// Direction of the [Position] when it was opened, Long or Short.
-#[derive(Debug, Clone, PartialOrd, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Direction {
     Long,
     Short,
@@ -547,6 +576,80 @@ pub enum Direction {
 impl Default for Direction {
     fn default() -> Self {
         Self::Long
+    }
+}
+/// [`Position`] update event. Occurs as a result of receiving new [`MarketEvent`] data.
+#[derive(Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
+pub struct PositionUpdate {
+    /// Unique identifier for a [`Position`], generated from an exchange, symbol, and enter_timestamp.
+    pub position_id: String,
+    /// Trace UUID of the last event to trigger a [`Position`] update.
+    pub update_trace_id: Uuid,
+    /// Event timestamp of the last event to trigger a [`Position`] update.
+    pub update_timestamp: DateTime<Utc>,
+    /// Symbol current close price.
+    pub current_symbol_price: f64,
+    /// abs(Quantity) * current_symbol_price.
+    pub current_value_gross: f64,
+    /// Unrealised P&L whilst the [`Position`] is open.
+    pub unrealised_profit_loss: f64,
+}
+
+impl From<&mut Position> for PositionUpdate {
+    fn from(updated_position: &mut Position) -> Self {
+        Self {
+            position_id: updated_position.position_id.clone(),
+            update_trace_id: updated_position.meta.last_update_trace_id,
+            update_timestamp: updated_position.meta.last_update_timestamp,
+            current_symbol_price: updated_position.current_symbol_price,
+            current_value_gross: updated_position.current_value_gross,
+            unrealised_profit_loss: updated_position.unrealised_profit_loss,
+        }
+    }
+}
+
+/// [`Position`] exit event. Occurs as a result of a [`FillEvent`] that exits a [`Position`].
+#[derive(Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
+pub struct PositionExit {
+    /// Unique identifier for a [`Position`], generated from an exchange, symbol, and enter_timestamp.
+    pub position_id: String,
+    /// Trace UUID of the last event to trigger a [`Position`] update.
+    pub last_update_trace_id: Uuid,
+    /// Event timestamp of the last event to trigger a [`Position`] update.
+    pub last_update_timestamp: DateTime<Utc>,
+    /// Trace UUID of the MarketEvent that triggered the exiting of this [`Position`].
+    pub exit_trace_id: Uuid,
+    /// MarketEvent timestamp that triggered the exiting of this [`Position`].
+    pub exit_timestamp: DateTime<Utc>,
+    /// Portfolio [`EquityPoint`] calculated after the [`Position`] exit.
+    pub exit_equity_point: EquityPoint,
+    /// All fees types incurred from exiting a [`Position`], and their associated [`FeeAmount`].
+    pub exit_fees: Fees,
+    /// Total of exit_fees incurred. Sum of every [`FeeAmount`] in [`Fees`] when entering a [`Position`].
+    pub exit_fees_total: FeeAmount,
+    /// Exit average price excluding the exit_fees_total.
+    pub exit_avg_price_gross: f64,
+    /// abs(Quantity) * exit_avg_price_gross.
+    pub exit_value_gross: f64,
+    /// Realised P&L after the [`Position`] has closed.
+    pub realised_profit_loss: f64,
+}
+
+impl From<&mut Position> for PositionExit {
+    fn from(closed_position: &mut Position) -> Self {
+        Self {
+            position_id: closed_position.position_id.clone(),
+            last_update_trace_id: closed_position.meta.last_update_trace_id,
+            last_update_timestamp: closed_position.meta.last_update_timestamp,
+            exit_trace_id: closed_position.meta.exit_trace_id.unwrap(),
+            exit_timestamp: closed_position.meta.exit_timestamp.unwrap(),
+            exit_equity_point: closed_position.meta.exit_equity_point.unwrap(),
+            exit_fees: closed_position.exit_fees,
+            exit_fees_total: closed_position.exit_fees_total,
+            exit_avg_price_gross: closed_position.exit_avg_price_gross,
+            exit_value_gross: closed_position.exit_value_gross,
+            realised_profit_loss: closed_position.realised_profit_loss
+        }
     }
 }
 
@@ -569,7 +672,7 @@ mod tests {
             network: 1.0,
         };
 
-        let position = Position::enter(&input_fill).unwrap();
+        let position = Position::enter(&Uuid::new_v4(), &input_fill).unwrap();
 
         assert_eq!(position.direction, Direction::Long);
         assert_eq!(position.quantity, input_fill.quantity);
@@ -590,8 +693,8 @@ mod tests {
             (input_fill.fill_value_gross / input_fill.quantity.abs())
         );
         assert_eq!(position.current_value_gross, input_fill.fill_value_gross);
-        assert_eq!(position.unreal_profit_loss, -6.0); // -2 * enter_fees_total
-        assert_eq!(position.result_profit_loss, 0.0);
+        assert_eq!(position.unrealised_profit_loss, -6.0); // -2 * enter_fees_total
+        assert_eq!(position.realised_profit_loss, 0.0);
     }
 
     #[test]
@@ -606,7 +709,7 @@ mod tests {
             network: 1.0,
         };
 
-        let position = Position::enter(&input_fill).unwrap();
+        let position = Position::enter(&Uuid::new_v4(), &input_fill).unwrap();
 
         assert_eq!(position.direction, Direction::Short);
         assert_eq!(position.quantity, input_fill.quantity);
@@ -627,8 +730,8 @@ mod tests {
             (input_fill.fill_value_gross / input_fill.quantity.abs())
         );
         assert_eq!(position.current_value_gross, input_fill.fill_value_gross);
-        assert_eq!(position.unreal_profit_loss, -6.0); // -2 * enter_fees_total
-        assert_eq!(position.result_profit_loss, 0.0);
+        assert_eq!(position.unrealised_profit_loss, -6.0); // -2 * enter_fees_total
+        assert_eq!(position.realised_profit_loss, 0.0);
     }
 
     #[test]
@@ -643,7 +746,7 @@ mod tests {
             network: 1.0,
         };
 
-        if let Err(_) = Position::enter(&input_fill) {
+        if let Err(_) = Position::enter(&Uuid::new_v4(), &input_fill) {
             Ok(())
         } else {
             Err(String::from(
@@ -665,7 +768,7 @@ mod tests {
             network: 1.0,
         };
 
-        if let Err(_) = Position::enter(&input_fill) {
+        if let Err(_) = Position::enter(&Uuid::new_v4(), &input_fill) {
             Ok(())
         } else {
             Err(String::from(
@@ -687,7 +790,7 @@ mod tests {
             network: 1.0,
         };
 
-        if let Err(_) = Position::enter(&input_fill) {
+        if let Err(_) = Position::enter(&Uuid::new_v4(), &input_fill) {
             Ok(())
         } else {
             Err(String::from(
@@ -709,7 +812,7 @@ mod tests {
             network: 1.0,
         };
 
-        if let Err(_) = Position::enter(&input_fill) {
+        if let Err(_) = Position::enter(&Uuid::new_v4(), &input_fill) {
             Ok(())
         } else {
             Err(String::from(
@@ -734,7 +837,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = position.enter_fees_total * -2.0;
+        position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
@@ -769,7 +872,7 @@ mod tests {
         );
 
         // current_value_gross - enter_value_gross - approx_total_fees
-        assert_eq!(position.unreal_profit_loss, (200.0 - 100.0 - 6.0));
+        assert_eq!(position.unrealised_profit_loss, (200.0 - 100.0 - 6.0));
     }
 
     #[test]
@@ -788,7 +891,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = position.enter_fees_total * -2.0;
+        position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
@@ -824,7 +927,7 @@ mod tests {
         );
 
         // current_value_gross - enter_value_gross - approx_total_fees
-        assert_eq!(position.unreal_profit_loss, (50.0 - 100.0 - 6.0));
+        assert_eq!(position.unrealised_profit_loss, (50.0 - 100.0 - 6.0));
     }
 
     #[test]
@@ -843,7 +946,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = position.enter_fees_total * -2.0;
+        position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
@@ -879,7 +982,7 @@ mod tests {
         );
 
         // enter_value_gross - current_value_gross - approx_total_fees
-        assert_eq!(position.unreal_profit_loss, (100.0 - 50.0 - 6.0));
+        assert_eq!(position.unrealised_profit_loss, (100.0 - 50.0 - 6.0));
     }
 
     #[test]
@@ -898,7 +1001,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = position.enter_fees_total * -2.0;
+        position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
@@ -934,7 +1037,7 @@ mod tests {
         );
 
         // enter_value_gross - current_value_gross - approx_total_fees
-        assert_eq!(position.unreal_profit_loss, (100.0 - 200.0 - 6.0));
+        assert_eq!(position.unrealised_profit_loss, (100.0 - 200.0 - 6.0));
     }
 
     #[test]
@@ -953,7 +1056,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = position.enter_fees_total * -2.0;
+        position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input Portfolio Current Value
         let current_value = 10000.0;
@@ -994,8 +1097,8 @@ mod tests {
         );
 
         // exit_value_gross - enter_value_gross - total_fees
-        assert_eq!(position.result_profit_loss, (200.0 - 100.0 - 6.0));
-        assert_eq!(position.unreal_profit_loss, (200.0 - 100.0 - 6.0));
+        assert_eq!(position.realised_profit_loss, (200.0 - 100.0 - 6.0));
+        assert_eq!(position.unrealised_profit_loss, (200.0 - 100.0 - 6.0));
 
         // Assert EquityPoint on Exit is correct
         assert_eq!(
@@ -1020,7 +1123,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = position.enter_fees_total * -2.0;
+        position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input Portfolio Current Value
         let current_value = 10000.0;
@@ -1061,8 +1164,8 @@ mod tests {
         );
 
         // exit_value_gross - enter_value_gross - total_fees
-        assert_eq!(position.result_profit_loss, (50.0 - 100.0 - 6.0));
-        assert_eq!(position.unreal_profit_loss, (50.0 - 100.0 - 6.0));
+        assert_eq!(position.realised_profit_loss, (50.0 - 100.0 - 6.0));
+        assert_eq!(position.unrealised_profit_loss, (50.0 - 100.0 - 6.0));
 
         // Assert EquityPoint on Exit is correct
         assert_eq!(
@@ -1087,7 +1190,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = position.enter_fees_total * -2.0;
+        position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input Portfolio Current Value
         let current_value = 10000.0;
@@ -1128,8 +1231,8 @@ mod tests {
         );
 
         // enter_value_gross - current_value_gross - approx_total_fees
-        assert_eq!(position.result_profit_loss, (100.0 - 50.0 - 6.0));
-        assert_eq!(position.unreal_profit_loss, (100.0 - 50.0 - 6.0));
+        assert_eq!(position.realised_profit_loss, (100.0 - 50.0 - 6.0));
+        assert_eq!(position.unrealised_profit_loss, (100.0 - 50.0 - 6.0));
 
         // Assert EquityPoint on Exit is correct
         assert_eq!(
@@ -1154,7 +1257,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = position.enter_fees_total * -2.0;
+        position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input Portfolio Current Value
         let current_value = 10000.0;
@@ -1195,8 +1298,8 @@ mod tests {
         );
 
         // enter_value_gross - current_value_gross - approx_total_fees
-        assert_eq!(position.result_profit_loss, (100.0 - 200.0 - 6.0));
-        assert_eq!(position.unreal_profit_loss, (100.0 - 200.0 - 6.0));
+        assert_eq!(position.realised_profit_loss, (100.0 - 200.0 - 6.0));
+        assert_eq!(position.unrealised_profit_loss, (100.0 - 200.0 - 6.0));
 
         // Assert EquityPoint on Exit is correct
         assert_eq!(
@@ -1221,7 +1324,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = position.enter_fees_total * -2.0;
+        position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input Portfolio Current Value
         let current_value = 10000.0;
@@ -1263,7 +1366,7 @@ mod tests {
         position.enter_value_gross = 100.0;
         position.current_symbol_price = 100.0;
         position.current_value_gross = 100.0;
-        position.unreal_profit_loss = position.enter_fees_total * -2.0;
+        position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input Portfolio Current Value
         let current_value = 10000.0;
@@ -1428,7 +1531,7 @@ mod tests {
         let expected_pnl = vec![8.0, -12.0, 8.0, -12.0];
 
         for (position, expected) in inputs.into_iter().zip(expected_pnl.into_iter()) {
-            let actual = position.calculate_unreal_profit_loss();
+            let actual = position.calculate_unrealised_profit_loss();
             assert_eq!(actual, expected);
         }
     }
@@ -1468,7 +1571,7 @@ mod tests {
         let expected_pnl = vec![18.0, -22.0, 18.0, -22.0];
 
         for (position, expected) in inputs.into_iter().zip(expected_pnl.into_iter()) {
-            let actual = position.calculate_result_profit_loss();
+            let actual = position.calculate_realised_profit_loss();
             assert_eq!(actual, expected);
         }
     }
@@ -1478,22 +1581,22 @@ mod tests {
         let mut long_win = Position::default(); // Expected Return = 0.08
         long_win.direction = Direction::Long;
         long_win.enter_value_gross = 100.0;
-        long_win.result_profit_loss = 8.0;
+        long_win.realised_profit_loss = 8.0;
 
         let mut long_lose = Position::default(); // Expected Return = -0.12
         long_lose.direction = Direction::Long;
         long_lose.enter_value_gross = 100.0;
-        long_lose.result_profit_loss = -12.0;
+        long_lose.realised_profit_loss = -12.0;
 
         let mut short_win = Position::default(); // Expected Return = 0.08
         short_win.direction = Direction::Short;
         short_win.enter_value_gross = 100.0;
-        short_win.result_profit_loss = 8.0;
+        short_win.realised_profit_loss = 8.0;
 
         let mut short_lose = Position::default(); // Expected Return = -0.12
         short_lose.direction = Direction::Short;
         short_lose.enter_value_gross = 100.0;
-        short_lose.result_profit_loss = -12.0;
+        short_lose.realised_profit_loss = -12.0;
 
         let inputs = vec![long_win, long_lose, short_win, short_lose];
 
@@ -1507,8 +1610,8 @@ mod tests {
 
     fn equity_update_position_closed(exit_timestamp: DateTime<Utc>, result_pnl: f64) -> Position {
         let mut position = Position::default();
-        position.meta.exit_bar_timestamp = Some(exit_timestamp);
-        position.result_profit_loss = result_pnl;
+        position.meta.exit_timestamp = Some(exit_timestamp);
+        position.realised_profit_loss = result_pnl;
         position
     }
 
@@ -1518,7 +1621,7 @@ mod tests {
     ) -> Position {
         let mut position = Position::default();
         position.meta.last_update_timestamp = last_update_timestamp;
-        position.unreal_profit_loss = unreal_pnl;
+        position.unrealised_profit_loss = unreal_pnl;
         position
     }
 

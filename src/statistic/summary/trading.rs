@@ -7,15 +7,15 @@ use chrono::{DateTime, Duration, Utc};
 use prettytable::{Row, Table};
 use serde::Deserialize;
 
-/// Configuration for construction a [TradingSummary] via the new() constructor method.
-#[derive(Debug, Deserialize)]
+/// Configuration for construction a [`TradingSummary`] via the new() constructor method.
+#[derive(Clone, Debug, Deserialize)]
 pub struct Config {
     pub starting_equity: f64,
     pub trading_days_per_year: usize,
     pub risk_free_return: f64,
 }
 
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct TradingSummary {
     pnl_returns: PnLReturnSummary,
     drawdown: DrawdownSummary,
@@ -44,7 +44,7 @@ impl TablePrinter for TradingSummary {
 }
 
 impl TradingSummary {
-    /// Constructs a new [TradingSummary].
+    /// Constructs a new [`TradingSummary`].
     pub fn new(cfg: Config) -> Self {
         Self {
             pnl_returns: PnLReturnSummary::new(),
@@ -54,7 +54,7 @@ impl TradingSummary {
     }
 }
 
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct TearSheet {
     sharpe_ratio: SharpeRatio,
     sortino_ratio: SortinoRatio,
@@ -73,8 +73,10 @@ impl TearSheet {
     pub fn update(&mut self, pnl_returns: &PnLReturnSummary, drawdown: &DrawdownSummary) {
         self.sharpe_ratio.update(pnl_returns);
         self.sortino_ratio.update(pnl_returns);
-        self.calmar_ratio
-            .update(pnl_returns, drawdown.max_drawdown.drawdown.drawdown);
+        self.calmar_ratio.update(
+            pnl_returns,
+            drawdown.max_drawdown.drawdown.drawdown
+        );
     }
 }
 
@@ -100,7 +102,7 @@ pub fn calculate_trading_duration(
     start_timestamp: &DateTime<Utc>,
     position: &Position,
 ) -> Duration {
-    match position.meta.exit_bar_timestamp {
+    match position.meta.exit_timestamp {
         None => {
             // Since Position is not exited, estimate duration w/ last_update_timestamp
             position
