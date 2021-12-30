@@ -3,10 +3,11 @@ use crate::statistic::algorithm::welford_online;
 use crate::statistic::dispersion::Range;
 use chrono::{DateTime, Duration, Utc};
 
-/// [Drawdown](https://www.investopedia.com/terms/d/drawdown.asp) is the peak-to-trough decline
-/// of the Portfolio, or investment, during a specific period. Drawdown is a measure of downside
-/// volatility.
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+/// [`Drawdown`] is the peak-to-trough decline of the Portfolio, or investment, during a specific
+/// period. Drawdown is a measure of downside volatility.
+///
+/// See documentation: <https://www.investopedia.com/terms/d/drawdown.asp>
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct Drawdown {
     pub equity_range: Range,
     pub drawdown: f64,
@@ -26,7 +27,7 @@ impl Default for Drawdown {
 }
 
 impl Drawdown {
-    /// Initialises a new [Drawdown] using the starting equity as the first peak.
+    /// Initialises a new [`Drawdown`] using the starting equity as the first peak.
     pub fn init(starting_equity: f64) -> Self {
         Self {
             equity_range: Range {
@@ -40,7 +41,7 @@ impl Drawdown {
         }
     }
 
-    /// Updates the [Drawdown] using the latest input [EquityPoint] of the Portfolio. If the drawdown
+    /// Updates the [`Drawdown`] using the latest input [`EquityPoint`] of the Portfolio. If the drawdown
     /// period has ended (investment recovers from a trough back above the previous peak), the
     /// function return Some(Drawdown), else None is returned.
     pub fn update(&mut self, current: &EquityPoint) -> Option<Drawdown> {
@@ -94,38 +95,40 @@ impl Drawdown {
         }
     }
 
-    /// Determines if a [Drawdown] is waiting for the next equity peak. This is true if the new
-    /// [EquityPoint] is higher than the previous peak.
+    /// Determines if a [`Drawdown`] is waiting for the next equity peak. This is true if the new
+    /// [`EquityPoint`] is higher than the previous peak.
     fn is_waiting_for_peak(&self) -> bool {
         self.drawdown == 0.0
     }
 
-    /// Calculates the value of the [Drawdown] in the specific period. Uses the formula:
-    /// [Drawdown] = (range_low - range_high) / range_high
+    /// Calculates the value of the [`Drawdown`] in the specific period. Uses the formula:
+    /// [`Drawdown`] = (range_low - range_high) / range_high
     fn calculate(&self) -> f64 {
         // range_low - range_high / range_high
         (-self.equity_range.calculate()) / self.equity_range.high
     }
 }
 
-/// [MaxDrawdown](https://www.investopedia.com/terms/m/maximum-drawdown-mdd.asp) is the largest
+/// [`MaxDrawdown`] is the largest
 /// peak-to-trough decline of the Portfolio, or investment. Max Drawdown is a measure of downside
 /// risk, with large values indicating down movements could be volatile.
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+///
+/// See documentation: <https://www.investopedia.com/terms/m/maximum-drawdown-mdd.asp>
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct MaxDrawdown {
     pub drawdown: Drawdown,
 }
 
 impl MaxDrawdown {
-    /// Initialises a new [MaxDrawdown] using the [Drawdown] default value.
+    /// Initialises a new [`MaxDrawdown`] using the [`Drawdown`] default value.
     pub fn init() -> Self {
         Self {
             drawdown: Drawdown::default(),
         }
     }
 
-    /// Updates the [MaxDrawdown] using the latest input [Drawdown] of the Portfolio. If the input
-    /// drawdown is larger than the current [MaxDrawdown], it supersedes it.
+    /// Updates the [`MaxDrawdown`] using the latest input [`Drawdown`] of the Portfolio. If the input
+    /// drawdown is larger than the current [`MaxDrawdown`], it supersedes it.
     pub fn update(&mut self, next_drawdown: &Drawdown) {
         if next_drawdown.drawdown.abs() > self.drawdown.drawdown.abs() {
             self.drawdown = next_drawdown.clone();
@@ -133,9 +136,9 @@ impl MaxDrawdown {
     }
 }
 
-/// [AvgDrawdown] contains the average drawdown value and duration from a collection of [Drawdown]s
+/// [`AvgDrawdown`] contains the average drawdown value and duration from a collection of [`Drawdown`]s
 /// within a specific period.
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct AvgDrawdown {
     pub count: u64,
     pub mean_drawdown: f64,
@@ -155,13 +158,13 @@ impl Default for AvgDrawdown {
 }
 
 impl AvgDrawdown {
-    /// Initialises a new [AvgDrawdown] using the default method, providing zero values for all
+    /// Initialises a new [`AvgDrawdown`] using the default method, providing zero values for all
     /// fields.
     pub fn init() -> Self {
         Self::default()
     }
 
-    /// Updates the [AvgDrawdown] using the latest input [Drawdown] of the Portfolio.
+    /// Updates the [`AvgDrawdown`] using the latest input [`Drawdown`] of the Portfolio.
     pub fn update(&mut self, drawdown: &Drawdown) {
         self.count += 1;
 
