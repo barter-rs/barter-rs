@@ -3,7 +3,7 @@ use crate::statistic::metric::drawdown::{AvgDrawdown, Drawdown, MaxDrawdown};
 use crate::statistic::summary::{PositionSummariser, TablePrinter};
 use prettytable::{Row, Table};
 
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct DrawdownSummary {
     pub current_drawdown: Drawdown,
     pub avg_drawdown: AvgDrawdown,

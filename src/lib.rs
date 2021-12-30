@@ -89,6 +89,7 @@
 //!
 //! ### Portfolio
 //! ```
+//! use std::marker::PhantomData;
 //! use barter::portfolio::{MarketUpdater, OrderGenerator, FillUpdater};
 //! use barter::portfolio::allocator::DefaultAllocator;
 //! use barter::portfolio::risk::DefaultRisk;
@@ -98,18 +99,21 @@
 //! use barter::portfolio::portfolio::{PortfolioLego, MetaPortfolio};
 //! use barter::portfolio::repository::redis::Config as RepositoryConfig;
 //! use barter::portfolio::repository::in_memory::InMemoryRepository;
+//! use barter::statistic::summary::pnl::PnLReturnSummary;
+//! use barter::statistic::summary::trading::TradingSummary;
 //!
 //! let components = PortfolioLego {
+//!     engine_id: Default::default(),
+//!     repository: InMemoryRepository::new(),
 //!     allocator: DefaultAllocator{ default_order_value: 100.0 },
 //!     risk: DefaultRisk{},
 //!     starting_cash: 10000.0,
+//!     _statistic_marker: PhantomData::<TradingSummary>::default()
 //! };
 //!
-//! let repository = InMemoryRepository::new();
+//! let mut portfolio = MetaPortfolio::init(components).unwrap();
 //!
-//! let mut portfolio = MetaPortfolio::init(components, repository).unwrap();
-//!
-//! let some_event = Event::Order(OrderEvent::default());
+//! let some_event = Event::OrderNew(OrderEvent::default());
 //!
 //! match some_event {
 //!     Event::Market(market) => {
@@ -118,8 +122,8 @@
 //!     Event::Signal(signal) => {
 //!         portfolio.generate_order(&signal);
 //!     }
-//!     Event::Order(order) => {
-//!         // Not relevant
+//!     Event::SignalForceExit(signal) => {
+//!         portfolio.generate_exit_order(signal);
 //!     }
 //!     Event::Fill(fill) => {
 //!         portfolio.update_from_fill(&fill);
@@ -215,3 +219,34 @@ pub mod engine;
 
 #[macro_use]
 extern crate prettytable;
+
+/// Communicates a str is a unique identifier for an Exchange (eg/ "binance")
+pub type ExchangeId = &'static str;
+
+/// Communicates a String is a unique identifier for a pair symbol (eg/ "BTC_USDT")
+pub type SymbolId = String;
+
+/// Communicates a String represents a unique market identifier (eg/ "market_binance-USDT_BTC").
+pub type MarketId = String;
+
+/// Represents a unique combination of an [`ExchangeId`] & a [`SymbolId`]. Each [`Trader`] barters
+/// on one [`Market`].
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+pub struct Market {
+    pub exchange: ExchangeId,
+    pub symbol: SymbolId,
+}
+
+impl Market {
+    /// Returns the [`MarketId`] unique identifier associated with this [`Market`] by utilising
+    /// [`determine_market_id`] (eg/ "market_binance-USDT_BTC").
+    pub fn market_id(&self) -> MarketId {
+        determine_market_id(self.exchange, &self.symbol)
+    }
+}
+
+/// Returns the unique identifier for a given market, where a 'market' is a unique
+/// exchange-symbol combination (eg/ "market_binance-USDT_BTC").
+pub fn determine_market_id(exchange: &str, symbol: &String) -> MarketId {
+    format!("market_{}_{}", exchange, symbol)
+}

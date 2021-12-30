@@ -12,7 +12,7 @@ pub trait Ratio {
     }
 }
 
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct SharpeRatio {
     pub risk_free_return: f64,
     pub trades_per_day: f64,
@@ -53,7 +53,7 @@ impl SharpeRatio {
     }
 }
 
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct SortinoRatio {
     pub risk_free_return: f64,
     pub trades_per_day: f64,
@@ -94,7 +94,7 @@ impl SortinoRatio {
     }
 }
 
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct CalmarRatio {
     pub risk_free_return: f64,
     pub trades_per_day: f64,
