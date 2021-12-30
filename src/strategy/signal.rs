@@ -1,21 +1,23 @@
 use crate::data::market::MarketMeta;
 use crate::strategy::error::StrategyError;
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use crate::portfolio::position::PositionId;
 use std::collections::HashMap;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
+use serde::{Serialize, Deserialize};
+use crate::SymbolId;
 
 /// Signal data produced by the strategy containing advisory signals for the portfolio to interpret.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct SignalEvent {
     pub event_type: &'static str,
     pub trace_id: Uuid,
     pub timestamp: DateTime<Utc>,
     pub exchange: &'static str,
     pub symbol: String,
+    pub signals: HashMap<Decision, SignalStrength>,
     /// Metadata propagated from source MarketEvent
     pub market_meta: MarketMeta,
-    pub signals: HashMap<Decision, SignalStrength>,
 }
 
 /// Strength of an advisory signal decision produced by the strategy.
@@ -24,7 +26,7 @@ pub type SignalStrength = f32;
 impl Default for SignalEvent {
     fn default() -> Self {
         Self {
-            event_type: SignalEvent::EVENT_TYPE,
+            event_type: SignalEvent::ORGANIC_SIGNAL,
             trace_id: Uuid::new_v4(),
             timestamp: Utc::now(),
             exchange: "Binance",
@@ -36,16 +38,16 @@ impl Default for SignalEvent {
 }
 
 impl SignalEvent {
-    pub const EVENT_TYPE: &'static str = "SignalEvent";
+    pub const ORGANIC_SIGNAL: &'static str = "Signal";
 
-    /// Returns a [SignalEventBuilder] instance.
+    /// Returns a [`SignalEventBuilder`] instance.
     pub fn builder() -> SignalEventBuilder {
         SignalEventBuilder::new()
     }
 }
 
 /// Describes the type of advisory signal the strategy is endorsing.
-#[derive(Debug, Clone, PartialOrd, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub enum Decision {
     Long,
     CloseLong,
@@ -60,29 +62,29 @@ impl Default for Decision {
 }
 
 impl Decision {
-    /// Determines if a [Decision] is Long.
+    /// Determines if a [`Decision`] is Long.
     pub fn is_long(&self) -> bool {
         matches!(self, Decision::Long)
     }
 
-    /// Determines if a [Decision] is Short.
+    /// Determines if a [`Decision`] is Short.
     pub fn is_short(&self) -> bool {
         matches!(self, Decision::Short)
     }
 
-    /// Determines if a [Decision] is an entry (long or short).
+    /// Determines if a [`Decision`] is an entry (long or short).
     pub fn is_entry(&self) -> bool {
         matches!(self, Decision::Short | Decision::Long)
     }
 
-    /// Determines if a [Decision] is an exit (close_long or close_short).
+    /// Determines if a [`Decision`] is an exit (close_long or close_short).
     pub fn is_exit(&self) -> bool {
         matches!(self, Decision::CloseLong | Decision::CloseShort)
     }
 }
 
-/// Builder to construct [SignalEvent] instances.
-#[derive(Debug, Default)]
+/// Builder to construct [`SignalEvent`] instances.
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct SignalEventBuilder {
     pub trace_id: Option<Uuid>,
     pub timestamp: Option<DateTime<Utc>>,
@@ -148,7 +150,7 @@ impl SignalEventBuilder {
         let signals = self.signals.ok_or(StrategyError::BuilderIncomplete)?;
 
         Ok(SignalEvent {
-            event_type: SignalEvent::EVENT_TYPE,
+            event_type: SignalEvent::ORGANIC_SIGNAL,
             trace_id,
             timestamp,
             exchange,
@@ -156,6 +158,31 @@ impl SignalEventBuilder {
             market_meta,
             signals,
         })
+    }
+}
+
+/// Todo:
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+pub struct SignalForceExit {
+    pub event_type: &'static str,
+    pub timestamp: DateTime<Utc>,
+    pub position_id: PositionId,
+    pub exchange: &'static str,
+    pub symbol: String,
+}
+
+impl SignalForceExit {
+    pub const FORCED_EXIT_SIGNAL: &'static str = "SignalForcedExit";
+
+    /// Todo:
+    pub fn new(position_id: PositionId, exchange: &'static str, symbol: &SymbolId) -> Self {
+        Self {
+            event_type: SignalForceExit::FORCED_EXIT_SIGNAL,
+            timestamp: Utc::now(),
+            position_id,
+            exchange,
+            symbol: symbol.clone(),
+        }
     }
 }
 

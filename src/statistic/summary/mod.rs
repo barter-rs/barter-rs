@@ -5,7 +5,7 @@ pub mod trading;
 
 use crate::portfolio::position::Position;
 
-pub trait PositionSummariser {
+pub trait PositionSummariser: Copy {
     fn update(&mut self, position: &Position);
     fn generate_summary(&mut self, positions: &Vec<Position>) {
         for position in positions.iter() {

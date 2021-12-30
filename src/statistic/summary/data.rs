@@ -3,7 +3,7 @@ use crate::statistic::dispersion::Dispersion;
 use crate::statistic::summary::TablePrinter;
 use prettytable::{Row, Table};
 
-#[derive(Debug, Default, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq)]
 pub struct DataSummary {
     pub count: u64,
     pub sum: f64,

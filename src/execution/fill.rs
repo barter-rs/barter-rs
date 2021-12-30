@@ -5,9 +5,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Fills are journals of work done by an execution handler. These are sent back to the portfolio
+/// Fills are journals of work done by an Execution handler. These are sent back to the portfolio
 /// so it can apply updates.
-#[derive(Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
 pub struct FillEvent {
     pub event_type: &'static str,
     pub trace_id: Uuid,
