@@ -7,7 +7,6 @@ use crate::strategy::SignalGenerator;
 use crate::engine::Command;
 use crate::Market;
 use crate::strategy::signal::SignalForceExit;
-use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
@@ -24,13 +23,6 @@ pub fn determine_trader_id(engine_id: Uuid, exchange: &String, symbol: &String) 
     format!("{}_trader_{}_{}", engine_id, exchange, symbol)
 }
 
-/// Communicates if a process has received a [`Command::Terminate`] command.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-enum Termination {
-    Received,
-    Waiting,
-}
-
 /// Lego components for constructing a [`Trader`] via the new() constructor method.
 #[derive(Debug)]
 pub struct TraderLego<EventTx, Portfolio, Data, Strategy, Execution>
@@ -41,9 +33,8 @@ where
     Strategy: SignalGenerator + Debug,
     Execution: FillGenerator + Debug,
 {
-    /// Unique String identifier for a [`Trader`] composed of an engine_id (Uuid), [`ExchangeId`]
-    /// & [`SymbolId`]. Used to route relevant [`Command`]s to a [`Trader`] instance.
-    pub trader_id: TraderId,
+    /// Couples this [`Trader`] instance to it's [`Engine`].
+    pub engine_id: Uuid,
     /// Todo:
     market: Market,
     /// mpsc::Receiver for receiving [`Command`]s from a remote source.
@@ -75,9 +66,8 @@ where
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,
 {
-    /// Unique String identifier for a [`Trader`] composed of an engine_id (Uuid), [`ExchangeId`] &
-    /// [`SymbolId`]. Used to route relevant commands to a [`Trader`] instance.
-    trader_id: TraderId,
+    /// Couples this [`Trader`] instance to it's [`Engine`].
+    engine_id: Uuid,
     /// Todo:
     market: Market,
     /// mpsc::Receiver for receiving [`Command`]s from a remote source.
@@ -112,7 +102,7 @@ where
         debug!(lego = &*format!("{:?}", lego), "constructed new Trader instance");
 
         Self {
-            trader_id: lego.trader_id,
+            engine_id: lego.engine_id,
             market: lego.market,
             command_rx: lego.command_rx,
             event_tx: lego.event_tx,
@@ -130,7 +120,8 @@ where
     }
 
     /// Run trading event-loop for this [`Trader`] instance. Loop will run until [`Trader`] receives
-    /// a [`Command::Terminate`] via the mpsc::Receiver command_rx.
+    /// a [`Command::Terminate`] via the mpsc::Receiver command_rx, or the data
+    /// [`Continuer::can_continue`] returns [`Continuation::Stop`]
     pub fn run(mut self) {
         // Run trading loop for this Trader instance
         'trading: loop {
@@ -141,9 +132,9 @@ where
                     Command::Terminate(_) => {
                         break 'trading
                     },
-                    Command::ExitPosition(position_id) => {
+                    Command::ExitPosition(market) => {
                         self.event_q.push_back(Event::SignalForceExit(
-                            SignalForceExit::new(position_id, self.market.exchange, &self.market.symbol)
+                            SignalForceExit::new(market)
                         ));
                     }
                     _ => continue,
@@ -263,7 +254,7 @@ where
     Strategy: SignalGenerator,
     Execution: FillGenerator,
 {
-    trader_id: Option<String>,
+    engine_id: Option<Uuid>,
     market: Option<Market>,
     command_rx: Option<mpsc::Receiver<Command>>,
     event_sink: Option<EventTx>,
@@ -284,7 +275,7 @@ where
 {
     fn new() -> Self {
         Self {
-            trader_id: None,
+            engine_id: None,
             market: None,
             command_rx: None,
             event_sink: None,
@@ -296,9 +287,9 @@ where
         }
     }
 
-    pub fn trader_id(self, value: String) -> Self {
+    pub fn engine_id(self, value: Uuid) -> Self {
         Self {
-            trader_id: Some(value),
+            engine_id: Some(value),
             ..self
         }
     }
@@ -353,7 +344,7 @@ where
     }
 
     pub fn build(self) -> Result<Trader<EventTx, Portfolio, Data, Strategy, Execution>, EngineError> {
-        let trader_id = self.trader_id.ok_or(EngineError::BuilderIncomplete)?;
+        let engine_id = self.engine_id.ok_or(EngineError::BuilderIncomplete)?;
         let market = self.market.ok_or(EngineError::BuilderIncomplete)?;
         let command_rx = self.command_rx.ok_or(EngineError::BuilderIncomplete)?;
         let event_tx = self.event_sink.ok_or(EngineError::BuilderIncomplete)?;
@@ -363,7 +354,7 @@ where
         let execution = self.execution.ok_or(EngineError::BuilderIncomplete)?;
 
         Ok(Trader {
-            trader_id,
+            engine_id,
             market,
             command_rx,
             event_tx,
