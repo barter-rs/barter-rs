@@ -39,7 +39,7 @@ where
     market: Market,
     /// mpsc::Receiver for receiving [`Command`]s from a remote source.
     pub command_rx: mpsc::Receiver<Command>,
-    /// [Event] transmitter for sending every [`Event`] the [`Trader`] encounters to an external sink.
+    /// [`Event`] transmitter for sending every [`Event`] the [`Trader`] encounters to an external sink.
     pub event_tx: EventTx,
     /// Shared-access to a global Portfolio instance that implements [`MarketUpdater`],
     /// [`OrderGenerator`] & [`FillUpdater`]. Generates [`Event::Order`]s, as well as reacts to
