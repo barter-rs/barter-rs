@@ -1,34 +1,32 @@
 pub mod error;
 pub mod trader;
-pub mod commander;
 
+use crate::Market;
 use crate::engine::error::EngineError;
 use crate::engine::trader::Trader;
-use crate::engine::commander::Commander;
 use crate::data::handler::{Continuer, MarketGenerator};
-use crate::execution::FillGenerator;
+use crate::strategy::SignalGenerator;
 use crate::portfolio::repository::PositionHandler;
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
+use crate::portfolio::position::Position;
+use crate::execution::FillGenerator;
+use crate::statistic::summary::trading::TradingSummary;
 use crate::statistic::summary::{PositionSummariser, TablePrinter};
-use crate::strategy::SignalGenerator;
 use crate::event::{Event, MessageTransmitter};
-use crate::Market;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{info, warn};
 use uuid::Uuid;
-use crate::portfolio::position::Position;
-use crate::statistic::summary::trading::TradingSummary;
 
 // Todo:
 //  - Impl consistent structured logging in Engine & Trader
-//  - Do I need TraderId? Market should probably be enough! Maybe it can have engineId & market
 //  - Ensure i'm happy with where event Event & Command live (eg/ Balance is in event.rs)
 //  - Add Deserialize to Event.
 //  - Search for wrong indented Wheres
 //  - Do I want to roll out Market instead of Exchange & Symbol in all Events? (can't for Position due to serde)
 //  - Search for todo!() since I found one in /statistic/summary/pnl.rs
+//  - Fix unwraps() - search code eg/ engine::send_open_positions
 //  - Ensure I havn't lost any improvements I had on the other branches!
 //  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
 //  - Make as much stuff Copy as can be - start in Statistics!
@@ -64,14 +62,14 @@ where
     pub engine_id: Uuid,
     /// mpsc::Receiver for receiving [`Command`]s from a remote source.
     pub command_rx: mpsc::Receiver<Command>,
-    /// Todo:
-    pub trader_commander: Commander,
     /// Statistics component that can generate a trading summary based on closed positions.
     pub statistics: Statistic,
     /// Shared-access to a global Portfolio instance.
     pub portfolio: Arc<Mutex<Portfolio>>,
     /// Collection of [`Trader`] instances that can concurrently trade a market pair on it's own thread.
     pub traders: Vec<Trader<EventTx, Portfolio, Data, Strategy, Execution>>,
+    /// Todo:
+    pub markets: Vec<Market>,
 }
 
 /// Multi-threaded Trading Engine capable of trading with an arbitrary number of [`Trader`] market
@@ -94,8 +92,6 @@ where
     engine_id: Uuid,
     /// mpsc::Receiver for receiving [`Command`]s from a remote source.
     command_rx: mpsc::Receiver<Command>,
-    /// Todo:
-    trader_commander: Commander,
     /// Statistics component that can generate a trading summary based on closed positions.
     statistics: Statistic,
     /// Shared-access to a global Portfolio instance that implements [`MarketUpdater`],
@@ -103,6 +99,8 @@ where
     portfolio: Arc<Mutex<Portfolio>>,
     /// Collection of [`Trader`] instances that can concurrently trade a market pair on it's own thread.
     traders: Vec<Trader<EventTx, Portfolio, Data, Strategy, Execution>>,
+    /// Todo:
+    pub markets: Vec<Market>,
 }
 
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
@@ -120,10 +118,10 @@ where
         Self {
             engine_id: lego.engine_id,
             command_rx: lego.command_rx,
-            trader_commander: lego.trader_commander,
             statistics: lego.statistics,
             portfolio: lego.portfolio,
             traders: lego.traders,
+            markets: lego.markets
         }
     }
 
@@ -157,14 +155,14 @@ where
                                 self.send_summary(summary_rx);
                             },
                             Command::Terminate(message) => {
-                                self.trader_commander.terminate_traders(message);
+                                self.terminate_traders(message);
                                 break;
                             },
                             Command::ExitPosition(market) => {
-                                self.trader_commander.exit_position(market);
+                                self.exit_position(market);
                             },
                             Command::ExitAllPositions => {
-                                self.trader_commander.exit_all_positions();
+                                self.exit_all_positions();
                             },
                         }
                     } else {
@@ -217,18 +215,36 @@ where
 
         notify_rx
     }
-    // /// Communicates why a [`Trader`] terminated.
-    // #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-    // enum TerminationReason {
-    //     ExternalCommand,
-    //     DataStopped,
-    // }
 
+    /// Todo:
     fn send_open_positions(&self, positions_rx: oneshot::Sender<Result<Vec<Position>, EngineError>>) {
+        let open_positions = self
+            .portfolio
+            .lock().unwrap()
+            .get_open_positions(&self.engine_id, &self.markets)
+            .map_err(|err| EngineError::from(err));
+
+        if positions_rx.send(open_positions).is_err() {
+            warn!(why = "oneshot receiver dropped", "cannot action SendOpenPositions Command");
+        }
+    }
+
+    /// Todo:
+    fn send_summary(&self, summary_rx: oneshot::Sender<Result<TradingSummary, EngineError>>) {
+        todo!()
+    }
+    /// Todo:
+    fn terminate_traders(&self, message: Message) {
         todo!()
     }
 
-    fn send_summary(&self, summary_rx: oneshot::Sender<Result<TradingSummary, EngineError>>) {
+    /// Todo:
+    fn exit_position(&self, market: Market) {
+        todo!()
+    }
+
+    /// Todo:
+    fn exit_all_positions(&self) {
         todo!()
     }
 }
@@ -246,10 +262,10 @@ where
 {
     engine_id: Option<Uuid>,
     command_rx: Option<mpsc::Receiver<Command>>,
-    trader_commander: Option<Commander>,
     statistics: Option<Statistic>,
     portfolio: Option<Arc<Mutex<Portfolio>>>,
     traders: Option<Vec<Trader<EventTx, Portfolio, Data, Strategy, Execution>>>,
+    markets: Option<Vec<Market>>,
 }
 
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
@@ -266,10 +282,10 @@ where
         Self {
             engine_id: None,
             command_rx: None,
-            trader_commander: None,
             statistics: None,
             portfolio: None,
             traders: None,
+            markets: None,
         }
     }
 
@@ -283,13 +299,6 @@ where
     pub fn command_rx(self, value: mpsc::Receiver<Command>) -> Self {
         Self {
             command_rx: Some(value),
-            ..self
-        }
-    }
-
-    pub fn trader_commander(self, value: Commander) -> Self {
-        Self {
-            trader_commander: Some(value),
             ..self
         }
     }
@@ -315,21 +324,29 @@ where
         }
     }
 
+    pub fn markets(self, value: Vec<Market>) -> Self {
+        Self {
+            markets: Some(value),
+            ..self
+        }
+    }
+
+
     pub fn build(self) -> Result<Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
         let engine_id = self.engine_id.ok_or(EngineError::BuilderIncomplete)?;
         let command_rx = self.command_rx.ok_or(EngineError::BuilderIncomplete)?;
-        let trader_commander = self.trader_commander.ok_or(EngineError::BuilderIncomplete)?;
         let statistics = self.statistics.ok_or(EngineError::BuilderIncomplete)?;
         let portfolio = self.portfolio.ok_or(EngineError::BuilderIncomplete)?;
         let traders = self.traders.ok_or(EngineError::BuilderIncomplete)?;
+        let markets = self.markets.ok_or(EngineError::BuilderIncomplete)?;
 
         Ok(Engine {
             engine_id,
             command_rx,
-            trader_commander,
             statistics,
             portfolio,
             traders,
+            markets,
         })
     }
 }
