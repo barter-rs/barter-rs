@@ -238,6 +238,14 @@ pub struct Market {
 }
 
 impl Market {
+    /// Constructs a new [`Market`] using the provided [`ExchangeId`] & [`SymbolId`].
+    pub fn new(exchange: ExchangeId, symbol: SymbolId) -> Self {
+        Self {
+            exchange: exchange.to_lowercase(),
+            symbol: symbol.to_lowercase()
+        }
+    }
+
     /// Returns the [`MarketId`] unique identifier associated with this [`Market`] by utilising
     /// [`determine_market_id`] (eg/ "market_binance-USDT_BTC").
     pub fn market_id(&self) -> MarketId {
