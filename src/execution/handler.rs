@@ -5,15 +5,15 @@ use crate::portfolio::order::OrderEvent;
 use chrono::Utc;
 use serde::Deserialize;
 
-/// Configuration for constructing a [SimulatedExecution] via the new() constructor method.
+/// Configuration for constructing a [`SimulatedExecution`] via the new() constructor method.
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    /// Simulated fee percentage to be used for each [Fees] field in decimal form (eg/ 0.01 for 1%)
+    /// Simulated fee percentage to be used for each [`Fees`] field in decimal form (eg/ 0.01 for 1%)
     pub simulated_fees_pct: Fees,
 }
 
 #[derive(Debug)]
-/// Simulated execution handler that executes [OrderEvent]s to generate [FillEvent]s via a
+/// Simulated execution handler that executes [`OrderEvent`]s to generate [`FillEvent`]s via a
 /// simulated broker interaction.
 pub struct SimulatedExecution {
     fees_pct: Fees,
@@ -28,7 +28,7 @@ impl FillGenerator for SimulatedExecution {
             event_type: FillEvent::EVENT_TYPE,
             trace_id: order.trace_id,
             timestamp: Utc::now(),
-            exchange: order.exchange.clone(),
+            exchange: order.exchange,
             symbol: order.symbol.clone(),
             market_meta: order.market_meta.clone(),
             decision: order.decision.clone(),
@@ -40,19 +40,19 @@ impl FillGenerator for SimulatedExecution {
 }
 
 impl SimulatedExecution {
-    /// Constructs a new [SimulatedExecution] component.
+    /// Constructs a new [`SimulatedExecution`] component.
     pub fn new(cfg: Config) -> Self {
         Self {
             fees_pct: cfg.simulated_fees_pct,
         }
     }
 
-    /// Calculates the simulated gross fill value (excluding TotalFees) based on the input [OrderEvent].
+    /// Calculates the simulated gross fill value (excluding TotalFees) based on the input [`OrderEvent`].
     fn calculate_fill_value_gross(order: &OrderEvent) -> f64 {
         order.quantity.abs() * order.market_meta.close
     }
 
-    /// Calculates the simulated [Fees] a [FillEvent] will incur, based on the input [OrderEvent].
+    /// Calculates the simulated [`Fees`] a [`FillEvent`] will incur, based on the input [`OrderEvent`].
     fn calculate_fees(&self, fill_value_gross: &f64) -> Fees {
         Fees {
             exchange: self.fees_pct.exchange * fill_value_gross,
