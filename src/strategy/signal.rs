@@ -1,11 +1,10 @@
+use crate::Market;
 use crate::data::market::MarketMeta;
 use crate::strategy::error::StrategyError;
-use crate::portfolio::position::PositionId;
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
-use crate::SymbolId;
 
 /// Signal data produced by the strategy containing advisory signals for the portfolio to interpret.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
@@ -166,7 +165,6 @@ impl SignalEventBuilder {
 pub struct SignalForceExit {
     pub event_type: &'static str,
     pub timestamp: DateTime<Utc>,
-    pub position_id: PositionId,
     pub exchange: &'static str,
     pub symbol: String,
 }
@@ -175,13 +173,12 @@ impl SignalForceExit {
     pub const FORCED_EXIT_SIGNAL: &'static str = "SignalForcedExit";
 
     /// Todo:
-    pub fn new(position_id: PositionId, exchange: &'static str, symbol: &SymbolId) -> Self {
+    pub fn new(market: Market) -> Self {
         Self {
             event_type: SignalForceExit::FORCED_EXIT_SIGNAL,
             timestamp: Utc::now(),
-            position_id,
-            exchange,
-            symbol: symbol.clone(),
+            exchange: market.exchange,
+            symbol: market.symbol,
         }
     }
 }
