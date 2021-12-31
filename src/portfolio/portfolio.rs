@@ -131,11 +131,14 @@ where
     }
 
     fn generate_exit_order(&mut self, signal: SignalForceExit) -> Result<Option<OrderEvent>, PortfolioError> {
-        // Retrieve Option<Position> associated with the input PositionId
-        let position = match self.repository.get_open_position(&signal.position_id)? {
+        // Determine PositionId associated with the SignalForceExit
+        let position_id = determine_position_id(&self.engine_id, signal.exchange, &signal.symbol);
+
+        // Retrieve Option<Position> associated with the PositionId
+        let position = match self.repository.get_open_position(&position_id)? {
             None => {
                 info!(
-                    position_id = &*signal.position_id,
+                    position_id = &*position_id,
                     outcome = "no forced exit OrderEvent generated",
                     "cannot generate forced exit OrderEvent for a Position that isn't open"
                 );
