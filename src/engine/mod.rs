@@ -12,12 +12,14 @@ use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
 use crate::statistic::summary::{PositionSummariser, TablePrinter};
 use crate::strategy::SignalGenerator;
 use crate::event::{Event, MessageTransmitter};
+use crate::Market;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tracing::{info, warn};
 use uuid::Uuid;
-use crate::portfolio::position::PositionId;
+use crate::portfolio::position::Position;
+use crate::statistic::summary::trading::TradingSummary;
 
 // Todo:
 //  - Impl consistent structured logging in Engine & Trader
@@ -25,11 +27,11 @@ use crate::portfolio::position::PositionId;
 //  - Ensure i'm happy with where event Event & Command live (eg/ Balance is in event.rs)
 //  - Add Deserialize to Event.
 //  - Search for wrong indented Wheres
+//  - Do I want to roll out Market instead of Exchange & Symbol in all Events? (can't for Position due to serde)
 //  - Search for todo!() since I found one in /statistic/summary/pnl.rs
 //  - Ensure I havn't lost any improvements I had on the other branches!
 //  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
 //  - Make as much stuff Copy as can be - start in Statistics!
-
 //  - Add comments where we see '/// Todo:' or similar
 
 
@@ -37,16 +39,13 @@ use crate::portfolio::position::PositionId;
 /// Communicates a String is a message associated with a [`Command`].
 pub type Message = String;
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Debug)]
 pub enum Command {
-    // Engine Only Commands
-    // SendOpenPositions(oneshot::Sender<Result<Vec<Position>, EngineError>>),
-    // SendSummary(oneshot::Sender<Result<TradingSummary, EngineError>>),
-    // All Traders Command
-    Terminate(Message),
-    ExitAllPositions,
-    // Trader specific
-    ExitPosition(PositionId),
+    SendOpenPositions(oneshot::Sender<Result<Vec<Position>, EngineError>>), // Engine
+    SendSummary(oneshot::Sender<Result<TradingSummary, EngineError>>),      // Engine
+    Terminate(Message),                                                     // All Traders
+    ExitAllPositions,                                                       // All Traders
+    ExitPosition(Market),                                                   // Single Trader
 }
 
 /// Lego components for constructing an [`Engine`] via the new() constructor method.
@@ -138,68 +137,43 @@ where
     /// via the [Engine]'s termination_rx. After remote shutdown has been initiated, the trading
     /// period's statistics are generated & printed with the provided Statistic component.
     pub async fn run(mut self) {
-        // Run each Trader instance on it's own Tokio task
-        let traders_stopped_organically = futures::future::join_all(
-            self
-                .traders
-                .into_iter()
-                .map(|trader| tokio::spawn(async { trader.run() }))
-        );
+        // Run Traders in Tokio tasks & receive notification if they stop organically
+        let mut traders_stopped_organically_rx = self.run_traders().await;
 
         loop {
             // Action received commands from remote, or wait for all Traders to stop organically
             tokio::select! {
-                _ = traders_stopped_organically => {
+                _ = traders_stopped_organically_rx.recv() => {
                     break;
                 },
 
                 command = self.command_rx.recv() => {
-
                     if let Some(command) = command {
                         match command {
+                            Command::SendOpenPositions(positions_rx) => {
+                                self.send_open_positions(positions_rx);
+                            },
+                            Command::SendSummary(summary_rx) => {
+                                self.send_summary(summary_rx);
+                            },
                             Command::Terminate(message) => {
-                                // Distribute termination message
+                                self.trader_commander.terminate_traders(message);
                                 break;
                             },
-                            _ => {
-                                todo!()
-                            }
-
+                            Command::ExitPosition(market) => {
+                                self.trader_commander.exit_position(market);
+                            },
+                            Command::ExitAllPositions => {
+                                self.trader_commander.exit_all_positions();
+                            },
                         }
-
                     } else {
                         // Terminate traders due to dropped receiver
                         break;
                     }
                 }
-
             }
         };
-
-        // // Await remote termination command, or for all Traders to stop organically
-        // tokio::select! {
-        //     // Traders finish organically
-        //     _ = traders_finished => {},
-        //
-        //     // Engine TerminationMessage received, propagate command to every Trader instance
-        //     termination_rx_result = self.termination_rx => {
-        //         let termination_message = match termination_rx_result {
-        //             Ok(message) => message,
-        //             Err(_) => {
-        //                 let message = "Remote termination sender dropped - terminating Engine";
-        //                 warn!("{}", message);
-        //                 message.to_owned()
-        //             }
-        //         };
-        //
-        //         if let Err(err) = self.traders_termination_tx.send(termination_message) {
-        //             warn!(
-        //                 "Error occurred while propagating TerminationMessage to Trader instances: {}",
-        //                 err
-        //             );
-        //         }
-        //     }
-        // };
 
         // Unlock Portfolio Mutex to access backtest information
         let mut portfolio = match self.portfolio.lock() {
@@ -218,6 +192,44 @@ where
                 self.statistics.print();
             }
         }
+    }
+
+    /// Todo:
+    async fn run_traders(&mut self) -> mpsc::Receiver<bool> {
+        // Extract Traders out of the Engine so we can move them into Tokio tasks
+        let traders = std::mem::replace(
+            &mut self.traders, Vec::with_capacity(0)
+        );
+
+        // Create channel to notify the Engine when the Traders have stopped organically
+        let (notify_tx, notify_rx) = mpsc::channel(1);
+
+        // Run Traders
+        tokio::spawn(async move {
+            futures::future::join_all(traders
+                .into_iter()
+                .map(|trader| tokio::spawn(async { trader.run() }))
+            ).await;
+
+            // Send notification when Traders stopped organically
+            notify_tx.send(true).await.unwrap() // Use TerminationReason if issue
+        });
+
+        notify_rx
+    }
+    // /// Communicates why a [`Trader`] terminated.
+    // #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+    // enum TerminationReason {
+    //     ExternalCommand,
+    //     DataStopped,
+    // }
+
+    fn send_open_positions(&self, positions_rx: oneshot::Sender<Result<Vec<Position>, EngineError>>) {
+        todo!()
+    }
+
+    fn send_summary(&self, summary_rx: oneshot::Sender<Result<TradingSummary, EngineError>>) {
+        todo!()
     }
 }
 
