@@ -51,7 +51,7 @@ where
     engine_id: Uuid,
     /// Repository for the [`MetaPortfolio`] to persist it's state in. Implements
     /// [`PositionHandler`], [`ValueHandler`], and [`CashHandler`].
-    repository: Repository,
+    pub repository: Repository,
     /// Allocation manager implements [`OrderAllocator`].
     allocation_manager: Allocator,
     /// Risk manager implements [`OrderEvaluator`].
