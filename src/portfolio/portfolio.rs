@@ -1,6 +1,6 @@
 use crate::determine_market_id;
 use crate::event::Balance;
-use crate::data::market::MarketEvent;
+use crate::data::market::{MarketEvent, MarketMeta};
 use crate::execution::fill::FillEvent;
 use crate::portfolio::allocator::OrderAllocator;
 use crate::portfolio::error::PortfolioError;
@@ -146,14 +146,17 @@ where
 
         Ok(Some(OrderEvent {
             event_type: OrderEvent::FORCED_EXIT_ORDER,
-            trace_id: Default::default(),
+            trace_id: Uuid::new_v4(),
             timestamp: Utc::now(),
             exchange: &*signal.exchange,
             symbol: signal.symbol,
-            market_meta: Default::default(),
-            decision: Default::default(),
+            market_meta: MarketMeta {
+                close: position.current_symbol_price,
+                timestamp: position.meta.last_update_timestamp
+            },
+            decision: position.direction.determine_exit_decision(),
             quantity: 0.0 - position.quantity,
-            order_type: Default::default()
+            order_type: OrderType::Market
         }))
     }
 }
