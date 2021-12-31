@@ -47,9 +47,9 @@ pub trait CashHandler {
 /// Handles the reading & writing of a Portfolio's statistics for each of it's
 /// markets, where each market is represented by a [`MarketId`].
 pub trait StatisticHandler<Statistic> {
-    /// Upsert the market statistics at the market_id provided.
+    /// Upsert the market statistics at the [`MarketId`] provided.
     fn set_statistics(&mut self, market_id: &MarketId, statistic: Statistic) -> Result<(), RepositoryError>;
-    /// Get the market statistics using the market_id provided.
+    /// Get the market statistics using the [`MarketId`] provided.
     fn get_statistics(&mut self, market_id: &MarketId) -> Result<Statistic, RepositoryError>;
 }
 
