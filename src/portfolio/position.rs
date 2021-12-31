@@ -578,6 +578,18 @@ impl Default for Direction {
         Self::Long
     }
 }
+
+impl Direction {
+    /// Determines the [`Decision`] required to exit a [`Position`] that's in a specific [`Direction`].
+    pub fn determine_exit_decision(&self) -> Decision {
+        match self {
+            Direction::Long => Decision::CloseLong,
+            Direction::Short => Decision::CloseShort
+        }
+    }
+}
+
+
 /// [`Position`] update event. Occurs as a result of receiving new [`MarketEvent`] data.
 #[derive(Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
 pub struct PositionUpdate {
