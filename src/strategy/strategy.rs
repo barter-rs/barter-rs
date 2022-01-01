@@ -10,7 +10,7 @@ use ta::indicators::RelativeStrengthIndex;
 use ta::Next;
 
 /// Configuration for constructing a [`RSIStrategy`] via the new() constructor method.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub rsi_period: usize,
 }
