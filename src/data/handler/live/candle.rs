@@ -11,7 +11,7 @@ use tracing::debug;
 use uuid::Uuid;
 
 /// Configuration for constructing a [LiveCandleHandler] via the new() constructor method.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub symbol: String,
     pub interval: String,
