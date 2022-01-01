@@ -16,7 +16,7 @@ pub trait PositionHandler {
     fn get_open_position(&mut self, position_id: &PositionId) -> Result<Option<Position>, RepositoryError>;
 
     /// Get all open [`Position`]s associated with a Portfolio.
-    fn get_open_positions(&mut self, engine_id: &Uuid, markets: &Vec<Market>) -> Result<Vec<Position>, RepositoryError>;
+    fn get_open_positions<'a, Markets: Iterator<Item=&'a Market>>(&mut self, engine_id: &Uuid, markets: Markets) -> Result<Vec<Position>, RepositoryError>;
 
     /// Remove the [`Position`] at the [`PositionId`].
     fn remove_position(&mut self, position_id: &PositionId) -> Result<Option<Position>, RepositoryError>;

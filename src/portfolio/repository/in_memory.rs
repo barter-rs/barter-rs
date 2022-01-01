@@ -33,9 +33,8 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
         )
     }
 
-    fn get_open_positions(&mut self, engine_id: &Uuid, markets: &Vec<Market>) -> Result<Vec<Position>, RepositoryError> {
+    fn get_open_positions<'a, Markets: Iterator<Item=&'a Market>>(&mut self, engine_id: &Uuid, markets: Markets) -> Result<Vec<Position>, RepositoryError> {
         Ok(markets
-            .into_iter()
             .filter_map(|market| {
                 self.open_positions
                     .get(&determine_position_id(engine_id, market.exchange, &market.symbol))
