@@ -27,6 +27,7 @@ use uuid::Uuid;
 //  - Search for wrong indented Wheres
 //  - Do I want to roll out Market instead of Exchange & Symbol in all Events? (can't for Position due to serde)
 //  - Search for todo!() since I found one in /statistic/summary/pnl.rs
+//  - Change trader event_q capacity! What does it need to be?
 //  - Fix unwraps() - search code eg/ engine::send_open_positions
 //  - Ensure I havn't lost any improvements I had on the other branches!
 //  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
