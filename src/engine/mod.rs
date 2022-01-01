@@ -1,6 +1,7 @@
 pub mod error;
 pub mod trader;
 
+use std::collections::HashMap;
 use crate::Market;
 use crate::engine::error::EngineError;
 use crate::engine::trader::Trader;
@@ -31,6 +32,7 @@ use uuid::Uuid;
 //  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
 //  - Make as much stuff Copy as can be - start in Statistics!
 //  - Add comments where we see '/// Todo:' or similar
+//  - Print summary for each Market, rather than as a total
 
 
 
@@ -69,7 +71,7 @@ where
     /// Collection of [`Trader`] instances that can concurrently trade a market pair on it's own thread.
     pub traders: Vec<Trader<EventTx, Portfolio, Data, Strategy, Execution>>,
     /// Todo:
-    pub markets: Vec<Market>,
+    pub trader_command_txs: HashMap<Market, mpsc::Sender<Command>>,
 }
 
 /// Multi-threaded Trading Engine capable of trading with an arbitrary number of [`Trader`] market
@@ -100,7 +102,7 @@ where
     /// Collection of [`Trader`] instances that can concurrently trade a market pair on it's own thread.
     traders: Vec<Trader<EventTx, Portfolio, Data, Strategy, Execution>>,
     /// Todo:
-    pub markets: Vec<Market>,
+    trader_command_txs: HashMap<Market, mpsc::Sender<Command>>,
 }
 
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
@@ -113,7 +115,7 @@ where
     Strategy: SignalGenerator + Debug + Send + 'static,
     Execution: FillGenerator + Debug + Send + 'static,
 {
-    /// Constructs a new trading [Engine] instance using the provided [EngineLego].
+    /// Constructs a new trading [`Engine`] instance using the provided [`EngineLego`].
     pub fn new(lego: EngineLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>) -> Self {
         Self {
             engine_id: lego.engine_id,
@@ -121,18 +123,18 @@ where
             statistics: lego.statistics,
             portfolio: lego.portfolio,
             traders: lego.traders,
-            markets: lego.markets
+            trader_command_txs: lego.trader_command_txs
         }
     }
 
-    /// Builder to construct [Engine] instances.
+    /// Builder to construct [`Engine`] instances.
     pub fn builder() -> EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution> {
         EngineBuilder::new()
     }
 
-    /// Run the trading [Engine]. Spawns a thread for each [Trader] instance in the [Engine] and run
-    /// the [Trader] event-loop. Asynchronously awaits a remote shutdown [Message]
-    /// via the [Engine]'s termination_rx. After remote shutdown has been initiated, the trading
+    /// Run the trading [`Engine`]. Spawns a thread for each [`Trader`] instance in the [`Engine`] and run
+    /// the [`Trader`] event-loop. Asynchronously awaits a remote shutdown [`Message`]
+    /// via the [`Engine`]'s termination_rx. After remote shutdown has been initiated, the trading
     /// period's statistics are generated & printed with the provided Statistic component.
     pub async fn run(mut self) {
         // Run Traders in Tokio tasks & receive notification if they stop organically
@@ -221,7 +223,7 @@ where
         let open_positions = self
             .portfolio
             .lock().unwrap()
-            .get_open_positions(&self.engine_id, &self.markets)
+            .get_open_positions(&self.engine_id, self.trader_command_txs.keys())
             .map_err(|err| EngineError::from(err));
 
         if positions_rx.send(open_positions).is_err() {
@@ -249,7 +251,7 @@ where
     }
 }
 
-/// Builder to construct [Engine] instances.
+/// Builder to construct [`Engine`] instances.
 #[derive(Debug)]
 pub struct EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
@@ -265,7 +267,7 @@ where
     statistics: Option<Statistic>,
     portfolio: Option<Arc<Mutex<Portfolio>>>,
     traders: Option<Vec<Trader<EventTx, Portfolio, Data, Strategy, Execution>>>,
-    markets: Option<Vec<Market>>,
+    trader_command_txs: Option<HashMap<Market, mpsc::Sender<Command>>>,
 }
 
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
@@ -285,7 +287,7 @@ where
             statistics: None,
             portfolio: None,
             traders: None,
-            markets: None,
+            trader_command_txs: None,
         }
     }
 
@@ -324,9 +326,9 @@ where
         }
     }
 
-    pub fn markets(self, value: Vec<Market>) -> Self {
+    pub fn trader_command_txs(self, value: HashMap<Market, mpsc::Sender<Command>>) -> Self {
         Self {
-            markets: Some(value),
+            trader_command_txs: Some(value),
             ..self
         }
     }
@@ -338,7 +340,7 @@ where
         let statistics = self.statistics.ok_or(EngineError::BuilderIncomplete)?;
         let portfolio = self.portfolio.ok_or(EngineError::BuilderIncomplete)?;
         let traders = self.traders.ok_or(EngineError::BuilderIncomplete)?;
-        let markets = self.markets.ok_or(EngineError::BuilderIncomplete)?;
+        let trader_command_txs = self.trader_command_txs.ok_or(EngineError::BuilderIncomplete)?;
 
         Ok(Engine {
             engine_id,
@@ -346,7 +348,7 @@ where
             statistics,
             portfolio,
             traders,
-            markets,
+            trader_command_txs,
         })
     }
 }
