@@ -8,7 +8,7 @@ use prettytable::{Row, Table};
 use serde::Deserialize;
 
 /// Configuration for construction a [`TradingSummary`] via the new() constructor method.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize)]
 pub struct Config {
     pub starting_equity: f64,
     pub trading_days_per_year: usize,
