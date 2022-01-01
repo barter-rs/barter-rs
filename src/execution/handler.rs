@@ -6,7 +6,7 @@ use chrono::Utc;
 use serde::Deserialize;
 
 /// Configuration for constructing a [`SimulatedExecution`] via the new() constructor method.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize)]
 pub struct Config {
     /// Simulated fee percentage to be used for each [`Fees`] field in decimal form (eg/ 0.01 for 1%)
     pub simulated_fees_pct: Fees,
