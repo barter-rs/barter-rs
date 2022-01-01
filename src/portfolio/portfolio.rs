@@ -1,11 +1,11 @@
-use crate::determine_market_id;
+use crate::{determine_market_id, Market};
 use crate::event::Balance;
 use crate::data::market::{MarketEvent, MarketMeta};
 use crate::execution::fill::FillEvent;
 use crate::portfolio::allocator::OrderAllocator;
 use crate::portfolio::error::PortfolioError;
 use crate::portfolio::order::{OrderEvent, OrderType};
-use crate::portfolio::position::{determine_position_id, Direction, Position, PositionEnterer, PositionExiter, PositionUpdate, PositionUpdater};
+use crate::portfolio::position::{determine_position_id, Direction, Position, PositionEnterer, PositionExiter, PositionId, PositionUpdate, PositionUpdater};
 use crate::portfolio::repository::{CashHandler, PositionHandler, StatisticHandler, EquityHandler, AvailableCash};
 use crate::portfolio::risk::OrderEvaluator;
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use uuid::Uuid;
 use tracing::info;
+use crate::portfolio::repository::error::RepositoryError;
 
 /// Lego components for constructing & initialising a [`MetaPortfolio`] via the init() constructor
 /// method.
@@ -234,6 +235,38 @@ where
         self.repository.set_available_cash(&self.engine_id, available_cash)?;
 
         Ok(created_events)
+    }
+}
+
+impl<Repository, Allocator, RiskManager, Statistic> PositionHandler for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
+where
+    Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
+    Allocator: OrderAllocator,
+    RiskManager: OrderEvaluator,
+    Statistic: PositionSummariser
+{
+    fn set_open_position(&mut self, position: Position) -> Result<(), RepositoryError> {
+        self.repository.set_open_position(position)
+    }
+
+    fn get_open_position(&mut self, position_id: &PositionId) -> Result<Option<Position>, RepositoryError> {
+        self.repository.get_open_position(position_id)
+    }
+
+    fn get_open_positions<'a, Markets: Iterator<Item=&'a Market>>(&mut self, _: &Uuid, markets: Markets) -> Result<Vec<Position>, RepositoryError> {
+        self.repository.get_open_positions(&self.engine_id, markets)
+    }
+
+    fn remove_position(&mut self, position_id: &PositionId) -> Result<Option<Position>, RepositoryError> {
+        self.repository.remove_position(position_id)
+    }
+
+    fn set_exited_position(&mut self, _: &Uuid, position: Position) -> Result<(), RepositoryError> {
+        self.repository.set_exited_position(&self.engine_id, position)
+    }
+
+    fn get_exited_positions(&mut self, _: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError> {
+        self.repository.get_exited_positions(&self.engine_id)
     }
 }
 
