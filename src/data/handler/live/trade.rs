@@ -8,14 +8,14 @@ use serde::Deserialize;
 use tokio::sync::mpsc::UnboundedReceiver;
 use uuid::Uuid;
 
-/// Configuration for constructing a [LiveTradeHandler] via the new() constructor method.
+/// Configuration for constructing a [`LiveTradeHandler`] via the new() constructor method.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub symbol: String,
 }
 
-/// [MarketEvent] data handler that consumes a live UnboundedReceiverStream of [Trade]s. Implements
-/// [Continuer] & [MarketGenerator].
+/// [`MarketEvent`] data handler that consumes a live UnboundedReceiverStream of [`Trade`]s.
+/// Implements [`Continuer`] & [`MarketGenerator`].
 #[derive(Debug)]
 pub struct LiveTradeHandler {
     pub exchange: &'static str,
@@ -53,9 +53,9 @@ impl MarketGenerator for LiveTradeHandler {
 }
 
 impl LiveTradeHandler {
-    /// Constructs a new [LiveTradeHandler] component using the provided [Config]. The injected
-    /// [ExchangeClient] is used to subscribe to a [Trade] stream. An asynchronous task is spawned
-    /// to consume [Trade]s and route them to the [LiveTradeHandler]'s sync::mpsc::Receiver.
+    /// Constructs a new [`LiveTradeHandler`] component using the provided [`Config`]. The injected
+    /// [`ExchangeClient`] is used to subscribe to a [`Trade`] stream. An asynchronous task is spawned
+    /// to consume [`Trade`]s and route them to the [`LiveTradeHandler`]'s sync::mpsc::Receiver.
     pub async fn init<Client: ExchangeClient>(cfg: Config, mut exchange_client: Client) -> Self {
         // Subscribe to Trade stream via exchange Client
         let trade_rx = exchange_client
@@ -71,13 +71,13 @@ impl LiveTradeHandler {
         }
     }
 
-    /// Returns a [LiveTradeHandlerBuilder] instance.
+    /// Returns a [`LiveTradeHandlerBuilder`] instance.
     pub fn builder() -> LiveTradeHandlerBuilder {
         LiveTradeHandlerBuilder::new()
     }
 }
 
-/// Builder to construct [LiveTradeHandler] instances.
+/// Builder to construct [`LiveTradeHandler`] instances.
 #[derive(Debug, Default)]
 pub struct LiveTradeHandlerBuilder {
     pub exchange: Option<&'static str>,
