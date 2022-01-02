@@ -15,9 +15,10 @@ use crate::statistic::summary::trading::TradingSummary;
 use crate::statistic::summary::{PositionSummariser, TablePrinter};
 use crate::event::{Event, MessageTransmitter};
 use std::fmt::Debug;
-use std::sync::{Arc, Mutex};
+use std::sync::{Mutex, Arc};
+use std::thread;
 use tokio::sync::{mpsc, oneshot};
-use tracing::{info, warn};
+use tracing::{info, warn, error};
 use uuid::Uuid;
 
 // Todo:
@@ -118,6 +119,7 @@ where
 {
     /// Constructs a new trading [`Engine`] instance using the provided [`EngineLego`].
     pub fn new(lego: EngineLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>) -> Self {
+        info!(engine_id = &*format!("{}", lego.engine_id), "constructed new Engine instance");
         Self {
             engine_id: lego.engine_id,
             command_rx: lego.command_rx,
@@ -138,13 +140,13 @@ where
     /// via the [`Engine`]'s termination_rx. After remote shutdown has been initiated, the trading
     /// period's statistics are generated & printed with the provided Statistic component.
     pub async fn run(mut self) {
-        // Run Traders in Tokio tasks & receive notification if they stop organically
-        let mut traders_stopped_organically_rx = self.run_traders().await;
+        // Run Traders on threads & send notification when they have stopped organically
+        let mut notify_traders_stopped = self.run_traders_new().await;
 
         loop {
             // Action received commands from remote, or wait for all Traders to stop organically
             tokio::select! {
-                _ = traders_stopped_organically_rx.recv() => {
+                _ = notify_traders_stopped.recv() => {
                     break;
                 },
 
@@ -195,32 +197,37 @@ where
         }
     }
 
-    /// Todo:
-    async fn run_traders(&mut self) -> mpsc::Receiver<bool> {
-        // Extract Traders out of the Engine so we can move them into Tokio tasks
+    /// Todo: Also deal w/ unwraps
+    async fn run_traders_new(&mut self) -> mpsc::Receiver<bool> {
+        // Extract Traders out of the Engine so we can move them into threads
         let traders = std::mem::replace(
             &mut self.traders, Vec::with_capacity(0)
         );
 
+        // Run each Trader instance on it's own thread
+        let mut thread_handles = Vec::with_capacity(traders.len());
+        for trader in traders.into_iter() {
+            let handle = thread::spawn(move || trader.run());
+            thread_handles.push(handle);
+        }
+
         // Create channel to notify the Engine when the Traders have stopped organically
         let (notify_tx, notify_rx) = mpsc::channel(1);
 
-        // Run Traders
+        // Create Task that notifies Engine when the Traders have stopped organically
         tokio::spawn(async move {
-            futures::future::join_all(traders
-                .into_iter()
-                .map(|trader| tokio::spawn(async { trader.run() }))
-            ).await;
+            for handle in thread_handles {
+                handle.join().unwrap()
+            }
 
-            // Send notification when Traders stopped organically
-            notify_tx.send(true).await.unwrap() // Use TerminationReason if issue
+            notify_tx.send(true).await.unwrap();
         });
 
         notify_rx
     }
 
     /// Todo:
-    fn send_open_positions(&self, positions_rx: oneshot::Sender<Result<Vec<Position>, EngineError>>) {
+    async fn send_open_positions(&self, positions_rx: oneshot::Sender<Result<Vec<Position>, EngineError>>) {
         let open_positions = self
             .portfolio
             .lock().unwrap()

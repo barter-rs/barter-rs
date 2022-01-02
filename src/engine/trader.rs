@@ -12,7 +12,7 @@ use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
-use tracing::{debug, warn};
+use tracing::{debug, warn, info};
 use uuid::Uuid;
 
 /// Communicates a String represents a unique [`Trader`] identifier.
@@ -99,7 +99,11 @@ where
 {
     /// Constructs a new [`Trader`] instance using the provided [`TraderLego`].
     pub fn new(lego: TraderLego<EventTx, Portfolio, Data, Strategy, Execution>) -> Self {
-        debug!(lego = &*format!("{:?}", lego), "constructed new Trader instance");
+        info!(
+            engine_id = &*format!("{}", lego.engine_id),
+            market = &*format!("{:?}", lego.market),
+            "constructed new Trader instance"
+        );
 
         Self {
             engine_id: lego.engine_id,
@@ -145,7 +149,8 @@ where
             match self.data.can_continue() {
                 Continuation::Continue => {
                     if let Some(market_event) = self.data.generate_market() {
-                        self.event_q.push_back(Event::Market(market_event))
+                        self.event_tx.send(Event::Market(market_event.clone()));
+                        self.event_q.push_back(Event::Market(market_event));
                     }
                 }
                 Continuation::Stop => break 'trading,
@@ -156,7 +161,6 @@ where
             while let Some(event) = self.event_q.pop_back() {
 
                 match event {
-
                     Event::Market(market) => {
                         if let Some(signal) = self.strategy.generate_signal(&market) {
                             self.event_tx.send(Event::Signal(signal.clone()));
@@ -165,7 +169,7 @@ where
 
                         if let Some(position_update) = self.portfolio
                             .lock()
-                            .expect("Failed to unlock Mutex<Portfolio - poisoned")
+                            .expect("Failed to unlock Mutex<Portfolio> - poisoned")
                             .update_from_market(&market)
                             .expect("Failed to update portfolio from market") {
                             self.event_tx.send(Event::PositionUpdate(position_update));
@@ -176,7 +180,7 @@ where
                         if let Some(order) = self
                             .portfolio
                             .lock()
-                            .expect("Failed to unlock Mutex<Portfolio - poisoned")
+                            .expect("Failed to unlock Mutex<Portfolio> - poisoned")
                             .generate_order(&signal)
                             .expect("Failed to generate order")
                         {
@@ -189,7 +193,7 @@ where
                         if let Some(order) = self
                             .portfolio
                             .lock()
-                            .expect("Failed to unlock Mutex<Portfolio - poisoned")
+                            .expect("Failed to unlock Mutex<Portfolio> - poisoned")
                             .generate_exit_order(signal_force_exit)
                             .expect("Failed to generate forced exit order")
                         {
@@ -211,7 +215,7 @@ where
                     Event::Fill(fill) => {
                         let fill_side_effect_events = self.portfolio
                             .lock()
-                            .expect("Failed to unlock Mutex<Portfolio - poisoned")
+                            .expect("Failed to unlock Mutex<Portfolio> - poisoned")
                             .update_from_fill(&fill)
                             .expect("Failed to update portfolio from fill");
 
