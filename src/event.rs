@@ -1,13 +1,14 @@
+use std::fmt::Debug;
 use chrono::{DateTime, Utc};
 use crate::data::market::MarketEvent;
-use crate::execution::fill::FillEvent;
+use crate::strategy::signal::{SignalEvent, SignalForceExit};
 use crate::portfolio::order::OrderEvent;
 use crate::portfolio::position::{EquityPoint, Position, PositionExit, PositionUpdate};
-use crate::strategy::signal::{SignalEvent, SignalForceExit};
+use crate::portfolio::repository::{AvailableCash, TotalEquity};
+use crate::execution::fill::FillEvent;
 use serde::{Serialize, Deserialize};
 use tokio::sync::mpsc;
 use tracing::warn;
-use crate::portfolio::repository::{AvailableCash, TotalEquity};
 
 /// Events that occur when bartering. [`MarketEvent`], [`SignalEvent`], [`OrderEvent`], and
 /// [`FillEvent`] are vital to the [`Trader`](crate::engine::trader::Trader) event loop, dictating
@@ -47,7 +48,7 @@ pub struct EventTx<E: Into<Event>> {
     event_tx: mpsc::UnboundedSender<E>,
 }
 
-impl<E: Into<Event>> MessageTransmitter<E> for EventTx<E> {
+impl<E: Into<Event> + Debug> MessageTransmitter<E> for EventTx<E> {
     fn send(&mut self, message: E) {
         if self.receiver_dropped {
             return
