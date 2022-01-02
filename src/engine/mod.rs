@@ -18,7 +18,7 @@ use std::fmt::Debug;
 use std::sync::{Mutex, Arc};
 use std::thread;
 use tokio::sync::{mpsc, oneshot};
-use tracing::{info, warn};
+use tracing::{info, warn, error};
 use uuid::Uuid;
 
 // Todo:
@@ -87,7 +87,7 @@ where
     EventTx: MessageTransmitter<Event> + Debug,
     Statistic: PositionSummariser + TablePrinter,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug + Send,
-    Data: Continuer + MarketGenerator + Debug + Send,
+    Data: Continuer + MarketGenerator + Debug + Send + 'static,
     Strategy: SignalGenerator + Debug + Send,
     Execution: FillGenerator + Debug + Send,
 {
@@ -113,7 +113,7 @@ where
     EventTx: MessageTransmitter<Event> + Debug  + Send + 'static,
     Statistic: PositionSummariser + TablePrinter,
     Portfolio: PositionHandler + MarketUpdater + OrderGenerator + FillUpdater + Debug + Send + 'static,
-    Data: Continuer + MarketGenerator + Debug + Send + 'static,
+    Data: Continuer + MarketGenerator + Debug + Send,
     Strategy: SignalGenerator + Debug + Send + 'static,
     Execution: FillGenerator + Debug + Send + 'static,
 {
@@ -160,7 +160,7 @@ where
                                 self.send_summary(summary_rx);
                             },
                             Command::Terminate(message) => {
-                                self.terminate_traders(message);
+                                self.terminate_traders(message).await;
                                 break;
                             },
                             Command::ExitPosition(market) => {
@@ -220,7 +220,7 @@ where
                 handle.join().unwrap()
             }
 
-            notify_tx.send(true).await.unwrap();
+            let _ = notify_tx.send(true).await;
         });
 
         notify_rx
@@ -244,8 +244,16 @@ where
         todo!()
     }
     /// Todo:
-    fn terminate_traders(&self, message: Message) {
-        todo!()
+    async fn terminate_traders(&self, message: Message) {
+        for (market, command_tx) in self.trader_command_txs.iter() {
+            if command_tx.send(Command::Terminate(message.clone())).await.is_err() {
+                error!(
+                        market = &*format!("{:?}", market),
+                        why = "dropped receiver",
+                        "failed to send Command::Terminate to Trader command_rx"
+                    );
+            }
+        }
     }
 
     /// Todo:
