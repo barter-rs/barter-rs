@@ -360,7 +360,7 @@ where
             market,
             command_rx,
             event_tx,
-            event_q: VecDeque::with_capacity(4),
+            event_q: VecDeque::with_capacity(3),
             portfolio,
             data,
             strategy,
