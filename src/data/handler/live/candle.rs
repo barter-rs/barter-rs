@@ -5,26 +5,24 @@ use barter_data::model::{Candle, MarketData};
 use barter_data::ExchangeClient;
 use chrono::Utc;
 use serde::Deserialize;
-use std::sync::mpsc::{channel, Receiver};
-use tokio_stream::StreamExt;
-use tracing::debug;
+use tokio::sync::mpsc::UnboundedReceiver;
 use uuid::Uuid;
 
-/// Configuration for constructing a [LiveCandleHandler] via the new() constructor method.
+/// Configuration for constructing a [`LiveCandleHandler`] via the new() constructor method.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub symbol: String,
     pub interval: String,
 }
 
-/// [MarketEvent] data handler that consumes a live UnboundedReceiverStream of [Candle]s. Implements
-/// [Continuer] & [MarketGenerator].
+/// [`MarketEvent`] data handler that consumes a live UnboundedReceiverStream of [`Candle`]s.
+/// Implements [`Continuer`] & [`MarketGenerator`].
 #[derive(Debug)]
 pub struct LiveCandleHandler {
     pub exchange: &'static str,
     pub symbol: String,
     pub interval: String,
-    candle_rx: Receiver<Candle>,
+    candle_rx: UnboundedReceiver<Candle>,
     can_continue: Continuation,
 }
 
@@ -37,9 +35,9 @@ impl Continuer for LiveCandleHandler {
 impl MarketGenerator for LiveCandleHandler {
     fn generate_market(&mut self) -> Option<MarketEvent> {
         // Consume next Candle
-        let candle = match self.candle_rx.recv() {
-            Ok(candle) => candle,
-            Err(_) => {
+        let candle = match self.candle_rx.blocking_recv() {
+            Some(candle) => candle,
+            None => {
                 self.can_continue = Continuation::Stop;
                 return None;
             }
@@ -57,29 +55,15 @@ impl MarketGenerator for LiveCandleHandler {
 }
 
 impl LiveCandleHandler {
-    /// Constructs a new [LiveCandleHandler] component using the provided [Config]. The injected
-    /// [ExchangeClient] is used to subscribe to a [Candle] stream. An asynchronous task is spawned
-    /// to consume [Candle]s and route them to the [LiveCandleHandler]'s sync::mpsc::Receiver.
+    /// Constructs a new [`LiveCandleHandler`] component using the provided [`Config`]. The injected
+    /// [`ExchangeClient`] is used to subscribe to a [`Candle`] stream. An asynchronous task is spawned
+    /// to consume [`Candle`]s and route them to the [`LiveCandleHandler`]'s sync::mpsc::Receiver.
     pub async fn init<Client: ExchangeClient>(cfg: Config, mut exchange_client: Client) -> Self {
         // Subscribe to Candle stream via exchange Client
-        let mut candle_stream = exchange_client
+        let candle_rx = exchange_client
             .consume_candles(cfg.symbol.clone(), &cfg.interval)
             .await
             .expect("Failed to consume_candles via exchange Client instance");
-
-        // Spawn Tokio task to async consume_candles from Client and transmit to a sync candle_rx
-        let (candle_tx, candle_rx) = channel();
-        tokio::spawn(async move {
-            loop {
-                // Send any received Candles from Client to the LiveCandleHandler candle_rx
-                if let Some(candle) = candle_stream.next().await {
-                    if candle_tx.send(candle).is_err() {
-                        debug!("LiveCandleHandler receiver for Candles has been dropped - closing channel");
-                        return;
-                    }
-                }
-            }
-        });
 
         Self {
             exchange: Client::EXCHANGE_NAME,
@@ -90,19 +74,19 @@ impl LiveCandleHandler {
         }
     }
 
-    /// Returns a [LiveCandleHandlerBuilder] instance.
+    /// Returns a [`LiveCandleHandlerBuilder`] instance.
     pub fn builder() -> LiveCandleHandlerBuilder {
         LiveCandleHandlerBuilder::new()
     }
 }
 
-/// Builder to construct [LiveCandleHandler] instances.
+/// Builder to construct [`LiveCandleHandler`] instances.
 #[derive(Debug, Default)]
 pub struct LiveCandleHandlerBuilder {
     pub exchange: Option<&'static str>,
     pub symbol: Option<String>,
     pub interval: Option<String>,
-    pub candle_rx: Option<Receiver<Candle>>,
+    pub candle_rx: Option<UnboundedReceiver<Candle>>,
 }
 
 impl LiveCandleHandlerBuilder {
@@ -131,7 +115,7 @@ impl LiveCandleHandlerBuilder {
         }
     }
 
-    pub fn candle_rx(self, value: Receiver<Candle>) -> Self {
+    pub fn candle_rx(self, value: UnboundedReceiver<Candle>) -> Self {
         Self {
             candle_rx: Some(value),
             ..self

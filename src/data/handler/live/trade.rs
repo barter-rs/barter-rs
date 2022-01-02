@@ -5,9 +5,7 @@ use barter_data::model::{MarketData, Trade};
 use barter_data::ExchangeClient;
 use chrono::Utc;
 use serde::Deserialize;
-use std::sync::mpsc::{channel, Receiver};
-use tokio_stream::StreamExt;
-use tracing::debug;
+use tokio::sync::mpsc::UnboundedReceiver;
 use uuid::Uuid;
 
 /// Configuration for constructing a [LiveTradeHandler] via the new() constructor method.
@@ -22,7 +20,7 @@ pub struct Config {
 pub struct LiveTradeHandler {
     pub exchange: &'static str,
     pub symbol: String,
-    trade_rx: Receiver<Trade>,
+    trade_rx: UnboundedReceiver<Trade>,
     can_continue: Continuation,
 }
 
@@ -35,9 +33,9 @@ impl Continuer for LiveTradeHandler {
 impl MarketGenerator for LiveTradeHandler {
     fn generate_market(&mut self) -> Option<MarketEvent> {
         // Consume next Trade
-        let trade = match self.trade_rx.recv() {
-            Ok(trade) => trade,
-            Err(_) => {
+        let trade = match self.trade_rx.blocking_recv() {
+            Some(trade) => trade,
+            None => {
                 self.can_continue = Continuation::Stop;
                 return None;
             }
@@ -60,24 +58,10 @@ impl LiveTradeHandler {
     /// to consume [Trade]s and route them to the [LiveTradeHandler]'s sync::mpsc::Receiver.
     pub async fn init<Client: ExchangeClient>(cfg: Config, mut exchange_client: Client) -> Self {
         // Subscribe to Trade stream via exchange Client
-        let mut trade_stream = exchange_client
+        let trade_rx = exchange_client
             .consume_trades(cfg.symbol.clone())
             .await
-            .expect("Failed to consume_trades via exchange Client instance");
-
-        // Spawn Tokio task to async consume_trades from Client and transmit to a sync trade_rx
-        let (trade_tx, trade_rx) = channel();
-        tokio::spawn(async move {
-            loop {
-                // Send any received Trades from Client to the LiveTradeHandler trade_rx
-                if let Some(trade) = trade_stream.next().await {
-                    if trade_tx.send(trade).is_err() {
-                        debug!("LiveTradeHandler receiver for Trades has been dropped - closing channel");
-                        return;
-                    }
-                }
-            }
-        });
+            .expect("failed to consume_trades via ExchangeClient instance");
 
         Self {
             exchange: Client::EXCHANGE_NAME,
@@ -98,7 +82,7 @@ impl LiveTradeHandler {
 pub struct LiveTradeHandlerBuilder {
     pub exchange: Option<&'static str>,
     pub symbol: Option<String>,
-    pub trade_rx: Option<Receiver<Trade>>,
+    pub trade_rx: Option<UnboundedReceiver<Trade>>,
 }
 
 impl LiveTradeHandlerBuilder {
@@ -120,7 +104,7 @@ impl LiveTradeHandlerBuilder {
         }
     }
 
-    pub fn trade_rx(self, value: Receiver<Trade>) -> Self {
+    pub fn trade_rx(self, value: UnboundedReceiver<Trade>) -> Self {
         Self {
             trade_rx: Some(value),
             ..self
