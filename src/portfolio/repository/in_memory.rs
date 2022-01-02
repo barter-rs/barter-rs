@@ -1,4 +1,4 @@
-use crate::portfolio::position::{determine_position_id, Position};
+use crate::portfolio::position::{determine_position_id, Position, PositionId};
 use crate::portfolio::repository::error::RepositoryError;
 use crate::portfolio::repository::{determine_cash_id, CashHandler, PositionHandler, TotalEquity, EquityId, CashId, AvailableCash, determine_exited_positions_id, EquityHandler, determine_equity_id, StatisticHandler};
 use crate::statistic::summary::PositionSummariser;
@@ -12,7 +12,7 @@ use crate::{Market, MarketId};
 /// **Do not use in production - no fault tolerant guarantees!**
 #[derive(Debug)]
 pub struct InMemoryRepository<Statistic: PositionSummariser> {
-    open_positions: HashMap<String, Position>,
+    open_positions: HashMap<PositionId, Position>,
     closed_positions: HashMap<String, Vec<Position>>,
     current_equities: HashMap<EquityId, TotalEquity>,
     current_cashes: HashMap<CashId, AvailableCash>,
@@ -25,7 +25,7 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
         Ok(())
     }
 
-    fn get_open_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError> {
+    fn get_open_position(&mut self, position_id: &PositionId) -> Result<Option<Position>, RepositoryError> {
         Ok(self
             .open_positions
             .get(position_id)
