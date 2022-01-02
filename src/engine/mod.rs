@@ -18,7 +18,7 @@ use std::fmt::Debug;
 use std::sync::{Mutex, Arc};
 use std::thread;
 use tokio::sync::{mpsc, oneshot};
-use tracing::{info, warn, error};
+use tracing::{info, warn};
 use uuid::Uuid;
 
 // Todo:
@@ -141,7 +141,7 @@ where
     /// period's statistics are generated & printed with the provided Statistic component.
     pub async fn run(mut self) {
         // Run Traders on threads & send notification when they have stopped organically
-        let mut notify_traders_stopped = self.run_traders_new().await;
+        let mut notify_traders_stopped = self.run_traders().await;
 
         loop {
             // Action received commands from remote, or wait for all Traders to stop organically
@@ -198,7 +198,7 @@ where
     }
 
     /// Todo: Also deal w/ unwraps
-    async fn run_traders_new(&mut self) -> mpsc::Receiver<bool> {
+    async fn run_traders(&mut self) -> mpsc::Receiver<bool> {
         // Extract Traders out of the Engine so we can move them into threads
         let traders = std::mem::replace(
             &mut self.traders, Vec::with_capacity(0)
