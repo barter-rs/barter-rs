@@ -202,12 +202,13 @@ where
                 total_equity += position.realised_profit_loss;
 
                 // Update statistics for exited Position market & add Metrics event to Vec<Event>
-                let mut stats = self.repository.get_statistics(&position.position_id)?;
+                let market_id = determine_market_id(fill.exchange, &fill.symbol);
+                let mut stats = self.repository.get_statistics(&market_id)?;
                 stats.update(&position);
                 created_events.push(Event::Metrics);
 
                 // Persist exited Position & Updated Market statistics in Repository
-                self.repository.set_statistics(&determine_market_id(fill.exchange, &fill.symbol), stats)?;
+                self.repository.set_statistics(&market_id, stats)?;
                 self.repository.set_exited_position(&self.engine_id, position)?;
             }
 
