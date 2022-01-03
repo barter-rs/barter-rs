@@ -141,9 +141,6 @@ where
                             SignalForceExit::new(market)
                         ));
                     }
-                    Command::SendSummary(summary_tx) => {
-                        // self.send_summary(summary_tx);
-                    }
                     _ => continue,
                 }
             }
