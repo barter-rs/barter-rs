@@ -41,6 +41,7 @@ use crate::statistic::summary::trading::TradingSummary;
 //  - Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
 //     '--> also can use references to markets to avoid cloning?
 //  - If happy with it, impl Initialiser for all stats across the Statistics module.
+//  - Where do I want to log things like Command::ExitPosition being actioned? In Engine or when we push SignalForceExit on to Q?
 
 /// Communicates a String is a message associated with a [`Command`].
 pub type Message = String;
@@ -152,21 +153,22 @@ where
                     if let Some(command) = command {
                         match command {
                             Command::SendOpenPositions(positions_tx) => {
-                                self.send_open_positions(positions_tx);
+                                self.send_open_positions(positions_tx).await;
                             },
-                            Command::SendSummary(summary_tx) => {
-                                self.send_summary(summary_tx);
-                            },
+                            // Command::SendSummary(summary_tx) => {
+                            //     self.send_summary(summary_tx).await;
+                            // }
                             Command::Terminate(message) => {
                                 self.terminate_traders(message).await;
                                 break;
                             },
                             Command::ExitPosition(market) => {
-                                self.exit_position(market);
+                                self.exit_position(market).await;
                             },
                             Command::ExitAllPositions => {
-                                self.exit_all_positions();
+                                self.exit_all_positions().await;
                             },
+                            _ => {}
                         }
                     } else {
                         // Terminate traders due to dropped receiver
@@ -270,19 +272,27 @@ where
                     why = "dropped receiver",
                     "failed to send Command::Terminate to Trader command_rx"
                 );
-            } else {
-                warn!(
-                    market = &*format!("{:?}", market_ref),
-                    why = "Engine has no trader_command_tx associated with provided Market",
-                    "failed to exit Position"
-                );
             }
+        } else {
+            warn!(
+                market = &*format!("{:?}", market),
+                why = "Engine has no trader_command_tx associated with provided Market",
+                "failed to exit Position"
+            );
         }
     }
 
     /// Todo:
-    fn exit_all_positions(&self) {
-        todo!()
+    async fn exit_all_positions(&self) {
+        for (market, command_tx) in self.trader_command_txs.iter() {
+            if command_tx.send(Command::ExitPosition(market.clone())).await.is_err() {
+                error!(
+                    market = &*format!("{:?}", market),
+                    why = "dropped receiver",
+                    "failed to send Command::Terminate to Trader command_rx"
+                );
+            }
+        }
     }
 }
 
