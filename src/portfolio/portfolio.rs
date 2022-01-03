@@ -400,6 +400,11 @@ where
         portfolio.repository.set_available_cash(&portfolio.engine_id, starting_cash)?;
         portfolio.repository.set_total_equity(&portfolio.engine_id, starting_cash)?;
 
+        // Todo: Need to init the stats for every single Market we are Trading?
+        // Write unit tests pls
+        // Perhaps at start of Trader loop? Or return Option<Stats> so Portfolio can set if it's not present
+        // portfolio.repository.set_statistics()
+
         Ok(portfolio)
     }
 }
