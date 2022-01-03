@@ -42,17 +42,18 @@ use crate::statistic::summary::trading::TradingSummary;
 //     '--> also can use references to markets to avoid cloning?
 //  - If happy with it, impl Initialiser for all stats across the Statistics module.
 //  - Where do I want to log things like Command::ExitPosition being actioned? In Engine or when we push SignalForceExit on to Q?
+//  - Do I want to spans instead of multiple info logging? eg/ fetch_open_requests logs twice
 
 /// Communicates a String is a message associated with a [`Command`].
 pub type Message = String;
 
 #[derive(Debug)]
 pub enum Command {
-    SendOpenPositions(oneshot::Sender<Result<Vec<Position>, EngineError>>), // Engine
-    SendSummary(oneshot::Sender<Result<TradingSummary, EngineError>>),      // Engine
-    Terminate(Message),                                                     // All Traders
-    ExitAllPositions,                                                       // All Traders
-    ExitPosition(Market),                                                   // Single Trader
+    FetchOpenPositions(oneshot::Sender<Result<Vec<Position>, EngineError>>), // Engine
+    // SendSummary(oneshot::Sender<Result<TradingSummary, EngineError>>),    // Engine
+    Terminate(Message),                                                      // All Traders
+    ExitAllPositions,                                                        // All Traders
+    ExitPosition(Market),                                                    // Single Trader
 }
 
 /// Lego components for constructing an [`Engine`] via the new() constructor method.
@@ -152,8 +153,8 @@ where
                 command = self.command_rx.recv() => {
                     if let Some(command) = command {
                         match command {
-                            Command::SendOpenPositions(positions_tx) => {
-                                self.send_open_positions(positions_tx).await;
+                            Command::FetchOpenPositions(positions_tx) => {
+                                self.fetch_open_positions(positions_tx).await;
                             },
                             // Command::SendSummary(summary_tx) => {
                             //     self.send_summary(summary_tx).await;
@@ -168,7 +169,6 @@ where
                             Command::ExitAllPositions => {
                                 self.exit_all_positions().await;
                             },
-                            _ => {}
                         }
                     } else {
                         // Terminate traders due to dropped receiver
@@ -234,7 +234,7 @@ where
     }
 
     /// Todo:
-    async fn send_open_positions(&self, positions_tx: oneshot::Sender<Result<Vec<Position>, EngineError>>) {
+    async fn fetch_open_positions(&self, positions_tx: oneshot::Sender<Result<Vec<Position>, EngineError>>) {
         let open_positions = self
             .portfolio
             .lock().unwrap()
