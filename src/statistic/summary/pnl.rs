@@ -4,10 +4,12 @@ use crate::statistic::summary::{PositionSummariser, TablePrinter};
 use chrono::{DateTime, Duration, Utc};
 use prettytable::{Row, Table};
 use serde::{Deserialize, Serialize};
+use crate::statistic::se_duration;
 
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
 pub struct PnLReturnSummary {
     pub start_timestamp: DateTime<Utc>,
+    #[serde(serialize_with = "se_duration")]
     pub duration: Duration,
     pub trades_per_day: f64,
     pub total: DataSummary,
