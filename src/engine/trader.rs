@@ -16,7 +16,6 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
 use tracing::{debug, warn, info};
 use uuid::Uuid;
-use crate::statistic::summary::{Initialiser, PositionSummariser};
 
 /// Communicates a String represents a unique [`Trader`] identifier.
 pub type TraderId = String;
@@ -31,7 +30,7 @@ pub fn determine_trader_id(engine_id: Uuid, exchange: &String, symbol: &String) 
 pub struct TraderLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>,
-    Statistic: Initialiser + PositionSummariser + Serialize,
+    Statistic: Serialize,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic>,
     Data: Continuer + MarketGenerator,
     Strategy: SignalGenerator,
@@ -66,7 +65,7 @@ where
 pub struct Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>,
-    Statistic: Initialiser + PositionSummariser + Serialize + Send,
+    Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic>,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
@@ -99,7 +98,7 @@ where
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution> Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>,
-    Statistic: Initialiser + PositionSummariser + Serialize + Send,
+    Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic>,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
@@ -280,7 +279,7 @@ where
 pub struct TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>,
-Statistic: Initialiser + PositionSummariser + Serialize + Send,
+    Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic>,
     Data: Continuer + MarketGenerator,
     Strategy: SignalGenerator,
@@ -300,7 +299,7 @@ Statistic: Initialiser + PositionSummariser + Serialize + Send,
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution> TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>,
-    Statistic: Initialiser + PositionSummariser + Serialize + Send,
+    Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic>,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
@@ -391,7 +390,7 @@ where
             market,
             command_rx,
             event_tx,
-            event_q: VecDeque::with_capacity(3),
+            event_q: VecDeque::with_capacity(2),
             portfolio,
             data,
             strategy,

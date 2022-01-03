@@ -19,17 +19,14 @@ use serde::Serialize;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{info, warn, error};
 use uuid::Uuid;
-use crate::statistic::summary::{Initialiser, PositionSummariser};
 use crate::statistic::summary::trading::TradingSummary;
 
 // Todo:
 //  - Impl consistent structured logging in Engine & Trader
 //  - Ensure i'm happy with where event Event & Command live (eg/ Balance is in event.rs)
 //  - Add Deserialize to Event.
-//  - Search for wrong indented Wheres
 //  - Do I want to roll out Market instead of Exchange & Symbol in all Events? (can't for Position due to serde)
 //  - Search for todo!() since I found one in /statistic/summary/pnl.rs
-//  - Change trader event_q capacity! What does it need to be?
 //  - Fix unwraps() - search code eg/ engine::send_open_positions
 //  - Ensure I havn't lost any improvements I had on the other branches!
 //  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
@@ -65,7 +62,7 @@ pub enum Command {
 pub struct EngineLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>  + Send,
-    Statistic: Initialiser + PositionSummariser + Serialize + Send,
+    Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
@@ -93,7 +90,7 @@ where
 pub struct Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>,
-    Statistic: Initialiser + PositionSummariser + Serialize + Send,
+    Statistic: Serialize + Send,
     Portfolio: PositionHandler + MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send,
     Data: Continuer + MarketGenerator + Send + 'static,
     Strategy: SignalGenerator + Send,
@@ -116,7 +113,7 @@ where
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution> Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>  + Send + 'static,
-    Statistic: Initialiser + PositionSummariser + Serialize + Send + 'static,
+    Statistic: Serialize + Send + 'static,
     Portfolio: PositionHandler + MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send + 'static,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send + 'static,
@@ -283,7 +280,7 @@ where
 pub struct EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>,
-    Statistic: Initialiser + PositionSummariser + Serialize + Send,
+    Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
@@ -299,7 +296,7 @@ where
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution> EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>,
-    Statistic: Initialiser + PositionSummariser + Serialize + Send,
+    Statistic: Serialize + Send,
     Portfolio: PositionHandler + MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,

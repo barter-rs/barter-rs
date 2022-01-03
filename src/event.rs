@@ -31,14 +31,14 @@ pub enum Event<Statistic: Serialize> {
     Metrics(MetricsUpdate<Statistic>),
 }
 
-// /// Message transmitter for sending Barter messages to downstream consumers.
-// pub trait MessageTransmitter<Message> {
-//     /// Attempts to send a message to an external message subscriber.
-//     fn send(&mut self, message: Message);
-//
-//     /// Attempts to send many messages to an external message subscriber.
-//     fn send_many(&mut self, messages: Vec<Message>);
-// }
+/// Message transmitter for sending Barter messages to downstream consumers.
+pub trait MessageTransmitter<Message> {
+    /// Attempts to send a message to an external message subscriber.
+    fn send(&mut self, message: Message);
+
+    /// Attempts to send many messages to an external message subscriber.
+    fn send_many(&mut self, messages: Vec<Message>);
+}
 
 /// Transmitter for sending Barter [`Event`]s to an external sink. Useful for event-sourcing,
 /// real-time dashboards & general monitoring.
@@ -51,15 +51,7 @@ pub struct EventTx<Statistic: Serialize> {
     _statistic_marker: PhantomData<Statistic>,
 }
 
-impl<Statistic: Serialize> EventTx<Statistic>
-where
-    Statistic: Serialize
-{
-    /// Constructs a new [`EventTx`] instance using the provided channel transmitter.
-    pub fn new(event_tx: mpsc::UnboundedSender<Event<Statistic>>) -> Self {
-        Self { receiver_dropped: false, event_tx, _statistic_marker: PhantomData::default() }
-    }
-
+impl<Statistic: Serialize> MessageTransmitter<Event<Statistic>> for EventTx<Statistic> {
     fn send(&mut self, message: Event<Statistic>) {
         if self.receiver_dropped {
             return
@@ -86,45 +78,12 @@ where
     }
 }
 
-// impl<Statistic> MessageTransmitter<Event<Statistic>> for EventTx<Statistic>
-// where
-//     Statistic: Serialize
-// {
-//     fn send(&mut self, message: Event<Statistic>) {
-//         if self.receiver_dropped {
-//             return
-//         }
-//
-//         if self.event_tx.send(message).is_err() {
-//             warn!(
-//                 action = "setting receiver_dropped = true",
-//                 why = "event receiver dropped",
-//                 "cannot send Events"
-//             );
-//             self.receiver_dropped = true;
-//         }
-//     }
-//
-//     fn send_many(&mut self, messages: Vec<Event<Statistic>>) {
-//         if self.receiver_dropped {
-//             return
-//         }
-//
-//         messages
-//             .into_iter()
-//             .for_each(|message| { let _ = self.event_tx.send(message); })
-//     }
-// }
-//
-// impl<Statistic> EventTx<Statistic>
-// where
-//     Statistic: Serialize,
-// {
-//     /// Constructs a new [`EventTx`] instance using the provided channel transmitter.
-//     pub fn new(event_tx: mpsc::UnboundedSender<Event<Statistic>>) -> Self {
-//         Self { receiver_dropped: false, event_tx, _statistic_marker: PhantomData::default() }
-//     }
-// }
+impl<Statistic: Serialize> EventTx<Statistic> {
+    /// Constructs a new [`EventTx`] instance using the provided channel transmitter.
+    pub fn new(event_tx: mpsc::UnboundedSender<Event<Statistic>>) -> Self {
+        Self { receiver_dropped: false, event_tx, _statistic_marker: PhantomData::default() }
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
 pub struct Balance {
