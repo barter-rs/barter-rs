@@ -220,6 +220,8 @@ pub mod engine;
 #[macro_use]
 extern crate prettytable;
 
+use serde::Serialize;
+
 /// Communicates a str is a unique identifier for an Exchange (eg/ "binance")
 pub type ExchangeId = &'static str;
 
@@ -231,7 +233,7 @@ pub type MarketId = String;
 
 /// Represents a unique combination of an [`ExchangeId`] & a [`SymbolId`]. Each [`Trader`] barters
 /// on one [`Market`].
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize)]
 pub struct Market {
     pub exchange: ExchangeId,
     pub symbol: SymbolId,
