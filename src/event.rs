@@ -48,7 +48,7 @@ pub struct EventTx<E: Into<Event>> {
     event_tx: mpsc::UnboundedSender<E>,
 }
 
-impl<E: Into<Event> + Debug> MessageTransmitter<E> for EventTx<E> {
+impl<E: Into<Event>> MessageTransmitter<E> for EventTx<E> {
     fn send(&mut self, message: E) {
         if self.receiver_dropped {
             return

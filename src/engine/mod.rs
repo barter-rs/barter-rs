@@ -37,7 +37,13 @@ use crate::statistic::summary::trading::TradingSummary;
 //  - General cleanup of String references -> I'm returning String and then taking &String a lot
 //    eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
 //  - Workout how to send generic statistics, or specify the type on the request?
-
+//  - Do I want ad-hoc way to send a SummarySnapshot on top of Event::Metric being emitted all the time?
+//     '--> Traders could cache the last metrics for ease (seems dirty?).
+//  - Write unit tests for Portfolio's new functionality - metrics, etc, etc
+//  - Extract Portfolio::init util functions to remove code ups? perhaps (fn bootstrap_repository() or similar)
+//  - Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
+//     '--> also can use references to markets to avoid cloning?
+//  - If happy with it, impl Initialiser for all stats across the Statistics module.
 
 
 /// Communicates a String is a message associated with a [`Command`].
@@ -84,7 +90,7 @@ where
 pub struct Engine<EventTx, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event>,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
+    Portfolio: PositionHandler + MarketUpdater + OrderGenerator + FillUpdater + Send,
     Data: Continuer + MarketGenerator + Send + 'static,
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,
@@ -179,6 +185,13 @@ where
         //         err.into_inner()
         //     }
         // };
+        //
+        // self.trader_command_txs
+        //     .into_keys()
+        //     .map(|market| {
+        //         let market_stats = portfolio.get_statistics();
+        //         market_stats.print();
+        //     });
         //
         // // Generate TradingSummary
         // match portfolio.get_exited_positions(&Uuid::new_v4()).unwrap() {
@@ -280,7 +293,7 @@ where
 impl<EventTx, Portfolio, Data, Strategy, Execution> EngineBuilder<EventTx, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event>,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
+    Portfolio: PositionHandler + MarketUpdater + OrderGenerator + FillUpdater + Send,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,
