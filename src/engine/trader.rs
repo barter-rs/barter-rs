@@ -27,11 +27,11 @@ pub fn determine_trader_id(engine_id: Uuid, exchange: &String, symbol: &String) 
 #[derive(Debug)]
 pub struct TraderLego<EventTx, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event> + Debug,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug,
-    Data: Continuer + MarketGenerator + Debug,
-    Strategy: SignalGenerator + Debug,
-    Execution: FillGenerator + Debug,
+    EventTx: MessageTransmitter<Event>,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    Data: Continuer + MarketGenerator,
+    Strategy: SignalGenerator,
+    Execution: FillGenerator,
 {
     /// Couples this [`Trader`] instance to it's [`Engine`].
     pub engine_id: Uuid,
@@ -60,7 +60,7 @@ where
 #[derive(Debug)]
 pub struct Trader<EventTx, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event> + Debug,
+    EventTx: MessageTransmitter<Event>,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
@@ -91,11 +91,11 @@ where
 
 impl<EventTx, Portfolio, Data, Strategy, Execution> Trader<EventTx, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event> + Debug,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug,
-    Data: Continuer + MarketGenerator + Debug + Send,
-    Strategy: SignalGenerator + Debug + Send,
-    Execution: FillGenerator + Debug + Send,
+    EventTx: MessageTransmitter<Event>,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    Data: Continuer + MarketGenerator + Send,
+    Strategy: SignalGenerator + Send,
+    Execution: FillGenerator + Send,
 {
     /// Constructs a new [`Trader`] instance using the provided [`TraderLego`].
     pub fn new(lego: TraderLego<EventTx, Portfolio, Data, Strategy, Execution>) -> Self {
@@ -141,6 +141,9 @@ where
                             SignalForceExit::new(market)
                         ));
                     }
+                    Command::SendSummary(summary_tx) => {
+                        // self.send_summary(summary_tx);
+                    }
                     _ => continue,
                 }
             }
@@ -169,9 +172,9 @@ where
 
                         if let Some(position_update) = self.portfolio
                             .lock()
-                            .expect("Failed to unlock Mutex<Portfolio> - poisoned")
+                            .expect("failed to unlock Mutex<Portfolio> - poisoned")
                             .update_from_market(&market)
-                            .expect("Failed to update portfolio from market") {
+                            .expect("failed to update Portfolio from market") {
                             self.event_tx.send(Event::PositionUpdate(position_update));
                         }
                     }
@@ -180,9 +183,9 @@ where
                         if let Some(order) = self
                             .portfolio
                             .lock()
-                            .expect("Failed to unlock Mutex<Portfolio> - poisoned")
+                            .expect("failed to unlock Mutex<Portfolio> - poisoned")
                             .generate_order(&signal)
-                            .expect("Failed to generate order")
+                            .expect("failed to generate order")
                         {
                             self.event_tx.send(Event::OrderNew(order.clone()));
                             self.event_q.push_back(Event::OrderNew(order));
@@ -193,9 +196,9 @@ where
                         if let Some(order) = self
                             .portfolio
                             .lock()
-                            .expect("Failed to unlock Mutex<Portfolio> - poisoned")
+                            .expect("failed to unlock Mutex<Portfolio> - poisoned")
                             .generate_exit_order(signal_force_exit)
-                            .expect("Failed to generate forced exit order")
+                            .expect("failed to generate forced exit order")
                         {
                             self.event_tx.send(Event::OrderNew(order.clone()));
                             self.event_q.push_back(Event::OrderNew(order));
@@ -206,7 +209,7 @@ where
                         let fill = self
                             .execution
                             .generate_fill(&order)
-                            .expect("Failed to generate Fill");
+                            .expect("failed to generate Fill");
 
                         self.event_tx.send(Event::Fill(fill.clone()));
                         self.event_q.push_back(Event::Fill(fill));
@@ -215,9 +218,9 @@ where
                     Event::Fill(fill) => {
                         let fill_side_effect_events = self.portfolio
                             .lock()
-                            .expect("Failed to unlock Mutex<Portfolio> - poisoned")
+                            .expect("failed to unlock Mutex<Portfolio> - poisoned")
                             .update_from_fill(&fill)
-                            .expect("Failed to update portfolio from fill");
+                            .expect("failed to update Portfolio from fill");
 
                         self.event_tx.send_many(fill_side_effect_events);
                     }
@@ -246,6 +249,24 @@ where
             },
         }
     }
+
+    // /// Todo:
+    // fn send_summary(&self, summary_tx: oneshot::Sender<Result<String, EngineError>>) {
+    //     let summary = self.portfolio
+    //         .lock()
+    //         .expect("failed to unlock Mutex<Portfolio> - poisoned")
+    //         .get_statistics(&self.market.market_id())
+    //         .map_err(|err| EngineError::from(err));
+    //
+    //     if summary_tx.send(summary).is_err() {
+    //         warn!(
+    //             engine_id = &*format!("{:?}", &self.engine_id),
+    //             market = &*self.market.market_id(),
+    //             why = "oneshot receiver dropped",
+    //             "cannot action Command::SendSummary"
+    //         );
+    //     }
+    // }
 }
 
 /// Builder to construct [`Trader`] instances.
@@ -270,7 +291,7 @@ where
 
 impl<EventTx, Portfolio, Data, Strategy, Execution> TraderBuilder<EventTx, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event> + Debug,
+    EventTx: MessageTransmitter<Event>,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,

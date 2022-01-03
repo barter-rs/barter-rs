@@ -11,8 +11,6 @@ use crate::portfolio::repository::PositionHandler;
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
 use crate::portfolio::position::Position;
 use crate::execution::FillGenerator;
-use crate::statistic::summary::trading::TradingSummary;
-use crate::statistic::summary::{PositionSummariser, TablePrinter};
 use crate::event::{Event, MessageTransmitter};
 use std::fmt::Debug;
 use std::sync::{Mutex, Arc};
@@ -20,6 +18,7 @@ use std::thread;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{info, warn, error};
 use uuid::Uuid;
+use crate::statistic::summary::trading::TradingSummary;
 
 // Todo:
 //  - Impl consistent structured logging in Engine & Trader
@@ -35,6 +34,9 @@ use uuid::Uuid;
 //  - Make as much stuff Copy as can be - start in Statistics!
 //  - Add comments where we see '/// Todo:' or similar
 //  - Print summary for each Market, rather than as a total
+//  - General cleanup of String references -> I'm returning String and then taking &String a lot
+//    eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
+//  - Workout how to send generic statistics, or specify the type on the request?
 
 
 
@@ -52,10 +54,9 @@ pub enum Command {
 
 /// Lego components for constructing an [`Engine`] via the new() constructor method.
 #[derive(Debug)]
-pub struct EngineLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+pub struct EngineLego<EventTx, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event> + Debug  + Send,
-    Statistic: PositionSummariser + TablePrinter,
+    EventTx: MessageTransmitter<Event>  + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
@@ -66,8 +67,6 @@ where
     pub engine_id: Uuid,
     /// mpsc::Receiver for receiving [`Command`]s from a remote source.
     pub command_rx: mpsc::Receiver<Command>,
-    /// Statistics component that can generate a trading summary based on closed positions.
-    pub statistics: Statistic,
     /// Shared-access to a global Portfolio instance.
     pub portfolio: Arc<Mutex<Portfolio>>,
     /// Collection of [`Trader`] instances that can concurrently trade a market pair on it's own thread.
@@ -82,22 +81,19 @@ where
 /// shutdown is made possible by sending a [`Message`] to the Engine's broadcast::Receiver
 /// termination_rx.
 #[derive(Debug)]
-pub struct Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+pub struct Engine<EventTx, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event> + Debug,
-    Statistic: PositionSummariser + TablePrinter,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug + Send,
-    Data: Continuer + MarketGenerator + Debug + Send + 'static,
-    Strategy: SignalGenerator + Debug + Send,
-    Execution: FillGenerator + Debug + Send,
+    EventTx: MessageTransmitter<Event>,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
+    Data: Continuer + MarketGenerator + Send + 'static,
+    Strategy: SignalGenerator + Send,
+    Execution: FillGenerator + Send,
 {
     /// Unique identifier for an [`Engine`] in Uuid v4 format. Used as a unique identifier seed for
     /// the Portfolio, Trader & Positions associated with this [`Engine`].
     engine_id: Uuid,
     /// mpsc::Receiver for receiving [`Command`]s from a remote source.
     command_rx: mpsc::Receiver<Command>,
-    /// Statistics component that can generate a trading summary based on closed positions.
-    statistics: Statistic,
     /// Shared-access to a global Portfolio instance that implements [`MarketUpdater`],
     /// [`OrderGenerator`] & [`FillUpdater`].
     portfolio: Arc<Mutex<Portfolio>>,
@@ -107,23 +103,20 @@ where
     trader_command_txs: HashMap<Market, mpsc::Sender<Command>>,
 }
 
-impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
-Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+impl<EventTx, Portfolio, Data, Strategy, Execution> Engine<EventTx, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event> + Debug  + Send + 'static,
-    Statistic: PositionSummariser + TablePrinter,
-    Portfolio: PositionHandler + MarketUpdater + OrderGenerator + FillUpdater + Debug + Send + 'static,
-    Data: Continuer + MarketGenerator + Debug + Send,
-    Strategy: SignalGenerator + Debug + Send + 'static,
-    Execution: FillGenerator + Debug + Send + 'static,
+    EventTx: MessageTransmitter<Event>  + Send + 'static,
+    Portfolio: PositionHandler + MarketUpdater + OrderGenerator + FillUpdater + Send + 'static,
+    Data: Continuer + MarketGenerator + Send,
+    Strategy: SignalGenerator + Send + 'static,
+    Execution: FillGenerator + Send + 'static,
 {
     /// Constructs a new trading [`Engine`] instance using the provided [`EngineLego`].
-    pub fn new(lego: EngineLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>) -> Self {
+    pub fn new(lego: EngineLego<EventTx, Portfolio, Data, Strategy, Execution>) -> Self {
         info!(engine_id = &*format!("{}", lego.engine_id), "constructed new Engine instance");
         Self {
             engine_id: lego.engine_id,
             command_rx: lego.command_rx,
-            statistics: lego.statistics,
             portfolio: lego.portfolio,
             traders: lego.traders,
             trader_command_txs: lego.trader_command_txs
@@ -131,7 +124,7 @@ where
     }
 
     /// Builder to construct [`Engine`] instances.
-    pub fn builder() -> EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution> {
+    pub fn builder() -> EngineBuilder<EventTx, Portfolio, Data, Strategy, Execution> {
         EngineBuilder::new()
     }
 
@@ -153,11 +146,11 @@ where
                 command = self.command_rx.recv() => {
                     if let Some(command) = command {
                         match command {
-                            Command::SendOpenPositions(positions_rx) => {
-                                self.send_open_positions(positions_rx);
+                            Command::SendOpenPositions(positions_tx) => {
+                                self.send_open_positions(positions_tx);
                             },
-                            Command::SendSummary(summary_rx) => {
-                                self.send_summary(summary_rx);
+                            Command::SendSummary(summary_tx) => {
+                                self.send_summary(summary_tx);
                             },
                             Command::Terminate(message) => {
                                 self.terminate_traders(message).await;
@@ -178,23 +171,23 @@ where
             }
         };
 
-        // Unlock Portfolio Mutex to access backtest information
-        let mut portfolio = match self.portfolio.lock() {
-            Ok(portfolio) => portfolio,
-            Err(err) => {
-                warn!("Mutex poisoned with error: {}", err);
-                err.into_inner()
-            }
-        };
-
-        // Generate TradingSummary
-        match portfolio.get_exited_positions(&Uuid::new_v4()).unwrap() {
-            None => info!("Backtest yielded no closed Positions - no TradingSummary available"),
-            Some(closed_positions) => {
-                self.statistics.generate_summary(&closed_positions);
-                self.statistics.print();
-            }
-        }
+        // // Unlock Portfolio Mutex to access backtest information
+        // let mut portfolio = match self.portfolio.lock() {
+        //     Ok(portfolio) => portfolio,
+        //     Err(err) => {
+        //         warn!("Mutex poisoned with error: {}", err);
+        //         err.into_inner()
+        //     }
+        // };
+        //
+        // // Generate TradingSummary
+        // match portfolio.get_exited_positions(&Uuid::new_v4()).unwrap() {
+        //     None => info!("Backtest yielded no closed Positions - no TradingSummary available"),
+        //     Some(closed_positions) => {
+        //         self.statistics.generate_summary(&closed_positions);
+        //         self.statistics.print();
+        //     }
+        // }
     }
 
     /// Todo: Also deal w/ unwraps
@@ -227,20 +220,20 @@ where
     }
 
     /// Todo:
-    async fn send_open_positions(&self, positions_rx: oneshot::Sender<Result<Vec<Position>, EngineError>>) {
+    async fn send_open_positions(&self, positions_tx: oneshot::Sender<Result<Vec<Position>, EngineError>>) {
         let open_positions = self
             .portfolio
             .lock().unwrap()
             .get_open_positions(&self.engine_id, self.trader_command_txs.keys())
             .map_err(|err| EngineError::from(err));
 
-        if positions_rx.send(open_positions).is_err() {
-            warn!(why = "oneshot receiver dropped", "cannot action SendOpenPositions Command");
+        if positions_tx.send(open_positions).is_err() {
+            warn!(why = "oneshot receiver dropped", "cannot action Command::SendOpenPositions");
         }
     }
 
     /// Todo:
-    fn send_summary(&self, summary_rx: oneshot::Sender<Result<TradingSummary, EngineError>>) {
+    fn send_summary(&self, summary_tx: oneshot::Sender<Result<TradingSummary, EngineError>>) {
         todo!()
     }
     /// Todo:
@@ -269,38 +262,33 @@ where
 
 /// Builder to construct [`Engine`] instances.
 #[derive(Debug)]
-pub struct EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+pub struct EngineBuilder<EventTx, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event> + Debug,
-    Statistic: PositionSummariser + TablePrinter,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug + Send,
-    Data: Continuer + MarketGenerator + Debug + Send,
-    Strategy: SignalGenerator + Debug + Send,
-    Execution: FillGenerator + Debug + Send,
+    EventTx: MessageTransmitter<Event>,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
+    Data: Continuer + MarketGenerator + Send,
+    Strategy: SignalGenerator + Send,
+    Execution: FillGenerator + Send,
 {
     engine_id: Option<Uuid>,
     command_rx: Option<mpsc::Receiver<Command>>,
-    statistics: Option<Statistic>,
     portfolio: Option<Arc<Mutex<Portfolio>>>,
     traders: Option<Vec<Trader<EventTx, Portfolio, Data, Strategy, Execution>>>,
     trader_command_txs: Option<HashMap<Market, mpsc::Sender<Command>>>,
 }
 
-impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
-EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+impl<EventTx, Portfolio, Data, Strategy, Execution> EngineBuilder<EventTx, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event> + Debug,
-    Statistic: PositionSummariser + TablePrinter,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug + Send,
-    Data: Continuer + MarketGenerator + Debug + Send,
-    Strategy: SignalGenerator + Debug + Send,
-    Execution: FillGenerator + Debug + Send,
+    EventTx: MessageTransmitter<Event>,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
+    Data: Continuer + MarketGenerator + Send,
+    Strategy: SignalGenerator + Send,
+    Execution: FillGenerator + Send,
 {
     fn new() -> Self {
         Self {
             engine_id: None,
             command_rx: None,
-            statistics: None,
             portfolio: None,
             traders: None,
             trader_command_txs: None,
@@ -317,13 +305,6 @@ where
     pub fn command_rx(self, value: mpsc::Receiver<Command>) -> Self {
         Self {
             command_rx: Some(value),
-            ..self
-        }
-    }
-
-    pub fn statistics(self, value: Statistic) -> Self {
-        Self {
-            statistics: Some(value),
             ..self
         }
     }
@@ -350,10 +331,9 @@ where
     }
 
 
-    pub fn build(self) -> Result<Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
+    pub fn build(self) -> Result<Engine<EventTx, Portfolio, Data, Strategy, Execution>, EngineError> {
         let engine_id = self.engine_id.ok_or(EngineError::BuilderIncomplete)?;
         let command_rx = self.command_rx.ok_or(EngineError::BuilderIncomplete)?;
-        let statistics = self.statistics.ok_or(EngineError::BuilderIncomplete)?;
         let portfolio = self.portfolio.ok_or(EngineError::BuilderIncomplete)?;
         let traders = self.traders.ok_or(EngineError::BuilderIncomplete)?;
         let trader_command_txs = self.trader_command_txs.ok_or(EngineError::BuilderIncomplete)?;
@@ -361,7 +341,6 @@ where
         Ok(Engine {
             engine_id,
             command_rx,
-            statistics,
             portfolio,
             traders,
             trader_command_txs,
