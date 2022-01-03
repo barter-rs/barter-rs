@@ -1,7 +1,8 @@
 use crate::statistic::algorithm::welford_online;
+use serde::Serialize;
 
 /// Representation of a dataset using measures of dispersion - range, variance & standard deviation.
-#[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq, Serialize)]
 pub struct Dispersion {
     pub range: Range,
     pub recurrence_relation_m: f64,
@@ -35,7 +36,7 @@ impl Dispersion {
 
 /// Measure of dispersion providing the highest and lowest value of a dataset. Lazy evaluation is
 /// used when calculating the range between them via the calculate() function.
-#[derive(Debug, Copy, Default, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Copy, Default, Clone, PartialOrd, PartialEq, Serialize)]
 pub struct Range {
     pub activated: bool,
     pub high: f64,

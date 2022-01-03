@@ -1,3 +1,4 @@
+use serde::Serialize;
 use crate::data::market::MarketEvent;
 use crate::event::Event;
 use crate::execution::fill::FillEvent;
@@ -35,9 +36,9 @@ pub trait OrderGenerator {
 }
 
 /// Updates the Portfolio from an input [`FillEvent`].
-pub trait FillUpdater {
+pub trait FillUpdater<Statistic: Serialize> {
     /// Updates the Portfolio state using the input [`FillEvent`]. The [`FillEvent`] triggers a
     /// Position entry or exit, and the Portfolio updates key fields such as current_cash and
     /// current_value accordingly.
-    fn update_from_fill(&mut self, fill: &FillEvent) -> Result<Vec<Event>, PortfolioError>;
+    fn update_from_fill(&mut self, fill: &FillEvent) -> Result<Vec<Event<Statistic>>, PortfolioError>;
 }
