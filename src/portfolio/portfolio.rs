@@ -10,7 +10,7 @@ use crate::portfolio::repository::{CashHandler, PositionHandler, StatisticHandle
 use crate::portfolio::risk::OrderEvaluator;
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
 use crate::strategy::signal::{Decision, SignalEvent, SignalForceExit, SignalStrength};
-use crate::statistic::summary::PositionSummariser;
+use crate::statistic::summary::{Initialiser, PositionSummariser};
 use crate::event::Event;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -27,13 +27,15 @@ where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
-    Statistic: PositionSummariser,
+    Statistic: Initialiser + PositionSummariser,
 {
     pub engine_id: Uuid,
+    pub markets: Vec<Market>,
     pub repository: Repository,
     pub allocator: Allocator,
     pub risk: RiskManager,
     pub starting_cash: f64,
+    pub statistic_config: Statistic::Config,
     pub _statistic_marker: PhantomData<Statistic>
 }
 
@@ -46,7 +48,7 @@ where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
-    Statistic: PositionSummariser,
+    Statistic: Initialiser + PositionSummariser,
 {
     /// Todo:
     engine_id: Uuid,
@@ -65,7 +67,7 @@ where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
-    Statistic: PositionSummariser,
+    Statistic: Initialiser + PositionSummariser,
 {
     fn update_from_market(&mut self, market: &MarketEvent) -> Result<Option<PositionUpdate>, PortfolioError> {
         // Determine the position_id associated to the input MarketEvent
@@ -81,6 +83,7 @@ where
 
             Ok(Some(position_update))
         } else {
+
             Ok(None)
         }
     }
@@ -91,7 +94,7 @@ where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
-    Statistic: PositionSummariser,
+    Statistic: Initialiser + PositionSummariser,
 {
     fn generate_order(&mut self, signal: &SignalEvent) -> Result<Option<OrderEvent>, PortfolioError> {
         // Determine the position_id & associated Option<Position> related to input SignalEvent
@@ -170,7 +173,7 @@ where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
-    Statistic: PositionSummariser,
+    Statistic: Initialiser + PositionSummariser,
 {
     fn update_from_fill(&mut self, fill: &FillEvent) -> Result<Vec<Event>, PortfolioError> {
         // Allocate Vector<Event> to contain any update_from_fill generated events
@@ -204,7 +207,7 @@ where
                 // Update statistics for exited Position market & add Metrics event to Vec<Event>
                 let market_id = determine_market_id(fill.exchange, &fill.symbol);
                 let mut stats = self.repository.get_statistics(&market_id)?;
-                stats.update(&position);
+                stats.update(&position); // Todo: impl return Metrics struct
                 created_events.push(Event::Metrics);
 
                 // Persist exited Position & Updated Market statistics in Repository
@@ -244,7 +247,7 @@ where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
-    Statistic: PositionSummariser
+    Statistic: Initialiser + PositionSummariser,
 {
     fn set_open_position(&mut self, position: Position) -> Result<(), RepositoryError> {
         self.repository.set_open_position(position)
@@ -276,7 +279,7 @@ where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
-    Statistic: PositionSummariser,
+    Statistic: Initialiser + PositionSummariser,
 {
     /// Constructs a new [`MetaPortfolio`] using the provided [`PortfolioLego`] components, and
     /// persists the initial [`MetaPortfolio`] state in the Repository.
@@ -290,13 +293,21 @@ where
             _statistic_marker: PhantomData::default()
         };
 
-        // Initialise MetaPortfolio state in the Repository
-        portfolio
-            .repository
-            .set_available_cash(&lego.engine_id, lego.starting_cash)?;
-        portfolio
-            .repository
-            .set_total_equity(&lego.engine_id, lego.starting_cash)?;
+        // Init MetaPortfolio AvailableCash & TotalEquity entries in the Repository
+        portfolio.repository.set_available_cash(&lego.engine_id, lego.starting_cash)?;
+        portfolio.repository.set_total_equity(&lego.engine_id, lego.starting_cash)?;
+
+        // Init MetaPortfolio Statistics for every Market in the Repository
+        let stats_config = lego.statistic_config;
+        lego.markets
+            .iter()
+            .map(|market| {
+                portfolio
+                    .repository
+                    .set_statistics(&market.market_id(), Statistic::init(stats_config))
+                    .map_err(PortfolioError::RepositoryInteractionError)
+            })
+            .collect::<Result<(), PortfolioError>>()?;
 
         Ok(portfolio)
     }
@@ -318,13 +329,15 @@ where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
-    Statistic: PositionSummariser,
+    Statistic: Initialiser + PositionSummariser,
 {
     engine_id: Option<Uuid>,
+    markets: Option<Vec<Market>>,
     starting_cash: Option<AvailableCash>,
     repository: Option<Repository>,
     allocation_manager: Option<Allocator>,
     risk_manager: Option<RiskManager>,
+    statistic_config: Option<Statistic::Config>,
     _statistic_marker: Option<PhantomData<Statistic>>,
 }
 
@@ -333,15 +346,17 @@ where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
-    Statistic: PositionSummariser,
+    Statistic: Initialiser + PositionSummariser,
 {
     pub fn new() -> Self {
         Self {
             engine_id: None,
+            markets: None,
             starting_cash: None,
             repository: None,
             allocation_manager: None,
             risk_manager: None,
+            statistic_config: None,
             _statistic_marker: None,
         }
     }
@@ -349,6 +364,13 @@ where
     pub fn engine_id(self, value: Uuid) -> Self {
         Self {
             engine_id: Some(value),
+            ..self
+        }
+    }
+
+    pub fn markets(self, value: Vec<Market>) -> Self {
+        Self {
+            markets: Some(value),
             ..self
         }
     }
@@ -381,12 +403,21 @@ where
         }
     }
 
+    pub fn statistic_config(self, value: Statistic::Config) -> Self {
+        Self {
+            statistic_config: Some(value),
+            ..self
+        }
+    }
+
     pub fn build_and_init(self) -> Result<MetaPortfolio<Repository, Allocator, RiskManager, Statistic>, PortfolioError> {
         let engine_id = self.engine_id.ok_or(PortfolioError::BuilderIncomplete)?;
+        let markets = self.markets.ok_or(PortfolioError::BuilderIncomplete)?;
         let starting_cash = self.starting_cash.ok_or(PortfolioError::BuilderIncomplete)?;
         let repository = self.repository.ok_or(PortfolioError::BuilderIncomplete)?;
         let allocation_manager = self.allocation_manager.ok_or(PortfolioError::BuilderIncomplete)?;
         let risk_manager = self.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+        let statistic_config = self.statistic_config.ok_or(PortfolioError::BuilderIncomplete)?;
 
         let mut portfolio = MetaPortfolio {
             engine_id,
@@ -396,14 +427,20 @@ where
             _statistic_marker: PhantomData::default()
         };
 
-        // Initialise ApiPortfolio state in the Repository
+        // Init MetaPortfolio AvailableCash & TotalEquity entries in the Repository
         portfolio.repository.set_available_cash(&portfolio.engine_id, starting_cash)?;
         portfolio.repository.set_total_equity(&portfolio.engine_id, starting_cash)?;
 
-        // Todo: Need to init the stats for every single Market we are Trading?
-        // Write unit tests pls
-        // Perhaps at start of Trader loop? Or return Option<Stats> so Portfolio can set if it's not present
-        // portfolio.repository.set_statistics()
+        // Init MetaPortfolio Statistics for every Market in the Repository
+        markets
+            .iter()
+            .map(|market| {
+                portfolio
+                    .repository
+                    .set_statistics(&market.market_id(), Statistic::init(statistic_config))
+                    .map_err(PortfolioError::RepositoryInteractionError)
+            })
+            .collect::<Result<(), PortfolioError>>()?;
 
         Ok(portfolio)
     }
