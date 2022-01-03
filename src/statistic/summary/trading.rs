@@ -2,12 +2,12 @@ use crate::portfolio::position::Position;
 use crate::statistic::metric::ratio::{CalmarRatio, Ratio, SharpeRatio, SortinoRatio};
 use crate::statistic::summary::drawdown::DrawdownSummary;
 use crate::statistic::summary::pnl::PnLReturnSummary;
-use crate::statistic::summary::{PositionSummariser, TablePrinter};
+use crate::statistic::summary::{Initialiser, PositionSummariser, TablePrinter};
 use chrono::{DateTime, Duration, Utc};
 use prettytable::{Row, Table};
 use serde::Deserialize;
 
-/// Configuration for construction a [`TradingSummary`] via the new() constructor method.
+/// Configuration for initialising a [`TradingSummary`] via the init() constructor method.
 #[derive(Debug, Clone, Copy, Deserialize)]
 pub struct Config {
     pub starting_equity: f64,
@@ -20,6 +20,18 @@ pub struct TradingSummary {
     pnl_returns: PnLReturnSummary,
     drawdown: DrawdownSummary,
     tear_sheet: TearSheet,
+}
+
+impl Initialiser for TradingSummary {
+    type Config = Config;
+
+    fn init(config: Self::Config) -> Self {
+        Self {
+            pnl_returns: PnLReturnSummary::new(),
+            drawdown: DrawdownSummary::new(config.starting_equity),
+            tear_sheet: TearSheet::new(config.risk_free_return),
+        }
+    }
 }
 
 impl PositionSummariser for TradingSummary {
