@@ -9,11 +9,14 @@ use crate::Market;
 use crate::strategy::signal::SignalForceExit;
 use std::collections::VecDeque;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
+use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
 use tracing::{debug, warn, info};
 use uuid::Uuid;
+use crate::statistic::summary::{Initialiser, PositionSummariser};
 
 /// Communicates a String represents a unique [`Trader`] identifier.
 pub type TraderId = String;
@@ -25,10 +28,11 @@ pub fn determine_trader_id(engine_id: Uuid, exchange: &String, symbol: &String) 
 
 /// Lego components for constructing a [`Trader`] via the new() constructor method.
 #[derive(Debug)]
-pub struct TraderLego<EventTx, Portfolio, Data, Strategy, Execution>
+pub struct TraderLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event>,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    EventTx: MessageTransmitter<Event<Statistic>>,
+    Statistic: Initialiser + PositionSummariser + Serialize,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic>,
     Data: Continuer + MarketGenerator,
     Strategy: SignalGenerator,
     Execution: FillGenerator,
@@ -51,6 +55,7 @@ where
     pub strategy: Strategy,
     /// Execution Handler implementing [`FillGenerator`], generates [`Event::Fill`]s.
     pub execution: Execution,
+    _statistic_marker: PhantomData<Statistic>,
 }
 
 /// Trader instance capable of trading a single market pair with it's own Data Handler, Strategy &
@@ -58,10 +63,11 @@ where
 /// shutdown is made possible by sending a [`Command::Terminate`] to the Trader's
 /// mpsc::Receiver command_rx.
 #[derive(Debug)]
-pub struct Trader<EventTx, Portfolio, Data, Strategy, Execution>
+pub struct Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event>,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    EventTx: MessageTransmitter<Event<Statistic>>,
+    Statistic: Initialiser + PositionSummariser + Serialize + Send,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic>,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,
@@ -76,7 +82,7 @@ where
     /// sink.
     event_tx: EventTx,
     /// Queue for storing [`Event`]s used by the trading loop in the run() method.
-    event_q: VecDeque<Event>,
+    event_q: VecDeque<Event<Statistic>>,
     /// Shared-access to a global Portfolio instance that implements [`MarketUpdater`],
     /// [`OrderGenerator`] & [`FillUpdater`]. Generates [`Event::Order`]s, as well as reacts to
     /// [`Event::Market`]s, [`Event::Signal`]s, [`Event::Fill`]s.
@@ -87,18 +93,20 @@ where
     strategy: Strategy,
     /// Execution Handler implementing [`FillGenerator`], generates [`Event::Fill`]s.
     execution: Execution,
+    _statistic_marker: PhantomData<Statistic>,
 }
 
-impl<EventTx, Portfolio, Data, Strategy, Execution> Trader<EventTx, Portfolio, Data, Strategy, Execution>
+impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution> Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event>,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    EventTx: MessageTransmitter<Event<Statistic>>,
+    Statistic: Initialiser + PositionSummariser + Serialize + Send,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic>,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,
 {
     /// Constructs a new [`Trader`] instance using the provided [`TraderLego`].
-    pub fn new(lego: TraderLego<EventTx, Portfolio, Data, Strategy, Execution>) -> Self {
+    pub fn new(lego: TraderLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>) -> Self {
         info!(
             engine_id = &*format!("{}", lego.engine_id),
             market = &*format!("{:?}", lego.market),
@@ -115,11 +123,12 @@ where
             data: lego.data,
             strategy: lego.strategy,
             execution: lego.execution,
+            _statistic_marker: PhantomData::default()
         }
     }
 
     /// Builder to construct [`Trader`] instances.
-    pub fn builder() -> TraderBuilder<EventTx, Portfolio, Data, Strategy, Execution> {
+    pub fn builder() -> TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution> {
         TraderBuilder::new()
     }
 
@@ -268,10 +277,11 @@ where
 
 /// Builder to construct [`Trader`] instances.
 #[derive(Debug)]
-pub struct TraderBuilder<EventTx, Portfolio, Data, Strategy, Execution>
+pub struct TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event>,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    EventTx: MessageTransmitter<Event<Statistic>>,
+Statistic: Initialiser + PositionSummariser + Serialize + Send,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic>,
     Data: Continuer + MarketGenerator,
     Strategy: SignalGenerator,
     Execution: FillGenerator,
@@ -284,12 +294,14 @@ where
     data: Option<Data>,
     strategy: Option<Strategy>,
     execution: Option<Execution>,
+    _statistic_marker: Option<PhantomData<Statistic>>,
 }
 
-impl<EventTx, Portfolio, Data, Strategy, Execution> TraderBuilder<EventTx, Portfolio, Data, Strategy, Execution>
+impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution> TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event>,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    EventTx: MessageTransmitter<Event<Statistic>>,
+    Statistic: Initialiser + PositionSummariser + Serialize + Send,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic>,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,
@@ -304,6 +316,7 @@ where
             data: None,
             strategy: None,
             execution: None,
+            _statistic_marker: None
         }
     }
 
@@ -363,7 +376,7 @@ where
         }
     }
 
-    pub fn build(self) -> Result<Trader<EventTx, Portfolio, Data, Strategy, Execution>, EngineError> {
+    pub fn build(self) -> Result<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
         let engine_id = self.engine_id.ok_or(EngineError::BuilderIncomplete)?;
         let market = self.market.ok_or(EngineError::BuilderIncomplete)?;
         let command_rx = self.command_rx.ok_or(EngineError::BuilderIncomplete)?;
@@ -383,6 +396,7 @@ where
             data,
             strategy,
             execution,
+            _statistic_marker: PhantomData::default()
         })
     }
 }

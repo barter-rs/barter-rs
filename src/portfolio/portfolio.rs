@@ -1,5 +1,5 @@
 use crate::{determine_market_id, Market};
-use crate::event::Balance;
+use crate::event::{Balance, MetricsUpdate};
 use crate::data::market::{MarketEvent, MarketMeta};
 use crate::execution::fill::FillEvent;
 use crate::portfolio::allocator::OrderAllocator;
@@ -11,13 +11,14 @@ use crate::portfolio::risk::OrderEvaluator;
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
 use crate::strategy::signal::{Decision, SignalEvent, SignalForceExit, SignalStrength};
 use crate::statistic::summary::{Initialiser, PositionSummariser};
+use crate::portfolio::repository::error::RepositoryError;
 use crate::event::Event;
+use serde::Serialize;
 use chrono::Utc;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use uuid::Uuid;
 use tracing::info;
-use crate::portfolio::repository::error::RepositoryError;
 
 /// Lego components for constructing & initialising a [`MetaPortfolio`] via the init() constructor
 /// method.
@@ -168,16 +169,16 @@ where
     }
 }
 
-impl<Repository, Allocator, RiskManager, Statistic> FillUpdater for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
+impl<Repository, Allocator, RiskManager, Statistic> FillUpdater<Statistic> for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
 where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
-    Statistic: Initialiser + PositionSummariser,
+    Statistic: Initialiser + PositionSummariser + Serialize,
 {
-    fn update_from_fill(&mut self, fill: &FillEvent) -> Result<Vec<Event>, PortfolioError> {
+    fn update_from_fill(&mut self, fill: &FillEvent) -> Result<Vec<Event<Statistic>>, PortfolioError> {
         // Allocate Vector<Event> to contain any update_from_fill generated events
-        let mut created_events: Vec<Event> = Vec::with_capacity(3);
+        let mut created_events: Vec<Event<Statistic>> = Vec::with_capacity(3);
 
         // Get the Portfolio Cash & Equity from Repository
         let mut available_cash = self.repository.get_available_cash(&self.engine_id)?;
@@ -208,7 +209,10 @@ where
                 let market_id = determine_market_id(fill.exchange, &fill.symbol);
                 let mut stats = self.repository.get_statistics(&market_id)?;
                 stats.update(&position);
-                created_events.push(Event::Metrics); // Todo: Push Stats
+                created_events.push(Event::Metrics(MetricsUpdate {
+                    market: Market::new(fill.exchange, fill.symbol.clone()),
+                    statistics: stats
+                }));
 
                 // Persist exited Position & Updated Market statistics in Repository
                 self.repository.set_statistics(&market_id, stats)?;

@@ -5,7 +5,7 @@ use crate::statistic::summary::pnl::PnLReturnSummary;
 use crate::statistic::summary::{Initialiser, PositionSummariser, TablePrinter};
 use chrono::{DateTime, Duration, Utc};
 use prettytable::{Row, Table};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// Configuration for initialising a [`TradingSummary`] via the init() constructor method.
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -15,7 +15,7 @@ pub struct Config {
     pub risk_free_return: f64,
 }
 
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
 pub struct TradingSummary {
     pnl_returns: PnLReturnSummary,
     drawdown: DrawdownSummary,
@@ -66,7 +66,7 @@ impl TradingSummary {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
 pub struct TearSheet {
     sharpe_ratio: SharpeRatio,
     sortino_ratio: SortinoRatio,
