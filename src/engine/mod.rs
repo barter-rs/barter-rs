@@ -28,14 +28,12 @@ use crate::statistic::summary::trading::TradingSummary;
 //  - Do I want to roll out Market instead of Exchange & Symbol in all Events? (can't for Position due to serde)
 //  - Search for todo!() since I found one in /statistic/summary/pnl.rs
 //  - Fix unwraps() - search code eg/ engine::send_open_positions
-//  - Ensure I havn't lost any improvements I had on the other branches!
 //  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
 //  - Make as much stuff Copy as can be - start in Statistics!
 //  - Add comments where we see '/// Todo:' or similar
 //  - Print summary for each Market, rather than as a total
 //  - General cleanup of String references -> I'm returning String and then taking &String a lot
 //    eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
-//  - Workout how to send generic statistics, or specify the type on the request?
 //  - Do I want ad-hoc way to send a SummarySnapshot on top of Event::Metric being emitted all the time?
 //     '--> Traders could cache the last metrics for ease (seems dirty?).
 //  - Write unit tests for Portfolio's new functionality - metrics, etc, etc
@@ -43,7 +41,6 @@ use crate::statistic::summary::trading::TradingSummary;
 //  - Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
 //     '--> also can use references to markets to avoid cloning?
 //  - If happy with it, impl Initialiser for all stats across the Statistics module.
-
 
 /// Communicates a String is a message associated with a [`Command`].
 pub type Message = String;
@@ -259,14 +256,28 @@ where
                         market = &*format!("{:?}", market),
                         why = "dropped receiver",
                         "failed to send Command::Terminate to Trader command_rx"
-                    );
+                );
             }
         }
     }
 
     /// Todo:
-    fn exit_position(&self, market: Market) {
-        todo!()
+    async fn exit_position(&self, market: Market) {
+        if let Some((market_ref, command_tx)) = self.trader_command_txs.get_key_value(&market) {
+            if command_tx.send(Command::ExitPosition(market)).await.is_err() {
+                error!(
+                    market = &*format!("{:?}", market_ref),
+                    why = "dropped receiver",
+                    "failed to send Command::Terminate to Trader command_rx"
+                );
+            } else {
+                warn!(
+                    market = &*format!("{:?}", market_ref),
+                    why = "Engine has no trader_command_tx associated with provided Market",
+                    "failed to exit Position"
+                );
+            }
+        }
     }
 
     /// Todo:
