@@ -1,4 +1,4 @@
-use crate::{determine_market_id, Market};
+use crate::{determine_market_id, Market, MarketId};
 use crate::event::{Balance, MetricsUpdate};
 use crate::data::market::{MarketEvent, MarketMeta};
 use crate::execution::fill::FillEvent;
@@ -46,7 +46,7 @@ where
     /// Configuration used to initialise the Statistics for every Market's performance tracked by a
     /// [`MetaPortfolio`].
     pub statistic_config: Statistic::Config,
-    _statistic_marker: PhantomData<Statistic>
+    pub _statistic_marker: PhantomData<Statistic>
 }
 
 /// Portfolio with state persisted in a repository. [`MarketUpdater`], [`OrderGenerator`],
@@ -282,6 +282,21 @@ where
 
     fn get_exited_positions(&mut self, _: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError> {
         self.repository.get_exited_positions(&self.engine_id)
+    }
+}
+
+impl<Repository, Allocator, RiskManager, Statistic> StatisticHandler<Statistic> for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
+where
+    Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
+    Allocator: OrderAllocator,
+    RiskManager: OrderEvaluator,
+    Statistic: Initialiser + PositionSummariser {
+    fn set_statistics(&mut self, market_id: &MarketId, statistic: Statistic) -> Result<(), RepositoryError> {
+        self.repository.set_statistics(market_id, statistic)
+    }
+
+    fn get_statistics(&mut self, market_id: &MarketId) -> Result<Statistic, RepositoryError> {
+        self.repository.get_statistics(market_id)
     }
 }
 
@@ -542,7 +557,7 @@ mod tests {
             self.get_open_position.unwrap()(position_id)
         }
 
-        fn get_open_positions(&mut self, engine_id: &Uuid, markets: &Vec<Market>) -> Result<Vec<Position>, RepositoryError> {
+        fn get_open_positions<'a>(&mut self, engine_id: &Uuid, markets: &Vec<Market>) -> Result<Vec<Position>, RepositoryError> {
             self.get_open_positions.unwrap()(engine_id, markets)
         }
 
@@ -612,7 +627,7 @@ mod tests {
     fn build_mocked_portfolio<Repository, Statistic>(mock_repository: Repository) -> Result<MetaPortfolio<Repository, DefaultAllocator, DefaultRisk, Statistic>, PortfolioError>
     where
         Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
-        Statistic: PositionSummariser,
+        Statistic: PositionSummariser + Initialiser,
     {
         let builder = MetaPortfolio::builder()
             .engine_id(Uuid::new_v4())
@@ -629,7 +644,7 @@ mod tests {
         -> Result<MetaPortfolio<Repository, DefaultAllocator, DefaultRisk, Statistic>, PortfolioError>
     where
         Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
-        Statistic: PositionSummariser,
+        Statistic: PositionSummariser + Initialiser,
     {
         let engine_id = builder.engine_id.ok_or(PortfolioError::BuilderIncomplete)?;
         let repository = builder.repository.ok_or(PortfolioError::BuilderIncomplete)?;
