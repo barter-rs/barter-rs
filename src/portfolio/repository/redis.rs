@@ -36,11 +36,9 @@ where
         let position_value = serde_json::to_string(&position)
             .map_err(|_err| RepositoryError::JsonSerialisationError)?;
 
-        Ok(self
-            .conn
+        self.conn
             .set(position.position_id, position_value)
-            .map_err(|_| RepositoryError::WriteError)?
-        )
+            .map_err(|_| RepositoryError::WriteError)
     }
 
     fn get_open_position(&mut self, position_id: &PositionId) -> Result<Option<Position>, RepositoryError> {
@@ -84,16 +82,14 @@ where
         portfolio_id: &Uuid,
         position: Position,
     ) -> Result<(), RepositoryError> {
-        let closed_positions_key = determine_exited_positions_id(&portfolio_id);
+        let closed_positions_key = determine_exited_positions_id(portfolio_id);
 
         let position_value = serde_json::to_string(&position)
-            .map_err(|_err| RepositoryError::JsonSerialisationError)?;
+            .map_err(|_| RepositoryError::JsonSerialisationError)?;
 
-        Ok(self
-            .conn
+        self.conn
             .lpush(closed_positions_key, position_value)
-            .map_err(|_| RepositoryError::WriteError)?
-        )
+            .map_err(|_| RepositoryError::WriteError)
     }
 
     fn get_exited_positions(
@@ -130,19 +126,15 @@ where
         portfolio_id: &Uuid,
         equity: TotalEquity,
     ) -> Result<(), RepositoryError> {
-        Ok(self
-            .conn
+        self.conn
             .set(determine_equity_id(portfolio_id), equity)
-            .map_err(|_| RepositoryError::WriteError)?
-        )
+            .map_err(|_| RepositoryError::WriteError)
     }
 
     fn get_total_equity(&mut self, portfolio_id: &Uuid) -> Result<TotalEquity, RepositoryError> {
-        Ok(self
-            .conn
+        self.conn
             .get(determine_equity_id(portfolio_id))
-            .map_err(|_| RepositoryError::ReadError)?
-        )
+            .map_err(|_| RepositoryError::ReadError)
     }
 }
 
@@ -151,19 +143,15 @@ where
     Statistic: PositionSummariser + Serialize + DeserializeOwned
 {
     fn set_available_cash(&mut self, portfolio_id: &Uuid, cash: AvailableCash) -> Result<(), RepositoryError> {
-        Ok(self
-            .conn
+        self.conn
             .set(determine_cash_id(portfolio_id), cash)
-            .map_err(|_| RepositoryError::WriteError)?
-        )
+            .map_err(|_| RepositoryError::WriteError)
     }
 
     fn get_available_cash(&mut self, portfolio_id: &Uuid) -> Result<AvailableCash, RepositoryError> {
-        Ok(self
-            .conn
+        self.conn
             .get(determine_cash_id(portfolio_id))
-            .map_err(|_| RepositoryError::ReadError)?
-        )
+            .map_err(|_| RepositoryError::ReadError)
     }
 }
 
@@ -175,11 +163,9 @@ where
         let statistics_value = serde_json::to_string(&statistic)
             .map_err(|_| RepositoryError::JsonSerialisationError)?;
 
-        Ok(self
-            .conn
+        self.conn
             .set(market_id, statistics_value)
-            .map_err(|_| RepositoryError::WriteError)?
-        )
+            .map_err(|_| RepositoryError::WriteError)
     }
 
     fn get_statistics(&mut self, market_id: &MarketId) -> Result<Statistic, RepositoryError> {

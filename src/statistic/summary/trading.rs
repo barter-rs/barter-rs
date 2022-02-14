@@ -120,8 +120,8 @@ pub fn calculate_trading_duration(
             position
                 .meta
                 .last_update_timestamp
-                .signed_duration_since(start_timestamp.clone())
+                .signed_duration_since(*start_timestamp)
         }
-        Some(exit_timestamp) => exit_timestamp.signed_duration_since(start_timestamp.clone()),
+        Some(exit_timestamp) => exit_timestamp.signed_duration_since(*start_timestamp),
     }
 }

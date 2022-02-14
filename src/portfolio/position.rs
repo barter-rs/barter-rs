@@ -121,7 +121,7 @@ impl PositionEnterer for Position {
             exchange: fill.exchange.to_owned(),
             symbol: fill.symbol.clone(),
             meta: metadata,
-            direction: Position::parse_entry_direction(&fill)?,
+            direction: Position::parse_entry_direction(fill)?,
             quantity: fill.quantity,
             enter_fees: fill.fees,
             enter_fees_total,

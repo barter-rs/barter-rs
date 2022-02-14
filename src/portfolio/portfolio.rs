@@ -185,7 +185,7 @@ where
         let mut total_equity = self.repository.get_total_equity(&self.engine_id)?;
 
         // Determine the position_id that is related to the input FillEvent
-        let position_id = determine_position_id(&self.engine_id, &fill.exchange, &fill.symbol);
+        let position_id = determine_position_id(&self.engine_id, fill.exchange, &fill.symbol);
 
         // Determine FillEvent context based on existence or absence of an open Position
         match self.repository.remove_position(&position_id)? {
@@ -194,7 +194,7 @@ where
             Some(mut position) => {
 
                 // Exit Position (in place mutation), & add the PositionExit event to Vec<Event>
-                let position_exit = position.exit(total_equity, &fill)?;
+                let position_exit = position.exit(total_equity, fill)?;
                 created_events.push(Event::PositionExit(position_exit));
 
                 // Update Portfolio cash on exit - enter_total_fees added since included in result PnL calc
@@ -222,7 +222,7 @@ where
             // ENTRY SCENARIO - FillEvent for Symbol-Exchange with no Position
             None => {
                 // Enter new Position, & add the PositionNew event to Vec<Event>
-                let position = Position::enter(&self.engine_id, &fill)?;
+                let position = Position::enter(&self.engine_id, fill)?;
                 created_events.push(Event::PositionNew(position.clone()));
 
                 // Update Portfolio cash entry
@@ -303,15 +303,15 @@ where
 
         // Init MetaPortfolio Statistics for every Market in the Repository
         let stats_config = lego.statistic_config;
+
         lego.markets
             .iter()
-            .map(|market| {
+            .try_for_each(|market| {
                 portfolio
                     .repository
                     .set_statistics(&market.market_id(), Statistic::init(stats_config))
                     .map_err(PortfolioError::RepositoryInteractionError)
-            })
-            .collect::<Result<(), PortfolioError>>()?;
+            })?;
 
         Ok(portfolio)
     }
@@ -438,13 +438,12 @@ where
         // Init MetaPortfolio Statistics for every Market in the Repository
         markets
             .iter()
-            .map(|market| {
+            .try_for_each(|market| {
                 portfolio
                     .repository
                     .set_statistics(&market.market_id(), Statistic::init(statistic_config))
                     .map_err(PortfolioError::RepositoryInteractionError)
-            })
-            .collect::<Result<(), PortfolioError>>()?;
+            })?;
 
         Ok(portfolio)
     }
