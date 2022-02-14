@@ -7,7 +7,7 @@ use crate::engine::error::EngineError;
 use crate::engine::trader::Trader;
 use crate::data::handler::{Continuer, MarketGenerator};
 use crate::strategy::SignalGenerator;
-use crate::portfolio::repository::PositionHandler;
+use crate::portfolio::repository::{PositionHandler, StatisticHandler};
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
 use crate::portfolio::position::Position;
 use crate::execution::FillGenerator;
@@ -19,10 +19,9 @@ use serde::Serialize;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{info, warn, error};
 use uuid::Uuid;
+use crate::statistic::summary::TablePrinter;
 
 // Todo - Important:
-//  - Search for to dos since I found one in /statistic/summary/pnl.rs
-//  - Search for unwraps() & fix
 //  - Print summary after Engine stops
 
 // Todo - After Important:
@@ -61,8 +60,6 @@ pub enum Command {
     /// Fetches all the [`Engine`]'s open [`Position`]s and sends them on the provided
     /// `oneshot::Sender`.
     FetchOpenPositions(oneshot::Sender<Result<Vec<Position>, EngineError>>), // Engine
-
-    // FetchSummary(oneshot::Sender<Result<TradingSummary, EngineError>>),    // Engine
 
     /// Terminate every running [`Trader`] associated with this [`Engine`].
     Terminate(Message),                                                      // All Traders
@@ -109,8 +106,8 @@ where
 pub struct Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>,
-    Statistic: Serialize + Send,
-    Portfolio: PositionHandler + MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send,
+    Statistic:  TablePrinter + Serialize + Send,
+    Portfolio: PositionHandler + StatisticHandler<Statistic> + MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send + 'static,
     Data: Continuer + MarketGenerator + Send + 'static,
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,
@@ -133,8 +130,8 @@ where
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution> Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>  + Send + 'static,
-    Statistic: Serialize + Send + 'static,
-    Portfolio: PositionHandler + MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send + 'static,
+    Statistic: TablePrinter + Serialize + Send + 'static,
+    Portfolio: PositionHandler + StatisticHandler<Statistic> + MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send + 'static,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send + 'static,
     Execution: FillGenerator + Send + 'static,
@@ -178,9 +175,6 @@ where
                             Command::FetchOpenPositions(positions_tx) => {
                                 self.fetch_open_positions(positions_tx).await;
                             },
-                            // Command::SendSummary(summary_tx) => {
-                            //     self.send_summary(summary_tx).await;
-                            // }
                             Command::Terminate(message) => {
                                 self.terminate_traders(message).await;
                                 break;
@@ -200,30 +194,34 @@ where
             }
         };
 
-        // // Unlock Portfolio Mutex to access backtest information
-        // let mut portfolio = match self.portfolio.lock() {
-        //     Ok(portfolio) => portfolio,
-        //     Err(err) => {
-        //         warn!("Mutex poisoned with error: {}", err);
-        //         err.into_inner()
-        //     }
-        // };
-        //
-        // self.trader_command_txs
-        //     .into_keys()
-        //     .map(|market| {
-        //         let market_stats = portfolio.get_statistics();
-        //         market_stats.print();
-        //     });
-        //
-        // // Generate TradingSummary
-        // match portfolio.get_exited_positions(&Uuid::new_v4()).unwrap() {
-        //     None => info!("Backtest yielded no closed Positions - no TradingSummary available"),
-        //     Some(closed_positions) => {
-        //         self.statistics.generate_summary(&closed_positions);
-        //         self.statistics.print();
-        //     }
-        // }
+        // Unlock Portfolio Mutex to access backtest statistics
+        let mut portfolio = self
+            .portfolio
+            .lock()
+            .unwrap_or_else(|err| {
+                warn!(
+                    error = &*format!("{:?}", err),
+                    action = "extract inner Portfolio to attempt fetching closed Positions",
+                    "failed to unlock Mutex<Portfolio> due to poisoning"
+                );
+                err.into_inner()
+            });
+
+        // Generate Statistics summary
+        self.trader_command_txs
+            .into_keys()
+            .for_each(|market| {
+                portfolio
+                    .get_statistics(&market.market_id())
+                    .map(|statistic| statistic.print())
+                    .unwrap_or_else(|err| {
+                        warn!(
+                            error = &*format!("{:?}", err),
+                            why = "failed to get statistics from Portfolio's repository",
+                            "failed to generate Statistics summary for trading session"
+                        )
+                    })
+            });
     }
 
     /// Runs each [`Trader`] it's own thread. Sends a message on the returned `mpsc::Receiver<bool>`
@@ -266,7 +264,7 @@ where
     async fn fetch_open_positions(&self, positions_tx: oneshot::Sender<Result<Vec<Position>, EngineError>>) {
         let open_positions = self
             .portfolio
-            .lock().unwrap()
+            .lock().expect("failed to unlock Mutex<Portfolio> - poisoned")
             .get_open_positions(&self.engine_id, self.trader_command_txs.keys())
             .map_err(EngineError::from);
 
@@ -275,11 +273,13 @@ where
         }
     }
 
-    // fn fetch_summary(&self, summary_tx: oneshot::Sender<Result<TradingSummary, EngineError>>) {
-    // }
-
     /// Terminate every running [`Trader`] associated with this [`Engine`].
     async fn terminate_traders(&self, message: Message) {
+        // Firstly, exit all Positions
+        self.exit_all_positions().await;
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+        // Distribute Command::Terminate to all the Engine's Traders
         for (market, command_tx) in self.trader_command_txs.iter() {
             if command_tx.send(Command::Terminate(message.clone())).await.is_err() {
                 error!(
@@ -346,8 +346,8 @@ where
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution> EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>,
-    Statistic: Serialize + Send,
-    Portfolio: PositionHandler + MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send,
+    Statistic: TablePrinter + Serialize + Send,
+    Portfolio: PositionHandler + StatisticHandler<Statistic> + MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,

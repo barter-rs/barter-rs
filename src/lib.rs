@@ -95,19 +95,26 @@
 //! use barter::portfolio::risk::DefaultRisk;
 //! use barter::portfolio::repository::redis::RedisRepository;
 //! use barter::event::Event;
+//! use barter::Market;
 //! use barter::portfolio::order::OrderEvent;
 //! use barter::portfolio::portfolio::{PortfolioLego, MetaPortfolio};
 //! use barter::portfolio::repository::redis::Config as RepositoryConfig;
 //! use barter::portfolio::repository::in_memory::InMemoryRepository;
 //! use barter::statistic::summary::pnl::PnLReturnSummary;
-//! use barter::statistic::summary::trading::TradingSummary;
+//! use barter::statistic::summary::trading::{Config as StatisticConfig, TradingSummary};
 //!
 //! let components = PortfolioLego {
 //!     engine_id: Default::default(),
+//!     markets: vec![Market {exchange: "binance",symbol: "btcusdt".to_string()}],
 //!     repository: InMemoryRepository::new(),
 //!     allocator: DefaultAllocator{ default_order_value: 100.0 },
 //!     risk: DefaultRisk{},
 //!     starting_cash: 10000.0,
+//!     statistic_config: StatisticConfig {
+//!         starting_equity: 10000.0 ,
+//!         trading_days_per_year: 365,
+//!         risk_free_return: 0.0
+//!     },
 //!     _statistic_marker: PhantomData::<TradingSummary>::default()
 //! };
 //!
