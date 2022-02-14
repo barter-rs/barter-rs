@@ -21,28 +21,32 @@ use tracing::{info, warn, error};
 use uuid::Uuid;
 use crate::statistic::summary::trading::TradingSummary;
 
-// Todo:
-//  - Impl consistent structured logging in Engine & Trader
-//  - Ensure i'm happy with where event Event & Command live (eg/ Balance is in event.rs)
-//  - Add Deserialize to Event.
-//  - Do I want to roll out Market instead of Exchange & Symbol in all Events? (can't for Position due to serde)
-//  - Search for todo!() since I found one in /statistic/summary/pnl.rs
-//  - Fix unwraps() - search code eg/ engine::send_open_positions
-//  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
-//  - Make as much stuff Copy as can be - start in Statistics!
-//  - Add comments where we see '/// Todo:' or similar
+// Todo - Important:
+//  - Roll out consistent use of Market / Exchange / symbol (new types?)
+//    '--> Remember (can't use Market instead of Exchange & Symbol for Position due to serde)
+//    '--> eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
+//  - Search for to dos since I found one in /statistic/summary/pnl.rs
+//  - Search for unwraps() & fix
+
+// Todo - After Important:
 //  - Print summary for each Market, rather than as a total
-//  - General cleanup of String references -> I'm returning String and then taking &String a lot
-//    eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
+//  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
+//  - Write unit tests for Portfolio's new functionality - metrics, etc, etc
+//  - Ensure I am eagerly deriving as much as possible - especially enums! Work out the base derive
+//  - Extract Portfolio::init util functions to remove code dups? perhaps (fn bootstrap_repository() or similar)
+//  - Impl consistent structured logging in Engine & Trader
+//   '--> Do I want to spans instead of multiple info logging? eg/ fetch_open_requests logs twice
+//   '--> Where do I want to log things like Command::ExitPosition being actioned? In Engine or when we push SignalForceExit on to Q?
+//  - Ensure i'm happy with where event Event & Command live (eg/ Balance is in event.rs)
 //  - Do I want ad-hoc way to send a SummarySnapshot on top of Event::Metric being emitted all the time?
 //     '--> Traders could cache the last metrics for ease (seems dirty?).
-//  - Write unit tests for Portfolio's new functionality - metrics, etc, etc
-//  - Extract Portfolio::init util functions to remove code ups? perhaps (fn bootstrap_repository() or similar)
+
+// Todo - 0.7.1:
+//  - Add Deserialize to Event.
+//  - Make as much stuff Copy as can be - start in Statistics!
 //  - Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
 //     '--> also can use references to markets to avoid cloning?
 //  - If happy with it, impl Initialiser for all stats across the Statistics module.
-//  - Where do I want to log things like Command::ExitPosition being actioned? In Engine or when we push SignalForceExit on to Q?
-//  - Do I want to spans instead of multiple info logging? eg/ fetch_open_requests logs twice
 
 /// Communicates a String is a message associated with a [`Command`].
 pub type Message = String;
