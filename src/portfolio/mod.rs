@@ -17,8 +17,9 @@ pub mod risk;
 
 /// Updates the Portfolio from an input [`MarketEvent`].
 pub trait MarketUpdater {
-    /// Determines if the Portfolio has an open Position relating to the input [`MarketEvent`],
-    /// and if so updates it using the market data.
+    /// Determines if the Portfolio has an open Position relating to the input [`MarketEvent`]. If
+    /// so it updates it using the market data, and returns a [`PositionUpdate`] detailing the
+    /// changes.
     fn update_from_market(&mut self, market: &MarketEvent) -> Result<Option<PositionUpdate>, PortfolioError>;
 }
 

@@ -19,7 +19,6 @@ use serde::Serialize;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{info, warn, error};
 use uuid::Uuid;
-use crate::statistic::summary::trading::TradingSummary;
 
 // Todo - Important:
 //  - Search for to dos since I found one in /statistic/summary/pnl.rs
@@ -51,17 +50,28 @@ use crate::statistic::summary::trading::TradingSummary;
 //  - Roll out consistent use of Market / Exchange / symbol (new types?)
 //    '--> Remember (can't use Market instead of Exchange & Symbol for Position due to serde)
 //    '--> eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
+//  - Add more 'Balance' concept rather than start cash etc. BalanceHandler instead of Equity & Cash?
 
 /// Communicates a String is a message associated with a [`Command`].
 pub type Message = String;
 
-/// Todo:
+/// Commands that can be actioned by an [`Engine`] and it's associated [`Trader`]s.
 #[derive(Debug)]
 pub enum Command {
+    /// Fetches all the [`Engine`]'s open [`Position`]s and sends them on the provided
+    /// `oneshot::Sender`.
     FetchOpenPositions(oneshot::Sender<Result<Vec<Position>, EngineError>>), // Engine
-    // SendSummary(oneshot::Sender<Result<TradingSummary, EngineError>>),    // Engine
+
+    // FetchSummary(oneshot::Sender<Result<TradingSummary, EngineError>>),    // Engine
+
+    /// Terminate every running [`Trader`] associated with this [`Engine`].
     Terminate(Message),                                                      // All Traders
+
+    /// Exit every open [`Position`] associated with this [`Engine`].
     ExitAllPositions,                                                        // All Traders
+
+    /// Exit a [`Position`]. Uses the [`Market`] provided to route this [`Command`] to the relevant
+    /// [`Trader`] instance.
     ExitPosition(Market),                                                    // Single Trader
 }
 
@@ -239,7 +249,8 @@ where
             for handle in thread_handles {
                 if let Err(err) = handle.join() {
                     error!(
-
+                        error = &*format!("{:?}", err),
+                        "Trader thread has panicked during execution",
                     )
                 }
             }
@@ -250,7 +261,8 @@ where
         notify_rx
     }
 
-    /// Fetches all the [`Engine`]'s open [`Position`]s.
+    /// Fetches all the [`Engine`]'s open [`Position`]s and sends them on the provided
+    /// `oneshot::Sender`.
     async fn fetch_open_positions(&self, positions_tx: oneshot::Sender<Result<Vec<Position>, EngineError>>) {
         let open_positions = self
             .portfolio
@@ -259,13 +271,11 @@ where
             .map_err(EngineError::from);
 
         if positions_tx.send(open_positions).is_err() {
-            warn!(why = "oneshot receiver dropped", "cannot action Command::SendOpenPositions");
+            warn!(why = "oneshot receiver dropped", "cannot action Command::FetchOpenPositions");
         }
     }
 
-    // ///
-    // fn send_summary(&self, summary_tx: oneshot::Sender<Result<TradingSummary, EngineError>>) {
-    //     todo!()
+    // fn fetch_summary(&self, summary_tx: oneshot::Sender<Result<TradingSummary, EngineError>>) {
     // }
 
     /// Terminate every running [`Trader`] associated with this [`Engine`].
@@ -281,7 +291,21 @@ where
         }
     }
 
-    /// Exit a [`Position`] using the [`Market`] as an identifier.
+    /// Exit every open [`Position`] associated with this [`Engine`].
+    async fn exit_all_positions(&self) {
+        for (market, command_tx) in self.trader_command_txs.iter() {
+            if command_tx.send(Command::ExitPosition(market.clone())).await.is_err() {
+                error!(
+                    market = &*format!("{:?}", market),
+                    why = "dropped receiver",
+                    "failed to send Command::Terminate to Trader command_rx"
+                );
+            }
+        }
+    }
+
+    /// Exit a [`Position`]. Uses the [`Market`] provided to route this [`Command`] to the relevant
+    /// [`Trader`] instance.
     async fn exit_position(&self, market: Market) {
         if let Some((market_ref, command_tx)) = self.trader_command_txs.get_key_value(&market) {
             if command_tx.send(Command::ExitPosition(market)).await.is_err() {
@@ -297,19 +321,6 @@ where
                 why = "Engine has no trader_command_tx associated with provided Market",
                 "failed to exit Position"
             );
-        }
-    }
-
-    /// Exit every open [`Position`] associated with this [`Engine`].
-    async fn exit_all_positions(&self) {
-        for (market, command_tx) in self.trader_command_txs.iter() {
-            if command_tx.send(Command::ExitPosition(market.clone())).await.is_err() {
-                error!(
-                    market = &*format!("{:?}", market),
-                    why = "dropped receiver",
-                    "failed to send Command::Terminate to Trader command_rx"
-                );
-            }
         }
     }
 }
