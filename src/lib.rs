@@ -203,9 +203,10 @@ pub mod portfolio;
 /// for the system.
 pub mod execution;
 
-/// Defines an Event enum that could be a MarketEvent, SignalEvent, OrderEvent, FillEvent or
-/// Position.
-pub mod event; // Todo:
+/// Defines an Event enum that contains variants that are vital to the trading event loop
+/// (eg/ MarketEvent). Other variants communicate work done by the system (eg/ FillEvent), as well
+/// as changes in system state (eg/ PositionUpdate).
+pub mod event;
 
 /// Defines various iterative statistical methods that can be used to calculate trading performance
 /// metrics in one-pass. A trading performance summary implementation has been provided containing
