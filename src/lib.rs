@@ -205,7 +205,7 @@ pub mod execution;
 
 /// Defines an Event enum that could be a MarketEvent, SignalEvent, OrderEvent, FillEvent or
 /// Position.
-pub mod event;
+pub mod event; // Todo:
 
 /// Defines various iterative statistical methods that can be used to calculate trading performance
 /// metrics in one-pass. A trading performance summary implementation has been provided containing
