@@ -239,7 +239,7 @@ where
             .portfolio
             .lock().unwrap()
             .get_open_positions(&self.engine_id, self.trader_command_txs.keys())
-            .map_err(|err| EngineError::from(err));
+            .map_err(EngineError::from);
 
         if positions_tx.send(open_positions).is_err() {
             warn!(why = "oneshot receiver dropped", "cannot action Command::SendOpenPositions");

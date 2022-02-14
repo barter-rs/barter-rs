@@ -69,7 +69,7 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
             .get(&determine_exited_positions_id(engine_id))
             .map(|exited_positions| {
                 exited_positions
-                    .into_iter()
+                    .iter()
                     .map(Position::clone)
                     .collect()
             })

@@ -81,7 +81,7 @@ impl Drawdown {
             (false, true) => {
                 // Clone Drawdown from previous iteration to return
                 let finished_drawdown = Drawdown {
-                    equity_range: self.equity_range.clone(),
+                    equity_range: self.equity_range,
                     drawdown: self.drawdown,
                     start_timestamp: self.start_timestamp,
                     duration: self.duration,
@@ -135,7 +135,7 @@ impl MaxDrawdown {
     /// drawdown is larger than the current [`MaxDrawdown`], it supersedes it.
     pub fn update(&mut self, next_drawdown: &Drawdown) {
         if next_drawdown.drawdown.abs() > self.drawdown.drawdown.abs() {
-            self.drawdown = next_drawdown.clone();
+            self.drawdown = *next_drawdown;
         }
     }
 }
