@@ -22,11 +22,9 @@ use uuid::Uuid;
 use crate::statistic::summary::trading::TradingSummary;
 
 // Todo - Important:
-//  - Roll out consistent use of Market / Exchange / symbol (new types?)
-//    '--> Remember (can't use Market instead of Exchange & Symbol for Position due to serde)
-//    '--> eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
 //  - Search for to dos since I found one in /statistic/summary/pnl.rs
 //  - Search for unwraps() & fix
+//  - Print summary after Engine stops
 
 // Todo - After Important:
 //  - Print summary for each Market, rather than as a total
@@ -40,6 +38,9 @@ use crate::statistic::summary::trading::TradingSummary;
 //  - Ensure i'm happy with where event Event & Command live (eg/ Balance is in event.rs)
 //  - Do I want ad-hoc way to send a SummarySnapshot on top of Event::Metric being emitted all the time?
 //     '--> Traders could cache the last metrics for ease (seems dirty?).
+//  - Do cargo docs check
+//  - Update code examples & readme
+//  - Fix unwrap() on portfolio & investigate using parking_lot for easier API etc
 
 // Todo - 0.7.1:
 //  - Add Deserialize to Event.
@@ -47,10 +48,14 @@ use crate::statistic::summary::trading::TradingSummary;
 //  - Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
 //     '--> also can use references to markets to avoid cloning?
 //  - If happy with it, impl Initialiser for all stats across the Statistics module.
+//  - Roll out consistent use of Market / Exchange / symbol (new types?)
+//    '--> Remember (can't use Market instead of Exchange & Symbol for Position due to serde)
+//    '--> eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
 
 /// Communicates a String is a message associated with a [`Command`].
 pub type Message = String;
 
+/// Todo:
 #[derive(Debug)]
 pub enum Command {
     FetchOpenPositions(oneshot::Sender<Result<Vec<Position>, EngineError>>), // Engine
@@ -80,7 +85,8 @@ where
     pub portfolio: Arc<Mutex<Portfolio>>,
     /// Collection of [`Trader`] instances that can concurrently trade a market pair on it's own thread.
     pub traders: Vec<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>>,
-    /// Todo:
+    /// `HashMap` containing a [`Command`] transmitter for every [`Trader`] associated with this
+    /// [`Engine`].
     pub trader_command_txs: HashMap<Market, mpsc::Sender<Command>>,
 }
 
@@ -109,7 +115,8 @@ where
     portfolio: Arc<Mutex<Portfolio>>,
     /// Collection of [`Trader`] instances that can concurrently trade a market pair on it's own thread.
     traders: Vec<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>>,
-    /// Todo:
+    /// `HashMap` containing a [`Command`] transmitter for every [`Trader`] associated with this
+    /// [`Engine`].
     trader_command_txs: HashMap<Market, mpsc::Sender<Command>>,
 }
 
@@ -139,10 +146,11 @@ where
         EngineBuilder::new()
     }
 
-    /// Run the trading [`Engine`]. Spawns a thread for each [`Trader`] instance in the [`Engine`] and run
-    /// the [`Trader`] event-loop. Asynchronously awaits a remote shutdown [`Message`]
-    /// via the [`Engine`]'s termination_rx. After remote shutdown has been initiated, the trading
-    /// period's statistics are generated & printed with the provided Statistic component.
+    /// Run the trading [`Engine`]. Spawns a thread for each [`Trader`] to run on. Asynchronously
+    /// receives [`Command`]s via the `command_rx` and actions them
+    /// (eg/ terminate_traders, fetch_open_positions). If all of the [`Trader`]s stop organically
+    /// (eg/ due to a finished [`MarketEvent`] feed), the [`Engine`] terminates & prints a summary
+    /// for the trading session.
     pub async fn run(mut self) {
         // Run Traders on threads & send notification when they have stopped organically
         let mut notify_traders_stopped = self.run_traders().await;
@@ -208,7 +216,8 @@ where
         // }
     }
 
-    /// Todo: Also deal w/ unwraps
+    /// Runs each [`Trader`] it's own thread. Sends a message on the returned `mpsc::Receiver<bool>`
+    /// if all the [`Trader`]s have stopped organically (eg/ due to a finished [`MarketEvent`] feed).
     async fn run_traders(&mut self) -> mpsc::Receiver<bool> {
         // Extract Traders out of the Engine so we can move them into threads
         let traders = std::mem::replace(
@@ -228,7 +237,11 @@ where
         // Create Task that notifies Engine when the Traders have stopped organically
         tokio::spawn(async move {
             for handle in thread_handles {
-                handle.join().unwrap()
+                if let Err(err) = handle.join() {
+                    error!(
+
+                    )
+                }
             }
 
             let _ = notify_tx.send(true).await;
@@ -237,7 +250,7 @@ where
         notify_rx
     }
 
-    /// Todo:
+    /// Fetches all the [`Engine`]'s open [`Position`]s.
     async fn fetch_open_positions(&self, positions_tx: oneshot::Sender<Result<Vec<Position>, EngineError>>) {
         let open_positions = self
             .portfolio
@@ -250,11 +263,12 @@ where
         }
     }
 
-    /// Todo:
-    fn send_summary(&self, summary_tx: oneshot::Sender<Result<TradingSummary, EngineError>>) {
-        todo!()
-    }
-    /// Todo:
+    // ///
+    // fn send_summary(&self, summary_tx: oneshot::Sender<Result<TradingSummary, EngineError>>) {
+    //     todo!()
+    // }
+
+    /// Terminate every running [`Trader`] associated with this [`Engine`].
     async fn terminate_traders(&self, message: Message) {
         for (market, command_tx) in self.trader_command_txs.iter() {
             if command_tx.send(Command::Terminate(message.clone())).await.is_err() {
@@ -267,7 +281,7 @@ where
         }
     }
 
-    /// Todo:
+    /// Exit a [`Position`] using the [`Market`] as an identifier.
     async fn exit_position(&self, market: Market) {
         if let Some((market_ref, command_tx)) = self.trader_command_txs.get_key_value(&market) {
             if command_tx.send(Command::ExitPosition(market)).await.is_err() {
@@ -286,7 +300,7 @@ where
         }
     }
 
-    /// Todo:
+    /// Exit every open [`Position`] associated with this [`Engine`].
     async fn exit_all_positions(&self) {
         for (market, command_tx) in self.trader_command_txs.iter() {
             if command_tx.send(Command::ExitPosition(market.clone())).await.is_err() {
