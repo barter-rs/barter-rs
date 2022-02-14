@@ -243,7 +243,6 @@ impl Market {
     /// Constructs a new [`Market`] using the provided [`ExchangeId`] & [`SymbolId`].
     pub fn new(exchange: ExchangeId, symbol: SymbolId) -> Self {
         Self {
-            /// Todo: ExchangeId = &str? Or Market.exchange = &str rather than 'static?
             exchange,
             symbol: symbol.to_lowercase()
         }
