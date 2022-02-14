@@ -160,7 +160,8 @@ impl SignalEventBuilder {
     }
 }
 
-/// Todo:
+/// Force exit Signal produced after an [`Engine`] receives a [`Command::ExitPosition`](Command)
+/// from an external source.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct SignalForceExit {
     pub event_type: &'static str,
@@ -172,7 +173,7 @@ pub struct SignalForceExit {
 impl SignalForceExit {
     pub const FORCED_EXIT_SIGNAL: &'static str = "SignalForcedExit";
 
-    /// Todo:
+    /// Constructs a new [`Self`] using the [`Market`] provided.
     pub fn new(market: Market) -> Self {
         Self {
             event_type: SignalForceExit::FORCED_EXIT_SIGNAL,

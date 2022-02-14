@@ -36,9 +36,9 @@ where
     Strategy: SignalGenerator,
     Execution: FillGenerator,
 {
-    /// Couples this [`Trader`] instance to it's [`Engine`].
+    /// Identifier for the [`Engine`] this [`Trader`] is associated with (1-to-many relationship)..
     pub engine_id: Uuid,
-    /// Todo:
+    /// Details the exchange (eg/ "binance") & pair symbol (eg/ btc_usd) this [`Trader`] is trading on.
     market: Market,
     /// mpsc::Receiver for receiving [`Command`]s from a remote source.
     pub command_rx: mpsc::Receiver<Command>,
@@ -71,9 +71,9 @@ where
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,
 {
-    /// Couples this [`Trader`] instance to it's [`Engine`].
+    /// Identifier for the [`Engine`] this [`Trader`] is associated with (1-to-many relationship).
     engine_id: Uuid,
-    /// Todo:
+    /// Details the exchange (eg/ "binance") & pair symbol (eg/ btc_usd) this [`Trader`] is trading on.
     market: Market,
     /// mpsc::Receiver for receiving [`Command`]s from a remote source.
     command_rx: mpsc::Receiver<Command>,
@@ -107,7 +107,7 @@ where
     /// Constructs a new [`Trader`] instance using the provided [`TraderLego`].
     pub fn new(lego: TraderLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>) -> Self {
         info!(
-            engine_id = &*format!("{}", lego.engine_id),
+            engine_id = &*lego.engine_id.to_string(),
             market = &*format!("{:?}", lego.market),
             "constructed new Trader instance"
         );
