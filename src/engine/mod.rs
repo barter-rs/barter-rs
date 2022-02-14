@@ -22,23 +22,11 @@ use uuid::Uuid;
 use crate::statistic::summary::TablePrinter;
 
 // Todo - Important:
-//  - Print summary after Engine stops
-
-// Todo - After Important:
-//  - Print summary for each Market, rather than as a total
 //  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
 //  - Write unit tests for Portfolio's new functionality - metrics, etc, etc
-//  - Ensure I am eagerly deriving as much as possible - especially enums! Work out the base derive
-//  - Extract Portfolio::init util functions to remove code dups? perhaps (fn bootstrap_repository() or similar)
-//  - Impl consistent structured logging in Engine & Trader
-//   '--> Do I want to spans instead of multiple info logging? eg/ fetch_open_requests logs twice
-//   '--> Where do I want to log things like Command::ExitPosition being actioned? In Engine or when we push SignalForceExit on to Q?
 //  - Ensure i'm happy with where event Event & Command live (eg/ Balance is in event.rs)
-//  - Do I want ad-hoc way to send a SummarySnapshot on top of Event::Metric being emitted all the time?
-//     '--> Traders could cache the last metrics for ease (seems dirty?).
 //  - Do cargo docs check
 //  - Update code examples & readme
-//  - Fix unwrap() on portfolio & investigate using parking_lot for easier API etc
 
 // Todo - 0.7.1:
 //  - Add Deserialize to Event.
@@ -46,6 +34,12 @@ use crate::statistic::summary::TablePrinter;
 //  - Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
 //     '--> also can use references to markets to avoid cloning?
 //  - If happy with it, impl Initialiser for all stats across the Statistics module.
+//  - investigate using parking_lot for easier API etc
+//  - Ensure I am eagerly deriving as much as possible - especially enums! Work out the base derive
+//  - Extract Portfolio::init util functions to remove code dups? perhaps (fn bootstrap_repository() or similar)
+//  - Impl consistent structured logging in Engine & Trader
+//   '--> Do I want to spans instead of multiple info logging? eg/ fetch_open_requests logs twice
+//   '--> Where do I want to log things like Command::ExitPosition being actioned? In Engine or when we push SignalForceExit on to Q?
 //  - Roll out consistent use of Market / Exchange / symbol (new types?)
 //    '--> Remember (can't use Market instead of Exchange & Symbol for Position due to serde)
 //    '--> eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
