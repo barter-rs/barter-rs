@@ -114,7 +114,6 @@ impl RSIStrategyBuilder {
     pub fn rsi(self, value: RelativeStrengthIndex) -> Self {
         Self {
             rsi: Some(value),
-            ..self
         }
     }
 

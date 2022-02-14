@@ -12,7 +12,7 @@ pub trait Initialiser {
 
 pub trait PositionSummariser: Copy {
     fn update(&mut self, position: &Position);
-    fn generate_summary(&mut self, positions: &Vec<Position>) {
+    fn generate_summary(&mut self, positions: &[Position]) {
         for position in positions.iter() {
             self.update(position)
         }
