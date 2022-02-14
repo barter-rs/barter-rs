@@ -30,19 +30,27 @@ where
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
 {
+    /// Identifier for the [`Engine`] a [`MetaPortfolio`] is associated with (1-to-1 relationship).
     pub engine_id: Uuid,
+    /// [`Market`]s being tracked by a [`MetaPortfolio`].
     pub markets: Vec<Market>,
+    /// Repository for a [`MetaPortfolio`] to persist it's state in. Implements
+    /// [`PositionHandler`], [`EquityHandler`], [`CashHandler`], and [`StatisticHandler`]
     pub repository: Repository,
+    /// Allocation manager implements [`OrderAllocator`].
     pub allocator: Allocator,
+    /// Risk manager implements [`OrderEvaluator`].
     pub risk: RiskManager,
+    /// Cash balance a [`MetaPortfolio`] starts with.
     pub starting_cash: f64,
+    /// Configuration used to initialise the Statistics for every Market's performance tracked by a
+    /// [`MetaPortfolio`].
     pub statistic_config: Statistic::Config,
-    pub _statistic_marker: PhantomData<Statistic>
+    _statistic_marker: PhantomData<Statistic>
 }
 
-/// Portfolio with state persisted in a repository. Implements [`MarketUpdater`], [`OrderGenerator`],
-/// and [`FillUpdater`].
-/// Todo:
+/// Portfolio with state persisted in a repository. [`MarketUpdater`], [`OrderGenerator`],
+/// [`FillUpdater`] and [`PositionHandler`].
 #[derive(Debug)]
 pub struct MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
 where
@@ -51,11 +59,11 @@ where
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
 {
-    /// Todo:
+    /// Identifier for the [`Engine`] this Portfolio is associated with (1-to-1 relationship).
     engine_id: Uuid,
     /// Repository for the [`MetaPortfolio`] to persist it's state in. Implements
-    /// [`PositionHandler`], [`ValueHandler`], and [`CashHandler`].
-    pub repository: Repository,
+    /// [`PositionHandler`], [`EquityHandler`], [`CashHandler`], and [`StatisticHandler`]
+    repository: Repository,
     /// Allocation manager implements [`OrderAllocator`].
     allocation_manager: Allocator,
     /// Risk manager implements [`OrderEvaluator`].
@@ -84,7 +92,6 @@ where
 
             Ok(Some(position_update))
         } else {
-
             Ok(None)
         }
     }
