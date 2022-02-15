@@ -495,7 +495,7 @@ impl PositionBuilder {
 
 /// Metadata detailing the trace UUIDs & timestamps associated with entering, updating & exiting
 /// a [Position].
-#[derive(Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
 pub struct PositionMeta {
     /// Trace UUID of the MarketEvent that triggered the entering of this [Position].
     pub enter_trace_id: Uuid,
