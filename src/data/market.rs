@@ -22,8 +22,8 @@ impl Default for MarketEvent {
             event_type: MarketEvent::EVENT_TYPE,
             trace_id: Uuid::new_v4(),
             timestamp: Utc::now(),
-            exchange: "BINANCE",
-            symbol: String::from("ETH-USD"),
+            exchange: "binance",
+            symbol: String::from("eth_usdt"),
             data: MarketData::Candle(Candle::default()),
         }
     }

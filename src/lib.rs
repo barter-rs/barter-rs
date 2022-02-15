@@ -45,8 +45,8 @@
 //! use barter::data::handler::historic::{HistoricCandleHandler, HistoricDataLego};
 //!
 //! let lego = HistoricDataLego {
-//!     exchange: "Binance",
-//!     symbol: "btcusdt".to_string(),
+//!     exchange: "binance",
+//!     symbol: "btc_usdt".to_string(),
 //!     candles: vec![Candle::default()].into_iter(),
 //! };
 //!
@@ -105,7 +105,7 @@
 //!
 //! let components = PortfolioLego {
 //!     engine_id: Default::default(),
-//!     markets: vec![Market {exchange: "binance",symbol: "btcusdt".to_string()}],
+//!     markets: vec![Market {exchange: "binance",symbol: "btc_usdt".to_string()}],
 //!     repository: InMemoryRepository::new(),
 //!     allocator: DefaultAllocator{ default_order_value: 100.0 },
 //!     risk: DefaultRisk{},
@@ -240,10 +240,10 @@ use serde::Serialize;
 /// Communicates a str is a unique identifier for an Exchange (eg/ "binance")
 pub type ExchangeId = &'static str;
 
-/// Communicates a String is a unique identifier for a pair symbol (eg/ "BTC_USDT")
+/// Communicates a String is a unique identifier for a pair symbol (eg/ "btc_usd")
 pub type SymbolId = String;
 
-/// Communicates a String represents a unique market identifier (eg/ "market_binance-USDT_BTC").
+/// Communicates a String represents a unique market identifier (eg/ "market_binance-btc_usdt").
 pub type MarketId = String;
 
 /// Represents a unique combination of an [`ExchangeId`] & a [`SymbolId`]. Each [`Trader`] barters
@@ -264,14 +264,14 @@ impl Market {
     }
 
     /// Returns the [`MarketId`] unique identifier associated with this [`Market`] by utilising
-    /// [`determine_market_id`] (eg/ "market_binance-USDT_BTC").
+    /// [`determine_market_id`] (eg/ "market_binance-btc_usdt").
     pub fn market_id(&self) -> MarketId {
         determine_market_id(self.exchange, &self.symbol)
     }
 }
 
 /// Returns the unique identifier for a given market, where a 'market' is a unique
-/// exchange-symbol combination (eg/ "market_binance-USDT_BTC").
+/// exchange-symbol combination (eg/ "market_binance-btc_usdt").
 pub fn determine_market_id(exchange: &str, symbol: &String) -> MarketId {
     format!("market_{}_{}", exchange, symbol)
 }

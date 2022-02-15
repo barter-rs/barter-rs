@@ -24,11 +24,13 @@ use crate::statistic::summary::TablePrinter;
 // Todo - Important:
 //  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
 //  - Write unit tests for Portfolio's new functionality - metrics, etc, etc
+//  - Test for new events
 //  - Ensure i'm happy with where event Event & Command live (eg/ Balance is in event.rs)
 //  - Do cargo docs check
 //  - Update code examples & readme
 
 // Todo - 0.7.1:
+//  - Remove strange default() impls that I use for tests eg/ Position::default()
 //  - investigate using parking_lot for easier API etc
 //  - Add more 'Balance' concept rather than start cash etc. BalanceHandler instead of Equity & Cash?
 //  - Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
