@@ -22,19 +22,21 @@ use uuid::Uuid;
 use crate::statistic::summary::TablePrinter;
 
 // Todo - Important:
-//  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
-//  - Write unit tests for Portfolio's new functionality - metrics, etc, etc
-//  - Test for new events
+//  - Test for new events eg/ PositionExit PositionUpdate PositionNew
 //  - Ensure i'm happy with where event Event & Command live (eg/ Balance is in event.rs)
 //  - Do cargo docs check
 //  - Update code examples & readme
 
 // Todo - 0.7.1:
 //  - Remove strange default() impls that I use for tests eg/ Position::default()
+//  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
 //  - investigate using parking_lot for easier API etc
-//  - Add more 'Balance' concept rather than start cash etc. BalanceHandler instead of Equity & Cash?
+//  - Add more 'Balance' concept rather than start cash etc. BalanceHandler instead of Equity & Cash (fully copy)
+//     '--> EquityPoint::from(Balance) which adds the timestamp, or does Balance hold the timestamp?
 //  - Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
 //     '--> also can use references to markets to avoid cloning?
+//  - Ensure PositionNew, PositionUpdate & PositionExit is consistent -> create trait for Position?
+//     '--> eg similar to Rust TAs Open, High etc
 //  - Roll out consistent use of Market / Exchange / symbol (new types?)
 //    '--> Remember (can't use Market instead of Exchange & Symbol for Position due to serde)
 //    '--> eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
