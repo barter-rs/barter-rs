@@ -1,5 +1,5 @@
-use thiserror::Error;
 use crate::portfolio::repository::error::RepositoryError;
+use thiserror::Error;
 
 /// All errors generated in barter-engine.
 #[derive(Error, Copy, Clone, Debug)]

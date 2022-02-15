@@ -5,7 +5,6 @@ use crate::statistic::se_duration;
 use chrono::{DateTime, Duration, Utc};
 use serde::Serialize;
 
-
 /// [`Drawdown`] is the peak-to-trough decline of the Portfolio, or investment, during a specific
 /// period. Drawdown is a measure of downside volatility.
 ///

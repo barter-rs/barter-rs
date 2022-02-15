@@ -1,24 +1,29 @@
-use crate::{determine_market_id, Market, MarketId};
-use crate::event::{Balance, MetricsUpdate};
 use crate::data::market::{MarketEvent, MarketMeta};
+use crate::event::Event;
+use crate::event::{Balance, MetricsUpdate};
 use crate::execution::fill::FillEvent;
 use crate::portfolio::allocator::OrderAllocator;
 use crate::portfolio::error::PortfolioError;
 use crate::portfolio::order::{OrderEvent, OrderType};
-use crate::portfolio::position::{determine_position_id, Direction, Position, PositionEnterer, PositionExiter, PositionId, PositionUpdate, PositionUpdater};
-use crate::portfolio::repository::{CashHandler, PositionHandler, StatisticHandler, EquityHandler, AvailableCash};
+use crate::portfolio::position::{
+    determine_position_id, Direction, Position, PositionEnterer, PositionExiter, PositionId,
+    PositionUpdate, PositionUpdater,
+};
+use crate::portfolio::repository::error::RepositoryError;
+use crate::portfolio::repository::{
+    AvailableCash, CashHandler, EquityHandler, PositionHandler, StatisticHandler,
+};
 use crate::portfolio::risk::OrderEvaluator;
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
-use crate::strategy::signal::{Decision, SignalEvent, SignalForceExit, SignalStrength};
 use crate::statistic::summary::{Initialiser, PositionSummariser};
-use crate::portfolio::repository::error::RepositoryError;
-use crate::event::Event;
-use serde::Serialize;
+use crate::strategy::signal::{Decision, SignalEvent, SignalForceExit, SignalStrength};
+use crate::{determine_market_id, Market, MarketId};
 use chrono::Utc;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use uuid::Uuid;
 use tracing::info;
+use uuid::Uuid;
 
 /// Lego components for constructing & initialising a [`MetaPortfolio`] via the init() constructor
 /// method.
@@ -46,7 +51,7 @@ where
     /// Configuration used to initialise the Statistics for every Market's performance tracked by a
     /// [`MetaPortfolio`].
     pub statistic_config: Statistic::Config,
-    pub _statistic_marker: PhantomData<Statistic>
+    pub _statistic_marker: PhantomData<Statistic>,
 }
 
 /// Portfolio with state persisted in a repository. [`MarketUpdater`], [`OrderGenerator`],
@@ -71,14 +76,18 @@ where
     _statistic_marker: PhantomData<Statistic>,
 }
 
-impl<Repository, Allocator, RiskManager, Statistic> MarketUpdater for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
+impl<Repository, Allocator, RiskManager, Statistic> MarketUpdater
+    for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
 where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
 {
-    fn update_from_market(&mut self, market: &MarketEvent) -> Result<Option<PositionUpdate>, PortfolioError> {
+    fn update_from_market(
+        &mut self,
+        market: &MarketEvent,
+    ) -> Result<Option<PositionUpdate>, PortfolioError> {
         // Determine the position_id associated to the input MarketEvent
         let position_id = determine_position_id(&self.engine_id, market.exchange, &market.symbol);
 
@@ -97,21 +106,25 @@ where
     }
 }
 
-impl<Repository, Allocator, RiskManager, Statistic> OrderGenerator for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
+impl<Repository, Allocator, RiskManager, Statistic> OrderGenerator
+    for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
 where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
 {
-    fn generate_order(&mut self, signal: &SignalEvent) -> Result<Option<OrderEvent>, PortfolioError> {
+    fn generate_order(
+        &mut self,
+        signal: &SignalEvent,
+    ) -> Result<Option<OrderEvent>, PortfolioError> {
         // Determine the position_id & associated Option<Position> related to input SignalEvent
         let position_id = determine_position_id(&self.engine_id, signal.exchange, &signal.symbol);
         let position = self.repository.get_open_position(&position_id)?;
 
         // If signal is advising to open a new Position rather than close one, check we have cash
         if position.is_none() && self.no_cash_to_enter_new_position()? {
-            return Ok(None)
+            return Ok(None);
         }
 
         // Parse signals from Strategy to determine net signal decision & associated strength
@@ -136,13 +149,17 @@ where
         };
 
         // Manage OrderEvent size allocation
-        self.allocation_manager.allocate_order(&mut order, position, *signal_strength);
+        self.allocation_manager
+            .allocate_order(&mut order, position, *signal_strength);
 
         // Manage global risk when evaluating OrderEvent - keep the same, refine or cancel
         Ok(self.risk_manager.evaluate_order(order))
     }
 
-    fn generate_exit_order(&mut self, signal: SignalForceExit) -> Result<Option<OrderEvent>, PortfolioError> {
+    fn generate_exit_order(
+        &mut self,
+        signal: SignalForceExit,
+    ) -> Result<Option<OrderEvent>, PortfolioError> {
         // Determine PositionId associated with the SignalForceExit
         let position_id = determine_position_id(&self.engine_id, signal.exchange, &signal.symbol);
 
@@ -154,7 +171,7 @@ where
                     outcome = "no forced exit OrderEvent generated",
                     "cannot generate forced exit OrderEvent for a Position that isn't open"
                 );
-                return Ok(None)
+                return Ok(None);
             }
             Some(position) => position,
         };
@@ -167,23 +184,27 @@ where
             symbol: signal.symbol,
             market_meta: MarketMeta {
                 close: position.current_symbol_price,
-                timestamp: position.meta.last_update_timestamp
+                timestamp: position.meta.last_update_timestamp,
             },
             decision: position.direction.determine_exit_decision(),
             quantity: 0.0 - position.quantity,
-            order_type: OrderType::Market
+            order_type: OrderType::Market,
         }))
     }
 }
 
-impl<Repository, Allocator, RiskManager, Statistic> FillUpdater<Statistic> for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
+impl<Repository, Allocator, RiskManager, Statistic> FillUpdater<Statistic>
+    for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
 where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser + Serialize,
 {
-    fn update_from_fill(&mut self, fill: &FillEvent) -> Result<Vec<Event<Statistic>>, PortfolioError> {
+    fn update_from_fill(
+        &mut self,
+        fill: &FillEvent,
+    ) -> Result<Vec<Event<Statistic>>, PortfolioError> {
         // Allocate Vector<Event> to contain any update_from_fill generated events
         let mut generated_events: Vec<Event<Statistic>> = Vec::with_capacity(3);
 
@@ -196,10 +217,8 @@ where
 
         // Determine FillEvent context based on existence or absence of an open Position
         match self.repository.remove_position(&position_id)? {
-
             // EXIT SCENARIO - FillEvent for Symbol-Exchange combination with open Position
             Some(mut position) => {
-
                 // Exit Position (in place mutation), & add the PositionExit event to Vec<Event>
                 let position_exit = position.exit(total_equity, fill)?;
                 generated_events.push(Event::PositionExit(position_exit));
@@ -218,12 +237,13 @@ where
                 stats.update(&position);
                 generated_events.push(Event::Metrics(MetricsUpdate {
                     market: Market::new(fill.exchange, fill.symbol.clone()),
-                    statistics: stats
+                    statistics: stats,
                 }));
 
                 // Persist exited Position & Updated Market statistics in Repository
                 self.repository.set_statistics(&market_id, stats)?;
-                self.repository.set_exited_position(&self.engine_id, position)?;
+                self.repository
+                    .set_exited_position(&self.engine_id, position)?;
             }
 
             // ENTRY SCENARIO - FillEvent for Symbol-Exchange with no Position
@@ -241,19 +261,24 @@ where
         };
 
         // Add new Balance event to the Vec<Event>
-        generated_events.push(Event::Balance(Balance::from(
-            (available_cash, total_equity, fill.timestamp)
-        )));
+        generated_events.push(Event::Balance(Balance::from((
+            available_cash,
+            total_equity,
+            fill.timestamp,
+        ))));
 
         // Persist updated Portfolio cash & total equity in Repository
-        self.repository.set_total_equity(&self.engine_id, total_equity)?;
-        self.repository.set_available_cash(&self.engine_id, available_cash)?;
+        self.repository
+            .set_total_equity(&self.engine_id, total_equity)?;
+        self.repository
+            .set_available_cash(&self.engine_id, available_cash)?;
 
         Ok(generated_events)
     }
 }
 
-impl<Repository, Allocator, RiskManager, Statistic> PositionHandler for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
+impl<Repository, Allocator, RiskManager, Statistic> PositionHandler
+    for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
 where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
@@ -264,20 +289,31 @@ where
         self.repository.set_open_position(position)
     }
 
-    fn get_open_position(&mut self, position_id: &PositionId) -> Result<Option<Position>, RepositoryError> {
+    fn get_open_position(
+        &mut self,
+        position_id: &PositionId,
+    ) -> Result<Option<Position>, RepositoryError> {
         self.repository.get_open_position(position_id)
     }
 
-    fn get_open_positions<'a, Markets: Iterator<Item=&'a Market>>(&mut self, _: &Uuid, markets: Markets) -> Result<Vec<Position>, RepositoryError> {
+    fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
+        &mut self,
+        _: &Uuid,
+        markets: Markets,
+    ) -> Result<Vec<Position>, RepositoryError> {
         self.repository.get_open_positions(&self.engine_id, markets)
     }
 
-    fn remove_position(&mut self, position_id: &PositionId) -> Result<Option<Position>, RepositoryError> {
+    fn remove_position(
+        &mut self,
+        position_id: &PositionId,
+    ) -> Result<Option<Position>, RepositoryError> {
         self.repository.remove_position(position_id)
     }
 
     fn set_exited_position(&mut self, _: &Uuid, position: Position) -> Result<(), RepositoryError> {
-        self.repository.set_exited_position(&self.engine_id, position)
+        self.repository
+            .set_exited_position(&self.engine_id, position)
     }
 
     fn get_exited_positions(&mut self, _: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError> {
@@ -285,13 +321,19 @@ where
     }
 }
 
-impl<Repository, Allocator, RiskManager, Statistic> StatisticHandler<Statistic> for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
+impl<Repository, Allocator, RiskManager, Statistic> StatisticHandler<Statistic>
+    for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
 where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
-    Statistic: Initialiser + PositionSummariser {
-    fn set_statistics(&mut self, market_id: &MarketId, statistic: Statistic) -> Result<(), RepositoryError> {
+    Statistic: Initialiser + PositionSummariser,
+{
+    fn set_statistics(
+        &mut self,
+        market_id: &MarketId,
+        statistic: Statistic,
+    ) -> Result<(), RepositoryError> {
         self.repository.set_statistics(market_id, statistic)
     }
 
@@ -300,7 +342,8 @@ where
     }
 }
 
-impl<Repository, Allocator, RiskManager, Statistic> MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
+impl<Repository, Allocator, RiskManager, Statistic>
+    MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
 where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
@@ -309,30 +352,34 @@ where
 {
     /// Constructs a new [`MetaPortfolio`] using the provided [`PortfolioLego`] components, and
     /// persists the initial [`MetaPortfolio`] state in the Repository.
-    pub fn init(lego: PortfolioLego<Repository, Allocator, RiskManager, Statistic>) -> Result<Self, PortfolioError> {
+    pub fn init(
+        lego: PortfolioLego<Repository, Allocator, RiskManager, Statistic>,
+    ) -> Result<Self, PortfolioError> {
         // Construct MetaPortfolio instance
         let mut portfolio = Self {
             engine_id: lego.engine_id,
             repository: lego.repository,
             allocation_manager: lego.allocator,
             risk_manager: lego.risk,
-            _statistic_marker: PhantomData::default()
+            _statistic_marker: PhantomData::default(),
         };
 
         // Init MetaPortfolio AvailableCash & TotalEquity entries in the Repository
-        portfolio.repository.set_available_cash(&lego.engine_id, lego.starting_cash)?;
-        portfolio.repository.set_total_equity(&lego.engine_id, lego.starting_cash)?;
+        portfolio
+            .repository
+            .set_available_cash(&lego.engine_id, lego.starting_cash)?;
+        portfolio
+            .repository
+            .set_total_equity(&lego.engine_id, lego.starting_cash)?;
 
         // Init MetaPortfolio Statistics for every Market in the Repository
         let stats_config = lego.statistic_config;
-        lego.markets
-            .iter()
-            .try_for_each(|market| {
-                portfolio
-                    .repository
-                    .set_statistics(&market.market_id(), Statistic::init(stats_config))
-                    .map_err(PortfolioError::RepositoryInteractionError)
-            })?;
+        lego.markets.iter().try_for_each(|market| {
+            portfolio
+                .repository
+                .set_statistics(&market.market_id(), Statistic::init(stats_config))
+                .map_err(PortfolioError::RepositoryInteractionError)
+        })?;
 
         Ok(portfolio)
     }
@@ -366,7 +413,8 @@ where
     _statistic_marker: Option<PhantomData<Statistic>>,
 }
 
-impl<Repository, Allocator, RiskManager, Statistic> MetaPortfolioBuilder<Repository, Allocator, RiskManager, Statistic>
+impl<Repository, Allocator, RiskManager, Statistic>
+    MetaPortfolioBuilder<Repository, Allocator, RiskManager, Statistic>
 where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
@@ -435,36 +483,46 @@ where
         }
     }
 
-    pub fn build_and_init(self) -> Result<MetaPortfolio<Repository, Allocator, RiskManager, Statistic>, PortfolioError> {
+    pub fn build_and_init(
+        self,
+    ) -> Result<MetaPortfolio<Repository, Allocator, RiskManager, Statistic>, PortfolioError> {
         let engine_id = self.engine_id.ok_or(PortfolioError::BuilderIncomplete)?;
         let markets = self.markets.ok_or(PortfolioError::BuilderIncomplete)?;
-        let starting_cash = self.starting_cash.ok_or(PortfolioError::BuilderIncomplete)?;
+        let starting_cash = self
+            .starting_cash
+            .ok_or(PortfolioError::BuilderIncomplete)?;
         let repository = self.repository.ok_or(PortfolioError::BuilderIncomplete)?;
-        let allocation_manager = self.allocation_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+        let allocation_manager = self
+            .allocation_manager
+            .ok_or(PortfolioError::BuilderIncomplete)?;
         let risk_manager = self.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?;
-        let statistic_config = self.statistic_config.ok_or(PortfolioError::BuilderIncomplete)?;
+        let statistic_config = self
+            .statistic_config
+            .ok_or(PortfolioError::BuilderIncomplete)?;
 
         let mut portfolio = MetaPortfolio {
             engine_id,
             repository,
             allocation_manager,
             risk_manager,
-            _statistic_marker: PhantomData::default()
+            _statistic_marker: PhantomData::default(),
         };
 
         // Init MetaPortfolio AvailableCash & TotalEquity entries in the Repository
-        portfolio.repository.set_available_cash(&portfolio.engine_id, starting_cash)?;
-        portfolio.repository.set_total_equity(&portfolio.engine_id, starting_cash)?;
+        portfolio
+            .repository
+            .set_available_cash(&portfolio.engine_id, starting_cash)?;
+        portfolio
+            .repository
+            .set_total_equity(&portfolio.engine_id, starting_cash)?;
 
         // Init MetaPortfolio Statistics for every Market in the Repository
-        markets
-            .iter()
-            .try_for_each(|market| {
-                portfolio
-                    .repository
-                    .set_statistics(&market.market_id(), Statistic::init(statistic_config))
-                    .map_err(PortfolioError::RepositoryInteractionError)
-            })?;
+        markets.iter().try_for_each(|market| {
+            portfolio
+                .repository
+                .set_statistics(&market.market_id(), Statistic::init(statistic_config))
+                .map_err(PortfolioError::RepositoryInteractionError)
+        })?;
 
         Ok(portfolio)
     }
@@ -503,27 +561,36 @@ pub fn parse_signal_decisions<'a>(
 mod tests {
     use super::*;
     use crate::execution::fill::Fees;
+    use crate::portfolio::allocator::DefaultAllocator;
     use crate::portfolio::position::PositionBuilder;
     use crate::portfolio::repository::error::RepositoryError;
-    use barter_data::model::MarketData;
-    use crate::{Market, MarketId};
-    use crate::portfolio::allocator::DefaultAllocator;
     use crate::portfolio::risk::DefaultRisk;
     use crate::statistic::summary::pnl::PnLReturnSummary;
+    use crate::{Market, MarketId};
+    use barter_data::model::MarketData;
 
     #[derive(Default)]
     struct MockRepository<Statistic> {
         set_open_position: Option<fn(position: Position) -> Result<(), RepositoryError>>,
-        get_open_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
-        get_open_positions: Option<fn(engine_id: &Uuid, markets: Vec<&Market>) -> Result<Vec<Position>, RepositoryError>>,
-        remove_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
-        set_exited_position: Option<fn(portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>>,
-        get_exited_positions: Option<fn(portfolio_id: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError>>,
-        set_total_equity: Option<fn(portfolio_id: &Uuid, value: f64) -> Result<(), RepositoryError>>,
+        get_open_position:
+            Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
+        get_open_positions: Option<
+            fn(engine_id: &Uuid, markets: Vec<&Market>) -> Result<Vec<Position>, RepositoryError>,
+        >,
+        remove_position:
+            Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
+        set_exited_position:
+            Option<fn(portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>>,
+        get_exited_positions:
+            Option<fn(portfolio_id: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError>>,
+        set_total_equity:
+            Option<fn(portfolio_id: &Uuid, value: f64) -> Result<(), RepositoryError>>,
         get_total_equity: Option<fn(portfolio_id: &Uuid) -> Result<f64, RepositoryError>>,
-        set_available_cash: Option<fn(portfolio_id: &Uuid, cash: f64) -> Result<(), RepositoryError>>,
+        set_available_cash:
+            Option<fn(portfolio_id: &Uuid, cash: f64) -> Result<(), RepositoryError>>,
         get_available_cash: Option<fn(portfolio_id: &Uuid) -> Result<f64, RepositoryError>>,
-        set_statistics: Option<fn(market_id: &MarketId, statistic: Statistic) -> Result<(), RepositoryError>>,
+        set_statistics:
+            Option<fn(market_id: &MarketId, statistic: Statistic) -> Result<(), RepositoryError>>,
         get_statistics: Option<fn(market_id: &MarketId) -> Result<Statistic, RepositoryError>>,
         position: Option<PositionBuilder>,
         equity: Option<f64>,
@@ -556,7 +623,11 @@ mod tests {
             self.get_open_position.unwrap()(position_id)
         }
 
-        fn get_open_positions<'a, Markets: Iterator<Item=&'a Market>>(&mut self, engine_id: &Uuid, markets: Markets) -> Result<Vec<Position>, RepositoryError> {
+        fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
+            &mut self,
+            engine_id: &Uuid,
+            markets: Markets,
+        ) -> Result<Vec<Position>, RepositoryError> {
             self.get_open_positions.unwrap()(engine_id, markets.into_iter().collect())
         }
 
@@ -614,7 +685,11 @@ mod tests {
     }
 
     impl<Statistic> StatisticHandler<Statistic> for MockRepository<Statistic> {
-        fn set_statistics(&mut self, market_id: &MarketId, statistic: Statistic) -> Result<(), RepositoryError> {
+        fn set_statistics(
+            &mut self,
+            market_id: &MarketId,
+            statistic: Statistic,
+        ) -> Result<(), RepositoryError> {
             self.set_statistics.unwrap()(market_id, statistic)
         }
 
@@ -623,7 +698,9 @@ mod tests {
         }
     }
 
-    fn new_mocked_portfolio<Repository, Statistic>(mock_repository: Repository) -> Result<MetaPortfolio<Repository, DefaultAllocator, DefaultRisk, Statistic>, PortfolioError>
+    fn new_mocked_portfolio<Repository, Statistic>(
+        mock_repository: Repository,
+    ) -> Result<MetaPortfolio<Repository, DefaultAllocator, DefaultRisk, Statistic>, PortfolioError>
     where
         Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
         Statistic: PositionSummariser + Initialiser,
@@ -632,30 +709,38 @@ mod tests {
             .engine_id(Uuid::new_v4())
             .starting_cash(1000.0)
             .repository(mock_repository)
-            .allocation_manager(DefaultAllocator { default_order_value: 100.0, })
+            .allocation_manager(DefaultAllocator {
+                default_order_value: 100.0,
+            })
             .risk_manager(DefaultRisk {});
 
         build_uninitialised_portfolio(builder)
     }
 
     fn build_uninitialised_portfolio<Repository, Statistic>(
-        builder: MetaPortfolioBuilder<Repository, DefaultAllocator, DefaultRisk, Statistic>)
-        -> Result<MetaPortfolio<Repository, DefaultAllocator, DefaultRisk, Statistic>, PortfolioError>
+        builder: MetaPortfolioBuilder<Repository, DefaultAllocator, DefaultRisk, Statistic>,
+    ) -> Result<MetaPortfolio<Repository, DefaultAllocator, DefaultRisk, Statistic>, PortfolioError>
     where
         Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
         Statistic: PositionSummariser + Initialiser,
     {
         let engine_id = builder.engine_id.ok_or(PortfolioError::BuilderIncomplete)?;
-        let repository = builder.repository.ok_or(PortfolioError::BuilderIncomplete)?;
-        let allocation_manager = builder.allocation_manager.ok_or(PortfolioError::BuilderIncomplete)?;
-        let risk_manager = builder.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?;
+        let repository = builder
+            .repository
+            .ok_or(PortfolioError::BuilderIncomplete)?;
+        let allocation_manager = builder
+            .allocation_manager
+            .ok_or(PortfolioError::BuilderIncomplete)?;
+        let risk_manager = builder
+            .risk_manager
+            .ok_or(PortfolioError::BuilderIncomplete)?;
 
         Ok(MetaPortfolio {
             engine_id,
             repository,
             allocation_manager,
             risk_manager,
-            _statistic_marker: Default::default()
+            _statistic_marker: Default::default(),
         })
     }
 
@@ -664,7 +749,7 @@ mod tests {
             event_type: SignalForceExit::FORCED_EXIT_SIGNAL,
             timestamp: Utc::now(),
             exchange: "binance",
-            symbol: "eth_usdt".to_string()
+            symbol: "eth_usdt".to_string(),
         }
     }
 
@@ -695,7 +780,10 @@ mod tests {
             MarketData::Trade(ref mut trade) => trade.price = 200.0,
         };
 
-        let result_pos_update = portfolio.update_from_market(&input_market).unwrap().unwrap();
+        let result_pos_update = portfolio
+            .update_from_market(&input_market)
+            .unwrap()
+            .unwrap();
         let updated_position = portfolio.repository.position.unwrap();
 
         assert_eq!(updated_position.current_symbol_price.unwrap(), 200.0);
@@ -706,7 +794,10 @@ mod tests {
             updated_position.unrealised_profit_loss.unwrap(),
             200.0 - 100.0 - 6.0
         );
-        assert_eq!(result_pos_update.unrealised_profit_loss, 200.0 - 100.0 - 6.0);
+        assert_eq!(
+            result_pos_update.unrealised_profit_loss,
+            200.0 - 100.0 - 6.0
+        );
     }
 
     #[test]
@@ -736,7 +827,10 @@ mod tests {
             MarketData::Trade(ref mut trade) => trade.price = 50.0,
         };
 
-        let result_pos_update = portfolio.update_from_market(&input_market).unwrap().unwrap();
+        let result_pos_update = portfolio
+            .update_from_market(&input_market)
+            .unwrap()
+            .unwrap();
         let updated_position = portfolio.repository.position.unwrap();
 
         assert_eq!(updated_position.current_symbol_price.unwrap(), 50.0);
@@ -776,7 +870,10 @@ mod tests {
             MarketData::Trade(ref mut trade) => trade.price = 50.0,
         };
 
-        let result_pos_update = portfolio.update_from_market(&input_market).unwrap().unwrap();
+        let result_pos_update = portfolio
+            .update_from_market(&input_market)
+            .unwrap()
+            .unwrap();
         let updated_position = portfolio.repository.position.unwrap();
 
         assert_eq!(updated_position.current_symbol_price.unwrap(), 50.0);
@@ -817,7 +914,10 @@ mod tests {
             MarketData::Trade(ref mut trade) => trade.price = 200.0,
         };
 
-        let result_pos_update = portfolio.update_from_market(&input_market).unwrap().unwrap();
+        let result_pos_update = portfolio
+            .update_from_market(&input_market)
+            .unwrap()
+            .unwrap();
         let updated_position = portfolio.repository.position.unwrap();
 
         assert_eq!(updated_position.current_symbol_price.unwrap(), 200.0);
@@ -827,7 +927,10 @@ mod tests {
             updated_position.unrealised_profit_loss.unwrap(),
             100.0 - 200.0 - 6.0
         );
-        assert_eq!(result_pos_update.unrealised_profit_loss, 100.0 - 200.0 - 6.0);
+        assert_eq!(
+            result_pos_update.unrealised_profit_loss,
+            100.0 - 200.0 - 6.0
+        );
     }
 
     #[test]
@@ -960,7 +1063,10 @@ mod tests {
         let input_signal = new_signal_force_exit();
 
         // Expect Ok(Some(OrderEvent))
-        let actual = portfolio.generate_exit_order(input_signal).unwrap().unwrap();
+        let actual = portfolio
+            .generate_exit_order(input_signal)
+            .unwrap()
+            .unwrap();
 
         assert_eq!(actual.decision, Decision::CloseLong);
         assert_eq!(actual.quantity, -100.0);
@@ -985,7 +1091,10 @@ mod tests {
         let input_signal = new_signal_force_exit();
 
         // Expect Ok(Some(OrderEvent))
-        let actual = portfolio.generate_exit_order(input_signal).unwrap().unwrap();
+        let actual = portfolio
+            .generate_exit_order(input_signal)
+            .unwrap()
+            .unwrap();
 
         assert_eq!(actual.decision, Decision::CloseShort);
         assert_eq!(actual.quantity, 100.0);

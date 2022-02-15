@@ -1,20 +1,20 @@
 use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::engine::error::EngineError;
+use crate::engine::Command;
 use crate::event::{Event, MessageTransmitter};
 use crate::execution::FillGenerator;
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
-use crate::strategy::SignalGenerator;
-use crate::engine::Command;
-use crate::Market;
 use crate::strategy::signal::SignalForceExit;
+use crate::strategy::SignalGenerator;
+use crate::Market;
+use serde::Serialize;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
-use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
-use tracing::{debug, warn, info};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 /// Communicates a String represents a unique [`Trader`] identifier.
@@ -95,7 +95,8 @@ where
     _statistic_marker: PhantomData<Statistic>,
 }
 
-impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution> Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+    Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>,
     Statistic: Serialize + Send,
@@ -122,7 +123,7 @@ where
             data: lego.data,
             strategy: lego.strategy,
             execution: lego.execution,
-            _statistic_marker: PhantomData::default()
+            _statistic_marker: PhantomData::default(),
         }
     }
 
@@ -137,17 +138,13 @@ where
     pub fn run(mut self) {
         // Run trading loop for this Trader instance
         'trading: loop {
-
             // Check for new remote Commands before continuing to generate another MarketEvent
             while let Some(command) = self.receive_remote_command() {
                 match command {
-                    Command::Terminate(_) => {
-                        break 'trading
-                    },
+                    Command::Terminate(_) => break 'trading,
                     Command::ExitPosition(market) => {
-                        self.event_q.push_back(Event::SignalForceExit(
-                            SignalForceExit::new(market)
-                        ));
+                        self.event_q
+                            .push_back(Event::SignalForceExit(SignalForceExit::new(market)));
                     }
                     _ => continue,
                 }
@@ -167,7 +164,6 @@ where
             // Handle Events in the event_q
             // '--> While loop will break when event_q is empty and requires another MarketEvent
             while let Some(event) = self.event_q.pop_back() {
-
                 match event {
                     Event::Market(market) => {
                         if let Some(signal) = self.strategy.generate_signal(&market) {
@@ -175,11 +171,13 @@ where
                             self.event_q.push_back(Event::Signal(signal));
                         }
 
-                        if let Some(position_update) = self.portfolio
+                        if let Some(position_update) = self
+                            .portfolio
                             .lock()
                             .expect("failed to unlock Mutex<Portfolio> - poisoned")
                             .update_from_market(&market)
-                            .expect("failed to update Portfolio from market") {
+                            .expect("failed to update Portfolio from market")
+                        {
                             self.event_tx.send(Event::PositionUpdate(position_update));
                         }
                     }
@@ -221,7 +219,8 @@ where
                     }
 
                     Event::Fill(fill) => {
-                        let fill_side_effect_events = self.portfolio
+                        let fill_side_effect_events = self
+                            .portfolio
                             .lock()
                             .expect("failed to unlock Mutex<Portfolio> - poisoned")
                             .update_from_fill(&fill)
@@ -239,7 +238,10 @@ where
     fn receive_remote_command(&mut self) -> Option<Command> {
         match self.command_rx.try_recv() {
             Ok(command) => {
-                debug!(command = &*format!("{:?}", command), "Trader received remote command");
+                debug!(
+                    command = &*format!("{:?}", command),
+                    "Trader received remote command"
+                );
                 Some(command)
             }
             Err(err) => match err {
@@ -249,7 +251,9 @@ where
                         action = "synthesising a Command::Terminate",
                         "remote Command transmitter has been dropped"
                     );
-                    Some(Command::Terminate("remote command transmitter dropped".to_owned()))
+                    Some(Command::Terminate(
+                        "remote command transmitter dropped".to_owned(),
+                    ))
                 }
             },
         }
@@ -278,7 +282,8 @@ where
     _statistic_marker: Option<PhantomData<Statistic>>,
 }
 
-impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution> TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+    TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>,
     Statistic: Serialize + Send,
@@ -297,7 +302,7 @@ where
             data: None,
             strategy: None,
             execution: None,
-            _statistic_marker: None
+            _statistic_marker: None,
         }
     }
 
@@ -357,7 +362,9 @@ where
         }
     }
 
-    pub fn build(self) -> Result<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
+    pub fn build(
+        self,
+    ) -> Result<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
         let engine_id = self.engine_id.ok_or(EngineError::BuilderIncomplete)?;
         let market = self.market.ok_or(EngineError::BuilderIncomplete)?;
         let command_rx = self.command_rx.ok_or(EngineError::BuilderIncomplete)?;
@@ -377,7 +384,7 @@ where
             data,
             strategy,
             execution,
-            _statistic_marker: PhantomData::default()
+            _statistic_marker: PhantomData::default(),
         })
     }
 }

@@ -1,16 +1,16 @@
-use std::fmt::Debug;
-use std::marker::PhantomData;
-use chrono::{DateTime, Utc};
 use crate::data::market::MarketEvent;
-use crate::strategy::signal::{SignalEvent, SignalForceExit};
+use crate::execution::fill::FillEvent;
 use crate::portfolio::order::OrderEvent;
 use crate::portfolio::position::{EquityPoint, Position, PositionExit, PositionUpdate};
 use crate::portfolio::repository::{AvailableCash, TotalEquity};
-use crate::execution::fill::FillEvent;
+use crate::strategy::signal::{SignalEvent, SignalForceExit};
+use crate::Market;
+use chrono::{DateTime, Utc};
 use serde::Serialize;
+use std::fmt::Debug;
+use std::marker::PhantomData;
 use tokio::sync::mpsc;
 use tracing::warn;
-use crate::Market;
 
 /// Events that occur when bartering. [`MarketEvent`], [`SignalEvent`], [`OrderEvent`], and
 /// [`FillEvent`] are vital to the [`Trader`](crate::engine::trader::Trader) event loop, dictating
@@ -54,7 +54,7 @@ pub struct EventTx<Statistic: Serialize> {
 impl<Statistic: Serialize> MessageTransmitter<Event<Statistic>> for EventTx<Statistic> {
     fn send(&mut self, message: Event<Statistic>) {
         if self.receiver_dropped {
-            return
+            return;
         }
 
         if self.event_tx.send(message).is_err() {
@@ -69,19 +69,23 @@ impl<Statistic: Serialize> MessageTransmitter<Event<Statistic>> for EventTx<Stat
 
     fn send_many(&mut self, messages: Vec<Event<Statistic>>) {
         if self.receiver_dropped {
-            return
+            return;
         }
 
-        messages
-            .into_iter()
-            .for_each(|message| { let _ = self.event_tx.send(message); })
+        messages.into_iter().for_each(|message| {
+            let _ = self.event_tx.send(message);
+        })
     }
 }
 
 impl<Statistic: Serialize> EventTx<Statistic> {
     /// Constructs a new [`EventTx`] instance using the provided channel transmitter.
     pub fn new(event_tx: mpsc::UnboundedSender<Event<Statistic>>) -> Self {
-        Self { receiver_dropped: false, event_tx, _statistic_marker: PhantomData::default() }
+        Self {
+            receiver_dropped: false,
+            event_tx,
+            _statistic_marker: PhantomData::default(),
+        }
     }
 }
 
@@ -92,8 +96,13 @@ pub struct Balance {
 }
 
 impl From<(AvailableCash, TotalEquity, DateTime<Utc>)> for Balance {
-    fn from((available_cash, equity, timestamp): (AvailableCash, TotalEquity, DateTime<Utc>)) -> Self {
-        Self { equity: EquityPoint { equity, timestamp }, available_cash }
+    fn from(
+        (available_cash, equity, timestamp): (AvailableCash, TotalEquity, DateTime<Utc>),
+    ) -> Self {
+        Self {
+            equity: EquityPoint { equity, timestamp },
+            available_cash,
+        }
     }
 }
 
