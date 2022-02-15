@@ -1,6 +1,6 @@
 use crate::portfolio::position::{Direction, Position};
 use crate::statistic::summary::data::DataSummary;
-use crate::statistic::summary::{PositionSummariser, TablePrinter};
+use crate::statistic::summary::{Initialiser, PositionSummariser, TablePrinter};
 use chrono::{DateTime, Duration, Utc};
 use prettytable::{Row, Table};
 use serde::{Deserialize, Serialize};
@@ -14,6 +14,14 @@ pub struct PnLReturnSummary {
     pub trades_per_day: f64,
     pub total: DataSummary,
     pub losses: DataSummary,
+}
+
+impl Initialiser for PnLReturnSummary {
+    type Config = ();
+
+    fn init(_: Self::Config) -> Self {
+        Self::default()
+    }
 }
 
 impl Default for PnLReturnSummary {
