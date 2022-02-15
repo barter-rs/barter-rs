@@ -6,13 +6,13 @@ use chrono::Utc;
 use serde::Deserialize;
 
 /// Configuration for constructing a [`SimulatedExecution`] via the new() constructor method.
-#[derive(Copy, Debug, Clone, Deserialize)]
+#[derive(Copy, Clone, Debug, Deserialize)]
 pub struct Config {
     /// Simulated fee percentage to be used for each [`Fees`] field in decimal form (eg/ 0.01 for 1%)
     pub simulated_fees_pct: Fees,
 }
 
-#[derive(Copy, Debug)]
+#[derive(Copy, Clone, Debug)]
 /// Simulated execution handler that executes [`OrderEvent`]s to generate [`FillEvent`]s via a
 /// simulated broker interaction.
 pub struct SimulatedExecution {

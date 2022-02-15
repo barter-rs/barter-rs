@@ -17,7 +17,7 @@ pub trait MarketGenerator {
 }
 
 /// Returned by a [Continuer] to communicate if a process should continue.
-#[derive(Copy, Debug, Deserialize, Serialize, PartialOrd, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialOrd, PartialEq)]
 pub enum Continuation {
     Continue,
     Stop,
