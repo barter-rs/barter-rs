@@ -1,8 +1,8 @@
 use crate::statistic::algorithm::welford_online;
 use crate::statistic::dispersion::Dispersion;
 use crate::statistic::summary::TablePrinter;
-use serde::Serialize;
 use prettytable::{Row, Table};
+use serde::Serialize;
 
 #[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq, Serialize)]
 pub struct DataSummary {

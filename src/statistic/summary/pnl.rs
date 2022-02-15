@@ -1,10 +1,10 @@
 use crate::portfolio::position::{Direction, Position};
+use crate::statistic::se_duration;
 use crate::statistic::summary::data::DataSummary;
 use crate::statistic::summary::{Initialiser, PositionSummariser, TablePrinter};
 use chrono::{DateTime, Duration, Utc};
 use prettytable::{Row, Table};
 use serde::{Deserialize, Serialize};
-use crate::statistic::se_duration;
 
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
 pub struct PnLReturnSummary {
