@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 /// All errors generated in the barter::data module.
-#[derive(Error, Debug)]
+#[derive(Error, Copy, Debug)]
 pub enum DataError {
     #[error("Invalid builder attributes provided")]
     BuilderAttributesInvalid,
