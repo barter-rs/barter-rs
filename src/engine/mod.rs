@@ -29,22 +29,22 @@ use crate::statistic::summary::TablePrinter;
 //  - Update code examples & readme
 
 // Todo - 0.7.1:
-//  - Add Deserialize to Event.
-//  - Make as much stuff Copy as can be - start in Statistics!
+//  - investigate using parking_lot for easier API etc
+//  - Add more 'Balance' concept rather than start cash etc. BalanceHandler instead of Equity & Cash?
 //  - Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
 //     '--> also can use references to markets to avoid cloning?
+//  - Roll out consistent use of Market / Exchange / symbol (new types?)
+//    '--> Remember (can't use Market instead of Exchange & Symbol for Position due to serde)
+//    '--> eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
+//  - Make as much stuff Copy as can be - start in Statistics!
 //  - If happy with it, impl Initialiser for all stats across the Statistics module.
-//  - investigate using parking_lot for easier API etc
+//  - Add Deserialize to Event.
 //  - Ensure I am eagerly deriving as much as possible - especially enums! Work out the base derive:
 //    '--> #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Default)]
 //  - Extract Portfolio::init util functions to remove code dups? perhaps (fn bootstrap_repository() or similar)
 //  - Impl consistent structured logging in Engine & Trader
 //   '--> Do I want to spans instead of multiple info logging? eg/ fetch_open_requests logs twice
 //   '--> Where do I want to log things like Command::ExitPosition being actioned? In Engine or when we push SignalForceExit on to Q?
-//  - Roll out consistent use of Market / Exchange / symbol (new types?)
-//    '--> Remember (can't use Market instead of Exchange & Symbol for Position due to serde)
-//    '--> eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
-//  - Add more 'Balance' concept rather than start cash etc. BalanceHandler instead of Equity & Cash?
 
 /// Communicates a String is a message associated with a [`Command`].
 pub type Message = String;
