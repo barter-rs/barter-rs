@@ -325,7 +325,6 @@ where
 
         // Init MetaPortfolio Statistics for every Market in the Repository
         let stats_config = lego.statistic_config;
-
         lego.markets
             .iter()
             .try_for_each(|market| {
