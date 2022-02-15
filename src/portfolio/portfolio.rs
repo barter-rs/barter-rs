@@ -515,7 +515,7 @@ mod tests {
     struct MockRepository<Statistic> {
         set_open_position: Option<fn(position: Position) -> Result<(), RepositoryError>>,
         get_open_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
-        get_open_positions: Option<fn(engine_id: &Uuid, markets: &Vec<Market>) -> Result<Vec<Position>, RepositoryError>>,
+        get_open_positions: Option<fn(engine_id: &Uuid, markets: Vec<&Market>) -> Result<Vec<Position>, RepositoryError>>,
         remove_position: Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
         set_exited_position: Option<fn(portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>>,
         get_exited_positions: Option<fn(portfolio_id: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError>>,
@@ -556,8 +556,8 @@ mod tests {
             self.get_open_position.unwrap()(position_id)
         }
 
-        fn get_open_positions<'a>(&mut self, engine_id: &Uuid, markets: &Vec<Market>) -> Result<Vec<Position>, RepositoryError> {
-            self.get_open_positions.unwrap()(engine_id, markets)
+        fn get_open_positions<'a, Markets: Iterator<Item=&'a Market>>(&mut self, engine_id: &Uuid, markets: Markets) -> Result<Vec<Position>, RepositoryError> {
+            self.get_open_positions.unwrap()(engine_id, markets.into_iter().collect())
         }
 
         fn remove_position(

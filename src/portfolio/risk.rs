@@ -13,7 +13,7 @@ pub trait OrderEvaluator {
 }
 
 /// Default risk manager that implements [`OrderEvaluator`].
-#[derive(Copy, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug, Deserialize)]
 pub struct DefaultRisk {}
 
 impl OrderEvaluator for DefaultRisk {

@@ -2,7 +2,7 @@ use crate::portfolio::repository::error::RepositoryError;
 use thiserror::Error;
 
 /// All errors generated in the barter::portfolio module.
-#[derive(Error, Debug)]
+#[derive(Error, Copy, Clone, Debug)]
 pub enum PortfolioError {
     #[error("Failed to build struct due to incomplete attributes provided")]
     BuilderIncomplete,
