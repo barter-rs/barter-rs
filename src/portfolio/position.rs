@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+use crate::{ExchangeId, SymbolId};
 use crate::data::market::MarketEvent;
 use crate::execution::fill::{FeeAmount, Fees, FillEvent};
 use crate::portfolio::error::PortfolioError;
@@ -6,7 +8,6 @@ use barter_data::model::MarketData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::{ExchangeId, SymbolId};
 
 /// Enters a new [`Position`].
 pub trait PositionEnterer {
@@ -192,16 +193,16 @@ impl PositionExiter for Position {
             timestamp: fill.market_meta.timestamp,
         });
 
-        Ok(PositionExit::from(self))
+        PositionExit::try_from(self)
     }
 }
 
 impl Default for Position {
     fn default() -> Self {
         Self {
-            position_id: "engine_id_trader_exchange_symbol_position".to_string(),
+            position_id: "engine_id_trader_{}_{}_position".to_owned(),
             exchange: "binance".to_owned(),
-            symbol: "eth_usdt".to_string(),
+            symbol: "eth_usdt".to_owned(),
             meta: Default::default(),
             direction: Default::default(),
             quantity: 1.0,
@@ -647,21 +648,23 @@ pub struct PositionExit {
     pub realised_profit_loss: f64,
 }
 
-impl From<&mut Position> for PositionExit {
-    fn from(closed_position: &mut Position) -> Self {
-        Self {
-            position_id: closed_position.position_id.clone(),
-            last_update_trace_id: closed_position.meta.last_update_trace_id,
-            last_update_timestamp: closed_position.meta.last_update_timestamp,
-            exit_trace_id: closed_position.meta.exit_trace_id.unwrap(),
-            exit_timestamp: closed_position.meta.exit_timestamp.unwrap(),
-            exit_equity_point: closed_position.meta.exit_equity_point.unwrap(),
-            exit_fees: closed_position.exit_fees,
-            exit_fees_total: closed_position.exit_fees_total,
-            exit_avg_price_gross: closed_position.exit_avg_price_gross,
-            exit_value_gross: closed_position.exit_value_gross,
-            realised_profit_loss: closed_position.realised_profit_loss
-        }
+impl TryFrom<&mut Position> for PositionExit {
+    type Error = PortfolioError;
+
+    fn try_from(exited_position: &mut Position) -> Result<Self, Self::Error> {
+        Ok(Self {
+            position_id: exited_position.position_id.clone(),
+            last_update_trace_id: exited_position.meta.last_update_trace_id,
+            last_update_timestamp: exited_position.meta.last_update_timestamp,
+            exit_trace_id: exited_position.meta.exit_trace_id.ok_or(PortfolioError::PositionExitError)?,
+            exit_timestamp: exited_position.meta.exit_timestamp.ok_or(PortfolioError::PositionExitError)?,
+            exit_equity_point: exited_position.meta.exit_equity_point.ok_or(PortfolioError::PositionExitError)?,
+            exit_fees: exited_position.exit_fees,
+            exit_fees_total: exited_position.exit_fees_total,
+            exit_avg_price_gross: exited_position.exit_avg_price_gross,
+            exit_value_gross: exited_position.exit_value_gross,
+            realised_profit_loss: exited_position.realised_profit_loss
+        })
     }
 }
 
@@ -1549,7 +1552,7 @@ mod tests {
     }
 
     #[test]
-    fn calculate_real_profit_loss() {
+    fn calculate_realised_profit_loss() {
         let mut long_win = Position::default(); // Expected PnL = +18.0
         long_win.direction = Direction::Long;
         long_win.enter_value_gross = 100.0;
@@ -1620,25 +1623,25 @@ mod tests {
         }
     }
 
-    fn equity_update_position_closed(exit_timestamp: DateTime<Utc>, result_pnl: f64) -> Position {
-        let mut position = Position::default();
-        position.meta.exit_timestamp = Some(exit_timestamp);
-        position.realised_profit_loss = result_pnl;
-        position
-    }
-
-    fn equity_update_position_open(
-        last_update_timestamp: DateTime<Utc>,
-        unreal_pnl: f64,
-    ) -> Position {
-        let mut position = Position::default();
-        position.meta.last_update_timestamp = last_update_timestamp;
-        position.unrealised_profit_loss = unreal_pnl;
-        position
-    }
-
     #[test]
     fn equity_point_update() {
+        fn equity_update_position_closed(exit_timestamp: DateTime<Utc>, result_pnl: f64) -> Position {
+            let mut position = Position::default();
+            position.meta.exit_timestamp = Some(exit_timestamp);
+            position.realised_profit_loss = result_pnl;
+            position
+        }
+
+        fn equity_update_position_open(
+            last_update_timestamp: DateTime<Utc>,
+            unreal_pnl: f64,
+        ) -> Position {
+            let mut position = Position::default();
+            position.meta.last_update_timestamp = last_update_timestamp;
+            position.unrealised_profit_loss = unreal_pnl;
+            position
+        }
+
         struct TestCase {
             position: Position,
             expected_equity: f64,
@@ -1700,5 +1703,65 @@ mod tests {
             assert!(equity_diff < 1e-10);
             assert_eq!(equity_point.timestamp, test.expected_timestamp)
         }
+    }
+
+    #[test]
+    fn determine_exit_decision() {
+        // Direction::Long -> Decision::CloseLong
+        let input = Direction::Long;
+        assert_eq!(input.determine_exit_decision(), Decision::CloseLong);
+
+        // Direction::Short -> Decision::CloseShort
+        let input = Direction::Short;
+        assert_eq!(input.determine_exit_decision(), Decision::CloseShort);
+    }
+
+    #[test]
+    fn position_update_from_position() {
+        let mut input_position = Position::default();
+        input_position.current_symbol_price = 100.0;
+        input_position.current_value_gross = 200.0;
+        input_position.unrealised_profit_loss = 150.0;
+
+        let actual_update = PositionUpdate::from(&mut input_position);
+
+        assert_eq!(actual_update.current_symbol_price, input_position.current_symbol_price);
+        assert_eq!(actual_update.current_value_gross, input_position.current_value_gross);
+        assert_eq!(actual_update.unrealised_profit_loss, input_position.unrealised_profit_loss);
+    }
+
+    #[test]
+    fn position_exit_try_from_exited_position() {
+        let timestamp = Utc::now();
+
+        let mut exited_position = Position::default();
+        exited_position.meta.exit_trace_id = Some(Uuid::new_v4());
+        exited_position.meta.exit_timestamp = Some(timestamp);
+        exited_position.meta.exit_equity_point = Some(EquityPoint { equity: 0.0, timestamp });
+
+        exited_position.exit_fees = Fees { exchange: 0.0, slippage: 0.0, network: 0.0 };
+        exited_position.exit_fees_total = 0.0;
+        exited_position.exit_avg_price_gross = 100.0;
+        exited_position.exit_value_gross = 100.0;
+        exited_position.realised_profit_loss = 100.0;
+
+        let actual_exit = PositionExit::try_from(&mut exited_position).unwrap();
+
+        assert_eq!(actual_exit.exit_equity_point, exited_position.meta.exit_equity_point.unwrap());
+        assert_eq!(actual_exit.exit_fees, exited_position.exit_fees);
+        assert_eq!(actual_exit.exit_fees_total, exited_position.exit_fees_total);
+        assert_eq!(actual_exit.exit_avg_price_gross, exited_position.exit_avg_price_gross);
+        assert_eq!(actual_exit.exit_value_gross, exited_position.exit_value_gross);
+        assert_eq!(actual_exit.realised_profit_loss, exited_position.realised_profit_loss);
+    }
+
+    #[test]
+    fn position_exit_try_from_open_position() {
+        let mut exited_position = Position::default();
+        exited_position.meta.exit_trace_id = None;
+        exited_position.meta.exit_timestamp = None;
+        exited_position.meta.exit_equity_point = None;
+
+        assert!(PositionExit::try_from(&mut exited_position).is_err());
     }
 }

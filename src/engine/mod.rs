@@ -23,16 +23,17 @@ use crate::statistic::summary::TablePrinter;
 
 // Todo - Important:
 //  - Test for new events eg/ PositionExit PositionUpdate PositionNew
-//  - Ensure i'm happy with where event Event & Command live (eg/ Balance is in event.rs)
-//  - Do cargo docs check
 //  - Update code examples & readme
 
 // Todo - 0.7.1:
 //  - Remove strange default() impls that I use for tests eg/ Position::default()
 //  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
 //  - investigate using parking_lot for easier API etc
+//  - Ensure everything is unit tested
+//  - Position::meta has duplicated exit timestamp in exit_timestamp & meta.equity_point.timestamp
 //  - Add more 'Balance' concept rather than start cash etc. BalanceHandler instead of Equity & Cash (fully copy)
 //     '--> EquityPoint::from(Balance) which adds the timestamp, or does Balance hold the timestamp?
+//  - Delete Statistic from Event & imply consumers use event-sourcing to compute that if they want it?
 //  - Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
 //     '--> also can use references to markets to avoid cloning?
 //  - Ensure PositionNew, PositionUpdate & PositionExit is consistent -> create trait for Position?
