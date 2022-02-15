@@ -28,8 +28,8 @@ impl Default for SignalEvent {
             event_type: SignalEvent::ORGANIC_SIGNAL,
             trace_id: Uuid::new_v4(),
             timestamp: Utc::now(),
-            exchange: "Binance",
-            symbol: String::from("ETH-USD"),
+            exchange: "binance",
+            symbol: String::from("eth_usdt"),
             market_meta: MarketMeta::default(),
             signals: Default::default(),
         }

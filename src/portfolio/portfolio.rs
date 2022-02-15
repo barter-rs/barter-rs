@@ -659,6 +659,15 @@ mod tests {
         })
     }
 
+    fn new_signal_force_exit() -> SignalForceExit {
+        SignalForceExit {
+            event_type: SignalForceExit::FORCED_EXIT_SIGNAL,
+            timestamp: Utc::now(),
+            exchange: "binance",
+            symbol: "eth_usdt".to_string()
+        }
+    }
+
     #[test]
     fn update_from_market_with_long_position_increasing_in_value() {
         // Build Portfolio
@@ -686,17 +695,18 @@ mod tests {
             MarketData::Trade(ref mut trade) => trade.price = 200.0,
         };
 
-        let result = portfolio.update_from_market(&input_market);
+        let result_pos_update = portfolio.update_from_market(&input_market).unwrap().unwrap();
         let updated_position = portfolio.repository.position.unwrap();
 
-        assert!(result.is_ok());
         assert_eq!(updated_position.current_symbol_price.unwrap(), 200.0);
         assert_eq!(updated_position.current_value_gross.unwrap(), 200.0);
+
         // Unreal PnL Long = current_value_gross - enter_value_gross - enter_fees_total*2
         assert_eq!(
             updated_position.unrealised_profit_loss.unwrap(),
             200.0 - 100.0 - 6.0
         );
+        assert_eq!(result_pos_update.unrealised_profit_loss, 200.0 - 100.0 - 6.0);
     }
 
     #[test]
@@ -726,10 +736,9 @@ mod tests {
             MarketData::Trade(ref mut trade) => trade.price = 50.0,
         };
 
-        let result = portfolio.update_from_market(&input_market);
+        let result_pos_update = portfolio.update_from_market(&input_market).unwrap().unwrap();
         let updated_position = portfolio.repository.position.unwrap();
 
-        assert!(result.is_ok());
         assert_eq!(updated_position.current_symbol_price.unwrap(), 50.0);
         assert_eq!(updated_position.current_value_gross.unwrap(), 50.0);
         // Unreal PnL Long = current_value_gross - enter_value_gross - enter_fees_total*2
@@ -737,6 +746,7 @@ mod tests {
             updated_position.unrealised_profit_loss.unwrap(),
             50.0 - 100.0 - 6.0
         );
+        assert_eq!(result_pos_update.unrealised_profit_loss, 50.0 - 100.0 - 6.0);
     }
 
     #[test]
@@ -766,10 +776,9 @@ mod tests {
             MarketData::Trade(ref mut trade) => trade.price = 50.0,
         };
 
-        let result = portfolio.update_from_market(&input_market);
+        let result_pos_update = portfolio.update_from_market(&input_market).unwrap().unwrap();
         let updated_position = portfolio.repository.position.unwrap();
 
-        assert!(result.is_ok());
         assert_eq!(updated_position.current_symbol_price.unwrap(), 50.0);
         assert_eq!(updated_position.current_value_gross.unwrap(), 50.0);
         // Unreal PnL Short = enter_value_gross - current_value_gross - enter_fees_total*2
@@ -777,6 +786,7 @@ mod tests {
             updated_position.unrealised_profit_loss.unwrap(),
             100.0 - 50.0 - 6.0
         );
+        assert_eq!(result_pos_update.unrealised_profit_loss, 100.0 - 50.0 - 6.0);
     }
 
     #[test]
@@ -807,10 +817,9 @@ mod tests {
             MarketData::Trade(ref mut trade) => trade.price = 200.0,
         };
 
-        let result = portfolio.update_from_market(&input_market);
+        let result_pos_update = portfolio.update_from_market(&input_market).unwrap().unwrap();
         let updated_position = portfolio.repository.position.unwrap();
 
-        assert!(result.is_ok());
         assert_eq!(updated_position.current_symbol_price.unwrap(), 200.0);
         assert_eq!(updated_position.current_value_gross.unwrap(), 200.0);
         // Unreal PnL Short = enter_value_gross - current_value_gross - enter_fees_total*2
@@ -818,6 +827,7 @@ mod tests {
             updated_position.unrealised_profit_loss.unwrap(),
             100.0 - 200.0 - 6.0
         );
+        assert_eq!(result_pos_update.unrealised_profit_loss, 100.0 - 200.0 - 6.0);
     }
 
     #[test]
@@ -930,6 +940,69 @@ mod tests {
         let actual = portfolio.generate_order(&input_signal).unwrap().unwrap();
 
         assert_eq!(actual.decision, Decision::CloseShort)
+    }
+
+    #[test]
+    fn generate_exit_order_with_long_position_open() {
+        // Build Portfolio
+        let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
+        mock_repository.get_open_position = Some(|_| {
+            Ok(Some({
+                let mut position = Position::default();
+                position.direction = Direction::Long;
+                position.quantity = 100.0;
+                position
+            }))
+        });
+        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+
+        // Input SignalEvent
+        let mut input_signal = new_signal_force_exit();
+
+        // Expect Ok(Some(OrderEvent))
+        let actual = portfolio.generate_exit_order(&input_signal).unwrap().unwrap();
+
+        assert_eq!(actual.decision, Decision::CloseLong);
+        assert_eq!(actual.quantity, -100.0);
+        assert_eq!(actual.order_type, OrderType::Market)
+    }
+
+    #[test]
+    fn generate_exit_order_with_short_position_open() {
+        // Build Portfolio
+        let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
+        mock_repository.get_open_position = Some(|_| {
+            Ok(Some({
+                let mut position = Position::default();
+                position.direction = Direction::Short;
+                position.quantity = -100.0;
+                position
+            }))
+        });
+        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+
+        // Input SignalEvent
+        let mut input_signal = new_signal_force_exit();
+
+        // Expect Ok(Some(OrderEvent))
+        let actual = portfolio.generate_exit_order(&input_signal).unwrap().unwrap();
+
+        assert_eq!(actual.decision, Decision::CloseShort);
+        assert_eq!(actual.quantity, 100.0);
+        assert_eq!(actual.order_type, OrderType::Market)
+    }
+
+    #[test]
+    fn generate_no_exit_order_when_no_open_position_to_exit() {
+        // Build Portfolio
+        let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
+        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+
+        // Input SignalEvent
+        let mut input_signal = new_signal_force_exit();
+
+        let actual = portfolio.generate_exit_order(&input_signal);
+        assert!(actual.unwrap().is_none());
     }
 
     #[test]
