@@ -1,28 +1,27 @@
 pub mod error;
 pub mod trader;
 
-use std::collections::HashMap;
-use crate::Market;
+use crate::data::handler::{Continuer, MarketGenerator};
 use crate::engine::error::EngineError;
 use crate::engine::trader::Trader;
-use crate::data::handler::{Continuer, MarketGenerator};
-use crate::strategy::SignalGenerator;
+use crate::event::{Event, MessageTransmitter};
+use crate::execution::FillGenerator;
+use crate::portfolio::position::Position;
 use crate::portfolio::repository::{PositionHandler, StatisticHandler};
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
-use crate::portfolio::position::Position;
-use crate::execution::FillGenerator;
-use crate::event::{Event, MessageTransmitter};
-use std::fmt::Debug;
-use std::sync::{Mutex, Arc};
-use std::thread;
-use serde::Serialize;
-use tokio::sync::{mpsc, oneshot};
-use tracing::{info, warn, error};
-use uuid::Uuid;
 use crate::statistic::summary::TablePrinter;
+use crate::strategy::SignalGenerator;
+use crate::Market;
+use serde::Serialize;
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use tokio::sync::{mpsc, oneshot};
+use tracing::{error, info, warn};
+use uuid::Uuid;
 
 // Todo - Important:
-//  - Test for new events eg/ PositionExit PositionUpdate PositionNew
 //  - Update code examples & readme
 
 // Todo - 0.7.1:
@@ -62,21 +61,21 @@ pub enum Command {
     FetchOpenPositions(oneshot::Sender<Result<Vec<Position>, EngineError>>), // Engine
 
     /// Terminate every running [`Trader`] associated with this [`Engine`].
-    Terminate(Message),                                                      // All Traders
+    Terminate(Message), // All Traders
 
     /// Exit every open [`Position`] associated with this [`Engine`].
-    ExitAllPositions,                                                        // All Traders
+    ExitAllPositions, // All Traders
 
     /// Exit a [`Position`]. Uses the [`Market`] provided to route this [`Command`] to the relevant
     /// [`Trader`] instance.
-    ExitPosition(Market),                                                    // Single Trader
+    ExitPosition(Market), // Single Trader
 }
 
 /// Lego components for constructing an [`Engine`] via the new() constructor method.
 #[derive(Debug)]
 pub struct EngineLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event<Statistic>>  + Send,
+    EventTx: MessageTransmitter<Event<Statistic>> + Send,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send,
     Data: Continuer + MarketGenerator + Send,
@@ -106,8 +105,14 @@ where
 pub struct Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>,
-    Statistic:  TablePrinter + Serialize + Send,
-    Portfolio: PositionHandler + StatisticHandler<Statistic> + MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send + 'static,
+    Statistic: TablePrinter + Serialize + Send,
+    Portfolio: PositionHandler
+        + StatisticHandler<Statistic>
+        + MarketUpdater
+        + OrderGenerator
+        + FillUpdater<Statistic>
+        + Send
+        + 'static,
     Data: Continuer + MarketGenerator + Send + 'static,
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,
@@ -127,24 +132,34 @@ where
     trader_command_txs: HashMap<Market, mpsc::Sender<Command>>,
 }
 
-impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution> Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+    Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event<Statistic>>  + Send + 'static,
+    EventTx: MessageTransmitter<Event<Statistic>> + Send + 'static,
     Statistic: TablePrinter + Serialize + Send + 'static,
-    Portfolio: PositionHandler + StatisticHandler<Statistic> + MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send + 'static,
+    Portfolio: PositionHandler
+        + StatisticHandler<Statistic>
+        + MarketUpdater
+        + OrderGenerator
+        + FillUpdater<Statistic>
+        + Send
+        + 'static,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send + 'static,
     Execution: FillGenerator + Send + 'static,
 {
     /// Constructs a new trading [`Engine`] instance using the provided [`EngineLego`].
     pub fn new(lego: EngineLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>) -> Self {
-        info!(engine_id = &*format!("{}", lego.engine_id), "constructed new Engine instance");
+        info!(
+            engine_id = &*format!("{}", lego.engine_id),
+            "constructed new Engine instance"
+        );
         Self {
             engine_id: lego.engine_id,
             command_rx: lego.command_rx,
             portfolio: lego.portfolio,
             traders: lego.traders,
-            trader_command_txs: lego.trader_command_txs
+            trader_command_txs: lego.trader_command_txs,
         }
     }
 
@@ -192,36 +207,31 @@ where
                     }
                 }
             }
-        };
+        }
 
         // Unlock Portfolio Mutex to access backtest statistics
-        let mut portfolio = self
-            .portfolio
-            .lock()
-            .unwrap_or_else(|err| {
-                warn!(
-                    error = &*format!("{:?}", err),
-                    action = "extract inner Portfolio to attempt fetching closed Positions",
-                    "failed to unlock Mutex<Portfolio> due to poisoning"
-                );
-                err.into_inner()
-            });
+        let mut portfolio = self.portfolio.lock().unwrap_or_else(|err| {
+            warn!(
+                error = &*format!("{:?}", err),
+                action = "extract inner Portfolio to attempt fetching closed Positions",
+                "failed to unlock Mutex<Portfolio> due to poisoning"
+            );
+            err.into_inner()
+        });
 
         // Generate Statistics summary
-        self.trader_command_txs
-            .into_keys()
-            .for_each(|market| {
-                portfolio
-                    .get_statistics(&market.market_id())
-                    .map(|statistic| statistic.print())
-                    .unwrap_or_else(|err| {
-                        warn!(
-                            error = &*format!("{:?}", err),
-                            why = "failed to get statistics from Portfolio's repository",
-                            "failed to generate Statistics summary for trading session"
-                        )
-                    })
-            });
+        self.trader_command_txs.into_keys().for_each(|market| {
+            portfolio
+                .get_statistics(&market.market_id())
+                .map(|statistic| statistic.print())
+                .unwrap_or_else(|err| {
+                    warn!(
+                        error = &*format!("{:?}", err),
+                        why = "failed to get statistics from Portfolio's repository",
+                        "failed to generate Statistics summary for trading session"
+                    )
+                })
+        });
     }
 
     /// Runs each [`Trader`] it's own thread. Sends a message on the returned `mpsc::Receiver<bool>`
@@ -259,15 +269,22 @@ where
 
     /// Fetches all the [`Engine`]'s open [`Position`]s and sends them on the provided
     /// `oneshot::Sender`.
-    async fn fetch_open_positions(&self, positions_tx: oneshot::Sender<Result<Vec<Position>, EngineError>>) {
+    async fn fetch_open_positions(
+        &self,
+        positions_tx: oneshot::Sender<Result<Vec<Position>, EngineError>>,
+    ) {
         let open_positions = self
             .portfolio
-            .lock().expect("failed to unlock Mutex<Portfolio> - poisoned")
+            .lock()
+            .expect("failed to unlock Mutex<Portfolio> - poisoned")
             .get_open_positions(&self.engine_id, self.trader_command_txs.keys())
             .map_err(EngineError::from);
 
         if positions_tx.send(open_positions).is_err() {
-            warn!(why = "oneshot receiver dropped", "cannot action Command::FetchOpenPositions");
+            warn!(
+                why = "oneshot receiver dropped",
+                "cannot action Command::FetchOpenPositions"
+            );
         }
     }
 
@@ -279,11 +296,15 @@ where
 
         // Distribute Command::Terminate to all the Engine's Traders
         for (market, command_tx) in self.trader_command_txs.iter() {
-            if command_tx.send(Command::Terminate(message.clone())).await.is_err() {
+            if command_tx
+                .send(Command::Terminate(message.clone()))
+                .await
+                .is_err()
+            {
                 error!(
-                        market = &*format!("{:?}", market),
-                        why = "dropped receiver",
-                        "failed to send Command::Terminate to Trader command_rx"
+                    market = &*format!("{:?}", market),
+                    why = "dropped receiver",
+                    "failed to send Command::Terminate to Trader command_rx"
                 );
             }
         }
@@ -292,7 +313,11 @@ where
     /// Exit every open [`Position`] associated with this [`Engine`].
     async fn exit_all_positions(&self) {
         for (market, command_tx) in self.trader_command_txs.iter() {
-            if command_tx.send(Command::ExitPosition(market.clone())).await.is_err() {
+            if command_tx
+                .send(Command::ExitPosition(market.clone()))
+                .await
+                .is_err()
+            {
                 error!(
                     market = &*format!("{:?}", market),
                     why = "dropped receiver",
@@ -306,7 +331,11 @@ where
     /// [`Trader`] instance.
     async fn exit_position(&self, market: Market) {
         if let Some((market_ref, command_tx)) = self.trader_command_txs.get_key_value(&market) {
-            if command_tx.send(Command::ExitPosition(market)).await.is_err() {
+            if command_tx
+                .send(Command::ExitPosition(market))
+                .await
+                .is_err()
+            {
                 error!(
                     market = &*format!("{:?}", market_ref),
                     why = "dropped receiver",
@@ -341,11 +370,17 @@ where
     trader_command_txs: Option<HashMap<Market, mpsc::Sender<Command>>>,
 }
 
-impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution> EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+    EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event<Statistic>>,
     Statistic: TablePrinter + Serialize + Send,
-    Portfolio: PositionHandler + StatisticHandler<Statistic> + MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send,
+    Portfolio: PositionHandler
+        + StatisticHandler<Statistic>
+        + MarketUpdater
+        + OrderGenerator
+        + FillUpdater<Statistic>
+        + Send,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,
@@ -381,7 +416,10 @@ where
         }
     }
 
-    pub fn traders(self, value: Vec<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>>) -> Self {
+    pub fn traders(
+        self,
+        value: Vec<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>>,
+    ) -> Self {
         Self {
             traders: Some(value),
             ..self
@@ -395,13 +433,16 @@ where
         }
     }
 
-
-    pub fn build(self) -> Result<Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
+    pub fn build(
+        self,
+    ) -> Result<Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
         let engine_id = self.engine_id.ok_or(EngineError::BuilderIncomplete)?;
         let command_rx = self.command_rx.ok_or(EngineError::BuilderIncomplete)?;
         let portfolio = self.portfolio.ok_or(EngineError::BuilderIncomplete)?;
         let traders = self.traders.ok_or(EngineError::BuilderIncomplete)?;
-        let trader_command_txs = self.trader_command_txs.ok_or(EngineError::BuilderIncomplete)?;
+        let trader_command_txs = self
+            .trader_command_txs
+            .ok_or(EngineError::BuilderIncomplete)?;
 
         Ok(Engine {
             engine_id,

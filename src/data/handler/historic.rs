@@ -9,7 +9,7 @@ use uuid::Uuid;
 #[derive(Debug)]
 pub struct HistoricDataLego<Candles>
 where
-    Candles: Iterator<Item = Candle>
+    Candles: Iterator<Item = Candle>,
 {
     pub exchange: &'static str,
     pub symbol: String,
@@ -21,7 +21,7 @@ where
 /// feed via drip feeding historical data files as a series of [MarketEvent]s.
 pub struct HistoricCandleHandler<Candles>
 where
-    Candles: Iterator<Item = Candle>
+    Candles: Iterator<Item = Candle>,
 {
     exchange: &'static str,
     symbol: String,
@@ -31,7 +31,7 @@ where
 
 impl<Candles> Continuer for HistoricCandleHandler<Candles>
 where
-    Candles: Iterator<Item = Candle>
+    Candles: Iterator<Item = Candle>,
 {
     fn can_continue(&self) -> &Continuation {
         &self.can_continue
@@ -40,14 +40,14 @@ where
 
 impl<Candles> MarketGenerator for HistoricCandleHandler<Candles>
 where
-    Candles: Iterator<Item = Candle>
+    Candles: Iterator<Item = Candle>,
 {
     fn generate_market(&mut self) -> Option<MarketEvent> {
         match self.candles.next() {
             None => {
                 self.can_continue = Continuation::Stop;
                 None
-            },
+            }
             Some(candle) => Some(MarketEvent {
                 event_type: MarketEvent::EVENT_TYPE,
                 trace_id: Uuid::new_v4(),
@@ -62,12 +62,11 @@ where
 
 impl<Candles> HistoricCandleHandler<Candles>
 where
-    Candles: Iterator<Item = Candle>
+    Candles: Iterator<Item = Candle>,
 {
     /// Constructs a new [HistoricCandleHandler] component using the provided [HistoricDataLego]
     /// components.
-    pub fn new(lego: HistoricDataLego<Candles>) -> Self
-    {
+    pub fn new(lego: HistoricDataLego<Candles>) -> Self {
         Self {
             exchange: lego.exchange,
             symbol: lego.symbol,
@@ -86,7 +85,7 @@ where
 #[derive(Debug, Default)]
 pub struct HistoricCandleHandlerBuilder<Candles>
 where
-    Candles: Iterator<Item = Candle>
+    Candles: Iterator<Item = Candle>,
 {
     exchange: Option<&'static str>,
     symbol: Option<String>,
@@ -95,13 +94,13 @@ where
 
 impl<Candles> HistoricCandleHandlerBuilder<Candles>
 where
-    Candles: Iterator<Item = Candle>
+    Candles: Iterator<Item = Candle>,
 {
     pub fn new() -> Self {
         Self {
             exchange: None,
             symbol: None,
-            candles: None
+            candles: None,
         }
     }
 
