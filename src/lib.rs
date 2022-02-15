@@ -186,6 +186,13 @@
 //! ### Engine & Traders
 //! [See Readme Engine Example](https://crates.io/crates/barter#example)
 
+#![warn(
+// missing_debug_implementations,
+missing_copy_implementations,
+// rust_2018_idioms,
+// missing_docs
+)]
+
 /// Defines a MarketEvent, and provides the useful traits of Continuer and MarketGenerator for
 /// handling the generation of them. Contains implementations such as the LiveCandleHandler that
 /// generates a live market feed and acts as the system heartbeat.
