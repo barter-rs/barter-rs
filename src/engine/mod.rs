@@ -222,9 +222,7 @@ where
     /// if all the [`Trader`]s have stopped organically (eg/ due to a finished [`MarketEvent`] feed).
     async fn run_traders(&mut self) -> mpsc::Receiver<bool> {
         // Extract Traders out of the Engine so we can move them into threads
-        let traders = std::mem::replace(
-            &mut self.traders, Vec::with_capacity(0)
-        );
+        let traders = std::mem::take(&mut self.traders);
 
         // Run each Trader instance on it's own thread
         let mut thread_handles = Vec::with_capacity(traders.len());
