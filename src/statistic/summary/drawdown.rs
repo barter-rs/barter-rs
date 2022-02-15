@@ -1,8 +1,8 @@
 use crate::portfolio::position::Position;
 use crate::statistic::metric::drawdown::{AvgDrawdown, Drawdown, MaxDrawdown};
 use crate::statistic::summary::{PositionSummariser, TablePrinter};
-use serde::Serialize;
 use prettytable::{Row, Table};
+use serde::Serialize;
 
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
 pub struct DrawdownSummary {

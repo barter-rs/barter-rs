@@ -85,10 +85,8 @@ impl TearSheet {
     pub fn update(&mut self, pnl_returns: &PnLReturnSummary, drawdown: &DrawdownSummary) {
         self.sharpe_ratio.update(pnl_returns);
         self.sortino_ratio.update(pnl_returns);
-        self.calmar_ratio.update(
-            pnl_returns,
-            drawdown.max_drawdown.drawdown.drawdown
-        );
+        self.calmar_ratio
+            .update(pnl_returns, drawdown.max_drawdown.drawdown.drawdown);
     }
 }
 

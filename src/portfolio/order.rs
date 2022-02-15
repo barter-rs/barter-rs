@@ -40,7 +40,6 @@ impl OrderEvent {
     pub const ORGANIC_ORDER: &'static str = "Order";
     pub const FORCED_EXIT_ORDER: &'static str = "OrderForcedExit";
 
-
     /// Returns a OrderEventBuilder instance.
     pub fn builder() -> OrderEventBuilder {
         OrderEventBuilder::new()
