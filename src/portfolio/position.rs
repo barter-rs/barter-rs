@@ -201,7 +201,7 @@ impl Default for Position {
         Self {
             position_id: "engine_id_trader_exchange_symbol_position".to_string(),
             exchange: "binance".to_owned(),
-            symbol: "ETH-USD".to_string(),
+            symbol: "eth_usdt".to_string(),
             meta: Default::default(),
             direction: Default::default(),
             quantity: 1.0,
