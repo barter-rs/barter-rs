@@ -957,7 +957,7 @@ mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
-        let mut input_signal = new_signal_force_exit();
+        let input_signal = new_signal_force_exit();
 
         // Expect Ok(Some(OrderEvent))
         let actual = portfolio.generate_exit_order(input_signal).unwrap().unwrap();
@@ -982,7 +982,7 @@ mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
-        let mut input_signal = new_signal_force_exit();
+        let input_signal = new_signal_force_exit();
 
         // Expect Ok(Some(OrderEvent))
         let actual = portfolio.generate_exit_order(input_signal).unwrap().unwrap();
@@ -1001,7 +1001,7 @@ mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
-        let mut input_signal = new_signal_force_exit();
+        let input_signal = new_signal_force_exit();
 
         let actual = portfolio.generate_exit_order(input_signal).unwrap();
         assert!(actual.is_none());
