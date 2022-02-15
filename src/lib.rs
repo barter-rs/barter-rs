@@ -120,7 +120,7 @@
 //!
 //! let mut portfolio = MetaPortfolio::init(components).unwrap();
 //!
-//! let some_event = Event::OrderNew(OrderEvent::default());
+//! let some_event = Event::<TradingSummary>::OrderNew(OrderEvent::default());
 //!
 //! match some_event {
 //!     Event::Market(market) => {
