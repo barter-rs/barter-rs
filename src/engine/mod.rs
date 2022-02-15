@@ -35,7 +35,8 @@ use crate::statistic::summary::TablePrinter;
 //     '--> also can use references to markets to avoid cloning?
 //  - If happy with it, impl Initialiser for all stats across the Statistics module.
 //  - investigate using parking_lot for easier API etc
-//  - Ensure I am eagerly deriving as much as possible - especially enums! Work out the base derive
+//  - Ensure I am eagerly deriving as much as possible - especially enums! Work out the base derive:
+//    '--> #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Default)]
 //  - Extract Portfolio::init util functions to remove code dups? perhaps (fn bootstrap_repository() or similar)
 //  - Impl consistent structured logging in Engine & Trader
 //   '--> Do I want to spans instead of multiple info logging? eg/ fetch_open_requests logs twice
