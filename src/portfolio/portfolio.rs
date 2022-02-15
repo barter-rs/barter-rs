@@ -185,7 +185,7 @@ where
 {
     fn update_from_fill(&mut self, fill: &FillEvent) -> Result<Vec<Event<Statistic>>, PortfolioError> {
         // Allocate Vector<Event> to contain any update_from_fill generated events
-        let mut created_events: Vec<Event<Statistic>> = Vec::with_capacity(3);
+        let mut generated_events: Vec<Event<Statistic>> = Vec::with_capacity(3);
 
         // Get the Portfolio Cash & Equity from Repository
         let mut available_cash = self.repository.get_available_cash(&self.engine_id)?;
@@ -202,7 +202,7 @@ where
 
                 // Exit Position (in place mutation), & add the PositionExit event to Vec<Event>
                 let position_exit = position.exit(total_equity, fill)?;
-                created_events.push(Event::PositionExit(position_exit));
+                generated_events.push(Event::PositionExit(position_exit));
 
                 // Update Portfolio cash on exit - enter_total_fees added since included in result PnL calc
                 available_cash += position.enter_value_gross
@@ -216,7 +216,7 @@ where
                 let market_id = determine_market_id(fill.exchange, &fill.symbol);
                 let mut stats = self.repository.get_statistics(&market_id)?;
                 stats.update(&position);
-                created_events.push(Event::Metrics(MetricsUpdate {
+                generated_events.push(Event::Metrics(MetricsUpdate {
                     market: Market::new(fill.exchange, fill.symbol.clone()),
                     statistics: stats
                 }));
@@ -230,7 +230,7 @@ where
             None => {
                 // Enter new Position, & add the PositionNew event to Vec<Event>
                 let position = Position::enter(&self.engine_id, fill)?;
-                created_events.push(Event::PositionNew(position.clone()));
+                generated_events.push(Event::PositionNew(position.clone()));
 
                 // Update Portfolio cash entry
                 available_cash += -position.enter_value_gross - position.enter_fees_total;
@@ -241,7 +241,7 @@ where
         };
 
         // Add new Balance event to the Vec<Event>
-        created_events.push(Event::Balance(Balance::from(
+        generated_events.push(Event::Balance(Balance::from(
             (available_cash, total_equity, fill.timestamp)
         )));
 
@@ -249,7 +249,7 @@ where
         self.repository.set_total_equity(&self.engine_id, total_equity)?;
         self.repository.set_available_cash(&self.engine_id, available_cash)?;
 
-        Ok(created_events)
+        Ok(generated_events)
     }
 }
 
@@ -623,7 +623,7 @@ mod tests {
         }
     }
 
-    fn build_mocked_portfolio<Repository, Statistic>(mock_repository: Repository) -> Result<MetaPortfolio<Repository, DefaultAllocator, DefaultRisk, Statistic>, PortfolioError>
+    fn new_mocked_portfolio<Repository, Statistic>(mock_repository: Repository) -> Result<MetaPortfolio<Repository, DefaultAllocator, DefaultRisk, Statistic>, PortfolioError>
     where
         Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
         Statistic: PositionSummariser + Initialiser,
@@ -685,7 +685,7 @@ mod tests {
             }))
         });
         mock_repository.set_open_position = Some(|_| Ok(()));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
@@ -726,7 +726,7 @@ mod tests {
             }))
         });
         mock_repository.set_open_position = Some(|_| Ok(()));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
@@ -766,7 +766,7 @@ mod tests {
             }))
         });
         mock_repository.set_open_position = Some(|_| Ok(()));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
@@ -806,7 +806,7 @@ mod tests {
             }))
         });
         mock_repository.set_open_position = Some(|_| Ok(()));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
         let mut input_market = MarketEvent::default();
@@ -836,7 +836,7 @@ mod tests {
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| Ok(None));
         mock_repository.get_available_cash = Some(|_| Ok(0.0));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
         let input_signal = SignalEvent::default();
@@ -852,7 +852,7 @@ mod tests {
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| Ok(Some(Position::default())));
         mock_repository.get_available_cash = Some(|_| Ok(0.0));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
         let input_signal = SignalEvent::default();
@@ -868,7 +868,7 @@ mod tests {
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| Ok(None));
         mock_repository.get_available_cash = Some(|_| Ok(100.0));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
         let mut input_signal = SignalEvent::default();
@@ -885,7 +885,7 @@ mod tests {
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| Ok(None));
         mock_repository.get_available_cash = Some(|_| Ok(100.0));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
         let mut input_signal = SignalEvent::default();
@@ -908,7 +908,7 @@ mod tests {
             }))
         });
         mock_repository.get_available_cash = Some(|_| Ok(100.0));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
         let mut input_signal = SignalEvent::default();
@@ -931,7 +931,7 @@ mod tests {
             }))
         });
         mock_repository.get_available_cash = Some(|_| Ok(100.0));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
         let mut input_signal = SignalEvent::default();
@@ -954,13 +954,13 @@ mod tests {
                 position
             }))
         });
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
         let mut input_signal = new_signal_force_exit();
 
         // Expect Ok(Some(OrderEvent))
-        let actual = portfolio.generate_exit_order(&input_signal).unwrap().unwrap();
+        let actual = portfolio.generate_exit_order(input_signal).unwrap().unwrap();
 
         assert_eq!(actual.decision, Decision::CloseLong);
         assert_eq!(actual.quantity, -100.0);
@@ -979,13 +979,13 @@ mod tests {
                 position
             }))
         });
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
         let mut input_signal = new_signal_force_exit();
 
         // Expect Ok(Some(OrderEvent))
-        let actual = portfolio.generate_exit_order(&input_signal).unwrap().unwrap();
+        let actual = portfolio.generate_exit_order(input_signal).unwrap().unwrap();
 
         assert_eq!(actual.decision, Decision::CloseShort);
         assert_eq!(actual.quantity, 100.0);
@@ -996,13 +996,15 @@ mod tests {
     fn generate_no_exit_order_when_no_open_position_to_exit() {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        mock_repository.get_open_position = Some(|_| Ok(None));
+
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
         let mut input_signal = new_signal_force_exit();
 
-        let actual = portfolio.generate_exit_order(&input_signal);
-        assert!(actual.unwrap().is_none());
+        let actual = portfolio.generate_exit_order(input_signal).unwrap();
+        assert!(actual.is_none());
     }
 
     #[test]
@@ -1015,7 +1017,7 @@ mod tests {
         mock_repository.set_open_position = Some(|_| Ok(()));
         mock_repository.set_total_equity = Some(|_, _| Ok(()));
         mock_repository.set_available_cash = Some(|_, _| Ok(()));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
         let mut input_fill = FillEvent::default();
@@ -1050,7 +1052,7 @@ mod tests {
         mock_repository.set_open_position = Some(|_| Ok(()));
         mock_repository.set_total_equity = Some(|_, _| Ok(()));
         mock_repository.set_available_cash = Some(|_, _| Ok(()));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
         let mut input_fill = FillEvent::default();
@@ -1098,7 +1100,7 @@ mod tests {
         mock_repository.set_exited_position = Some(|_, _| Ok(()));
         mock_repository.set_total_equity = Some(|_, _| Ok(()));
         mock_repository.set_available_cash = Some(|_, _| Ok(()));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
         let mut input_fill = FillEvent::default();
@@ -1147,7 +1149,7 @@ mod tests {
         mock_repository.set_exited_position = Some(|_, _| Ok(()));
         mock_repository.set_total_equity = Some(|_, _| Ok(()));
         mock_repository.set_available_cash = Some(|_, _| Ok(()));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
         let mut input_fill = FillEvent::default();
@@ -1196,7 +1198,7 @@ mod tests {
         mock_repository.set_exited_position = Some(|_, _| Ok(()));
         mock_repository.set_total_equity = Some(|_, _| Ok(()));
         mock_repository.set_available_cash = Some(|_, _| Ok(()));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
         let mut input_fill = FillEvent::default();
@@ -1245,7 +1247,7 @@ mod tests {
         mock_repository.set_exited_position = Some(|_, _| Ok(()));
         mock_repository.set_total_equity = Some(|_, _| Ok(()));
         mock_repository.set_available_cash = Some(|_, _| Ok(()));
-        let mut portfolio = build_mocked_portfolio(mock_repository).unwrap();
+        let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
         let mut input_fill = FillEvent::default();
