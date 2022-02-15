@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 /// All errors generated in the barter::portfolio::repository module.
-#[derive(Error, Copy, Debug)]
+#[derive(Error, Copy, Clone, Debug)]
 pub enum RepositoryError {
     #[error("Failed to serialise struct to JSON")]
     JsonSerialisationError,
