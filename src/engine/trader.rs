@@ -254,24 +254,6 @@ where
             },
         }
     }
-
-    // /// Todo:
-    // fn send_summary(&self, summary_tx: oneshot::Sender<Result<String, EngineError>>) {
-    //     let summary = self.portfolio
-    //         .lock()
-    //         .expect("failed to unlock Mutex<Portfolio> - poisoned")
-    //         .get_statistics(&self.market.market_id())
-    //         .map_err(|err| EngineError::from(err));
-    //
-    //     if summary_tx.send(summary).is_err() {
-    //         warn!(
-    //             engine_id = &*format!("{:?}", &self.engine_id),
-    //             market = &*self.market.market_id(),
-    //             why = "oneshot receiver dropped",
-    //             "cannot action Command::SendSummary"
-    //         );
-    //     }
-    // }
 }
 
 /// Builder to construct [`Trader`] instances.
