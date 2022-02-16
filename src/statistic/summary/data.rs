@@ -2,9 +2,9 @@ use crate::statistic::algorithm::welford_online;
 use crate::statistic::dispersion::Dispersion;
 use crate::statistic::summary::TablePrinter;
 use prettytable::{Row, Table};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq, Serialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
 pub struct DataSummary {
     pub count: u64,
     pub sum: f64,
