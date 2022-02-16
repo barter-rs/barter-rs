@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 /// Market data & related metadata produced by a data::handler implementation for the Strategy
 /// & Portfolio to interpret.
-#[derive(Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct MarketEvent {
     pub event_type: &'static str,
     pub trace_id: Uuid,
@@ -30,15 +30,15 @@ impl Default for MarketEvent {
 }
 
 impl MarketEvent {
-    pub const EVENT_TYPE: &'static str = "MarketEvent";
+    pub const EVENT_TYPE: &'static str = "Market";
 
-    /// Returns a [MarketEventBuilder] instance.
+    /// Returns a [`MarketEventBuilder`] instance.
     pub fn builder() -> MarketEventBuilder {
         MarketEventBuilder::new()
     }
 }
 
-/// Builder to construct [MarketEvent] instances.
+/// Builder to construct [`MarketEvent`] instances.
 #[derive(Debug, Default)]
 pub struct MarketEventBuilder {
     pub trace_id: Option<Uuid>,
@@ -106,13 +106,13 @@ impl MarketEventBuilder {
     }
 }
 
-/// Metadata detailing the [Candle] close price & it's associated timestamp. Used to propagate key
+/// Metadata detailing the [`Candle`] close price & it's associated timestamp. Used to propagate key
 /// market information in downstream Events.
-#[derive(Copy, Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct MarketMeta {
-    /// [Candle] close value from the source [MarketEvent].
+    /// [`Candle`] close value from the source [`MarketEvent`].
     pub close: f64,
-    /// [Candle] timestamp from the source [MarketEvent].
+    /// [`Candle`] timestamp from the source [`MarketEvent`].
     pub timestamp: DateTime<Utc>,
 }
 
