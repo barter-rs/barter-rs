@@ -4,11 +4,9 @@ use crate::portfolio::order::OrderEvent;
 use crate::portfolio::position::{EquityPoint, Position, PositionExit, PositionUpdate};
 use crate::portfolio::repository::{AvailableCash, TotalEquity};
 use crate::strategy::signal::{SignalEvent, SignalForceExit};
-use crate::Market;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use std::fmt::Debug;
-use std::marker::PhantomData;
 use tokio::sync::mpsc;
 use tracing::warn;
 
@@ -17,7 +15,7 @@ use tracing::warn;
 /// the trading sequence. The closed [`Position`] Event is a representation of work done by the system, and is
 /// useful for analysing performance & reconciliations.
 #[derive(Clone, PartialEq, Debug, Serialize)]
-pub enum Event<Statistic: Serialize> {
+pub enum Event {
     Market(MarketEvent),
     Signal(SignalEvent),
     SignalForceExit(SignalForceExit),
@@ -28,7 +26,6 @@ pub enum Event<Statistic: Serialize> {
     PositionUpdate(PositionUpdate),
     PositionExit(PositionExit),
     Balance(Balance),
-    Metrics(MetricsUpdate<Statistic>),
 }
 
 /// Message transmitter for sending Barter messages to downstream consumers.
@@ -43,16 +40,15 @@ pub trait MessageTransmitter<Message> {
 /// Transmitter for sending Barter [`Event`]s to an external sink. Useful for event-sourcing,
 /// real-time dashboards & general monitoring.
 #[derive(Debug, Clone)]
-pub struct EventTx<Statistic: Serialize> {
+pub struct EventTx {
     /// Flag to communicate if the external [`Event`] receiver has been dropped.
     receiver_dropped: bool,
     /// [`Event`] channel transmitter to send [`Event`]s to an external sink.
-    event_tx: mpsc::UnboundedSender<Event<Statistic>>,
-    _statistic_marker: PhantomData<Statistic>,
+    event_tx: mpsc::UnboundedSender<Event>,
 }
 
-impl<Statistic: Serialize> MessageTransmitter<Event<Statistic>> for EventTx<Statistic> {
-    fn send(&mut self, message: Event<Statistic>) {
+impl MessageTransmitter<Event> for EventTx {
+    fn send(&mut self, message: Event) {
         if self.receiver_dropped {
             return;
         }
@@ -67,7 +63,7 @@ impl<Statistic: Serialize> MessageTransmitter<Event<Statistic>> for EventTx<Stat
         }
     }
 
-    fn send_many(&mut self, messages: Vec<Event<Statistic>>) {
+    fn send_many(&mut self, messages: Vec<Event>) {
         if self.receiver_dropped {
             return;
         }
@@ -78,13 +74,12 @@ impl<Statistic: Serialize> MessageTransmitter<Event<Statistic>> for EventTx<Stat
     }
 }
 
-impl<Statistic: Serialize> EventTx<Statistic> {
+impl EventTx {
     /// Constructs a new [`EventTx`] instance using the provided channel transmitter.
-    pub fn new(event_tx: mpsc::UnboundedSender<Event<Statistic>>) -> Self {
+    pub fn new(event_tx: mpsc::UnboundedSender<Event>) -> Self {
         Self {
             receiver_dropped: false,
             event_tx,
-            _statistic_marker: PhantomData::default(),
         }
     }
 }
@@ -104,10 +99,4 @@ impl From<(AvailableCash, TotalEquity, DateTime<Utc>)> for Balance {
             available_cash,
         }
     }
-}
-
-#[derive(Debug, Clone, PartialOrd, PartialEq, Serialize)]
-pub struct MetricsUpdate<Statistic: Serialize> {
-    pub market: Market,
-    pub statistics: Statistic,
 }
