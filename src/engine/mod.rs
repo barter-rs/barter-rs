@@ -22,20 +22,9 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-// Enums:
-// #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-// Structs w/0 f64:
-// #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, Deserialize, Serialize)]
-// Structs w/ f64:
-// #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
-// Structs that are functional 'objects':
-// #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
-
 // Todo:
 //  0. Go through whole code and switch to combinators, and clean up anything obvious
 //  1. Remove strange default() impls that I use for tests eg/ Position::default()
-//  3. Ensure I am eagerly deriving as much as possible - especially enums! Work out the base derive:
-//    '--> #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Default, Deserialize, Serialize)]
 //  4.. Ensure everything is unit tested
 //  5. Position::meta has duplicated exit timestamp in exit_timestamp & meta.equity_point.timestamp
 //  6. Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
@@ -46,8 +35,6 @@ use uuid::Uuid;
 // Todo: - Posting Testing:
 //  2. Add more 'Balance' concept rather than start cash etc. BalanceHandler instead of Equity & Cash (fully copy)
 //     '--> EquityPoint::from(Balance) which adds the timestamp, or does Balance hold the timestamp?
-//  3. Ensure PositionNew, PositionUpdate & PositionExit is consistent -> create trait for Position?
-//     '--> eg similar to Rust TAs Open, High etc
 //  4. Go over Rust docs in key areas i've changed & traits etc
 
 // Todo: 0.7.1
@@ -62,6 +49,8 @@ use uuid::Uuid;
 //  - Impl consistent structured logging in Engine & Trader
 //   '--> Do I want to spans instead of multiple info logging? eg/ fetch_open_requests logs twice
 //   '--> Where do I want to log things like Command::ExitPosition being actioned? In Engine or when we push SignalForceExit on to Q?
+//  - Ensure PositionNew, PositionUpdate & PositionExit is consistent -> create trait for Position?
+//     '--> eg similar to Rust TAs Open, High etc
 
 /// Communicates a String is a message associated with a [`Command`].
 pub type Message = String;
