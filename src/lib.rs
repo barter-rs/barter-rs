@@ -120,7 +120,7 @@
 //!
 //! let mut portfolio = MetaPortfolio::init(components).unwrap();
 //!
-//! let some_event = Event::<TradingSummary>::OrderNew(OrderEvent::default());
+//! let some_event = Event::OrderNew(OrderEvent::default());
 //!
 //! match some_event {
 //!     Event::Market(market) => {
@@ -190,7 +190,7 @@
     missing_debug_implementations,
     missing_copy_implementations,
     rust_2018_idioms,
-    missing_docs
+    // missing_docs
 )]
 
 /// Defines a MarketEvent, and provides the useful traits of Continuer and MarketGenerator for
