@@ -28,7 +28,7 @@ use uuid::Uuid;
 // #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, Deserialize, Serialize)]
 // Structs w/ f64:
 // #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
-// Structs that are objects:
+// Structs that are functional 'objects':
 // #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 
 // Todo:

@@ -46,7 +46,7 @@ pub fn determine_position_id(
 }
 
 /// Data encapsulating the state of an ongoing or closed [`Position`].
-#[derive(Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct Position {
     /// Unique identifier for a [`Position`] generated from an engine_id, [`ExchangeId`] & [`SymbolId`].
     pub position_id: PositionId,
@@ -235,18 +235,18 @@ impl Default for Position {
 }
 
 impl Position {
-    /// Returns a [PositionBuilder] instance.
+    /// Returns a [`PositionBuilder`] instance.
     pub fn builder() -> PositionBuilder {
         PositionBuilder::new()
     }
 
-    /// Calculates the [Position::enter_avg_price_gross] or [Position::exit_avg_price_gross] of
-    /// a [FillEvent].
+    /// Calculates the [`Position::enter_avg_price_gross`] or [`Position::exit_avg_price_gross`] of
+    /// a [`FillEvent`].
     pub fn calculate_avg_price_gross(fill: &FillEvent) -> f64 {
         (fill.fill_value_gross / fill.quantity).abs()
     }
 
-    /// Determine the [Position] entry [Direction] by analysing the input [FillEvent].
+    /// Determine the [`Position`] entry [`Direction`] by analysing the input [`FillEvent`].
     pub fn parse_entry_direction(fill: &FillEvent) -> Result<Direction, PortfolioError> {
         match fill.decision {
             Decision::Long if fill.quantity.is_sign_positive() => Ok(Direction::Long),
@@ -258,7 +258,7 @@ impl Position {
         }
     }
 
-    /// Calculate the approximate [Position::unrealised_profit_loss] of a [Position].
+    /// Calculate the approximate [`Position::unrealised_profit_loss`] of a [`Position`].
     pub fn calculate_unrealised_profit_loss(&self) -> f64 {
         let approx_total_fees = self.enter_fees_total * 2.0;
 
@@ -272,7 +272,7 @@ impl Position {
         }
     }
 
-    /// Calculate the exact [Position::realised_profit_loss] of a [Position].
+    /// Calculate the exact [`Position::realised_profit_loss`] of a [`Position`].
     pub fn calculate_realised_profit_loss(&self) -> f64 {
         let total_fees = self.enter_fees_total + self.exit_fees_total;
 
@@ -282,14 +282,14 @@ impl Position {
         }
     }
 
-    /// Calculate the PnL return of a closed [Position] - assumed [Position::realised_profit_loss] is
+    /// Calculate the PnL return of a closed [`Position`] - assumed [`Position::realised_profit_loss`] is
     /// appropriately calculated.
     pub fn calculate_profit_loss_return(&self) -> f64 {
         self.realised_profit_loss / self.enter_value_gross
     }
 }
 
-/// Builder to construct [Position] instances.
+/// Builder to construct [`Position`] instances.
 #[derive(Debug, Default)]
 pub struct PositionBuilder {
     pub position_id: Option<PositionId>,
@@ -507,28 +507,28 @@ impl PositionBuilder {
 }
 
 /// Metadata detailing the trace UUIDs & timestamps associated with entering, updating & exiting
-/// a [Position].
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
+/// a [`Position`].
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct PositionMeta {
-    /// Trace UUID of the MarketEvent that triggered the entering of this [Position].
+    /// Trace UUID of the MarketEvent that triggered the entering of this [`Position`].
     pub enter_trace_id: Uuid,
 
-    /// MarketEvent timestamp that triggered the entering of this [Position].
+    /// MarketEvent timestamp that triggered the entering of this [`Position`].
     pub enter_timestamp: DateTime<Utc>,
 
-    /// Trace UUID of the last event to trigger a [Position] update.
+    /// Trace UUID of the last event to trigger a [`Position`] update.
     pub last_update_trace_id: Uuid,
 
-    /// Event timestamp of the last event to trigger a [Position] update.
+    /// Event timestamp of the last event to trigger a [`Position`] update.
     pub last_update_timestamp: DateTime<Utc>,
 
-    /// Trace UUID of the MarketEvent that triggered the exiting of this [Position].
+    /// Trace UUID of the MarketEvent that triggered the exiting of this [`Position`].
     pub exit_trace_id: Option<Uuid>,
 
-    /// MarketEvent timestamp that triggered the exiting of this [Position].
+    /// MarketEvent timestamp that triggered the exiting of this [`Position`].
     pub exit_timestamp: Option<DateTime<Utc>>,
 
-    /// Portfolio [EquityPoint] calculated after the [Position] exit.
+    /// Portfolio [`EquityPoint`] calculated after the [`Position`] exit.
     pub exit_equity_point: Option<EquityPoint>,
 }
 
@@ -547,7 +547,7 @@ impl Default for PositionMeta {
 }
 
 /// Equity value at a point in time.
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct EquityPoint {
     pub equity: f64,
     pub timestamp: DateTime<Utc>,
@@ -563,7 +563,7 @@ impl Default for EquityPoint {
 }
 
 impl EquityPoint {
-    /// Updates using the input [Position]'s PnL & associated timestamp.
+    /// Updates using the input [`Position`]'s PnL & associated timestamp.
     pub fn update(&mut self, position: &Position) {
         match position.meta.exit_timestamp {
             None => {
@@ -579,8 +579,8 @@ impl EquityPoint {
     }
 }
 
-/// Direction of the [Position] when it was opened, Long or Short.
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Eq, Hash, Serialize, Deserialize)]
+/// Direction of the [`Position`] when it was opened, Long or Short.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub enum Direction {
     Long,
     Short,
@@ -603,7 +603,7 @@ impl Direction {
 }
 
 /// [`Position`] update event. Occurs as a result of receiving new [`MarketEvent`] data.
-#[derive(Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct PositionUpdate {
     /// Unique identifier for a [`Position`], generated from an exchange, symbol, and enter_timestamp.
     pub position_id: String,
@@ -633,7 +633,7 @@ impl From<&mut Position> for PositionUpdate {
 }
 
 /// [`Position`] exit event. Occurs as a result of a [`FillEvent`] that exits a [`Position`].
-#[derive(Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct PositionExit {
     /// Unique identifier for a [`Position`], generated from an exchange, symbol, and enter_timestamp.
     pub position_id: String,

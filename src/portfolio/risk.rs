@@ -1,5 +1,5 @@
 use crate::portfolio::order::{OrderEvent, OrderType};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// Evaluates the risk associated with an [`OrderEvent`] to determine if it should be actioned. It
 /// can also amend the order (eg/ [`OrderType`]) to better fit the risk strategy required for
@@ -13,7 +13,7 @@ pub trait OrderEvaluator {
 }
 
 /// Default risk manager that implements [`OrderEvaluator`].
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub struct DefaultRisk {}
 
 impl OrderEvaluator for DefaultRisk {
