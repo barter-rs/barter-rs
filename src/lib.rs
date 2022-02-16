@@ -235,7 +235,7 @@ pub mod engine;
 #[macro_use]
 extern crate prettytable;
 
-use serde::Serialize;
+use serde::{Serialize};
 
 /// Communicates a str is a unique identifier for an Exchange (eg/ "binance")
 pub type ExchangeId = &'static str;
