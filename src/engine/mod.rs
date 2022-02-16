@@ -15,8 +15,9 @@ use crate::Market;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::thread;
+use parking_lot::Mutex;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -29,11 +30,9 @@ use uuid::Uuid;
 //  5. Position::meta has duplicated exit timestamp in exit_timestamp & meta.equity_point.timestamp
 //  6. Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
 //     '--> also can use references to markets to avoid cloning?
-//  7. Rust 2021
 //  10. Update code examples & readme
 
 // Todo: - Posting Testing:
-//  1. investigate using parking_lot for easier API etc
 //  2. Add more 'Balance' concept rather than start cash etc. BalanceHandler instead of Equity & Cash (fully copy)
 //     '--> EquityPoint::from(Balance) which adds the timestamp, or does Balance hold the timestamp?
 //  3. Ensure PositionNew, PositionUpdate & PositionExit is consistent -> create trait for Position?
@@ -212,19 +211,10 @@ where
             }
         }
 
-        // Unlock Portfolio Mutex to access backtest statistics
-        let mut portfolio = self.portfolio.lock().unwrap_or_else(|err| {
-            warn!(
-                error = &*format!("{:?}", err),
-                action = "extract inner Portfolio to attempt fetching closed Positions",
-                "failed to unlock Mutex<Portfolio> due to poisoning"
-            );
-            err.into_inner()
-        });
-
         // Generate Statistics summary
         self.trader_command_txs.into_keys().for_each(|market| {
-            portfolio
+            self.portfolio
+                .lock()
                 .get_statistics(&market.market_id())
                 .map(|statistic| statistic.print())
                 .unwrap_or_else(|err| {
@@ -279,7 +269,6 @@ where
         let open_positions = self
             .portfolio
             .lock()
-            .expect("failed to unlock Mutex<Portfolio> - poisoned")
             .get_open_positions(&self.engine_id, self.trader_command_txs.keys())
             .map_err(EngineError::from);
 
