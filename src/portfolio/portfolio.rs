@@ -360,21 +360,27 @@ where
         };
 
         // Persist initial state in the repository
-        portfolio.bootstrap_repository(lego.starting_cash, &lego.markets, lego.statistic_config)?;
+        portfolio.bootstrap_repository(lego.starting_cash, lego.markets, lego.statistic_config)?;
 
         Ok(portfolio)
     }
 
     /// Persist initial [`MetaPortfolio`] state in the repository. This includes initialised
     /// Statistics every market provided, as well as starting `AvailableCash` & `TotalEquity`.
-    pub fn bootstrap_repository(&mut self, starting_cash: f64, markets: &[Market], statistic_config: Statistic::Config) -> Result<(), PortfolioError> {
+    pub fn bootstrap_repository<Markets: IntoIterator<Item = Market>>(
+        &mut self,
+        starting_cash: f64,
+        markets: Markets,
+        statistic_config:
+        Statistic::Config
+    ) -> Result<(), PortfolioError> {
         // Persist initial AvailableCash & TotalEquity entries
         self.repository.set_available_cash(&self.engine_id, starting_cash)?;
         self.repository.set_total_equity(&self.engine_id, starting_cash)?;
 
         // Persist initial MetaPortfolio Statistics for every Market
         markets
-            .iter()
+            .into_iter()
             .try_for_each(|market| {
                 self.repository
                     .set_statistics(&market.market_id(), Statistic::init(statistic_config))
@@ -507,7 +513,7 @@ where
         };
 
         // Persist initial state in the repository
-        portfolio.bootstrap_repository(starting_cash, &markets, statistic_config)?;
+        portfolio.bootstrap_repository(starting_cash, markets, statistic_config)?;
 
         Ok(portfolio)
     }
