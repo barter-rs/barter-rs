@@ -23,7 +23,6 @@ use uuid::Uuid;
 
 // Todo:
 //  1. Remove strange default() impls that I use for tests eg/ Position::default()
-//  2. Extract Portfolio::init util functions to remove code dups? perhaps (fn bootstrap_repository() or similar)
 //  3. Ensure I am eagerly deriving as much as possible - especially enums! Work out the base derive:
 //    '--> #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Default)]
 //  4.. Ensure everything is unit tested
@@ -39,9 +38,6 @@ use uuid::Uuid;
 //  3. Ensure PositionNew, PositionUpdate & PositionExit is consistent -> create trait for Position?
 //     '--> eg similar to Rust TAs Open, High etc
 //  4. Go over Rust docs in key areas i've changed & traits etc
-
-// Todo: Maybe
-//  - Delete Statistic from Event & imply consumers use event-sourcing to compute that if they want it?
 
 // Todo: 0.7.1
 //  - Roll out consistent use of Market / Exchange / symbol (new types?)
