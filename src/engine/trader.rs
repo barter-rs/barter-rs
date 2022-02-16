@@ -258,7 +258,7 @@ where
 }
 
 /// Builder to construct [`Trader`] instances.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event>,

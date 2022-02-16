@@ -356,7 +356,7 @@ where
 }
 
 /// Builder to construct [`Engine`] instances.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event>,
