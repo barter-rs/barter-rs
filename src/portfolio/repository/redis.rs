@@ -15,7 +15,7 @@ use std::marker::PhantomData;
 use uuid::Uuid;
 
 /// Configuration for constructing a [`RedisRepository`] via the new() constructor method.
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, Deserialize, Serialize)]
 pub struct Config {
     pub uri: String,
 }

@@ -147,7 +147,7 @@ impl<Statistic: PositionSummariser> StatisticHandler<Statistic> for InMemoryRepo
 }
 
 impl<Statistic: PositionSummariser> InMemoryRepository<Statistic> {
-    /// Constructs a new [InMemoryRepository] component.
+    /// Constructs a new [`InMemoryRepository`] component.
     pub fn new() -> Self {
         Self {
             open_positions: HashMap::new(),
