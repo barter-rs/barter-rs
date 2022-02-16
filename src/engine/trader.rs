@@ -11,7 +11,8 @@ use serde::Serialize;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use parking_lot::Mutex;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
 use tracing::{debug, info, warn};
@@ -174,7 +175,6 @@ where
                         if let Some(position_update) = self
                             .portfolio
                             .lock()
-                            .expect("failed to unlock Mutex<Portfolio> - poisoned")
                             .update_from_market(&market)
                             .expect("failed to update Portfolio from market")
                         {
@@ -186,7 +186,6 @@ where
                         if let Some(order) = self
                             .portfolio
                             .lock()
-                            .expect("failed to unlock Mutex<Portfolio> - poisoned")
                             .generate_order(&signal)
                             .expect("failed to generate order")
                         {
@@ -199,7 +198,6 @@ where
                         if let Some(order) = self
                             .portfolio
                             .lock()
-                            .expect("failed to unlock Mutex<Portfolio> - poisoned")
                             .generate_exit_order(signal_force_exit)
                             .expect("failed to generate forced exit order")
                         {
@@ -222,7 +220,6 @@ where
                         let fill_side_effect_events = self
                             .portfolio
                             .lock()
-                            .expect("failed to unlock Mutex<Portfolio> - poisoned")
                             .update_from_fill(&fill)
                             .expect("failed to update Portfolio from fill");
 
