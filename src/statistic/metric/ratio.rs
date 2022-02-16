@@ -1,5 +1,5 @@
 use crate::statistic::summary::pnl::PnLReturnSummary;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub trait Ratio {
     fn init(risk_free_return: f64) -> Self;
@@ -13,7 +13,7 @@ pub trait Ratio {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct SharpeRatio {
     pub risk_free_return: f64,
     pub trades_per_day: f64,
@@ -54,7 +54,7 @@ impl SharpeRatio {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct SortinoRatio {
     pub risk_free_return: f64,
     pub trades_per_day: f64,
@@ -95,7 +95,7 @@ impl SortinoRatio {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct CalmarRatio {
     pub risk_free_return: f64,
     pub trades_per_day: f64,

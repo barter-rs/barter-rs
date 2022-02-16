@@ -8,14 +8,14 @@ use prettytable::{Row, Table};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for initialising a [`TradingSummary`] via the init() constructor method.
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct Config {
     pub starting_equity: f64,
     pub trading_days_per_year: usize,
     pub risk_free_return: f64,
 }
 
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct TradingSummary {
     pnl_returns: PnLReturnSummary,
     drawdown: DrawdownSummary,
@@ -66,7 +66,7 @@ impl TradingSummary {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct TearSheet {
     sharpe_ratio: SharpeRatio,
     sortino_ratio: SortinoRatio,

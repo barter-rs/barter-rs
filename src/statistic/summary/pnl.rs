@@ -1,15 +1,15 @@
 use crate::portfolio::position::{Direction, Position};
-use crate::statistic::se_duration;
+use crate::statistic::{de_duration_from_secs, se_duration_as_secs};
 use crate::statistic::summary::data::DataSummary;
 use crate::statistic::summary::{Initialiser, PositionSummariser, TablePrinter};
 use chrono::{DateTime, Duration, Utc};
 use prettytable::{Row, Table};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct PnLReturnSummary {
     pub start_timestamp: DateTime<Utc>,
-    #[serde(serialize_with = "se_duration")]
+    #[serde(deserialize_with = "de_duration_from_secs", serialize_with = "se_duration_as_secs")]
     pub duration: Duration,
     pub trades_per_day: f64,
     pub total: DataSummary,
@@ -131,7 +131,7 @@ impl PnLReturnSummary {
     }
 }
 
-#[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
 pub struct ProfitLossSummary {
     pub long_contracts: f64,
     pub long_pnl: f64,
