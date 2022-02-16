@@ -30,12 +30,12 @@ use uuid::Uuid;
 //  6. Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
 //     '--> also can use references to markets to avoid cloning?
 //  7. Clean up Results printing -> add titles if I print per. otherwise go back to old method
+//  9. Go over Rust docs in key areas i've changed & traits etc
 //  10. Update code examples & readme
 
 // Todo: - Posting Testing:
 //  2. Add more 'Balance' concept rather than start cash etc. BalanceHandler instead of Equity & Cash (fully copy)
 //     '--> EquityPoint::from(Balance) which adds the timestamp, or does Balance hold the timestamp?
-//  4. Go over Rust docs in key areas i've changed & traits etc
 
 // Todo: 0.7.1
 //  - Roll out consistent use of Market / Exchange / symbol (new types?)
