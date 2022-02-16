@@ -4,12 +4,12 @@ use crate::data::market::MarketEvent;
 use barter_data::model::{Candle, MarketData};
 use barter_data::ExchangeClient;
 use chrono::Utc;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedReceiver;
 use uuid::Uuid;
 
 /// Configuration for constructing a [`LiveCandleHandler`] via the new() constructor method.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct Config {
     pub symbol: String,
     pub interval: String,

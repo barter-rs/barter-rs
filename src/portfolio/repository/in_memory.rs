@@ -13,7 +13,7 @@ use uuid::Uuid;
 /// [`CashHandler`] & [`StatisticHandler`]. Used by a Proof Of Concept Portfolio implementation to
 /// save the current equity, available cash, Positions, and market pair statistics.
 /// **Do not use in production - no fault tolerant guarantees!**
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct InMemoryRepository<Statistic: PositionSummariser> {
     open_positions: HashMap<PositionId, Position>,
     closed_positions: HashMap<String, Vec<Position>>,

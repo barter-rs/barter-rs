@@ -402,7 +402,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MetaPortfolioBuilder<Repository, Allocator, RiskManager, Statistic>
 where
     Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
