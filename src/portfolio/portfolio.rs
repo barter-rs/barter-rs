@@ -395,7 +395,10 @@ where
 
     /// Determines if the Portfolio has any cash to enter a new [`Position`].
     fn no_cash_to_enter_new_position(&mut self) -> Result<bool, PortfolioError> {
-        Ok(self.repository.get_available_cash(&self.engine_id)? == 0.0)
+        self.repository
+            .get_available_cash(&self.engine_id)
+            .map(|available_cash| available_cash == 0.0)
+            .map_err(PortfolioError::RepositoryInteractionError)
     }
 }
 
