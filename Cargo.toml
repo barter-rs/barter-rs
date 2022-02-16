@@ -2,7 +2,7 @@
 name = "barter"
 version = "0.6.5"
 authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 documentation = "https://docs.rs/barter/"
 repository = "https://gitlab.com/open-source-keir/financial-modelling/trading/barter-rs"
