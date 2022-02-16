@@ -1,20 +1,20 @@
 use crate::portfolio::position::EquityPoint;
 use crate::statistic::algorithm::welford_online;
 use crate::statistic::dispersion::Range;
-use crate::statistic::se_duration;
+use crate::statistic::{de_duration_from_secs, se_duration_as_secs};
 use chrono::{DateTime, Duration, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// [`Drawdown`] is the peak-to-trough decline of the Portfolio, or investment, during a specific
 /// period. Drawdown is a measure of downside volatility.
 ///
 /// See documentation: <https://www.investopedia.com/terms/d/drawdown.asp>
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct Drawdown {
     pub equity_range: Range,
     pub drawdown: f64,
     pub start_timestamp: DateTime<Utc>,
-    #[serde(serialize_with = "se_duration")]
+    #[serde(deserialize_with = "de_duration_from_secs", serialize_with = "se_duration_as_secs")]
     pub duration: Duration,
 }
 
@@ -117,7 +117,7 @@ impl Drawdown {
 /// risk, with large values indicating down movements could be volatile.
 ///
 /// See documentation: <https://www.investopedia.com/terms/m/maximum-drawdown-mdd.asp>
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct MaxDrawdown {
     pub drawdown: Drawdown,
 }
@@ -141,11 +141,11 @@ impl MaxDrawdown {
 
 /// [`AvgDrawdown`] contains the average drawdown value and duration from a collection of [`Drawdown`]s
 /// within a specific period.
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct AvgDrawdown {
     pub count: u64,
     pub mean_drawdown: f64,
-    #[serde(serialize_with = "se_duration")]
+    #[serde(deserialize_with = "de_duration_from_secs", serialize_with = "se_duration_as_secs")]
     pub mean_duration: Duration,
     mean_duration_milliseconds: i64,
 }
