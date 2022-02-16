@@ -29,6 +29,7 @@ use uuid::Uuid;
 //  5. Position::meta has duplicated exit timestamp in exit_timestamp & meta.equity_point.timestamp
 //  6. Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
 //     '--> also can use references to markets to avoid cloning?
+//  7. Rust 2021
 //  10. Update code examples & readme
 
 // Todo: - Posting Testing:
