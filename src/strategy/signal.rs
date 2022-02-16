@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Signal data produced by the strategy containing advisory signals for the portfolio to interpret.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
 pub struct SignalEvent {
     pub event_type: &'static str,
     pub trace_id: Uuid,
@@ -46,7 +46,7 @@ impl SignalEvent {
 }
 
 /// Describes the type of advisory signal the strategy is endorsing.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub enum Decision {
     Long,
     CloseLong,
@@ -83,7 +83,7 @@ impl Decision {
 }
 
 /// Builder to construct [`SignalEvent`] instances.
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default)]
 pub struct SignalEventBuilder {
     pub trace_id: Option<Uuid>,
     pub timestamp: Option<DateTime<Utc>>,
@@ -162,7 +162,7 @@ impl SignalEventBuilder {
 
 /// Force exit Signal produced after an [`Engine`] receives a [`Command::ExitPosition`](Command)
 /// from an external source.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct SignalForceExit {
     pub event_type: &'static str,
     pub timestamp: DateTime<Utc>,

@@ -4,18 +4,18 @@ use crate::strategy::signal::{Decision, SignalEvent, SignalStrength};
 use crate::strategy::SignalGenerator;
 use barter_data::model::MarketData;
 use chrono::Utc;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use ta::indicators::RelativeStrengthIndex;
 use ta::Next;
 
 /// Configuration for constructing a [`RSIStrategy`] via the new() constructor method.
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct Config {
     pub rsi_period: usize,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 /// Example RSI based strategy that implements [`SignalGenerator`].
 pub struct RSIStrategy {
     rsi: RelativeStrengthIndex,
