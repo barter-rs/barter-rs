@@ -25,9 +25,9 @@ use uuid::Uuid;
 // Enums:
 // #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 // Structs w/0 f64:
-// #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+// #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, Deserialize, Serialize)]
 // Structs w/ f64:
-// #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
+// #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
 // Structs that are objects:
 // #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 
