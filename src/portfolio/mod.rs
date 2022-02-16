@@ -5,7 +5,6 @@ use crate::portfolio::error::PortfolioError;
 use crate::portfolio::order::OrderEvent;
 use crate::portfolio::position::PositionUpdate;
 use crate::strategy::signal::{SignalEvent, SignalForceExit};
-use serde::Serialize;
 
 pub mod allocator;
 pub mod error;
@@ -43,12 +42,12 @@ pub trait OrderGenerator {
 }
 
 /// Updates the Portfolio from an input [`FillEvent`].
-pub trait FillUpdater<Statistic: Serialize> {
+pub trait FillUpdater {
     /// Updates the Portfolio state using the input [`FillEvent`]. The [`FillEvent`] triggers a
     /// Position entry or exit, and the Portfolio updates key fields such as current_cash and
     /// current_value accordingly.
     fn update_from_fill(
         &mut self,
         fill: &FillEvent,
-    ) -> Result<Vec<Event<Statistic>>, PortfolioError>;
+    ) -> Result<Vec<Event>, PortfolioError>;
 }
