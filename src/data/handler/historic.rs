@@ -6,7 +6,7 @@ use chrono::Utc;
 use uuid::Uuid;
 
 /// Configuration for constructing a [HistoricCandleHandler] via the new() constructor method.
-#[derive(Debug)]
+#[derive(Clone, PartialEq, PartialOrd, Debug)]
 pub struct HistoricDataLego<Candles>
 where
     Candles: Iterator<Item = Candle>,
@@ -16,7 +16,7 @@ where
     pub candles: Candles,
 }
 
-#[derive(Debug)]
+#[derive(Clone, PartialEq, PartialOrd, Debug)]
 /// [MarketEvent] data handler that implements [Continuer] & [MarketGenerator]. Simulates a live market
 /// feed via drip feeding historical data files as a series of [MarketEvent]s.
 pub struct HistoricCandleHandler<Candles>

@@ -272,6 +272,6 @@ impl Market {
 
 /// Returns the unique identifier for a given market, where a 'market' is a unique
 /// exchange-symbol combination (eg/ "market_binance-btc_usdt").
-pub fn determine_market_id(exchange: &str, symbol: &String) -> MarketId {
+pub fn determine_market_id(exchange: &str, symbol: &str) -> MarketId {
     format!("market_{}_{}", exchange, symbol)
 }
