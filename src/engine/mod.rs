@@ -23,6 +23,7 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 // Todo:
+//  0. Go through whole code and switch to combinators, and clean up anything obvious
 //  1. Remove strange default() impls that I use for tests eg/ Position::default()
 //  3. Ensure I am eagerly deriving as much as possible - especially enums! Work out the base derive:
 //    '--> #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Default)]
