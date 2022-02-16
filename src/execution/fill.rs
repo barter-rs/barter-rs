@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 /// Fills are journals of work done by an Execution handler. These are sent back to the portfolio
 /// so it can apply updates.
-#[derive(Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct FillEvent {
     pub event_type: &'static str,
     pub trace_id: Uuid,
@@ -39,16 +39,16 @@ impl Default for FillEvent {
 }
 
 impl FillEvent {
-    pub const EVENT_TYPE: &'static str = "FillEvent";
+    pub const EVENT_TYPE: &'static str = "Fill";
 
-    /// Returns a [FillEventBuilder] instance.
+    /// Returns a [`FillEventBuilder`] instance.
     pub fn builder() -> FillEventBuilder {
         FillEventBuilder::new()
     }
 }
 
-/// All potential fees incurred by a [FillEvent].
-#[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
+/// All potential fees incurred by a [`FillEvent`].
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
 pub struct Fees {
     /// Fee taken by the exchange/broker (eg/ commission).
     pub exchange: FeeAmount,
