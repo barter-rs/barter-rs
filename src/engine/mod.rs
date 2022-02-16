@@ -22,15 +22,25 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
+// Enums:
+// #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+// Structs w/0 f64:
+// #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+// Structs w/ f64:
+// #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
+// Structs that are objects:
+// #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
+
 // Todo:
 //  0. Go through whole code and switch to combinators, and clean up anything obvious
 //  1. Remove strange default() impls that I use for tests eg/ Position::default()
 //  3. Ensure I am eagerly deriving as much as possible - especially enums! Work out the base derive:
-//    '--> #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Default)]
+//    '--> #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Default, Deserialize, Serialize)]
 //  4.. Ensure everything is unit tested
 //  5. Position::meta has duplicated exit timestamp in exit_timestamp & meta.equity_point.timestamp
 //  6. Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
 //     '--> also can use references to markets to avoid cloning?
+//  7. Clean up Results printing -> add titles if I print per. otherwise go back to old method
 //  10. Update code examples & readme
 
 // Todo: - Posting Testing:

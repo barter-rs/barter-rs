@@ -22,7 +22,7 @@ use uuid::Uuid;
 pub type TraderId = String;
 
 /// Returns a unique identifier for a [`Trader`] given an engine_id, exchange & symbol.
-pub fn determine_trader_id(engine_id: Uuid, exchange: &String, symbol: &String) -> TraderId {
+pub fn determine_trader_id(engine_id: Uuid, exchange: &str, symbol: &str) -> TraderId {
     format!("{}_trader_{}_{}", engine_id, exchange, symbol)
 }
 

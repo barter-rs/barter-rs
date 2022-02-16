@@ -3,13 +3,13 @@ use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::data::market::MarketEvent;
 use barter_data::model::{MarketData, Trade};
 use barter_data::ExchangeClient;
+use serde::{Deserialize, Serialize};
 use chrono::Utc;
-use serde::Deserialize;
 use tokio::sync::mpsc::UnboundedReceiver;
 use uuid::Uuid;
 
 /// Configuration for constructing a [`LiveTradeHandler`] via the new() constructor method.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct Config {
     pub symbol: String,
 }
