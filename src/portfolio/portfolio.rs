@@ -359,24 +359,27 @@ where
             _statistic_marker: PhantomData::default(),
         };
 
-        // Init MetaPortfolio AvailableCash & TotalEquity entries in the Repository
-        portfolio
-            .repository
-            .set_available_cash(&lego.engine_id, lego.starting_cash)?;
-        portfolio
-            .repository
-            .set_total_equity(&lego.engine_id, lego.starting_cash)?;
-
-        // Init MetaPortfolio Statistics for every Market in the Repository
-        let stats_config = lego.statistic_config;
-        lego.markets.iter().try_for_each(|market| {
-            portfolio
-                .repository
-                .set_statistics(&market.market_id(), Statistic::init(stats_config))
-                .map_err(PortfolioError::RepositoryInteractionError)
-        })?;
+        // Persist initial state in the repository
+        portfolio.bootstrap_repository(lego.starting_cash, &lego.markets, lego.statistic_config)?;
 
         Ok(portfolio)
+    }
+
+    /// Persist initial [`MetaPortfolio`] state in the repository. This includes initialised
+    /// Statistics every market provided, as well as starting `AvailableCash` & `TotalEquity`.
+    pub fn bootstrap_repository(&mut self, starting_cash: f64, markets: &[Market], statistic_config: Statistic::Config) -> Result<(), PortfolioError> {
+        // Persist initial AvailableCash & TotalEquity entries
+        self.repository.set_available_cash(&self.engine_id, starting_cash)?;
+        self.repository.set_total_equity(&self.engine_id, starting_cash)?;
+
+        // Persist initial MetaPortfolio Statistics for every Market
+        markets
+            .iter()
+            .try_for_each(|market| {
+                self.repository
+                    .set_statistics(&market.market_id(), Statistic::init(statistic_config))
+                    .map_err(PortfolioError::RepositoryInteractionError)
+            })
     }
 
     /// Returns a [`MetaPortfolioBuilder`] instance.
@@ -503,21 +506,8 @@ where
             _statistic_marker: PhantomData::default(),
         };
 
-        // Init MetaPortfolio AvailableCash & TotalEquity entries in the Repository
-        portfolio
-            .repository
-            .set_available_cash(&portfolio.engine_id, starting_cash)?;
-        portfolio
-            .repository
-            .set_total_equity(&portfolio.engine_id, starting_cash)?;
-
-        // Init MetaPortfolio Statistics for every Market in the Repository
-        markets.iter().try_for_each(|market| {
-            portfolio
-                .repository
-                .set_statistics(&market.market_id(), Statistic::init(statistic_config))
-                .map_err(PortfolioError::RepositoryInteractionError)
-        })?;
+        // Persist initial state in the repository
+        portfolio.bootstrap_repository(starting_cash, &markets, statistic_config)?;
 
         Ok(portfolio)
     }
