@@ -29,9 +29,9 @@ pub fn determine_trader_id(engine_id: Uuid, exchange: &String, symbol: &String) 
 #[derive(Debug)]
 pub struct TraderLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event<Statistic>>,
+    EventTx: MessageTransmitter<Event>,
     Statistic: Serialize,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic>,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
     Data: Continuer + MarketGenerator,
     Strategy: SignalGenerator,
     Execution: FillGenerator,
@@ -64,9 +64,9 @@ where
 #[derive(Debug)]
 pub struct Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event<Statistic>>,
+    EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic>,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,
@@ -81,7 +81,7 @@ where
     /// sink.
     event_tx: EventTx,
     /// Queue for storing [`Event`]s used by the trading loop in the run() method.
-    event_q: VecDeque<Event<Statistic>>,
+    event_q: VecDeque<Event>,
     /// Shared-access to a global Portfolio instance that implements [`MarketUpdater`],
     /// [`OrderGenerator`] & [`FillUpdater`]. Generates [`Event::Order`]s, as well as reacts to
     /// [`Event::Market`]s, [`Event::Signal`]s, [`Event::Fill`]s.
@@ -98,9 +98,9 @@ where
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
     Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event<Statistic>>,
+    EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic>,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,
@@ -264,9 +264,9 @@ where
 #[derive(Debug)]
 pub struct TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event<Statistic>>,
+    EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic>,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
     Data: Continuer + MarketGenerator,
     Strategy: SignalGenerator,
     Execution: FillGenerator,
@@ -285,9 +285,9 @@ where
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
     TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event<Statistic>>,
+    EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic>,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,

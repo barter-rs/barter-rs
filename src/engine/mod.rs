@@ -21,31 +21,37 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-// Todo - Important:
-//  - Update code examples & readme
-
-// Todo - 0.7.1:
-//  - Remove strange default() impls that I use for tests eg/ Position::default()
-//  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
-//  - investigate using parking_lot for easier API etc
-//  - Ensure everything is unit tested
-//  - Position::meta has duplicated exit timestamp in exit_timestamp & meta.equity_point.timestamp
-//  - Add more 'Balance' concept rather than start cash etc. BalanceHandler instead of Equity & Cash (fully copy)
-//     '--> EquityPoint::from(Balance) which adds the timestamp, or does Balance hold the timestamp?
-//  - Delete Statistic from Event & imply consumers use event-sourcing to compute that if they want it?
-//  - Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
+// Todo:
+//  1. Remove strange default() impls that I use for tests eg/ Position::default()
+//  2. Extract Portfolio::init util functions to remove code dups? perhaps (fn bootstrap_repository() or similar)
+//  3. Ensure I am eagerly deriving as much as possible - especially enums! Work out the base derive:
+//    '--> #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Default)]
+//  4.. Ensure everything is unit tested
+//  5. Position::meta has duplicated exit timestamp in exit_timestamp & meta.equity_point.timestamp
+//  6. Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
 //     '--> also can use references to markets to avoid cloning?
-//  - Ensure PositionNew, PositionUpdate & PositionExit is consistent -> create trait for Position?
+//  10. Update code examples & readme
+
+// Todo: - Posting Testing:
+//  1. investigate using parking_lot for easier API etc
+//  2. Add more 'Balance' concept rather than start cash etc. BalanceHandler instead of Equity & Cash (fully copy)
+//     '--> EquityPoint::from(Balance) which adds the timestamp, or does Balance hold the timestamp?
+//  3. Ensure PositionNew, PositionUpdate & PositionExit is consistent -> create trait for Position?
 //     '--> eg similar to Rust TAs Open, High etc
+//  4. Go over Rust docs in key areas i've changed & traits etc
+
+// Todo: Maybe
+//  - Delete Statistic from Event & imply consumers use event-sourcing to compute that if they want it?
+
+// Todo: 0.7.1
 //  - Roll out consistent use of Market / Exchange / symbol (new types?)
 //    '--> Remember (can't use Market instead of Exchange & Symbol for Position due to serde)
 //    '--> eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
 //  - Make as much stuff Copy as can be - start in Statistics!
 //  - If happy with it, impl Initialiser for all stats across the Statistics module.
 //  - Add Deserialize to Event.
-//  - Ensure I am eagerly deriving as much as possible - especially enums! Work out the base derive:
-//    '--> #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Default)]
-//  - Extract Portfolio::init util functions to remove code dups? perhaps (fn bootstrap_repository() or similar)
+//  - Clean up OTT use of type aliases? New types instead?
+//  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
 //  - Impl consistent structured logging in Engine & Trader
 //   '--> Do I want to spans instead of multiple info logging? eg/ fetch_open_requests logs twice
 //   '--> Where do I want to log things like Command::ExitPosition being actioned? In Engine or when we push SignalForceExit on to Q?
@@ -75,9 +81,9 @@ pub enum Command {
 #[derive(Debug)]
 pub struct EngineLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event<Statistic>> + Send,
+    EventTx: MessageTransmitter<Event> + Send,
     Statistic: Serialize + Send,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,
@@ -104,13 +110,13 @@ where
 #[derive(Debug)]
 pub struct Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event<Statistic>>,
+    EventTx: MessageTransmitter<Event>,
     Statistic: TablePrinter + Serialize + Send,
     Portfolio: PositionHandler
         + StatisticHandler<Statistic>
         + MarketUpdater
         + OrderGenerator
-        + FillUpdater<Statistic>
+        + FillUpdater
         + Send
         + 'static,
     Data: Continuer + MarketGenerator + Send + 'static,
@@ -135,13 +141,13 @@ where
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
     Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event<Statistic>> + Send + 'static,
+    EventTx: MessageTransmitter<Event> + Send + 'static,
     Statistic: TablePrinter + Serialize + Send + 'static,
     Portfolio: PositionHandler
         + StatisticHandler<Statistic>
         + MarketUpdater
         + OrderGenerator
-        + FillUpdater<Statistic>
+        + FillUpdater
         + Send
         + 'static,
     Data: Continuer + MarketGenerator + Send,
@@ -356,9 +362,9 @@ where
 #[derive(Debug)]
 pub struct EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event<Statistic>>,
+    EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater<Statistic> + Send,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: FillGenerator + Send,
@@ -373,13 +379,13 @@ where
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
     EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event<Statistic>>,
+    EventTx: MessageTransmitter<Event>,
     Statistic: TablePrinter + Serialize + Send,
     Portfolio: PositionHandler
         + StatisticHandler<Statistic>
         + MarketUpdater
         + OrderGenerator
-        + FillUpdater<Statistic>
+        + FillUpdater
         + Send,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
