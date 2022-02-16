@@ -1,7 +1,6 @@
 pub mod historic;
 pub mod live;
 
-use std::fmt::{Display, Formatter};
 use crate::data::market::MarketEvent;
 use serde::{Deserialize, Serialize};
 
@@ -22,10 +21,4 @@ pub trait MarketGenerator {
 pub enum Continuation {
     Continue,
     Stop,
-}
-
-impl Display for Continuation {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
 }
