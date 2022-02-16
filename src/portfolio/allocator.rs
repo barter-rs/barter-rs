@@ -1,7 +1,7 @@
 use crate::portfolio::order::OrderEvent;
 use crate::portfolio::position::Position;
 use crate::strategy::signal::{Decision, SignalStrength};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// Allocates an appropriate [`OrderEvent`] quantity.
 pub trait OrderAllocator {
@@ -17,7 +17,7 @@ pub trait OrderAllocator {
 
 /// Default allocation manager that implements [`OrderAllocator`]. Order size is calculated by
 /// using the default_order_value, symbol close value, and [`SignalStrength`].
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
 pub struct DefaultAllocator {
     pub default_order_value: f64,
 }
