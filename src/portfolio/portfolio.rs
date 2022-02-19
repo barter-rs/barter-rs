@@ -557,7 +557,7 @@ pub mod tests {
     use super::*;
 
     use crate::{Market, MarketId};
-    use crate::test_util::{base_fill_event, base_market_event, base_position, base_signal_event};
+    use crate::test_util::{fill_event, market_event, position, signal_event};
     use crate::execution::Fees;
     use crate::strategy::SignalForceExit;
     use crate::portfolio::allocator::DefaultAllocator;
@@ -757,7 +757,7 @@ pub mod tests {
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
-                let mut input_position = base_position();
+                let mut input_position = position();
                 input_position.direction = Direction::Long;
                 input_position.quantity = 1.0;
                 input_position.enter_fees_total = 3.0;
@@ -771,7 +771,7 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
-        let mut input_market = base_market_event();
+        let mut input_market = market_event();
 
         match input_market.data {
             // candle.close +100.0 on input_position.current_symbol_price
@@ -805,7 +805,7 @@ pub mod tests {
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
-                let mut input_position = base_position();
+                let mut input_position = position();
                 input_position.direction = Direction::Long;
                 input_position.quantity = 1.0;
                 input_position.enter_fees_total = 3.0;
@@ -819,7 +819,7 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
-        let mut input_market = base_market_event();
+        let mut input_market = market_event();
         match input_market.data {
             // -50.0 on input_position.current_symbol_price
             MarketData::Candle(ref mut candle) => candle.close = 50.0,
@@ -848,7 +848,7 @@ pub mod tests {
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
-                let mut input_position = base_position();
+                let mut input_position = position();
                 input_position.direction = Direction::Short;
                 input_position.quantity = -1.0;
                 input_position.enter_fees_total = 3.0;
@@ -862,7 +862,7 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
-        let mut input_market = base_market_event();
+        let mut input_market = market_event();
         match input_market.data {
             // -50.0 on input_position.current_symbol_price
             MarketData::Candle(ref mut candle) => candle.close = 50.0,
@@ -891,7 +891,7 @@ pub mod tests {
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
-                let mut input_position = base_position();
+                let mut input_position = position();
                 input_position.direction = Direction::Short;
                 input_position.quantity = -1.0;
                 input_position.enter_fees_total = 3.0;
@@ -905,7 +905,7 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
-        let mut input_market = base_market_event();
+        let mut input_market = market_event();
 
         match input_market.data {
             // +100.0 on input_position.current_symbol_price
@@ -941,7 +941,7 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
-        let input_signal = base_signal_event();
+        let input_signal = signal_event();
 
         let actual = portfolio.generate_order(&input_signal).unwrap();
 
@@ -952,12 +952,12 @@ pub mod tests {
     fn generate_no_order_with_position_and_no_cash() {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
-        mock_repository.get_open_position = Some(|_| Ok(Some(base_position())));
+        mock_repository.get_open_position = Some(|_| Ok(Some(position())));
         mock_repository.get_available_cash = Some(|_| Ok(0.0));
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
-        let input_signal = base_signal_event();
+        let input_signal = signal_event();
 
         let actual = portfolio.generate_order(&input_signal).unwrap();
 
@@ -973,7 +973,7 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
-        let mut input_signal = base_signal_event();
+        let mut input_signal = signal_event();
         input_signal.signals.insert(Decision::Long, 1.0);
 
         let actual = portfolio.generate_order(&input_signal).unwrap().unwrap();
@@ -990,7 +990,7 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
-        let mut input_signal = base_signal_event();
+        let mut input_signal = signal_event();
         input_signal.signals.insert(Decision::Short, 1.0);
 
         let actual = portfolio.generate_order(&input_signal).unwrap().unwrap();
@@ -1004,7 +1004,7 @@ pub mod tests {
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
-                let mut position = base_position();
+                let mut position = position();
                 position.direction = Direction::Long;
                 position
             }))
@@ -1013,7 +1013,7 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
-        let mut input_signal = base_signal_event();
+        let mut input_signal = signal_event();
         input_signal.signals.insert(Decision::CloseLong, 1.0);
 
         let actual = portfolio.generate_order(&input_signal).unwrap().unwrap();
@@ -1027,7 +1027,7 @@ pub mod tests {
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
-                let mut position = base_position();
+                let mut position = position();
                 position.direction = Direction::Short;
                 position
             }))
@@ -1036,7 +1036,7 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
-        let mut input_signal = base_signal_event();
+        let mut input_signal = signal_event();
         input_signal.signals.insert(Decision::CloseShort, 1.0);
 
         let actual = portfolio.generate_order(&input_signal).unwrap().unwrap();
@@ -1050,7 +1050,7 @@ pub mod tests {
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
-                let mut position = base_position();
+                let mut position = position();
                 position.direction = Direction::Long;
                 position.quantity = 100.0;
                 position
@@ -1078,7 +1078,7 @@ pub mod tests {
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
-                let mut position = base_position();
+                let mut position = position();
                 position.direction = Direction::Short;
                 position.quantity = -100.0;
                 position
@@ -1128,7 +1128,7 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::Long;
         input_fill.quantity = 1.0;
         input_fill.fill_value_gross = 100.0;
@@ -1163,7 +1163,7 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::Short;
         input_fill.quantity = -1.0;
         input_fill.fill_value_gross = 100.0;
@@ -1194,7 +1194,7 @@ pub mod tests {
         mock_repository.remove_position = Some(|_| {
             Ok({
                 Some({
-                    let mut input_position = base_position();
+                    let mut input_position = position();
                     input_position.direction = Direction::Long;
                     input_position.quantity = 1.0;
                     input_position.enter_fees_total = 3.0;
@@ -1211,7 +1211,7 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::CloseLong;
         input_fill.quantity = -1.0;
         input_fill.fill_value_gross = 200.0;
@@ -1243,7 +1243,7 @@ pub mod tests {
         mock_repository.remove_position = Some(|_| {
             Ok({
                 Some({
-                    let mut input_position = base_position();
+                    let mut input_position = position();
                     input_position.direction = Direction::Long;
                     input_position.quantity = 1.0;
                     input_position.enter_fees_total = 3.0;
@@ -1260,7 +1260,7 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::CloseLong;
         input_fill.quantity = -1.0;
         input_fill.fill_value_gross = 50.0;
@@ -1292,7 +1292,7 @@ pub mod tests {
         mock_repository.remove_position = Some(|_| {
             Ok({
                 Some({
-                    let mut input_position = base_position();
+                    let mut input_position = position();
                     input_position.direction = Direction::Short;
                     input_position.quantity = -1.0;
                     input_position.enter_fees_total = 3.0;
@@ -1309,7 +1309,7 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::CloseShort;
         input_fill.quantity = 1.0;
         input_fill.fill_value_gross = 50.0;
@@ -1341,7 +1341,7 @@ pub mod tests {
         mock_repository.remove_position = Some(|_| {
             Ok({
                 Some({
-                    let mut input_position = base_position();
+                    let mut input_position = position();
                     input_position.direction = Direction::Short;
                     input_position.quantity = -1.0;
                     input_position.enter_fees_total = 3.0;
@@ -1358,7 +1358,7 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::CloseShort;
         input_fill.quantity = 1.0;
         input_fill.fill_value_gross = 150.0;
@@ -1384,7 +1384,7 @@ pub mod tests {
     #[test]
     fn parse_signal_decisions_to_net_close_long() {
         // Some(Position)
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Long;
         let position = Some(position);
         let position = position.as_ref();
@@ -1402,7 +1402,7 @@ pub mod tests {
     #[test]
     fn parse_signal_decisions_to_none_with_some_long_position_and_long_signal() {
         // Some(Position)
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Long;
         let position = Some(position);
         let position = position.as_ref();
@@ -1420,7 +1420,7 @@ pub mod tests {
     #[test]
     fn parse_signal_decisions_to_net_close_long_with_conflicting_signals() {
         // Some(Position)
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Long;
         let position = Some(position);
         let position = position.as_ref();
@@ -1440,7 +1440,7 @@ pub mod tests {
     #[test]
     fn parse_signal_decisions_to_net_close_short() {
         // Some(Position)
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Short;
         let position = Some(position);
         let position = position.as_ref();
@@ -1458,7 +1458,7 @@ pub mod tests {
     #[test]
     fn parse_signal_decisions_to_none_with_some_short_position_and_short_signal() {
         // Some(Position)
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Short;
         let position = Some(position);
         let position = position.as_ref();
@@ -1476,7 +1476,7 @@ pub mod tests {
     #[test]
     fn parse_signal_decisions_to_net_close_short_with_conflicting_signals() {
         // Some(Position)
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Short;
         let position = Some(position);
         let position = position.as_ref();

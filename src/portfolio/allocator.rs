@@ -48,7 +48,7 @@ impl OrderAllocator for DefaultAllocator {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_util::{base_order_event, base_position};
+    use crate::test_util::{order_event, position};
     use super::*;
 
     #[test]
@@ -57,10 +57,10 @@ mod tests {
             default_order_value: 1000.0,
         };
 
-        let mut input_order = base_order_event();
+        let mut input_order = order_event();
         input_order.decision = Decision::CloseLong;
 
-        let mut input_position = base_position();
+        let mut input_position = position();
         input_position.quantity = 100.0;
 
         let input_signal_strength = 0.0;
@@ -83,10 +83,10 @@ mod tests {
             default_order_value: 1000.0,
         };
 
-        let mut input_order = base_order_event();
+        let mut input_order = order_event();
         input_order.decision = Decision::CloseShort;
 
-        let mut input_position = base_position();
+        let mut input_position = position();
         input_position.quantity = -100.0;
 
         let input_signal_strength = 0.0;
@@ -111,7 +111,7 @@ mod tests {
         };
 
         let order_close = 10.0;
-        let mut input_order = base_order_event();
+        let mut input_order = order_event();
         input_order.market_meta.close = order_close;
         input_order.decision = Decision::Long;
 
@@ -133,7 +133,7 @@ mod tests {
         };
 
         let order_close = 226.753403;
-        let mut input_order = base_order_event();
+        let mut input_order = order_event();
         input_order.market_meta.close = order_close;
         input_order.decision = Decision::Long;
 
@@ -157,7 +157,7 @@ mod tests {
         };
 
         let order_close = 10.0;
-        let mut input_order = base_order_event();
+        let mut input_order = order_event();
         input_order.market_meta.close = order_close;
         input_order.decision = Decision::Short;
 
@@ -179,7 +179,7 @@ mod tests {
         };
 
         let order_close = 226.753403;
-        let mut input_order = base_order_event();
+        let mut input_order = order_event();
         input_order.market_meta.close = order_close;
         input_order.decision = Decision::Short;
 

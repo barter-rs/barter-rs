@@ -132,9 +132,10 @@ impl Default for MarketMeta {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use barter_data::test_util;
     use barter_data::model::Candle;
     use uuid::Uuid;
-    use super::*;
 
     #[test]
     fn test_builder_incomplete_attributes_validation() {
@@ -143,7 +144,7 @@ mod tests {
             .timestamp(Utc::now())
             .exchange("Grand Exchange")
             .symbol(String::from("PANTALOONS"))
-            .data(MarketData::Candle(Candle::default()))
+            .data(MarketData::Candle(test_util::candle()))
             .build();
         assert!(ok_result.is_ok());
 
