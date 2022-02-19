@@ -1,5 +1,5 @@
 use crate::event::{Event, Balance};
-use crate::execution::fill::FillEvent;
+use crate::execution::FillEvent;
 use crate::portfolio::allocator::OrderAllocator;
 use crate::portfolio::error::PortfolioError;
 use crate::portfolio::order::{OrderEvent, OrderType};
@@ -554,7 +554,7 @@ pub fn parse_signal_decisions<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::execution::fill::Fees;
+    use crate::execution::Fees;
     use crate::portfolio::allocator::DefaultAllocator;
     use crate::portfolio::position::PositionBuilder;
     use crate::portfolio::repository::error::RepositoryError;

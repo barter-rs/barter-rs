@@ -1,5 +1,5 @@
 use crate::data::MarketEvent;
-use crate::execution::fill::FillEvent;
+use crate::execution::FillEvent;
 use crate::portfolio::order::OrderEvent;
 use crate::portfolio::position::{EquityPoint, Position, PositionExit, PositionUpdate};
 use crate::portfolio::repository::{AvailableCash, TotalEquity};
