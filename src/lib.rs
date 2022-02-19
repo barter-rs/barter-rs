@@ -143,7 +143,7 @@
 //! ```
 //! use barter::execution::handler::{Config as ExecutionConfig, SimulatedExecution};
 //! use barter::portfolio::order::OrderEvent;
-//! use barter::execution::fill::Fees;
+//! use barter::execution::Fees;
 //! use barter::execution::FillGenerator;
 //!
 //! let config = ExecutionConfig {
