@@ -1,4 +1,4 @@
-use crate::portfolio::order::OrderEvent;
+use crate::portfolio::OrderEvent;
 use crate::portfolio::position::Position;
 use crate::strategy::signal::{Decision, SignalStrength};
 use serde::{Deserialize, Serialize};
