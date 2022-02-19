@@ -3,10 +3,8 @@ use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::data::MarketEvent;
 use barter_data::model::{Candle, MarketData};
 use barter_data::ExchangeClient;
-use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedReceiver;
-use uuid::Uuid;
 
 /// Configuration for constructing a [`LiveCandleHandler`] via the new() constructor method.
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]

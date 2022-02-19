@@ -3,8 +3,13 @@ use crate::portfolio::repository::error::RepositoryError;
 use crate::{Market, MarketId};
 use uuid::Uuid;
 
+/// Barter repository module specific errors.
 pub mod error;
+
+/// In-Memory repository for convenient state keeping. No fault tolerant guarantees.
 pub mod in_memory;
+
+/// Redis repository for state keeping.
 pub mod redis;
 
 /// Handles the reading & writing of a [`Position`] to/from the persistence layer.

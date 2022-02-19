@@ -2,8 +2,6 @@ use crate::data::error::DataError;
 use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::data::MarketEvent;
 use barter_data::model::{Candle, MarketData};
-use chrono::Utc;
-use uuid::Uuid;
 
 /// Configuration for constructing a [`HistoricCandleHandler`] via the new() constructor method.
 #[derive(Clone, PartialEq, PartialOrd, Debug)]

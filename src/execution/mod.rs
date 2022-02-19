@@ -2,9 +2,10 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::data::MarketMeta;
-use crate::execution::error::ExecutionError;
-use crate::portfolio::order::OrderEvent;
 use crate::strategy::signal::Decision;
+use crate::portfolio::order::OrderEvent;
+use crate::execution::error::ExecutionError;
+use serde::{Deserialize, Serialize};
 
 /// Barter execution module specific errors.
 pub mod error;
