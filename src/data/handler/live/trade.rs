@@ -1,6 +1,6 @@
 use crate::data::error::DataError;
 use crate::data::handler::{Continuation, Continuer, MarketGenerator};
-use crate::data::market::MarketEvent;
+use crate::data::MarketEvent;
 use barter_data::model::{MarketData, Trade};
 use barter_data::ExchangeClient;
 use serde::{Deserialize, Serialize};
@@ -32,30 +32,22 @@ impl Continuer for LiveTradeHandler {
 
 impl MarketGenerator for LiveTradeHandler {
     fn generate_market(&mut self) -> Option<MarketEvent> {
-        // Consume next Trade
-        let trade = match self.trade_rx.blocking_recv() {
-            Some(trade) => trade,
-            None => {
+        // Consume next Trade & generate Some(MarketEvent)
+        self.trade_rx
+            .blocking_recv()
+            .map(|trade| {
+                MarketEvent::new(self.exchange, &self.symbol, MarketData::Trade(trade))
+            })
+            .or_else(|| {
                 self.can_continue = Continuation::Stop;
-                return None;
-            }
-        };
-
-        Some(MarketEvent {
-            event_type: MarketEvent::EVENT_TYPE,
-            trace_id: Uuid::new_v4(),
-            timestamp: Utc::now(),
-            exchange: self.exchange,
-            symbol: self.symbol.clone(),
-            data: MarketData::Trade(trade),
-        })
+                None
+            })
     }
 }
 
 impl LiveTradeHandler {
     /// Constructs a new [`LiveTradeHandler`] component using the provided [`Config`]. The injected
-    /// [`ExchangeClient`] is used to subscribe to a [`Trade`] stream. An asynchronous task is spawned
-    /// to consume [`Trade`]s and route them to the [`LiveTradeHandler`]'s sync::mpsc::Receiver.
+    /// [`ExchangeClient`] is used to subscribe to the [`Trade`] stream used by the handler.
     pub async fn init<Client: ExchangeClient>(cfg: Config, mut exchange_client: Client) -> Self {
         // Subscribe to Trade stream via exchange Client
         let trade_rx = exchange_client

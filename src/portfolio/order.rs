@@ -1,6 +1,6 @@
-use crate::data::market::MarketMeta;
-use crate::portfolio::error::PortfolioError;
+use crate::data::MarketMeta;
 use crate::strategy::signal::Decision;
+use crate::portfolio::error::PortfolioError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

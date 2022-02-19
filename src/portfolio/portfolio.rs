@@ -1,5 +1,4 @@
 use crate::event::{Event, Balance};
-use crate::data::market::{MarketEvent, MarketMeta};
 use crate::execution::fill::FillEvent;
 use crate::portfolio::allocator::OrderAllocator;
 use crate::portfolio::error::PortfolioError;
@@ -23,6 +22,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use tracing::info;
 use uuid::Uuid;
+use crate::data::{MarketEvent, MarketMeta};
 
 /// Lego components for constructing & initialising a [`MetaPortfolio`] via the init() constructor
 /// method.

@@ -1,8 +1,8 @@
-use crate::data::market::MarketEvent;
-use crate::execution::fill::{FeeAmount, Fees, FillEvent};
-use crate::portfolio::error::PortfolioError;
-use crate::strategy::signal::Decision;
 use crate::{ExchangeId, SymbolId};
+use crate::data::MarketEvent;
+use crate::strategy::signal::Decision;
+use crate::portfolio::error::PortfolioError;
+use crate::execution::fill::{FeeAmount, Fees, FillEvent};
 use barter_data::model::MarketData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
