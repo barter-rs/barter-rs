@@ -1,13 +1,15 @@
-use crate::{ExchangeId, SymbolId};
-use crate::data::MarketEvent;
-use crate::strategy::signal::Decision;
-use crate::portfolio::error::PortfolioError;
-use crate::execution::fill::{FeeAmount, Fees, FillEvent};
+use std::convert::TryFrom;
+
 use barter_data::model::MarketData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
 use uuid::Uuid;
+
+use crate::{ExchangeId, SymbolId};
+use crate::data::MarketEvent;
+use crate::execution::{FeeAmount, Fees, FillEvent};
+use crate::portfolio::error::PortfolioError;
+use crate::strategy::signal::Decision;
 
 /// Enters a new [`Position`].
 pub trait PositionEnterer {
@@ -690,10 +692,13 @@ impl TryFrom<&mut Position> for PositionExit {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::strategy::signal::Decision;
-    use chrono::Duration;
     use std::ops::Add;
+
+    use chrono::Duration;
+
+    use crate::strategy::signal::Decision;
+
+    use super::*;
 
     #[test]
     fn enter_new_position_with_long_decision_provided() {

@@ -1,6 +1,6 @@
 use crate::data::MarketEvent;
 use crate::event::Event;
-use crate::execution::fill::FillEvent;
+use crate::execution::FillEvent;
 use crate::portfolio::error::PortfolioError;
 use crate::portfolio::order::OrderEvent;
 use crate::portfolio::position::PositionUpdate;
