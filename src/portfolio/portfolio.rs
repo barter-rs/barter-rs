@@ -1,28 +1,29 @@
-use crate::event::{Event, Balance};
+use std::collections::HashMap;
+use std::marker::PhantomData;
+
+use chrono::Utc;
+use serde::Serialize;
+use tracing::info;
+use uuid::Uuid;
+
+use crate::{determine_market_id, Market, MarketId};
+use crate::data::{MarketEvent, MarketMeta};
+use crate::event::{Balance, Event};
 use crate::execution::FillEvent;
+use crate::portfolio::{FillUpdater, MarketUpdater, OrderEvent, OrderGenerator, OrderType};
 use crate::portfolio::allocator::OrderAllocator;
 use crate::portfolio::error::PortfolioError;
-use crate::portfolio::order::{OrderEvent, OrderType};
 use crate::portfolio::position::{
     determine_position_id, Direction, Position, PositionEnterer, PositionExiter, PositionId,
     PositionUpdate, PositionUpdater,
 };
 use crate::portfolio::repository::{
-    error::RepositoryError,
-    AvailableCash, CashHandler, EquityHandler, PositionHandler, StatisticHandler,
+    AvailableCash,
+    CashHandler, EquityHandler, error::RepositoryError, PositionHandler, StatisticHandler,
 };
 use crate::portfolio::risk::OrderEvaluator;
-use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
 use crate::statistic::summary::{Initialiser, PositionSummariser};
 use crate::strategy::signal::{Decision, SignalEvent, SignalForceExit, SignalStrength};
-use crate::{determine_market_id, Market, MarketId};
-use chrono::Utc;
-use serde::Serialize;
-use std::collections::HashMap;
-use std::marker::PhantomData;
-use tracing::info;
-use uuid::Uuid;
-use crate::data::{MarketEvent, MarketMeta};
 
 /// Lego components for constructing & initialising a [`MetaPortfolio`] via the init() constructor
 /// method.
@@ -553,15 +554,17 @@ pub fn parse_signal_decisions<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use barter_data::model::MarketData;
+
+    use crate::{Market, MarketId};
     use crate::execution::Fees;
     use crate::portfolio::allocator::DefaultAllocator;
     use crate::portfolio::position::PositionBuilder;
     use crate::portfolio::repository::error::RepositoryError;
     use crate::portfolio::risk::DefaultRisk;
     use crate::statistic::summary::pnl::PnLReturnSummary;
-    use crate::{Market, MarketId};
-    use barter_data::model::MarketData;
+
+    use super::*;
 
     #[derive(Default)]
     struct MockRepository<Statistic> {
