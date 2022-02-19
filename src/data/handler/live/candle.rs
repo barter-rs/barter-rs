@@ -1,6 +1,6 @@
 use crate::data::error::DataError;
 use crate::data::handler::{Continuation, Continuer, MarketGenerator};
-use crate::data::market::MarketEvent;
+use crate::data::MarketEvent;
 use barter_data::model::{Candle, MarketData};
 use barter_data::ExchangeClient;
 use chrono::Utc;
@@ -35,13 +35,13 @@ impl Continuer for LiveCandleHandler {
 impl MarketGenerator for LiveCandleHandler {
     fn generate_market(&mut self) -> Option<MarketEvent> {
         // Consume next Candle
-        let candle = match self.candle_rx.blocking_recv() {
-            Some(candle) => candle,
-            None => {
+        let candle = self
+            .candle_rx
+            .blocking_recv()
+            .or_else(|| {
                 self.can_continue = Continuation::Stop;
-                return None;
-            }
-        };
+                None
+            })?;
 
         Some(MarketEvent {
             event_type: MarketEvent::EVENT_TYPE,
@@ -56,8 +56,7 @@ impl MarketGenerator for LiveCandleHandler {
 
 impl LiveCandleHandler {
     /// Constructs a new [`LiveCandleHandler`] component using the provided [`Config`]. The injected
-    /// [`ExchangeClient`] is used to subscribe to a [`Candle`] stream. An asynchronous task is spawned
-    /// to consume [`Candle`]s and route them to the [`LiveCandleHandler`]'s sync::mpsc::Receiver.
+    /// [`ExchangeClient`] is used to subscribe to the [`Candle`] stream used by the handler.
     pub async fn init<Client: ExchangeClient>(cfg: Config, mut exchange_client: Client) -> Self {
         // Subscribe to Candle stream via exchange Client
         let candle_rx = exchange_client
