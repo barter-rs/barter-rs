@@ -1,7 +1,8 @@
+use crate::data::error::DataError;
 use barter_data::model::{Candle, MarketData};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
-use crate::data::error::DataError;
+use serde::{Deserialize, Serialize};
 
 /// Barter data module specific errors.
 pub mod error;
@@ -36,6 +37,18 @@ impl Default for MarketEvent {
 
 impl MarketEvent {
     pub const EVENT_TYPE: &'static str = "Market";
+
+    /// Constructs a new [`MarketEvent`] using the provided exchange, symbol, and [`MarketData`].
+    pub fn new(exchange: &'static str, symbol: &str, data: MarketData) -> Self {
+        Self {
+            event_type: Self::EVENT_TYPE,
+            trace_id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            exchange,
+            symbol: symbol.to_owned(),
+            data
+        }
+    }
 
     /// Returns a [`MarketEventBuilder`] instance.
     pub fn builder() -> MarketEventBuilder {

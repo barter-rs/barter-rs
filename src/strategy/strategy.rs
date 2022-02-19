@@ -1,4 +1,3 @@
-use crate::data::market::{MarketEvent, MarketMeta};
 use crate::strategy::error::StrategyError;
 use crate::strategy::signal::{Decision, SignalEvent, SignalStrength};
 use crate::strategy::SignalGenerator;
@@ -8,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use ta::indicators::RelativeStrengthIndex;
 use ta::Next;
+use crate::data::{MarketEvent, MarketMeta};
 
 /// Configuration for constructing a [`RSIStrategy`] via the new() constructor method.
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]

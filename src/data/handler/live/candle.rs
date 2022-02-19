@@ -34,23 +34,16 @@ impl Continuer for LiveCandleHandler {
 
 impl MarketGenerator for LiveCandleHandler {
     fn generate_market(&mut self) -> Option<MarketEvent> {
-        // Consume next Candle
-        let candle = self
-            .candle_rx
+        // Consume next Candle & generate Some(MarketEvent)
+        self.candle_rx
             .blocking_recv()
+            .map(|candle| {
+                MarketEvent::new(self.exchange, &self.symbol, MarketData::Candle(candle))
+            })
             .or_else(|| {
                 self.can_continue = Continuation::Stop;
                 None
-            })?;
-
-        Some(MarketEvent {
-            event_type: MarketEvent::EVENT_TYPE,
-            trace_id: Uuid::new_v4(),
-            timestamp: Utc::now(),
-            exchange: self.exchange,
-            symbol: self.symbol.clone(),
-            data: MarketData::Candle(candle),
-        })
+            })
     }
 }
 
