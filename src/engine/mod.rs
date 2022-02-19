@@ -1,4 +1,9 @@
+/// Barter Engine module specific errors.
 pub mod error;
+
+/// Contains the trading event loop for a Trader capable of trading a single market pair. A Trader
+/// has it's own Data handler, Strategy & Execution handler, as well as shared access to a global
+/// Portfolio instance.
 pub mod trader;
 
 use crate::data::handler::{Continuer, MarketGenerator};
@@ -59,18 +64,18 @@ pub type Message = String;
 #[derive(Debug)]
 pub enum Command {
     /// Fetches all the [`Engine`]'s open [`Position`]s and sends them on the provided
-    /// `oneshot::Sender`.
-    FetchOpenPositions(oneshot::Sender<Result<Vec<Position>, EngineError>>), // Engine
+    /// `oneshot::Sender`. Involves the [`Engine`] only.
+    FetchOpenPositions(oneshot::Sender<Result<Vec<Position>, EngineError>>),
 
-    /// Terminate every running [`Trader`] associated with this [`Engine`].
-    Terminate(Message), // All Traders
+    /// Terminate every running [`Trader`] associated with this [`Engine`]. Involves all [`Trader`]s.
+    Terminate(Message),
 
-    /// Exit every open [`Position`] associated with this [`Engine`].
-    ExitAllPositions, // All Traders
+    /// Exit every open [`Position`] associated with this [`Engine`]. Involves all [`Trader`]s.
+    ExitAllPositions,
 
     /// Exit a [`Position`]. Uses the [`Market`] provided to route this [`Command`] to the relevant
-    /// [`Trader`] instance.
-    ExitPosition(Market), // Single Trader
+    /// [`Trader`] instance. Involves one [`Trader`].
+    ExitPosition(Market),
 }
 
 /// Lego components for constructing an [`Engine`] via the new() constructor method.
