@@ -81,11 +81,12 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
     fn get_exited_positions(
         &mut self,
         engine_id: &Uuid,
-    ) -> Result<Option<Vec<Position>>, RepositoryError> {
+    ) -> Result<Vec<Position>, RepositoryError> {
         Ok(self
             .closed_positions
             .get(&determine_exited_positions_id(engine_id))
-            .map(|exited_positions| exited_positions.iter().map(Position::clone).collect())
+            .map(Vec::clone)
+            .unwrap_or_else(Vec::new)
         )
     }
 }

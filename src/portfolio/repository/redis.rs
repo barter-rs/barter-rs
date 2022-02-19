@@ -7,7 +7,7 @@ use crate::portfolio::repository::{
 };
 use crate::statistic::summary::PositionSummariser;
 use crate::{Market, MarketId};
-use redis::{Commands, Connection, ErrorKind, RedisResult};
+use redis::{Commands, Connection, ErrorKind};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
@@ -36,11 +36,10 @@ where
     Statistic: PositionSummariser + Serialize + DeserializeOwned,
 {
     fn set_open_position(&mut self, position: Position) -> Result<(), RepositoryError> {
-        let position_value = serde_json::to_string(&position)
-            .map_err(|_err| RepositoryError::JsonSerialisationError)?;
+        let position_string = serde_json::to_string(&position)?;
 
         self.conn
-            .set(position.position_id, position_value)
+            .set(position.position_id, position_string)
             .map_err(|_| RepositoryError::WriteError)
     }
 
@@ -48,17 +47,12 @@ where
         &mut self,
         position_id: &PositionId,
     ) -> Result<Option<Position>, RepositoryError> {
-        let read_result: RedisResult<String> = self.conn.get(position_id);
+        let position_value: String = self
+            .conn
+            .get(position_id)
+            .map_err(|_| RepositoryError::ReadError)?;
 
-        let position_value = match read_result {
-            Ok(position_value) => position_value,
-            Err(_) => return Err(RepositoryError::ReadError),
-        };
-
-        match serde_json::from_str(&*position_value) {
-            Ok(position) => Ok(Some(position)),
-            Err(_) => Err(RepositoryError::JsonDeserialisationError),
-        }
+        Ok(Some(serde_json::from_str::<Position>(&position_value)?))
     }
 
     fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
@@ -96,38 +90,28 @@ where
         portfolio_id: &Uuid,
         position: Position,
     ) -> Result<(), RepositoryError> {
-        let closed_positions_key = determine_exited_positions_id(portfolio_id);
-
-        let position_value = serde_json::to_string(&position)
-            .map_err(|_| RepositoryError::JsonSerialisationError)?;
-
         self.conn
-            .lpush(closed_positions_key, position_value)
+            .lpush(
+                determine_exited_positions_id(portfolio_id),
+                serde_json::to_string(&position)?
+            )
             .map_err(|_| RepositoryError::WriteError)
     }
 
     fn get_exited_positions(
         &mut self,
         portfolio_id: &Uuid,
-    ) -> Result<Option<Vec<Position>>, RepositoryError> {
-        let closed_positions_key = determine_exited_positions_id(portfolio_id);
-
-        let read_result: RedisResult<Vec<String>> = self.conn.get(closed_positions_key);
-
-        let closed_positions = match read_result {
-            Ok(closed_positions_value) => closed_positions_value,
-            Err(err) => {
-                return match err.kind() {
-                    ErrorKind::TypeError => Ok(None),
-                    _ => Err(RepositoryError::ReadError),
-                }
-            }
-        }
-        .iter()
-        .map(|positions_string| serde_json::from_str(positions_string).unwrap())
-        .collect();
-
-        Ok(Some(closed_positions))
+    ) -> Result<Vec<Position>, RepositoryError> {
+        self.conn
+            .get(determine_exited_positions_id(portfolio_id))
+            .or_else(|err| match err.kind() {
+                ErrorKind::TypeError => Ok(Vec::<String>::new()),
+                _ => Err(RepositoryError::ReadError)
+            })?
+            .iter()
+            .map(|position| serde_json::from_str::<Position>(position))
+            .collect::<Result<Vec<Position>, serde_json::Error>>()
+            .map_err(RepositoryError::JsonSerDeError)
     }
 }
 
@@ -185,24 +169,18 @@ where
         market_id: &MarketId,
         statistic: Statistic,
     ) -> Result<(), RepositoryError> {
-        let statistics_value = serde_json::to_string(&statistic)
-            .map_err(|_| RepositoryError::JsonSerialisationError)?;
-
         self.conn
-            .set(market_id, statistics_value)
+            .set(market_id, serde_json::to_string(&statistic)?)
             .map_err(|_| RepositoryError::WriteError)
     }
 
     fn get_statistics(&mut self, market_id: &MarketId) -> Result<Statistic, RepositoryError> {
-        let read_result: RedisResult<String> = self.conn.get(market_id);
+        let statistics: String = self
+            .conn
+            .get(market_id)
+            .map_err(|_| RepositoryError::ReadError)?;
 
-        let statistics_string = match read_result {
-            Ok(statistics_string) => statistics_string,
-            Err(_) => return Err(RepositoryError::ReadError),
-        };
-
-        serde_json::from_str(&statistics_string)
-            .map_err(|_| RepositoryError::JsonDeserialisationError)
+        serde_json::from_str(&statistics).map_err(RepositoryError::JsonSerDeError)
     }
 }
 

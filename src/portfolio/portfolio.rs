@@ -311,7 +311,7 @@ where
             .set_exited_position(&self.engine_id, position)
     }
 
-    fn get_exited_positions(&mut self, _: &Uuid) -> Result<Option<Vec<Position>>, RepositoryError> {
+    fn get_exited_positions(&mut self, _: &Uuid) -> Result<Vec<Position>, RepositoryError> {
         self.repository.get_exited_positions(&self.engine_id)
     }
 }

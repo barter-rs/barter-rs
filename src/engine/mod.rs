@@ -275,7 +275,7 @@ where
             .portfolio
             .lock()
             .get_open_positions(&self.engine_id, self.trader_command_txs.keys())
-            .map_err(EngineError::from);
+            .map_err(EngineError::RepositoryInteractionError);
 
         if positions_tx.send(open_positions).is_err() {
             warn!(

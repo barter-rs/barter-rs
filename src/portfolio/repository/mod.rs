@@ -47,7 +47,7 @@ pub trait PositionHandler {
     fn get_exited_positions(
         &mut self,
         engine_id: &Uuid,
-    ) -> Result<Option<Vec<Position>>, RepositoryError>;
+    ) -> Result<Vec<Position>, RepositoryError>;
 }
 
 /// Handles the reading & writing of a Portfolio's current total equity value to/from the persistence layer.
