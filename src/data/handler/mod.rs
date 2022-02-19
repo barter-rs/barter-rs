@@ -1,4 +1,7 @@
+/// Historical data handlers for backtesting.
 pub mod historic;
+
+/// Live data handlers for dry-trading & live-trading.
 pub mod live;
 
 use crate::data::market::MarketEvent;
