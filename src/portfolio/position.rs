@@ -9,7 +9,7 @@ use crate::{ExchangeId, SymbolId};
 use crate::data::MarketEvent;
 use crate::execution::{FeeAmount, Fees, FillEvent};
 use crate::portfolio::error::PortfolioError;
-use crate::strategy::signal::Decision;
+use crate::strategy::Decision;
 
 /// Enters a new [`Position`].
 pub trait PositionEnterer {
