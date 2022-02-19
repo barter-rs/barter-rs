@@ -1,5 +1,6 @@
-use crate::portfolio::order::{OrderEvent, OrderType};
 use serde::{Deserialize, Serialize};
+
+use crate::portfolio::{OrderEvent, OrderType};
 
 /// Evaluates the risk associated with an [`OrderEvent`] to determine if it should be actioned. It
 /// can also amend the order (eg/ [`OrderType`]) to better fit the risk strategy required for
