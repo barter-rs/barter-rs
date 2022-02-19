@@ -28,8 +28,7 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 // Todo:
-//  0. Go through whole code and switch to combinators, and clean up anything obvious
-//  1. Remove strange default() impls that I use for tests eg/ Position::default()
+//  1. Remove strange default() impls that I use for tests eg/ base_position()
 //  4.. Ensure everything is unit tested
 //  5. Position::meta has duplicated exit timestamp in exit_timestamp & meta.equity_point.timestamp
 //  6. Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
