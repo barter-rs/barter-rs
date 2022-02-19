@@ -181,6 +181,7 @@ impl ProfitLossSummary {
 mod tests {
     use super::*;
     use chrono::{Duration, Utc};
+    use crate::test_util::base_position;
 
     #[test]
     fn update_pnl_return_summary() {
@@ -197,7 +198,7 @@ mod tests {
         let mut pnl_return_view = PnLReturnSummary::new();
         pnl_return_view.start_timestamp = base_timestamp;
 
-        let mut input_position = Position::default();
+        let mut input_position = base_position();
         input_position.meta.exit_timestamp = None;
         input_position.meta.last_update_timestamp = base_timestamp
             .checked_add_signed(Duration::days(10))
@@ -217,7 +218,7 @@ mod tests {
         let mut pnl_return_view = PnLReturnSummary::new();
         pnl_return_view.start_timestamp = base_timestamp;
 
-        let mut input_position = Position::default();
+        let mut input_position = base_position();
         input_position.meta.exit_timestamp = Some(
             base_timestamp
                 .checked_add_signed(Duration::days(15))

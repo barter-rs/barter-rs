@@ -1,5 +1,5 @@
 use crate::data::error::DataError;
-use barter_data::model::{Candle, MarketData};
+use barter_data::model::MarketData;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
@@ -20,19 +20,6 @@ pub struct MarketEvent {
     pub exchange: &'static str,
     pub symbol: String,
     pub data: MarketData,
-}
-
-impl Default for MarketEvent {
-    fn default() -> Self {
-        Self {
-            event_type: MarketEvent::EVENT_TYPE,
-            trace_id: Uuid::new_v4(),
-            timestamp: Utc::now(),
-            exchange: "binance",
-            symbol: String::from("eth_usdt"),
-            data: MarketData::Candle(Candle::default()),
-        }
-    }
 }
 
 impl MarketEvent {
