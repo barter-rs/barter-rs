@@ -56,6 +56,7 @@ use uuid::Uuid;
 //   '--> Where do I want to log things like Command::ExitPosition being actioned? In Engine or when we push SignalForceExit on to Q?
 //  - Ensure PositionNew, PositionUpdate & PositionExit is consistent -> create trait for Position?
 //     '--> eg similar to Rust TAs Open, High etc
+//  - Re-factor generate_order & parse_signal_decisions... seems pretty noob.
 
 /// Communicates a String is a message associated with a [`Command`].
 pub type Message = String;
