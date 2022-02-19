@@ -670,11 +670,11 @@ mod tests {
     use super::*;
     use std::ops::Add;
     use chrono::Duration;
-    use crate::test_util::{base_fill_event, base_market_event, base_position};
+    use crate::test_util::{fill_event, market_event, position};
 
     #[test]
     fn enter_new_position_with_long_decision_provided() {
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::Long;
         input_fill.quantity = 1.0;
         input_fill.fill_value_gross = 100.0;
@@ -711,7 +711,7 @@ mod tests {
 
     #[test]
     fn enter_new_position_with_short_decision_provided() {
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::Short;
         input_fill.quantity = -1.0;
         input_fill.fill_value_gross = 100.0;
@@ -748,7 +748,7 @@ mod tests {
 
     #[test]
     fn enter_new_position_and_return_err_with_close_long_decision_provided() -> Result<(), String> {
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::CloseLong;
         input_fill.quantity = -1.0;
         input_fill.fill_value_gross = 100.0;
@@ -770,7 +770,7 @@ mod tests {
     #[test]
     fn enter_new_position_and_return_err_with_close_short_decision_provided() -> Result<(), String>
     {
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::CloseShort;
         input_fill.quantity = 1.0;
         input_fill.fill_value_gross = 100.0;
@@ -792,7 +792,7 @@ mod tests {
     #[test]
     fn enter_new_position_and_return_err_with_negative_quantity_long_decision_provided(
     ) -> Result<(), String> {
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::Long;
         input_fill.quantity = -1.0;
         input_fill.fill_value_gross = 100.0;
@@ -814,7 +814,7 @@ mod tests {
     #[test]
     fn enter_new_position_and_return_err_with_positive_quantity_short_decision_provided(
     ) -> Result<(), String> {
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::Short;
         input_fill.quantity = 1.0;
         input_fill.fill_value_gross = 100.0;
@@ -836,7 +836,7 @@ mod tests {
     #[test]
     fn update_long_position_so_unreal_pnl_increases() {
         // Initial Position
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Long;
         position.quantity = 1.0;
         position.enter_fees_total = 3.0;
@@ -852,7 +852,7 @@ mod tests {
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
-        let mut input_market = base_market_event();
+        let mut input_market = market_event();
         match input_market.data {
             // +100.0 higher than current_symbol_price
             MarketData::Candle(ref mut candle) => candle.close = 200.0,
@@ -890,7 +890,7 @@ mod tests {
     #[test]
     fn update_long_position_so_unreal_pnl_decreases() {
         // Initial Position
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Long;
         position.quantity = 1.0;
         position.enter_fees_total = 3.0;
@@ -906,7 +906,7 @@ mod tests {
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
-        let mut input_market = base_market_event();
+        let mut input_market = market_event();
 
         match input_market.data {
             // -50.0 lower than current_symbol_price
@@ -945,7 +945,7 @@ mod tests {
     #[test]
     fn update_short_position_so_unreal_pnl_increases() {
         // Initial Position
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Short;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
@@ -961,7 +961,7 @@ mod tests {
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
-        let mut input_market = base_market_event();
+        let mut input_market = market_event();
 
         match input_market.data {
             // -50.0 lower than current_symbol_price
@@ -1000,7 +1000,7 @@ mod tests {
     #[test]
     fn update_short_position_so_unreal_pnl_decreases() {
         // Initial Position
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Short;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
@@ -1016,7 +1016,7 @@ mod tests {
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
-        let mut input_market = base_market_event();
+        let mut input_market = market_event();
 
         match input_market.data {
             // +100.0 higher than current_symbol_price
@@ -1055,7 +1055,7 @@ mod tests {
     #[test]
     fn exit_long_position_with_positive_real_pnl() {
         // Initial Position
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Long;
         position.quantity = 1.0;
         position.enter_fees_total = 3.0;
@@ -1074,7 +1074,7 @@ mod tests {
         let current_value = 10000.0;
 
         // Input FillEvent
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::CloseLong;
         input_fill.quantity = -position.quantity;
         input_fill.fill_value_gross = 200.0;
@@ -1122,7 +1122,7 @@ mod tests {
     #[test]
     fn exit_long_position_with_negative_real_pnl() {
         // Initial Position
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Long;
         position.quantity = 1.0;
         position.enter_fees_total = 3.0;
@@ -1141,7 +1141,7 @@ mod tests {
         let current_value = 10000.0;
 
         // Input FillEvent
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::CloseLong;
         input_fill.quantity = -position.quantity;
         input_fill.fill_value_gross = 50.0;
@@ -1189,7 +1189,7 @@ mod tests {
     #[test]
     fn exit_short_position_with_positive_real_pnl() {
         // Initial Position
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Short;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
@@ -1208,7 +1208,7 @@ mod tests {
         let current_value = 10000.0;
 
         // Input FillEvent
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::CloseShort;
         input_fill.quantity = -position.quantity;
         input_fill.fill_value_gross = 50.0;
@@ -1256,7 +1256,7 @@ mod tests {
     #[test]
     fn exit_short_position_with_negative_real_pnl() {
         // Initial Position
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Short;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
@@ -1275,7 +1275,7 @@ mod tests {
         let current_value = 10000.0;
 
         // Input FillEvent
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::CloseShort;
         input_fill.quantity = -position.quantity;
         input_fill.fill_value_gross = 200.0;
@@ -1323,7 +1323,7 @@ mod tests {
     #[test]
     fn exit_long_position_with_long_entry_fill_and_return_err() -> Result<(), String> {
         // Initial Position
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Short;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
@@ -1342,7 +1342,7 @@ mod tests {
         let current_value = 10000.0;
 
         // Input FillEvent
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::Long;
         input_fill.quantity = position.quantity;
         input_fill.fill_value_gross = 200.0;
@@ -1365,7 +1365,7 @@ mod tests {
     #[test]
     fn exit_short_position_with_short_entry_fill_and_return_err() -> Result<(), String> {
         // Initial Position
-        let mut position = base_position();
+        let mut position = position();
         position.direction = Direction::Short;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
@@ -1384,7 +1384,7 @@ mod tests {
         let current_value = 10000.0;
 
         // Input FillEvent
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::Short;
         input_fill.quantity = -position.quantity;
         input_fill.fill_value_gross = 200.0;
@@ -1406,7 +1406,7 @@ mod tests {
 
     #[test]
     fn calculate_avg_price_gross_correctly_with_positive_quantity() {
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.fill_value_gross = 1000.0;
         input_fill.quantity = 1.0;
 
@@ -1417,7 +1417,7 @@ mod tests {
 
     #[test]
     fn calculate_avg_price_gross_correctly_with_negative_quantity() {
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.fill_value_gross = 1000.0;
         input_fill.quantity = -1.0;
 
@@ -1428,7 +1428,7 @@ mod tests {
 
     #[test]
     fn parse_entry_direction_as_long_with_positive_quantity_long_decision_provided() {
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::Long;
         input_fill.quantity = 1.0;
 
@@ -1439,7 +1439,7 @@ mod tests {
 
     #[test]
     fn parse_entry_direction_as_short_with_negative_quantity_short_decision_provided() {
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::Short;
         input_fill.quantity = -1.0;
 
@@ -1451,7 +1451,7 @@ mod tests {
     #[test]
     fn parse_entry_direction_and_return_err_with_close_long_decision_provided() -> Result<(), String>
     {
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::CloseLong;
         input_fill.quantity = -1.0;
 
@@ -1467,7 +1467,7 @@ mod tests {
     #[test]
     fn parse_entry_direction_and_return_err_with_close_short_decision_provided(
     ) -> Result<(), String> {
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::CloseShort;
         input_fill.quantity = 1.0;
 
@@ -1483,7 +1483,7 @@ mod tests {
     #[test]
     fn parse_entry_direction_and_return_err_with_negative_quantity_long_decision_provided(
     ) -> Result<(), String> {
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::Long;
         input_fill.quantity = -1.0;
 
@@ -1499,7 +1499,7 @@ mod tests {
     #[test]
     fn parse_entry_direction_and_return_err_with_positive_quantity_short_decision_provided(
     ) -> Result<(), String> {
-        let mut input_fill = base_fill_event();
+        let mut input_fill = fill_event();
         input_fill.decision = Decision::Short;
         input_fill.quantity = 1.0;
 
@@ -1514,25 +1514,25 @@ mod tests {
 
     #[test]
     fn calculate_unreal_profit_loss() {
-        let mut long_win = base_position(); // Expected PnL = +8.0
+        let mut long_win = position(); // Expected PnL = +8.0
         long_win.direction = Direction::Long;
         long_win.enter_value_gross = 100.0;
         long_win.enter_fees_total = 1.0;
         long_win.current_value_gross = 110.0;
 
-        let mut long_lose = base_position(); // Expected PnL = -12.0
+        let mut long_lose = position(); // Expected PnL = -12.0
         long_lose.direction = Direction::Long;
         long_lose.enter_value_gross = 100.0;
         long_lose.enter_fees_total = 1.0;
         long_lose.current_value_gross = 90.0;
 
-        let mut short_win = base_position(); // Expected PnL = +8.0
+        let mut short_win = position(); // Expected PnL = +8.0
         short_win.direction = Direction::Short;
         short_win.enter_value_gross = 100.0;
         short_win.enter_fees_total = 1.0;
         short_win.current_value_gross = 90.0;
 
-        let mut short_lose = base_position(); // Expected PnL = -12.0
+        let mut short_lose = position(); // Expected PnL = -12.0
         short_lose.direction = Direction::Short;
         short_lose.enter_value_gross = 100.0;
         short_lose.enter_fees_total = 1.0;
@@ -1550,28 +1550,28 @@ mod tests {
 
     #[test]
     fn calculate_realised_profit_loss() {
-        let mut long_win = base_position(); // Expected PnL = +18.0
+        let mut long_win = position(); // Expected PnL = +18.0
         long_win.direction = Direction::Long;
         long_win.enter_value_gross = 100.0;
         long_win.enter_fees_total = 1.0;
         long_win.exit_value_gross = 120.0;
         long_win.exit_fees_total = 1.0;
 
-        let mut long_lose = base_position(); // Expected PnL = -22.0
+        let mut long_lose = position(); // Expected PnL = -22.0
         long_lose.direction = Direction::Long;
         long_lose.enter_value_gross = 100.0;
         long_lose.enter_fees_total = 1.0;
         long_lose.exit_value_gross = 80.0;
         long_lose.exit_fees_total = 1.0;
 
-        let mut short_win = base_position(); // Expected PnL = +18.0
+        let mut short_win = position(); // Expected PnL = +18.0
         short_win.direction = Direction::Short;
         short_win.enter_value_gross = 100.0;
         short_win.enter_fees_total = 1.0;
         short_win.exit_value_gross = 80.0;
         short_win.exit_fees_total = 1.0;
 
-        let mut short_lose = base_position(); // Expected PnL = -22.0
+        let mut short_lose = position(); // Expected PnL = -22.0
         short_lose.direction = Direction::Short;
         short_lose.enter_value_gross = 100.0;
         short_lose.enter_fees_total = 1.0;
@@ -1590,22 +1590,22 @@ mod tests {
 
     #[test]
     fn calculate_profit_loss_return() {
-        let mut long_win = base_position(); // Expected Return = 0.08
+        let mut long_win = position(); // Expected Return = 0.08
         long_win.direction = Direction::Long;
         long_win.enter_value_gross = 100.0;
         long_win.realised_profit_loss = 8.0;
 
-        let mut long_lose = base_position(); // Expected Return = -0.12
+        let mut long_lose = position(); // Expected Return = -0.12
         long_lose.direction = Direction::Long;
         long_lose.enter_value_gross = 100.0;
         long_lose.realised_profit_loss = -12.0;
 
-        let mut short_win = base_position(); // Expected Return = 0.08
+        let mut short_win = position(); // Expected Return = 0.08
         short_win.direction = Direction::Short;
         short_win.enter_value_gross = 100.0;
         short_win.realised_profit_loss = 8.0;
 
-        let mut short_lose = base_position(); // Expected Return = -0.12
+        let mut short_lose = position(); // Expected Return = -0.12
         short_lose.direction = Direction::Short;
         short_lose.enter_value_gross = 100.0;
         short_lose.realised_profit_loss = -12.0;
@@ -1626,7 +1626,7 @@ mod tests {
             exit_timestamp: DateTime<Utc>,
             result_pnl: f64,
         ) -> Position {
-            let mut position = base_position();
+            let mut position = position();
             position.meta.exit_timestamp = Some(exit_timestamp);
             position.realised_profit_loss = result_pnl;
             position
@@ -1636,7 +1636,7 @@ mod tests {
             last_update_timestamp: DateTime<Utc>,
             unreal_pnl: f64,
         ) -> Position {
-            let mut position = base_position();
+            let mut position = position();
             position.meta.last_update_timestamp = last_update_timestamp;
             position.unrealised_profit_loss = unreal_pnl;
             position
@@ -1718,7 +1718,7 @@ mod tests {
 
     #[test]
     fn position_update_from_position() {
-        let mut input_position = base_position();
+        let mut input_position = position();
         input_position.current_symbol_price = 100.0;
         input_position.current_value_gross = 200.0;
         input_position.unrealised_profit_loss = 150.0;
@@ -1743,7 +1743,7 @@ mod tests {
     fn position_exit_try_from_exited_position() {
         let timestamp = Utc::now();
 
-        let mut exited_position = base_position();
+        let mut exited_position = position();
         exited_position.meta.exit_trace_id = Some(Uuid::new_v4());
         exited_position.meta.exit_timestamp = Some(timestamp);
         exited_position.meta.exit_equity_point = Some(EquityPoint {
@@ -1785,7 +1785,7 @@ mod tests {
 
     #[test]
     fn position_exit_try_from_open_position() {
-        let mut exited_position = base_position();
+        let mut exited_position = position();
         exited_position.meta.exit_trace_id = None;
         exited_position.meta.exit_timestamp = None;
         exited_position.meta.exit_equity_point = None;
