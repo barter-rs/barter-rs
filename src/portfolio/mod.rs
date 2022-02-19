@@ -1,4 +1,4 @@
-use crate::data::market::MarketEvent;
+use crate::data::MarketEvent;
 use crate::event::Event;
 use crate::execution::fill::FillEvent;
 use crate::portfolio::error::PortfolioError;

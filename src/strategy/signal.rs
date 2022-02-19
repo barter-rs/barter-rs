@@ -1,5 +1,5 @@
-use crate::data::market::MarketMeta;
 use crate::strategy::error::StrategyError;
+use crate::data::MarketMeta;
 use crate::Market;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

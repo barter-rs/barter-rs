@@ -1,6 +1,6 @@
-use crate::data::market::MarketMeta;
-use crate::execution::error::ExecutionError;
+use crate::data::MarketMeta;
 use crate::strategy::signal::Decision;
+use crate::execution::error::ExecutionError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
