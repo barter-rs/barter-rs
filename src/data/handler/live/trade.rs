@@ -4,9 +4,7 @@ use crate::data::MarketEvent;
 use barter_data::model::{MarketData, Trade};
 use barter_data::ExchangeClient;
 use serde::{Deserialize, Serialize};
-use chrono::Utc;
 use tokio::sync::mpsc::UnboundedReceiver;
-use uuid::Uuid;
 
 /// Configuration for constructing a [`LiveTradeHandler`] via the new() constructor method.
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
