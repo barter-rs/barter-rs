@@ -8,12 +8,25 @@ use crate::portfolio::error::PortfolioError;
 use crate::portfolio::position::PositionUpdate;
 use crate::strategy::signal::{Decision, SignalEvent, SignalForceExit};
 
+/// Logic for [`OrderEvent`] quantity allocation.
 pub mod allocator;
+
+/// Barter portfolio module specific errors.
 pub mod error;
-pub mod order;
+
+/// Core Portfolio logic containing an implementation of [`MarketUpdater`],
+/// [`OrderGenerator`] and [`FillUpdater`]. Utilises the risk and allocator logic to optimise
+/// [`OrderEvent`] generation.
 pub mod portfolio;
+
+/// Data structures encapsulating the state of a trading [`Position`], as well as the logic for
+/// entering, updating and exiting them.
 pub mod position;
+
+/// Repositories for persisting Portfolio state.
 pub mod repository;
+
+/// Logic for evaluating the risk associated with a proposed [`OrderEvent`].
 pub mod risk;
 
 /// Updates the Portfolio from an input [`MarketEvent`].
