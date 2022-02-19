@@ -1,7 +1,7 @@
 use crate::portfolio::OrderEvent;
 use crate::portfolio::position::Position;
-use crate::strategy::signal::{Decision, SignalStrength};
 use serde::{Deserialize, Serialize};
+use crate::strategy::{Decision, SignalStrength};
 
 /// Allocates an appropriate [`OrderEvent`] quantity.
 pub trait OrderAllocator {

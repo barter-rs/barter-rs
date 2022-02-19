@@ -1,12 +1,13 @@
-use chrono::{DateTime, Utc};
-use uuid::Uuid;
+use crate::event::Event;
 
 use crate::data::{MarketEvent, MarketMeta};
-use crate::event::Event;
+use crate::strategy::{Decision, SignalEvent, SignalForceExit};
 use crate::execution::FillEvent;
 use crate::portfolio::error::PortfolioError;
 use crate::portfolio::position::PositionUpdate;
-use crate::strategy::signal::{Decision, SignalEvent, SignalForceExit};
+use chrono::{DateTime, Utc};
+use uuid::Uuid;
+use serde::{Deserialize, Serialize};
 
 /// Logic for [`OrderEvent`] quantity allocation.
 pub mod allocator;
