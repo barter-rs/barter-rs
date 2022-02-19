@@ -64,7 +64,7 @@ impl SimulatedExecution {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_util::base_order_event;
+    use crate::test_util::order_event;
     use super::*;
 
     #[test]
@@ -77,7 +77,7 @@ mod tests {
             },
         });
 
-        let mut input_order = base_order_event();
+        let mut input_order = order_event();
         input_order.quantity = 10.0;
         input_order.market_meta.close = 10.0;
 
@@ -98,7 +98,7 @@ mod tests {
 
     #[test]
     fn should_calculate_fill_value_gross_correctly() {
-        let mut input_order = base_order_event();
+        let mut input_order = order_event();
         input_order.quantity = 100.0;
         input_order.market_meta.close = 10.0;
 
@@ -111,7 +111,7 @@ mod tests {
 
     #[test]
     fn should_calculate_fill_value_gross_correctly_with_negative_order_quantity_provided() {
-        let mut input_order = base_order_event();
+        let mut input_order = order_event();
         input_order.quantity = -(100.0);
         input_order.market_meta.close = 10.0;
 
