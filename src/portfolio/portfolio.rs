@@ -23,7 +23,7 @@ use crate::portfolio::repository::{
 };
 use crate::portfolio::risk::OrderEvaluator;
 use crate::statistic::summary::{Initialiser, PositionSummariser};
-use crate::strategy::signal::{Decision, SignalEvent, SignalForceExit, SignalStrength};
+use crate::strategy::{Decision, SignalEvent, SignalForceExit, SignalStrength};
 
 /// Lego components for constructing & initialising a [`MetaPortfolio`] via the init() constructor
 /// method.
@@ -563,6 +563,7 @@ mod tests {
     use crate::portfolio::repository::error::RepositoryError;
     use crate::portfolio::risk::DefaultRisk;
     use crate::statistic::summary::pnl::PnLReturnSummary;
+    use crate::strategy::SignalForceExit;
 
     use super::*;
 

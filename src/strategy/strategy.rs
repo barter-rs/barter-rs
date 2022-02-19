@@ -1,6 +1,5 @@
 use crate::strategy::error::StrategyError;
-use crate::strategy::signal::{Decision, SignalEvent, SignalStrength};
-use crate::strategy::SignalGenerator;
+use crate::strategy::{Decision, SignalEvent, SignalGenerator, SignalStrength};
 use barter_data::model::MarketData;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
