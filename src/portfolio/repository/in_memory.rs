@@ -75,7 +75,6 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
             }
             Some(closed_positions) => closed_positions.push(position),
         }
-
         Ok(())
     }
 
@@ -86,7 +85,8 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
         Ok(self
             .closed_positions
             .get(&determine_exited_positions_id(engine_id))
-            .map(|exited_positions| exited_positions.iter().map(Position::clone).collect()))
+            .map(|exited_positions| exited_positions.iter().map(Position::clone).collect())
+        )
     }
 }
 
@@ -102,10 +102,10 @@ impl<Statistic: PositionSummariser> EquityHandler for InMemoryRepository<Statist
     }
 
     fn get_total_equity(&mut self, engine_id: &Uuid) -> Result<TotalEquity, RepositoryError> {
-        match self.current_equities.get(&determine_equity_id(engine_id)) {
-            None => Err(RepositoryError::ExpectedDataNotPresentError),
-            Some(value) => Ok(*value),
-        }
+        self.current_equities
+            .get(&determine_equity_id(engine_id))
+            .copied()
+            .ok_or(RepositoryError::ExpectedDataNotPresentError)
     }
 }
 
@@ -121,10 +121,10 @@ impl<Statistic: PositionSummariser> CashHandler for InMemoryRepository<Statistic
     }
 
     fn get_available_cash(&mut self, engine_id: &Uuid) -> Result<AvailableCash, RepositoryError> {
-        match self.current_cashes.get(&determine_cash_id(engine_id)) {
-            None => Err(RepositoryError::ExpectedDataNotPresentError),
-            Some(cash) => Ok(*cash),
-        }
+        self.current_cashes
+            .get(&determine_cash_id(engine_id))
+            .copied()
+            .ok_or(RepositoryError::ExpectedDataNotPresentError)
     }
 }
 
@@ -139,10 +139,10 @@ impl<Statistic: PositionSummariser> StatisticHandler<Statistic> for InMemoryRepo
     }
 
     fn get_statistics(&mut self, market_id: &MarketId) -> Result<Statistic, RepositoryError> {
-        match self.statistics.get(market_id) {
-            None => Err(RepositoryError::ExpectedDataNotPresentError),
-            Some(statistics) => Ok(*statistics),
-        }
+        self.statistics
+            .get(market_id)
+            .copied()
+            .ok_or(RepositoryError::ExpectedDataNotPresentError)
     }
 }
 
