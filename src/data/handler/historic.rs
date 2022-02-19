@@ -1,11 +1,11 @@
 use crate::data::error::DataError;
 use crate::data::handler::{Continuation, Continuer, MarketGenerator};
-use crate::data::market::MarketEvent;
+use crate::data::MarketEvent;
 use barter_data::model::{Candle, MarketData};
 use chrono::Utc;
 use uuid::Uuid;
 
-/// Configuration for constructing a [HistoricCandleHandler] via the new() constructor method.
+/// Configuration for constructing a [`HistoricCandleHandler`] via the new() constructor method.
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
 pub struct HistoricDataLego<Candles>
 where
@@ -17,8 +17,8 @@ where
 }
 
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
-/// [MarketEvent] data handler that implements [Continuer] & [MarketGenerator]. Simulates a live market
-/// feed via drip feeding historical data files as a series of [MarketEvent]s.
+/// [`MarketEvent`] data handler that implements [`Continuer`] & [`MarketGenerator`]. **Simulates**
+/// a live market feed via drip feeding historical data files as a series of [`MarketEvent`]s.
 pub struct HistoricCandleHandler<Candles>
 where
     Candles: Iterator<Item = Candle>,
@@ -43,20 +43,16 @@ where
     Candles: Iterator<Item = Candle>,
 {
     fn generate_market(&mut self) -> Option<MarketEvent> {
-        match self.candles.next() {
-            None => {
+        // Consume next Candle & generate Some(MarketEvent)
+        self.candles
+            .next()
+            .map(|candle| {
+                MarketEvent::new(self.exchange, &self.symbol, MarketData::Candle(candle))
+            })
+            .or_else(|| {
                 self.can_continue = Continuation::Stop;
                 None
-            }
-            Some(candle) => Some(MarketEvent {
-                event_type: MarketEvent::EVENT_TYPE,
-                trace_id: Uuid::new_v4(),
-                timestamp: Utc::now(),
-                exchange: self.exchange,
-                symbol: self.symbol.clone(),
-                data: MarketData::Candle(candle),
-            }),
-        }
+            })
     }
 }
 
