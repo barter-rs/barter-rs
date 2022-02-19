@@ -34,20 +34,6 @@ pub struct SignalEvent {
 /// Strength of an advisory signal decision produced by the strategy.
 pub type SignalStrength = f32;
 
-impl Default for SignalEvent {
-    fn default() -> Self {
-        Self {
-            event_type: SignalEvent::ORGANIC_SIGNAL,
-            trace_id: Uuid::new_v4(),
-            timestamp: Utc::now(),
-            exchange: "binance",
-            symbol: String::from("eth_usdt"),
-            market_meta: MarketMeta::default(),
-            signals: Default::default(),
-        }
-    }
-}
-
 impl SignalEvent {
     pub const ORGANIC_SIGNAL: &'static str = "Signal";
 

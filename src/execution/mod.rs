@@ -40,23 +40,6 @@ pub struct FillEvent {
     pub fees: Fees,
 }
 
-impl Default for FillEvent {
-    fn default() -> Self {
-        Self {
-            event_type: FillEvent::EVENT_TYPE,
-            trace_id: Uuid::new_v4(),
-            timestamp: Utc::now(),
-            exchange: "binance",
-            symbol: String::from("eth_usdt"),
-            market_meta: Default::default(),
-            decision: Decision::default(),
-            quantity: 1.0,
-            fill_value_gross: 100.0,
-            fees: Fees::default(),
-        }
-    }
-}
-
 impl FillEvent {
     pub const EVENT_TYPE: &'static str = "Fill";
 
