@@ -136,11 +136,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use barter_data::test_util;
 
     #[test]
     fn should_continue_with_symbol_data_remaining() {
         let mut symbol_data_remaining = Vec::with_capacity(2);
-        symbol_data_remaining.push(Candle::default());
+        symbol_data_remaining.push(test_util::candle());
 
         let data_handler = HistoricCandleHandler::builder()
             .exchange("Backtest")
