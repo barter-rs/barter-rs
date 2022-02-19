@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::data::MarketMeta;
 use crate::strategy::signal::Decision;
-use crate::portfolio::order::OrderEvent;
+use crate::portfolio::OrderEvent;
 use crate::execution::error::ExecutionError;
 use serde::{Deserialize, Serialize};
 

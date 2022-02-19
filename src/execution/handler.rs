@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::execution::{Fees, FillEvent, FillGenerator};
 use crate::execution::error::ExecutionError;
-use crate::portfolio::order::OrderEvent;
+use crate::portfolio::OrderEvent;
 
 /// Configuration for constructing a [`SimulatedExecution`] via the new() constructor method.
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]

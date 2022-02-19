@@ -96,7 +96,7 @@
 //! use barter::portfolio::repository::redis::RedisRepository;
 //! use barter::event::Event;
 //! use barter::Market;
-//! use barter::portfolio::order::OrderEvent;
+//! use barter::portfolio::OrderEvent;
 //! use barter::portfolio::portfolio::{PortfolioLego, MetaPortfolio};
 //! use barter::portfolio::repository::redis::Config as RepositoryConfig;
 //! use barter::portfolio::repository::in_memory::InMemoryRepository;
@@ -142,7 +142,7 @@
 //! ### Execution
 //! ```
 //! use barter::execution::handler::{Config as ExecutionConfig, SimulatedExecution};
-//! use barter::portfolio::order::OrderEvent;
+//! use barter::portfolio::OrderEvent;
 //! use barter::execution::Fees;
 //! use barter::execution::FillGenerator;
 //!
