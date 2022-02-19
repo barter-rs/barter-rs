@@ -75,6 +75,7 @@
 //! use barter::strategy::SignalGenerator;
 //! use barter::strategy::strategy::{Config as StrategyConfig, RSIStrategy};
 //! use barter::data::market::MarketEvent;
+//! use barter::test_util::base_market_event;
 //!
 //! let config = StrategyConfig {
 //!     rsi_period: 14,
@@ -82,7 +83,7 @@
 //!
 //! let mut strategy = RSIStrategy::new(config);
 //!
-//! let market_event = MarketEvent::default();
+//! let market_event = base_market_event();
 //!
 //! let signal_event = strategy.generate_signal(&market_event);
 //! ```
@@ -102,6 +103,7 @@
 //! use barter::portfolio::repository::in_memory::InMemoryRepository;
 //! use barter::statistic::summary::pnl::PnLReturnSummary;
 //! use barter::statistic::summary::trading::{Config as StatisticConfig, TradingSummary};
+//! use barter::test_util::base_order_event;
 //!
 //! let components = PortfolioLego {
 //!     engine_id: Default::default(),
@@ -120,7 +122,7 @@
 //!
 //! let mut portfolio = MetaPortfolio::init(components).unwrap();
 //!
-//! let some_event = Event::OrderNew(OrderEvent::default());
+//! let some_event = Event::OrderNew(base_order_event());
 //!
 //! match some_event {
 //!     Event::Market(market) => {
@@ -145,6 +147,7 @@
 //! use barter::portfolio::OrderEvent;
 //! use barter::execution::Fees;
 //! use barter::execution::FillGenerator;
+//! use barter::test_util::base_order_event;
 //!
 //! let config = ExecutionConfig {
 //!     simulated_fees_pct: Fees {
@@ -156,7 +159,7 @@
 //!
 //! let mut execution = SimulatedExecution::new(config);
 //!
-//! let order_event = OrderEvent::default();
+//! let order_event = base_order_event();
 //!
 //! let fill_event = execution.generate_fill(&order_event);
 //! ```
@@ -166,9 +169,10 @@
 //! use barter::statistic::summary::trading::{Config as StatisticConfig, TradingSummary};
 //! use barter::portfolio::position::Position;
 //! use barter::statistic::summary::{PositionSummariser, TablePrinter};
+//! use barter::test_util::base_position;
 //!
 //! // Do some automated trading with barter components that generates a vector of closed Positions
-//! let positions = vec![Position::default(), Position::default()];
+//! let positions = vec![base_position(), base_position()];
 //!
 //! let config = StatisticConfig {
 //!     starting_equity: 10000.0,
@@ -274,4 +278,91 @@ impl Market {
 /// exchange-symbol combination (eg/ "market_binance-btc_usdt").
 pub fn determine_market_id(exchange: &str, symbol: &str) -> MarketId {
     format!("market_{}_{}", exchange, symbol)
+}
+
+#[cfg(test)]
+pub mod test_util {
+    use crate::data::{MarketEvent, MarketMeta};
+    use crate::strategy::{Decision, SignalEvent};
+    use crate::portfolio::{OrderEvent, OrderType};
+    use crate::portfolio::position::Position;
+    use crate::execution::{Fees, FillEvent};
+    use barter_data::model::{Candle, MarketData};
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    pub fn base_market_event() -> MarketEvent {
+        MarketEvent {
+            event_type: MarketEvent::EVENT_TYPE,
+            trace_id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            exchange: "binance",
+            symbol: String::from("eth_usdt"),
+            data: MarketData::Candle(Candle::default()),
+        }
+    }
+
+    pub fn base_signal_event() -> SignalEvent {
+        SignalEvent {
+            event_type: SignalEvent::ORGANIC_SIGNAL,
+            trace_id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            exchange: "binance",
+            symbol: String::from("eth_usdt"),
+            market_meta: MarketMeta::default(),
+            signals: Default::default(),
+        }
+    }
+
+    pub fn base_order_event() -> OrderEvent {
+        OrderEvent {
+            event_type: OrderEvent::ORGANIC_ORDER,
+            trace_id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            exchange: "binance",
+            symbol: String::from("eth_usdt"),
+            market_meta: MarketMeta::default(),
+            decision: Decision::default(),
+            quantity: 1.0,
+            order_type: OrderType::default(),
+        }
+    }
+
+    pub fn base_fill_event() -> FillEvent {
+        FillEvent {
+            event_type: FillEvent::EVENT_TYPE,
+            trace_id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            exchange: "binance",
+            symbol: String::from("eth_usdt"),
+            market_meta: Default::default(),
+            decision: Decision::default(),
+            quantity: 1.0,
+            fill_value_gross: 100.0,
+            fees: Fees::default(),
+        }
+    }
+
+    pub fn base_position() -> Position {
+        Position {
+            position_id: "engine_id_trader_{}_{}_position".to_owned(),
+            exchange: "binance".to_owned(),
+            symbol: "eth_usdt".to_owned(),
+            meta: Default::default(),
+            direction: Default::default(),
+            quantity: 1.0,
+            enter_fees: Default::default(),
+            enter_fees_total: 0.0,
+            enter_avg_price_gross: 100.0,
+            enter_value_gross: 100.0,
+            exit_fees: Default::default(),
+            exit_fees_total: 0.0,
+            exit_avg_price_gross: 0.0,
+            exit_value_gross: 0.0,
+            current_symbol_price: 100.0,
+            current_value_gross: 100.0,
+            unrealised_profit_loss: 0.0,
+            realised_profit_loss: 0.0,
+        }
+    }
 }

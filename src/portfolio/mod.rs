@@ -87,22 +87,6 @@ pub struct OrderEvent {
     pub order_type: OrderType,
 }
 
-impl Default for OrderEvent {
-    fn default() -> Self {
-        Self {
-            event_type: OrderEvent::ORGANIC_ORDER,
-            trace_id: Uuid::new_v4(),
-            timestamp: Utc::now(),
-            exchange: "binance",
-            symbol: String::from("eth_usdt"),
-            market_meta: MarketMeta::default(),
-            decision: Decision::default(),
-            quantity: 1.0,
-            order_type: OrderType::default(),
-        }
-    }
-}
-
 impl OrderEvent {
     pub const ORGANIC_ORDER: &'static str = "Order";
     pub const FORCED_EXIT_ORDER: &'static str = "OrderForcedExit";
