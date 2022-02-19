@@ -4,10 +4,8 @@ use crate::engine::Command;
 use crate::event::{Event, MessageTransmitter};
 use crate::execution::FillGenerator;
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
-use crate::strategy::signal::SignalForceExit;
-use crate::strategy::SignalGenerator;
+use crate::strategy::{SignalForceExit, SignalGenerator};
 use crate::Market;
-use serde::Serialize;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -17,6 +15,7 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
+use serde::Serialize;
 
 /// Communicates a String represents a unique [`Trader`] identifier.
 pub type TraderId = String;
