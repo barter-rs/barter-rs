@@ -58,8 +58,9 @@ where
 }
 
 /// Trader instance capable of trading a single market pair with it's own Data Handler, Strategy &
-/// Execution Handler, as well as shared access to a global Portfolio instance. A graceful remote
-/// shutdown is made possible by sending a [`Command::Terminate`] to the Trader's
+/// Execution Handler, as well as shared access to a global Portfolio instance. It has a many-to-1
+/// relationship with an Engine/Portfolio. A graceful remote shutdown is made possible by sending
+/// a [`Command::Terminate`] to the Trader's
 /// mpsc::Receiver command_rx.
 #[derive(Debug)]
 pub struct Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
@@ -227,6 +228,12 @@ where
                     _ => {}
                 }
             }
+
+            debug!(
+                engine_id = &*self.engine_id.to_string(),
+                market = &*format!("{:?}", self.market),
+                "Trader trading loop stopped"
+            );
         }
     }
 
@@ -235,6 +242,8 @@ where
         match self.command_rx.try_recv() {
             Ok(command) => {
                 debug!(
+                    engine_id = &*self.engine_id.to_string(),
+                    market = &*format!("{:?}", self.market),
                     command = &*format!("{:?}", command),
                     "Trader received remote command"
                 );

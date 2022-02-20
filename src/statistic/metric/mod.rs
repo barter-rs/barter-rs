@@ -33,7 +33,7 @@ impl From<Balance> for EquityPoint {
 }
 
 impl PositionSummariser for EquityPoint {
-    /// Updates using the input [Position]'s PnL & associated timestamp.
+    /// Updates using the input [`Position`]'s PnL & associated timestamp.
     fn update(&mut self, position: &Position) {
         match position.meta.exit_balance {
             None => {
