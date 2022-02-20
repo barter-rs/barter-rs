@@ -55,17 +55,6 @@ impl TablePrinter for TradingSummary {
     }
 }
 
-impl TradingSummary {
-    /// Constructs a new [`TradingSummary`].
-    pub fn new(cfg: Config) -> Self {
-        Self {
-            pnl_returns: PnLReturnSummary::new(),
-            drawdown: DrawdownSummary::new(cfg.starting_equity),
-            tear_sheet: TearSheet::new(cfg.risk_free_return),
-        }
-    }
-}
-
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct TearSheet {
     sharpe_ratio: SharpeRatio,
