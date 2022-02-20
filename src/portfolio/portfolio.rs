@@ -486,30 +486,21 @@ where
     pub fn build_and_init(
         self,
     ) -> Result<MetaPortfolio<Repository, Allocator, RiskManager, Statistic>, PortfolioError> {
-        let engine_id = self.engine_id.ok_or(PortfolioError::BuilderIncomplete)?;
-        let markets = self.markets.ok_or(PortfolioError::BuilderIncomplete)?;
-        let starting_cash = self
-            .starting_cash
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-        let repository = self.repository.ok_or(PortfolioError::BuilderIncomplete)?;
-        let allocation_manager = self
-            .allocation_manager
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-        let risk_manager = self.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?;
-        let statistic_config = self
-            .statistic_config
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-
+        // Construct Portfolio
         let mut portfolio = MetaPortfolio {
-            engine_id,
-            repository,
-            allocation_manager,
-            risk_manager,
+            engine_id: self.engine_id.ok_or(PortfolioError::BuilderIncomplete)?,
+            repository: self.repository.ok_or(PortfolioError::BuilderIncomplete)?,
+            allocation_manager: self.allocation_manager.ok_or(PortfolioError::BuilderIncomplete)?,
+            risk_manager: self.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?,
             _statistic_marker: PhantomData::default(),
         };
 
-        // Persist initial state in the repository
-        portfolio.bootstrap_repository(starting_cash, markets, statistic_config)?;
+        // Persist initial state in the Repository
+        portfolio.bootstrap_repository(
+            self.starting_cash.ok_or(PortfolioError::BuilderIncomplete)?,
+            self.markets.ok_or(PortfolioError::BuilderIncomplete)?,
+            self.statistic_config.ok_or(PortfolioError::BuilderIncomplete)?
+        )?;
 
         Ok(portfolio)
     }
@@ -690,22 +681,11 @@ pub mod tests {
         Repository: PositionHandler + BalanceHandler + StatisticHandler<Statistic>,
         Statistic: PositionSummariser + Initialiser,
     {
-        let engine_id = builder.engine_id.ok_or(PortfolioError::BuilderIncomplete)?;
-        let repository = builder
-            .repository
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-        let allocation_manager = builder
-            .allocation_manager
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-        let risk_manager = builder
-            .risk_manager
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-
         Ok(MetaPortfolio {
-            engine_id,
-            repository,
-            allocation_manager,
-            risk_manager,
+            engine_id: builder.engine_id.ok_or(PortfolioError::BuilderIncomplete)?,
+            repository: builder.repository.ok_or(PortfolioError::BuilderIncomplete)?,
+            allocation_manager: builder.allocation_manager.ok_or(PortfolioError::BuilderIncomplete)?,
+            risk_manager: builder.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?,
             _statistic_marker: Default::default(),
         })
     }

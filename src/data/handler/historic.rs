@@ -120,15 +120,11 @@ where
     }
 
     pub fn build(self) -> Result<HistoricCandleHandler<Candles>, DataError> {
-        let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
-        let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
-        let candles = self.candles.ok_or(DataError::BuilderIncomplete)?;
-
         Ok(HistoricCandleHandler {
-            exchange,
-            symbol,
+            exchange: self.exchange.ok_or(DataError::BuilderIncomplete)?,
+            symbol: self.symbol.ok_or(DataError::BuilderIncomplete)?,
             can_continue: Continuation::Continue,
-            candles,
+            candles: self.candles.ok_or(DataError::BuilderIncomplete)?,
         })
     }
 }
