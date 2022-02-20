@@ -370,25 +370,16 @@ where
     pub fn build(
         self,
     ) -> Result<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
-        let engine_id = self.engine_id.ok_or(EngineError::BuilderIncomplete)?;
-        let market = self.market.ok_or(EngineError::BuilderIncomplete)?;
-        let command_rx = self.command_rx.ok_or(EngineError::BuilderIncomplete)?;
-        let event_tx = self.event_sink.ok_or(EngineError::BuilderIncomplete)?;
-        let portfolio = self.portfolio.ok_or(EngineError::BuilderIncomplete)?;
-        let data = self.data.ok_or(EngineError::BuilderIncomplete)?;
-        let strategy = self.strategy.ok_or(EngineError::BuilderIncomplete)?;
-        let execution = self.execution.ok_or(EngineError::BuilderIncomplete)?;
-
         Ok(Trader {
-            engine_id,
-            market,
-            command_rx,
-            event_tx,
+            engine_id: self.engine_id.ok_or(EngineError::BuilderIncomplete)?,
+            market: self.market.ok_or(EngineError::BuilderIncomplete)?,
+            command_rx: self.command_rx.ok_or(EngineError::BuilderIncomplete)?,
+            event_tx: self.event_tx.ok_or(EngineError::BuilderIncomplete)?,
             event_q: VecDeque::with_capacity(2),
-            portfolio,
-            data,
-            strategy,
-            execution,
+            portfolio: self.portfolio.ok_or(EngineError::BuilderIncomplete)?,
+            data: self.data.ok_or(EngineError::BuilderIncomplete)?,
+            strategy: self.strategy.ok_or(EngineError::BuilderIncomplete)?,
+            execution: self.execution.ok_or(EngineError::BuilderIncomplete)?,
             _statistic_marker: PhantomData::default(),
         })
     }

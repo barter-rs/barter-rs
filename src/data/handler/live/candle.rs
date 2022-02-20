@@ -113,16 +113,11 @@ impl LiveCandleHandlerBuilder {
     }
 
     pub fn build(self) -> Result<LiveCandleHandler, DataError> {
-        let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
-        let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
-        let interval = self.interval.ok_or(DataError::BuilderIncomplete)?;
-        let candle_rx = self.candle_rx.ok_or(DataError::BuilderIncomplete)?;
-
         Ok(LiveCandleHandler {
-            exchange,
-            symbol,
-            interval,
-            candle_rx,
+            exchange: self.exchange.ok_or(DataError::BuilderIncomplete)?,
+            symbol: self.symbol.ok_or(DataError::BuilderIncomplete)?,
+            interval: self.interval.ok_or(DataError::BuilderIncomplete)?,
+            candle_rx: self.candle_rx.ok_or(DataError::BuilderIncomplete)?,
             can_continue: Continuation::Continue,
         })
     }

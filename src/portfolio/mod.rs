@@ -194,26 +194,16 @@ impl OrderEventBuilder {
     }
 
     pub fn build(self) -> Result<OrderEvent, PortfolioError> {
-        let event_type = self.event_type.unwrap_or(OrderEvent::ORGANIC_ORDER);
-        let trace_id = self.trace_id.ok_or(PortfolioError::BuilderIncomplete)?;
-        let timestamp = self.timestamp.ok_or(PortfolioError::BuilderIncomplete)?;
-        let exchange = self.exchange.ok_or(PortfolioError::BuilderIncomplete)?;
-        let symbol = self.symbol.ok_or(PortfolioError::BuilderIncomplete)?;
-        let market_meta = self.market_meta.ok_or(PortfolioError::BuilderIncomplete)?;
-        let decision = self.decision.ok_or(PortfolioError::BuilderIncomplete)?;
-        let quantity = self.quantity.ok_or(PortfolioError::BuilderIncomplete)?;
-        let order_type = self.order_type.ok_or(PortfolioError::BuilderIncomplete)?;
-
         Ok(OrderEvent {
-            event_type,
-            trace_id,
-            timestamp,
-            exchange,
-            symbol,
-            market_meta,
-            decision,
-            quantity,
-            order_type,
+            event_type: self.event_type.unwrap_or(OrderEvent::ORGANIC_ORDER),
+            trace_id: self.trace_id.ok_or(PortfolioError::BuilderIncomplete)?,
+            timestamp: self.timestamp.ok_or(PortfolioError::BuilderIncomplete)?,
+            exchange: self.exchange.ok_or(PortfolioError::BuilderIncomplete)?,
+            symbol: self.symbol.ok_or(PortfolioError::BuilderIncomplete)?,
+            market_meta: self.market_meta.ok_or(PortfolioError::BuilderIncomplete)?,
+            decision: self.decision.ok_or(PortfolioError::BuilderIncomplete)?,
+            quantity: self.quantity.ok_or(PortfolioError::BuilderIncomplete)?,
+            order_type: self.order_type.ok_or(PortfolioError::BuilderIncomplete)?,
         })
     }
 }

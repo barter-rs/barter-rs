@@ -223,10 +223,8 @@ where
     }
 
     pub fn build(self) -> Result<RedisRepository<Statistic>, PortfolioError> {
-        let conn = self.conn.ok_or(PortfolioError::BuilderIncomplete)?;
-
         Ok(RedisRepository {
-            conn,
+            conn: self.conn.ok_or(PortfolioError::BuilderIncomplete)?,
             _statistic_marker: PhantomData::<Statistic>::default(),
         })
     }

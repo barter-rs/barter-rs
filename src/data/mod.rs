@@ -94,19 +94,13 @@ impl MarketEventBuilder {
     }
 
     pub fn build(self) -> Result<MarketEvent, DataError> {
-        let trace_id = self.trace_id.ok_or(DataError::BuilderIncomplete)?;
-        let timestamp = self.timestamp.ok_or(DataError::BuilderIncomplete)?;
-        let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
-        let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
-        let data = self.data.ok_or(DataError::BuilderIncomplete)?;
-
         Ok(MarketEvent {
             event_type: MarketEvent::EVENT_TYPE,
-            trace_id,
-            timestamp,
-            exchange,
-            symbol,
-            data,
+            trace_id: self.trace_id.ok_or(DataError::BuilderIncomplete)?,
+            timestamp: self.timestamp.ok_or(DataError::BuilderIncomplete)?,
+            exchange: self.exchange.ok_or(DataError::BuilderIncomplete)?,
+            symbol: self.symbol.ok_or(DataError::BuilderIncomplete)?,
+            data: self.data.ok_or(DataError::BuilderIncomplete)?,
         })
     }
 }
