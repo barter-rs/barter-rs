@@ -7,30 +7,27 @@ use tracing::info;
 use uuid::Uuid;
 
 use crate::{determine_market_id, Market, MarketId};
+use crate::event::Event;
 use crate::data::{MarketEvent, MarketMeta};
-use crate::event::{Balance, Event};
-use crate::execution::FillEvent;
-use crate::portfolio::{FillUpdater, MarketUpdater, OrderEvent, OrderGenerator, OrderType};
+use crate::strategy::{Decision, SignalEvent, SignalForceExit, SignalStrength};
+use crate::portfolio::{Balance, FillUpdater, MarketUpdater, OrderEvent, OrderGenerator, OrderType};
 use crate::portfolio::allocator::OrderAllocator;
 use crate::portfolio::error::PortfolioError;
 use crate::portfolio::position::{
     determine_position_id, Direction, Position, PositionEnterer, PositionExiter, PositionId,
     PositionUpdate, PositionUpdater,
 };
-use crate::portfolio::repository::{
-    AvailableCash,
-    CashHandler, EquityHandler, error::RepositoryError, PositionHandler, StatisticHandler,
-};
+use crate::portfolio::repository::{BalanceHandler, error::RepositoryError, PositionHandler, StatisticHandler};
 use crate::portfolio::risk::OrderEvaluator;
 use crate::statistic::summary::{Initialiser, PositionSummariser};
-use crate::strategy::{Decision, SignalEvent, SignalForceExit, SignalStrength};
+use crate::execution::FillEvent;
 
 /// Lego components for constructing & initialising a [`MetaPortfolio`] via the init() constructor
 /// method.
 #[derive(Debug)]
 pub struct PortfolioLego<Repository, Allocator, RiskManager, Statistic>
 where
-    Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
+    Repository: PositionHandler + BalanceHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
@@ -59,7 +56,7 @@ where
 #[derive(Debug)]
 pub struct MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
 where
-    Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
+    Repository: PositionHandler + BalanceHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
@@ -79,7 +76,7 @@ where
 impl<Repository, Allocator, RiskManager, Statistic> MarketUpdater
     for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
 where
-    Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
+    Repository: PositionHandler + BalanceHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
@@ -89,7 +86,7 @@ where
         market: &MarketEvent,
     ) -> Result<Option<PositionUpdate>, PortfolioError> {
         // Determine the position_id associated to the input MarketEvent
-        let position_id = determine_position_id(&self.engine_id, market.exchange, &market.symbol);
+        let position_id = determine_position_id(self.engine_id, market.exchange, &market.symbol);
 
         // Update Position if Portfolio has an open Position for that Symbol-Exchange combination
         if let Some(mut position) = self.repository.get_open_position(&position_id)? {
@@ -109,7 +106,7 @@ where
 impl<Repository, Allocator, RiskManager, Statistic> OrderGenerator
     for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
 where
-    Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
+    Repository: PositionHandler + BalanceHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
@@ -119,7 +116,7 @@ where
         signal: &SignalEvent,
     ) -> Result<Option<OrderEvent>, PortfolioError> {
         // Determine the position_id & associated Option<Position> related to input SignalEvent
-        let position_id = determine_position_id(&self.engine_id, signal.exchange, &signal.symbol);
+        let position_id = determine_position_id(self.engine_id, signal.exchange, &signal.symbol);
         let position = self.repository.get_open_position(&position_id)?;
 
         // If signal is advising to open a new Position rather than close one, check we have cash
@@ -161,7 +158,7 @@ where
         signal: SignalForceExit,
     ) -> Result<Option<OrderEvent>, PortfolioError> {
         // Determine PositionId associated with the SignalForceExit
-        let position_id = determine_position_id(&self.engine_id, signal.exchange, &signal.symbol);
+        let position_id = determine_position_id(self.engine_id, signal.exchange, &signal.symbol);
 
         // Retrieve Option<Position> associated with the PositionId
         let position = match self.repository.get_open_position(&position_id)? {
@@ -196,7 +193,7 @@ where
 impl<Repository, Allocator, RiskManager, Statistic> FillUpdater
     for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
 where
-    Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
+    Repository: PositionHandler + BalanceHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser + Serialize,
@@ -208,28 +205,28 @@ where
         // Allocate Vector<Event> to contain any update_from_fill generated events
         let mut generated_events: Vec<Event> = Vec::with_capacity(2);
 
-        // Get the Portfolio Cash & Equity from Repository
-        let mut available_cash = self.repository.get_available_cash(&self.engine_id)?;
-        let mut total_equity = self.repository.get_total_equity(&self.engine_id)?;
+        // Get the Portfolio Balance from Repository & update timestamp
+        let mut balance = self.repository.get_balance(self.engine_id)?;
+        balance.timestamp = fill.timestamp;
 
         // Determine the position_id that is related to the input FillEvent
-        let position_id = determine_position_id(&self.engine_id, fill.exchange, &fill.symbol);
+        let position_id = determine_position_id(self.engine_id, fill.exchange, &fill.symbol);
 
         // Determine FillEvent context based on existence or absence of an open Position
         match self.repository.remove_position(&position_id)? {
             // EXIT SCENARIO - FillEvent for Symbol-Exchange combination with open Position
             Some(mut position) => {
+
                 // Exit Position (in place mutation), & add the PositionExit event to Vec<Event>
-                let position_exit = position.exit(total_equity, fill)?;
+                let position_exit = position.exit(balance, fill)?;
                 generated_events.push(Event::PositionExit(position_exit));
 
-                // Update Portfolio cash on exit - enter_total_fees added since included in result PnL calc
-                available_cash += position.enter_value_gross
+                // Update Portfolio balance on Position exit
+                // '--> available balance adds enter_total_fees since included in result PnL calc
+                balance.available += position.enter_value_gross
                     + position.realised_profit_loss
                     + position.enter_fees_total;
-
-                // Update Portfolio equity after exit & persist in Repository
-                total_equity += position.realised_profit_loss;
+                balance.total += position.realised_profit_loss;
 
                 // Update statistics for exited Position market
                 let market_id = determine_market_id(fill.exchange, &fill.symbol);
@@ -238,18 +235,17 @@ where
 
                 // Persist exited Position & Updated Market statistics in Repository
                 self.repository.set_statistics(&market_id, stats)?;
-                self.repository
-                    .set_exited_position(&self.engine_id, position)?;
+                self.repository.set_exited_position(self.engine_id, position)?;
             }
 
             // ENTRY SCENARIO - FillEvent for Symbol-Exchange with no Position
             None => {
                 // Enter new Position, & add the PositionNew event to Vec<Event>
-                let position = Position::enter(&self.engine_id, fill)?;
+                let position = Position::enter(self.engine_id, fill)?;
                 generated_events.push(Event::PositionNew(position.clone()));
 
-                // Update Portfolio cash entry
-                available_cash += -position.enter_value_gross - position.enter_fees_total;
+                // Update Portfolio Balance.available on Position entry
+                balance.available += -position.enter_value_gross - position.enter_fees_total;
 
                 // Add to current Positions in Repository
                 self.repository.set_open_position(position)?;
@@ -257,17 +253,10 @@ where
         };
 
         // Add new Balance event to the Vec<Event>
-        generated_events.push(Event::Balance(Balance::from((
-            available_cash,
-            total_equity,
-            fill.timestamp,
-        ))));
+        generated_events.push(Event::Balance(balance));
 
-        // Persist updated Portfolio cash & total equity in Repository
-        self.repository
-            .set_total_equity(&self.engine_id, total_equity)?;
-        self.repository
-            .set_available_cash(&self.engine_id, available_cash)?;
+        // Persist updated Portfolio Balance in Repository
+        self.repository.set_balance(self.engine_id, balance)?;
 
         Ok(generated_events)
     }
@@ -276,7 +265,7 @@ where
 impl<Repository, Allocator, RiskManager, Statistic> PositionHandler
     for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
 where
-    Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
+    Repository: PositionHandler + BalanceHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
@@ -294,10 +283,10 @@ where
 
     fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
         &mut self,
-        _: &Uuid,
+        _: Uuid,
         markets: Markets,
     ) -> Result<Vec<Position>, RepositoryError> {
-        self.repository.get_open_positions(&self.engine_id, markets)
+        self.repository.get_open_positions(self.engine_id, markets)
     }
 
     fn remove_position(
@@ -307,20 +296,20 @@ where
         self.repository.remove_position(position_id)
     }
 
-    fn set_exited_position(&mut self, _: &Uuid, position: Position) -> Result<(), RepositoryError> {
+    fn set_exited_position(&mut self, _: Uuid, position: Position) -> Result<(), RepositoryError> {
         self.repository
-            .set_exited_position(&self.engine_id, position)
+            .set_exited_position(self.engine_id, position)
     }
 
-    fn get_exited_positions(&mut self, _: &Uuid) -> Result<Vec<Position>, RepositoryError> {
-        self.repository.get_exited_positions(&self.engine_id)
+    fn get_exited_positions(&mut self, _: Uuid) -> Result<Vec<Position>, RepositoryError> {
+        self.repository.get_exited_positions(self.engine_id)
     }
 }
 
 impl<Repository, Allocator, RiskManager, Statistic> StatisticHandler<Statistic>
     for MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
 where
-    Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
+    Repository: PositionHandler + BalanceHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
@@ -341,7 +330,7 @@ where
 impl<Repository, Allocator, RiskManager, Statistic>
     MetaPortfolio<Repository, Allocator, RiskManager, Statistic>
 where
-    Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
+    Repository: PositionHandler + BalanceHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
@@ -375,9 +364,12 @@ where
         statistic_config:
         Statistic::Config
     ) -> Result<(), PortfolioError> {
-        // Persist initial AvailableCash & TotalEquity entries
-        self.repository.set_available_cash(&self.engine_id, starting_cash)?;
-        self.repository.set_total_equity(&self.engine_id, starting_cash)?;
+        // Persist initial Balance (total & available)
+        self.repository.set_balance(self.engine_id, Balance {
+            timestamp: Utc::now(),
+            total: starting_cash,
+            available: starting_cash
+        })?;
 
         // Persist initial MetaPortfolio Statistics for every Market
         markets
@@ -397,8 +389,8 @@ where
     /// Determines if the Portfolio has any cash to enter a new [`Position`].
     fn no_cash_to_enter_new_position(&mut self) -> Result<bool, PortfolioError> {
         self.repository
-            .get_available_cash(&self.engine_id)
-            .map(|available_cash| available_cash == 0.0)
+            .get_balance(self.engine_id)
+            .map(|balance| balance.available == 0.0)
             .map_err(PortfolioError::RepositoryInteractionError)
     }
 }
@@ -406,14 +398,14 @@ where
 #[derive(Debug, Default)]
 pub struct MetaPortfolioBuilder<Repository, Allocator, RiskManager, Statistic>
 where
-    Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
+    Repository: PositionHandler + BalanceHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
 {
     engine_id: Option<Uuid>,
     markets: Option<Vec<Market>>,
-    starting_cash: Option<AvailableCash>,
+    starting_cash: Option<f64>,
     repository: Option<Repository>,
     allocation_manager: Option<Allocator>,
     risk_manager: Option<RiskManager>,
@@ -424,7 +416,7 @@ where
 impl<Repository, Allocator, RiskManager, Statistic>
     MetaPortfolioBuilder<Repository, Allocator, RiskManager, Statistic>
 where
-    Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
+    Repository: PositionHandler + BalanceHandler + StatisticHandler<Statistic>,
     Allocator: OrderAllocator,
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
@@ -456,7 +448,7 @@ where
         }
     }
 
-    pub fn starting_cash(self, value: AvailableCash) -> Self {
+    pub fn starting_cash(self, value: f64) -> Self {
         Self {
             starting_cash: Some(value),
             ..self
@@ -573,20 +565,20 @@ pub mod tests {
         get_open_position:
             Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
         get_open_positions: Option<
-            fn(engine_id: &Uuid, markets: Vec<&Market>) -> Result<Vec<Position>, RepositoryError>,
+            fn(engine_id: Uuid, markets: Vec<&Market>) -> Result<Vec<Position>, RepositoryError>,
         >,
         remove_position:
             Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
         set_exited_position:
-            Option<fn(portfolio_id: &Uuid, position: Position) -> Result<(), RepositoryError>>,
+            Option<fn(portfolio_id: Uuid, position: Position) -> Result<(), RepositoryError>>,
         get_exited_positions:
-            Option<fn(portfolio_id: &Uuid) -> Result<Vec<Position>, RepositoryError>>,
+            Option<fn(portfolio_id: Uuid) -> Result<Vec<Position>, RepositoryError>>,
         set_total_equity:
-            Option<fn(portfolio_id: &Uuid, value: f64) -> Result<(), RepositoryError>>,
-        get_total_equity: Option<fn(portfolio_id: &Uuid) -> Result<f64, RepositoryError>>,
+            Option<fn(portfolio_id: Uuid, value: f64) -> Result<(), RepositoryError>>,
+        get_total_equity: Option<fn(portfolio_id: Uuid) -> Result<f64, RepositoryError>>,
         set_available_cash:
-            Option<fn(portfolio_id: &Uuid, cash: f64) -> Result<(), RepositoryError>>,
-        get_available_cash: Option<fn(portfolio_id: &Uuid) -> Result<f64, RepositoryError>>,
+            Option<fn(portfolio_id: Uuid, cash: f64) -> Result<(), RepositoryError>>,
+        get_available_cash: Option<fn(portfolio_id: Uuid) -> Result<f64, RepositoryError>>,
         set_statistics:
             Option<fn(market_id: &MarketId, statistic: Statistic) -> Result<(), RepositoryError>>,
         get_statistics: Option<fn(market_id: &MarketId) -> Result<Statistic, RepositoryError>>,
@@ -623,7 +615,7 @@ pub mod tests {
 
         fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
             &mut self,
-            engine_id: &Uuid,
+            engine_id: Uuid,
             markets: Markets,
         ) -> Result<Vec<Position>, RepositoryError> {
             self.get_open_positions.unwrap()(engine_id, markets.into_iter().collect())
@@ -638,7 +630,7 @@ pub mod tests {
 
         fn set_exited_position(
             &mut self,
-            portfolio_id: &Uuid,
+            portfolio_id: Uuid,
             position: Position,
         ) -> Result<(), RepositoryError> {
             self.set_exited_position.unwrap()(portfolio_id, position)
@@ -646,7 +638,7 @@ pub mod tests {
 
         fn get_exited_positions(
             &mut self,
-            portfolio_id: &Uuid,
+            portfolio_id: Uuid,
         ) -> Result<Vec<Position>, RepositoryError> {
             self.get_exited_positions.unwrap()(portfolio_id)
         }
@@ -655,14 +647,14 @@ pub mod tests {
     impl<Statistic> EquityHandler for MockRepository<Statistic> {
         fn set_total_equity(
             &mut self,
-            portfolio_id: &Uuid,
+            portfolio_id: Uuid,
             value: f64,
         ) -> Result<(), RepositoryError> {
             self.equity = Some(value);
             self.set_total_equity.unwrap()(portfolio_id, value)
         }
 
-        fn get_total_equity(&mut self, portfolio_id: &Uuid) -> Result<f64, RepositoryError> {
+        fn get_total_equity(&mut self, portfolio_id: Uuid) -> Result<f64, RepositoryError> {
             self.get_total_equity.unwrap()(portfolio_id)
         }
     }
@@ -670,14 +662,14 @@ pub mod tests {
     impl<Statistic> CashHandler for MockRepository<Statistic> {
         fn set_available_cash(
             &mut self,
-            portfolio_id: &Uuid,
+            portfolio_id: Uuid,
             cash: f64,
         ) -> Result<(), RepositoryError> {
             self.cash = Some(cash);
             self.set_available_cash.unwrap()(portfolio_id, cash)
         }
 
-        fn get_available_cash(&mut self, portfolio_id: &Uuid) -> Result<f64, RepositoryError> {
+        fn get_available_cash(&mut self, portfolio_id: Uuid) -> Result<f64, RepositoryError> {
             self.get_available_cash.unwrap()(portfolio_id)
         }
     }

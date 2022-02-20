@@ -1,4 +1,4 @@
-use crate::portfolio::position::EquityPoint;
+use crate::statistic::metric::EquityPoint;
 use crate::statistic::algorithm::welford_online;
 use crate::statistic::dispersion::Range;
 use crate::statistic::{de_duration_from_secs, se_duration_as_secs};
@@ -47,21 +47,21 @@ impl Drawdown {
     /// Updates the [`Drawdown`] using the latest input [`EquityPoint`] of the Portfolio. If the drawdown
     /// period has ended (investment recovers from a trough back above the previous peak), the
     /// function return Some(Drawdown), else None is returned.
-    pub fn update(&mut self, current: &EquityPoint) -> Option<Drawdown> {
+    pub fn update(&mut self, current: EquityPoint) -> Option<Drawdown> {
         match (
             self.is_waiting_for_peak(),
-            current.equity > self.equity_range.high,
+            current.total > self.equity_range.high,
         ) {
             // A) No current drawdown - waiting for next equity peak (waiting for B)
             (true, true) => {
-                self.equity_range.high = current.equity;
+                self.equity_range.high = current.total;
                 None
             }
 
             // B) Start of new drawdown - previous equity point set peak & current equity lower
             (true, false) => {
                 self.start_timestamp = current.timestamp;
-                self.equity_range.low = current.equity;
+                self.equity_range.low = current.total;
                 self.drawdown = self.calculate();
                 None
             }
@@ -71,7 +71,7 @@ impl Drawdown {
                 self.duration = current
                     .timestamp
                     .signed_duration_since(self.start_timestamp);
-                self.equity_range.update(current.equity);
+                self.equity_range.update(current.total);
                 self.drawdown = self.calculate(); // I don't need to calculate this now if I don't want
                 None
             }
@@ -91,7 +91,7 @@ impl Drawdown {
                 self.duration = Duration::zero();
 
                 // Set new equity peak in preparation for next iteration
-                self.equity_range.high = current.equity;
+                self.equity_range.high = current.total;
 
                 Some(finished_drawdown)
             }

@@ -217,3 +217,40 @@ impl OrderEventBuilder {
         })
     }
 }
+
+/// Communicates a String represents a unique identifier for an Engine's Portfolio [`Balance`].
+pub type BalanceId = String;
+
+/// Total and available balance at a point in time.
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
+pub struct Balance {
+    pub timestamp: DateTime<Utc>,
+    pub total: f64,
+    pub available: f64,
+}
+
+impl Default for Balance {
+    fn default() -> Self {
+        Self {
+            timestamp: Utc::now(),
+            total: 0.0,
+            available: 0.0
+        }
+    }
+}
+
+impl Balance {
+    /// Construct a new [`Balance`] using the provided total & available balance values.
+    pub fn new(timestamp: DateTime<Utc>, total: f64, available: f64) -> Self {
+        Self {
+            timestamp,
+            total,
+            available,
+        }
+    }
+
+    /// Returns the unique identifier for an Engine's [`Balance`].
+    pub fn balance_id(engine_id: Uuid) -> BalanceId {
+        format!("{}_balance", engine_id)
+    }
+}
