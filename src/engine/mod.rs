@@ -27,32 +27,6 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-// Todo:
-//  9. Go over Rust docs in key areas i've changed & traits etc
-//  10. Update code examples & readme
-
-// Todo: 0.7.1
-//  -  Ensure everything is unit tested
-//  - Switch to rust_decimals ie/ rust_decimal = "1.22", rust_decimal_macros = "1.22"
-//  - procedural macro for my builder pattern
-//   '--> Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
-//  - Roll out consistent use of Market / Exchange / symbol (new types?) New types for everything?
-//    '--> Remember (can't use Market instead of Exchange & Symbol for Position due to serde)
-//    '--> eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
-//  - Make as much stuff Copy as can be by refactoring types if possible, start in Statistics!
-//  - If happy with it, impl Initialiser for all stats across the Statistics module.
-//  - Add Deserialize to Event.
-//  - Impl consistent structured logging in Engine & Trader
-//   '--> Do I want to spans instead of multiple info logging? eg/ fetch_open_requests logs twice
-//   '--> Where do I want to log things like Command::ExitPosition being actioned? In Engine or when we push SignalForceExit on to Q?
-//  - Ensure PositionNew, PositionUpdate & PositionExit is consistent -> create trait for Position?
-//     '--> eg similar to Rust TAs Open, High etc
-//     '--> make distinct types so that we can only ever calculate PnL from an ExitedPosition for example
-//     '--> TryFrom<&mut Position> will become From since no chance of failure.
-//  - Re-factor generate_order & parse_signal_decisions... seems pretty noob atm.
-//  - Improve printing of TradingSummary at the end -> print summary for each Market!
-//   '--> Crate abstractions over Statistics in order to track stats for each coin better, then print properly?
-
 /// Commands that can be actioned by an [`Engine`] and it's associated [`Trader`]s.
 #[derive(Debug)]
 pub enum Command {
