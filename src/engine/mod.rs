@@ -451,7 +451,7 @@ where
             portfolio: self.portfolio.ok_or(EngineError::BuilderIncomplete)?,
             traders: self.traders.ok_or(EngineError::BuilderIncomplete)?,
             trader_command_txs: self.trader_command_txs.ok_or(EngineError::BuilderIncomplete)?,
-            statistics_summary: self.statistics_summary.ok_or(EngineError::BuilderIncomplete)?
+            statistics_summary: self.statistics_summary.ok_or(EngineError::BuilderIncomplete)?,
         })
     }
 }
