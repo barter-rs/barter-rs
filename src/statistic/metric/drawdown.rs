@@ -191,7 +191,7 @@ impl AvgDrawdown {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::portfolio::position::EquityPoint;
+    use crate::statistic::metric::EquityPoint;
     use std::ops::Add;
 
     #[test]
@@ -218,7 +218,7 @@ mod tests {
             TestCase {
                 // Test case 0: No current drawdown
                 input_equity: EquityPoint {
-                    equity: 110.0,
+                    total: 110.0,
                     timestamp: base_timestamp.add(Duration::days(1)),
                 },
                 expected_drawdown: Drawdown {
@@ -235,7 +235,7 @@ mod tests {
             TestCase {
                 // Test case 1: Start of new drawdown w/ lower equity than peak
                 input_equity: EquityPoint {
-                    equity: 100.0,
+                    total: 100.0,
                     timestamp: base_timestamp.add(Duration::days(2)),
                 },
                 expected_drawdown: Drawdown {
@@ -252,7 +252,7 @@ mod tests {
             TestCase {
                 // Test case 2: Continuation of drawdown w/ lower equity than previous
                 input_equity: EquityPoint {
-                    equity: 90.0,
+                    total: 90.0,
                     timestamp: base_timestamp.add(Duration::days(3)),
                 },
                 expected_drawdown: Drawdown {
@@ -269,7 +269,7 @@ mod tests {
             TestCase {
                 // Test case 3: Continuation of drawdown w/ higher equity than previous but not higher than peak
                 input_equity: EquityPoint {
-                    equity: 95.0,
+                    total: 95.0,
                     timestamp: base_timestamp.add(Duration::days(4)),
                 },
                 expected_drawdown: Drawdown {
@@ -286,7 +286,7 @@ mod tests {
             TestCase {
                 // Test case 4: End of drawdown w/ equity higher than peak
                 input_equity: EquityPoint {
-                    equity: 120.0,
+                    total: 120.0,
                     timestamp: base_timestamp.add(Duration::days(5)),
                 },
                 expected_drawdown: Drawdown {
@@ -303,7 +303,7 @@ mod tests {
             TestCase {
                 // Test case 5: No current drawdown w/ residual start_timestamp from previous
                 input_equity: EquityPoint {
-                    equity: 200.0,
+                    total: 200.0,
                     timestamp: base_timestamp.add(Duration::days(6)),
                 },
                 expected_drawdown: Drawdown {
@@ -320,7 +320,7 @@ mod tests {
             TestCase {
                 // Test case 6: Start of new drawdown w/ lower equity than peak & residual fields from previous drawdown
                 input_equity: EquityPoint {
-                    equity: 180.0,
+                    total: 180.0,
                     timestamp: base_timestamp.add(Duration::days(7)),
                 },
                 expected_drawdown: Drawdown {
@@ -337,7 +337,7 @@ mod tests {
             TestCase {
                 // Test case 7: Continuation of drawdown w/ equity equal to peak
                 input_equity: EquityPoint {
-                    equity: 200.0,
+                    total: 200.0,
                     timestamp: base_timestamp.add(Duration::days(8)),
                 },
                 expected_drawdown: Drawdown {
@@ -354,7 +354,7 @@ mod tests {
             TestCase {
                 // Test case 8: End of drawdown w/ equity higher than peak
                 input_equity: EquityPoint {
-                    equity: 200.01,
+                    total: 200.01,
                     timestamp: base_timestamp.add(Duration::days(9)),
                 },
                 expected_drawdown: Drawdown {
@@ -371,7 +371,7 @@ mod tests {
         ];
 
         for (index, test) in test_cases.into_iter().enumerate() {
-            drawdown.update(&test.input_equity);
+            drawdown.update(test.input_equity);
             assert_eq!(drawdown, test.expected_drawdown, "Test case: {:?}", index)
         }
     }

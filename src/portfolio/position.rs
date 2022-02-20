@@ -614,8 +614,6 @@ impl TryFrom<&mut Position> for PositionExit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ops::Add;
-    use chrono::Duration;
     use crate::test_util::{fill_event, market_event, position};
 
     #[test]
@@ -1016,8 +1014,12 @@ mod tests {
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
-        // Input Portfolio Current Value
-        let current_value = 10000.0;
+        // Input Portfolio Current Balance
+        let current_balance = Balance {
+            timestamp: Utc::now(),
+            total: 10000.0,
+            available: 10000.0
+        };
 
         // Input FillEvent
         let mut input_fill = fill_event();
@@ -1031,7 +1033,7 @@ mod tests {
         };
 
         // Exit Position
-        position.exit(current_value, &input_fill).unwrap();
+        position.exit(current_balance, &input_fill).unwrap();
 
         // Assert exit hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Long);
@@ -1060,8 +1062,8 @@ mod tests {
 
         // Assert EquityPoint on Exit is correct
         assert_eq!(
-            position.meta.exit_balance.unwrap().equity,
-            current_value + (200.0 - 100.0 - 6.0)
+            position.meta.exit_balance.unwrap().total,
+            current_balance.total + (200.0 - 100.0 - 6.0)
         )
     }
 
@@ -1083,8 +1085,12 @@ mod tests {
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
-        // Input Portfolio Current Value
-        let current_value = 10000.0;
+        // Input Portfolio Current Balance
+        let current_balance = Balance {
+            timestamp: Utc::now(),
+            total: 10000.0,
+            available: 10000.0
+        };
 
         // Input FillEvent
         let mut input_fill = fill_event();
@@ -1098,7 +1104,7 @@ mod tests {
         };
 
         // Exit Position
-        position.exit(current_value, &input_fill).unwrap();
+        position.exit(current_balance, &input_fill).unwrap();
 
         // Assert exit hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Long);
@@ -1127,8 +1133,8 @@ mod tests {
 
         // Assert EquityPoint on Exit is correct
         assert_eq!(
-            position.meta.exit_balance.unwrap().equity,
-            current_value + (50.0 - 100.0 - 6.0)
+            position.meta.exit_balance.unwrap().total,
+            current_balance.total + (50.0 - 100.0 - 6.0)
         )
     }
 
@@ -1150,8 +1156,12 @@ mod tests {
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
-        // Input Portfolio Current Value
-        let current_value = 10000.0;
+        // Input Portfolio Current Balance
+        let current_balance = Balance {
+            timestamp: Utc::now(),
+            total: 10000.0,
+            available: 10000.0
+        };
 
         // Input FillEvent
         let mut input_fill = fill_event();
@@ -1165,7 +1175,7 @@ mod tests {
         };
 
         // Exit Position
-        position.exit(current_value, &input_fill).unwrap();
+        position.exit(current_balance, &input_fill).unwrap();
 
         // Assert exit hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Short);
@@ -1194,8 +1204,8 @@ mod tests {
 
         // Assert EquityPoint on Exit is correct
         assert_eq!(
-            position.meta.exit_balance.unwrap().equity,
-            current_value + (100.0 - 50.0 - 6.0)
+            position.meta.exit_balance.unwrap().total,
+            current_balance.total + (100.0 - 50.0 - 6.0)
         )
     }
 
@@ -1217,8 +1227,12 @@ mod tests {
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
-        // Input Portfolio Current Value
-        let current_value = 10000.0;
+        // Input Portfolio Current Balance
+        let current_balance = Balance {
+            timestamp: Utc::now(),
+            total: 10000.0,
+            available: 10000.0
+        };
 
         // Input FillEvent
         let mut input_fill = fill_event();
@@ -1232,7 +1246,7 @@ mod tests {
         };
 
         // Exit Position
-        position.exit(current_value, &input_fill).unwrap();
+        position.exit(current_balance, &input_fill).unwrap();
 
         // Assert exit hasn't changed fields that are constant after creation
         assert_eq!(position.direction, Direction::Short);
@@ -1261,8 +1275,8 @@ mod tests {
 
         // Assert EquityPoint on Exit is correct
         assert_eq!(
-            position.meta.exit_balance.unwrap().equity,
-            current_value + (100.0 - 200.0 - 6.0)
+            position.meta.exit_balance.unwrap().total,
+            current_balance.total + (100.0 - 200.0 - 6.0)
         )
     }
 
@@ -1284,8 +1298,12 @@ mod tests {
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
-        // Input Portfolio Current Value
-        let current_value = 10000.0;
+        // Input Portfolio Current Balance
+        let current_balance = Balance {
+            timestamp: Utc::now(),
+            total: 10000.0,
+            available: 10000.0
+        };
 
         // Input FillEvent
         let mut input_fill = fill_event();
@@ -1299,7 +1317,7 @@ mod tests {
         };
 
         // Exit Position
-        if let Err(_) = position.exit(current_value, &input_fill) {
+        if let Err(_) = position.exit(current_balance, &input_fill) {
             Ok(())
         } else {
             Err(String::from(
@@ -1326,8 +1344,12 @@ mod tests {
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
-        // Input Portfolio Current Value
-        let current_value = 10000.0;
+        // Input Portfolio Current Balance
+        let current_balance = Balance {
+            timestamp: Utc::now(),
+            total: 10000.0,
+            available: 10000.0
+        };
 
         // Input FillEvent
         let mut input_fill = fill_event();
@@ -1341,7 +1363,7 @@ mod tests {
         };
 
         // Exit Position
-        if let Err(_) = position.exit(current_value, &input_fill) {
+        if let Err(_) = position.exit(current_balance, &input_fill) {
             Ok(())
         } else {
             Err(String::from(
@@ -1567,91 +1589,6 @@ mod tests {
     }
 
     #[test]
-    fn equity_point_update() {
-        fn equity_update_position_closed(
-            exit_timestamp: DateTime<Utc>,
-            result_pnl: f64,
-        ) -> Position {
-            let mut position = position();
-            position.meta.exit_timestamp = Some(exit_timestamp);
-            position.realised_profit_loss = result_pnl;
-            position
-        }
-
-        fn equity_update_position_open(
-            last_update_timestamp: DateTime<Utc>,
-            unreal_pnl: f64,
-        ) -> Position {
-            let mut position = position();
-            position.meta.last_update_timestamp = last_update_timestamp;
-            position.unrealised_profit_loss = unreal_pnl;
-            position
-        }
-
-        struct TestCase {
-            position: Position,
-            expected_equity: f64,
-            expected_timestamp: DateTime<Utc>,
-        }
-
-        let base_timestamp = Utc::now();
-
-        let mut equity_point = Balance {
-            equity: 100.0,
-            timestamp: base_timestamp,
-        };
-
-        let test_cases = vec![
-            TestCase {
-                position: equity_update_position_closed(
-                    base_timestamp.add(Duration::days(1)),
-                    10.0,
-                ),
-                expected_equity: 110.0,
-                expected_timestamp: base_timestamp.add(Duration::days(1)),
-            },
-            TestCase {
-                position: equity_update_position_open(base_timestamp.add(Duration::days(2)), -10.0),
-                expected_equity: 100.0,
-                expected_timestamp: base_timestamp.add(Duration::days(2)),
-            },
-            TestCase {
-                position: equity_update_position_closed(
-                    base_timestamp.add(Duration::days(3)),
-                    -55.9,
-                ),
-                expected_equity: 44.1,
-                expected_timestamp: base_timestamp.add(Duration::days(3)),
-            },
-            TestCase {
-                position: equity_update_position_open(base_timestamp.add(Duration::days(4)), 68.7),
-                expected_equity: 112.8,
-                expected_timestamp: base_timestamp.add(Duration::days(4)),
-            },
-            TestCase {
-                position: equity_update_position_closed(
-                    base_timestamp.add(Duration::days(5)),
-                    99999.0,
-                ),
-                expected_equity: 100111.8,
-                expected_timestamp: base_timestamp.add(Duration::days(5)),
-            },
-            TestCase {
-                position: equity_update_position_open(base_timestamp.add(Duration::days(5)), 0.2),
-                expected_equity: 100112.0,
-                expected_timestamp: base_timestamp.add(Duration::days(5)),
-            },
-        ];
-
-        for test in test_cases {
-            equity_point.update(&test.position);
-            let equity_diff = equity_point.equity - test.expected_equity;
-            assert!(equity_diff < 1e-10);
-            assert_eq!(equity_point.timestamp, test.expected_timestamp)
-        }
-    }
-
-    #[test]
     fn determine_exit_decision() {
         // Direction::Long -> Decision::CloseLong
         let input = Direction::Long;
@@ -1690,11 +1627,12 @@ mod tests {
         let timestamp = Utc::now();
 
         let mut exited_position = position();
-        exited_position.meta.exit_trace_id = Some(Uuid::new_v4());
-        exited_position.meta.exit_timestamp = Some(timestamp);
+        exited_position.meta.last_update_trace_id = Uuid::new_v4();
+        exited_position.meta.last_update_timestamp = timestamp;
         exited_position.meta.exit_balance = Some(Balance {
-            equity: 0.0,
             timestamp,
+            total: 0.0,
+            available: 0.0
         });
 
         exited_position.exit_fees = Fees {
@@ -1732,8 +1670,6 @@ mod tests {
     #[test]
     fn position_exit_try_from_open_position() {
         let mut exited_position = position();
-        exited_position.meta.exit_trace_id = None;
-        exited_position.meta.exit_timestamp = None;
         exited_position.meta.exit_balance = None;
 
         assert!(PositionExit::try_from(&mut exited_position).is_err());
