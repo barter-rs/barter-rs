@@ -53,9 +53,6 @@ use uuid::Uuid;
 //  - Improve printing of TradingSummary at the end -> print summary for each Market!
 //   '--> Crate abstractions over Statistics in order to track stats for each coin better, then print properly?
 
-/// Communicates a String is a message associated with a [`Command`].
-pub type Message = String;
-
 /// Commands that can be actioned by an [`Engine`] and it's associated [`Trader`]s.
 #[derive(Debug)]
 pub enum Command {
@@ -64,7 +61,7 @@ pub enum Command {
     FetchOpenPositions(oneshot::Sender<Result<Vec<Position>, EngineError>>),
 
     /// Terminate every running [`Trader`] associated with this [`Engine`]. Involves all [`Trader`]s.
-    Terminate(Message),
+    Terminate(String),
 
     /// Exit every open [`Position`] associated with this [`Engine`]. Involves all [`Trader`]s.
     ExitAllPositions,
@@ -289,7 +286,7 @@ where
     }
 
     /// Terminate every running [`Trader`] associated with this [`Engine`].
-    async fn terminate_traders(&self, message: Message) {
+    async fn terminate_traders(&self, message: String) {
         // Firstly, exit all Positions
         self.exit_all_positions().await;
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
