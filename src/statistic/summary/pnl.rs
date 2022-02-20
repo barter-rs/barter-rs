@@ -113,7 +113,7 @@ impl PnLReturnSummary {
     }
 
     fn update_trading_session_duration(&mut self, position: &Position) {
-        self.duration = match position.meta.exit_timestamp {
+        self.duration = match position.meta.exit_balance {
             None => {
                 // Since Position is not exited, estimate duration w/ last_update_timestamp
                 position
@@ -121,7 +121,7 @@ impl PnLReturnSummary {
                     .last_update_timestamp
                     .signed_duration_since(self.start_timestamp)
             }
-            Some(exit_timestamp) => exit_timestamp.signed_duration_since(self.start_timestamp),
+            Some(exit_balance) => exit_balance.timestamp.signed_duration_since(self.start_timestamp),
         }
     }
 

@@ -1,10 +1,7 @@
 use crate::portfolio::error::PortfolioError;
 use crate::portfolio::position::{determine_position_id, Position, PositionId};
 use crate::portfolio::repository::error::RepositoryError;
-use crate::portfolio::repository::{
-    determine_cash_id, determine_equity_id, determine_exited_positions_id, AvailableCash,
-    CashHandler, EquityHandler, PositionHandler, StatisticHandler, TotalEquity,
-};
+use crate::portfolio::repository::{BalanceHandler, determine_exited_positions_id, PositionHandler, StatisticHandler};
 use crate::statistic::summary::PositionSummariser;
 use crate::{Market, MarketId};
 use redis::{Commands, Connection, ErrorKind};
@@ -13,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use uuid::Uuid;
+use crate::portfolio::Balance;
 
 /// Configuration for constructing a [`RedisRepository`] via the new() constructor method.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, Deserialize, Serialize)]
@@ -57,7 +55,7 @@ where
 
     fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
         &mut self,
-        engine_id: &Uuid,
+        engine_id: Uuid,
         markets: Markets,
     ) -> Result<Vec<Position>, RepositoryError> {
         markets
@@ -87,7 +85,7 @@ where
 
     fn set_exited_position(
         &mut self,
-        portfolio_id: &Uuid,
+        portfolio_id: Uuid,
         position: Position,
     ) -> Result<(), RepositoryError> {
         self.conn
@@ -100,7 +98,7 @@ where
 
     fn get_exited_positions(
         &mut self,
-        portfolio_id: &Uuid,
+        portfolio_id: Uuid,
     ) -> Result<Vec<Position>, RepositoryError> {
         self.conn
             .get(determine_exited_positions_id(portfolio_id))
@@ -115,48 +113,25 @@ where
     }
 }
 
-impl<Statistic> EquityHandler for RedisRepository<Statistic>
+impl<Statistic> BalanceHandler for RedisRepository<Statistic>
 where
     Statistic: PositionSummariser + Serialize + DeserializeOwned,
 {
-    fn set_total_equity(
-        &mut self,
-        portfolio_id: &Uuid,
-        equity: TotalEquity,
-    ) -> Result<(), RepositoryError> {
+    fn set_balance(&mut self, engine_id: Uuid, balance: Balance) -> Result<(), RepositoryError> {
+        let balance_string = serde_json::to_string(&balance)?;
+
         self.conn
-            .set(determine_equity_id(portfolio_id), equity)
+            .set(Balance::balance_id(engine_id), balance_string)
             .map_err(|_| RepositoryError::WriteError)
     }
 
-    fn get_total_equity(&mut self, portfolio_id: &Uuid) -> Result<TotalEquity, RepositoryError> {
-        self.conn
-            .get(determine_equity_id(portfolio_id))
-            .map_err(|_| RepositoryError::ReadError)
-    }
-}
+    fn get_balance(&mut self, engine_id: Uuid) -> Result<Balance, RepositoryError> {
+        let balance_value: String = self
+            .conn
+            .get(Balance::balance_id(engine_id))
+            .map_err(|_| RepositoryError::ReadError)?;
 
-impl<Statistic> CashHandler for RedisRepository<Statistic>
-where
-    Statistic: PositionSummariser + Serialize + DeserializeOwned,
-{
-    fn set_available_cash(
-        &mut self,
-        portfolio_id: &Uuid,
-        cash: AvailableCash,
-    ) -> Result<(), RepositoryError> {
-        self.conn
-            .set(determine_cash_id(portfolio_id), cash)
-            .map_err(|_| RepositoryError::WriteError)
-    }
-
-    fn get_available_cash(
-        &mut self,
-        portfolio_id: &Uuid,
-    ) -> Result<AvailableCash, RepositoryError> {
-        self.conn
-            .get(determine_cash_id(portfolio_id))
-            .map_err(|_| RepositoryError::ReadError)
+        Ok(serde_json::from_str::<Balance>(&balance_value)?)
     }
 }
 
