@@ -85,8 +85,7 @@ impl TearSheet {
     pub fn update(&mut self, pnl_returns: &PnLReturnSummary, drawdown: &DrawdownSummary) {
         self.sharpe_ratio.update(pnl_returns);
         self.sortino_ratio.update(pnl_returns);
-        self.calmar_ratio
-            .update(pnl_returns, drawdown.max_drawdown.drawdown.drawdown);
+        self.calmar_ratio.update(pnl_returns, drawdown.max_drawdown.drawdown.drawdown);
     }
 }
 
@@ -112,7 +111,7 @@ pub fn calculate_trading_duration(
     start_timestamp: &DateTime<Utc>,
     position: &Position,
 ) -> Duration {
-    match position.meta.exit_timestamp {
+    match position.meta.exit_balance {
         None => {
             // Since Position is not exited, estimate duration w/ last_update_timestamp
             position
@@ -120,6 +119,8 @@ pub fn calculate_trading_duration(
                 .last_update_timestamp
                 .signed_duration_since(*start_timestamp)
         }
-        Some(exit_timestamp) => exit_timestamp.signed_duration_since(*start_timestamp),
+        Some(exit_balance) => {
+            exit_balance.timestamp.signed_duration_since(*start_timestamp)
+        }
     }
 }

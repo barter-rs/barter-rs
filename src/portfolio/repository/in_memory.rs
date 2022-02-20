@@ -1,11 +1,9 @@
+use crate::{Market, MarketId};
+use crate::portfolio::{Balance, BalanceId};
 use crate::portfolio::position::{determine_position_id, Position, PositionId};
 use crate::portfolio::repository::error::RepositoryError;
-use crate::portfolio::repository::{
-    determine_cash_id, determine_equity_id, determine_exited_positions_id, AvailableCash,
-    CashHandler, CashId, EquityHandler, EquityId, PositionHandler, StatisticHandler, TotalEquity,
-};
+use crate::portfolio::repository::{BalanceHandler, determine_exited_positions_id, PositionHandler, StatisticHandler};
 use crate::statistic::summary::PositionSummariser;
-use crate::{Market, MarketId};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -17,8 +15,7 @@ use uuid::Uuid;
 pub struct InMemoryRepository<Statistic: PositionSummariser> {
     open_positions: HashMap<PositionId, Position>,
     closed_positions: HashMap<String, Vec<Position>>,
-    current_equities: HashMap<EquityId, TotalEquity>,
-    current_cashes: HashMap<CashId, AvailableCash>,
+    current_balances: HashMap<BalanceId, Balance>,
     statistics: HashMap<MarketId, Statistic>,
 }
 
@@ -38,7 +35,7 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
 
     fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
         &mut self,
-        engine_id: &Uuid,
+        engine_id: Uuid,
         markets: Markets,
     ) -> Result<Vec<Position>, RepositoryError> {
         Ok(markets
@@ -63,7 +60,7 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
 
     fn set_exited_position(
         &mut self,
-        engine_id: &Uuid,
+        engine_id: Uuid,
         position: Position,
     ) -> Result<(), RepositoryError> {
         let exited_positions_key = determine_exited_positions_id(engine_id);
@@ -80,7 +77,7 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
 
     fn get_exited_positions(
         &mut self,
-        engine_id: &Uuid,
+        engine_id: Uuid,
     ) -> Result<Vec<Position>, RepositoryError> {
         Ok(self
             .closed_positions
@@ -91,39 +88,16 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
     }
 }
 
-impl<Statistic: PositionSummariser> EquityHandler for InMemoryRepository<Statistic> {
-    fn set_total_equity(
-        &mut self,
-        engine_id: &Uuid,
-        total_equity: TotalEquity,
-    ) -> Result<(), RepositoryError> {
-        self.current_equities
-            .insert(determine_equity_id(engine_id), total_equity);
+impl<Statistic: PositionSummariser> BalanceHandler for InMemoryRepository<Statistic> {
+    fn set_balance(&mut self, engine_id: Uuid, balance: Balance) -> Result<(), RepositoryError> {
+        self.current_balances
+            .insert(Balance::balance_id(engine_id), balance);
         Ok(())
     }
 
-    fn get_total_equity(&mut self, engine_id: &Uuid) -> Result<TotalEquity, RepositoryError> {
-        self.current_equities
-            .get(&determine_equity_id(engine_id))
-            .copied()
-            .ok_or(RepositoryError::ExpectedDataNotPresentError)
-    }
-}
-
-impl<Statistic: PositionSummariser> CashHandler for InMemoryRepository<Statistic> {
-    fn set_available_cash(
-        &mut self,
-        engine_id: &Uuid,
-        cash: AvailableCash,
-    ) -> Result<(), RepositoryError> {
-        self.current_cashes
-            .insert(determine_cash_id(engine_id), cash);
-        Ok(())
-    }
-
-    fn get_available_cash(&mut self, engine_id: &Uuid) -> Result<AvailableCash, RepositoryError> {
-        self.current_cashes
-            .get(&determine_cash_id(engine_id))
+    fn get_balance(&mut self, engine_id: Uuid) -> Result<Balance, RepositoryError> {
+        self.current_balances
+            .get(&Balance::balance_id(engine_id))
             .copied()
             .ok_or(RepositoryError::ExpectedDataNotPresentError)
     }
@@ -153,8 +127,7 @@ impl<Statistic: PositionSummariser> InMemoryRepository<Statistic> {
         Self {
             open_positions: HashMap::new(),
             closed_positions: HashMap::new(),
-            current_equities: HashMap::with_capacity(1),
-            current_cashes: HashMap::with_capacity(1),
+            current_balances: HashMap::new(),
             statistics: HashMap::new(),
         }
     }
