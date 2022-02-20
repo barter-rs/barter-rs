@@ -568,23 +568,18 @@ pub mod tests {
             fn(engine_id: Uuid, markets: Vec<&Market>) -> Result<Vec<Position>, RepositoryError>,
         >,
         remove_position:
-            Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
+            Option<fn(engine_id: &String) -> Result<Option<Position>, RepositoryError>>,
         set_exited_position:
-            Option<fn(portfolio_id: Uuid, position: Position) -> Result<(), RepositoryError>>,
+            Option<fn(engine_id: Uuid, position: Position) -> Result<(), RepositoryError>>,
         get_exited_positions:
-            Option<fn(portfolio_id: Uuid) -> Result<Vec<Position>, RepositoryError>>,
-        set_total_equity:
-            Option<fn(portfolio_id: Uuid, value: f64) -> Result<(), RepositoryError>>,
-        get_total_equity: Option<fn(portfolio_id: Uuid) -> Result<f64, RepositoryError>>,
-        set_available_cash:
-            Option<fn(portfolio_id: Uuid, cash: f64) -> Result<(), RepositoryError>>,
-        get_available_cash: Option<fn(portfolio_id: Uuid) -> Result<f64, RepositoryError>>,
+            Option<fn(engine_id: Uuid) -> Result<Vec<Position>, RepositoryError>>,
+        set_balance: Option<fn(engine_id: Uuid, balance: Balance) -> Result<(), RepositoryError>>,
+        get_balance: Option<fn(engine_id: Uuid) -> Result<Balance, RepositoryError>>,
         set_statistics:
             Option<fn(market_id: &MarketId, statistic: Statistic) -> Result<(), RepositoryError>>,
         get_statistics: Option<fn(market_id: &MarketId) -> Result<Statistic, RepositoryError>>,
         position: Option<PositionBuilder>,
-        equity: Option<f64>,
-        cash: Option<f64>,
+        balance: Option<Balance>,
     }
 
     impl<Statistic> PositionHandler for MockRepository<Statistic> {
@@ -644,33 +639,14 @@ pub mod tests {
         }
     }
 
-    impl<Statistic> EquityHandler for MockRepository<Statistic> {
-        fn set_total_equity(
-            &mut self,
-            portfolio_id: Uuid,
-            value: f64,
-        ) -> Result<(), RepositoryError> {
-            self.equity = Some(value);
-            self.set_total_equity.unwrap()(portfolio_id, value)
+    impl<Statistic> BalanceHandler for MockRepository<Statistic> {
+        fn set_balance(&mut self, engine_id: Uuid, balance: Balance) -> Result<(), RepositoryError> {
+            self.balance = Some(balance);
+            self.set_balance.unwrap()(engine_id, balance)
         }
 
-        fn get_total_equity(&mut self, portfolio_id: Uuid) -> Result<f64, RepositoryError> {
-            self.get_total_equity.unwrap()(portfolio_id)
-        }
-    }
-
-    impl<Statistic> CashHandler for MockRepository<Statistic> {
-        fn set_available_cash(
-            &mut self,
-            portfolio_id: Uuid,
-            cash: f64,
-        ) -> Result<(), RepositoryError> {
-            self.cash = Some(cash);
-            self.set_available_cash.unwrap()(portfolio_id, cash)
-        }
-
-        fn get_available_cash(&mut self, portfolio_id: Uuid) -> Result<f64, RepositoryError> {
-            self.get_available_cash.unwrap()(portfolio_id)
+        fn get_balance(&mut self, engine_id: Uuid) -> Result<Balance, RepositoryError> {
+            self.get_balance.unwrap()(engine_id)
         }
     }
 
@@ -692,7 +668,7 @@ pub mod tests {
         mock_repository: Repository,
     ) -> Result<MetaPortfolio<Repository, DefaultAllocator, DefaultRisk, Statistic>, PortfolioError>
     where
-        Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
+        Repository: PositionHandler + BalanceHandler + StatisticHandler<Statistic>,
         Statistic: PositionSummariser + Initialiser,
     {
         let builder = MetaPortfolio::builder()
@@ -711,7 +687,7 @@ pub mod tests {
         builder: MetaPortfolioBuilder<Repository, DefaultAllocator, DefaultRisk, Statistic>,
     ) -> Result<MetaPortfolio<Repository, DefaultAllocator, DefaultRisk, Statistic>, PortfolioError>
     where
-        Repository: PositionHandler + CashHandler + EquityHandler + StatisticHandler<Statistic>,
+        Repository: PositionHandler + BalanceHandler + StatisticHandler<Statistic>,
         Statistic: PositionSummariser + Initialiser,
     {
         let engine_id = builder.engine_id.ok_or(PortfolioError::BuilderIncomplete)?;
@@ -929,7 +905,11 @@ pub mod tests {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| Ok(None));
-        mock_repository.get_available_cash = Some(|_| Ok(0.0));
+        mock_repository.get_balance = Some(|_| Ok(Balance {
+            timestamp: Utc::now(),
+            total: 100.0,
+            available: 0.0
+        }));
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -945,7 +925,11 @@ pub mod tests {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| Ok(Some(position())));
-        mock_repository.get_available_cash = Some(|_| Ok(0.0));
+        mock_repository.get_balance = Some(|_| Ok(Balance {
+            timestamp: Utc::now(),
+            total: 100.0,
+            available: 0.0
+        }));
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -961,7 +945,11 @@ pub mod tests {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| Ok(None));
-        mock_repository.get_available_cash = Some(|_| Ok(100.0));
+        mock_repository.get_balance = Some(|_| Ok(Balance {
+            timestamp: Utc::now(),
+            total: 100.0,
+            available: 100.0
+        }));
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -978,7 +966,11 @@ pub mod tests {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| Ok(None));
-        mock_repository.get_available_cash = Some(|_| Ok(100.0));
+        mock_repository.get_balance = Some(|_| Ok(Balance {
+            timestamp: Utc::now(),
+            total: 100.0,
+            available: 100.0
+        }));
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -1001,7 +993,11 @@ pub mod tests {
                 position
             }))
         });
-        mock_repository.get_available_cash = Some(|_| Ok(100.0));
+        mock_repository.get_balance = Some(|_| Ok(Balance {
+            timestamp: Utc::now(),
+            total: 100.0,
+            available: 100.0
+        }));
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -1024,7 +1020,11 @@ pub mod tests {
                 position
             }))
         });
-        mock_repository.get_available_cash = Some(|_| Ok(100.0));
+        mock_repository.get_balance = Some(|_| Ok(Balance {
+            timestamp: Utc::now(),
+            total: 100.0,
+            available: 100.0
+        }));
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
@@ -1111,12 +1111,14 @@ pub mod tests {
     fn update_from_fill_entering_long_position() {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
-        mock_repository.get_available_cash = Some(|_| Ok(200.0));
-        mock_repository.get_total_equity = Some(|_| Ok(200.0));
+        mock_repository.get_balance = Some(|_| Ok(Balance {
+            timestamp: Utc::now(),
+            total: 200.0,
+            available: 200.0
+        }));
         mock_repository.remove_position = Some(|_| Ok(None));
         mock_repository.set_open_position = Some(|_| Ok(()));
-        mock_repository.set_total_equity = Some(|_, _| Ok(()));
-        mock_repository.set_available_cash = Some(|_, _| Ok(()));
+        mock_repository.set_balance = Some(|_, _| Ok(()));
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -1133,7 +1135,7 @@ pub mod tests {
         let result = portfolio.update_from_fill(&input_fill);
         let updated_repository = portfolio.repository;
         let entered_position = updated_repository.position.unwrap();
-        let updated_cash = updated_repository.cash.unwrap();
+        let updated_cash = updated_repository.balance.unwrap().available;
 
         assert!(result.is_ok());
         assert_eq!(entered_position.direction.unwrap(), Direction::Long);
@@ -1146,12 +1148,14 @@ pub mod tests {
     fn update_from_fill_entering_short_position() {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
-        mock_repository.get_available_cash = Some(|_| Ok(200.0));
-        mock_repository.get_total_equity = Some(|_| Ok(200.0));
+        mock_repository.get_balance = Some(|_| Ok(Balance {
+            timestamp: Utc::now(),
+            total: 200.0,
+            available: 200.0
+        }));
         mock_repository.remove_position = Some(|_| Ok(None));
         mock_repository.set_open_position = Some(|_| Ok(()));
-        mock_repository.set_total_equity = Some(|_, _| Ok(()));
-        mock_repository.set_available_cash = Some(|_, _| Ok(()));
+        mock_repository.set_balance = Some(|_, _| Ok(()));
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -1168,7 +1172,7 @@ pub mod tests {
         let result = portfolio.update_from_fill(&input_fill);
         let updated_repository = portfolio.repository;
         let entered_position = updated_repository.position.unwrap();
-        let updated_cash = updated_repository.cash.unwrap();
+        let updated_cash = updated_repository.balance.unwrap().available;
 
         assert!(result.is_ok());
         assert_eq!(entered_position.direction.unwrap(), Direction::Short);
@@ -1181,8 +1185,11 @@ pub mod tests {
     fn update_from_fill_exiting_long_position_in_profit() {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
-        mock_repository.get_available_cash = Some(|_| Ok(97.0));
-        mock_repository.get_total_equity = Some(|_| Ok(200.0));
+        mock_repository.get_balance = Some(|_| Ok(Balance {
+            timestamp: Utc::now(),
+            total: 200.0,
+            available: 97.0
+        }));
         mock_repository.remove_position = Some(|_| {
             Ok({
                 Some({
@@ -1198,8 +1205,7 @@ pub mod tests {
         mock_repository.get_statistics = Some(|_| Ok(PnLReturnSummary::default()));
         mock_repository.set_statistics = Some(|_, _| Ok(()));
         mock_repository.set_exited_position = Some(|_, _| Ok(()));
-        mock_repository.set_total_equity = Some(|_, _| Ok(()));
-        mock_repository.set_available_cash = Some(|_, _| Ok(()));
+        mock_repository.set_balance = Some(|_, _| Ok(()));
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -1215,8 +1221,8 @@ pub mod tests {
 
         let result = portfolio.update_from_fill(&input_fill);
         let updated_repository = portfolio.repository;
-        let updated_cash = updated_repository.cash.unwrap();
-        let updated_value = updated_repository.equity.unwrap();
+        let updated_cash = updated_repository.balance.unwrap().available;
+        let updated_value = updated_repository.balance.unwrap().total;
 
         assert!(result.is_ok());
         // LONG result_profit_loss = exit_value_gross - enter_value_gross - total_fees
@@ -1230,8 +1236,11 @@ pub mod tests {
     fn update_from_fill_exiting_long_position_in_loss() {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
-        mock_repository.get_available_cash = Some(|_| Ok(97.0));
-        mock_repository.get_total_equity = Some(|_| Ok(200.0));
+        mock_repository.get_balance = Some(|_| Ok(Balance {
+            timestamp: Utc::now(),
+            total: 200.0,
+            available: 97.0
+        }));
         mock_repository.remove_position = Some(|_| {
             Ok({
                 Some({
@@ -1247,8 +1256,7 @@ pub mod tests {
         mock_repository.get_statistics = Some(|_| Ok(PnLReturnSummary::default()));
         mock_repository.set_statistics = Some(|_, _| Ok(()));
         mock_repository.set_exited_position = Some(|_, _| Ok(()));
-        mock_repository.set_total_equity = Some(|_, _| Ok(()));
-        mock_repository.set_available_cash = Some(|_, _| Ok(()));
+        mock_repository.set_balance = Some(|_, _| Ok(()));
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -1264,8 +1272,8 @@ pub mod tests {
 
         let result = portfolio.update_from_fill(&input_fill);
         let updated_repository = portfolio.repository;
-        let updated_cash = updated_repository.cash.unwrap();
-        let updated_value = updated_repository.equity.unwrap();
+        let updated_cash = updated_repository.balance.unwrap().available;
+        let updated_value = updated_repository.balance.unwrap().total;
 
         assert!(result.is_ok());
         // LONG result_profit_loss = exit_value_gross - enter_value_gross - total_fees
@@ -1279,8 +1287,11 @@ pub mod tests {
     fn update_from_fill_exiting_short_position_in_profit() {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
-        mock_repository.get_available_cash = Some(|_| Ok(97.0));
-        mock_repository.get_total_equity = Some(|_| Ok(200.0));
+        mock_repository.get_balance = Some(|_| Ok(Balance {
+            timestamp: Utc::now(),
+            total: 200.0,
+            available: 97.0
+        }));
         mock_repository.remove_position = Some(|_| {
             Ok({
                 Some({
@@ -1296,8 +1307,7 @@ pub mod tests {
         mock_repository.get_statistics = Some(|_| Ok(PnLReturnSummary::default()));
         mock_repository.set_statistics = Some(|_, _| Ok(()));
         mock_repository.set_exited_position = Some(|_, _| Ok(()));
-        mock_repository.set_total_equity = Some(|_, _| Ok(()));
-        mock_repository.set_available_cash = Some(|_, _| Ok(()));
+        mock_repository.set_balance = Some(|_, _| Ok(()));
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -1313,8 +1323,8 @@ pub mod tests {
 
         let result = portfolio.update_from_fill(&input_fill);
         let updated_repository = portfolio.repository;
-        let updated_cash = updated_repository.cash.unwrap();
-        let updated_value = updated_repository.equity.unwrap();
+        let updated_cash = updated_repository.balance.unwrap().available;
+        let updated_value = updated_repository.balance.unwrap().total;
 
         assert!(result.is_ok());
         // SHORT result_profit_loss = enter_value_gross - exit_value_gross - total_fees
@@ -1328,8 +1338,11 @@ pub mod tests {
     fn update_from_fill_exiting_short_position_in_loss() {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
-        mock_repository.get_available_cash = Some(|_| Ok(97.0));
-        mock_repository.get_total_equity = Some(|_| Ok(200.0));
+        mock_repository.get_balance = Some(|_| Ok(Balance {
+            timestamp: Utc::now(),
+            total: 200.0,
+            available: 97.0
+        }));
         mock_repository.remove_position = Some(|_| {
             Ok({
                 Some({
@@ -1345,8 +1358,7 @@ pub mod tests {
         mock_repository.get_statistics = Some(|_| Ok(PnLReturnSummary::default()));
         mock_repository.set_statistics = Some(|_, _| Ok(()));
         mock_repository.set_exited_position = Some(|_, _| Ok(()));
-        mock_repository.set_total_equity = Some(|_, _| Ok(()));
-        mock_repository.set_available_cash = Some(|_, _| Ok(()));
+        mock_repository.set_balance = Some(|_, _| Ok(()));
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input FillEvent
@@ -1362,8 +1374,8 @@ pub mod tests {
 
         let result = portfolio.update_from_fill(&input_fill);
         let updated_repository = portfolio.repository;
-        let updated_cash = updated_repository.cash.unwrap();
-        let updated_value = updated_repository.equity.unwrap();
+        let updated_cash = updated_repository.balance.unwrap().available;
+        let updated_value = updated_repository.balance.unwrap().total;
 
         assert!(result.is_ok());
         // SHORT result_profit_loss = enter_value_gross - exit_value_gross - total_fees
