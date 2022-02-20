@@ -36,7 +36,9 @@ framework for trading.
 ## Overview
 Barter is an open-source Rust framework for building **event-driven live-trading & backtesting systems**. It provides 
 a high-performance, easy to customise, trading Engine that enables backtesting strategies on a near-identical system 
-to live trading. At a high level, it provides several de-coupled components that interact via a set of traits:
+to live trading. The Engine can be **controlled by issuing Commands** over the Engine's command_tx. Similarly, 
+the **Engine's Events can be listened to using the event_rx** (useful for event-sourcing). At a high level, 
+it provides several de-coupled components that interact via a set of traits:
 
 * **Data**: Continuer & MarketGenerator traits govern the generation of a MarketEvents data feed that acts as the system 
 heartbeat. For example, a LiveCandleHandler implementation is provided utilising [`Barter-Data`]'s WebSocket functionality to
@@ -60,8 +62,9 @@ contained Trader instance operates on its own thread.
 * **For brevity**: Imports are not included. 
 * **For simplicity**: 
   * Engine and Trader(s) are configuration with hard-coded values rather than loaded in configuration values.
-  * Remote shutdown is not orchestrated via the engine_termination_rx, this should be added as per 
-  your taste (eg/ HTTP endpoint). 
+  * Engine only contains one Trader (usually you would have many Traders, one for each Market).
+  * Remote Commands (eg/ Command::Terminate, Command::ExitPosition) are not sent to the Engine via it's command_tx, this 
+    control over the Engine can be added as per your taste (eg/ connected to an HTTP endpoint). 
 
 ```rust,no_run
 #[tokio::main]
