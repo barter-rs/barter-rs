@@ -102,14 +102,10 @@ impl LiveTradeHandlerBuilder {
     }
 
     pub fn build(self) -> Result<LiveTradeHandler, DataError> {
-        let exchange = self.exchange.ok_or(DataError::BuilderIncomplete)?;
-        let symbol = self.symbol.ok_or(DataError::BuilderIncomplete)?;
-        let trade_rx = self.trade_rx.ok_or(DataError::BuilderIncomplete)?;
-
         Ok(LiveTradeHandler {
-            exchange,
-            symbol,
-            trade_rx,
+            exchange: self.exchange.ok_or(DataError::BuilderIncomplete)?,
+            symbol: self.symbol.ok_or(DataError::BuilderIncomplete)?,
+            trade_rx: self.trade_rx.ok_or(DataError::BuilderIncomplete)?,
             can_continue: Continuation::Continue,
         })
     }
