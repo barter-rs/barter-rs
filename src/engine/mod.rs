@@ -28,18 +28,13 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 // Todo:
-// Check market id usage, is it ever used without returning a ref? could the returned ref be cloned?
-//  change repository handler trait funcs to pass uuid by value since it's copy
+//  - Check market id usage, is it ever used without returning a ref? could the returned ref be cloned?
+//  - change repository handler trait funcs to pass uuid by value since it's copy
 //  1. Create clean way of generating a TradingSummary or generic Statistic at end.
-//  2. Add 'Balance' w/ BalanceHandler. Full copy. Does it have a timestamp like EquityPoint.
-//      '--> EquityPoint::from(Balance).
-//  5. Position::meta has duplicated exit timestamp in exit_timestamp & meta.equity_point.timestamp
 //  9. Go over Rust docs in key areas i've changed & traits etc
 //  10. Update code examples & readme
 
 // Todo: - Posting Testing:
-//  1. Add more 'Balance' concept rather than start cash etc. BalanceHandler instead of Equity & Cash (fully copy)
-//     '--> EquityPoint::from(Balance) which adds the timestamp, or does Balance hold the timestamp?
 //  2. Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
 //     '--> also can use references to markets to avoid cloning?
 
