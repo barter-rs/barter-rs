@@ -138,17 +138,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .command_rx(command_rx)
         .portfolio(portfolio)
         .traders(traders)
-        .trader_command_txs(trader_command_txs))
+        .trader_command_txs(trader_command_txs)
         .statistics_summary(TradingSummary::init(StatisticConfig {
             starting_equity: 1000.0,
             trading_days_per_year: 365,
             risk_free_return: 0.0
-        })
+        }))
         .build()
         .expect("failed to build engine");
         
     // Listen to Engine Events & do something with them
-    tokio::spawn(listen_to_events(event_rx));
+    tokio::spawn(listen_to_events(event_rx)); 
         
     // --- Run Trading Session Until Remote Shutdown OR Data Feed ends naturally (ie/ backtest) ---
     engine.run().await;
