@@ -1,5 +1,5 @@
 /// Historical data handlers for backtesting.
-pub mod historic;
+pub mod historical;
 
 /// Live data handlers for dry-trading & live-trading.
 pub mod live;

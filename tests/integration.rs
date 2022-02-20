@@ -2,7 +2,7 @@ use barter::Market;
 use barter::event::EventTx;
 use barter::engine::Engine;
 use barter::engine::trader::Trader;
-use barter::data::handler::historic::{HistoricCandleHandler, HistoricDataLego};
+use barter::data::handler::historical::{HistoricalCandleHandler, HistoricalDataLego};
 use barter::strategy::strategy::RSIStrategy;
 use barter::strategy::strategy::Config as StrategyConfig;
 use barter::statistic::summary::trading::{Config as StatisticConfig, TradingSummary};
@@ -68,7 +68,7 @@ async fn engine_with_historic_data_stops_after_candles_finished() {
             .command_rx(trader_command_rx)
             .event_tx(event_tx.clone())
             .portfolio(Arc::clone(&portfolio))
-            .data(HistoricCandleHandler::new(HistoricDataLego {
+            .data(HistoricalCandleHandler::new(HistoricalDataLego {
                 exchange: "binance",
                 symbol: "btcusdt".to_string(),
                 candles: vec![test_util::candle()].into_iter()
