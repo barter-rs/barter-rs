@@ -181,6 +181,7 @@ impl ProfitLossSummary {
 mod tests {
     use super::*;
     use chrono::{Duration, Utc};
+    use crate::portfolio::Balance;
     use crate::test_util::position;
 
     #[test]
@@ -199,7 +200,7 @@ mod tests {
         pnl_return_view.start_timestamp = base_timestamp;
 
         let mut input_position = position();
-        input_position.meta.exit_timestamp = None;
+        input_position.meta.exit_balance = None;
         input_position.meta.last_update_timestamp = base_timestamp
             .checked_add_signed(Duration::days(10))
             .unwrap();
@@ -219,11 +220,13 @@ mod tests {
         pnl_return_view.start_timestamp = base_timestamp;
 
         let mut input_position = position();
-        input_position.meta.exit_timestamp = Some(
-            base_timestamp
+        input_position.meta.exit_balance = Some(Balance {
+            timestamp: base_timestamp
                 .checked_add_signed(Duration::days(15))
                 .unwrap(),
-        );
+            total: 0.0,
+            available: 0.0
+        });
 
         pnl_return_view.update_trading_session_duration(&input_position);
 

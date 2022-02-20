@@ -134,7 +134,6 @@ impl Default for MarketMeta {
 mod tests {
     use super::*;
     use barter_data::test_util;
-    use barter_data::model::Candle;
     use uuid::Uuid;
 
     #[test]
