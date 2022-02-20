@@ -14,7 +14,7 @@ use crate::execution::FillGenerator;
 use crate::portfolio::position::Position;
 use crate::portfolio::repository::{PositionHandler, StatisticHandler};
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
-use crate::statistic::summary::TablePrinter;
+use crate::statistic::summary::{PositionSummariser, TablePrinter};
 use crate::strategy::SignalGenerator;
 use crate::Market;
 use serde::Serialize;
@@ -28,28 +28,20 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 // Todo:
-//  - Check market id usage, is it ever used without returning a ref? could the returned ref be cloned?
-//  - change repository handler trait funcs to pass uuid by value since it's copy
-//  1. Create clean way of generating a TradingSummary or generic Statistic at end.
 //  9. Go over Rust docs in key areas i've changed & traits etc
 //  10. Update code examples & readme
-
-// Todo: - Posting Testing:
-//  2. Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
-//     '--> also can use references to markets to avoid cloning?
 
 // Todo: 0.7.1
 //  -  Ensure everything is unit tested
 //  - Switch to rust_decimals ie/ rust_decimal = "1.22", rust_decimal_macros = "1.22"
 //  - procedural macro for my builder pattern
 //   '--> Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
-//  - Roll out consistent use of Market / Exchange / symbol (new types?)
+//  - Roll out consistent use of Market / Exchange / symbol (new types?) New types for everything?
 //    '--> Remember (can't use Market instead of Exchange & Symbol for Position due to serde)
 //    '--> eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
 //  - Make as much stuff Copy as can be by refactoring types if possible, start in Statistics!
 //  - If happy with it, impl Initialiser for all stats across the Statistics module.
 //  - Add Deserialize to Event.
-//  - Clean up OTT use of type aliases? New types instead?
 //  - Impl consistent structured logging in Engine & Trader
 //   '--> Do I want to spans instead of multiple info logging? eg/ fetch_open_requests logs twice
 //   '--> Where do I want to log things like Command::ExitPosition being actioned? In Engine or when we push SignalForceExit on to Q?
@@ -105,6 +97,8 @@ where
     /// `HashMap` containing a [`Command`] transmitter for every [`Trader`] associated with this
     /// [`Engine`].
     pub trader_command_txs: HashMap<Market, mpsc::Sender<Command>>,
+    ///
+    pub statistics_summary: Statistic
 }
 
 /// Multi-threaded Trading Engine capable of trading with an arbitrary number of [`Trader`] market
@@ -116,7 +110,7 @@ where
 pub struct Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event>,
-    Statistic: TablePrinter + Serialize + Send,
+    Statistic: PositionSummariser + TablePrinter + Serialize + Send,
     Portfolio: PositionHandler
         + StatisticHandler<Statistic>
         + MarketUpdater
@@ -141,13 +135,16 @@ where
     /// `HashMap` containing a [`Command`] transmitter for every [`Trader`] associated with this
     /// [`Engine`].
     trader_command_txs: HashMap<Market, mpsc::Sender<Command>>,
+    ///
+    statistics_summary: Statistic
+
 }
 
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
     Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event> + Send + 'static,
-    Statistic: TablePrinter + Serialize + Send + 'static,
+    Statistic: PositionSummariser + TablePrinter + Serialize + Send + 'static,
     Portfolio: PositionHandler
         + StatisticHandler<Statistic>
         + MarketUpdater
@@ -171,6 +168,7 @@ where
             portfolio: lego.portfolio,
             traders: lego.traders,
             trader_command_txs: lego.trader_command_txs,
+            statistics_summary: lego.statistics_summary
         }
     }
 
@@ -220,21 +218,21 @@ where
             }
         }
 
-        // Todo: Clean this up & print proper summary
         // Generate Statistics summary
-        self.trader_command_txs.into_keys().for_each(|market| {
-            self.portfolio
-                .lock()
-                .get_statistics(&market.market_id())
-                .map(|statistic| statistic.print())
-                .unwrap_or_else(|err| {
-                    warn!(
-                        error = &*format!("{:?}", err),
-                        why = "failed to get statistics from Portfolio's repository",
-                        "failed to generate Statistics summary for trading session"
-                    )
-                })
-        });
+        self.portfolio
+            .lock()
+            .get_exited_positions(self.engine_id)
+            .map(|closed_positions| {
+                self.statistics_summary.generate_summary(&closed_positions);
+                self.statistics_summary.print();
+            })
+            .unwrap_or_else(|err| {
+                warn!(
+                    error = &*format!("{:?}", err),
+                    why = "failed to get exited Positions from Portfolio's repository",
+                    "failed to generate Statistics summary for trading session"
+                )
+            });
     }
 
     /// Runs each [`Trader`] it's own thread. Sends a message on the returned `mpsc::Receiver<bool>`
@@ -370,13 +368,14 @@ where
     portfolio: Option<Arc<Mutex<Portfolio>>>,
     traders: Option<Vec<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>>>,
     trader_command_txs: Option<HashMap<Market, mpsc::Sender<Command>>>,
+    statistics_summary: Option<Statistic>,
 }
 
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
     EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event>,
-    Statistic: TablePrinter + Serialize + Send,
+    Statistic: PositionSummariser + TablePrinter + Serialize + Send,
     Portfolio: PositionHandler
         + StatisticHandler<Statistic>
         + MarketUpdater
@@ -394,6 +393,7 @@ where
             portfolio: None,
             traders: None,
             trader_command_txs: None,
+            statistics_summary: None,
         }
     }
 
@@ -435,23 +435,23 @@ where
         }
     }
 
+    pub fn statistics_summary(self, value: Statistic) -> Self {
+        Self {
+            statistics_summary: Some(value),
+            ..self
+        }
+    }
+
     pub fn build(
         self,
     ) -> Result<Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
-        let engine_id = self.engine_id.ok_or(EngineError::BuilderIncomplete)?;
-        let command_rx = self.command_rx.ok_or(EngineError::BuilderIncomplete)?;
-        let portfolio = self.portfolio.ok_or(EngineError::BuilderIncomplete)?;
-        let traders = self.traders.ok_or(EngineError::BuilderIncomplete)?;
-        let trader_command_txs = self
-            .trader_command_txs
-            .ok_or(EngineError::BuilderIncomplete)?;
-
         Ok(Engine {
-            engine_id,
-            command_rx,
-            portfolio,
-            traders,
-            trader_command_txs,
+            engine_id: self.engine_id.ok_or(EngineError::BuilderIncomplete)?,
+            command_rx: self.command_rx.ok_or(EngineError::BuilderIncomplete)?,
+            portfolio: self.portfolio.ok_or(EngineError::BuilderIncomplete)?,
+            traders: self.traders.ok_or(EngineError::BuilderIncomplete)?,
+            trader_command_txs: self.trader_command_txs.ok_or(EngineError::BuilderIncomplete)?,
+            statistics_summary: self.statistics_summary.ok_or(EngineError::BuilderIncomplete)?
         })
     }
 }
