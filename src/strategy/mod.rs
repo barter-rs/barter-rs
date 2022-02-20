@@ -139,21 +139,14 @@ impl SignalEventBuilder {
     }
 
     pub fn build(self) -> Result<SignalEvent, StrategyError> {
-        let trace_id = self.trace_id.ok_or(StrategyError::BuilderIncomplete)?;
-        let timestamp = self.timestamp.ok_or(StrategyError::BuilderIncomplete)?;
-        let exchange = self.exchange.ok_or(StrategyError::BuilderIncomplete)?;
-        let symbol = self.symbol.ok_or(StrategyError::BuilderIncomplete)?;
-        let market_meta = self.market_meta.ok_or(StrategyError::BuilderIncomplete)?;
-        let signals = self.signals.ok_or(StrategyError::BuilderIncomplete)?;
-
         Ok(SignalEvent {
             event_type: SignalEvent::ORGANIC_SIGNAL,
-            trace_id,
-            timestamp,
-            exchange,
-            symbol,
-            market_meta,
-            signals,
+            trace_id: self.trace_id.ok_or(StrategyError::BuilderIncomplete)?,
+            timestamp: self.timestamp.ok_or(StrategyError::BuilderIncomplete)?,
+            exchange: self.exchange.ok_or(StrategyError::BuilderIncomplete)?,
+            symbol: self.symbol.ok_or(StrategyError::BuilderIncomplete)?,
+            market_meta: self.market_meta.ok_or(StrategyError::BuilderIncomplete)?,
+            signals: self.signals.ok_or(StrategyError::BuilderIncomplete)?,
         })
     }
 }

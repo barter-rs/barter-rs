@@ -415,64 +415,25 @@ impl PositionBuilder {
     }
 
     pub fn build(self) -> Result<Position, PortfolioError> {
-        let position_id = self.position_id.ok_or(PortfolioError::BuilderIncomplete)?;
-        let exchange = self.exchange.ok_or(PortfolioError::BuilderIncomplete)?;
-        let symbol = self.symbol.ok_or(PortfolioError::BuilderIncomplete)?;
-        let meta = self.meta.ok_or(PortfolioError::BuilderIncomplete)?;
-        let direction = self.direction.ok_or(PortfolioError::BuilderIncomplete)?;
-        let quantity = self.quantity.ok_or(PortfolioError::BuilderIncomplete)?;
-        let enter_fees = self.enter_fees.ok_or(PortfolioError::BuilderIncomplete)?;
-        let enter_fees_total = self
-            .enter_fees_total
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-        let enter_avg_price_gross = self
-            .enter_avg_price_gross
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-        let enter_value_gross = self
-            .enter_value_gross
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-        let exit_fees = self.exit_fees.ok_or(PortfolioError::BuilderIncomplete)?;
-        let exit_fees_total = self
-            .exit_fees_total
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-        let exit_avg_price_gross = self
-            .exit_avg_price_gross
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-        let exit_value_gross = self
-            .exit_value_gross
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-        let current_symbol_price = self
-            .current_symbol_price
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-        let current_value_gross = self
-            .current_value_gross
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-        let unrealised_profit_loss = self
-            .unrealised_profit_loss
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-        let realised_profit_loss = self
-            .realised_profit_loss
-            .ok_or(PortfolioError::BuilderIncomplete)?;
-
         Ok(Position {
-            position_id,
-            exchange,
-            symbol,
-            meta,
-            direction,
-            quantity,
-            enter_fees,
-            enter_fees_total,
-            enter_avg_price_gross,
-            enter_value_gross,
-            exit_fees,
-            exit_fees_total,
-            exit_avg_price_gross,
-            exit_value_gross,
-            current_symbol_price,
-            current_value_gross,
-            unrealised_profit_loss,
-            realised_profit_loss,
+            position_id: self.position_id.ok_or(PortfolioError::BuilderIncomplete)?,
+            exchange: self.exchange.ok_or(PortfolioError::BuilderIncomplete)?,
+            symbol: self.symbol.ok_or(PortfolioError::BuilderIncomplete)?,
+            meta: self.meta.ok_or(PortfolioError::BuilderIncomplete)?,
+            direction: self.direction.ok_or(PortfolioError::BuilderIncomplete)?,
+            quantity: self.quantity.ok_or(PortfolioError::BuilderIncomplete)?,
+            enter_fees: self.enter_fees.ok_or(PortfolioError::BuilderIncomplete)?,
+            enter_fees_total: self.enter_fees_total.ok_or(PortfolioError::BuilderIncomplete)?,
+            enter_avg_price_gross: self.enter_avg_price_gross.ok_or(PortfolioError::BuilderIncomplete)?,
+            enter_value_gross: self.enter_value_gross.ok_or(PortfolioError::BuilderIncomplete)?,
+            exit_fees: self.exit_fees.ok_or(PortfolioError::BuilderIncomplete)?,
+            exit_fees_total: self.exit_fees_total.ok_or(PortfolioError::BuilderIncomplete)?,
+            exit_avg_price_gross: self.exit_avg_price_gross.ok_or(PortfolioError::BuilderIncomplete)?,
+            exit_value_gross: self.exit_value_gross.ok_or(PortfolioError::BuilderIncomplete)?,
+            current_symbol_price: self.current_symbol_price.ok_or(PortfolioError::BuilderIncomplete)?,
+            current_value_gross: self.current_value_gross.ok_or(PortfolioError::BuilderIncomplete)?,
+            unrealised_profit_loss: self.unrealised_profit_loss.ok_or(PortfolioError::BuilderIncomplete)?,
+            realised_profit_loss: self.realised_profit_loss.ok_or(PortfolioError::BuilderIncomplete)?,
         })
     }
 }
