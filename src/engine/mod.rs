@@ -83,7 +83,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: PositionSummariser + TablePrinter + Serialize + Send,
     Portfolio: PositionHandler
-        + StatisticHandler<Statistic>
+        // + StatisticHandler<Statistic>
         + MarketUpdater
         + OrderGenerator
         + FillUpdater

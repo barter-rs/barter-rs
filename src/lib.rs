@@ -13,7 +13,9 @@
 //! ## Overview
 //! Barter is an open-source Rust framework for building **event-driven live-trading & backtesting systems**. It provides
 //! a high-performance, easy to customise, trading Engine that enables backtesting strategies on a near-identical system
-//! to live trading. At a high level, it provides several de-coupled components that interact via a set of traits:
+//! to live trading. The Engine can be **controlled by issuing Commands** over the Engine's command_tx. Similarly,
+//! the **Engine's Events can be listened to using the event_rx** (useful for event-sourcing). At a high level,
+//! it provides several de-coupled components that interact via a set of traits:
 
 //! * **Data**: Continuer & MarketGenerator traits govern the generation of a MarketEvents data feed that acts as the system
 //! heartbeat. For example, a LiveCandleHandler implementation is provided utilising [`Barter-Data`]'s WebSocket functionality to
@@ -41,16 +43,16 @@
 //! ### Data Handler
 //! ```
 //! use barter::data::handler::{Continuation, Continuer, MarketGenerator};
-//! use barter::data::handler::historic::{HistoricCandleHandler, HistoricDataLego};
+//! use barter::data::handler::historical::{HistoricalCandleHandler, HistoricalDataLego};
 //! use barter_data::test_util;
 //!
-//! let lego = HistoricDataLego {
+//! let lego = HistoricalDataLego {
 //!     exchange: "binance",
 //!     symbol: "btc_usdt".to_string(),
 //!     candles: vec![test_util::candle(), test_util::candle()].into_iter(),
 //! };
 //!
-//! let mut data = HistoricCandleHandler::new(lego);
+//! let mut data = HistoricalCandleHandler::new(lego);
 //!
 //! loop {
 //!     let market_event = match data.can_continue() {
@@ -198,9 +200,10 @@
     // missing_docs
 )]
 
-/// Defines a MarketEvent, and provides the useful traits of Continuer and MarketGenerator for
-/// handling the generation of them. Contains implementations such as the LiveCandleHandler that
-/// generates a live market feed and acts as the system heartbeat.
+/// Defines a MarketEvent, and provides the Continuer and MarketGenerator traits for
+/// handling the generation of them. Contains implementations such as the (tick-by_tick)
+/// LiveTradeHandler, and HistoricalCandleHandler that generates a market feed and acts as the
+/// system heartbeat.
 pub mod data;
 
 /// Defines a SignalEvent, and provides the SignalGenerator trait for handling the generation of

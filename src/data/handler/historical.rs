@@ -3,9 +3,9 @@ use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::data::MarketEvent;
 use barter_data::model::{Candle, MarketData};
 
-/// Configuration for constructing a [`HistoricCandleHandler`] via the new() constructor method.
+/// Configuration for constructing a [`HistoricalCandleHandler`] via the new() constructor method.
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
-pub struct HistoricDataLego<Candles>
+pub struct HistoricalDataLego<Candles>
 where
     Candles: Iterator<Item = Candle>,
 {
@@ -17,7 +17,7 @@ where
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
 /// [`MarketEvent`] data handler that implements [`Continuer`] & [`MarketGenerator`]. **Simulates**
 /// a live market feed via drip feeding historical data files as a series of [`MarketEvent`]s.
-pub struct HistoricCandleHandler<Candles>
+pub struct HistoricalCandleHandler<Candles>
 where
     Candles: Iterator<Item = Candle>,
 {
@@ -27,7 +27,7 @@ where
     candles: Candles,
 }
 
-impl<Candles> Continuer for HistoricCandleHandler<Candles>
+impl<Candles> Continuer for HistoricalCandleHandler<Candles>
 where
     Candles: Iterator<Item = Candle>,
 {
@@ -36,7 +36,7 @@ where
     }
 }
 
-impl<Candles> MarketGenerator for HistoricCandleHandler<Candles>
+impl<Candles> MarketGenerator for HistoricalCandleHandler<Candles>
 where
     Candles: Iterator<Item = Candle>,
 {
@@ -54,13 +54,13 @@ where
     }
 }
 
-impl<Candles> HistoricCandleHandler<Candles>
+impl<Candles> HistoricalCandleHandler<Candles>
 where
     Candles: Iterator<Item = Candle>,
 {
-    /// Constructs a new [HistoricCandleHandler] component using the provided [HistoricDataLego]
+    /// Constructs a new [`HistoricalCandleHandler`] component using the provided [`HistoricalDataLego`]
     /// components.
-    pub fn new(lego: HistoricDataLego<Candles>) -> Self {
+    pub fn new(lego: HistoricalDataLego<Candles>) -> Self {
         Self {
             exchange: lego.exchange,
             symbol: lego.symbol,
@@ -69,15 +69,15 @@ where
         }
     }
 
-    /// Returns a [HistoricCandleHandlerBuilder] instance.
-    pub fn builder() -> HistoricCandleHandlerBuilder<Candles> {
-        HistoricCandleHandlerBuilder::new()
+    /// Returns a [`HistoricalCandleHandlerBuilder`] instance.
+    pub fn builder() -> HistoricalCandleHandlerBuilder<Candles> {
+        HistoricalCandleHandlerBuilder::new()
     }
 }
 
-/// Builder to construct [HistoricCandleHandler] instances.
+/// Builder to construct [`HistoricalCandleHandler`] instances.
 #[derive(Debug, Default)]
-pub struct HistoricCandleHandlerBuilder<Candles>
+pub struct HistoricalCandleHandlerBuilder<Candles>
 where
     Candles: Iterator<Item = Candle>,
 {
@@ -86,7 +86,7 @@ where
     candles: Option<Candles>,
 }
 
-impl<Candles> HistoricCandleHandlerBuilder<Candles>
+impl<Candles> HistoricalCandleHandlerBuilder<Candles>
 where
     Candles: Iterator<Item = Candle>,
 {
@@ -119,8 +119,8 @@ where
         }
     }
 
-    pub fn build(self) -> Result<HistoricCandleHandler<Candles>, DataError> {
-        Ok(HistoricCandleHandler {
+    pub fn build(self) -> Result<HistoricalCandleHandler<Candles>, DataError> {
+        Ok(HistoricalCandleHandler {
             exchange: self.exchange.ok_or(DataError::BuilderIncomplete)?,
             symbol: self.symbol.ok_or(DataError::BuilderIncomplete)?,
             can_continue: Continuation::Continue,
@@ -139,7 +139,7 @@ mod tests {
         let mut symbol_data_remaining = Vec::with_capacity(2);
         symbol_data_remaining.push(test_util::candle());
 
-        let data_handler = HistoricCandleHandler::builder()
+        let data_handler = HistoricalCandleHandler::builder()
             .exchange("Backtest")
             .symbol("DOGE".to_string())
             .candles(symbol_data_remaining.into_iter())
@@ -155,7 +155,7 @@ mod tests {
     fn should_not_continue_with_no_symbol_data_remaining() {
         let symbol_data_remaining: Vec<Candle> = Vec::with_capacity(2);
 
-        let mut data_handler = HistoricCandleHandler::builder()
+        let mut data_handler = HistoricalCandleHandler::builder()
             .exchange("Backtest")
             .symbol("DOGE".to_string())
             .candles(symbol_data_remaining.into_iter())
