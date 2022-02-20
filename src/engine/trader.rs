@@ -279,7 +279,7 @@ where
     engine_id: Option<Uuid>,
     market: Option<Market>,
     command_rx: Option<mpsc::Receiver<Command>>,
-    event_sink: Option<EventTx>,
+    event_tx: Option<EventTx>,
     portfolio: Option<Arc<Mutex<Portfolio>>>,
     data: Option<Data>,
     strategy: Option<Strategy>,
@@ -302,7 +302,7 @@ where
             engine_id: None,
             market: None,
             command_rx: None,
-            event_sink: None,
+            event_tx: None,
             portfolio: None,
             data: None,
             strategy: None,
@@ -332,9 +332,9 @@ where
         }
     }
 
-    pub fn event_sink(self, value: EventTx) -> Self {
+    pub fn event_tx(self, value: EventTx) -> Self {
         Self {
-            event_sink: Some(value),
+            event_tx: Some(value),
             ..self
         }
     }
