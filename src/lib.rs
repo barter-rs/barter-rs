@@ -169,7 +169,7 @@
 //! ```
 //! use barter::statistic::summary::trading::{Config as StatisticConfig, TradingSummary};
 //! use barter::portfolio::position::Position;
-//! use barter::statistic::summary::{PositionSummariser, TablePrinter};
+//! use barter::statistic::summary::{Initialiser, PositionSummariser, TablePrinter};
 //! use barter::test_util;
 //!
 //! // Do some automated trading with barter components that generates a vector of closed Positions
@@ -181,7 +181,7 @@
 //!     risk_free_return: 0.5,
 //! };
 //!
-//! let mut trading_summary = TradingSummary::new(config);
+//! let mut trading_summary = TradingSummary::init(config);
 //!
 //! trading_summary.generate_summary(&positions);
 //!

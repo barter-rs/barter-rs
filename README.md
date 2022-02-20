@@ -68,37 +68,54 @@ contained Trader instance operates on its own thread.
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Setup Logger & Load Config For Engine & Trader Instances Here
 
-    // Create termination channels
-    let (engine_termination_tx, engine_termination_rx) = oneshot::channel();    // Engine graceful remote shutdown
-    let (traders_termination_tx, _) = broadcast::channel(1);                    // Shutdown channel to broadcast remote shutdown to every Trader instance
+    // Create channel to distribute Commands to the Engine & it's Traders (eg/ Command::Terminate)
+    let (command_tx, command_rx) = mpsc::channel(20);
     
-    // Create EventSink channel to listen to all Engine Events in real-time
-    let (event_tx, event_rx) = unbounded_channel();
-    let event_sink = EventSink::new(event_tx);
-
-    // Build global shared-state MetaPortfolio
+    // Create Event channel to listen to all Engine Events in real-time
+    let (event_tx, event_rx) = mpsc::unbounded_channel();
+    let event_tx = EventTx::new(event_tx);
+    
+    // Generate unique identifier to associate an Engine's components
+    let engine_id = Uuid::new_v4();
+    
+    // Create the Market(s) to be traded on (1-to-1 relationship with a Trader) 
+    let market = Market::new("binance", "btc_usdt".to_owned());
+    
+    // Build global shared-state MetaPortfolio (1-to-1 relationship with an Engine)
     let portfolio = Arc::new(Mutex::new(
         MetaPortfolio::builder()
-            .id(Uuid::new_v4())
+            .engine_id(engine_id)
+            .markets(vec![market.clone()])
             .starting_cash(10_000.0)
             .repository(InMemoryRepository::new())
             .allocation_manager(DefaultAllocator { default_order_value: 100.0 })
             .risk_manager(DefaultRisk {})
+            .statistic_config(StatisticConfig { 
+                starting_equity: 10_000.0, 
+                trading_days_per_year: 365, 
+                risk_free_return: 0.0 
+            })
             .build_and_init()
             .expect("failed to build & initialise MetaPortfolio"),
     ));
     
     // Build Trader(s)
     let mut traders = Vec::new();
+    
+    // Create channel for each Trader so the Engine can distribute Commands to it
+    let (trader_command_tx, trader_command_rx) = mpsc::channel(10);
+
     traders.push(
         Trader::builder()
-            .termination_rx(traders_termination_tx.subscribe())
-            .event_sink(event_sink.clone())
+            .engine_id(engine_id)
+            .market(market.clone())
+            .command_rx(trader_command_rx)
+            .event_tx(event_tx.clone())
             .portfolio(Arc::clone(&portfolio))
             .data(HistoricCandleHandler::new(HistoricDataLego {
                 exchange: "binance",
                 symbol: "btcusdt".to_string(),
-                candles: vec![Candle::default()].into_iter()
+                candles: vec![test_util::candle()].into_iter()
             }))
             .strategy(RSIStrategy::new(StrategyConfig { rsi_period: 14 }))
             .execution(SimulatedExecution::new(ExecutionConfig {
@@ -111,24 +128,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .expect("failed to build trader")
     );
     
-    // Build Engine
+    // Build Engine (1-to-many relationship with Traders)
+    
+    // Create HashMap<Market, trader_command_tx> so Engine can route Commands to Traders 
+    let trader_command_txs = HashMap::from_iter([(market, trader_command_tx)]);
+    
     let engine = Engine::builder()
-        .termination_rx(engine_termination_rx)
-        .traders_termination_tx(traders_termination_tx)
-        .statistics(TradingSummary::new(StatisticConfig {
+        .engine_id(engine_id)
+        .command_rx(command_rx)
+        .portfolio(portfolio)
+        .traders(traders)
+        .trader_command_txs(trader_command_txs))
+        .statistics_summary(TradingSummary::init(StatisticConfig {
             starting_equity: 1000.0,
             trading_days_per_year: 365,
             risk_free_return: 0.0
-        }))
-        .portfolio(portfolio)
-        .traders(traders)
+        })
         .build()
         .expect("failed to build engine");
         
     // Listen to Engine Events & do something with them
     tokio::spawn(listen_to_events(event_rx));
         
-    // --- Run Trading Session Until Remote Shutdown ---
+    // --- Run Trading Session Until Remote Shutdown OR Data Feed ends naturally (ie/ backtest) ---
     engine.run().await;
 }
 ```
@@ -143,7 +165,7 @@ development, new features, and the future roadmap.
 
 ## Related Projects
 In addition to the Barter crate, the Barter project also maintains:
-* [`Barter-Data`]: High performance & normalised WebSocket intergration for leading cryptocurrency exchanges - batteries 
+* [`Barter-Data`]: High performance & normalised WebSocket integration for leading cryptocurrency exchanges - batteries 
 included.
 
 ## Roadmap
