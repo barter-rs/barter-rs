@@ -206,23 +206,23 @@
 /// system heartbeat.
 pub mod data;
 
-/// Defines a SignalEvent, and provides the SignalGenerator trait for handling the generation of
-/// them. Contains an example RSIStrategy implementation that analyses a MarketEvent and may
-/// generate a new SignalEvent, an advisory signal for a Portfolio OrderGenerator to analyse.
+/// Defines a SignalEvent and SignalForceExit, as well as the SignalGenerator trait for handling the
+/// generation of them. Contains an example RSIStrategy implementation that analyses a MarketEvent
+/// and may generate a new advisory SignalEvent to be analysed by the Portfolio OrderGenerator.
 pub mod strategy;
 
 /// Defines useful data structures such as an OrderEvent and Position. The Portfolio must
 /// interact with MarketEvents, SignalEvents, OrderEvents, and FillEvents. The useful traits
 /// MarketUpdater, OrderGenerator, & FillUpdater are provided that define the interactions
 /// with these events. Contains a MetaPortfolio implementation that persists state in a
-/// RedisRepository. This also contains example implementations of a OrderAllocator &
-/// OrderEvaluator, and help the Portfolio make decisions on whether to generate OrderEvents and
+/// generic Repository. This also contains example implementations of an OrderAllocator &
+/// OrderEvaluator, which help the Portfolio make decisions on whether to generate OrderEvents and
 /// of what size.
 pub mod portfolio;
 
 /// Defines a FillEvent, and provides a useful trait FillGenerator for handling the generation
-/// of them. Contains a SimulatedExecution implementation that simulates a live broker execution
-/// for the system.
+/// of them. Contains an example SimulatedExecution implementation that simulates live broker
+/// execution.
 pub mod execution;
 
 /// Defines an Event enum that contains variants that are vital to the trading event loop
@@ -232,12 +232,12 @@ pub mod event;
 
 /// Defines various iterative statistical methods that can be used to calculate trading performance
 /// metrics in one-pass. A trading performance summary implementation has been provided containing
-/// several key metrics such as Sharpe Ratio, Calmar Ratio, CAGR, and Max Drawdown.
+/// several key metrics such as Sharpe Ratio, Calmar Ratio, and Max Drawdown.
 pub mod statistic;
 
 /// Multi-threaded trading Engine capable of trading with an arbitrary number market pairs. Contains
-/// a Trader instance for each market pair that consists of it's own Data, Strategy &
-/// Execution instances, as well as shared access to a global Portfolio.
+/// a Trader for each Market pair that consists of it's own Data, Strategy &
+/// Execution components, as well as shared access to a global Portfolio.
 pub mod engine;
 
 #[macro_use]
