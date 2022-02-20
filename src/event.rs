@@ -1,10 +1,8 @@
 use crate::data::MarketEvent;
 use crate::strategy::{SignalEvent, SignalForceExit};
 use crate::execution::FillEvent;
-use crate::portfolio::OrderEvent;
-use crate::portfolio::position::{EquityPoint, Position, PositionExit, PositionUpdate};
-use crate::portfolio::repository::{AvailableCash, TotalEquity};
-use chrono::{DateTime, Utc};
+use crate::portfolio::{OrderEvent, Balance};
+use crate::portfolio::position::{Position, PositionExit, PositionUpdate};
 use serde::Serialize;
 use std::fmt::Debug;
 use tokio::sync::mpsc;
@@ -80,23 +78,6 @@ impl EventTx {
         Self {
             receiver_dropped: false,
             event_tx,
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize)]
-pub struct Balance {
-    pub equity: EquityPoint,
-    pub available_cash: f64,
-}
-
-impl From<(AvailableCash, TotalEquity, DateTime<Utc>)> for Balance {
-    fn from(
-        (available_cash, equity, timestamp): (AvailableCash, TotalEquity, DateTime<Utc>),
-    ) -> Self {
-        Self {
-            equity: EquityPoint { equity, timestamp },
-            available_cash,
         }
     }
 }

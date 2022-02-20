@@ -28,34 +28,43 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 // Todo:
-//  1. Remove strange default() impls that I use for tests eg/ base_position()
-//  4.. Ensure everything is unit tested
+// Check market id usage, is it ever used without returning a ref? could the returned ref be cloned?
+//  change repository handler trait funcs to pass uuid by value since it's copy
+//  1. Create clean way of generating a TradingSummary or generic Statistic at end.
+//  2. Add 'Balance' w/ BalanceHandler. Full copy. Does it have a timestamp like EquityPoint.
+//      '--> EquityPoint::from(Balance).
 //  5. Position::meta has duplicated exit timestamp in exit_timestamp & meta.equity_point.timestamp
-//  6. Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
-//     '--> also can use references to markets to avoid cloning?
-//  7. Clean up Results printing -> add titles if I print per. otherwise go back to old method
 //  9. Go over Rust docs in key areas i've changed & traits etc
 //  10. Update code examples & readme
 
 // Todo: - Posting Testing:
-//  2. Add more 'Balance' concept rather than start cash etc. BalanceHandler instead of Equity & Cash (fully copy)
+//  1. Add more 'Balance' concept rather than start cash etc. BalanceHandler instead of Equity & Cash (fully copy)
 //     '--> EquityPoint::from(Balance) which adds the timestamp, or does Balance hold the timestamp?
+//  2. Cleanup Config passing - seems like there is duplication eg/ Portfolio.starting_cash vs Portfolio.stats_config.starting_equity
+//     '--> also can use references to markets to avoid cloning?
 
 // Todo: 0.7.1
+//  -  Ensure everything is unit tested
+//  - Switch to rust_decimals ie/ rust_decimal = "1.22", rust_decimal_macros = "1.22"
+//  - procedural macro for my builder pattern
+//   '--> Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
 //  - Roll out consistent use of Market / Exchange / symbol (new types?)
 //    '--> Remember (can't use Market instead of Exchange & Symbol for Position due to serde)
 //    '--> eg/ portfolio.get_statistics(&self.market.market_id()) -> could market_id() return a ref?
-//  - Make as much stuff Copy as can be - start in Statistics!
+//  - Make as much stuff Copy as can be by refactoring types if possible, start in Statistics!
 //  - If happy with it, impl Initialiser for all stats across the Statistics module.
 //  - Add Deserialize to Event.
 //  - Clean up OTT use of type aliases? New types instead?
-//  - Add unit test cases for update_from_fill tests (4 of them) which use get & set stats
 //  - Impl consistent structured logging in Engine & Trader
 //   '--> Do I want to spans instead of multiple info logging? eg/ fetch_open_requests logs twice
 //   '--> Where do I want to log things like Command::ExitPosition being actioned? In Engine or when we push SignalForceExit on to Q?
 //  - Ensure PositionNew, PositionUpdate & PositionExit is consistent -> create trait for Position?
 //     '--> eg similar to Rust TAs Open, High etc
-//  - Re-factor generate_order & parse_signal_decisions... seems pretty noob.
+//     '--> make distinct types so that we can only ever calculate PnL from an ExitedPosition for example
+//     '--> TryFrom<&mut Position> will become From since no chance of failure.
+//  - Re-factor generate_order & parse_signal_decisions... seems pretty noob atm.
+//  - Improve printing of TradingSummary at the end -> print summary for each Market!
+//   '--> Crate abstractions over Statistics in order to track stats for each coin better, then print properly?
 
 /// Communicates a String is a message associated with a [`Command`].
 pub type Message = String;
@@ -216,6 +225,7 @@ where
             }
         }
 
+        // Todo: Clean this up & print proper summary
         // Generate Statistics summary
         self.trader_command_txs.into_keys().for_each(|market| {
             self.portfolio
@@ -274,7 +284,7 @@ where
         let open_positions = self
             .portfolio
             .lock()
-            .get_open_positions(&self.engine_id, self.trader_command_txs.keys())
+            .get_open_positions(self.engine_id, self.trader_command_txs.keys())
             .map_err(EngineError::RepositoryInteractionError);
 
         if positions_tx.send(open_positions).is_err() {

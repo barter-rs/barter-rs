@@ -3,6 +3,7 @@ use crate::statistic::metric::drawdown::{AvgDrawdown, Drawdown, MaxDrawdown};
 use crate::statistic::summary::{PositionSummariser, TablePrinter};
 use prettytable::{Row, Table};
 use serde::{Deserialize, Serialize};
+use crate::statistic::metric::EquityPoint;
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct DrawdownSummary {
@@ -14,9 +15,9 @@ pub struct DrawdownSummary {
 impl PositionSummariser for DrawdownSummary {
     fn update(&mut self, position: &Position) {
         // Only update DrawdownSummary with closed Positions
-        let equity_point = match &position.meta.exit_equity_point {
+        let equity_point = match position.meta.exit_balance {
             None => return,
-            Some(equity_point) => equity_point,
+            Some(exit_balance) => EquityPoint::from(exit_balance),
         };
 
         // Updates

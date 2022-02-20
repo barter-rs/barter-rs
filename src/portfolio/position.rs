@@ -8,13 +8,14 @@ use uuid::Uuid;
 use crate::{ExchangeId, SymbolId};
 use crate::data::MarketEvent;
 use crate::execution::{FeeAmount, Fees, FillEvent};
+use crate::portfolio::Balance;
 use crate::portfolio::error::PortfolioError;
 use crate::strategy::Decision;
 
 /// Enters a new [`Position`].
 pub trait PositionEnterer {
     /// Returns a new [`Position`], given an input [`FillEvent`] & an associated engine_id.
-    fn enter(engine_id: &Uuid, fill: &FillEvent) -> Result<Position, PortfolioError>;
+    fn enter(engine_id: Uuid, fill: &FillEvent) -> Result<Position, PortfolioError>;
 }
 
 /// Updates an open [`Position`].
@@ -30,7 +31,7 @@ pub trait PositionExiter {
     /// from an Execution handler.
     fn exit(
         &mut self,
-        portfolio_value: f64,
+        balance: Balance,
         fill: &FillEvent,
     ) -> Result<PositionExit, PortfolioError>;
 }
@@ -40,7 +41,7 @@ pub type PositionId = String;
 
 /// Returns a unique identifier for a [`Position`] given an engine_Id, exchange & symbol.
 pub fn determine_position_id(
-    engine_id: &Uuid,
+    engine_id: Uuid,
     exchange: ExchangeId,
     symbol: &SymbolId,
 ) -> PositionId {
@@ -106,16 +107,14 @@ pub struct Position {
 }
 
 impl PositionEnterer for Position {
-    fn enter(engine_id: &Uuid, fill: &FillEvent) -> Result<Position, PortfolioError> {
+    fn enter(engine_id: Uuid, fill: &FillEvent) -> Result<Position, PortfolioError> {
         // Initialise Position Metadata
         let metadata = PositionMeta {
             enter_trace_id: fill.trace_id,
             enter_timestamp: fill.market_meta.timestamp,
             last_update_trace_id: fill.trace_id,
             last_update_timestamp: fill.timestamp,
-            exit_trace_id: None,
-            exit_timestamp: None,
-            exit_equity_point: None,
+            exit_balance: None,
         };
 
         // Enter fees
@@ -177,7 +176,7 @@ impl PositionUpdater for Position {
 impl PositionExiter for Position {
     fn exit(
         &mut self,
-        mut portfolio_value: f64,
+        mut balance: Balance,
         fill: &FillEvent,
     ) -> Result<PositionExit, PortfolioError> {
         if fill.decision.is_entry() {
@@ -197,15 +196,10 @@ impl PositionExiter for Position {
         self.unrealised_profit_loss = self.realised_profit_loss;
 
         // Metadata
-        portfolio_value += self.realised_profit_loss;
+        balance.total += self.realised_profit_loss;
         self.meta.last_update_trace_id = fill.trace_id;
         self.meta.last_update_timestamp = fill.timestamp;
-        self.meta.exit_trace_id = Some(fill.trace_id);
-        self.meta.exit_timestamp = Some(fill.timestamp);
-        self.meta.exit_equity_point = Some(EquityPoint {
-            equity: portfolio_value,
-            timestamp: fill.market_meta.timestamp,
-        });
+        self.meta.exit_balance = Some(balance);
 
         PositionExit::try_from(self)
     }
@@ -487,71 +481,30 @@ impl PositionBuilder {
 /// a [`Position`].
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct PositionMeta {
-    /// Trace UUID of the MarketEvent that triggered the entering of this [`Position`].
+    /// Trace UUID linking all the Events that led to the entering of this [`Position`].
     pub enter_trace_id: Uuid,
 
-    /// MarketEvent timestamp that triggered the entering of this [`Position`].
+    /// FillEvent timestamp that triggered the entering of this [`Position`].
     pub enter_timestamp: DateTime<Utc>,
 
-    /// Trace UUID of the last event to trigger a [`Position`] update.
+    /// Trace UUID of the last event to trigger a [`Position`] state change (enter, update, exit).
     pub last_update_trace_id: Uuid,
 
-    /// Event timestamp of the last event to trigger a [`Position`] update.
+    /// Timestamp of the last event to trigger a [`Position`] state change (enter, update, exit).
     pub last_update_timestamp: DateTime<Utc>,
 
-    /// Trace UUID of the MarketEvent that triggered the exiting of this [`Position`].
-    pub exit_trace_id: Option<Uuid>,
-
-    /// MarketEvent timestamp that triggered the exiting of this [`Position`].
-    pub exit_timestamp: Option<DateTime<Utc>>,
-
-    /// Portfolio [`EquityPoint`] calculated after the [`Position`] exit.
-    pub exit_equity_point: Option<EquityPoint>,
+    /// Portfolio [`Balance`] calculated at the point of exiting a [`Position`].
+    pub exit_balance: Option<Balance>,
 }
 
 impl Default for PositionMeta {
     fn default() -> Self {
         Self {
-            enter_trace_id: Default::default(),
+            enter_trace_id: Uuid::new_v4(),
             enter_timestamp: Utc::now(),
-            last_update_trace_id: Default::default(),
+            last_update_trace_id: Uuid::new_v4(),
             last_update_timestamp: Utc::now(),
-            exit_trace_id: None,
-            exit_timestamp: None,
-            exit_equity_point: None,
-        }
-    }
-}
-
-/// Equity value at a point in time.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
-pub struct EquityPoint {
-    pub equity: f64,
-    pub timestamp: DateTime<Utc>,
-}
-
-impl Default for EquityPoint {
-    fn default() -> Self {
-        Self {
-            equity: 0.0,
-            timestamp: Utc::now(),
-        }
-    }
-}
-
-impl EquityPoint {
-    /// Updates using the input [`Position`]'s PnL & associated timestamp.
-    pub fn update(&mut self, position: &Position) {
-        match position.meta.exit_timestamp {
-            None => {
-                // Position is not exited
-                self.equity += position.unrealised_profit_loss;
-                self.timestamp = position.meta.last_update_timestamp;
-            }
-            Some(exit_timestamp) => {
-                self.equity += position.realised_profit_loss;
-                self.timestamp = exit_timestamp;
-            }
+            exit_balance: None,
         }
     }
 }
@@ -614,24 +567,28 @@ impl From<&mut Position> for PositionUpdate {
 pub struct PositionExit {
     /// Unique identifier for a [`Position`], generated from an exchange, symbol, and enter_timestamp.
     pub position_id: String,
-    /// Trace UUID of the last event to trigger a [`Position`] update.
-    pub last_update_trace_id: Uuid,
-    /// Event timestamp of the last event to trigger a [`Position`] update.
-    pub last_update_timestamp: DateTime<Utc>,
-    /// Trace UUID of the MarketEvent that triggered the exiting of this [`Position`].
+
+    /// Trace UUID linking the last chain of events to trigger a [`Position`] exit.
     pub exit_trace_id: Uuid,
-    /// MarketEvent timestamp that triggered the exiting of this [`Position`].
+
+    /// FillEvent timestamp that triggered the exiting of this [`Position`].
     pub exit_timestamp: DateTime<Utc>,
-    /// Portfolio [`EquityPoint`] calculated after the [`Position`] exit.
-    pub exit_equity_point: EquityPoint,
+
+    /// Portfolio [`Balance`] calculated at the point of exiting a [`Position`].
+    pub exit_balance: Balance,
+
     /// All fees types incurred from exiting a [`Position`], and their associated [`FeeAmount`].
     pub exit_fees: Fees,
+
     /// Total of exit_fees incurred. Sum of every [`FeeAmount`] in [`Fees`] when entering a [`Position`].
     pub exit_fees_total: FeeAmount,
+
     /// Exit average price excluding the exit_fees_total.
     pub exit_avg_price_gross: f64,
+
     /// abs(Quantity) * exit_avg_price_gross.
     pub exit_value_gross: f64,
+
     /// Realised P&L after the [`Position`] has closed.
     pub realised_profit_loss: f64,
 }
@@ -642,20 +599,9 @@ impl TryFrom<&mut Position> for PositionExit {
     fn try_from(exited_position: &mut Position) -> Result<Self, Self::Error> {
         Ok(Self {
             position_id: exited_position.position_id.clone(),
-            last_update_trace_id: exited_position.meta.last_update_trace_id,
-            last_update_timestamp: exited_position.meta.last_update_timestamp,
-            exit_trace_id: exited_position
-                .meta
-                .exit_trace_id
-                .ok_or(PortfolioError::PositionExitError)?,
-            exit_timestamp: exited_position
-                .meta
-                .exit_timestamp
-                .ok_or(PortfolioError::PositionExitError)?,
-            exit_equity_point: exited_position
-                .meta
-                .exit_equity_point
-                .ok_or(PortfolioError::PositionExitError)?,
+            exit_trace_id: exited_position.meta.last_update_trace_id,
+            exit_timestamp: exited_position.meta.last_update_timestamp,
+            exit_balance: exited_position.meta.exit_balance.ok_or(PortfolioError::PositionExitError)?,
             exit_fees: exited_position.exit_fees,
             exit_fees_total: exited_position.exit_fees_total,
             exit_avg_price_gross: exited_position.exit_avg_price_gross,
@@ -684,7 +630,7 @@ mod tests {
             network: 1.0,
         };
 
-        let position = Position::enter(&Uuid::new_v4(), &input_fill).unwrap();
+        let position = Position::enter(Uuid::new_v4(), &input_fill).unwrap();
 
         assert_eq!(position.direction, Direction::Long);
         assert_eq!(position.quantity, input_fill.quantity);
@@ -721,7 +667,7 @@ mod tests {
             network: 1.0,
         };
 
-        let position = Position::enter(&Uuid::new_v4(), &input_fill).unwrap();
+        let position = Position::enter(Uuid::new_v4(), &input_fill).unwrap();
 
         assert_eq!(position.direction, Direction::Short);
         assert_eq!(position.quantity, input_fill.quantity);
@@ -758,7 +704,7 @@ mod tests {
             network: 1.0,
         };
 
-        if let Err(_) = Position::enter(&Uuid::new_v4(), &input_fill) {
+        if let Err(_) = Position::enter(Uuid::new_v4(), &input_fill) {
             Ok(())
         } else {
             Err(String::from(
@@ -780,7 +726,7 @@ mod tests {
             network: 1.0,
         };
 
-        if let Err(_) = Position::enter(&Uuid::new_v4(), &input_fill) {
+        if let Err(_) = Position::enter(Uuid::new_v4(), &input_fill) {
             Ok(())
         } else {
             Err(String::from(
@@ -802,7 +748,7 @@ mod tests {
             network: 1.0,
         };
 
-        if let Err(_) = Position::enter(&Uuid::new_v4(), &input_fill) {
+        if let Err(_) = Position::enter(Uuid::new_v4(), &input_fill) {
             Ok(())
         } else {
             Err(String::from(
@@ -824,7 +770,7 @@ mod tests {
             network: 1.0,
         };
 
-        if let Err(_) = Position::enter(&Uuid::new_v4(), &input_fill) {
+        if let Err(_) = Position::enter(Uuid::new_v4(), &input_fill) {
             Ok(())
         } else {
             Err(String::from(
@@ -1114,7 +1060,7 @@ mod tests {
 
         // Assert EquityPoint on Exit is correct
         assert_eq!(
-            position.meta.exit_equity_point.unwrap().equity,
+            position.meta.exit_balance.unwrap().equity,
             current_value + (200.0 - 100.0 - 6.0)
         )
     }
@@ -1181,7 +1127,7 @@ mod tests {
 
         // Assert EquityPoint on Exit is correct
         assert_eq!(
-            position.meta.exit_equity_point.unwrap().equity,
+            position.meta.exit_balance.unwrap().equity,
             current_value + (50.0 - 100.0 - 6.0)
         )
     }
@@ -1248,7 +1194,7 @@ mod tests {
 
         // Assert EquityPoint on Exit is correct
         assert_eq!(
-            position.meta.exit_equity_point.unwrap().equity,
+            position.meta.exit_balance.unwrap().equity,
             current_value + (100.0 - 50.0 - 6.0)
         )
     }
@@ -1315,7 +1261,7 @@ mod tests {
 
         // Assert EquityPoint on Exit is correct
         assert_eq!(
-            position.meta.exit_equity_point.unwrap().equity,
+            position.meta.exit_balance.unwrap().equity,
             current_value + (100.0 - 200.0 - 6.0)
         )
     }
@@ -1650,7 +1596,7 @@ mod tests {
 
         let base_timestamp = Utc::now();
 
-        let mut equity_point = EquityPoint {
+        let mut equity_point = Balance {
             equity: 100.0,
             timestamp: base_timestamp,
         };
@@ -1746,7 +1692,7 @@ mod tests {
         let mut exited_position = position();
         exited_position.meta.exit_trace_id = Some(Uuid::new_v4());
         exited_position.meta.exit_timestamp = Some(timestamp);
-        exited_position.meta.exit_equity_point = Some(EquityPoint {
+        exited_position.meta.exit_balance = Some(Balance {
             equity: 0.0,
             timestamp,
         });
@@ -1764,8 +1710,8 @@ mod tests {
         let actual_exit = PositionExit::try_from(&mut exited_position).unwrap();
 
         assert_eq!(
-            actual_exit.exit_equity_point,
-            exited_position.meta.exit_equity_point.unwrap()
+            actual_exit.exit_balance,
+            exited_position.meta.exit_balance.unwrap()
         );
         assert_eq!(actual_exit.exit_fees, exited_position.exit_fees);
         assert_eq!(actual_exit.exit_fees_total, exited_position.exit_fees_total);
@@ -1788,7 +1734,7 @@ mod tests {
         let mut exited_position = position();
         exited_position.meta.exit_trace_id = None;
         exited_position.meta.exit_timestamp = None;
-        exited_position.meta.exit_equity_point = None;
+        exited_position.meta.exit_balance = None;
 
         assert!(PositionExit::try_from(&mut exited_position).is_err());
     }
