@@ -61,10 +61,11 @@ pub trait TableBuilder {
 
 pub fn combine<'a, Iter, T>(builders: Iter) -> Table
 where
-    Iter: Iterator<Item = (String, T)>,
+    Iter: IntoIterator<Item = (String, T)>,
     T: TableBuilder
 {
     builders
+        .into_iter()
         .enumerate()
         .fold(Table::new(), |mut table, (index, (id, builder))| {
             // Set Table titles using the first builder

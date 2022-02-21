@@ -321,7 +321,8 @@ where
             .filter_map(|market| {
                 match self.portfolio.lock().get_statistics(&market.market_id()) {
                     Ok(statistics) => {
-                        Some((market.market_id(), statistics))
+                        let market_id = format!("{} | {}", market.exchange, market.symbol);
+                        Some((market_id, statistics))
                     },
                     Err(err) => {
                         error!(
@@ -348,11 +349,11 @@ where
                     "failed to generate Statistics summary for trading session"
                 );
             });
-        let mut all_stats = Vec::from_iter([("Total".to_owned(), self.statistics_summary)]);
 
-        // Build Table
-        all_stats.extend(stats_per_market);
-        summary::combine(all_stats.into_iter())
+        // Combine Total & Per-Market Statistics Into Table
+        summary::combine(
+            stats_per_market.chain([("Total".to_owned(), self.statistics_summary)])
+        )
     }
 }
 
