@@ -70,7 +70,8 @@ where
     /// `HashMap` containing a [`Command`] transmitter for every [`Trader`] associated with this
     /// [`Engine`].
     pub trader_command_txs: HashMap<Market, mpsc::Sender<Command>>,
-    ///
+    /// Uses trading session's exited [`Position`]s to calculate an average statistical summary
+    /// across all [`Market`]s traded.
     pub statistics_summary: Statistic
 }
 
@@ -108,7 +109,8 @@ where
     /// `HashMap` containing a [`Command`] transmitter for every [`Trader`] associated with this
     /// [`Engine`].
     trader_command_txs: HashMap<Market, mpsc::Sender<Command>>,
-    ///
+    /// Uses trading session's exited [`Position`]s to calculate an average statistical summary
+    /// across all [`Market`]s traded.
     statistics_summary: Statistic
 
 }
@@ -128,7 +130,6 @@ where
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send + 'static,
     Execution: ExecutionClient + Send + 'static,
-    // Vec<(Market, Statistic)>: TablePrinter
 {
     /// Constructs a new trading [`Engine`] instance using the provided [`EngineLego`].
     pub fn new(lego: EngineLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>) -> Self {
@@ -313,6 +314,8 @@ where
         }
     }
 
+    /// Generate a trading session summary. Uses the Portfolio's statistics per [`Market`] in
+    /// combination with the average statistics across all [`Market`]s traded.
     fn generate_session_summary(mut self) -> Table {
         // Fetch statistics for each Market
         let stats_per_market = self
