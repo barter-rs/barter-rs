@@ -1,78 +1,82 @@
-use crate::portfolio::position::Position;
+use crate::{Market, MarketId};
+use crate::portfolio::position::{Position, PositionId};
 use crate::portfolio::repository::error::RepositoryError;
+use crate::portfolio::Balance;
 use uuid::Uuid;
 
+/// Barter repository module specific errors.
 pub mod error;
+
+/// In-Memory repository for convenient state keeping. No fault tolerant guarantees.
 pub mod in_memory;
+
+/// Redis repository for state keeping.
 pub mod redis;
 
-/// Handles the reading & writing of a [Position] to/from the persistence layer.
+/// Handles the reading & writing of a [`Position`] to/from the persistence layer.
 pub trait PositionHandler {
-    /// Upsert the [Position] at it's position_id.
-    fn set_position(
+    /// Upsert the open [`Position`] using it's [`PositionId`].
+    fn set_open_position(&mut self, position: Position) -> Result<(), RepositoryError>;
+
+    /// Get an open [`Position`] using the [`PositionId`] provided.
+    fn get_open_position(
         &mut self,
-        portfolio_id: &Uuid,
-        position: Position,
-    ) -> Result<(), RepositoryError>;
-    /// Get the [Position] using it's position_id.
-    fn get_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError>;
-    /// Remove the [Position] found at it's position_id.
+        position_id: &PositionId,
+    ) -> Result<Option<Position>, RepositoryError>;
+
+    /// Get all open [`Position`]s associated with a Portfolio.
+    fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
+        &mut self,
+        engine_id: Uuid,
+        markets: Markets,
+    ) -> Result<Vec<Position>, RepositoryError>;
+
+    /// Remove the [`Position`] at the [`PositionId`].
     fn remove_position(
         &mut self,
-        position_id: &String,
+        position_id: &PositionId,
     ) -> Result<Option<Position>, RepositoryError>;
-    /// Append a closed [Position] to the Portfolio's closed position list.
-    fn set_closed_position(
+
+    /// Append an exited [`Position`] to the Portfolio's exited position list.
+    fn set_exited_position(
         &mut self,
-        portfolio_id: &Uuid,
+        engine_id: Uuid,
         position: Position,
     ) -> Result<(), RepositoryError>;
-    /// Get every closed [Position] associated with a Portfolio id.
-    fn get_closed_positions(
+
+    /// Get every exited [`Position`] associated with the engine_id.
+    fn get_exited_positions(
         &mut self,
-        portfolio_id: &Uuid,
-    ) -> Result<Option<Vec<Position>>, RepositoryError>;
+        engine_id: Uuid,
+    ) -> Result<Vec<Position>, RepositoryError>;
 }
 
-/// Handles the reading & writing of a Portfolio's current value to/from the persistence layer.
-pub trait ValueHandler {
-    /// Upsert the Portfolio current value as it's portfolio_id.
-    fn set_current_value(&mut self, portfolio_id: &Uuid, value: f64)
-        -> Result<(), RepositoryError>;
-    /// Get the Portfolio current value using it's portfolio_id.
-    fn get_current_value(&mut self, portfolio_id: &Uuid) -> Result<f64, RepositoryError>;
+/// Handles the reading & writing of a Portfolio's current balance to/from the persistence layer.
+pub trait BalanceHandler {
+    /// Upsert the Portfolio [`Balance`] at the engine_id.
+    fn set_balance(&mut self, engine_id: Uuid, balance: Balance) -> Result<(), RepositoryError>;
+    /// Get the Portfolio [`Balance`] using the engine_id provided.
+    fn get_balance(&mut self, engine_id: Uuid) -> Result<Balance, RepositoryError>;
 }
 
-/// Handles the reading & writing of a Portfolio's current cash to/from the persistence layer.
-pub trait CashHandler {
-    /// Upsert the Portfolio current cash as it's portfolio_id.
-    fn set_current_cash(&mut self, portfolio_id: &Uuid, cash: f64) -> Result<(), RepositoryError>;
-    /// Get the Portfolio current cash using it's portfolio_id.
-    fn get_current_cash(&mut self, portfolio_id: &Uuid) -> Result<f64, RepositoryError>;
+/// Handles the reading & writing of a Portfolio's statistics for each of it's
+/// markets, where each market is represented by a [`MarketId`].
+pub trait StatisticHandler<Statistic> {
+    /// Upsert the market statistics at the [`MarketId`] provided.
+    fn set_statistics(
+        &mut self,
+        market_id: &MarketId,
+        statistic: Statistic,
+    ) -> Result<(), RepositoryError>;
+    /// Get the market statistics using the [`MarketId`] provided.
+    fn get_statistics(&mut self, market_id: &MarketId) -> Result<Statistic, RepositoryError>;
 }
 
-/// Returns a [Position] unique identifier given a portfolio_id, exchange & symbol.
-pub fn determine_position_id(portfolio_id: &Uuid, exchange: &str, symbol: &String) -> String {
-    format!(
-        "{}_{}_{}_{}",
-        portfolio_id.to_string(),
-        exchange,
-        symbol,
-        "position"
-    )
-}
+/// Communicates a String represents a unique identifier for all a Portfolio's exited [`Position`]s.
+/// Used to append new exited [`Position`]s to the entry in the [`PositionHandler`].
+pub type ExitedPositionsId = String;
 
-/// Returns a unique identifier for a Portfolio's closed positions, given a portfolio_id.
-pub fn determine_closed_positions_id(portfolio_id: &Uuid) -> String {
-    format!("{}_closed_positions", portfolio_id.to_string())
-}
-
-/// Returns a unique identifier for a Portfolio's current value, given a portfolio_id.
-pub fn determine_value_id(portfolio_id: &Uuid) -> String {
-    format!("{}_value", portfolio_id.to_string())
-}
-
-/// Returns a unique identifier for a Portfolio's current cash, given a portfolio_id.\
-pub fn determine_cash_id(portfolio_id: &Uuid) -> String {
-    format!("{}_cash", portfolio_id.to_string())
+/// Returns the unique identifier for a Portfolio's exited [`Position`]s, given an engine_id.
+pub fn determine_exited_positions_id(engine_id: Uuid) -> ExitedPositionsId {
+    format!("positions_exited_{}", engine_id)
 }

@@ -1,280 +1,340 @@
 use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::engine::error::EngineError;
-use crate::engine::TerminationMessage;
-use crate::event::{Event, EventSink};
-use crate::execution::FillGenerator;
+use crate::engine::Command;
+use crate::event::{Event, MessageTransmitter};
+use crate::execution::ExecutionClient;
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
-use crate::strategy::SignalGenerator;
-use serde::{Deserialize, Serialize};
+use crate::strategy::{SignalForceExit, SignalGenerator};
+use crate::Market;
 use std::collections::VecDeque;
 use std::fmt::Debug;
-use std::sync::{Arc, Mutex};
-use tokio::sync::broadcast;
-use tokio::sync::broadcast::error::TryRecvError;
+use std::marker::PhantomData;
+use std::sync::Arc;
+use parking_lot::Mutex;
+use tokio::sync::mpsc;
+use tokio::sync::mpsc::error::TryRecvError;
 use tracing::{debug, info, warn};
+use uuid::Uuid;
+use serde::Serialize;
 
-/// Communicates if a process has received a termination command.
-#[derive(Debug, Deserialize, Serialize)]
-enum Termination {
-    Received,
-    Waiting,
+/// Communicates a String represents a unique [`Trader`] identifier.
+pub type TraderId = String;
+
+/// Returns a unique identifier for a [`Trader`] given an engine_id, exchange & symbol.
+pub fn determine_trader_id(engine_id: Uuid, exchange: &str, symbol: &str) -> TraderId {
+    format!("{}_trader_{}_{}", engine_id, exchange, symbol)
 }
 
-/// Lego components for constructing a [Trader] via the new() constructor method.
+/// Lego components for constructing a [`Trader`] via the new() constructor method.
 #[derive(Debug)]
-pub struct TraderLego<Portfolio, Data, Strategy, Execution>
+pub struct TraderLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug,
-    Data: Continuer + MarketGenerator + Debug,
-    Strategy: SignalGenerator + Debug,
-    Execution: FillGenerator + Debug,
+    EventTx: MessageTransmitter<Event>,
+    Statistic: Serialize + Send,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    Data: Continuer + MarketGenerator,
+    Strategy: SignalGenerator,
+    Execution: ExecutionClient,
 {
-    /// broadcast::Receiver for receiving remote shutdown [TerminationMessage]s.
-    pub termination_rx: broadcast::Receiver<TerminationMessage>,
-    /// Sink for sending every [Event] the [Trader] encounters to an external source of choice.
-    pub event_sink: EventSink,
-    /// Shared-access to a global Portfolio instance that implements [MarketUpdater],
-    /// [OrderGenerator] & [FillUpdater]. Generates [Event::Order]s, as well as reacts to
-    /// [Event::Market]s, [Event::Signal]s, [Event::Fill]s.
+    /// Identifier for the [`Engine`] this [`Trader`] is associated with (1-to-many relationship)..
+    pub engine_id: Uuid,
+    /// Details the exchange (eg/ "binance") & pair symbol (eg/ btc_usd) this [`Trader`] is trading on.
+    market: Market,
+    /// mpsc::Receiver for receiving [`Command`]s from a remote source.
+    pub command_rx: mpsc::Receiver<Command>,
+    /// [`Event`] transmitter for sending every [`Event`] the [`Trader`] encounters to an external sink.
+    pub event_tx: EventTx,
+    /// Shared-access to a global Portfolio instance that implements [`MarketUpdater`],
+    /// [`OrderGenerator`] & [`FillUpdater`]. Generates [`Event::Order`]s, as well as reacts to
+    /// [`Event::Market`]s, [`Event::Signal`]s, [`Event::Fill`]s.
     pub portfolio: Arc<Mutex<Portfolio>>,
-    /// Data Handler implementing [Continuer] & [MarketGenerator], generates [Event::Market]s.
+    /// Data Handler implementing [`Continuer`] & [`MarketGenerator`], generates [`Event::Market`]s.
     pub data: Data,
-    /// Strategy implementing [SignalGenerator], generates [Event::Signal]s.
+    /// Strategy implementing [`SignalGenerator`], generates [`Event::Signal`]s.
     pub strategy: Strategy,
-    /// Execution Handler implementing [FillGenerator], generates [Event::Fill]s.
+    /// Execution Handler implementing [`FillGenerator`], generates [`Event::Fill`]s.
     pub execution: Execution,
+    _statistic_marker: PhantomData<Statistic>,
 }
 
 /// Trader instance capable of trading a single market pair with it's own Data Handler, Strategy &
-/// Execution Handler, as well as shared access to a global Portfolio instance. A graceful remote
-/// shutdown is made possible by sending a [TerminationMessage] to the Trader's broadcast::Receiver
-/// termination_rx.
+/// Execution Handler, as well as shared access to a global Portfolio instance. It has a many-to-1
+/// relationship with an Engine/Portfolio. A graceful remote shutdown is made possible by sending
+/// a [`Command::Terminate`] to the Trader's
+/// mpsc::Receiver command_rx.
 #[derive(Debug)]
-pub struct Trader<Portfolio, Data, Strategy, Execution>
+pub struct Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
+    EventTx: MessageTransmitter<Event>,
+    Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
-    Execution: FillGenerator + Send,
+    Execution: ExecutionClient + Send,
 {
-    /// broadcast::Receiver for receiving remote shutdown [TerminationMessage]s.
-    termination_rx: broadcast::Receiver<TerminationMessage>,
-    /// Sink for sending every [Event] the [Trader] encounters to an external source of choice.
-    event_sink: EventSink,
-    /// Queue for storing [Event]s used by the trading loop in the run() method.
+    /// Identifier for the [`Engine`] this [`Trader`] is associated with (1-to-many relationship).
+    engine_id: Uuid,
+    /// Details the exchange (eg/ "binance") & pair symbol (eg/ btc_usd) this [`Trader`] is trading on.
+    market: Market,
+    /// mpsc::Receiver for receiving [`Command`]s from a remote source.
+    command_rx: mpsc::Receiver<Command>,
+    /// [`Event`] transmitter for sending every [`Event`] the [`Trader`] encounters to an external
+    /// sink.
+    event_tx: EventTx,
+    /// Queue for storing [`Event`]s used by the trading loop in the run() method.
     event_q: VecDeque<Event>,
-    /// Shared-access to a global Portfolio instance that implements [MarketUpdater],
-    /// [OrderGenerator] & [FillUpdater]. Generates [Event::Order]s, as well as reacts to
-    /// [Event::Market]s, [Event::Signal]s, [Event::Fill]s.
+    /// Shared-access to a global Portfolio instance that implements [`MarketUpdater`],
+    /// [`OrderGenerator`] & [`FillUpdater`]. Generates [`Event::Order`]s, as well as reacts to
+    /// [`Event::Market`]s, [`Event::Signal`]s, [`Event::Fill`]s.
     portfolio: Arc<Mutex<Portfolio>>,
-    /// Data Handler implementing [Continuer] & [MarketGenerator], generates [Event::Market]s.
+    /// Data Handler implementing [`Continuer`] & [`MarketGenerator`], generates [`Event::Market`]s.
     data: Data,
-    /// Strategy implementing [SignalGenerator], generates [Event::Signal]s.
+    /// Strategy implementing [`SignalGenerator`], generates [`Event::Signal`]s.
     strategy: Strategy,
-    /// Execution Handler implementing [FillGenerator], generates [Event::Fill]s.
+    /// Execution Handler implementing [`FillGenerator`], generates [`Event::Fill`]s.
     execution: Execution,
+    _statistic_marker: PhantomData<Statistic>,
 }
 
-impl<Portfolio, Data, Strategy, Execution> Trader<Portfolio, Data, Strategy, Execution>
+impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+    Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Debug,
-    Data: Continuer + MarketGenerator + Debug + Send,
-    Strategy: SignalGenerator + Debug + Send,
-    Execution: FillGenerator + Debug + Send,
+    EventTx: MessageTransmitter<Event>,
+    Statistic: Serialize + Send,
+    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    Data: Continuer + MarketGenerator + Send,
+    Strategy: SignalGenerator + Send,
+    Execution: ExecutionClient + Send,
 {
-    /// Constructs a new [Trader] instance using the provided [TraderLego].
-    pub fn new(lego: TraderLego<Portfolio, Data, Strategy, Execution>) -> Self {
-        debug!(
-            "Constructing a new Trader instance with TraderLego: {:?}",
-            lego
+    /// Constructs a new [`Trader`] instance using the provided [`TraderLego`].
+    pub fn new(lego: TraderLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>) -> Self {
+        info!(
+            engine_id = &*lego.engine_id.to_string(),
+            market = &*format!("{:?}", lego.market),
+            "constructed new Trader instance"
         );
+
         Self {
-            termination_rx: lego.termination_rx,
-            event_sink: lego.event_sink,
+            engine_id: lego.engine_id,
+            market: lego.market,
+            command_rx: lego.command_rx,
+            event_tx: lego.event_tx,
             event_q: VecDeque::with_capacity(4),
             portfolio: lego.portfolio,
             data: lego.data,
             strategy: lego.strategy,
             execution: lego.execution,
+            _statistic_marker: PhantomData::default(),
         }
     }
 
-    /// Builder to construct [Trader] instances.
-    pub fn builder() -> TraderBuilder<Portfolio, Data, Strategy, Execution> {
+    /// Builder to construct [`Trader`] instances.
+    pub fn builder() -> TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution> {
         TraderBuilder::new()
     }
 
-    /// Run trading event-loop for this [Trader] instance. Loop will run until [Trader] received a
-    /// [TerminationMessage] via it's termination_rx broadcast::Receiver.
+    /// Run trading event-loop for this [`Trader`] instance. Loop will run until [`Trader`] receives
+    /// a [`Command::Terminate`] via the mpsc::Receiver command_rx, or the data
+    /// [`Continuer::can_continue`] returns [`Continuation::Stop`]
     pub fn run(mut self) {
         // Run trading loop for this Trader instance
-        loop {
-            // If the trading loop should_continue, populate event_q with the next MarketEvent
-            match self.should_continue() {
-                Continuation::Continue => {
-                    if let Some(market_event) = self.data.generate_market() {
-                        self.event_q.push_back(Event::Market(market_event))
+        'trading: loop {
+            // Check for new remote Commands before continuing to generate another MarketEvent
+            while let Some(command) = self.receive_remote_command() {
+                match command {
+                    Command::Terminate(_) => break 'trading,
+                    Command::ExitPosition(market) => {
+                        self.event_q
+                            .push_back(Event::SignalForceExit(SignalForceExit::new(market)));
                     }
+                    _ => continue,
                 }
-                Continuation::Stop => break,
             }
 
-            // Handle Events (Market, Signal, Order, Fill) in the event_q
+            // If the trading loop should_continue, populate event_q with the next MarketEvent
+            match self.data.can_continue() {
+                Continuation::Continue => {
+                    if let Some(market_event) = self.data.generate_market() {
+                        self.event_tx.send(Event::Market(market_event.clone()));
+                        self.event_q.push_back(Event::Market(market_event));
+                    }
+                }
+                Continuation::Stop => break 'trading,
+            }
+
+            // Handle Events in the event_q
             // '--> While loop will break when event_q is empty and requires another MarketEvent
             while let Some(event) = self.event_q.pop_back() {
                 match event {
                     Event::Market(market) => {
                         if let Some(signal) = self.strategy.generate_signal(&market) {
+                            self.event_tx.send(Event::Signal(signal.clone()));
                             self.event_q.push_back(Event::Signal(signal));
                         }
-                        self.portfolio
-                            .lock()
-                            .expect("Failed to unlock Mutex<Portfolio - poisoned")
-                            .update_from_market(&market)
-                            .expect("Failed to update portfolio from market");
 
-                        // Send MarketEvent to EventSink
-                        self.event_sink.send(Event::Market(market));
+                        if let Some(position_update) = self
+                            .portfolio
+                            .lock()
+                            .update_from_market(&market)
+                            .expect("failed to update Portfolio from market")
+                        {
+                            self.event_tx.send(Event::PositionUpdate(position_update));
+                        }
                     }
 
                     Event::Signal(signal) => {
                         if let Some(order) = self
                             .portfolio
                             .lock()
-                            .expect("Failed to unlock Mutex<Portfolio - poisoned")
                             .generate_order(&signal)
-                            .expect("Failed to generate order")
+                            .expect("failed to generate order")
                         {
-                            self.event_q.push_back(Event::Order(order));
+                            self.event_tx.send(Event::OrderNew(order.clone()));
+                            self.event_q.push_back(Event::OrderNew(order));
                         }
-
-                        // Send SignalEvent to EventSink
-                        self.event_sink.send(Event::Signal(signal));
                     }
 
-                    Event::Order(order) => {
-                        self.event_q.push_back(Event::Fill(
-                            self.execution
-                                .generate_fill(&order)
-                                .expect("Failed to generate fill"),
-                        ));
+                    Event::SignalForceExit(signal_force_exit) => {
+                        if let Some(order) = self
+                            .portfolio
+                            .lock()
+                            .generate_exit_order(signal_force_exit)
+                            .expect("failed to generate forced exit order")
+                        {
+                            self.event_tx.send(Event::OrderNew(order.clone()));
+                            self.event_q.push_back(Event::OrderNew(order));
+                        }
+                    }
 
-                        // Send OrderEvent to EventSink
-                        self.event_sink.send(Event::Order(order));
+                    Event::OrderNew(order) => {
+                        let fill = self
+                            .execution
+                            .generate_fill(&order)
+                            .expect("failed to generate Fill");
+
+                        self.event_tx.send(Event::Fill(fill.clone()));
+                        self.event_q.push_back(Event::Fill(fill));
                     }
 
                     Event::Fill(fill) => {
-                        // If FillEvent was an EXIT, send closed Position to EventSink
-                        if let Some(closed_position) = self
+                        let fill_side_effect_events = self
                             .portfolio
                             .lock()
-                            .expect("Failed to unlock Mutex<Portfolio - poisoned")
                             .update_from_fill(&fill)
-                            .expect("Failed to update portfolio from fill")
-                        {
-                            self.event_sink.send(Event::ClosedPosition(closed_position));
-                        }
+                            .expect("failed to update Portfolio from fill");
 
-                        // Send FillEvent to EventSink
-                        self.event_sink.send(Event::Fill(fill));
+                        self.event_tx.send_many(fill_side_effect_events);
                     }
-
                     _ => {}
                 }
             }
+
+            debug!(
+                engine_id = &*self.engine_id.to_string(),
+                market = &*format!("{:?}", self.market),
+                "Trader trading loop stopped"
+            );
         }
     }
 
-    /// Determines whether the [Trader] instance's trading event-loop should continue. Returns a
-    /// [Continuation] variant based on if the Data Handler can continue, as well as if a remote
-    /// [TerminationMessage] has been received.
-    fn should_continue(&mut self) -> Continuation {
-        match (
-            self.received_termination_command(),
-            self.data.can_continue(),
-        ) {
-            (Termination::Waiting, Continuation::Continue) => Continuation::Continue,
-            _ => Continuation::Stop,
-        }
-    }
-
-    /// Returns a [Termination] variant depending on whether a remote [TerminationMessage] has
-    /// been received.
-    fn received_termination_command(&mut self) -> Termination {
-        // Check termination channel to determine if Trader should continue
-        match self.termination_rx.try_recv() {
-            Ok(message) => {
+    /// Returns a [`Command`] if one has been received.
+    fn receive_remote_command(&mut self) -> Option<Command> {
+        match self.command_rx.try_recv() {
+            Ok(command) => {
                 debug!(
-                    "Stopping Trader after receiving termination message: {}",
-                    message
+                    engine_id = &*self.engine_id.to_string(),
+                    market = &*format!("{:?}", self.market),
+                    command = &*format!("{:?}", command),
+                    "Trader received remote command"
                 );
-                Termination::Received
+                Some(command)
             }
             Err(err) => match err {
-                TryRecvError::Empty => Termination::Waiting,
-                TryRecvError::Closed => {
+                TryRecvError::Empty => None,
+                TryRecvError::Disconnected => {
                     warn!(
-                        "Stopping Trader after External termination transmitter dropped \
-                                without sending a termination message"
+                        action = "synthesising a Command::Terminate",
+                        "remote Command transmitter has been dropped"
                     );
-                    Termination::Received
-                }
-                TryRecvError::Lagged(_) => {
-                    info!("Stopping Trader - termination command received but message lost");
-                    Termination::Received
+                    Some(Command::Terminate(
+                        "remote command transmitter dropped".to_owned(),
+                    ))
                 }
             },
         }
     }
 }
 
-/// Builder to construct [Trader] instances.
-#[derive(Debug)]
-pub struct TraderBuilder<Portfolio, Data, Strategy, Execution>
+/// Builder to construct [`Trader`] instances.
+#[derive(Debug, Default)]
+pub struct TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
+    EventTx: MessageTransmitter<Event>,
+    Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
     Data: Continuer + MarketGenerator,
     Strategy: SignalGenerator,
-    Execution: FillGenerator,
+    Execution: ExecutionClient,
 {
-    termination_rx: Option<broadcast::Receiver<TerminationMessage>>,
-    event_sink: Option<EventSink>,
-    event_q: Option<VecDeque<Event>>,
+    engine_id: Option<Uuid>,
+    market: Option<Market>,
+    command_rx: Option<mpsc::Receiver<Command>>,
+    event_tx: Option<EventTx>,
     portfolio: Option<Arc<Mutex<Portfolio>>>,
     data: Option<Data>,
     strategy: Option<Strategy>,
     execution: Option<Execution>,
+    _statistic_marker: Option<PhantomData<Statistic>>,
 }
 
-impl<Portfolio, Data, Strategy, Execution> TraderBuilder<Portfolio, Data, Strategy, Execution>
+impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+    TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
+    EventTx: MessageTransmitter<Event>,
+    Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
-    Execution: FillGenerator + Send,
+    Execution: ExecutionClient + Send,
 {
     fn new() -> Self {
         Self {
-            termination_rx: None,
-            event_sink: None,
-            event_q: None,
+            engine_id: None,
+            market: None,
+            command_rx: None,
+            event_tx: None,
             portfolio: None,
             data: None,
             strategy: None,
             execution: None,
+            _statistic_marker: None,
         }
     }
 
-    pub fn termination_rx(self, value: broadcast::Receiver<TerminationMessage>) -> Self {
+    pub fn engine_id(self, value: Uuid) -> Self {
         Self {
-            termination_rx: Some(value),
+            engine_id: Some(value),
             ..self
         }
     }
 
-    pub fn event_sink(self, value: EventSink) -> Self {
+    pub fn market(self, value: Market) -> Self {
         Self {
-            event_sink: Some(value),
+            market: Some(value),
+            ..self
+        }
+    }
+
+    pub fn command_rx(self, value: mpsc::Receiver<Command>) -> Self {
+        Self {
+            command_rx: Some(value),
+            ..self
+        }
+    }
+
+    pub fn event_tx(self, value: EventTx) -> Self {
+        Self {
+            event_tx: Some(value),
             ..self
         }
     }
@@ -307,22 +367,20 @@ where
         }
     }
 
-    pub fn build(self) -> Result<Trader<Portfolio, Data, Strategy, Execution>, EngineError> {
-        let termination_rx = self.termination_rx.ok_or(EngineError::BuilderIncomplete)?;
-        let event_sink = self.event_sink.ok_or(EngineError::BuilderIncomplete)?;
-        let portfolio = self.portfolio.ok_or(EngineError::BuilderIncomplete)?;
-        let data = self.data.ok_or(EngineError::BuilderIncomplete)?;
-        let strategy = self.strategy.ok_or(EngineError::BuilderIncomplete)?;
-        let execution = self.execution.ok_or(EngineError::BuilderIncomplete)?;
-
+    pub fn build(
+        self,
+    ) -> Result<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
         Ok(Trader {
-            termination_rx,
-            event_sink,
-            event_q: VecDeque::with_capacity(4),
-            portfolio,
-            data,
-            strategy,
-            execution,
+            engine_id: self.engine_id.ok_or(EngineError::BuilderIncomplete)?,
+            market: self.market.ok_or(EngineError::BuilderIncomplete)?,
+            command_rx: self.command_rx.ok_or(EngineError::BuilderIncomplete)?,
+            event_tx: self.event_tx.ok_or(EngineError::BuilderIncomplete)?,
+            event_q: VecDeque::with_capacity(2),
+            portfolio: self.portfolio.ok_or(EngineError::BuilderIncomplete)?,
+            data: self.data.ok_or(EngineError::BuilderIncomplete)?,
+            strategy: self.strategy.ok_or(EngineError::BuilderIncomplete)?,
+            execution: self.execution.ok_or(EngineError::BuilderIncomplete)?,
+            _statistic_marker: PhantomData::default(),
         })
     }
 }

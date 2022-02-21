@@ -1,17 +1,27 @@
 use crate::portfolio::position::{Direction, Position};
+use crate::statistic::{de_duration_from_secs, se_duration_as_secs};
 use crate::statistic::summary::data::DataSummary;
-use crate::statistic::summary::{PositionSummariser, TablePrinter};
+use crate::statistic::summary::{Initialiser, PositionSummariser, TableBuilder};
 use chrono::{DateTime, Duration, Utc};
-use prettytable::{Row, Table};
+use prettytable::Row;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct PnLReturnSummary {
     pub start_timestamp: DateTime<Utc>,
+    #[serde(deserialize_with = "de_duration_from_secs", serialize_with = "se_duration_as_secs")]
     pub duration: Duration,
     pub trades_per_day: f64,
     pub total: DataSummary,
     pub losses: DataSummary,
+}
+
+impl Initialiser for PnLReturnSummary {
+    type Config = ();
+
+    fn init(_: Self::Config) -> Self {
+        Self::default()
+    }
 }
 
 impl Default for PnLReturnSummary {
@@ -30,7 +40,7 @@ impl PositionSummariser for PnLReturnSummary {
     fn update(&mut self, position: &Position) {
         // Set start timestamp if it's the first trade of the session
         if self.total.count == 0 {
-            self.start_timestamp = position.meta.enter_bar_timestamp;
+            self.start_timestamp = position.meta.enter_timestamp;
         }
 
         // Update duration of trading session & trades per day
@@ -50,12 +60,9 @@ impl PositionSummariser for PnLReturnSummary {
     }
 }
 
-impl TablePrinter for PnLReturnSummary {
-    fn print(&self) {
-        let mut pnl_returns = Table::new();
-
-        let titles = vec![
-            "",
+impl TableBuilder for PnLReturnSummary {
+    fn titles(&self) -> Row {
+        row![
             "Trades",
             "Wins",
             "Losses",
@@ -66,12 +73,12 @@ impl TablePrinter for PnLReturnSummary {
             "Loss Mean Return",
             "Biggest Win",
             "Biggest Loss",
-        ];
+        ]
+    }
 
+    fn row(&self) -> Row {
         let wins = self.total.count - self.losses.count;
-
-        pnl_returns.add_row(row![
-            "Total",
+        row![
             self.total.count.to_string(),
             wins,
             self.losses.count,
@@ -82,10 +89,7 @@ impl TablePrinter for PnLReturnSummary {
             format!("{:.3}", self.losses.mean),
             format!("{:.3}", self.total.dispersion.range.high),
             format!("{:.3}", self.total.dispersion.range.low),
-        ]);
-
-        pnl_returns.set_titles(Row::from(titles));
-        pnl_returns.printstd();
+        ]
     }
 }
 
@@ -103,7 +107,7 @@ impl PnLReturnSummary {
     }
 
     fn update_trading_session_duration(&mut self, position: &Position) {
-        self.duration = match position.meta.exit_bar_timestamp {
+        self.duration = match position.meta.exit_balance {
             None => {
                 // Since Position is not exited, estimate duration w/ last_update_timestamp
                 position
@@ -111,7 +115,7 @@ impl PnLReturnSummary {
                     .last_update_timestamp
                     .signed_duration_since(self.start_timestamp)
             }
-            Some(exit_timestamp) => exit_timestamp.signed_duration_since(self.start_timestamp),
+            Some(exit_balance) => exit_balance.timestamp.signed_duration_since(self.start_timestamp),
         }
     }
 
@@ -121,7 +125,7 @@ impl PnLReturnSummary {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
 pub struct ProfitLossSummary {
     pub long_contracts: f64,
     pub long_pnl: f64,
@@ -137,27 +141,51 @@ pub struct ProfitLossSummary {
 impl PositionSummariser for ProfitLossSummary {
     fn update(&mut self, position: &Position) {
         self.total_contracts += position.quantity.abs();
-        self.total_pnl += position.result_profit_loss;
+        self.total_pnl += position.realised_profit_loss;
         self.total_pnl_per_contract = self.total_pnl / self.total_contracts;
 
         match position.direction {
             Direction::Long => {
                 self.long_contracts += position.quantity.abs();
-                self.long_pnl += position.result_profit_loss;
+                self.long_pnl += position.realised_profit_loss;
                 self.long_pnl_per_contract = self.long_pnl / self.long_contracts;
             }
             Direction::Short => {
                 self.short_contracts += position.quantity.abs();
-                self.short_pnl += position.result_profit_loss;
+                self.short_pnl += position.realised_profit_loss;
                 self.short_pnl_per_contract = self.short_pnl / self.short_contracts;
             }
         }
     }
 }
 
-impl TablePrinter for ProfitLossSummary {
-    fn print(&self) {
-        todo!()
+impl TableBuilder for ProfitLossSummary {
+    fn titles(&self) -> Row {
+        row![
+            "Long Contracts",
+            "Long PnL",
+            "Long PnL Per Contract",
+            "Short Contracts",
+            "Short PnL",
+            "Short PnL Per Contract",
+            "Total Contracts",
+            "Total PnL",
+            "Total PnL Per Contract",
+        ]
+    }
+
+    fn row(&self) -> Row {
+        row![
+            format!("{:.3}", self.long_contracts),
+            format!("{:.3}", self.long_pnl),
+            format!("{:.3}", self.long_pnl_per_contract),
+            format!("{:.3}", self.short_contracts),
+            format!("{:.3}", self.short_pnl),
+            format!("{:.3}", self.short_pnl_per_contract),
+            format!("{:.3}", self.total_contracts),
+            format!("{:.3}", self.total_pnl),
+            format!("{:.3}", self.total_pnl_per_contract),
+        ]
     }
 }
 
@@ -171,13 +199,12 @@ impl ProfitLossSummary {
 mod tests {
     use super::*;
     use chrono::{Duration, Utc};
+    use crate::portfolio::Balance;
+    use crate::test_util::position;
 
     #[test]
     fn update_pnl_return_summary() {
-        // struct TestCase {
-        //     input_position: Position,
-        //     expected_summary: PnLReturnSummary,
-        // }
+        // Todo:
     }
 
     #[test]
@@ -187,8 +214,8 @@ mod tests {
         let mut pnl_return_view = PnLReturnSummary::new();
         pnl_return_view.start_timestamp = base_timestamp;
 
-        let mut input_position = Position::default();
-        input_position.meta.exit_bar_timestamp = None;
+        let mut input_position = position();
+        input_position.meta.exit_balance = None;
         input_position.meta.last_update_timestamp = base_timestamp
             .checked_add_signed(Duration::days(10))
             .unwrap();
@@ -207,12 +234,14 @@ mod tests {
         let mut pnl_return_view = PnLReturnSummary::new();
         pnl_return_view.start_timestamp = base_timestamp;
 
-        let mut input_position = Position::default();
-        input_position.meta.exit_bar_timestamp = Some(
-            base_timestamp
+        let mut input_position = position();
+        input_position.meta.exit_balance = Some(Balance {
+            timestamp: base_timestamp
                 .checked_add_signed(Duration::days(15))
                 .unwrap(),
-        );
+            total: 0.0,
+            available: 0.0
+        });
 
         pnl_return_view.update_trading_session_duration(&input_position);
 

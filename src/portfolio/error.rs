@@ -16,6 +16,9 @@ pub enum PortfolioError {
     #[error("Cannot exit Position with an entry decision FillEvent.")]
     CannotExitPositionWithEntryFill,
 
+    #[error("Cannot generate PositionExit from Position that has not been exited")]
+    PositionExitError,
+
     #[error("Failed to interact with repository")]
     RepositoryInteractionError(#[from] RepositoryError),
 }

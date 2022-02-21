@@ -2,24 +2,36 @@ use crate::portfolio::position::Position;
 use crate::statistic::metric::ratio::{CalmarRatio, Ratio, SharpeRatio, SortinoRatio};
 use crate::statistic::summary::drawdown::DrawdownSummary;
 use crate::statistic::summary::pnl::PnLReturnSummary;
-use crate::statistic::summary::{PositionSummariser, TablePrinter};
+use crate::statistic::summary::{Initialiser, PositionSummariser, TableBuilder};
 use chrono::{DateTime, Duration, Utc};
-use prettytable::{Row, Table};
-use serde::Deserialize;
+use prettytable::{Cell, Row};
+use serde::{Deserialize, Serialize};
 
-/// Configuration for construction a [TradingSummary] via the new() constructor method.
-#[derive(Debug, Deserialize)]
+/// Configuration for initialising a [`TradingSummary`] via the init() constructor method.
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct Config {
     pub starting_equity: f64,
     pub trading_days_per_year: usize,
     pub risk_free_return: f64,
 }
 
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct TradingSummary {
     pnl_returns: PnLReturnSummary,
     drawdown: DrawdownSummary,
     tear_sheet: TearSheet,
+}
+
+impl Initialiser for TradingSummary {
+    type Config = Config;
+
+    fn init(config: Self::Config) -> Self {
+        Self {
+            pnl_returns: PnLReturnSummary::new(),
+            drawdown: DrawdownSummary::new(config.starting_equity),
+            tear_sheet: TearSheet::new(config.risk_free_return),
+        }
+    }
 }
 
 impl PositionSummariser for TradingSummary {
@@ -30,35 +42,49 @@ impl PositionSummariser for TradingSummary {
     }
 }
 
-impl TablePrinter for TradingSummary {
-    fn print(&self) {
-        println!("\n-- Trades & Returns --");
-        self.pnl_returns.print();
+impl TableBuilder for TradingSummary {
+    fn titles(&self) -> Row {
+        let mut titles = Vec::<Cell>::new();
 
-        println!("\n-- Drawdown --");
-        self.drawdown.print();
-
-        println!("\n-- Tear Sheet --");
-        self.tear_sheet.print();
-    }
-}
-
-impl TradingSummary {
-    /// Constructs a new [TradingSummary].
-    pub fn new(cfg: Config) -> Self {
-        Self {
-            pnl_returns: PnLReturnSummary::new(),
-            drawdown: DrawdownSummary::new(cfg.starting_equity),
-            tear_sheet: TearSheet::new(cfg.risk_free_return),
+        for title in &self.pnl_returns.titles() {
+            titles.push(title.clone())
         }
+
+        for title in &self.tear_sheet.titles() {
+            titles.push(title.clone())
+        }
+
+        for title in &self.drawdown.titles() {
+            titles.push(title.clone())
+        }
+
+        Row::new(titles)
+    }
+
+    fn row(&self) -> Row {
+        let mut cells = Vec::<Cell>::new();
+
+        for cell in &self.pnl_returns.row() {
+            cells.push(cell.clone())
+        }
+
+        for cell in &self.tear_sheet.row() {
+            cells.push(cell.clone())
+        }
+
+        for cell in &self.drawdown.row() {
+            cells.push(cell.clone())
+        }
+
+        Row::new(cells)
     }
 }
 
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct TearSheet {
-    sharpe_ratio: SharpeRatio,
-    sortino_ratio: SortinoRatio,
-    calmar_ratio: CalmarRatio,
+    pub sharpe_ratio: SharpeRatio,
+    pub sortino_ratio: SortinoRatio,
+    pub calmar_ratio: CalmarRatio,
 }
 
 impl TearSheet {
@@ -73,26 +99,21 @@ impl TearSheet {
     pub fn update(&mut self, pnl_returns: &PnLReturnSummary, drawdown: &DrawdownSummary) {
         self.sharpe_ratio.update(pnl_returns);
         self.sortino_ratio.update(pnl_returns);
-        self.calmar_ratio
-            .update(pnl_returns, drawdown.max_drawdown.drawdown.drawdown);
+        self.calmar_ratio.update(pnl_returns, drawdown.max_drawdown.drawdown.drawdown);
     }
 }
 
-impl TablePrinter for TearSheet {
-    fn print(&self) {
-        let mut tear_sheet = Table::new();
+impl TableBuilder for TearSheet {
+    fn titles(&self) -> Row {
+        row!["Sharpe Ratio", "Sortino Ratio", "Calmar Ratio"]
+    }
 
-        let titles = vec!["", "Sharpe Ratio", "Sortino Ratio", "Calmar Ratio"];
-
-        tear_sheet.add_row(row![
-            "Total",
+    fn row(&self) -> Row {
+        row![
             format!("{:.3}", self.sharpe_ratio.daily()),
             format!("{:.3}", self.sortino_ratio.daily()),
             format!("{:.3}", self.calmar_ratio.daily()),
-        ]);
-
-        tear_sheet.set_titles(Row::from(titles));
-        tear_sheet.printstd();
+        ]
     }
 }
 
@@ -100,14 +121,16 @@ pub fn calculate_trading_duration(
     start_timestamp: &DateTime<Utc>,
     position: &Position,
 ) -> Duration {
-    match position.meta.exit_bar_timestamp {
+    match position.meta.exit_balance {
         None => {
             // Since Position is not exited, estimate duration w/ last_update_timestamp
             position
                 .meta
                 .last_update_timestamp
-                .signed_duration_since(start_timestamp.clone())
+                .signed_duration_since(*start_timestamp)
         }
-        Some(exit_timestamp) => exit_timestamp.signed_duration_since(start_timestamp.clone()),
+        Some(exit_balance) => {
+            exit_balance.timestamp.signed_duration_since(*start_timestamp)
+        }
     }
 }

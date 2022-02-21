@@ -1,31 +1,31 @@
-use crate::portfolio::error::PortfolioError;
-use crate::portfolio::order::{OrderEvent, OrderType};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-/// Evaluates the risk associated with an OrderEvent to determine if it should be actioned. It can
-/// also amend the order (eg/ OrderType) to better fit the risk strategy required for profitability.
+use crate::portfolio::{OrderEvent, OrderType};
+
+/// Evaluates the risk associated with an [`OrderEvent`] to determine if it should be actioned. It
+/// can also amend the order (eg/ [`OrderType`]) to better fit the risk strategy required for
+/// profitability.
 pub trait OrderEvaluator {
-    /// Default OrderType
     const DEFAULT_ORDER_TYPE: OrderType;
 
-    /// May return an amended OrderEvent if the associated risk is appropriate. Returns None if the
-    /// risk is too high.
-    fn evaluate_order(&self, order: OrderEvent) -> Result<Option<OrderEvent>, PortfolioError>;
+    /// May return an amended [`OrderEvent`] if the associated risk is appropriate. Returns `None`
+    /// if the risk is too high.
+    fn evaluate_order(&self, order: OrderEvent) -> Option<OrderEvent>;
 }
 
-/// Default risk manager that implements OrderEvaluator.
-#[derive(Debug, Deserialize)]
+/// Default risk manager that implements [`OrderEvaluator`].
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub struct DefaultRisk {}
 
 impl OrderEvaluator for DefaultRisk {
     const DEFAULT_ORDER_TYPE: OrderType = OrderType::Market;
 
-    fn evaluate_order(&self, mut order: OrderEvent) -> Result<Option<OrderEvent>, PortfolioError> {
+    fn evaluate_order(&self, mut order: OrderEvent) -> Option<OrderEvent> {
         if self.risk_too_high(&order) {
-            return Ok(None);
+            return None;
         }
         order.order_type = DefaultRisk::DEFAULT_ORDER_TYPE;
-        Ok(Some(order))
+        Some(order)
     }
 }
 

@@ -1,189 +1,187 @@
 use crate::portfolio::error::PortfolioError;
-use crate::portfolio::position::Position;
+use crate::portfolio::position::{determine_position_id, Position, PositionId};
 use crate::portfolio::repository::error::RepositoryError;
-use crate::portfolio::repository::{
-    determine_cash_id, determine_closed_positions_id, determine_position_id, determine_value_id,
-    CashHandler, PositionHandler, ValueHandler,
-};
-use redis::{Commands, Connection, ErrorKind, RedisResult};
-use serde::Deserialize;
+use crate::portfolio::repository::{BalanceHandler, determine_exited_positions_id, PositionHandler, StatisticHandler};
+use crate::statistic::summary::PositionSummariser;
+use crate::{Market, MarketId};
+use redis::{Commands, Connection, ErrorKind};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
+use std::marker::PhantomData;
 use uuid::Uuid;
+use crate::portfolio::Balance;
 
-/// Configuration for constructing a [RedisRepository] via the new() constructor method.
-#[derive(Debug, Deserialize)]
+/// Configuration for constructing a [`RedisRepository`] via the new() constructor method.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, Deserialize, Serialize)]
 pub struct Config {
     pub uri: String,
 }
 
-/// Redis persisted repository that implements [PositionHandler], [ValueHandler] & [CashHandler].
-/// Used by a Portfolio implementation to persist the Portfolio state, including current value,
-/// cash & Positions.
-pub struct RedisRepository {
+/// Redis persisted repository that implements [`PositionHandler`], [`ValueHandler`], [`CashHandler`]
+/// & [`PositionSummariser`]. Used by a Portfolio implementation to persist the Portfolio state,
+/// including total equity, available cash & Positions.
+pub struct RedisRepository<Statistic>
+where
+    Statistic: PositionSummariser + Serialize + DeserializeOwned,
+{
     conn: Connection,
+    _statistic_marker: PhantomData<Statistic>,
 }
 
-impl Debug for RedisRepository {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RedisRepository").finish()
+impl<Statistic> PositionHandler for RedisRepository<Statistic>
+where
+    Statistic: PositionSummariser + Serialize + DeserializeOwned,
+{
+    fn set_open_position(&mut self, position: Position) -> Result<(), RepositoryError> {
+        let position_string = serde_json::to_string(&position)?;
+
+        self.conn
+            .set(position.position_id, position_string)
+            .map_err(|_| RepositoryError::WriteError)
     }
-}
 
-impl PositionHandler for RedisRepository {
-    fn set_position(
+    fn get_open_position(
         &mut self,
-        portfolio_id: &Uuid,
-        position: Position,
-    ) -> Result<(), RepositoryError> {
-        let position_key =
-            determine_position_id(portfolio_id, &position.exchange, &position.symbol);
-
-        let position_value = serde_json::to_string(&position)
-            .map_err(|_err| RepositoryError::JsonSerialisationError)?;
-
-        let result = self
+        position_id: &PositionId,
+    ) -> Result<Option<Position>, RepositoryError> {
+        let position_value: String = self
             .conn
-            .set(position_key, position_value)
-            .map_err(|_err| RepositoryError::WriteError)?;
+            .get(position_id)
+            .map_err(|_| RepositoryError::ReadError)?;
 
-        Ok(result)
+        Ok(Some(serde_json::from_str::<Position>(&position_value)?))
     }
 
-    fn get_position(&mut self, position_id: &String) -> Result<Option<Position>, RepositoryError> {
-        let read_result: RedisResult<String> = self.conn.get(position_id);
-
-        let position_value = match read_result {
-            Ok(position_value) => position_value,
-            Err(err) => {
-                return match err.kind() {
-                    ErrorKind::TypeError => Ok(None),
-                    _ => Err(RepositoryError::ReadError),
-                }
-            }
-        };
-
-        match serde_json::from_str(&*position_value) {
-            Ok(position) => Ok(Some(position)),
-            Err(_) => Err(RepositoryError::JsonDeserialisationError),
-        }
+    fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
+        &mut self,
+        engine_id: Uuid,
+        markets: Markets,
+    ) -> Result<Vec<Position>, RepositoryError> {
+        markets
+            .filter_map(|market| {
+                self.get_open_position(&determine_position_id(
+                    engine_id,
+                    market.exchange,
+                    &market.symbol,
+                ))
+                .transpose()
+            })
+            .collect()
     }
 
     fn remove_position(
         &mut self,
         position_id: &String,
     ) -> Result<Option<Position>, RepositoryError> {
-        let position = self.get_position(position_id)?;
+        let position = self.get_open_position(position_id)?;
 
         self.conn
             .del(position_id)
-            .map_err(|_err| RepositoryError::DeleteError)?;
+            .map_err(|_| RepositoryError::DeleteError)?;
 
         Ok(position)
     }
 
-    fn set_closed_position(
+    fn set_exited_position(
         &mut self,
-        portfolio_id: &Uuid,
+        portfolio_id: Uuid,
         position: Position,
     ) -> Result<(), RepositoryError> {
-        let closed_positions_key = determine_closed_positions_id(&portfolio_id);
-
-        let position_value = serde_json::to_string(&position)
-            .map_err(|_err| RepositoryError::JsonSerialisationError)?;
-
-        let result = self
-            .conn
-            .lpush(closed_positions_key, position_value)
-            .map_err(|_err| RepositoryError::WriteError)?;
-
-        Ok(result)
+        self.conn
+            .lpush(
+                determine_exited_positions_id(portfolio_id),
+                serde_json::to_string(&position)?
+            )
+            .map_err(|_| RepositoryError::WriteError)
     }
 
-    fn get_closed_positions(
+    fn get_exited_positions(
         &mut self,
-        portfolio_id: &Uuid,
-    ) -> Result<Option<Vec<Position>>, RepositoryError> {
-        let closed_positions_key = determine_closed_positions_id(portfolio_id);
-
-        let read_result: RedisResult<Vec<String>> = self.conn.get(closed_positions_key);
-
-        let closed_positions = match read_result {
-            Ok(closed_positions_value) => closed_positions_value,
-            Err(err) => {
-                return match err.kind() {
-                    ErrorKind::TypeError => Ok(None),
-                    _ => Err(RepositoryError::ReadError),
-                }
-            }
-        }
-        .iter()
-        .map(|positions_string| serde_json::from_str(positions_string).unwrap())
-        .collect();
-
-        Ok(Some(closed_positions))
+        portfolio_id: Uuid,
+    ) -> Result<Vec<Position>, RepositoryError> {
+        self.conn
+            .get(determine_exited_positions_id(portfolio_id))
+            .or_else(|err| match err.kind() {
+                ErrorKind::TypeError => Ok(Vec::<String>::new()),
+                _ => Err(RepositoryError::ReadError)
+            })?
+            .iter()
+            .map(|position| serde_json::from_str::<Position>(position))
+            .collect::<Result<Vec<Position>, serde_json::Error>>()
+            .map_err(RepositoryError::JsonSerDeError)
     }
 }
 
-impl ValueHandler for RedisRepository {
-    fn set_current_value(
+impl<Statistic> BalanceHandler for RedisRepository<Statistic>
+where
+    Statistic: PositionSummariser + Serialize + DeserializeOwned,
+{
+    fn set_balance(&mut self, engine_id: Uuid, balance: Balance) -> Result<(), RepositoryError> {
+        let balance_string = serde_json::to_string(&balance)?;
+
+        self.conn
+            .set(Balance::balance_id(engine_id), balance_string)
+            .map_err(|_| RepositoryError::WriteError)
+    }
+
+    fn get_balance(&mut self, engine_id: Uuid) -> Result<Balance, RepositoryError> {
+        let balance_value: String = self
+            .conn
+            .get(Balance::balance_id(engine_id))
+            .map_err(|_| RepositoryError::ReadError)?;
+
+        Ok(serde_json::from_str::<Balance>(&balance_value)?)
+    }
+}
+
+impl<Statistic> StatisticHandler<Statistic> for RedisRepository<Statistic>
+where
+    Statistic: PositionSummariser + Serialize + DeserializeOwned,
+{
+    fn set_statistics(
         &mut self,
-        portfolio_id: &Uuid,
-        value: f64,
+        market_id: &MarketId,
+        statistic: Statistic,
     ) -> Result<(), RepositoryError> {
-        let current_value_key = determine_value_id(portfolio_id);
-
-        let result = self
-            .conn
-            .set(current_value_key, value)
-            .map_err(|_err| RepositoryError::WriteError)?;
-
-        Ok(result)
+        self.conn
+            .set(market_id, serde_json::to_string(&statistic)?)
+            .map_err(|_| RepositoryError::WriteError)
     }
 
-    fn get_current_value(&mut self, portfolio_id: &Uuid) -> Result<f64, RepositoryError> {
-        let current_value_key = determine_value_id(portfolio_id);
-
-        let current_value: f64 = self
+    fn get_statistics(&mut self, market_id: &MarketId) -> Result<Statistic, RepositoryError> {
+        let statistics: String = self
             .conn
-            .get(current_value_key)
-            .map_err(|_err| RepositoryError::ReadError)?;
+            .get(market_id)
+            .map_err(|_| RepositoryError::ReadError)?;
 
-        Ok(current_value)
+        serde_json::from_str(&statistics).map_err(RepositoryError::JsonSerDeError)
     }
 }
 
-impl CashHandler for RedisRepository {
-    fn set_current_cash(&mut self, portfolio_id: &Uuid, cash: f64) -> Result<(), RepositoryError> {
-        let current_cash_key = determine_cash_id(portfolio_id);
-
-        let result = self
-            .conn
-            .set(current_cash_key, cash)
-            .map_err(|_err| RepositoryError::WriteError)?;
-
-        Ok(result)
-    }
-
-    fn get_current_cash(&mut self, portfolio_id: &Uuid) -> Result<f64, RepositoryError> {
-        let current_cash_key = determine_cash_id(portfolio_id);
-
-        let current_cash = self
-            .conn
-            .get(current_cash_key)
-            .map_err(|_err| RepositoryError::ReadError)?;
-
-        Ok(current_cash)
+impl<Statistic: PositionSummariser> Debug for RedisRepository<Statistic>
+where
+    Statistic: PositionSummariser + Serialize + DeserializeOwned,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RedisRepository").finish()
     }
 }
 
-impl RedisRepository {
-    /// Constructs a new [RedisRepository] component using the provided Redis connection struct.
+impl<Statistic: PositionSummariser> RedisRepository<Statistic>
+where
+    Statistic: PositionSummariser + Serialize + DeserializeOwned,
+{
+    /// Constructs a new [`RedisRepository`] component using the provided Redis connection struct.
     pub fn new(connection: Connection) -> Self {
-        Self { conn: connection }
+        Self {
+            conn: connection,
+            _statistic_marker: PhantomData::<Statistic>::default(),
+        }
     }
 
-    /// Returns a [RedisRepositoryBuilder] instance.
-    pub fn builder() -> RedisRepositoryBuilder {
+    /// Returns a [`RedisRepositoryBuilder`] instance.
+    pub fn builder() -> RedisRepositoryBuilder<Statistic> {
         RedisRepositoryBuilder::new()
     }
 
@@ -196,15 +194,25 @@ impl RedisRepository {
     }
 }
 
-/// Builder to construct [RedisRepository] instances.
+/// Builder to construct [`RedisRepository`] instances.
 #[derive(Default)]
-pub struct RedisRepositoryBuilder {
+pub struct RedisRepositoryBuilder<Statistic>
+where
+    Statistic: PositionSummariser + Serialize + DeserializeOwned,
+{
     conn: Option<Connection>,
+    _statistic_marker: PhantomData<Statistic>,
 }
 
-impl RedisRepositoryBuilder {
+impl<Statistic: PositionSummariser> RedisRepositoryBuilder<Statistic>
+where
+    Statistic: PositionSummariser + Serialize + DeserializeOwned,
+{
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            conn: None,
+            _statistic_marker: PhantomData::<Statistic>::default(),
+        }
     }
 
     pub fn conn(self, value: Connection) -> Self {
@@ -214,9 +222,22 @@ impl RedisRepositoryBuilder {
         }
     }
 
-    pub fn build(self) -> Result<RedisRepository, PortfolioError> {
-        let conn = self.conn.ok_or(PortfolioError::BuilderIncomplete)?;
+    pub fn build(self) -> Result<RedisRepository<Statistic>, PortfolioError> {
+        Ok(RedisRepository {
+            conn: self.conn.ok_or(PortfolioError::BuilderIncomplete)?,
+            _statistic_marker: PhantomData::<Statistic>::default(),
+        })
+    }
+}
 
-        Ok(RedisRepository { conn })
+impl<Statistic> Debug for RedisRepositoryBuilder<Statistic>
+where
+    Statistic: PositionSummariser + Serialize + DeserializeOwned,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RedisRepositoryBuilder")
+            .field("conn", &"Option<redis::Connection>")
+            .field("_statistic_market", &self._statistic_marker)
+            .finish()
     }
 }
