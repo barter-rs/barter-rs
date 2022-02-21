@@ -6,23 +6,25 @@ pub mod error;
 /// Portfolio instance.
 pub mod trader;
 
-use crate::data::handler::{Continuer, MarketGenerator};
+use crate::Market;
+use crate::event::{Event, MessageTransmitter};
 use crate::engine::error::EngineError;
 use crate::engine::trader::Trader;
-use crate::event::{Event, MessageTransmitter};
-use crate::execution::FillGenerator;
+use crate::data::handler::{Continuer, MarketGenerator};
+use crate::strategy::SignalGenerator;
 use crate::portfolio::position::Position;
 use crate::portfolio::repository::{PositionHandler, StatisticHandler};
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
-use crate::statistic::summary::{PositionSummariser, TablePrinter};
-use crate::strategy::SignalGenerator;
-use crate::Market;
+use crate::statistic::summary;
+use crate::statistic::summary::{PositionSummariser, TableBuilder};
+use crate::execution::ExecutionClient;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::thread;
 use parking_lot::Mutex;
+use prettytable::Table;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -54,7 +56,7 @@ where
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
-    Execution: FillGenerator + Send,
+    Execution: ExecutionClient + Send,
 {
     /// Unique identifier for an [`Engine`] in Uuid v4 format. Used as a unique identifier seed for
     /// the Portfolio, Trader & Positions associated with this [`Engine`].
@@ -81,9 +83,9 @@ where
 pub struct Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event>,
-    Statistic: PositionSummariser + TablePrinter + Serialize + Send,
+    Statistic: PositionSummariser + Serialize + Send,
     Portfolio: PositionHandler
-        // + StatisticHandler<Statistic>
+        + StatisticHandler<Statistic>
         + MarketUpdater
         + OrderGenerator
         + FillUpdater
@@ -91,7 +93,7 @@ where
         + 'static,
     Data: Continuer + MarketGenerator + Send + 'static,
     Strategy: SignalGenerator + Send,
-    Execution: FillGenerator + Send,
+    Execution: ExecutionClient + Send,
 {
     /// Unique identifier for an [`Engine`] in Uuid v4 format. Used as a unique identifier seed for
     /// the Portfolio, Trader & Positions associated with this [`Engine`].
@@ -115,7 +117,7 @@ impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
     Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event> + Send + 'static,
-    Statistic: PositionSummariser + TablePrinter + Serialize + Send + 'static,
+    Statistic: PositionSummariser + TableBuilder + Serialize + Send + 'static,
     Portfolio: PositionHandler
         + StatisticHandler<Statistic>
         + MarketUpdater
@@ -125,7 +127,8 @@ where
         + 'static,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send + 'static,
-    Execution: FillGenerator + Send + 'static,
+    Execution: ExecutionClient + Send + 'static,
+    // Vec<(Market, Statistic)>: TablePrinter
 {
     /// Constructs a new trading [`Engine`] instance using the provided [`EngineLego`].
     pub fn new(lego: EngineLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>) -> Self {
@@ -189,21 +192,9 @@ where
             }
         }
 
-        // Generate Statistics summary
-        self.portfolio
-            .lock()
-            .get_exited_positions(self.engine_id)
-            .map(|closed_positions| {
-                self.statistics_summary.generate_summary(&closed_positions);
-                self.statistics_summary.print();
-            })
-            .unwrap_or_else(|err| {
-                warn!(
-                    error = &*format!("{:?}", err),
-                    why = "failed to get exited Positions from Portfolio's repository",
-                    "failed to generate Statistics summary for trading session"
-                )
-            });
+        // Print Trading Session Summary
+        self.generate_session_summary()
+            .printstd();
     }
 
     /// Runs each [`Trader`] it's own thread. Sends a message on the returned `mpsc::Receiver<bool>`
@@ -321,6 +312,48 @@ where
             );
         }
     }
+
+    fn generate_session_summary(mut self) -> Table {
+        // Fetch statistics for each Market
+        let stats_per_market = self
+            .trader_command_txs
+            .into_keys()
+            .filter_map(|market| {
+                match self.portfolio.lock().get_statistics(&market.market_id()) {
+                    Ok(statistics) => {
+                        Some((market.market_id(), statistics))
+                    },
+                    Err(err) => {
+                        error!(
+                            error = &*format!("{:?}", err),
+                            market = &*format!("{:?}", market),
+                            "failed to get Market statistics when generating trading session summary"
+                        );
+                        None
+                    }
+                }
+            });
+
+        // Generate average statistics across all markets using session's exited Positions
+        self.portfolio
+            .lock()
+            .get_exited_positions(self.engine_id)
+            .map(|exited_positions| {
+                self.statistics_summary.generate_summary(&exited_positions);
+            })
+            .unwrap_or_else(|err| {
+                warn!(
+                    error = &*format!("{:?}", err),
+                    why = "failed to get exited Positions from Portfolio's repository",
+                    "failed to generate Statistics summary for trading session"
+                );
+            });
+        let mut all_stats = Vec::from_iter([("Total".to_owned(), self.statistics_summary)]);
+
+        // Build Table
+        all_stats.extend(stats_per_market);
+        summary::combine(all_stats.into_iter())
+    }
 }
 
 /// Builder to construct [`Engine`] instances.
@@ -332,7 +365,7 @@ where
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
-    Execution: FillGenerator + Send,
+    Execution: ExecutionClient + Send,
 {
     engine_id: Option<Uuid>,
     command_rx: Option<mpsc::Receiver<Command>>,
@@ -346,7 +379,7 @@ impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
     EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event>,
-    Statistic: PositionSummariser + TablePrinter + Serialize + Send,
+    Statistic: PositionSummariser + Serialize + Send,
     Portfolio: PositionHandler
         + StatisticHandler<Statistic>
         + MarketUpdater
@@ -355,7 +388,7 @@ where
         + Send,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
-    Execution: FillGenerator + Send,
+    Execution: ExecutionClient + Send,
 {
     fn new() -> Self {
         Self {

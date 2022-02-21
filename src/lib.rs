@@ -146,10 +146,10 @@
 //!
 //! ### Execution
 //! ```
-//! use barter::execution::handler::{Config as ExecutionConfig, SimulatedExecution};
+//! use barter::execution::simulated::{Config as ExecutionConfig, SimulatedExecution};
 //! use barter::portfolio::OrderEvent;
 //! use barter::execution::Fees;
-//! use barter::execution::FillGenerator;
+//! use barter::execution::ExecutionClient;
 //! use barter::test_util;
 //!
 //! let config = ExecutionConfig {
@@ -194,6 +194,7 @@
 //! [See Readme Engine Example](https://crates.io/crates/barter#example)
 
 #![warn(
+    unused,
     missing_debug_implementations,
     missing_copy_implementations,
     rust_2018_idioms,

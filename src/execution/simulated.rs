@@ -1,7 +1,7 @@
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::execution::{Fees, FillEvent, FillGenerator};
+use crate::execution::{Fees, FillEvent, ExecutionClient};
 use crate::execution::error::ExecutionError;
 use crate::portfolio::OrderEvent;
 
@@ -19,7 +19,7 @@ pub struct SimulatedExecution {
     fees_pct: Fees,
 }
 
-impl FillGenerator for SimulatedExecution {
+impl ExecutionClient for SimulatedExecution {
     fn generate_fill(&self, order: &OrderEvent) -> Result<FillEvent, ExecutionError> {
         // Assume (for now) that all orders are filled at the market price
         let fill_value_gross = SimulatedExecution::calculate_fill_value_gross(order);
