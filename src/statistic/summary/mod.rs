@@ -20,10 +20,6 @@ pub trait PositionSummariser: Copy {
     }
 }
 
-pub trait TablePrinter {
-    fn print(&self);
-}
-
 pub trait TableBuilder {
     fn titles(&self) -> Row;
     fn row(&self) -> Row;
@@ -59,7 +55,7 @@ pub trait TableBuilder {
     }
 }
 
-pub fn combine<'a, Iter, T>(builders: Iter) -> Table
+pub fn combine<Iter, T>(builders: Iter) -> Table
 where
     Iter: IntoIterator<Item = (String, T)>,
     T: TableBuilder
