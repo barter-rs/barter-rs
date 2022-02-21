@@ -171,7 +171,7 @@
 //! ```
 //! use barter::statistic::summary::trading::{Config as StatisticConfig, TradingSummary};
 //! use barter::portfolio::position::Position;
-//! use barter::statistic::summary::{Initialiser, PositionSummariser, TableBuilder, TablePrinter};
+//! use barter::statistic::summary::{Initialiser, PositionSummariser, TableBuilder};
 //! use barter::test_util;
 //!
 //! // Do some automated trading with barter components that generates a vector of closed Positions

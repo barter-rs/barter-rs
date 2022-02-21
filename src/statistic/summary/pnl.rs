@@ -1,9 +1,9 @@
 use crate::portfolio::position::{Direction, Position};
 use crate::statistic::{de_duration_from_secs, se_duration_as_secs};
 use crate::statistic::summary::data::DataSummary;
-use crate::statistic::summary::{Initialiser, PositionSummariser, TableBuilder, TablePrinter};
+use crate::statistic::summary::{Initialiser, PositionSummariser, TableBuilder};
 use chrono::{DateTime, Duration, Utc};
-use prettytable::{Row, Table};
+use prettytable::Row;
 use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
@@ -93,45 +93,6 @@ impl TableBuilder for PnLReturnSummary {
     }
 }
 
-impl TablePrinter for PnLReturnSummary {
-    fn print(&self) {
-        let mut pnl_returns = Table::new();
-
-        let titles = vec![
-            "",
-            "Trades",
-            "Wins",
-            "Losses",
-            "Trading Days",
-            "Trades Per Day",
-            "Mean Return",
-            "Std. Dev. Return",
-            "Loss Mean Return",
-            "Biggest Win",
-            "Biggest Loss",
-        ];
-
-        let wins = self.total.count - self.losses.count;
-
-        pnl_returns.add_row(row![
-            "Total",
-            self.total.count.to_string(),
-            wins,
-            self.losses.count,
-            self.duration.num_days().to_string(),
-            format!("{:.3}", self.trades_per_day),
-            format!("{:.3}", self.total.mean),
-            format!("{:.3}", self.total.dispersion.std_dev),
-            format!("{:.3}", self.losses.mean),
-            format!("{:.3}", self.total.dispersion.range.high),
-            format!("{:.3}", self.total.dispersion.range.low),
-        ]);
-
-        pnl_returns.set_titles(Row::from(titles));
-        pnl_returns.printstd();
-    }
-}
-
 impl PnLReturnSummary {
     const SECONDS_IN_DAY: f64 = 86400.0;
 
@@ -198,9 +159,33 @@ impl PositionSummariser for ProfitLossSummary {
     }
 }
 
-impl TablePrinter for ProfitLossSummary {
-    fn print(&self) {
-        todo!()
+impl TableBuilder for ProfitLossSummary {
+    fn titles(&self) -> Row {
+        row![
+            "Long Contracts",
+            "Long PnL",
+            "Long PnL Per Contract",
+            "Short Contracts",
+            "Short PnL",
+            "Short PnL Per Contract",
+            "Total Contracts",
+            "Total PnL",
+            "Total PnL Per Contract",
+        ]
+    }
+
+    fn row(&self) -> Row {
+        row![
+            format!("{:.3}", self.long_contracts),
+            format!("{:.3}", self.long_pnl),
+            format!("{:.3}", self.long_pnl_per_contract),
+            format!("{:.3}", self.short_contracts),
+            format!("{:.3}", self.short_pnl),
+            format!("{:.3}", self.short_pnl_per_contract),
+            format!("{:.3}", self.total_contracts),
+            format!("{:.3}", self.total_pnl),
+            format!("{:.3}", self.total_pnl_per_contract),
+        ]
     }
 }
 
@@ -219,10 +204,7 @@ mod tests {
 
     #[test]
     fn update_pnl_return_summary() {
-        // struct TestCase {
-        //     input_position: Position,
-        //     expected_summary: PnLReturnSummary,
-        // }
+        // Todo:
     }
 
     #[test]
