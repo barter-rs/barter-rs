@@ -1,9 +1,9 @@
 use crate::portfolio::position::Position;
-use crate::statistic::metric::drawdown::{AvgDrawdown, Drawdown, MaxDrawdown};
-use crate::statistic::summary::{PositionSummariser, TablePrinter};
-use prettytable::{Row, Table};
-use serde::{Deserialize, Serialize};
 use crate::statistic::metric::EquityPoint;
+use crate::statistic::metric::drawdown::{AvgDrawdown, Drawdown, MaxDrawdown};
+use crate::statistic::summary::{PositionSummariser, TableBuilder};
+use prettytable::Row;
+use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct DrawdownSummary {
@@ -28,30 +28,23 @@ impl PositionSummariser for DrawdownSummary {
     }
 }
 
-impl TablePrinter for DrawdownSummary {
-    fn print(&self) {
-        let mut drawdown_summary = Table::new();
-
-        let titles = vec![
-            "",
-            "Count",
+impl TableBuilder for DrawdownSummary {
+    fn titles(&self) -> Row {
+        row![
             "Max Drawdown",
             "Max Drawdown Days",
             "Avg. Drawdown",
             "Avg. Drawdown Days",
-        ];
+        ]
+    }
 
-        drawdown_summary.add_row(row![
-            "Total",
-            self.avg_drawdown.count,
+    fn row(&self) -> Row {
+        row![
             format!("{:.3}", self.max_drawdown.drawdown.drawdown),
             self.max_drawdown.drawdown.duration.num_days().to_string(),
             format!("{:.3}", self.avg_drawdown.mean_drawdown),
             self.avg_drawdown.mean_duration.num_days().to_string(),
-        ]);
-
-        drawdown_summary.set_titles(Row::from(titles));
-        drawdown_summary.printstd();
+        ]
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::portfolio::position::{Direction, Position};
 use crate::statistic::{de_duration_from_secs, se_duration_as_secs};
 use crate::statistic::summary::data::DataSummary;
-use crate::statistic::summary::{Initialiser, PositionSummariser, TablePrinter};
+use crate::statistic::summary::{Initialiser, PositionSummariser, TableBuilder, TablePrinter};
 use chrono::{DateTime, Duration, Utc};
 use prettytable::{Row, Table};
 use serde::{Deserialize, Serialize};
@@ -57,6 +57,39 @@ impl PositionSummariser for PnLReturnSummary {
         if pnl_return.is_sign_negative() {
             self.losses.update(pnl_return);
         }
+    }
+}
+
+impl TableBuilder for PnLReturnSummary {
+    fn titles(&self) -> Row {
+        row![
+            "Trades",
+            "Wins",
+            "Losses",
+            "Trading Days",
+            "Trades Per Day",
+            "Mean Return",
+            "Std. Dev. Return",
+            "Loss Mean Return",
+            "Biggest Win",
+            "Biggest Loss",
+        ]
+    }
+
+    fn row(&self) -> Row {
+        let wins = self.total.count - self.losses.count;
+        row![
+            self.total.count.to_string(),
+            wins,
+            self.losses.count,
+            self.duration.num_days().to_string(),
+            format!("{:.3}", self.trades_per_day),
+            format!("{:.3}", self.total.mean),
+            format!("{:.3}", self.total.dispersion.std_dev),
+            format!("{:.3}", self.losses.mean),
+            format!("{:.3}", self.total.dispersion.range.high),
+            format!("{:.3}", self.total.dispersion.range.low),
+        ]
     }
 }
 
