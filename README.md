@@ -35,7 +35,7 @@ framework for trading.
 
 ## Overview
 Barter is an open-source Rust framework for building **event-driven live-trading & backtesting systems**. It provides 
-a high-performance, easy to customise, trading Engine that enables backtesting strategies on a near-identical system 
+a high-performance, easy to customise trading Engine that enables backtesting strategies on a near-identical system 
 to live trading. The Engine can be **controlled by issuing Commands** over the Engine's command_tx. Similarly, 
 the **Engine's Events can be listened to using the event_rx** (useful for event-sourcing). At a high level, 
 it provides several de-coupled components that interact via a set of traits:
@@ -48,7 +48,7 @@ MarketEvents. SignalEvents are advisory signals sent to the Portfolio for analys
 * **Portfolio**: MarketUpdater, OrderGenerator, and FillUpdater govern global state Portfolio implementations. A 
 Portfolio may generate OrderEvents after receiving advisory SignalEvents from a Strategy. The Portfolio's state 
 updates after receiving MarketEvents and FillEvents.
-* **Execution**: The FillGenerator trait governs the generation of FillEvents after receiving OrderEvents from the 
+* **Execution**: The ExecutionClient trait governs the generation of FillEvents after receiving OrderEvents from the 
 Portfolio. For example, a SimulatedExecution handler implementation is provided for simulating any exchange execution
 behaviour required in dry-trading or backtesting runs. 
 * **Statistic**: Provides metrics such as Sharpe Ratio, Calmar Ratio, and Max Drawdown to analyse trading session 
