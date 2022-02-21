@@ -11,10 +11,10 @@ use crate::strategy::Decision;
 pub mod error;
 
 /// Handlers for simulated and live [`OrderEvent`] execution.
-pub mod handler;
+pub mod simulated;
 
 /// Generates a result [`FillEvent`] by executing an [`OrderEvent`].
-pub trait FillGenerator {
+pub trait ExecutionClient {
     /// Return a [`FillEvent`] from executing the input [`OrderEvent`].
     fn generate_fill(&self, order: &OrderEvent) -> Result<FillEvent, ExecutionError>;
 }

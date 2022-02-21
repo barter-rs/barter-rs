@@ -2,7 +2,7 @@ use crate::data::handler::{Continuation, Continuer, MarketGenerator};
 use crate::engine::error::EngineError;
 use crate::engine::Command;
 use crate::event::{Event, MessageTransmitter};
-use crate::execution::FillGenerator;
+use crate::execution::ExecutionClient;
 use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
 use crate::strategy::{SignalForceExit, SignalGenerator};
 use crate::Market;
@@ -30,11 +30,11 @@ pub fn determine_trader_id(engine_id: Uuid, exchange: &str, symbol: &str) -> Tra
 pub struct TraderLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
 where
     EventTx: MessageTransmitter<Event>,
-    Statistic: Serialize,
+    Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
     Data: Continuer + MarketGenerator,
     Strategy: SignalGenerator,
-    Execution: FillGenerator,
+    Execution: ExecutionClient,
 {
     /// Identifier for the [`Engine`] this [`Trader`] is associated with (1-to-many relationship)..
     pub engine_id: Uuid,
@@ -70,7 +70,7 @@ where
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
-    Execution: FillGenerator + Send,
+    Execution: ExecutionClient + Send,
 {
     /// Identifier for the [`Engine`] this [`Trader`] is associated with (1-to-many relationship).
     engine_id: Uuid,
@@ -104,7 +104,7 @@ where
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
-    Execution: FillGenerator + Send,
+    Execution: ExecutionClient + Send,
 {
     /// Constructs a new [`Trader`] instance using the provided [`TraderLego`].
     pub fn new(lego: TraderLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>) -> Self {
@@ -274,7 +274,7 @@ where
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
     Data: Continuer + MarketGenerator,
     Strategy: SignalGenerator,
-    Execution: FillGenerator,
+    Execution: ExecutionClient,
 {
     engine_id: Option<Uuid>,
     market: Option<Market>,
@@ -295,7 +295,7 @@ where
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
     Data: Continuer + MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
-    Execution: FillGenerator + Send,
+    Execution: ExecutionClient + Send,
 {
     fn new() -> Self {
         Self {
