@@ -1,9 +1,10 @@
 use crate::statistic::algorithm::welford_online;
 use crate::statistic::dispersion::Dispersion;
-use crate::statistic::summary::TablePrinter;
-use prettytable::{Row, Table};
+use crate::statistic::summary::TableBuilder;
+use prettytable::Row;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Clone, PartialOrd, PartialEq)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
 pub struct DataSummary {
     pub count: u64,
     pub sum: f64,
@@ -29,12 +30,9 @@ impl DataSummary {
     }
 }
 
-impl TablePrinter for DataSummary {
-    fn print(&self) {
-        let mut data_summary = Table::new();
-
-        let titles = vec![
-            "",
+impl TableBuilder for DataSummary {
+    fn titles(&self) -> Row {
+        row![
             "Count",
             "Sum",
             "Mean",
@@ -42,10 +40,11 @@ impl TablePrinter for DataSummary {
             "Std. Dev",
             "Range High",
             "Range Low",
-        ];
+        ]
+    }
 
-        data_summary.add_row(row![
-            "",
+    fn row(&self) -> Row {
+        row![
             self.count,
             format!("{:.3}", self.sum),
             format!("{:.3}", self.mean),
@@ -53,10 +52,7 @@ impl TablePrinter for DataSummary {
             format!("{:.3}", self.dispersion.std_dev),
             format!("{:.3}", self.dispersion.range.high),
             format!("{:.3}", self.dispersion.range.low),
-        ]);
-
-        data_summary.set_titles(Row::from(titles));
-        data_summary.printstd();
+        ]
     }
 }
 

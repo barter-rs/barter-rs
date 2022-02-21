@@ -1,23 +1,26 @@
-pub mod historic;
+/// Historical data handlers for backtesting.
+pub mod historical;
+
+/// Live data handlers for dry-trading & live-trading.
 pub mod live;
 
-use crate::data::market::MarketEvent;
+use crate::data::MarketEvent;
 use serde::{Deserialize, Serialize};
 
 /// Determines if a process can continue.
 pub trait Continuer {
-    /// Returns a [Continuation] to communicate if a process can continue.
+    /// Returns a [`Continuation`] to communicate if a process can continue.
     fn can_continue(&self) -> &Continuation;
 }
 
-/// Generates the latest [MarketEvent], acting as the system heartbeat.
+/// Generates the latest [`MarketEvent`], acting as the system heartbeat.
 pub trait MarketGenerator {
-    /// Return the latest [MarketEvent].
+    /// Return the latest [`MarketEvent`].
     fn generate_market(&mut self) -> Option<MarketEvent>;
 }
 
-/// Returned by a [Continuer] to communicate if a process should continue.
-#[derive(Debug, Deserialize, Serialize, PartialOrd, PartialEq)]
+/// Returned by a [`Continuer`] to communicate if a process should continue.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub enum Continuation {
     Continue,
     Stop,

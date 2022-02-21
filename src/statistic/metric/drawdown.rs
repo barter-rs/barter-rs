@@ -1,16 +1,20 @@
-use crate::portfolio::position::EquityPoint;
+use crate::statistic::metric::EquityPoint;
 use crate::statistic::algorithm::welford_online;
 use crate::statistic::dispersion::Range;
+use crate::statistic::{de_duration_from_secs, se_duration_as_secs};
 use chrono::{DateTime, Duration, Utc};
+use serde::{Deserialize, Serialize};
 
-/// [Drawdown](https://www.investopedia.com/terms/d/drawdown.asp) is the peak-to-trough decline
-/// of the Portfolio, or investment, during a specific period. Drawdown is a measure of downside
-/// volatility.
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+/// [`Drawdown`] is the peak-to-trough decline of the Portfolio, or investment, during a specific
+/// period. Drawdown is a measure of downside volatility.
+///
+/// See documentation: <https://www.investopedia.com/terms/d/drawdown.asp>
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct Drawdown {
     pub equity_range: Range,
     pub drawdown: f64,
     pub start_timestamp: DateTime<Utc>,
+    #[serde(deserialize_with = "de_duration_from_secs", serialize_with = "se_duration_as_secs")]
     pub duration: Duration,
 }
 
@@ -26,7 +30,7 @@ impl Default for Drawdown {
 }
 
 impl Drawdown {
-    /// Initialises a new [Drawdown] using the starting equity as the first peak.
+    /// Initialises a new [`Drawdown`] using the starting equity as the first peak.
     pub fn init(starting_equity: f64) -> Self {
         Self {
             equity_range: Range {
@@ -40,24 +44,24 @@ impl Drawdown {
         }
     }
 
-    /// Updates the [Drawdown] using the latest input [EquityPoint] of the Portfolio. If the drawdown
+    /// Updates the [`Drawdown`] using the latest input [`EquityPoint`] of the Portfolio. If the drawdown
     /// period has ended (investment recovers from a trough back above the previous peak), the
     /// function return Some(Drawdown), else None is returned.
-    pub fn update(&mut self, current: &EquityPoint) -> Option<Drawdown> {
+    pub fn update(&mut self, current: EquityPoint) -> Option<Drawdown> {
         match (
             self.is_waiting_for_peak(),
-            current.equity > self.equity_range.high,
+            current.total > self.equity_range.high,
         ) {
             // A) No current drawdown - waiting for next equity peak (waiting for B)
             (true, true) => {
-                self.equity_range.high = current.equity;
+                self.equity_range.high = current.total;
                 None
             }
 
             // B) Start of new drawdown - previous equity point set peak & current equity lower
             (true, false) => {
                 self.start_timestamp = current.timestamp;
-                self.equity_range.low = current.equity;
+                self.equity_range.low = current.total;
                 self.drawdown = self.calculate();
                 None
             }
@@ -67,7 +71,7 @@ impl Drawdown {
                 self.duration = current
                     .timestamp
                     .signed_duration_since(self.start_timestamp);
-                self.equity_range.update(current.equity);
+                self.equity_range.update(current.total);
                 self.drawdown = self.calculate(); // I don't need to calculate this now if I don't want
                 None
             }
@@ -76,7 +80,7 @@ impl Drawdown {
             (false, true) => {
                 // Clone Drawdown from previous iteration to return
                 let finished_drawdown = Drawdown {
-                    equity_range: self.equity_range.clone(),
+                    equity_range: self.equity_range,
                     drawdown: self.drawdown,
                     start_timestamp: self.start_timestamp,
                     duration: self.duration,
@@ -87,58 +91,61 @@ impl Drawdown {
                 self.duration = Duration::zero();
 
                 // Set new equity peak in preparation for next iteration
-                self.equity_range.high = current.equity;
+                self.equity_range.high = current.total;
 
                 Some(finished_drawdown)
             }
         }
     }
 
-    /// Determines if a [Drawdown] is waiting for the next equity peak. This is true if the new
-    /// [EquityPoint] is higher than the previous peak.
+    /// Determines if a [`Drawdown`] is waiting for the next equity peak. This is true if the new
+    /// [`EquityPoint`] is higher than the previous peak.
     fn is_waiting_for_peak(&self) -> bool {
         self.drawdown == 0.0
     }
 
-    /// Calculates the value of the [Drawdown] in the specific period. Uses the formula:
-    /// [Drawdown] = (range_low - range_high) / range_high
+    /// Calculates the value of the [`Drawdown`] in the specific period. Uses the formula:
+    /// [`Drawdown`] = (range_low - range_high) / range_high
     fn calculate(&self) -> f64 {
         // range_low - range_high / range_high
         (-self.equity_range.calculate()) / self.equity_range.high
     }
 }
 
-/// [MaxDrawdown](https://www.investopedia.com/terms/m/maximum-drawdown-mdd.asp) is the largest
+/// [`MaxDrawdown`] is the largest
 /// peak-to-trough decline of the Portfolio, or investment. Max Drawdown is a measure of downside
 /// risk, with large values indicating down movements could be volatile.
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+///
+/// See documentation: <https://www.investopedia.com/terms/m/maximum-drawdown-mdd.asp>
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct MaxDrawdown {
     pub drawdown: Drawdown,
 }
 
 impl MaxDrawdown {
-    /// Initialises a new [MaxDrawdown] using the [Drawdown] default value.
+    /// Initialises a new [`MaxDrawdown`] using the [`Drawdown`] default value.
     pub fn init() -> Self {
         Self {
             drawdown: Drawdown::default(),
         }
     }
 
-    /// Updates the [MaxDrawdown] using the latest input [Drawdown] of the Portfolio. If the input
-    /// drawdown is larger than the current [MaxDrawdown], it supersedes it.
+    /// Updates the [`MaxDrawdown`] using the latest input [`Drawdown`] of the Portfolio. If the input
+    /// drawdown is larger than the current [`MaxDrawdown`], it supersedes it.
     pub fn update(&mut self, next_drawdown: &Drawdown) {
         if next_drawdown.drawdown.abs() > self.drawdown.drawdown.abs() {
-            self.drawdown = next_drawdown.clone();
+            self.drawdown = *next_drawdown;
         }
     }
 }
 
-/// [AvgDrawdown] contains the average drawdown value and duration from a collection of [Drawdown]s
+/// [`AvgDrawdown`] contains the average drawdown value and duration from a collection of [`Drawdown`]s
 /// within a specific period.
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct AvgDrawdown {
     pub count: u64,
     pub mean_drawdown: f64,
+    #[serde(deserialize_with = "de_duration_from_secs", serialize_with = "se_duration_as_secs")]
     pub mean_duration: Duration,
     mean_duration_milliseconds: i64,
 }
@@ -155,13 +162,13 @@ impl Default for AvgDrawdown {
 }
 
 impl AvgDrawdown {
-    /// Initialises a new [AvgDrawdown] using the default method, providing zero values for all
+    /// Initialises a new [`AvgDrawdown`] using the default method, providing zero values for all
     /// fields.
     pub fn init() -> Self {
         Self::default()
     }
 
-    /// Updates the [AvgDrawdown] using the latest input [Drawdown] of the Portfolio.
+    /// Updates the [`AvgDrawdown`] using the latest input [`Drawdown`] of the Portfolio.
     pub fn update(&mut self, drawdown: &Drawdown) {
         self.count += 1;
 
@@ -184,7 +191,7 @@ impl AvgDrawdown {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::portfolio::position::EquityPoint;
+    use crate::statistic::metric::EquityPoint;
     use std::ops::Add;
 
     #[test]
@@ -211,7 +218,7 @@ mod tests {
             TestCase {
                 // Test case 0: No current drawdown
                 input_equity: EquityPoint {
-                    equity: 110.0,
+                    total: 110.0,
                     timestamp: base_timestamp.add(Duration::days(1)),
                 },
                 expected_drawdown: Drawdown {
@@ -228,7 +235,7 @@ mod tests {
             TestCase {
                 // Test case 1: Start of new drawdown w/ lower equity than peak
                 input_equity: EquityPoint {
-                    equity: 100.0,
+                    total: 100.0,
                     timestamp: base_timestamp.add(Duration::days(2)),
                 },
                 expected_drawdown: Drawdown {
@@ -245,7 +252,7 @@ mod tests {
             TestCase {
                 // Test case 2: Continuation of drawdown w/ lower equity than previous
                 input_equity: EquityPoint {
-                    equity: 90.0,
+                    total: 90.0,
                     timestamp: base_timestamp.add(Duration::days(3)),
                 },
                 expected_drawdown: Drawdown {
@@ -262,7 +269,7 @@ mod tests {
             TestCase {
                 // Test case 3: Continuation of drawdown w/ higher equity than previous but not higher than peak
                 input_equity: EquityPoint {
-                    equity: 95.0,
+                    total: 95.0,
                     timestamp: base_timestamp.add(Duration::days(4)),
                 },
                 expected_drawdown: Drawdown {
@@ -279,7 +286,7 @@ mod tests {
             TestCase {
                 // Test case 4: End of drawdown w/ equity higher than peak
                 input_equity: EquityPoint {
-                    equity: 120.0,
+                    total: 120.0,
                     timestamp: base_timestamp.add(Duration::days(5)),
                 },
                 expected_drawdown: Drawdown {
@@ -296,7 +303,7 @@ mod tests {
             TestCase {
                 // Test case 5: No current drawdown w/ residual start_timestamp from previous
                 input_equity: EquityPoint {
-                    equity: 200.0,
+                    total: 200.0,
                     timestamp: base_timestamp.add(Duration::days(6)),
                 },
                 expected_drawdown: Drawdown {
@@ -313,7 +320,7 @@ mod tests {
             TestCase {
                 // Test case 6: Start of new drawdown w/ lower equity than peak & residual fields from previous drawdown
                 input_equity: EquityPoint {
-                    equity: 180.0,
+                    total: 180.0,
                     timestamp: base_timestamp.add(Duration::days(7)),
                 },
                 expected_drawdown: Drawdown {
@@ -330,7 +337,7 @@ mod tests {
             TestCase {
                 // Test case 7: Continuation of drawdown w/ equity equal to peak
                 input_equity: EquityPoint {
-                    equity: 200.0,
+                    total: 200.0,
                     timestamp: base_timestamp.add(Duration::days(8)),
                 },
                 expected_drawdown: Drawdown {
@@ -347,7 +354,7 @@ mod tests {
             TestCase {
                 // Test case 8: End of drawdown w/ equity higher than peak
                 input_equity: EquityPoint {
-                    equity: 200.01,
+                    total: 200.01,
                     timestamp: base_timestamp.add(Duration::days(9)),
                 },
                 expected_drawdown: Drawdown {
@@ -364,7 +371,7 @@ mod tests {
         ];
 
         for (index, test) in test_cases.into_iter().enumerate() {
-            drawdown.update(&test.input_equity);
+            drawdown.update(test.input_equity);
             assert_eq!(drawdown, test.expected_drawdown, "Test case: {:?}", index)
         }
     }

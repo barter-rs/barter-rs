@@ -1,8 +1,8 @@
 [package]
 name = "barter"
-version = "0.6.5"
+version = "0.7.0"
 authors = ["keirbailey <keirinvestment@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 documentation = "https://docs.rs/barter/"
 repository = "https://gitlab.com/open-source-keir/financial-modelling/trading/barter-rs"
@@ -15,7 +15,7 @@ categories = ["accessibility", "simulation"]
 
 [dependencies]
 # Barter Ecosystem
-barter-data = "0.2.10"
+barter-data = "0.3.2"
 
 # Logging
 tracing = "0.1.29"
@@ -42,3 +42,4 @@ ta = "0.4.0"
 uuid = {version = "0.8", features = ["v4", "serde"]}
 chrono = {version = "0.4.19", features = ["serde"]}
 prettytable-rs = "0.8.0"
+parking_lot = "0.12.0"
