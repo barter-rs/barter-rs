@@ -1,0 +1,42 @@
+[
+  {
+    "start_timestamp": "2022-04-05 20:00:00.000000000 UTC",
+    "end_timestamp": "2022-04-05 21:00:00.000000000 UTC",
+    "open": 1000.0,
+    "high": 1100.0,
+    "low": 900.0,
+    "close": 1050.0,
+    "volume": 1000000000.0,
+    "trade_count": 100
+  },
+  {
+    "start_timestamp": "2022-04-05 21:00:00.000000000 UTC",
+    "end_timestamp": "2022-04-05 22:00:00.000000000 UTC",
+    "open": 1050.0,
+    "high": 1100.0,
+    "low": 800.0,
+    "close": 1060.0,
+    "volume": 1000000000.0,
+    "trade_count": 50
+  },
+  {
+    "start_timestamp": "2022-04-05 22:00:00.000000000 UTC",
+    "end_timestamp": "2022-04-05 23:00:00.000000000 UTC",
+    "open": 1060.0,
+    "high": 1200.0,
+    "low": 800.0,
+    "close": 1200.0,
+    "volume": 1000000000.0,
+    "trade_count": 200
+  },
+  {
+    "start_timestamp": "2022-04-05 23:00:00.000000000 UTC",
+    "end_timestamp": "2022-04-06 00:00:00.000000000 UTC",
+    "open": 1200.0,
+    "high": 1200.0,
+    "low": 1100.0,
+    "close": 1300.0,
+    "volume": 1000000000.0,
+    "trade_count": 500
+  }
+]
