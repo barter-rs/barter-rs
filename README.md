@@ -8,6 +8,8 @@ It is:
 * **Customisable**: A set of traits define how every Barter component communicates, providing a highly extensible 
 framework for trading.
 
+**See: [`Barter-Data`], [`Barter-Integration`] & [`Barter-Execution`]**
+
 [![Crates.io][crates-badge]][crates-url]
 [![MIT licensed][mit-badge]][mit-url]
 [![Build Status][actions-badge]][actions-url]
@@ -30,6 +32,8 @@ framework for trading.
 
 [`Barter`]: https://crates.io/crates/barter
 [`Barter-Data`]: https://crates.io/crates/barter-data
+[`Barter-Integration`]: https://crates.io/crates/barter-integration
+[`Barter-Execution`]: https://crates.io/crates/barter-execution
 [API Documentation]: https://docs.rs/barter/latest/barter/
 [Chat]: https://discord.gg/wE7RqhnQMV
 
@@ -40,11 +44,11 @@ to live trading. The Engine can be **controlled by issuing Commands** over the E
 the **Engine's Events can be listened to using the event_rx** (useful for event-sourcing). At a high level, 
 it provides several de-coupled components that interact via a set of traits:
 
-* **Data**: Continuer & MarketGenerator traits govern the generation of a MarketEvents data feed that acts as the system 
-heartbeat. For example, a LiveCandleHandler implementation is provided utilising [`Barter-Data`]'s WebSocket functionality to
-provide a live market Candle data feed to the system.
-* **Strategy**: The SignalGenerator trait governs potential generation of SignalEvents after analysing incoming 
-MarketEvents. SignalEvents are advisory signals sent to the Portfolio for analysis.
+* **Data**: MarketGenerator trait governs the generation of a MarketEvents that acts as the system 
+heartbeat. For example, a live::MarketFeed implementation is provided that utilises [`Barter-Data`] WebSocket
+integrations to provide live exchange data (ie/ trades, candles, etc).
+* **Strategy**: The SignalGenerator trait governs potential generation of Signal after analysing incoming 
+MarketEvents. Signals are advisory and sent to the Portfolio for analysis.
 * **Portfolio**: MarketUpdater, OrderGenerator, and FillUpdater govern global state Portfolio implementations. A 
 Portfolio may generate OrderEvents after receiving advisory SignalEvents from a Strategy. The Portfolio's state 
 updates after receiving MarketEvents and FillEvents.
@@ -59,7 +63,7 @@ Execution instances, as well as shared access to a global Portfolio.
 contained Trader instance operates on its own thread.
 
 ## Example
-* **For brevity**: Imports are not included. 
+* **For brevity**: Imports are not included - see /examples for everything you need!
 * **For simplicity**: 
   * Engine and Trader(s) are configuration with hard-coded values rather than loaded in configuration values.
   * Engine only contains one Trader (usually you would have many Traders, one for each Market).
@@ -168,11 +172,13 @@ development, new features, and the future roadmap.
 
 ## Related Projects
 In addition to the Barter crate, the Barter project also maintains:
+* [`Barter-Integration`]: High-performance, low-level framework for composing flexible web integrations.
 * [`Barter-Data`]: High performance & normalised WebSocket integration for leading cryptocurrency exchanges - batteries 
 included.
+* [`Barter-Execution`]: In development and soon to be integrated.
 
 ## Roadmap
-* Build & integrate the new "Barter-Execution" library to provide additional out-of-the-box functionality for executing
+* Integrate the new "Barter-Execution" library to provide additional out-of-the-box functionality for executing
 OrderEvents.
 * Build Strategy utilities for aggregating tick-by-tick Trades and/or Candles into multi-timeframe datastructures, as well
 as providing an example multi-timeframe Strategy using the utilities.  
@@ -186,5 +192,5 @@ This project is licensed under the [MIT license].
 
 ### Contribution
 Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in Tokio by you, shall be licensed as MIT, without any additional
+for inclusion in Barter by you, shall be licensed as MIT, without any additional
 terms or conditions.

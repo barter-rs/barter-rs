@@ -1,14 +1,15 @@
+use barter_integration::error::SocketError;
 use thiserror::Error;
 
 /// All errors generated in the barter::data module.
-#[derive(Error, Copy, Clone, Debug)]
+#[derive(Error, Debug)]
 pub enum DataError {
     #[error("Invalid builder attributes provided")]
     BuilderAttributesInvalid,
 
-    #[error("Failed to build struct due to incomplete attributes provided")]
-    BuilderIncomplete,
+    #[error("Failed to build struct due to missing attributes: {0}")]
+    BuilderIncomplete(&'static str),
 
-    #[error("Symbol data iterator does not contain anymore bars")]
-    DataIteratorEmpty,
+    #[error("Socket: {0}")]
+    Socket(#[from] SocketError),
 }

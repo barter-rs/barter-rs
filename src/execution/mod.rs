@@ -1,11 +1,8 @@
+use crate::{data::MarketMeta, portfolio::OrderEvent, strategy::Decision};
+use barter_integration::model::{Exchange, Instrument};
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
-
-use crate::data::MarketMeta;
-use crate::portfolio::OrderEvent;
-use crate::execution::error::ExecutionError;
+use error::ExecutionError;
 use serde::{Deserialize, Serialize};
-use crate::strategy::Decision;
 
 /// Barter execution module specific errors.
 pub mod error;
@@ -23,11 +20,9 @@ pub trait ExecutionClient {
 /// so it can apply updates.
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct FillEvent {
-    pub event_type: &'static str,
-    pub trace_id: Uuid,
-    pub timestamp: DateTime<Utc>,
-    pub exchange: &'static str,
-    pub symbol: String,
+    pub time: DateTime<Utc>,
+    pub exchange: Exchange,
+    pub instrument: Instrument,
     /// Metadata propagated from source MarketEvent
     pub market_meta: MarketMeta,
     /// LONG, CloseLong, SHORT or CloseShort
@@ -73,10 +68,9 @@ pub type FeeAmount = f64;
 /// Builder to construct [FillEvent] instances.
 #[derive(Debug, Default)]
 pub struct FillEventBuilder {
-    pub trace_id: Option<Uuid>,
-    pub timestamp: Option<DateTime<Utc>>,
-    pub exchange: Option<&'static str>,
-    pub symbol: Option<String>,
+    pub time: Option<DateTime<Utc>>,
+    pub exchange: Option<Exchange>,
+    pub instrument: Option<Instrument>,
     pub market_meta: Option<MarketMeta>,
     pub decision: Option<Decision>,
     pub quantity: Option<f64>,
@@ -89,30 +83,23 @@ impl FillEventBuilder {
         Self::default()
     }
 
-    pub fn trace_id(self, value: Uuid) -> Self {
+    pub fn time(self, value: DateTime<Utc>) -> Self {
         Self {
-            trace_id: Some(value),
+            time: Some(value),
             ..self
         }
     }
 
-    pub fn timestamp(self, value: DateTime<Utc>) -> Self {
-        Self {
-            timestamp: Some(value),
-            ..self
-        }
-    }
-
-    pub fn exchange(self, value: &'static str) -> Self {
+    pub fn exchange(self, value: Exchange) -> Self {
         Self {
             exchange: Some(value),
             ..self
         }
     }
 
-    pub fn symbol(self, value: &'static str) -> Self {
+    pub fn instrument(self, value: Instrument) -> Self {
         Self {
-            exchange: Some(value),
+            instrument: Some(value),
             ..self
         }
     }
@@ -154,16 +141,26 @@ impl FillEventBuilder {
 
     pub fn build(self) -> Result<FillEvent, ExecutionError> {
         Ok(FillEvent {
-            event_type: FillEvent::EVENT_TYPE,
-            trace_id: self.trace_id.ok_or(ExecutionError::BuilderIncomplete)?,
-            timestamp: self.timestamp.ok_or(ExecutionError::BuilderIncomplete)?,
-            exchange: self.exchange.ok_or(ExecutionError::BuilderIncomplete)?,
-            symbol: self.symbol.ok_or(ExecutionError::BuilderIncomplete)?,
-            market_meta: self.market_meta.ok_or(ExecutionError::BuilderIncomplete)?,
-            decision: self.decision.ok_or(ExecutionError::BuilderIncomplete)?,
-            quantity: self.quantity.ok_or(ExecutionError::BuilderIncomplete)?,
-            fill_value_gross: self.fill_value_gross.ok_or(ExecutionError::BuilderIncomplete)?,
-            fees: self.fees.ok_or(ExecutionError::BuilderIncomplete)?,
+            time: self.time.ok_or(ExecutionError::BuilderIncomplete("time"))?,
+            exchange: self
+                .exchange
+                .ok_or(ExecutionError::BuilderIncomplete("exchange"))?,
+            instrument: self
+                .instrument
+                .ok_or(ExecutionError::BuilderIncomplete("instrument"))?,
+            market_meta: self
+                .market_meta
+                .ok_or(ExecutionError::BuilderIncomplete("market_meta"))?,
+            decision: self
+                .decision
+                .ok_or(ExecutionError::BuilderIncomplete("decision"))?,
+            quantity: self
+                .quantity
+                .ok_or(ExecutionError::BuilderIncomplete("quantity"))?,
+            fill_value_gross: self
+                .fill_value_gross
+                .ok_or(ExecutionError::BuilderIncomplete("fill_value_gross"))?,
+            fees: self.fees.ok_or(ExecutionError::BuilderIncomplete("fees"))?,
         })
     }
 }
