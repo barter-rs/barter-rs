@@ -1,16 +1,14 @@
-use std::convert::TryFrom;
-
-use barter_data::model::MarketData;
+use crate::{
+    execution::{FeeAmount, Fees, FillEvent},
+    portfolio::{error::PortfolioError, Balance},
+    strategy::Decision,
+};
+use barter_data::model::{DataKind, MarketEvent};
+use barter_integration::model::{Exchange, Instrument, Side};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 use uuid::Uuid;
-
-use crate::{ExchangeId, SymbolId};
-use crate::data::MarketEvent;
-use crate::execution::{FeeAmount, Fees, FillEvent};
-use crate::portfolio::Balance;
-use crate::portfolio::error::PortfolioError;
-use crate::strategy::Decision;
 
 /// Enters a new [`Position`].
 pub trait PositionEnterer {
@@ -29,42 +27,42 @@ pub trait PositionUpdater {
 pub trait PositionExiter {
     /// Exits an open [`Position`], given the input Portfolio equity & the [`FillEvent`] returned
     /// from an Execution handler.
-    fn exit(
-        &mut self,
-        balance: Balance,
-        fill: &FillEvent,
-    ) -> Result<PositionExit, PortfolioError>;
+    fn exit(&mut self, balance: Balance, fill: &FillEvent) -> Result<PositionExit, PortfolioError>;
 }
 
 /// Communicates a String represents a unique [`Position`] identifier.
 pub type PositionId = String;
 
-/// Returns a unique identifier for a [`Position`] given an engine_Id, exchange & symbol.
+/// Returns a unique identifier for a [`Position`] given an engine_id, [`Exchange`] & [`Instrument`].
 pub fn determine_position_id(
     engine_id: Uuid,
-    exchange: ExchangeId,
-    symbol: &SymbolId,
+    exchange: &Exchange,
+    instrument: &Instrument,
 ) -> PositionId {
-    format!("{}_trader_{}_{}_position", engine_id, exchange, symbol)
+    format!("{}_{}_{}_position", engine_id, exchange, instrument)
 }
 
 /// Data encapsulating the state of an ongoing or closed [`Position`].
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct Position {
-    /// Unique identifier for a [`Position`] generated from an engine_id, [`ExchangeId`] & [`SymbolId`].
+    /// Unique identifier for a [`Position`] generated from an engine_id, [`Exchange`] & [`Instrument`].
     pub position_id: PositionId,
 
     /// Metadata detailing trace UUIDs, timestamps & equity associated with entering, updating & exiting.
     pub meta: PositionMeta,
 
-    /// Exchange associated with this [`Position`] instance.
-    pub exchange: String,
+    /// [`Exchange`] associated with this [`Position`].
+    pub exchange: Exchange,
 
-    /// Ticker symbol associated with this [`Position`] instance.
-    pub symbol: SymbolId,
+    /// [`Instrument`] associated with this [`Position`].
+    pub instrument: Instrument,
 
-    /// Long or Short.
-    pub direction: Direction,
+    /// Buy or Sell.
+    ///
+    /// Notes:
+    /// - Side::Buy considered synonymous with Long.
+    /// - Side::Sell considered synonymous with Short.
+    pub side: Side,
 
     /// +ve or -ve quantity of symbol contracts opened.
     pub quantity: f64,
@@ -110,10 +108,8 @@ impl PositionEnterer for Position {
     fn enter(engine_id: Uuid, fill: &FillEvent) -> Result<Position, PortfolioError> {
         // Initialise Position Metadata
         let metadata = PositionMeta {
-            enter_trace_id: fill.trace_id,
-            enter_timestamp: fill.market_meta.timestamp,
-            last_update_trace_id: fill.trace_id,
-            last_update_timestamp: fill.timestamp,
+            enter_time: fill.market_meta.time,
+            update_time: fill.time,
             exit_balance: None,
         };
 
@@ -127,11 +123,11 @@ impl PositionEnterer for Position {
         let unrealised_profit_loss = -enter_fees_total * 2.0;
 
         Ok(Position {
-            position_id: determine_position_id(engine_id, fill.exchange, &fill.symbol),
-            exchange: fill.exchange.to_owned(),
-            symbol: fill.symbol.clone(),
+            position_id: determine_position_id(engine_id, &fill.exchange, &fill.instrument),
+            exchange: fill.exchange.clone(),
+            instrument: fill.instrument.clone(),
             meta: metadata,
-            direction: Position::parse_entry_direction(fill)?,
+            side: Position::parse_entry_side(fill)?,
             quantity: fill.quantity,
             enter_fees: fill.fees,
             enter_fees_total,
@@ -151,14 +147,13 @@ impl PositionEnterer for Position {
 
 impl PositionUpdater for Position {
     fn update(&mut self, market: &MarketEvent) -> PositionUpdate {
-        // Determine close from MarketData
-        let close = match &market.data {
-            MarketData::Trade(trade) => trade.price,
-            MarketData::Candle(candle) => candle.close,
+        // Determine close from MarketEvent
+        let close = match &market.kind {
+            DataKind::Trade(trade) => trade.price,
+            DataKind::Candle(candle) => candle.close,
         };
 
-        self.meta.last_update_trace_id = market.trace_id;
-        self.meta.last_update_timestamp = market.timestamp;
+        self.meta.update_time = market.exchange_time;
 
         self.current_symbol_price = close;
 
@@ -197,8 +192,7 @@ impl PositionExiter for Position {
 
         // Metadata
         balance.total += self.realised_profit_loss;
-        self.meta.last_update_trace_id = fill.trace_id;
-        self.meta.last_update_timestamp = fill.timestamp;
+        self.meta.update_time = fill.time;
         self.meta.exit_balance = Some(balance);
 
         PositionExit::try_from(self)
@@ -217,15 +211,23 @@ impl Position {
         (fill.fill_value_gross / fill.quantity).abs()
     }
 
-    /// Determine the [`Position`] entry [`Direction`] by analysing the input [`FillEvent`].
-    pub fn parse_entry_direction(fill: &FillEvent) -> Result<Direction, PortfolioError> {
+    /// Determine the [`Position`] entry [`Side`] by analysing the input [`FillEvent`].
+    pub fn parse_entry_side(fill: &FillEvent) -> Result<Side, PortfolioError> {
         match fill.decision {
-            Decision::Long if fill.quantity.is_sign_positive() => Ok(Direction::Long),
-            Decision::Short if fill.quantity.is_sign_negative() => Ok(Direction::Short),
+            Decision::Long if fill.quantity.is_sign_positive() => Ok(Side::Buy),
+            Decision::Short if fill.quantity.is_sign_negative() => Ok(Side::Sell),
             Decision::CloseLong | Decision::CloseShort => {
                 Err(PortfolioError::CannotEnterPositionWithExitFill)
             }
-            _ => Err(PortfolioError::ParseEntryDirectionError),
+            _ => Err(PortfolioError::ParseEntrySide),
+        }
+    }
+
+    /// Determines the [`Decision`] required to exit this [`Side`] (Buy or Sell) [`Position`].
+    pub fn determine_exit_decision(&self) -> Decision {
+        match self.side {
+            Side::Buy => Decision::CloseLong,
+            Side::Sell => Decision::CloseShort,
         }
     }
 
@@ -233,13 +235,9 @@ impl Position {
     pub fn calculate_unrealised_profit_loss(&self) -> f64 {
         let approx_total_fees = self.enter_fees_total * 2.0;
 
-        match self.direction {
-            Direction::Long => {
-                self.current_value_gross - self.enter_value_gross - approx_total_fees
-            }
-            Direction::Short => {
-                self.enter_value_gross - self.current_value_gross - approx_total_fees
-            }
+        match self.side {
+            Side::Buy => self.current_value_gross - self.enter_value_gross - approx_total_fees,
+            Side::Sell => self.enter_value_gross - self.current_value_gross - approx_total_fees,
         }
     }
 
@@ -247,9 +245,9 @@ impl Position {
     pub fn calculate_realised_profit_loss(&self) -> f64 {
         let total_fees = self.enter_fees_total + self.exit_fees_total;
 
-        match self.direction {
-            Direction::Long => self.exit_value_gross - self.enter_value_gross - total_fees,
-            Direction::Short => self.enter_value_gross - self.exit_value_gross - total_fees,
+        match self.side {
+            Side::Buy => self.exit_value_gross - self.enter_value_gross - total_fees,
+            Side::Sell => self.enter_value_gross - self.exit_value_gross - total_fees,
         }
     }
 
@@ -264,10 +262,10 @@ impl Position {
 #[derive(Debug, Default)]
 pub struct PositionBuilder {
     pub position_id: Option<PositionId>,
-    pub exchange: Option<String>,
-    pub symbol: Option<SymbolId>,
+    pub exchange: Option<Exchange>,
+    pub instrument: Option<Instrument>,
     pub meta: Option<PositionMeta>,
-    pub direction: Option<Direction>,
+    pub side: Option<Side>,
     pub quantity: Option<f64>,
     pub enter_fees: Option<Fees>,
     pub enter_fees_total: Option<FeeAmount>,
@@ -295,16 +293,16 @@ impl PositionBuilder {
         }
     }
 
-    pub fn exchange(self, value: String) -> Self {
+    pub fn exchange(self, value: Exchange) -> Self {
         Self {
             exchange: Some(value),
             ..self
         }
     }
 
-    pub fn symbol(self, value: SymbolId) -> Self {
+    pub fn instrument(self, value: Instrument) -> Self {
         Self {
-            symbol: Some(value),
+            instrument: Some(value),
             ..self
         }
     }
@@ -316,9 +314,9 @@ impl PositionBuilder {
         }
     }
 
-    pub fn direction(self, value: Direction) -> Self {
+    pub fn side(self, value: Side) -> Self {
         Self {
-            direction: Some(value),
+            side: Some(value),
             ..self
         }
     }
@@ -416,24 +414,56 @@ impl PositionBuilder {
 
     pub fn build(self) -> Result<Position, PortfolioError> {
         Ok(Position {
-            position_id: self.position_id.ok_or(PortfolioError::BuilderIncomplete)?,
-            exchange: self.exchange.ok_or(PortfolioError::BuilderIncomplete)?,
-            symbol: self.symbol.ok_or(PortfolioError::BuilderIncomplete)?,
-            meta: self.meta.ok_or(PortfolioError::BuilderIncomplete)?,
-            direction: self.direction.ok_or(PortfolioError::BuilderIncomplete)?,
-            quantity: self.quantity.ok_or(PortfolioError::BuilderIncomplete)?,
-            enter_fees: self.enter_fees.ok_or(PortfolioError::BuilderIncomplete)?,
-            enter_fees_total: self.enter_fees_total.ok_or(PortfolioError::BuilderIncomplete)?,
-            enter_avg_price_gross: self.enter_avg_price_gross.ok_or(PortfolioError::BuilderIncomplete)?,
-            enter_value_gross: self.enter_value_gross.ok_or(PortfolioError::BuilderIncomplete)?,
-            exit_fees: self.exit_fees.ok_or(PortfolioError::BuilderIncomplete)?,
-            exit_fees_total: self.exit_fees_total.ok_or(PortfolioError::BuilderIncomplete)?,
-            exit_avg_price_gross: self.exit_avg_price_gross.ok_or(PortfolioError::BuilderIncomplete)?,
-            exit_value_gross: self.exit_value_gross.ok_or(PortfolioError::BuilderIncomplete)?,
-            current_symbol_price: self.current_symbol_price.ok_or(PortfolioError::BuilderIncomplete)?,
-            current_value_gross: self.current_value_gross.ok_or(PortfolioError::BuilderIncomplete)?,
-            unrealised_profit_loss: self.unrealised_profit_loss.ok_or(PortfolioError::BuilderIncomplete)?,
-            realised_profit_loss: self.realised_profit_loss.ok_or(PortfolioError::BuilderIncomplete)?,
+            position_id: self
+                .position_id
+                .ok_or(PortfolioError::BuilderIncomplete("position_id"))?,
+            exchange: self
+                .exchange
+                .ok_or(PortfolioError::BuilderIncomplete("exchange"))?,
+            instrument: self
+                .instrument
+                .ok_or(PortfolioError::BuilderIncomplete("instrument"))?,
+            meta: self.meta.ok_or(PortfolioError::BuilderIncomplete("meta"))?,
+            side: self.side.ok_or(PortfolioError::BuilderIncomplete("side"))?,
+            quantity: self
+                .quantity
+                .ok_or(PortfolioError::BuilderIncomplete("quantity"))?,
+            enter_fees: self
+                .enter_fees
+                .ok_or(PortfolioError::BuilderIncomplete("enter_fees"))?,
+            enter_fees_total: self
+                .enter_fees_total
+                .ok_or(PortfolioError::BuilderIncomplete("enter_fees_total"))?,
+            enter_avg_price_gross: self
+                .enter_avg_price_gross
+                .ok_or(PortfolioError::BuilderIncomplete("enter_avg_price_gross"))?,
+            enter_value_gross: self
+                .enter_value_gross
+                .ok_or(PortfolioError::BuilderIncomplete("enter_value_gross"))?,
+            exit_fees: self
+                .exit_fees
+                .ok_or(PortfolioError::BuilderIncomplete("exit_fees"))?,
+            exit_fees_total: self
+                .exit_fees_total
+                .ok_or(PortfolioError::BuilderIncomplete("exit_fees_total"))?,
+            exit_avg_price_gross: self
+                .exit_avg_price_gross
+                .ok_or(PortfolioError::BuilderIncomplete("exit_avg_price_gross"))?,
+            exit_value_gross: self
+                .exit_value_gross
+                .ok_or(PortfolioError::BuilderIncomplete("exit_value_gross"))?,
+            current_symbol_price: self
+                .current_symbol_price
+                .ok_or(PortfolioError::BuilderIncomplete("current_symbol_price"))?,
+            current_value_gross: self
+                .current_value_gross
+                .ok_or(PortfolioError::BuilderIncomplete("current_value_gross"))?,
+            unrealised_profit_loss: self
+                .unrealised_profit_loss
+                .ok_or(PortfolioError::BuilderIncomplete("unrealised_profit_loss"))?,
+            realised_profit_loss: self
+                .realised_profit_loss
+                .ok_or(PortfolioError::BuilderIncomplete("realised_profit_loss"))?,
         })
     }
 }
@@ -442,17 +472,11 @@ impl PositionBuilder {
 /// a [`Position`].
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct PositionMeta {
-    /// Trace UUID linking all the Events that led to the entering of this [`Position`].
-    pub enter_trace_id: Uuid,
-
-    /// FillEvent timestamp that triggered the entering of this [`Position`].
-    pub enter_timestamp: DateTime<Utc>,
-
-    /// Trace UUID of the last event to trigger a [`Position`] state change (enter, update, exit).
-    pub last_update_trace_id: Uuid,
+    /// [`FillEvent`] timestamp that triggered the entering of this [`Position`].
+    pub enter_time: DateTime<Utc>,
 
     /// Timestamp of the last event to trigger a [`Position`] state change (enter, update, exit).
-    pub last_update_timestamp: DateTime<Utc>,
+    pub update_time: DateTime<Utc>,
 
     /// Portfolio [`Balance`] calculated at the point of exiting a [`Position`].
     pub exit_balance: Option<Balance>,
@@ -461,34 +485,9 @@ pub struct PositionMeta {
 impl Default for PositionMeta {
     fn default() -> Self {
         Self {
-            enter_trace_id: Uuid::new_v4(),
-            enter_timestamp: Utc::now(),
-            last_update_trace_id: Uuid::new_v4(),
-            last_update_timestamp: Utc::now(),
+            enter_time: Utc::now(),
+            update_time: Utc::now(),
             exit_balance: None,
-        }
-    }
-}
-
-/// Direction of the [`Position`] when it was opened, Long or Short.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub enum Direction {
-    Long,
-    Short,
-}
-
-impl Default for Direction {
-    fn default() -> Self {
-        Self::Long
-    }
-}
-
-impl Direction {
-    /// Determines the [`Decision`] required to exit a [`Position`] that's in a specific [`Direction`].
-    pub fn determine_exit_decision(&self) -> Decision {
-        match self {
-            Direction::Long => Decision::CloseLong,
-            Direction::Short => Decision::CloseShort,
         }
     }
 }
@@ -496,12 +495,10 @@ impl Direction {
 /// [`Position`] update event. Occurs as a result of receiving new [`MarketEvent`] data.
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct PositionUpdate {
-    /// Unique identifier for a [`Position`], generated from an exchange, symbol, and enter_timestamp.
+    /// Unique identifier for a [`Position`], generated from an exchange, symbol, and enter_time.
     pub position_id: String,
-    /// Trace UUID of the last event to trigger a [`Position`] update.
-    pub update_trace_id: Uuid,
     /// Event timestamp of the last event to trigger a [`Position`] update.
-    pub update_timestamp: DateTime<Utc>,
+    pub update_time: DateTime<Utc>,
     /// Symbol current close price.
     pub current_symbol_price: f64,
     /// abs(Quantity) * current_symbol_price.
@@ -514,8 +511,7 @@ impl From<&mut Position> for PositionUpdate {
     fn from(updated_position: &mut Position) -> Self {
         Self {
             position_id: updated_position.position_id.clone(),
-            update_trace_id: updated_position.meta.last_update_trace_id,
-            update_timestamp: updated_position.meta.last_update_timestamp,
+            update_time: updated_position.meta.update_time,
             current_symbol_price: updated_position.current_symbol_price,
             current_value_gross: updated_position.current_value_gross,
             unrealised_profit_loss: updated_position.unrealised_profit_loss,
@@ -526,14 +522,11 @@ impl From<&mut Position> for PositionUpdate {
 /// [`Position`] exit event. Occurs as a result of a [`FillEvent`] that exits a [`Position`].
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct PositionExit {
-    /// Unique identifier for a [`Position`], generated from an exchange, symbol, and enter_timestamp.
+    /// Unique identifier for a [`Position`], generated from an exchange, symbol, and enter_time.
     pub position_id: String,
 
-    /// Trace UUID linking the last chain of events to trigger a [`Position`] exit.
-    pub exit_trace_id: Uuid,
-
-    /// FillEvent timestamp that triggered the exiting of this [`Position`].
-    pub exit_timestamp: DateTime<Utc>,
+    /// [`FillEvent`] timestamp that triggered the exiting of this [`Position`].
+    pub exit_time: DateTime<Utc>,
 
     /// Portfolio [`Balance`] calculated at the point of exiting a [`Position`].
     pub exit_balance: Balance,
@@ -560,9 +553,11 @@ impl TryFrom<&mut Position> for PositionExit {
     fn try_from(exited_position: &mut Position) -> Result<Self, Self::Error> {
         Ok(Self {
             position_id: exited_position.position_id.clone(),
-            exit_trace_id: exited_position.meta.last_update_trace_id,
-            exit_timestamp: exited_position.meta.last_update_timestamp,
-            exit_balance: exited_position.meta.exit_balance.ok_or(PortfolioError::PositionExitError)?,
+            exit_time: exited_position.meta.update_time,
+            exit_balance: exited_position
+                .meta
+                .exit_balance
+                .ok_or(PortfolioError::PositionExit)?,
             exit_fees: exited_position.exit_fees,
             exit_fees_total: exited_position.exit_fees_total,
             exit_avg_price_gross: exited_position.exit_avg_price_gross,
@@ -575,7 +570,9 @@ impl TryFrom<&mut Position> for PositionExit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::{fill_event, market_event, position};
+    use crate::test_util::{fill_event, position};
+    use barter_data::test_util::market_trade;
+    use barter_integration::model::Side;
 
     #[test]
     fn enter_new_position_with_long_decision_provided() {
@@ -591,7 +588,7 @@ mod tests {
 
         let position = Position::enter(Uuid::new_v4(), &input_fill).unwrap();
 
-        assert_eq!(position.direction, Direction::Long);
+        assert_eq!(position.side, Side::Buy);
         assert_eq!(position.quantity, input_fill.quantity);
         assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(position.enter_fees.exchange, input_fill.fees.exchange);
@@ -628,7 +625,7 @@ mod tests {
 
         let position = Position::enter(Uuid::new_v4(), &input_fill).unwrap();
 
-        assert_eq!(position.direction, Direction::Short);
+        assert_eq!(position.side, Side::Sell);
         assert_eq!(position.quantity, input_fill.quantity);
         assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(position.enter_fees.exchange, input_fill.fees.exchange);
@@ -742,7 +739,7 @@ mod tests {
     fn update_long_position_so_unreal_pnl_increases() {
         // Initial Position
         let mut position = position();
-        position.direction = Direction::Long;
+        position.side = Side::Buy;
         position.quantity = 1.0;
         position.enter_fees_total = 3.0;
         position.enter_fees = Fees {
@@ -757,18 +754,18 @@ mod tests {
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
-        let mut input_market = market_event();
-        match input_market.data {
+        let mut input_market = market_trade(Side::Buy);
+        match input_market.kind {
             // +100.0 higher than current_symbol_price
-            MarketData::Candle(ref mut candle) => candle.close = 200.0,
-            MarketData::Trade(ref mut trade) => trade.price = 200.0,
+            DataKind::Candle(ref mut candle) => candle.close = 200.0,
+            DataKind::Trade(ref mut trade) => trade.price = 200.0,
         };
 
         // Update Position
         position.update(&input_market);
 
         // Assert update hasn't changed fields that are constant after creation
-        assert_eq!(position.direction, Direction::Long);
+        assert_eq!(position.side, Side::Buy);
         assert_eq!(position.quantity, 1.0);
         assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(position.enter_fees.exchange, 1.0);
@@ -778,9 +775,9 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        let close = match &input_market.data {
-            MarketData::Trade(trade) => trade.price,
-            MarketData::Candle(candle) => candle.close,
+        let close = match &input_market.kind {
+            DataKind::Trade(trade) => trade.price,
+            DataKind::Candle(candle) => candle.close,
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(
@@ -796,7 +793,7 @@ mod tests {
     fn update_long_position_so_unreal_pnl_decreases() {
         // Initial Position
         let mut position = position();
-        position.direction = Direction::Long;
+        position.side = Side::Buy;
         position.quantity = 1.0;
         position.enter_fees_total = 3.0;
         position.enter_fees = Fees {
@@ -811,19 +808,19 @@ mod tests {
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
-        let mut input_market = market_event();
+        let mut input_market = market_trade(Side::Sell);
 
-        match input_market.data {
+        match input_market.kind {
             // -50.0 lower than current_symbol_price
-            MarketData::Candle(ref mut candle) => candle.close = 50.0,
-            MarketData::Trade(ref mut trade) => trade.price = 50.0,
+            DataKind::Candle(ref mut candle) => candle.close = 50.0,
+            DataKind::Trade(ref mut trade) => trade.price = 50.0,
         };
 
         // Update Position
         position.update(&input_market);
 
         // Assert update hasn't changed fields that are constant after creation
-        assert_eq!(position.direction, Direction::Long);
+        assert_eq!(position.side, Side::Buy);
         assert_eq!(position.quantity, 1.0);
         assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(position.enter_fees.exchange, 1.0);
@@ -833,9 +830,9 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        let close = match &input_market.data {
-            MarketData::Trade(trade) => trade.price,
-            MarketData::Candle(candle) => candle.close,
+        let close = match &input_market.kind {
+            DataKind::Trade(trade) => trade.price,
+            DataKind::Candle(candle) => candle.close,
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(
@@ -851,7 +848,7 @@ mod tests {
     fn update_short_position_so_unreal_pnl_increases() {
         // Initial Position
         let mut position = position();
-        position.direction = Direction::Short;
+        position.side = Side::Sell;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
         position.enter_fees = Fees {
@@ -866,19 +863,19 @@ mod tests {
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
-        let mut input_market = market_event();
+        let mut input_market = market_trade(Side::Buy);
 
-        match input_market.data {
+        match input_market.kind {
             // -50.0 lower than current_symbol_price
-            MarketData::Candle(ref mut candle) => candle.close = 50.0,
-            MarketData::Trade(ref mut trade) => trade.price = 50.0,
+            DataKind::Candle(ref mut candle) => candle.close = 50.0,
+            DataKind::Trade(ref mut trade) => trade.price = 50.0,
         };
 
         // Update Position
         position.update(&input_market);
 
         // Assert update hasn't changed fields that are constant after creation
-        assert_eq!(position.direction, Direction::Short);
+        assert_eq!(position.side, Side::Sell);
         assert_eq!(position.quantity, -1.0);
         assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(position.enter_fees.exchange, 1.0);
@@ -888,9 +885,9 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        let close = match &input_market.data {
-            MarketData::Trade(trade) => trade.price,
-            MarketData::Candle(candle) => candle.close,
+        let close = match &input_market.kind {
+            DataKind::Trade(trade) => trade.price,
+            DataKind::Candle(candle) => candle.close,
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(
@@ -906,7 +903,7 @@ mod tests {
     fn update_short_position_so_unreal_pnl_decreases() {
         // Initial Position
         let mut position = position();
-        position.direction = Direction::Short;
+        position.side = Side::Sell;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
         position.enter_fees = Fees {
@@ -921,19 +918,19 @@ mod tests {
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
-        let mut input_market = market_event();
+        let mut input_market = market_trade(Side::Sell);
 
-        match input_market.data {
+        match input_market.kind {
             // +100.0 higher than current_symbol_price
-            MarketData::Candle(ref mut candle) => candle.close = 200.0,
-            MarketData::Trade(ref mut trade) => trade.price = 200.0,
+            DataKind::Candle(ref mut candle) => candle.close = 200.0,
+            DataKind::Trade(ref mut trade) => trade.price = 200.0,
         };
 
         // Update Position
         position.update(&input_market);
 
         // Assert update hasn't changed fields that are constant after creation
-        assert_eq!(position.direction, Direction::Short);
+        assert_eq!(position.side, Side::Sell);
         assert_eq!(position.quantity, -1.0);
         assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(position.enter_fees.exchange, 1.0);
@@ -943,9 +940,9 @@ mod tests {
         assert_eq!(position.enter_value_gross, 100.0);
 
         // Assert updated fields are correct
-        let close = match &input_market.data {
-            MarketData::Trade(trade) => trade.price,
-            MarketData::Candle(candle) => candle.close,
+        let close = match &input_market.kind {
+            DataKind::Trade(trade) => trade.price,
+            DataKind::Candle(candle) => candle.close,
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(
@@ -961,7 +958,7 @@ mod tests {
     fn exit_long_position_with_positive_real_pnl() {
         // Initial Position
         let mut position = position();
-        position.direction = Direction::Long;
+        position.side = Side::Buy;
         position.quantity = 1.0;
         position.enter_fees_total = 3.0;
         position.enter_fees = Fees {
@@ -977,9 +974,9 @@ mod tests {
 
         // Input Portfolio Current Balance
         let current_balance = Balance {
-            timestamp: Utc::now(),
+            time: Utc::now(),
             total: 10000.0,
-            available: 10000.0
+            available: 10000.0,
         };
 
         // Input FillEvent
@@ -997,7 +994,7 @@ mod tests {
         position.exit(current_balance, &input_fill).unwrap();
 
         // Assert exit hasn't changed fields that are constant after creation
-        assert_eq!(position.direction, Direction::Long);
+        assert_eq!(position.side, Side::Buy);
         assert_eq!(position.quantity, 1.0);
         assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(position.enter_fees.exchange, 1.0);
@@ -1032,7 +1029,7 @@ mod tests {
     fn exit_long_position_with_negative_real_pnl() {
         // Initial Position
         let mut position = position();
-        position.direction = Direction::Long;
+        position.side = Side::Buy;
         position.quantity = 1.0;
         position.enter_fees_total = 3.0;
         position.enter_fees = Fees {
@@ -1048,9 +1045,9 @@ mod tests {
 
         // Input Portfolio Current Balance
         let current_balance = Balance {
-            timestamp: Utc::now(),
+            time: Utc::now(),
             total: 10000.0,
-            available: 10000.0
+            available: 10000.0,
         };
 
         // Input FillEvent
@@ -1068,7 +1065,7 @@ mod tests {
         position.exit(current_balance, &input_fill).unwrap();
 
         // Assert exit hasn't changed fields that are constant after creation
-        assert_eq!(position.direction, Direction::Long);
+        assert_eq!(position.side, Side::Buy);
         assert_eq!(position.quantity, 1.0);
         assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(position.enter_fees.exchange, 1.0);
@@ -1103,7 +1100,7 @@ mod tests {
     fn exit_short_position_with_positive_real_pnl() {
         // Initial Position
         let mut position = position();
-        position.direction = Direction::Short;
+        position.side = Side::Sell;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
         position.enter_fees = Fees {
@@ -1119,9 +1116,9 @@ mod tests {
 
         // Input Portfolio Current Balance
         let current_balance = Balance {
-            timestamp: Utc::now(),
+            time: Utc::now(),
             total: 10000.0,
-            available: 10000.0
+            available: 10000.0,
         };
 
         // Input FillEvent
@@ -1139,7 +1136,7 @@ mod tests {
         position.exit(current_balance, &input_fill).unwrap();
 
         // Assert exit hasn't changed fields that are constant after creation
-        assert_eq!(position.direction, Direction::Short);
+        assert_eq!(position.side, Side::Sell);
         assert_eq!(position.quantity, -1.0);
         assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(position.enter_fees.exchange, 1.0);
@@ -1174,7 +1171,7 @@ mod tests {
     fn exit_short_position_with_negative_real_pnl() {
         // Initial Position
         let mut position = position();
-        position.direction = Direction::Short;
+        position.side = Side::Sell;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
         position.enter_fees = Fees {
@@ -1190,9 +1187,9 @@ mod tests {
 
         // Input Portfolio Current Balance
         let current_balance = Balance {
-            timestamp: Utc::now(),
+            time: Utc::now(),
             total: 10000.0,
-            available: 10000.0
+            available: 10000.0,
         };
 
         // Input FillEvent
@@ -1210,7 +1207,7 @@ mod tests {
         position.exit(current_balance, &input_fill).unwrap();
 
         // Assert exit hasn't changed fields that are constant after creation
-        assert_eq!(position.direction, Direction::Short);
+        assert_eq!(position.side, Side::Sell);
         assert_eq!(position.quantity, -1.0);
         assert_eq!(position.enter_fees_total, 3.0);
         assert_eq!(position.enter_fees.exchange, 1.0);
@@ -1245,7 +1242,7 @@ mod tests {
     fn exit_long_position_with_long_entry_fill_and_return_err() -> Result<(), String> {
         // Initial Position
         let mut position = position();
-        position.direction = Direction::Short;
+        position.side = Side::Sell;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
         position.enter_fees = Fees {
@@ -1261,9 +1258,9 @@ mod tests {
 
         // Input Portfolio Current Balance
         let current_balance = Balance {
-            timestamp: Utc::now(),
+            time: Utc::now(),
             total: 10000.0,
-            available: 10000.0
+            available: 10000.0,
         };
 
         // Input FillEvent
@@ -1291,7 +1288,7 @@ mod tests {
     fn exit_short_position_with_short_entry_fill_and_return_err() -> Result<(), String> {
         // Initial Position
         let mut position = position();
-        position.direction = Direction::Short;
+        position.side = Side::Sell;
         position.quantity = -1.0;
         position.enter_fees_total = 3.0;
         position.enter_fees = Fees {
@@ -1307,9 +1304,9 @@ mod tests {
 
         // Input Portfolio Current Balance
         let current_balance = Balance {
-            timestamp: Utc::now(),
+            time: Utc::now(),
             total: 10000.0,
-            available: 10000.0
+            available: 10000.0,
         };
 
         // Input FillEvent
@@ -1356,87 +1353,85 @@ mod tests {
     }
 
     #[test]
-    fn parse_entry_direction_as_long_with_positive_quantity_long_decision_provided() {
+    fn parse_entry_side_as_long_with_positive_quantity_long_decision_provided() {
         let mut input_fill = fill_event();
         input_fill.decision = Decision::Long;
         input_fill.quantity = 1.0;
 
-        let actual = Position::parse_entry_direction(&input_fill).unwrap();
+        let actual = Position::parse_entry_side(&input_fill).unwrap();
 
-        assert_eq!(actual, Direction::Long)
+        assert_eq!(actual, Side::Buy)
     }
 
     #[test]
-    fn parse_entry_direction_as_short_with_negative_quantity_short_decision_provided() {
+    fn parse_entry_side_as_short_with_negative_quantity_short_decision_provided() {
         let mut input_fill = fill_event();
         input_fill.decision = Decision::Short;
         input_fill.quantity = -1.0;
 
-        let actual = Position::parse_entry_direction(&input_fill).unwrap();
+        let actual = Position::parse_entry_side(&input_fill).unwrap();
 
-        assert_eq!(actual, Direction::Short)
+        assert_eq!(actual, Side::Sell)
     }
 
     #[test]
-    fn parse_entry_direction_and_return_err_with_close_long_decision_provided() -> Result<(), String>
-    {
+    fn parse_entry_side_and_return_err_with_close_long_decision_provided() -> Result<(), String> {
         let mut input_fill = fill_event();
         input_fill.decision = Decision::CloseLong;
         input_fill.quantity = -1.0;
 
-        if let Err(_) = Position::parse_entry_direction(&input_fill) {
+        if let Err(_) = Position::parse_entry_side(&input_fill) {
             Ok(())
         } else {
             Err(String::from(
-                "parse_entry_direction() did not return an Err & it should.",
+                "parse_entry_side() did not return an Err & it should.",
             ))
         }
     }
 
     #[test]
-    fn parse_entry_direction_and_return_err_with_close_short_decision_provided(
-    ) -> Result<(), String> {
+    fn parse_entry_side_and_return_err_with_close_short_decision_provided() -> Result<(), String> {
         let mut input_fill = fill_event();
         input_fill.decision = Decision::CloseShort;
         input_fill.quantity = 1.0;
 
-        if let Err(_) = Position::parse_entry_direction(&input_fill) {
+        if let Err(_) = Position::parse_entry_side(&input_fill) {
             Ok(())
         } else {
             Err(String::from(
-                "parse_entry_direction() did not return an Err & it should.",
+                "parse_entry_side() did not return an Err & it should.",
             ))
         }
     }
 
     #[test]
-    fn parse_entry_direction_and_return_err_with_negative_quantity_long_decision_provided(
+    fn parse_entry_side_and_return_err_with_negative_quantity_long_decision_provided(
     ) -> Result<(), String> {
         let mut input_fill = fill_event();
         input_fill.decision = Decision::Long;
         input_fill.quantity = -1.0;
 
-        if let Err(_) = Position::parse_entry_direction(&input_fill) {
+        if let Err(_) = Position::parse_entry_side(&input_fill) {
             Ok(())
         } else {
             Err(String::from(
-                "parse_entry_direction() did not return an Err & it should.",
+                "parse_entry_side() did not return an Err & it should.",
             ))
         }
     }
 
     #[test]
-    fn parse_entry_direction_and_return_err_with_positive_quantity_short_decision_provided(
+    fn parse_entry_side_and_return_err_with_positive_quantity_short_decision_provided(
     ) -> Result<(), String> {
         let mut input_fill = fill_event();
         input_fill.decision = Decision::Short;
         input_fill.quantity = 1.0;
 
-        if let Err(_) = Position::parse_entry_direction(&input_fill) {
+        if let Err(_) = Position::parse_entry_side(&input_fill) {
             Ok(())
         } else {
             Err(String::from(
-                "parse_entry_direction() did not return an Err & it should.",
+                "parse_entry_side() did not return an Err & it should.",
             ))
         }
     }
@@ -1444,25 +1439,25 @@ mod tests {
     #[test]
     fn calculate_unreal_profit_loss() {
         let mut long_win = position(); // Expected PnL = +8.0
-        long_win.direction = Direction::Long;
+        long_win.side = Side::Buy;
         long_win.enter_value_gross = 100.0;
         long_win.enter_fees_total = 1.0;
         long_win.current_value_gross = 110.0;
 
         let mut long_lose = position(); // Expected PnL = -12.0
-        long_lose.direction = Direction::Long;
+        long_lose.side = Side::Buy;
         long_lose.enter_value_gross = 100.0;
         long_lose.enter_fees_total = 1.0;
         long_lose.current_value_gross = 90.0;
 
         let mut short_win = position(); // Expected PnL = +8.0
-        short_win.direction = Direction::Short;
+        short_win.side = Side::Sell;
         short_win.enter_value_gross = 100.0;
         short_win.enter_fees_total = 1.0;
         short_win.current_value_gross = 90.0;
 
         let mut short_lose = position(); // Expected PnL = -12.0
-        short_lose.direction = Direction::Short;
+        short_lose.side = Side::Sell;
         short_lose.enter_value_gross = 100.0;
         short_lose.enter_fees_total = 1.0;
         short_lose.current_value_gross = 110.0;
@@ -1480,28 +1475,28 @@ mod tests {
     #[test]
     fn calculate_realised_profit_loss() {
         let mut long_win = position(); // Expected PnL = +18.0
-        long_win.direction = Direction::Long;
+        long_win.side = Side::Buy;
         long_win.enter_value_gross = 100.0;
         long_win.enter_fees_total = 1.0;
         long_win.exit_value_gross = 120.0;
         long_win.exit_fees_total = 1.0;
 
         let mut long_lose = position(); // Expected PnL = -22.0
-        long_lose.direction = Direction::Long;
+        long_lose.side = Side::Buy;
         long_lose.enter_value_gross = 100.0;
         long_lose.enter_fees_total = 1.0;
         long_lose.exit_value_gross = 80.0;
         long_lose.exit_fees_total = 1.0;
 
         let mut short_win = position(); // Expected PnL = +18.0
-        short_win.direction = Direction::Short;
+        short_win.side = Side::Sell;
         short_win.enter_value_gross = 100.0;
         short_win.enter_fees_total = 1.0;
         short_win.exit_value_gross = 80.0;
         short_win.exit_fees_total = 1.0;
 
         let mut short_lose = position(); // Expected PnL = -22.0
-        short_lose.direction = Direction::Short;
+        short_lose.side = Side::Sell;
         short_lose.enter_value_gross = 100.0;
         short_lose.enter_fees_total = 1.0;
         short_lose.exit_value_gross = 120.0;
@@ -1520,22 +1515,22 @@ mod tests {
     #[test]
     fn calculate_profit_loss_return() {
         let mut long_win = position(); // Expected Return = 0.08
-        long_win.direction = Direction::Long;
+        long_win.side = Side::Buy;
         long_win.enter_value_gross = 100.0;
         long_win.realised_profit_loss = 8.0;
 
         let mut long_lose = position(); // Expected Return = -0.12
-        long_lose.direction = Direction::Long;
+        long_lose.side = Side::Buy;
         long_lose.enter_value_gross = 100.0;
         long_lose.realised_profit_loss = -12.0;
 
         let mut short_win = position(); // Expected Return = 0.08
-        short_win.direction = Direction::Short;
+        short_win.side = Side::Sell;
         short_win.enter_value_gross = 100.0;
         short_win.realised_profit_loss = 8.0;
 
         let mut short_lose = position(); // Expected Return = -0.12
-        short_lose.direction = Direction::Short;
+        short_lose.side = Side::Sell;
         short_lose.enter_value_gross = 100.0;
         short_lose.realised_profit_loss = -12.0;
 
@@ -1550,14 +1545,15 @@ mod tests {
     }
 
     #[test]
-    fn determine_exit_decision() {
-        // Direction::Long -> Decision::CloseLong
-        let input = Direction::Long;
-        assert_eq!(input.determine_exit_decision(), Decision::CloseLong);
+    fn position_determine_exit_decision() {
+        // Side::Buy -> Decision::CloseLong
+        let mut position = position();
+        position.side = Side::Buy;
+        assert_eq!(position.determine_exit_decision(), Decision::CloseLong);
 
-        // Direction::Short -> Decision::CloseShort
-        let input = Direction::Short;
-        assert_eq!(input.determine_exit_decision(), Decision::CloseShort);
+        // Side::Buy -> Decision::CloseShort
+        position.side = Side::Sell;
+        assert_eq!(position.determine_exit_decision(), Decision::CloseShort);
     }
 
     #[test]
@@ -1585,15 +1581,14 @@ mod tests {
 
     #[test]
     fn position_exit_try_from_exited_position() {
-        let timestamp = Utc::now();
+        let time = Utc::now();
 
         let mut exited_position = position();
-        exited_position.meta.last_update_trace_id = Uuid::new_v4();
-        exited_position.meta.last_update_timestamp = timestamp;
+        exited_position.meta.update_time = time;
         exited_position.meta.exit_balance = Some(Balance {
-            timestamp,
+            time,
             total: 0.0,
-            available: 0.0
+            available: 0.0,
         });
 
         exited_position.exit_fees = Fees {

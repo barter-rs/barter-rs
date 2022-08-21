@@ -4,11 +4,11 @@ use thiserror::Error;
 /// All errors generated in the barter::portfolio module.
 #[derive(Error, Debug)]
 pub enum PortfolioError {
-    #[error("Failed to build struct due to incomplete attributes provided")]
-    BuilderIncomplete,
+    #[error("Failed to build struct due to missing attributes: {0}")]
+    BuilderIncomplete(&'static str),
 
-    #[error("Failed to parse Position entry direction due to ambiguous fill quantity & Decision.")]
-    ParseEntryDirectionError,
+    #[error("Failed to parse Position entry Side due to ambiguous fill quantity & Decision.")]
+    ParseEntrySide,
 
     #[error("Cannot exit Position with an entry decision FillEvent.")]
     CannotEnterPositionWithExitFill,
@@ -17,8 +17,8 @@ pub enum PortfolioError {
     CannotExitPositionWithEntryFill,
 
     #[error("Cannot generate PositionExit from Position that has not been exited")]
-    PositionExitError,
+    PositionExit,
 
     #[error("Failed to interact with repository")]
-    RepositoryInteractionError(#[from] RepositoryError),
+    RepositoryInteraction(#[from] RepositoryError),
 }

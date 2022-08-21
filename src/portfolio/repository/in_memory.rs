@@ -1,16 +1,22 @@
-use crate::{Market, MarketId};
-use crate::portfolio::{Balance, BalanceId};
-use crate::portfolio::position::{determine_position_id, Position, PositionId};
-use crate::portfolio::repository::error::RepositoryError;
-use crate::portfolio::repository::{BalanceHandler, determine_exited_positions_id, PositionHandler, StatisticHandler};
-use crate::statistic::summary::PositionSummariser;
+use crate::{
+    portfolio::{
+        position::{determine_position_id, Position, PositionId},
+        repository::{
+            determine_exited_positions_id, error::RepositoryError, BalanceHandler, PositionHandler,
+            StatisticHandler,
+        },
+        Balance, BalanceId,
+    },
+    statistic::summary::PositionSummariser,
+};
+use barter_integration::model::{Market, MarketId};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-/// In-Memory repository for Proof Of Concepts. Implements [`PositionHandler`], [`EquityHandler`],
-/// [`CashHandler`] & [`StatisticHandler`]. Used by a Proof Of Concept Portfolio implementation to
+/// In-Memory repository for Proof Of Concepts. Implements [`PositionHandler`], [`BalanceHandler`]
+/// & [`StatisticHandler`]. Used by a Proof Of Concept Portfolio implementation to
 /// save the current equity, available cash, Positions, and market pair statistics.
-/// **Do not use in production - no fault tolerant guarantees!**
+/// **Careful in production - no fault tolerant guarantees!**
 #[derive(Debug, Default)]
 pub struct InMemoryRepository<Statistic: PositionSummariser> {
     open_positions: HashMap<PositionId, Position>,
@@ -43,8 +49,8 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
                 self.open_positions
                     .get(&determine_position_id(
                         engine_id,
-                        market.exchange,
-                        &market.symbol,
+                        &market.exchange,
+                        &market.instrument,
                     ))
                     .map(Position::clone)
             })
@@ -75,16 +81,12 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
         Ok(())
     }
 
-    fn get_exited_positions(
-        &mut self,
-        engine_id: Uuid,
-    ) -> Result<Vec<Position>, RepositoryError> {
+    fn get_exited_positions(&mut self, engine_id: Uuid) -> Result<Vec<Position>, RepositoryError> {
         Ok(self
             .closed_positions
             .get(&determine_exited_positions_id(engine_id))
             .map(Vec::clone)
-            .unwrap_or_else(Vec::new)
-        )
+            .unwrap_or_else(Vec::new))
     }
 }
 
@@ -106,10 +108,10 @@ impl<Statistic: PositionSummariser> BalanceHandler for InMemoryRepository<Statis
 impl<Statistic: PositionSummariser> StatisticHandler<Statistic> for InMemoryRepository<Statistic> {
     fn set_statistics(
         &mut self,
-        market_id: &MarketId,
+        market_id: MarketId,
         statistic: Statistic,
     ) -> Result<(), RepositoryError> {
-        self.statistics.insert(market_id.clone(), statistic);
+        self.statistics.insert(market_id, statistic);
         Ok(())
     }
 

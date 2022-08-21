@@ -42,42 +42,33 @@
 //! ## Getting Started
 //! ### Data Handler
 //! ```
-//! use barter::data::handler::{Continuation, Continuer, MarketGenerator};
-//! use barter::data::handler::historical::{HistoricalCandleHandler, HistoricalDataLego};
-//! use barter_data::test_util;
 //!
-//! let lego = HistoricalDataLego {
-//!     exchange: "binance",
-//!     symbol: "btc_usdt".to_string(),
-//!     candles: vec![test_util::candle(), test_util::candle()].into_iter(),
-//! };
 //!
-//! let mut data = HistoricalCandleHandler::new(lego);
+//! use barter::data::{Feed, historical, MarketGenerator};
+//! use barter_data::test_util::market_trade;
+//! use barter_integration::model::Side;
+//!
+//! let mut data = historical::MarketFeed::new([market_trade(Side::Buy)].into_iter());
 //!
 //! loop {
-//!     let market_event = match data.can_continue() {
-//!         Continuation::Continue => {
-//!             match data.generate_market() {
-//!                 Some(market_event) => market_event,
-//!                 None => continue,
-//!             }
-//!
-//!         }
-//!         Continuation::Stop => {
-//!             // Pass closed Positions to Statistic module for performance analysis
-//!             break;
-//!         }
+//!     let market_event = match data.generate() {
+//!         Feed::Next(market_event) => market_event,
+//!         Feed::Finished => break,
+//!         Feed::Unhealthy => continue,
 //!     };
 //! }
-//!
 //! ```
 //!
 //! ### Strategy
 //! ```
-//! use barter::strategy::SignalGenerator;
-//! use barter::strategy::strategy::{Config as StrategyConfig, RSIStrategy};
-//! use barter::data::MarketEvent;
-//! use barter::test_util;
+//! use barter::{
+//!     strategy::{SignalGenerator, example::{Config as StrategyConfig, RSIStrategy}},
+//! };
+//! use barter_data::{
+//!     test_util,
+//!     model::{MarketEvent }
+//! };
+//! use barter_integration::model::Side;
 //!
 //! let config = StrategyConfig {
 //!     rsi_period: 14,
@@ -85,32 +76,35 @@
 //!
 //! let mut strategy = RSIStrategy::new(config);
 //!
-//! let market_event = test_util::market_event();
+//! let market_event = test_util::market_trade(Side::Buy);
 //!
 //! let signal_event = strategy.generate_signal(&market_event);
 //! ```
 //!
 //! ### Portfolio
 //! ```
-//! use barter::portfolio::{MarketUpdater, OrderGenerator, FillUpdater};
-//! use barter::portfolio::allocator::DefaultAllocator;
-//! use barter::portfolio::risk::DefaultRisk;
-//! use barter::portfolio::repository::redis::RedisRepository;
-//! use barter::event::Event;
-//! use barter::Market;
-//! use barter::portfolio::OrderEvent;
-//! use barter::portfolio::portfolio::{PortfolioLego, MetaPortfolio};
-//! use barter::portfolio::repository::redis::Config as RepositoryConfig;
-//! use barter::portfolio::repository::in_memory::InMemoryRepository;
-//! use barter::statistic::summary::pnl::PnLReturnSummary;
-//! use barter::statistic::summary::trading::{Config as StatisticConfig, TradingSummary};
-//! use barter::test_util;
+//! use barter::{
+//!     portfolio::{
+//!         MarketUpdater, OrderGenerator, FillUpdater,
+//!         portfolio::{PortfolioLego, MetaPortfolio},
+//!         repository::in_memory::InMemoryRepository,
+//!         allocator::DefaultAllocator,
+//!         risk::DefaultRisk,
+//!     },
+//!     statistic::summary::{
+//!         pnl::PnLReturnSummary,
+//!         trading::{Config as StatisticConfig, TradingSummary},
+//!     },
+//!     event::Event,
+//!     test_util,
+//! };
+//! use barter_integration::model::{Market, InstrumentKind};
 //! use std::marker::PhantomData;
 //! use uuid::Uuid;
 //!
 //! let components = PortfolioLego {
 //!     engine_id: Uuid::new_v4(),
-//!     markets: vec![Market {exchange: "binance",symbol: "btc_usdt".to_string()}],
+//!     markets: vec![Market::new("binance", ("btc", "usdt", InstrumentKind::Spot))],
 //!     repository: InMemoryRepository::new(),
 //!     allocator: DefaultAllocator{ default_order_value: 100.0 },
 //!     risk: DefaultRisk{},
@@ -146,11 +140,14 @@
 //!
 //! ### Execution
 //! ```
-//! use barter::execution::simulated::{Config as ExecutionConfig, SimulatedExecution};
-//! use barter::portfolio::OrderEvent;
-//! use barter::execution::Fees;
-//! use barter::execution::ExecutionClient;
-//! use barter::test_util;
+//! use barter::{
+//!     test_util,
+//!     portfolio::OrderEvent,
+//!     execution::{
+//!         simulated::{Config as ExecutionConfig, SimulatedExecution},
+//!         Fees, ExecutionClient,
+//!     }
+//! };
 //!
 //! let config = ExecutionConfig {
 //!     simulated_fees_pct: Fees {
@@ -169,10 +166,14 @@
 //!
 //! ### Statistic
 //! ```
-//! use barter::statistic::summary::trading::{Config as StatisticConfig, TradingSummary};
-//! use barter::portfolio::position::Position;
-//! use barter::statistic::summary::{Initialiser, PositionSummariser, TableBuilder};
-//! use barter::test_util;
+//! use barter::{
+//!     test_util,
+//!     portfolio::position::Position,
+//!     statistic::summary::{
+//!         trading::{Config as StatisticConfig, TradingSummary},
+//!         Initialiser, PositionSummariser, TableBuilder
+//!     }
+//! };
 //!
 //! // Do some automated trading with barter components that generates a vector of closed Positions
 //! let positions = vec![test_util::position(), test_util::position()];
@@ -246,88 +247,31 @@ pub mod engine;
 #[macro_use]
 extern crate prettytable;
 
-use serde::Serialize;
-
-/// Communicates a str is a unique identifier for an Exchange (eg/ "binance")
-pub type ExchangeId = &'static str;
-
-/// Communicates a String is a unique identifier for a pair symbol (eg/ "btc_usd")
-pub type SymbolId = String;
-
-/// Communicates a String represents a unique market identifier (eg/ "market_binance-btc_usdt").
-pub type MarketId = String;
-
-/// Represents a unique combination of an [`ExchangeId`] & a [`SymbolId`]. Each [`Trader`] barters
-/// on one [`Market`].
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize)]
-pub struct Market {
-    pub exchange: ExchangeId,
-    pub symbol: SymbolId,
-}
-
-impl Market {
-    /// Constructs a new [`Market`] using the provided [`ExchangeId`] & [`SymbolId`].
-    pub fn new(exchange: ExchangeId, symbol: SymbolId) -> Self {
-        Self {
-            exchange,
-            symbol: symbol.to_lowercase(),
-        }
-    }
-
-    /// Returns the [`MarketId`] unique identifier associated with this [`Market`] by utilising
-    /// [`determine_market_id`] (eg/ "market_binance-btc_usdt").
-    pub fn market_id(&self) -> MarketId {
-        determine_market_id(self.exchange, &self.symbol)
-    }
-}
-
-/// Returns the unique identifier for a given market, where a 'market' is a unique
-/// exchange-symbol combination (eg/ "market_binance-btc_usdt").
-pub fn determine_market_id(exchange: &str, symbol: &str) -> MarketId {
-    format!("market_{}_{}", exchange, symbol)
-}
-
 pub mod test_util {
-    use crate::data::{MarketEvent, MarketMeta};
-    use crate::strategy::{Decision, SignalEvent};
-    use crate::portfolio::{OrderEvent, OrderType};
-    use crate::portfolio::position::Position;
-    use crate::execution::{Fees, FillEvent};
-    use barter_data::model::MarketData;
-    use barter_data::test_util;
+    use crate::{
+        data::MarketMeta,
+        execution::{Fees, FillEvent},
+        portfolio::{position::Position, OrderEvent, OrderType},
+        strategy::{Decision, Signal},
+    };
+    use barter_integration::model::{Exchange, Instrument, InstrumentKind, Side};
     use chrono::Utc;
-    use uuid::Uuid;
 
-    pub fn market_event() -> MarketEvent {
-        MarketEvent {
-            event_type: MarketEvent::EVENT_TYPE,
-            trace_id: Uuid::new_v4(),
-            timestamp: Utc::now(),
-            exchange: "binance",
-            symbol: String::from("eth_usdt"),
-            data: MarketData::Candle(test_util::candle()),
-        }
-    }
-
-    pub fn signal_event() -> SignalEvent {
-        SignalEvent {
-            event_type: SignalEvent::ORGANIC_SIGNAL,
-            trace_id: Uuid::new_v4(),
-            timestamp: Utc::now(),
-            exchange: "binance",
-            symbol: String::from("eth_usdt"),
-            market_meta: MarketMeta::default(),
+    pub fn signal() -> Signal {
+        Signal {
+            time: Utc::now(),
+            exchange: Exchange::from("binance"),
+            instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
             signals: Default::default(),
+            market_meta: Default::default(),
         }
     }
 
     pub fn order_event() -> OrderEvent {
         OrderEvent {
-            event_type: OrderEvent::ORGANIC_ORDER,
-            trace_id: Uuid::new_v4(),
-            timestamp: Utc::now(),
-            exchange: "binance",
-            symbol: String::from("eth_usdt"),
+            time: Utc::now(),
+            exchange: Exchange::from("binance"),
+            instrument: Instrument::from(("eth", "usdt", InstrumentKind::Spot)),
             market_meta: MarketMeta::default(),
             decision: Decision::default(),
             quantity: 1.0,
@@ -337,11 +281,9 @@ pub mod test_util {
 
     pub fn fill_event() -> FillEvent {
         FillEvent {
-            event_type: FillEvent::EVENT_TYPE,
-            trace_id: Uuid::new_v4(),
-            timestamp: Utc::now(),
-            exchange: "binance",
-            symbol: String::from("eth_usdt"),
+            time: Utc::now(),
+            exchange: Exchange::from("binance"),
+            instrument: Instrument::from(("eth", "usdt", InstrumentKind::Spot)),
             market_meta: Default::default(),
             decision: Decision::default(),
             quantity: 1.0,
@@ -353,10 +295,10 @@ pub mod test_util {
     pub fn position() -> Position {
         Position {
             position_id: "engine_id_trader_{}_{}_position".to_owned(),
-            exchange: "binance".to_owned(),
-            symbol: "eth_usdt".to_owned(),
+            exchange: Exchange::from("binance"),
+            instrument: Instrument::from(("eth", "usdt", InstrumentKind::Spot)),
             meta: Default::default(),
-            direction: Default::default(),
+            side: Side::Buy,
             quantity: 1.0,
             enter_fees: Default::default(),
             enter_fees_total: 0.0,
