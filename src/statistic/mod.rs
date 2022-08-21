@@ -20,7 +20,6 @@ pub fn de_duration_from_secs<'de, D>(deserializer: D) -> Result<Duration, D::Err
 where
     D: Deserializer<'de>,
 {
-
     let seconds: i64 = Deserialize::deserialize(deserializer)?;
     Ok(Duration::seconds(seconds))
 }

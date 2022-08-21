@@ -1,15 +1,22 @@
-use crate::portfolio::position::{Direction, Position};
-use crate::statistic::{de_duration_from_secs, se_duration_as_secs};
-use crate::statistic::summary::data::DataSummary;
-use crate::statistic::summary::{Initialiser, PositionSummariser, TableBuilder};
+use crate::{
+    portfolio::position::Position,
+    statistic::{
+        de_duration_from_secs, se_duration_as_secs,
+        summary::{data::DataSummary, Initialiser, PositionSummariser, TableBuilder},
+    },
+};
+use barter_integration::model::Side;
 use chrono::{DateTime, Duration, Utc};
 use prettytable::Row;
 use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct PnLReturnSummary {
-    pub start_timestamp: DateTime<Utc>,
-    #[serde(deserialize_with = "de_duration_from_secs", serialize_with = "se_duration_as_secs")]
+    pub time: DateTime<Utc>,
+    #[serde(
+        deserialize_with = "de_duration_from_secs",
+        serialize_with = "se_duration_as_secs"
+    )]
     pub duration: Duration,
     pub trades_per_day: f64,
     pub total: DataSummary,
@@ -27,7 +34,7 @@ impl Initialiser for PnLReturnSummary {
 impl Default for PnLReturnSummary {
     fn default() -> Self {
         Self {
-            start_timestamp: Utc::now(),
+            time: Utc::now(),
             duration: Duration::zero(),
             trades_per_day: 0.0,
             total: DataSummary::default(),
@@ -40,7 +47,7 @@ impl PositionSummariser for PnLReturnSummary {
     fn update(&mut self, position: &Position) {
         // Set start timestamp if it's the first trade of the session
         if self.total.count == 0 {
-            self.start_timestamp = position.meta.enter_timestamp;
+            self.time = position.meta.enter_time;
         }
 
         // Update duration of trading session & trades per day
@@ -98,7 +105,7 @@ impl PnLReturnSummary {
 
     pub fn new() -> Self {
         Self {
-            start_timestamp: Utc::now(),
+            time: Utc::now(),
             duration: Duration::zero(),
             trades_per_day: 0.0,
             total: Default::default(),
@@ -109,13 +116,10 @@ impl PnLReturnSummary {
     fn update_trading_session_duration(&mut self, position: &Position) {
         self.duration = match position.meta.exit_balance {
             None => {
-                // Since Position is not exited, estimate duration w/ last_update_timestamp
-                position
-                    .meta
-                    .last_update_timestamp
-                    .signed_duration_since(self.start_timestamp)
+                // Since Position is not exited, estimate duration w/ last_update_time
+                position.meta.update_time.signed_duration_since(self.time)
             }
-            Some(exit_balance) => exit_balance.timestamp.signed_duration_since(self.start_timestamp),
+            Some(exit_balance) => exit_balance.time.signed_duration_since(self.time),
         }
     }
 
@@ -144,13 +148,13 @@ impl PositionSummariser for ProfitLossSummary {
         self.total_pnl += position.realised_profit_loss;
         self.total_pnl_per_contract = self.total_pnl / self.total_contracts;
 
-        match position.direction {
-            Direction::Long => {
+        match position.side {
+            Side::Buy => {
                 self.long_contracts += position.quantity.abs();
                 self.long_pnl += position.realised_profit_loss;
                 self.long_pnl_per_contract = self.long_pnl / self.long_contracts;
             }
-            Direction::Short => {
+            Side::Sell => {
                 self.short_contracts += position.quantity.abs();
                 self.short_pnl += position.realised_profit_loss;
                 self.short_pnl_per_contract = self.short_pnl / self.short_contracts;
@@ -198,9 +202,9 @@ impl ProfitLossSummary {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{Duration, Utc};
     use crate::portfolio::Balance;
     use crate::test_util::position;
+    use chrono::{Duration, Utc};
 
     #[test]
     fn update_pnl_return_summary() {
@@ -209,16 +213,14 @@ mod tests {
 
     #[test]
     fn update_trading_session_duration_with_non_exited_position() {
-        let base_timestamp = Utc::now();
+        let base_time = Utc::now();
 
         let mut pnl_return_view = PnLReturnSummary::new();
-        pnl_return_view.start_timestamp = base_timestamp;
+        pnl_return_view.time = base_time;
 
         let mut input_position = position();
         input_position.meta.exit_balance = None;
-        input_position.meta.last_update_timestamp = base_timestamp
-            .checked_add_signed(Duration::days(10))
-            .unwrap();
+        input_position.meta.update_time = base_time.checked_add_signed(Duration::days(10)).unwrap();
 
         pnl_return_view.update_trading_session_duration(&input_position);
 
@@ -229,18 +231,16 @@ mod tests {
 
     #[test]
     fn update_trading_session_duration_with_exited_position() {
-        let base_timestamp = Utc::now();
+        let base_time = Utc::now();
 
         let mut pnl_return_view = PnLReturnSummary::new();
-        pnl_return_view.start_timestamp = base_timestamp;
+        pnl_return_view.time = base_time;
 
         let mut input_position = position();
         input_position.meta.exit_balance = Some(Balance {
-            timestamp: base_timestamp
-                .checked_add_signed(Duration::days(15))
-                .unwrap(),
+            time: base_time.checked_add_signed(Duration::days(15)).unwrap(),
             total: 0.0,
-            available: 0.0
+            available: 0.0,
         });
 
         pnl_return_view.update_trading_session_duration(&input_position);

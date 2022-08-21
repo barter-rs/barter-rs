@@ -1,29 +1,27 @@
 use barter::{
-    Market,
-    engine::{Engine, trader::Trader},
+    data::historical,
+    engine::{trader::Trader, Engine},
     event::{Event, EventTx},
-    data::handler::historical::{HistoricalCandleHandler, HistoricalDataLego},
-    strategy::strategy::{RSIStrategy, Config as StrategyConfig},
-    portfolio::{
-        portfolio::MetaPortfolio,
-        allocator::DefaultAllocator,
-        risk::DefaultRisk,
-        repository::in_memory::InMemoryRepository,
-    },
     execution::{
+        simulated::{Config as ExecutionConfig, SimulatedExecution},
         Fees,
-        simulated::{SimulatedExecution, Config as ExecutionConfig},
+    },
+    portfolio::{
+        allocator::DefaultAllocator, portfolio::MetaPortfolio,
+        repository::in_memory::InMemoryRepository, risk::DefaultRisk,
     },
     statistic::summary::{
-        Initialiser, trading::{TradingSummary, Config as StatisticConfig},
-
-    }
+        trading::{Config as StatisticConfig, TradingSummary},
+        Initialiser,
+    },
+    strategy::example::{Config as StrategyConfig, RSIStrategy},
 };
-use barter_data::model::Candle;
-use std::{collections::HashMap, sync::Arc, fs};
+use barter_data::model::{Candle, DataKind, MarketEvent};
+use barter_integration::model::{Exchange, Instrument, InstrumentKind, Market};
+use chrono::Utc;
 use parking_lot::Mutex;
+use std::{collections::HashMap, fs, sync::Arc};
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::UnboundedReceiver;
 use uuid::Uuid;
 
 #[tokio::main]
@@ -39,7 +37,7 @@ async fn main() {
     let engine_id = Uuid::new_v4();
 
     // Create the Market(s) to be traded on (1-to-1 relationship with a Trader)
-    let market = Market::new("binance", "btc_usdt".to_owned());
+    let market = Market::new("binance", ("btc", "usdt", InstrumentKind::Spot));
 
     // Build global shared-state MetaPortfolio (1-to-1 relationship with an Engine)
     let portfolio = Arc::new(Mutex::new(
@@ -48,12 +46,14 @@ async fn main() {
             .markets(vec![market.clone()])
             .starting_cash(10_000.0)
             .repository(InMemoryRepository::new())
-            .allocation_manager(DefaultAllocator { default_order_value: 100.0 })
+            .allocation_manager(DefaultAllocator {
+                default_order_value: 100.0,
+            })
             .risk_manager(DefaultRisk {})
             .statistic_config(StatisticConfig {
                 starting_equity: 10_000.0,
                 trading_days_per_year: 365,
-                risk_free_return: 0.0
+                risk_free_return: 0.0,
             })
             .build_and_init()
             .expect("failed to build & initialise MetaPortfolio"),
@@ -72,20 +72,19 @@ async fn main() {
             .command_rx(trader_command_rx)
             .event_tx(event_tx.clone())
             .portfolio(Arc::clone(&portfolio))
-            .data(HistoricalCandleHandler::new(HistoricalDataLego {
-                exchange: "binance",
-                symbol: "btc_usdt".to_string(),
-                candles: load_candles_from_json().into_iter()
-            }))
+            .data(historical::MarketFeed::new(
+                load_json_market_event_candles().into_iter(),
+            ))
             .strategy(RSIStrategy::new(StrategyConfig { rsi_period: 14 }))
             .execution(SimulatedExecution::new(ExecutionConfig {
                 simulated_fees_pct: Fees {
                     exchange: 0.1,
                     slippage: 0.05,
-                    network: 0.0,}
+                    network: 0.0,
+                },
             }))
             .build()
-            .expect("failed to build trader")
+            .expect("failed to build trader"),
     );
 
     // Build Engine (1-to-many relationship with Traders)
@@ -101,7 +100,7 @@ async fn main() {
         .statistics_summary(TradingSummary::init(StatisticConfig {
             starting_equity: 1000.0,
             trading_days_per_year: 365,
-            risk_free_return: 0.0
+            risk_free_return: 0.0,
         }))
         .build()
         .expect("failed to build engine");
@@ -111,16 +110,28 @@ async fn main() {
     engine.run().await;
 }
 
-fn load_candles_from_json() -> Vec<Candle> {
-    let candles = fs::read_to_string("barter-rs/examples/data/candles_1h.json")
-        .expect("failed to read file");
+fn load_json_market_event_candles() -> Vec<MarketEvent> {
+    let candles =
+        fs::read_to_string("barter-rs/examples/data/candles_1h.json").expect("failed to read file");
 
-    serde_json::from_str(&candles).expect("failed to parse candles String")
+    let candles =
+        serde_json::from_str::<Vec<Candle>>(&candles).expect("failed to parse candles String");
+
+    candles
+        .into_iter()
+        .map(|candle| MarketEvent {
+            exchange_time: candle.end_time,
+            received_time: Utc::now(),
+            exchange: Exchange::from("binance"),
+            instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
+            kind: DataKind::Candle(candle),
+        })
+        .collect()
 }
 
 // Listen to Events that occur in the Engine. These can be used for updating event-sourcing,
 // updating dashboard, etc etc.
-async fn listen_to_engine_events(mut event_rx: UnboundedReceiver<Event>) {
+async fn listen_to_engine_events(mut event_rx: mpsc::UnboundedReceiver<Event>) {
     while let Some(event) = event_rx.recv().await {
         match event {
             Event::Market(_) => {

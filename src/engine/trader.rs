@@ -1,29 +1,18 @@
-use crate::data::handler::{Continuation, Continuer, MarketGenerator};
-use crate::engine::error::EngineError;
-use crate::engine::Command;
-use crate::event::{Event, MessageTransmitter};
-use crate::execution::ExecutionClient;
-use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
-use crate::strategy::{SignalForceExit, SignalGenerator};
-use crate::Market;
-use std::collections::VecDeque;
-use std::fmt::Debug;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use super::{error::EngineError, Command};
+use crate::{
+    data::{Feed, MarketGenerator},
+    event::{Event, MessageTransmitter},
+    execution::ExecutionClient,
+    portfolio::{FillUpdater, MarketUpdater, OrderGenerator},
+    strategy::{SignalForceExit, SignalGenerator},
+};
+use barter_integration::model::Market;
 use parking_lot::Mutex;
+use serde::Serialize;
+use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, sync::Arc};
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::error::TryRecvError;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
-use serde::Serialize;
-
-/// Communicates a String represents a unique [`Trader`] identifier.
-pub type TraderId = String;
-
-/// Returns a unique identifier for a [`Trader`] given an engine_id, exchange & symbol.
-pub fn determine_trader_id(engine_id: Uuid, exchange: &str, symbol: &str) -> TraderId {
-    format!("{}_trader_{}_{}", engine_id, exchange, symbol)
-}
 
 /// Lego components for constructing a [`Trader`] via the new() constructor method.
 #[derive(Debug)]
@@ -32,27 +21,27 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: Continuer + MarketGenerator,
+    Data: MarketGenerator,
     Strategy: SignalGenerator,
     Execution: ExecutionClient,
 {
-    /// Identifier for the [`Engine`] this [`Trader`] is associated with (1-to-many relationship)..
+    /// Identifier for the [`Engine`](super::Engine) this [`Trader`] is associated with
+    /// (1-to-many relationship).
     pub engine_id: Uuid,
-    /// Details the exchange (eg/ "binance") & pair symbol (eg/ btc_usd) this [`Trader`] is trading on.
-    market: Market,
+    /// Communicates the unique [`Market`] this [`Trader`] is bartering on.
+    pub market: Market,
     /// mpsc::Receiver for receiving [`Command`]s from a remote source.
     pub command_rx: mpsc::Receiver<Command>,
     /// [`Event`] transmitter for sending every [`Event`] the [`Trader`] encounters to an external sink.
     pub event_tx: EventTx,
     /// Shared-access to a global Portfolio instance that implements [`MarketUpdater`],
-    /// [`OrderGenerator`] & [`FillUpdater`]. Generates [`Event::Order`]s, as well as reacts to
-    /// [`Event::Market`]s, [`Event::Signal`]s, [`Event::Fill`]s.
+    /// [`OrderGenerator`] & [`FillUpdater`].
     pub portfolio: Arc<Mutex<Portfolio>>,
-    /// Data Handler implementing [`Continuer`] & [`MarketGenerator`], generates [`Event::Market`]s.
+    /// Data handler that implements [`MarketGenerator`].
     pub data: Data,
-    /// Strategy implementing [`SignalGenerator`], generates [`Event::Signal`]s.
+    /// Strategy that implements [`SignalGenerator`].
     pub strategy: Strategy,
-    /// Execution Handler implementing [`FillGenerator`], generates [`Event::Fill`]s.
+    /// Execution handler that implements [`ExecutionClient`].
     pub execution: Execution,
     _statistic_marker: PhantomData<Statistic>,
 }
@@ -68,15 +57,16 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: Continuer + MarketGenerator + Send,
+    Data: MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
-    /// Identifier for the [`Engine`] this [`Trader`] is associated with (1-to-many relationship).
+    /// Identifier for the [`Engine`](super::Engine) this [`Trader`] is associated with
+    /// (1-to-many relationship).
     engine_id: Uuid,
-    /// Details the exchange (eg/ "binance") & pair symbol (eg/ btc_usd) this [`Trader`] is trading on.
+    /// Communicates the unique [`Market`] this [`Trader`] is bartering on.
     market: Market,
-    /// mpsc::Receiver for receiving [`Command`]s from a remote source.
+    /// `mpsc::Receiver` for receiving [`Command`]s from a remote source.
     command_rx: mpsc::Receiver<Command>,
     /// [`Event`] transmitter for sending every [`Event`] the [`Trader`] encounters to an external
     /// sink.
@@ -84,14 +74,13 @@ where
     /// Queue for storing [`Event`]s used by the trading loop in the run() method.
     event_q: VecDeque<Event>,
     /// Shared-access to a global Portfolio instance that implements [`MarketUpdater`],
-    /// [`OrderGenerator`] & [`FillUpdater`]. Generates [`Event::Order`]s, as well as reacts to
-    /// [`Event::Market`]s, [`Event::Signal`]s, [`Event::Fill`]s.
+    /// [`OrderGenerator`] & [`FillUpdater`].
     portfolio: Arc<Mutex<Portfolio>>,
-    /// Data Handler implementing [`Continuer`] & [`MarketGenerator`], generates [`Event::Market`]s.
+    /// Data handler that implements [`MarketGenerator`].
     data: Data,
-    /// Strategy implementing [`SignalGenerator`], generates [`Event::Signal`]s.
+    /// Strategy that implements [`SignalGenerator`].
     strategy: Strategy,
-    /// Execution Handler implementing [`FillGenerator`], generates [`Event::Fill`]s.
+    /// Execution handler that implements [`ExecutionClient`].
     execution: Execution,
     _statistic_marker: PhantomData<Statistic>,
 }
@@ -102,15 +91,15 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: Continuer + MarketGenerator + Send,
+    Data: MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
     /// Constructs a new [`Trader`] instance using the provided [`TraderLego`].
     pub fn new(lego: TraderLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>) -> Self {
         info!(
-            engine_id = &*lego.engine_id.to_string(),
-            market = &*format!("{:?}", lego.market),
+            engine_id = %lego.engine_id,
+            market = ?lego.market,
             "constructed new Trader instance"
         );
 
@@ -133,9 +122,9 @@ where
         TraderBuilder::new()
     }
 
-    /// Run trading event-loop for this [`Trader`] instance. Loop will run until [`Trader`] receives
-    /// a [`Command::Terminate`] via the mpsc::Receiver command_rx, or the data
-    /// [`Continuer::can_continue`] returns [`Continuation::Stop`]
+    /// Run the trading event-loop for this [`Trader`] instance. Loop will run until [`Trader`]
+    /// receives a [`Command::Terminate`] via the mpsc::Receiver command_rx, or the
+    /// [`MarketGenerator`] yields [`Feed::Finished`].
     pub fn run(mut self) {
         // Run trading loop for this Trader instance
         'trading: loop {
@@ -145,21 +134,28 @@ where
                     Command::Terminate(_) => break 'trading,
                     Command::ExitPosition(market) => {
                         self.event_q
-                            .push_back(Event::SignalForceExit(SignalForceExit::new(market)));
+                            .push_back(Event::SignalForceExit(SignalForceExit::from(market)));
                     }
                     _ => continue,
                 }
             }
 
-            // If the trading loop should_continue, populate event_q with the next MarketEvent
-            match self.data.can_continue() {
-                Continuation::Continue => {
-                    if let Some(market_event) = self.data.generate_market() {
-                        self.event_tx.send(Event::Market(market_event.clone()));
-                        self.event_q.push_back(Event::Market(market_event));
-                    }
+            // If the Feed<MarketEvent> yields, populate event_q with the next MarketEvent
+            match self.data.generate() {
+                Feed::Next(market) => {
+                    self.event_tx.send(Event::Market(market.clone()));
+                    self.event_q.push_back(Event::Market(market));
                 }
-                Continuation::Stop => break 'trading,
+                Feed::Unhealthy => {
+                    warn!(
+                        engine_id = %self.engine_id,
+                        market = ?self.market,
+                        action = "continuing while waiting for healthy Feed",
+                        "MarketFeed unhealthy"
+                    );
+                    continue 'trading;
+                }
+                Feed::Finished => break 'trading,
             }
 
             // Handle Events in the event_q
@@ -250,8 +246,8 @@ where
                 Some(command)
             }
             Err(err) => match err {
-                TryRecvError::Empty => None,
-                TryRecvError::Disconnected => {
+                mpsc::error::TryRecvError::Empty => None,
+                mpsc::error::TryRecvError::Disconnected => {
                     warn!(
                         action = "synthesising a Command::Terminate",
                         "remote Command transmitter has been dropped"
@@ -272,7 +268,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: Continuer + MarketGenerator,
+    Data: MarketGenerator,
     Strategy: SignalGenerator,
     Execution: ExecutionClient,
 {
@@ -293,7 +289,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: Continuer + MarketGenerator + Send,
+    Data: MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -371,15 +367,29 @@ where
         self,
     ) -> Result<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
         Ok(Trader {
-            engine_id: self.engine_id.ok_or(EngineError::BuilderIncomplete)?,
-            market: self.market.ok_or(EngineError::BuilderIncomplete)?,
-            command_rx: self.command_rx.ok_or(EngineError::BuilderIncomplete)?,
-            event_tx: self.event_tx.ok_or(EngineError::BuilderIncomplete)?,
+            engine_id: self
+                .engine_id
+                .ok_or(EngineError::BuilderIncomplete("engine_id"))?,
+            market: self
+                .market
+                .ok_or(EngineError::BuilderIncomplete("market"))?,
+            command_rx: self
+                .command_rx
+                .ok_or(EngineError::BuilderIncomplete("command_rx"))?,
+            event_tx: self
+                .event_tx
+                .ok_or(EngineError::BuilderIncomplete("event_tx"))?,
             event_q: VecDeque::with_capacity(2),
-            portfolio: self.portfolio.ok_or(EngineError::BuilderIncomplete)?,
-            data: self.data.ok_or(EngineError::BuilderIncomplete)?,
-            strategy: self.strategy.ok_or(EngineError::BuilderIncomplete)?,
-            execution: self.execution.ok_or(EngineError::BuilderIncomplete)?,
+            portfolio: self
+                .portfolio
+                .ok_or(EngineError::BuilderIncomplete("portfolio"))?,
+            data: self.data.ok_or(EngineError::BuilderIncomplete("data"))?,
+            strategy: self
+                .strategy
+                .ok_or(EngineError::BuilderIncomplete("strategy"))?,
+            execution: self
+                .execution
+                .ok_or(EngineError::BuilderIncomplete("execution"))?,
             _statistic_marker: PhantomData::default(),
         })
     }
