@@ -1,23 +1,25 @@
-use barter::Market;
-use barter::event::EventTx;
-use barter::engine::Engine;
-use barter::engine::trader::Trader;
-use barter::data::handler::historical::{HistoricalCandleHandler, HistoricalDataLego};
-use barter::strategy::strategy::RSIStrategy;
-use barter::strategy::strategy::Config as StrategyConfig;
-use barter::statistic::summary::trading::{Config as StatisticConfig, TradingSummary};
-use barter::statistic::summary::Initialiser;
-use barter::portfolio::allocator::DefaultAllocator;
-use barter::portfolio::portfolio::MetaPortfolio;
-use barter::portfolio::repository::in_memory::InMemoryRepository;
-use barter::portfolio::risk::DefaultRisk;
-use barter::execution::Fees;
-use barter::execution::simulated::{SimulatedExecution, Config as ExecutionConfig};
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
-use barter_data::test_util;
+use barter::{
+    data::historical,
+    engine::{trader::Trader, Engine},
+    event::EventTx,
+    execution::{
+        simulated::{Config as ExecutionConfig, SimulatedExecution},
+        Fees,
+    },
+    portfolio::{
+        allocator::DefaultAllocator, portfolio::MetaPortfolio,
+        repository::in_memory::InMemoryRepository, risk::DefaultRisk,
+    },
+    statistic::summary::{
+        trading::{Config as StatisticConfig, TradingSummary},
+        Initialiser,
+    },
+    strategy::example::{Config as StrategyConfig, RSIStrategy},
+};
+use barter_data::test_util::market_trade;
+use barter_integration::model::{InstrumentKind, Market, Side};
 use parking_lot::Mutex;
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
@@ -34,7 +36,7 @@ async fn engine_with_historic_data_stops_after_candles_finished() {
     let engine_id = Uuid::new_v4();
 
     // Create the Market(s) to be traded on (1-to-1 relationship with a Trader)
-    let market = Market::new("binance", "btc_usdt".to_owned());
+    let market = Market::new("binance", ("btc", "usdt", InstrumentKind::Spot));
 
     // Build global shared-state MetaPortfolio (1-to-1 relationship with an Engine)
     let portfolio = Arc::new(Mutex::new(
@@ -43,12 +45,14 @@ async fn engine_with_historic_data_stops_after_candles_finished() {
             .markets(vec![market.clone()])
             .starting_cash(10_000.0)
             .repository(InMemoryRepository::new())
-            .allocation_manager(DefaultAllocator { default_order_value: 100.0 })
+            .allocation_manager(DefaultAllocator {
+                default_order_value: 100.0,
+            })
             .risk_manager(DefaultRisk {})
             .statistic_config(StatisticConfig {
                 starting_equity: 10_000.0,
                 trading_days_per_year: 365,
-                risk_free_return: 0.0
+                risk_free_return: 0.0,
             })
             .build_and_init()
             .expect("failed to build & initialise MetaPortfolio"),
@@ -67,24 +71,22 @@ async fn engine_with_historic_data_stops_after_candles_finished() {
             .command_rx(trader_command_rx)
             .event_tx(event_tx.clone())
             .portfolio(Arc::clone(&portfolio))
-            .data(HistoricalCandleHandler::new(HistoricalDataLego {
-                exchange: "binance",
-                symbol: "btcusdt".to_string(),
-                candles: vec![test_util::candle()].into_iter()
-            }))
+            .data(historical::MarketFeed::new(
+                [market_trade(Side::Buy)].into_iter(),
+            ))
             .strategy(RSIStrategy::new(StrategyConfig { rsi_period: 14 }))
             .execution(SimulatedExecution::new(ExecutionConfig {
                 simulated_fees_pct: Fees {
                     exchange: 0.1,
                     slippage: 0.05,
-                    network: 0.0,}
+                    network: 0.0,
+                },
             }))
             .build()
-            .expect("failed to build trader")
+            .expect("failed to build trader"),
     );
 
     // Build Engine (1-to-many relationship with Traders)
-
     // Create HashMap<Market, trader_command_tx> so Engine can route Commands to Traders
     let trader_command_txs = HashMap::from_iter([(market, trader_command_tx)]);
 
@@ -97,7 +99,7 @@ async fn engine_with_historic_data_stops_after_candles_finished() {
         .statistics_summary(TradingSummary::init(StatisticConfig {
             starting_equity: 1000.0,
             trading_days_per_year: 365,
-            risk_free_return: 0.0
+            risk_free_return: 0.0,
         }))
         .build()
         .expect("failed to build engine");

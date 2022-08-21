@@ -1,46 +1,29 @@
-/// Barter strategy module specific errors.
-pub mod error;
-
-///
-pub mod strategy;
-
-use crate::Market;
-use crate::data::{MarketEvent, MarketMeta};
-use crate::strategy::error::StrategyError;
-use std::collections::HashMap;
+use crate::data::MarketMeta;
+use barter_data::model::MarketEvent;
+use barter_integration::model::{Exchange, Instrument, Market};
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-/// May generate an advisory [`SignalEvent`] as a result of analysing an input [`MarketEvent`].
+/// Barter example RSI strategy [`SignalGenerator`] implementation.
+pub mod example;
+
+/// May generate an advisory [`Signal`] as a result of analysing an input [`MarketEvent`].
 pub trait SignalGenerator {
-    /// Return Some([`SignalEvent`]), given an input [`MarketEvent`].
-    fn generate_signal(&mut self, market: &MarketEvent) -> Option<SignalEvent>;
+    /// Optionally return a [`Signal`] given input [`MarketEvent`].
+    fn generate_signal(&mut self, market: &MarketEvent) -> Option<Signal>;
 }
 
-/// Signal data produced by the strategy containing advisory signals for the portfolio to interpret.
+/// Advisory [`Signal`] for a [`Market`] detailing the [`SignalStrength`] associated with each
+/// possible [`Decision`]. Interpreted by an [`OrderGenerator`](crate::portfolio::OrderGenerator).
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
-pub struct SignalEvent {
-    pub event_type: &'static str,
-    pub trace_id: Uuid,
-    pub timestamp: DateTime<Utc>,
-    pub exchange: &'static str,
-    pub symbol: String,
+pub struct Signal {
+    pub time: DateTime<Utc>,
+    pub exchange: Exchange,
+    pub instrument: Instrument,
     pub signals: HashMap<Decision, SignalStrength>,
-    /// Metadata propagated from source MarketEvent
+    /// Metadata propagated from the [`MarketEvent`] that yielded this [`Signal`].
     pub market_meta: MarketMeta,
-}
-
-/// Strength of an advisory signal decision produced by the strategy.
-pub type SignalStrength = f32;
-
-impl SignalEvent {
-    pub const ORGANIC_SIGNAL: &'static str = "Signal";
-
-    /// Returns a [`SignalEventBuilder`] instance.
-    pub fn builder() -> SignalEventBuilder {
-        SignalEventBuilder::new()
-    }
 }
 
 /// Describes the type of advisory signal the strategy is endorsing.
@@ -80,97 +63,42 @@ impl Decision {
     }
 }
 
-/// Builder to construct [`SignalEvent`] instances.
-#[derive(Debug, Default)]
-pub struct SignalEventBuilder {
-    pub trace_id: Option<Uuid>,
-    pub timestamp: Option<DateTime<Utc>>,
-    pub exchange: Option<&'static str>,
-    pub symbol: Option<String>,
-    pub market_meta: Option<MarketMeta>,
-    pub signals: Option<HashMap<Decision, SignalStrength>>,
-}
+/// Strength of an advisory [`Signal`] decision produced by [`SignalGenerator`] strategy.
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
+pub struct SignalStrength(pub f64);
 
-impl SignalEventBuilder {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn trace_id(self, value: Uuid) -> Self {
-        Self {
-            trace_id: Some(value),
-            ..self
-        }
-    }
-
-    pub fn timestamp(self, value: DateTime<Utc>) -> Self {
-        Self {
-            timestamp: Some(value),
-            ..self
-        }
-    }
-
-    pub fn exchange(self, value: &'static str) -> Self {
-        Self {
-            exchange: Some(value),
-            ..self
-        }
-    }
-
-    pub fn symbol(self, value: String) -> Self {
-        Self {
-            symbol: Some(value),
-            ..self
-        }
-    }
-
-    pub fn market_meta(self, value: MarketMeta) -> Self {
-        Self {
-            market_meta: Some(value),
-            ..self
-        }
-    }
-
-    pub fn signals(self, value: HashMap<Decision, SignalStrength>) -> Self {
-        Self {
-            signals: Some(value),
-            ..self
-        }
-    }
-
-    pub fn build(self) -> Result<SignalEvent, StrategyError> {
-        Ok(SignalEvent {
-            event_type: SignalEvent::ORGANIC_SIGNAL,
-            trace_id: self.trace_id.ok_or(StrategyError::BuilderIncomplete)?,
-            timestamp: self.timestamp.ok_or(StrategyError::BuilderIncomplete)?,
-            exchange: self.exchange.ok_or(StrategyError::BuilderIncomplete)?,
-            symbol: self.symbol.ok_or(StrategyError::BuilderIncomplete)?,
-            market_meta: self.market_meta.ok_or(StrategyError::BuilderIncomplete)?,
-            signals: self.signals.ok_or(StrategyError::BuilderIncomplete)?,
-        })
-    }
-}
-
-/// Force exit Signal produced after an [`Engine`] receives a [`Command::ExitPosition`](Command)
-/// from an external source.
+/// Force exit Signal produced after an [`Engine`](crate::engine::Engine) receives a
+/// [`Command::ExitPosition`](crate::engine::Command) from an external source.
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct SignalForceExit {
-    pub event_type: &'static str,
-    pub timestamp: DateTime<Utc>,
-    pub exchange: &'static str,
-    pub symbol: String,
+    pub time: DateTime<Utc>,
+    pub exchange: Exchange,
+    pub instrument: Instrument,
+}
+
+impl<M> From<M> for SignalForceExit
+where
+    M: Into<Market>,
+{
+    fn from(market: M) -> Self {
+        let market = market.into();
+        Self::new(market.exchange, market.instrument)
+    }
 }
 
 impl SignalForceExit {
     pub const FORCED_EXIT_SIGNAL: &'static str = "SignalForcedExit";
 
-    /// Constructs a new [`Self`] using the [`Market`] provided.
-    pub fn new(market: Market) -> Self {
+    /// Constructs a new [`Self`] using the configuration provided.
+    pub fn new<E, I>(exchange: E, instrument: I) -> Self
+    where
+        E: Into<Exchange>,
+        I: Into<Instrument>,
+    {
         Self {
-            event_type: SignalForceExit::FORCED_EXIT_SIGNAL,
-            timestamp: Utc::now(),
-            exchange: market.exchange,
-            symbol: market.symbol,
+            time: Utc::now(),
+            exchange: exchange.into(),
+            instrument: instrument.into(),
         }
     }
 }

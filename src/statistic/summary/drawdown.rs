@@ -1,6 +1,6 @@
 use crate::portfolio::position::Position;
-use crate::statistic::metric::EquityPoint;
 use crate::statistic::metric::drawdown::{AvgDrawdown, Drawdown, MaxDrawdown};
+use crate::statistic::metric::EquityPoint;
 use crate::statistic::summary::{PositionSummariser, TableBuilder};
 use prettytable::Row;
 use serde::{Deserialize, Serialize};

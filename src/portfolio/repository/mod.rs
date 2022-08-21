@@ -1,7 +1,9 @@
-use crate::{Market, MarketId};
-use crate::portfolio::position::{Position, PositionId};
-use crate::portfolio::repository::error::RepositoryError;
-use crate::portfolio::Balance;
+use crate::portfolio::{
+    position::{Position, PositionId},
+    repository::error::RepositoryError,
+    Balance,
+};
+use barter_integration::model::{Market, MarketId};
 use uuid::Uuid;
 
 /// Barter repository module specific errors.
@@ -45,10 +47,7 @@ pub trait PositionHandler {
     ) -> Result<(), RepositoryError>;
 
     /// Get every exited [`Position`] associated with the engine_id.
-    fn get_exited_positions(
-        &mut self,
-        engine_id: Uuid,
-    ) -> Result<Vec<Position>, RepositoryError>;
+    fn get_exited_positions(&mut self, engine_id: Uuid) -> Result<Vec<Position>, RepositoryError>;
 }
 
 /// Handles the reading & writing of a Portfolio's current balance to/from the persistence layer.
@@ -65,7 +64,7 @@ pub trait StatisticHandler<Statistic> {
     /// Upsert the market statistics at the [`MarketId`] provided.
     fn set_statistics(
         &mut self,
-        market_id: &MarketId,
+        market_id: MarketId,
         statistic: Statistic,
     ) -> Result<(), RepositoryError>;
     /// Get the market statistics using the [`MarketId`] provided.

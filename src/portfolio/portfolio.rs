@@ -1,26 +1,28 @@
-use std::collections::HashMap;
-use std::marker::PhantomData;
-
+use super::{
+    allocator::OrderAllocator,
+    error::PortfolioError,
+    position::{
+        determine_position_id, Position, PositionEnterer, PositionExiter, PositionId,
+        PositionUpdate, PositionUpdater,
+    },
+    repository::{error::RepositoryError, BalanceHandler, PositionHandler, StatisticHandler},
+    risk::OrderEvaluator,
+    Balance, FillUpdater, MarketUpdater, OrderEvent, OrderGenerator, OrderType,
+};
+use crate::{
+    data::MarketMeta,
+    event::Event,
+    execution::FillEvent,
+    statistic::summary::{Initialiser, PositionSummariser},
+    strategy::{Decision, Signal, SignalForceExit, SignalStrength},
+};
+use barter_data::model::MarketEvent;
+use barter_integration::model::{Market, MarketId, Side};
 use chrono::Utc;
 use serde::Serialize;
+use std::{collections::HashMap, marker::PhantomData};
 use tracing::info;
 use uuid::Uuid;
-
-use crate::{determine_market_id, Market, MarketId};
-use crate::event::Event;
-use crate::data::{MarketEvent, MarketMeta};
-use crate::strategy::{Decision, SignalEvent, SignalForceExit, SignalStrength};
-use crate::portfolio::{Balance, FillUpdater, MarketUpdater, OrderEvent, OrderGenerator, OrderType};
-use crate::portfolio::allocator::OrderAllocator;
-use crate::portfolio::error::PortfolioError;
-use crate::portfolio::position::{
-    determine_position_id, Direction, Position, PositionEnterer, PositionExiter, PositionId,
-    PositionUpdate, PositionUpdater,
-};
-use crate::portfolio::repository::{BalanceHandler, error::RepositoryError, PositionHandler, StatisticHandler};
-use crate::portfolio::risk::OrderEvaluator;
-use crate::statistic::summary::{Initialiser, PositionSummariser};
-use crate::execution::FillEvent;
 
 /// Lego components for constructing & initialising a [`MetaPortfolio`] via the init() constructor
 /// method.
@@ -32,12 +34,13 @@ where
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
 {
-    /// Identifier for the [`Engine`] a [`MetaPortfolio`] is associated with (1-to-1 relationship).
+    /// Identifier for the [`Engine`](crate::engine::Engine) a [`MetaPortfolio`] is associated
+    /// with (1-to-1 relationship).
     pub engine_id: Uuid,
     /// [`Market`]s being tracked by a [`MetaPortfolio`].
     pub markets: Vec<Market>,
     /// Repository for a [`MetaPortfolio`] to persist it's state in. Implements
-    /// [`PositionHandler`], [`EquityHandler`], [`CashHandler`], and [`StatisticHandler`]
+    /// [`PositionHandler`], [`BalanceHandler`], and [`StatisticHandler`]
     pub repository: Repository,
     /// Allocation manager implements [`OrderAllocator`].
     pub allocator: Allocator,
@@ -61,10 +64,10 @@ where
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
 {
-    /// Identifier for the [`Engine`] this Portfolio is associated with (1-to-1 relationship).
+    /// Identifier for the [`Engine`](crate::engine::Engine) this Portfolio is associated with (1-to-1 relationship).
     engine_id: Uuid,
     /// Repository for the [`MetaPortfolio`] to persist it's state in. Implements
-    /// [`PositionHandler`], [`EquityHandler`], [`CashHandler`], and [`StatisticHandler`]
+    /// [`PositionHandler`], [`BalanceHandler`], and [`StatisticHandler`]
     repository: Repository,
     /// Allocation manager implements [`OrderAllocator`].
     allocation_manager: Allocator,
@@ -86,7 +89,8 @@ where
         market: &MarketEvent,
     ) -> Result<Option<PositionUpdate>, PortfolioError> {
         // Determine the position_id associated to the input MarketEvent
-        let position_id = determine_position_id(self.engine_id, market.exchange, &market.symbol);
+        let position_id =
+            determine_position_id(self.engine_id, &market.exchange, &market.instrument);
 
         // Update Position if Portfolio has an open Position for that Symbol-Exchange combination
         if let Some(mut position) = self.repository.get_open_position(&position_id)? {
@@ -111,12 +115,10 @@ where
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
 {
-    fn generate_order(
-        &mut self,
-        signal: &SignalEvent,
-    ) -> Result<Option<OrderEvent>, PortfolioError> {
+    fn generate_order(&mut self, signal: &Signal) -> Result<Option<OrderEvent>, PortfolioError> {
         // Determine the position_id & associated Option<Position> related to input SignalEvent
-        let position_id = determine_position_id(self.engine_id, signal.exchange, &signal.symbol);
+        let position_id =
+            determine_position_id(self.engine_id, &signal.exchange, &signal.instrument);
         let position = self.repository.get_open_position(&position_id)?;
 
         // If signal is advising to open a new Position rather than close one, check we have cash
@@ -134,11 +136,9 @@ where
 
         // Construct mutable OrderEvent that can be modified by Allocation & Risk management
         let mut order = OrderEvent {
-            event_type: OrderEvent::ORGANIC_ORDER,
-            trace_id: signal.trace_id,
-            timestamp: Utc::now(),
-            exchange: signal.exchange,
-            symbol: signal.symbol.clone(),
+            time: Utc::now(),
+            exchange: signal.exchange.clone(),
+            instrument: signal.instrument.clone(),
             market_meta: signal.market_meta,
             decision: *signal_decision,
             quantity: 0.0,
@@ -158,7 +158,8 @@ where
         signal: SignalForceExit,
     ) -> Result<Option<OrderEvent>, PortfolioError> {
         // Determine PositionId associated with the SignalForceExit
-        let position_id = determine_position_id(self.engine_id, signal.exchange, &signal.symbol);
+        let position_id =
+            determine_position_id(self.engine_id, &signal.exchange, &signal.instrument);
 
         // Retrieve Option<Position> associated with the PositionId
         let position = match self.repository.get_open_position(&position_id)? {
@@ -174,16 +175,14 @@ where
         };
 
         Ok(Some(OrderEvent {
-            event_type: OrderEvent::FORCED_EXIT_ORDER,
-            trace_id: Uuid::new_v4(),
-            timestamp: Utc::now(),
-            exchange: &*signal.exchange,
-            symbol: signal.symbol,
+            time: Utc::now(),
+            exchange: signal.exchange,
+            instrument: signal.instrument,
             market_meta: MarketMeta {
                 close: position.current_symbol_price,
-                timestamp: position.meta.last_update_timestamp,
+                time: position.meta.update_time,
             },
-            decision: position.direction.determine_exit_decision(),
+            decision: position.determine_exit_decision(),
             quantity: 0.0 - position.quantity,
             order_type: OrderType::Market,
         }))
@@ -198,25 +197,21 @@ where
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser + Serialize,
 {
-    fn update_from_fill(
-        &mut self,
-        fill: &FillEvent,
-    ) -> Result<Vec<Event>, PortfolioError> {
+    fn update_from_fill(&mut self, fill: &FillEvent) -> Result<Vec<Event>, PortfolioError> {
         // Allocate Vector<Event> to contain any update_from_fill generated events
         let mut generated_events: Vec<Event> = Vec::with_capacity(2);
 
         // Get the Portfolio Balance from Repository & update timestamp
         let mut balance = self.repository.get_balance(self.engine_id)?;
-        balance.timestamp = fill.timestamp;
+        balance.time = fill.time;
 
         // Determine the position_id that is related to the input FillEvent
-        let position_id = determine_position_id(self.engine_id, fill.exchange, &fill.symbol);
+        let position_id = determine_position_id(self.engine_id, &fill.exchange, &fill.instrument);
 
         // Determine FillEvent context based on existence or absence of an open Position
         match self.repository.remove_position(&position_id)? {
             // EXIT SCENARIO - FillEvent for Symbol-Exchange combination with open Position
             Some(mut position) => {
-
                 // Exit Position (in place mutation), & add the PositionExit event to Vec<Event>
                 let position_exit = position.exit(balance, fill)?;
                 generated_events.push(Event::PositionExit(position_exit));
@@ -229,13 +224,15 @@ where
                 balance.total += position.realised_profit_loss;
 
                 // Update statistics for exited Position market
-                let market_id = determine_market_id(fill.exchange, &fill.symbol);
+                let market_id = MarketId::new(&fill.exchange, &fill.instrument);
+
                 let mut stats = self.repository.get_statistics(&market_id)?;
                 stats.update(&position);
 
                 // Persist exited Position & Updated Market statistics in Repository
-                self.repository.set_statistics(&market_id, stats)?;
-                self.repository.set_exited_position(self.engine_id, position)?;
+                self.repository.set_statistics(market_id, stats)?;
+                self.repository
+                    .set_exited_position(self.engine_id, position)?;
             }
 
             // ENTRY SCENARIO - FillEvent for Symbol-Exchange with no Position
@@ -316,7 +313,7 @@ where
 {
     fn set_statistics(
         &mut self,
-        market_id: &MarketId,
+        market_id: MarketId,
         statistic: Statistic,
     ) -> Result<(), RepositoryError> {
         self.repository.set_statistics(market_id, statistic)
@@ -350,35 +347,39 @@ where
         };
 
         // Persist initial state in the repository
-        portfolio.bootstrap_repository(lego.starting_cash, lego.markets, lego.statistic_config)?;
+        portfolio.bootstrap_repository(lego.starting_cash, &lego.markets, lego.statistic_config)?;
 
         Ok(portfolio)
     }
 
     /// Persist initial [`MetaPortfolio`] state in the repository. This includes initialised
     /// Statistics every market provided, as well as starting `AvailableCash` & `TotalEquity`.
-    pub fn bootstrap_repository<Markets: IntoIterator<Item = Market>>(
+    pub fn bootstrap_repository<Markets, Id>(
         &mut self,
         starting_cash: f64,
         markets: Markets,
-        statistic_config:
-        Statistic::Config
-    ) -> Result<(), PortfolioError> {
+        statistic_config: Statistic::Config,
+    ) -> Result<(), PortfolioError>
+    where
+        Markets: IntoIterator<Item = Id>,
+        Id: Into<MarketId>,
+    {
         // Persist initial Balance (total & available)
-        self.repository.set_balance(self.engine_id, Balance {
-            timestamp: Utc::now(),
-            total: starting_cash,
-            available: starting_cash
-        })?;
+        self.repository.set_balance(
+            self.engine_id,
+            Balance {
+                time: Utc::now(),
+                total: starting_cash,
+                available: starting_cash,
+            },
+        )?;
 
         // Persist initial MetaPortfolio Statistics for every Market
-        markets
-            .into_iter()
-            .try_for_each(|market| {
-                self.repository
-                    .set_statistics(&market.market_id(), Statistic::init(statistic_config))
-                    .map_err(PortfolioError::RepositoryInteractionError)
-            })
+        markets.into_iter().try_for_each(|market| {
+            self.repository
+                .set_statistics(market.into(), Statistic::init(statistic_config))
+                .map_err(PortfolioError::RepositoryInteraction)
+        })
     }
 
     /// Returns a [`MetaPortfolioBuilder`] instance.
@@ -391,7 +392,7 @@ where
         self.repository
             .get_balance(self.engine_id)
             .map(|balance| balance.available == 0.0)
-            .map_err(PortfolioError::RepositoryInteractionError)
+            .map_err(PortfolioError::RepositoryInteraction)
     }
 }
 
@@ -488,25 +489,37 @@ where
     ) -> Result<MetaPortfolio<Repository, Allocator, RiskManager, Statistic>, PortfolioError> {
         // Construct Portfolio
         let mut portfolio = MetaPortfolio {
-            engine_id: self.engine_id.ok_or(PortfolioError::BuilderIncomplete)?,
-            repository: self.repository.ok_or(PortfolioError::BuilderIncomplete)?,
-            allocation_manager: self.allocation_manager.ok_or(PortfolioError::BuilderIncomplete)?,
-            risk_manager: self.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?,
+            engine_id: self
+                .engine_id
+                .ok_or(PortfolioError::BuilderIncomplete("engine_id"))?,
+            repository: self
+                .repository
+                .ok_or(PortfolioError::BuilderIncomplete("repository"))?,
+            allocation_manager: self
+                .allocation_manager
+                .ok_or(PortfolioError::BuilderIncomplete("allocation_manager"))?,
+            risk_manager: self
+                .risk_manager
+                .ok_or(PortfolioError::BuilderIncomplete("risk_manager"))?,
             _statistic_marker: PhantomData::default(),
         };
 
         // Persist initial state in the Repository
         portfolio.bootstrap_repository(
-            self.starting_cash.ok_or(PortfolioError::BuilderIncomplete)?,
-            self.markets.ok_or(PortfolioError::BuilderIncomplete)?,
-            self.statistic_config.ok_or(PortfolioError::BuilderIncomplete)?
+            self.starting_cash
+                .ok_or(PortfolioError::BuilderIncomplete("starting_cash"))?,
+            &self
+                .markets
+                .ok_or(PortfolioError::BuilderIncomplete("markets"))?,
+            self.statistic_config
+                .ok_or(PortfolioError::BuilderIncomplete("statistic_config"))?,
         )?;
 
         Ok(portfolio)
     }
 }
 
-/// Parses an incoming [`SignalEvent`]'s signals map. Determines what the net signal [`Decision`]
+/// Parses an incoming [`Signal`]'s signals map. Determines what the net signal [`Decision`]
 /// will be, and it's associated [`SignalStrength`].
 pub fn parse_signal_decisions<'a>(
     position: &'a Option<&Position>,
@@ -520,9 +533,9 @@ pub fn parse_signal_decisions<'a>(
 
     // If an existing Position exists, check for net close signals
     if let Some(position) = position {
-        return match position.direction {
-            Direction::Long if signal_close_long.is_some() => signal_close_long,
-            Direction::Short if signal_close_short.is_some() => signal_close_short,
+        return match position.side {
+            Side::Buy if signal_close_long.is_some() => signal_close_long,
+            Side::Sell if signal_close_short.is_some() => signal_close_short,
             _ => None,
         };
     }
@@ -539,16 +552,17 @@ pub fn parse_signal_decisions<'a>(
 pub mod tests {
     use super::*;
 
-    use crate::{Market, MarketId};
-    use crate::test_util::{fill_event, market_event, position, signal_event};
     use crate::execution::Fees;
-    use crate::strategy::SignalForceExit;
     use crate::portfolio::allocator::DefaultAllocator;
     use crate::portfolio::position::PositionBuilder;
     use crate::portfolio::repository::error::RepositoryError;
     use crate::portfolio::risk::DefaultRisk;
     use crate::statistic::summary::pnl::PnLReturnSummary;
-    use barter_data::model::MarketData;
+    use crate::strategy::SignalForceExit;
+    use crate::test_util::{fill_event, position, signal};
+    use barter_data::model::DataKind;
+    use barter_data::test_util::market_trade;
+    use barter_integration::model::{Exchange, Instrument, InstrumentKind, Side};
 
     #[derive(Default)]
     struct MockRepository<Statistic> {
@@ -562,12 +576,11 @@ pub mod tests {
             Option<fn(engine_id: &String) -> Result<Option<Position>, RepositoryError>>,
         set_exited_position:
             Option<fn(engine_id: Uuid, position: Position) -> Result<(), RepositoryError>>,
-        get_exited_positions:
-            Option<fn(engine_id: Uuid) -> Result<Vec<Position>, RepositoryError>>,
+        get_exited_positions: Option<fn(engine_id: Uuid) -> Result<Vec<Position>, RepositoryError>>,
         set_balance: Option<fn(engine_id: Uuid, balance: Balance) -> Result<(), RepositoryError>>,
         get_balance: Option<fn(engine_id: Uuid) -> Result<Balance, RepositoryError>>,
         set_statistics:
-            Option<fn(market_id: &MarketId, statistic: Statistic) -> Result<(), RepositoryError>>,
+            Option<fn(market_id: MarketId, statistic: Statistic) -> Result<(), RepositoryError>>,
         get_statistics: Option<fn(market_id: &MarketId) -> Result<Statistic, RepositoryError>>,
         position: Option<PositionBuilder>,
         balance: Option<Balance>,
@@ -577,7 +590,7 @@ pub mod tests {
         fn set_open_position(&mut self, position: Position) -> Result<(), RepositoryError> {
             self.position = Some(
                 Position::builder()
-                    .direction(position.direction.clone())
+                    .side(position.side.clone())
                     .current_symbol_price(position.current_symbol_price)
                     .current_value_gross(position.current_value_gross)
                     .enter_fees_total(position.enter_fees_total)
@@ -631,7 +644,11 @@ pub mod tests {
     }
 
     impl<Statistic> BalanceHandler for MockRepository<Statistic> {
-        fn set_balance(&mut self, engine_id: Uuid, balance: Balance) -> Result<(), RepositoryError> {
+        fn set_balance(
+            &mut self,
+            engine_id: Uuid,
+            balance: Balance,
+        ) -> Result<(), RepositoryError> {
             self.balance = Some(balance);
             self.set_balance.unwrap()(engine_id, balance)
         }
@@ -644,7 +661,7 @@ pub mod tests {
     impl<Statistic> StatisticHandler<Statistic> for MockRepository<Statistic> {
         fn set_statistics(
             &mut self,
-            market_id: &MarketId,
+            market_id: MarketId,
             statistic: Statistic,
         ) -> Result<(), RepositoryError> {
             self.set_statistics.unwrap()(market_id, statistic)
@@ -682,20 +699,27 @@ pub mod tests {
         Statistic: PositionSummariser + Initialiser,
     {
         Ok(MetaPortfolio {
-            engine_id: builder.engine_id.ok_or(PortfolioError::BuilderIncomplete)?,
-            repository: builder.repository.ok_or(PortfolioError::BuilderIncomplete)?,
-            allocation_manager: builder.allocation_manager.ok_or(PortfolioError::BuilderIncomplete)?,
-            risk_manager: builder.risk_manager.ok_or(PortfolioError::BuilderIncomplete)?,
+            engine_id: builder
+                .engine_id
+                .ok_or(PortfolioError::BuilderIncomplete("engine_id"))?,
+            repository: builder
+                .repository
+                .ok_or(PortfolioError::BuilderIncomplete("repository"))?,
+            allocation_manager: builder
+                .allocation_manager
+                .ok_or(PortfolioError::BuilderIncomplete("allocation_manager"))?,
+            risk_manager: builder
+                .risk_manager
+                .ok_or(PortfolioError::BuilderIncomplete("risk_manager"))?,
             _statistic_marker: Default::default(),
         })
     }
 
     fn new_signal_force_exit() -> SignalForceExit {
         SignalForceExit {
-            event_type: SignalForceExit::FORCED_EXIT_SIGNAL,
-            timestamp: Utc::now(),
-            exchange: "binance",
-            symbol: "eth_usdt".to_string(),
+            time: Utc::now(),
+            exchange: Exchange::from("binance"),
+            instrument: Instrument::from(("eth", "usdt", InstrumentKind::Spot)),
         }
     }
 
@@ -706,7 +730,7 @@ pub mod tests {
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
                 let mut input_position = position();
-                input_position.direction = Direction::Long;
+                input_position.side = Side::Buy;
                 input_position.quantity = 1.0;
                 input_position.enter_fees_total = 3.0;
                 input_position.current_symbol_price = 100.0;
@@ -719,12 +743,12 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
-        let mut input_market = market_event();
+        let mut input_market = market_trade(Side::Buy);
 
-        match input_market.data {
+        match input_market.kind {
             // candle.close +100.0 on input_position.current_symbol_price
-            MarketData::Candle(ref mut candle) => candle.close = 200.0,
-            MarketData::Trade(ref mut trade) => trade.price = 200.0,
+            DataKind::Candle(ref mut candle) => candle.close = 200.0,
+            DataKind::Trade(ref mut trade) => trade.price = 200.0,
         };
 
         let result_pos_update = portfolio
@@ -754,7 +778,7 @@ pub mod tests {
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
                 let mut input_position = position();
-                input_position.direction = Direction::Long;
+                input_position.side = Side::Buy;
                 input_position.quantity = 1.0;
                 input_position.enter_fees_total = 3.0;
                 input_position.current_symbol_price = 100.0;
@@ -767,11 +791,11 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
-        let mut input_market = market_event();
-        match input_market.data {
+        let mut input_market = market_trade(Side::Buy);
+        match input_market.kind {
             // -50.0 on input_position.current_symbol_price
-            MarketData::Candle(ref mut candle) => candle.close = 50.0,
-            MarketData::Trade(ref mut trade) => trade.price = 50.0,
+            DataKind::Candle(ref mut candle) => candle.close = 50.0,
+            DataKind::Trade(ref mut trade) => trade.price = 50.0,
         };
 
         let result_pos_update = portfolio
@@ -797,7 +821,7 @@ pub mod tests {
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
                 let mut input_position = position();
-                input_position.direction = Direction::Short;
+                input_position.side = Side::Sell;
                 input_position.quantity = -1.0;
                 input_position.enter_fees_total = 3.0;
                 input_position.current_symbol_price = 100.0;
@@ -810,11 +834,12 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
-        let mut input_market = market_event();
-        match input_market.data {
+        let mut input_market = market_trade(Side::Buy);
+
+        match input_market.kind {
             // -50.0 on input_position.current_symbol_price
-            MarketData::Candle(ref mut candle) => candle.close = 50.0,
-            MarketData::Trade(ref mut trade) => trade.price = 50.0,
+            DataKind::Candle(ref mut candle) => candle.close = 50.0,
+            DataKind::Trade(ref mut trade) => trade.price = 50.0,
         };
 
         let result_pos_update = portfolio
@@ -840,7 +865,7 @@ pub mod tests {
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
                 let mut input_position = position();
-                input_position.direction = Direction::Short;
+                input_position.side = Side::Sell;
                 input_position.quantity = -1.0;
                 input_position.enter_fees_total = 3.0;
                 input_position.current_symbol_price = 100.0;
@@ -853,12 +878,12 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
-        let mut input_market = market_event();
+        let mut input_market = market_trade(Side::Buy);
 
-        match input_market.data {
+        match input_market.kind {
             // +100.0 on input_position.current_symbol_price
-            MarketData::Candle(ref mut candle) => candle.close = 200.0,
-            MarketData::Trade(ref mut trade) => trade.price = 200.0,
+            DataKind::Candle(ref mut candle) => candle.close = 200.0,
+            DataKind::Trade(ref mut trade) => trade.price = 200.0,
         };
 
         let result_pos_update = portfolio
@@ -885,15 +910,17 @@ pub mod tests {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| Ok(None));
-        mock_repository.get_balance = Some(|_| Ok(Balance {
-            timestamp: Utc::now(),
-            total: 100.0,
-            available: 0.0
-        }));
+        mock_repository.get_balance = Some(|_| {
+            Ok(Balance {
+                time: Utc::now(),
+                total: 100.0,
+                available: 0.0,
+            })
+        });
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
-        let input_signal = signal_event();
+        let input_signal = signal();
 
         let actual = portfolio.generate_order(&input_signal).unwrap();
 
@@ -905,15 +932,17 @@ pub mod tests {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| Ok(Some(position())));
-        mock_repository.get_balance = Some(|_| Ok(Balance {
-            timestamp: Utc::now(),
-            total: 100.0,
-            available: 0.0
-        }));
+        mock_repository.get_balance = Some(|_| {
+            Ok(Balance {
+                time: Utc::now(),
+                total: 100.0,
+                available: 0.0,
+            })
+        });
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
-        let input_signal = signal_event();
+        let input_signal = signal();
 
         let actual = portfolio.generate_order(&input_signal).unwrap();
 
@@ -925,16 +954,20 @@ pub mod tests {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| Ok(None));
-        mock_repository.get_balance = Some(|_| Ok(Balance {
-            timestamp: Utc::now(),
-            total: 100.0,
-            available: 100.0
-        }));
+        mock_repository.get_balance = Some(|_| {
+            Ok(Balance {
+                time: Utc::now(),
+                total: 100.0,
+                available: 100.0,
+            })
+        });
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
-        let mut input_signal = signal_event();
-        input_signal.signals.insert(Decision::Long, 1.0);
+        let mut input_signal = signal();
+        input_signal
+            .signals
+            .insert(Decision::Long, SignalStrength(1.0));
 
         let actual = portfolio.generate_order(&input_signal).unwrap().unwrap();
 
@@ -946,16 +979,21 @@ pub mod tests {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
         mock_repository.get_open_position = Some(|_| Ok(None));
-        mock_repository.get_balance = Some(|_| Ok(Balance {
-            timestamp: Utc::now(),
-            total: 100.0,
-            available: 100.0
-        }));
+        mock_repository.get_balance = Some(|_| {
+            Ok(Balance {
+                time: Utc::now(),
+                total: 100.0,
+                available: 100.0,
+            })
+        });
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
-        let mut input_signal = signal_event();
-        input_signal.signals.insert(Decision::Short, 1.0);
+        let mut input_signal = signal();
+
+        input_signal
+            .signals
+            .insert(Decision::Short, SignalStrength(1.0));
 
         let actual = portfolio.generate_order(&input_signal).unwrap().unwrap();
 
@@ -969,20 +1007,25 @@ pub mod tests {
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
                 let mut position = position();
-                position.direction = Direction::Long;
+                position.side = Side::Buy;
                 position
             }))
         });
-        mock_repository.get_balance = Some(|_| Ok(Balance {
-            timestamp: Utc::now(),
-            total: 100.0,
-            available: 100.0
-        }));
+        mock_repository.get_balance = Some(|_| {
+            Ok(Balance {
+                time: Utc::now(),
+                total: 100.0,
+                available: 100.0,
+            })
+        });
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
-        let mut input_signal = signal_event();
-        input_signal.signals.insert(Decision::CloseLong, 1.0);
+        let mut input_signal = signal();
+
+        input_signal
+            .signals
+            .insert(Decision::CloseLong, SignalStrength(1.0));
 
         let actual = portfolio.generate_order(&input_signal).unwrap().unwrap();
 
@@ -996,20 +1039,25 @@ pub mod tests {
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
                 let mut position = position();
-                position.direction = Direction::Short;
+                position.side = Side::Sell;
                 position
             }))
         });
-        mock_repository.get_balance = Some(|_| Ok(Balance {
-            timestamp: Utc::now(),
-            total: 100.0,
-            available: 100.0
-        }));
+        mock_repository.get_balance = Some(|_| {
+            Ok(Balance {
+                time: Utc::now(),
+                total: 100.0,
+                available: 100.0,
+            })
+        });
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input SignalEvent
-        let mut input_signal = signal_event();
-        input_signal.signals.insert(Decision::CloseShort, 1.0);
+        let mut input_signal = signal();
+
+        input_signal
+            .signals
+            .insert(Decision::CloseShort, SignalStrength(1.0));
 
         let actual = portfolio.generate_order(&input_signal).unwrap().unwrap();
 
@@ -1023,7 +1071,7 @@ pub mod tests {
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
                 let mut position = position();
-                position.direction = Direction::Long;
+                position.side = Side::Buy;
                 position.quantity = 100.0;
                 position
             }))
@@ -1051,7 +1099,7 @@ pub mod tests {
         mock_repository.get_open_position = Some(|_| {
             Ok(Some({
                 let mut position = position();
-                position.direction = Direction::Short;
+                position.side = Side::Sell;
                 position.quantity = -100.0;
                 position
             }))
@@ -1091,11 +1139,13 @@ pub mod tests {
     fn update_from_fill_entering_long_position() {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
-        mock_repository.get_balance = Some(|_| Ok(Balance {
-            timestamp: Utc::now(),
-            total: 200.0,
-            available: 200.0
-        }));
+        mock_repository.get_balance = Some(|_| {
+            Ok(Balance {
+                time: Utc::now(),
+                total: 200.0,
+                available: 200.0,
+            })
+        });
         mock_repository.remove_position = Some(|_| Ok(None));
         mock_repository.set_open_position = Some(|_| Ok(()));
         mock_repository.set_balance = Some(|_, _| Ok(()));
@@ -1118,7 +1168,7 @@ pub mod tests {
         let updated_cash = updated_repository.balance.unwrap().available;
 
         assert!(result.is_ok());
-        assert_eq!(entered_position.direction.unwrap(), Direction::Long);
+        assert_eq!(entered_position.side.unwrap(), Side::Buy);
         assert_eq!(entered_position.enter_value_gross.unwrap(), 100.0);
         assert_eq!(entered_position.enter_fees_total.unwrap(), 3.0);
         assert_eq!(updated_cash, 200.0 - 100.0 - 3.0); // cash += enter_value_gross - enter_fees
@@ -1128,11 +1178,13 @@ pub mod tests {
     fn update_from_fill_entering_short_position() {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
-        mock_repository.get_balance = Some(|_| Ok(Balance {
-            timestamp: Utc::now(),
-            total: 200.0,
-            available: 200.0
-        }));
+        mock_repository.get_balance = Some(|_| {
+            Ok(Balance {
+                time: Utc::now(),
+                total: 200.0,
+                available: 200.0,
+            })
+        });
         mock_repository.remove_position = Some(|_| Ok(None));
         mock_repository.set_open_position = Some(|_| Ok(()));
         mock_repository.set_balance = Some(|_, _| Ok(()));
@@ -1155,7 +1207,7 @@ pub mod tests {
         let updated_cash = updated_repository.balance.unwrap().available;
 
         assert!(result.is_ok());
-        assert_eq!(entered_position.direction.unwrap(), Direction::Short);
+        assert_eq!(entered_position.side.unwrap(), Side::Sell);
         assert_eq!(entered_position.enter_value_gross.unwrap(), 100.0);
         assert_eq!(entered_position.enter_fees_total.unwrap(), 3.0);
         assert_eq!(updated_cash, 200.0 - 100.0 - 3.0); // cash += enter_value_gross - enter_fees
@@ -1165,16 +1217,18 @@ pub mod tests {
     fn update_from_fill_exiting_long_position_in_profit() {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
-        mock_repository.get_balance = Some(|_| Ok(Balance {
-            timestamp: Utc::now(),
-            total: 200.0,
-            available: 97.0
-        }));
+        mock_repository.get_balance = Some(|_| {
+            Ok(Balance {
+                time: Utc::now(),
+                total: 200.0,
+                available: 97.0,
+            })
+        });
         mock_repository.remove_position = Some(|_| {
             Ok({
                 Some({
                     let mut input_position = position();
-                    input_position.direction = Direction::Long;
+                    input_position.side = Side::Buy;
                     input_position.quantity = 1.0;
                     input_position.enter_fees_total = 3.0;
                     input_position.enter_value_gross = 100.0;
@@ -1216,16 +1270,18 @@ pub mod tests {
     fn update_from_fill_exiting_long_position_in_loss() {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
-        mock_repository.get_balance = Some(|_| Ok(Balance {
-            timestamp: Utc::now(),
-            total: 200.0,
-            available: 97.0
-        }));
+        mock_repository.get_balance = Some(|_| {
+            Ok(Balance {
+                time: Utc::now(),
+                total: 200.0,
+                available: 97.0,
+            })
+        });
         mock_repository.remove_position = Some(|_| {
             Ok({
                 Some({
                     let mut input_position = position();
-                    input_position.direction = Direction::Long;
+                    input_position.side = Side::Buy;
                     input_position.quantity = 1.0;
                     input_position.enter_fees_total = 3.0;
                     input_position.enter_value_gross = 100.0;
@@ -1267,16 +1323,18 @@ pub mod tests {
     fn update_from_fill_exiting_short_position_in_profit() {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
-        mock_repository.get_balance = Some(|_| Ok(Balance {
-            timestamp: Utc::now(),
-            total: 200.0,
-            available: 97.0
-        }));
+        mock_repository.get_balance = Some(|_| {
+            Ok(Balance {
+                time: Utc::now(),
+                total: 200.0,
+                available: 97.0,
+            })
+        });
         mock_repository.remove_position = Some(|_| {
             Ok({
                 Some({
                     let mut input_position = position();
-                    input_position.direction = Direction::Short;
+                    input_position.side = Side::Sell;
                     input_position.quantity = -1.0;
                     input_position.enter_fees_total = 3.0;
                     input_position.enter_value_gross = 100.0;
@@ -1318,16 +1376,18 @@ pub mod tests {
     fn update_from_fill_exiting_short_position_in_loss() {
         // Build Portfolio
         let mut mock_repository = MockRepository::<PnLReturnSummary>::default();
-        mock_repository.get_balance = Some(|_| Ok(Balance {
-            timestamp: Utc::now(),
-            total: 200.0,
-            available: 97.0
-        }));
+        mock_repository.get_balance = Some(|_| {
+            Ok(Balance {
+                time: Utc::now(),
+                total: 200.0,
+                available: 97.0,
+            })
+        });
         mock_repository.remove_position = Some(|_| {
             Ok({
                 Some({
                     let mut input_position = position();
-                    input_position.direction = Direction::Short;
+                    input_position.side = Side::Sell;
                     input_position.quantity = -1.0;
                     input_position.enter_fees_total = 3.0;
                     input_position.enter_value_gross = 100.0;
@@ -1369,14 +1429,14 @@ pub mod tests {
     fn parse_signal_decisions_to_net_close_long() {
         // Some(Position)
         let mut position = position();
-        position.direction = Direction::Long;
+        position.side = Side::Buy;
         let position = Some(position);
         let position = position.as_ref();
 
         // Signals HashMap
         let mut signals = HashMap::with_capacity(4);
-        signals.insert(Decision::CloseLong, 1.0);
-        signals.insert(Decision::Short, 1.0);
+        signals.insert(Decision::CloseLong, SignalStrength(1.0));
+        signals.insert(Decision::Short, SignalStrength(1.0));
 
         let actual = parse_signal_decisions(&position, &signals);
 
@@ -1387,14 +1447,14 @@ pub mod tests {
     fn parse_signal_decisions_to_none_with_some_long_position_and_long_signal() {
         // Some(Position)
         let mut position = position();
-        position.direction = Direction::Long;
+        position.side = Side::Buy;
         let position = Some(position);
         let position = position.as_ref();
 
         // Signals HashMap
         let mut signals = HashMap::with_capacity(4);
-        signals.insert(Decision::Long, 1.0);
-        signals.insert(Decision::CloseShort, 1.0);
+        signals.insert(Decision::Long, SignalStrength(1.0));
+        signals.insert(Decision::CloseShort, SignalStrength(1.0));
 
         let actual = parse_signal_decisions(&position, &signals);
 
@@ -1405,16 +1465,16 @@ pub mod tests {
     fn parse_signal_decisions_to_net_close_long_with_conflicting_signals() {
         // Some(Position)
         let mut position = position();
-        position.direction = Direction::Long;
+        position.side = Side::Buy;
         let position = Some(position);
         let position = position.as_ref();
 
         // Signals HashMap
         let mut signals = HashMap::with_capacity(4);
-        signals.insert(Decision::CloseLong, 1.0);
-        signals.insert(Decision::CloseShort, 1.0);
-        signals.insert(Decision::Short, 1.0);
-        signals.insert(Decision::Long, 1.0);
+        signals.insert(Decision::CloseLong, SignalStrength(1.0));
+        signals.insert(Decision::CloseShort, SignalStrength(1.0));
+        signals.insert(Decision::Short, SignalStrength(1.0));
+        signals.insert(Decision::Long, SignalStrength(1.0));
 
         let actual = parse_signal_decisions(&position, &signals);
 
@@ -1425,14 +1485,14 @@ pub mod tests {
     fn parse_signal_decisions_to_net_close_short() {
         // Some(Position)
         let mut position = position();
-        position.direction = Direction::Short;
+        position.side = Side::Sell;
         let position = Some(position);
         let position = position.as_ref();
 
         // Signals HashMap
         let mut signals = HashMap::with_capacity(4);
-        signals.insert(Decision::CloseShort, 1.0);
-        signals.insert(Decision::Long, 1.0);
+        signals.insert(Decision::CloseShort, SignalStrength(1.0));
+        signals.insert(Decision::Long, SignalStrength(1.0));
 
         let actual = parse_signal_decisions(&position, &signals);
 
@@ -1443,14 +1503,14 @@ pub mod tests {
     fn parse_signal_decisions_to_none_with_some_short_position_and_short_signal() {
         // Some(Position)
         let mut position = position();
-        position.direction = Direction::Short;
+        position.side = Side::Sell;
         let position = Some(position);
         let position = position.as_ref();
 
         // Signals HashMap
         let mut signals = HashMap::with_capacity(4);
-        signals.insert(Decision::CloseLong, 1.0);
-        signals.insert(Decision::Short, 1.0);
+        signals.insert(Decision::CloseLong, SignalStrength(1.0));
+        signals.insert(Decision::Short, SignalStrength(1.0));
 
         let actual = parse_signal_decisions(&position, &signals);
 
@@ -1461,16 +1521,16 @@ pub mod tests {
     fn parse_signal_decisions_to_net_close_short_with_conflicting_signals() {
         // Some(Position)
         let mut position = position();
-        position.direction = Direction::Short;
+        position.side = Side::Sell;
         let position = Some(position);
         let position = position.as_ref();
 
         // Signals HashMap
         let mut signals = HashMap::with_capacity(4);
-        signals.insert(Decision::CloseShort, 1.0);
-        signals.insert(Decision::CloseLong, 1.0);
-        signals.insert(Decision::Short, 1.0);
-        signals.insert(Decision::Long, 1.0);
+        signals.insert(Decision::CloseShort, SignalStrength(1.0));
+        signals.insert(Decision::CloseLong, SignalStrength(1.0));
+        signals.insert(Decision::Short, SignalStrength(1.0));
+        signals.insert(Decision::Long, SignalStrength(1.0));
 
         let actual = parse_signal_decisions(&position, &signals);
 
@@ -1484,8 +1544,8 @@ pub mod tests {
 
         // Signals HashMap
         let mut signals = HashMap::with_capacity(4);
-        signals.insert(Decision::Long, 1.0);
-        signals.insert(Decision::CloseShort, 1.0);
+        signals.insert(Decision::Long, SignalStrength(1.0));
+        signals.insert(Decision::CloseShort, SignalStrength(1.0));
 
         let actual = parse_signal_decisions(&position, &signals);
 
@@ -1499,8 +1559,8 @@ pub mod tests {
 
         // Signals HashMap
         let mut signals = HashMap::with_capacity(4);
-        signals.insert(Decision::Short, 1.0);
-        signals.insert(Decision::CloseLong, 1.0);
+        signals.insert(Decision::Short, SignalStrength(1.0));
+        signals.insert(Decision::CloseLong, SignalStrength(1.0));
 
         let actual = parse_signal_decisions(&position, &signals);
 
@@ -1514,10 +1574,10 @@ pub mod tests {
 
         // Signals HashMap
         let mut signals = HashMap::with_capacity(4);
-        signals.insert(Decision::Long, 1.0);
-        signals.insert(Decision::CloseShort, 1.0);
-        signals.insert(Decision::Short, 1.0);
-        signals.insert(Decision::CloseLong, 1.0);
+        signals.insert(Decision::Long, SignalStrength(1.0));
+        signals.insert(Decision::CloseShort, SignalStrength(1.0));
+        signals.insert(Decision::Short, SignalStrength(1.0));
+        signals.insert(Decision::CloseLong, SignalStrength(1.0));
 
         let actual = parse_signal_decisions(&position, &signals);
 

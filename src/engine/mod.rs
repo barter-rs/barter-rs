@@ -1,3 +1,25 @@
+use crate::{
+    data::MarketGenerator,
+    engine::{error::EngineError, trader::Trader},
+    event::{Event, MessageTransmitter},
+    execution::ExecutionClient,
+    portfolio::{
+        position::Position,
+        repository::{PositionHandler, StatisticHandler},
+        FillUpdater, MarketUpdater, OrderGenerator,
+    },
+    statistic::summary::{PositionSummariser, TableBuilder},
+    strategy::SignalGenerator,
+};
+use barter_integration::model::{Market, MarketId};
+use parking_lot::Mutex;
+use prettytable::Table;
+use serde::Serialize;
+use std::{collections::HashMap, fmt::Debug, sync::Arc, thread};
+use tokio::sync::{mpsc, oneshot};
+use tracing::{error, info, warn};
+use uuid::Uuid;
+
 /// Barter Engine module specific errors.
 pub mod error;
 
@@ -5,29 +27,6 @@ pub mod error;
 /// has it's own Data handler, Strategy & Execution handler, as well as shared access to a global
 /// Portfolio instance.
 pub mod trader;
-
-use crate::Market;
-use crate::event::{Event, MessageTransmitter};
-use crate::engine::error::EngineError;
-use crate::engine::trader::Trader;
-use crate::data::handler::{Continuer, MarketGenerator};
-use crate::strategy::SignalGenerator;
-use crate::portfolio::position::Position;
-use crate::portfolio::repository::{PositionHandler, StatisticHandler};
-use crate::portfolio::{FillUpdater, MarketUpdater, OrderGenerator};
-use crate::statistic::summary;
-use crate::statistic::summary::{PositionSummariser, TableBuilder};
-use crate::execution::ExecutionClient;
-use serde::Serialize;
-use std::collections::HashMap;
-use std::fmt::Debug;
-use std::sync::Arc;
-use std::thread;
-use parking_lot::Mutex;
-use prettytable::Table;
-use tokio::sync::{mpsc, oneshot};
-use tracing::{error, info, warn};
-use uuid::Uuid;
 
 /// Commands that can be actioned by an [`Engine`] and it's associated [`Trader`]s.
 #[derive(Debug)]
@@ -54,7 +53,7 @@ where
     EventTx: MessageTransmitter<Event> + Send,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
-    Data: Continuer + MarketGenerator + Send,
+    Data: MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -72,13 +71,15 @@ where
     pub trader_command_txs: HashMap<Market, mpsc::Sender<Command>>,
     /// Uses trading session's exited [`Position`]s to calculate an average statistical summary
     /// across all [`Market`]s traded.
-    pub statistics_summary: Statistic
+    pub statistics_summary: Statistic,
 }
 
-/// Multi-threaded Trading Engine capable of trading with an arbitrary number of [`Trader`] market
-/// pairs. Each [`Trader`] operates on it's own thread and has it's own Data Handler, Strategy &
+/// Multi-threaded Trading Engine capable of trading with an arbitrary number of [`Trader`]s, one
+/// for each unique [`Market`].
+///
+/// Each [`Trader`] operates on it's own thread and has it's own Data handler, Strategy &
 /// Execution Handler, as well as shared access to a global Portfolio instance. A graceful remote
-/// shutdown is made possible by sending a [`Message`] to the Engine's broadcast::Receiver
+/// shutdown is made possible by sending a [`Command::Terminate`] to the Engine's broadcast::Receiver
 /// termination_rx.
 #[derive(Debug)]
 pub struct Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
@@ -92,7 +93,7 @@ where
         + FillUpdater
         + Send
         + 'static,
-    Data: Continuer + MarketGenerator + Send + 'static,
+    Data: MarketGenerator + Send + 'static,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -111,8 +112,7 @@ where
     trader_command_txs: HashMap<Market, mpsc::Sender<Command>>,
     /// Uses trading session's exited [`Position`]s to calculate an average statistical summary
     /// across all [`Market`]s traded.
-    statistics_summary: Statistic
-
+    statistics_summary: Statistic,
 }
 
 impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
@@ -127,7 +127,7 @@ where
         + FillUpdater
         + Send
         + 'static,
-    Data: Continuer + MarketGenerator + Send,
+    Data: MarketGenerator + Send,
     Strategy: SignalGenerator + Send + 'static,
     Execution: ExecutionClient + Send + 'static,
 {
@@ -143,7 +143,7 @@ where
             portfolio: lego.portfolio,
             traders: lego.traders,
             trader_command_txs: lego.trader_command_txs,
-            statistics_summary: lego.statistics_summary
+            statistics_summary: lego.statistics_summary,
         }
     }
 
@@ -155,7 +155,7 @@ where
     /// Run the trading [`Engine`]. Spawns a thread for each [`Trader`] to run on. Asynchronously
     /// receives [`Command`]s via the `command_rx` and actions them
     /// (eg/ terminate_traders, fetch_open_positions). If all of the [`Trader`]s stop organically
-    /// (eg/ due to a finished [`MarketEvent`] feed), the [`Engine`] terminates & prints a summary
+    /// (eg/ due to a finished [`MarketGenerator`]), the [`Engine`] terminates & prints a summary
     /// for the trading session.
     pub async fn run(mut self) {
         // Run Traders on threads & send notification when they have stopped organically
@@ -194,8 +194,7 @@ where
         }
 
         // Print Trading Session Summary
-        self.generate_session_summary()
-            .printstd();
+        self.generate_session_summary().printstd();
     }
 
     /// Runs each [`Trader`] it's own thread. Sends a message on the returned `mpsc::Receiver<bool>`
@@ -318,25 +317,21 @@ where
     /// combination with the average statistics across all [`Market`]s traded.
     fn generate_session_summary(mut self) -> Table {
         // Fetch statistics for each Market
-        let stats_per_market = self
-            .trader_command_txs
-            .into_keys()
-            .filter_map(|market| {
-                match self.portfolio.lock().get_statistics(&market.market_id()) {
-                    Ok(statistics) => {
-                        let market_id = format!("{} | {}", market.exchange, market.symbol);
-                        Some((market_id, statistics))
-                    },
-                    Err(err) => {
-                        error!(
-                            error = &*format!("{:?}", err),
-                            market = &*format!("{:?}", market),
-                            "failed to get Market statistics when generating trading session summary"
-                        );
-                        None
-                    }
+        let stats_per_market = self.trader_command_txs.into_keys().filter_map(|market| {
+            let market_id = MarketId::from(&market);
+
+            match self.portfolio.lock().get_statistics(&market_id) {
+                Ok(statistics) => Some((market_id.0, statistics)),
+                Err(error) => {
+                    error!(
+                        ?error,
+                        ?market,
+                        "failed to get Market statistics when generating trading session summary"
+                    );
+                    None
                 }
-            });
+            }
+        });
 
         // Generate average statistics across all markets using session's exited Positions
         self.portfolio
@@ -345,17 +340,17 @@ where
             .map(|exited_positions| {
                 self.statistics_summary.generate_summary(&exited_positions);
             })
-            .unwrap_or_else(|err| {
+            .unwrap_or_else(|error| {
                 warn!(
-                    error = &*format!("{:?}", err),
+                    ?error,
                     why = "failed to get exited Positions from Portfolio's repository",
                     "failed to generate Statistics summary for trading session"
                 );
             });
 
         // Combine Total & Per-Market Statistics Into Table
-        summary::combine(
-            stats_per_market.chain([("Total".to_owned(), self.statistics_summary)])
+        crate::statistic::summary::combine(
+            stats_per_market.chain([("Total".to_owned(), self.statistics_summary)]),
         )
     }
 }
@@ -367,7 +362,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
-    Data: Continuer + MarketGenerator + Send,
+    Data: MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -390,7 +385,7 @@ where
         + OrderGenerator
         + FillUpdater
         + Send,
-    Data: Continuer + MarketGenerator + Send,
+    Data: MarketGenerator + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -454,12 +449,24 @@ where
         self,
     ) -> Result<Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
         Ok(Engine {
-            engine_id: self.engine_id.ok_or(EngineError::BuilderIncomplete)?,
-            command_rx: self.command_rx.ok_or(EngineError::BuilderIncomplete)?,
-            portfolio: self.portfolio.ok_or(EngineError::BuilderIncomplete)?,
-            traders: self.traders.ok_or(EngineError::BuilderIncomplete)?,
-            trader_command_txs: self.trader_command_txs.ok_or(EngineError::BuilderIncomplete)?,
-            statistics_summary: self.statistics_summary.ok_or(EngineError::BuilderIncomplete)?,
+            engine_id: self
+                .engine_id
+                .ok_or(EngineError::BuilderIncomplete("engine_id"))?,
+            command_rx: self
+                .command_rx
+                .ok_or(EngineError::BuilderIncomplete("command_rx"))?,
+            portfolio: self
+                .portfolio
+                .ok_or(EngineError::BuilderIncomplete("portfolio"))?,
+            traders: self
+                .traders
+                .ok_or(EngineError::BuilderIncomplete("traders"))?,
+            trader_command_txs: self
+                .trader_command_txs
+                .ok_or(EngineError::BuilderIncomplete("trader_command_txs"))?,
+            statistics_summary: self
+                .statistics_summary
+                .ok_or(EngineError::BuilderIncomplete("statistics_summary"))?,
         })
     }
 }
