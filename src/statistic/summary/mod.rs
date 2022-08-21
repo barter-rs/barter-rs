@@ -58,7 +58,7 @@ pub trait TableBuilder {
 pub fn combine<Iter, T>(builders: Iter) -> Table
 where
     Iter: IntoIterator<Item = (String, T)>,
-    T: TableBuilder
+    T: TableBuilder,
 {
     builders
         .into_iter()

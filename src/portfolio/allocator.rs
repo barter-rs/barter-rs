@@ -1,7 +1,8 @@
-use crate::portfolio::OrderEvent;
-use crate::portfolio::position::Position;
+use crate::{
+    portfolio::{position::Position, OrderEvent},
+    strategy::{Decision, SignalStrength},
+};
 use serde::{Deserialize, Serialize};
-use crate::strategy::{Decision, SignalStrength};
 
 /// Allocates an appropriate [`OrderEvent`] quantity.
 pub trait OrderAllocator {
@@ -35,10 +36,10 @@ impl OrderAllocator for DefaultAllocator {
 
         match order.decision {
             // Entry
-            Decision::Long => order.quantity = default_order_size * signal_strength as f64,
+            Decision::Long => order.quantity = default_order_size * signal_strength.0,
 
             // Entry
-            Decision::Short => order.quantity = -default_order_size * signal_strength as f64,
+            Decision::Short => order.quantity = -default_order_size * signal_strength.0,
 
             // Exit
             _ => order.quantity = 0.0 - position.as_ref().unwrap().quantity,
@@ -48,8 +49,8 @@ impl OrderAllocator for DefaultAllocator {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_util::{order_event, position};
     use super::*;
+    use crate::test_util::{order_event, position};
 
     #[test]
     fn should_allocate_order_to_exit_open_long_position() {
@@ -63,7 +64,7 @@ mod tests {
         let mut input_position = position();
         input_position.quantity = 100.0;
 
-        let input_signal_strength = 0.0;
+        let input_signal_strength = SignalStrength(0.0);
 
         allocator.allocate_order(
             &mut input_order,
@@ -89,7 +90,7 @@ mod tests {
         let mut input_position = position();
         input_position.quantity = -100.0;
 
-        let input_signal_strength = 0.0;
+        let input_signal_strength = SignalStrength(0.0);
 
         allocator.allocate_order(
             &mut input_order,
@@ -115,12 +116,12 @@ mod tests {
         input_order.market_meta.close = order_close;
         input_order.decision = Decision::Long;
 
-        let input_signal_strength = 1.0;
+        let input_signal_strength = SignalStrength(1.0);
 
         allocator.allocate_order(&mut input_order, None, input_signal_strength);
 
         let actual_result = input_order.quantity;
-        let expected_result = (default_order_value / order_close) * input_signal_strength as f64;
+        let expected_result = (default_order_value / order_close) * input_signal_strength.0 as f64;
 
         assert_eq!(actual_result, expected_result)
     }
@@ -137,13 +138,13 @@ mod tests {
         input_order.market_meta.close = order_close;
         input_order.decision = Decision::Long;
 
-        let input_signal_strength = 1.0;
+        let input_signal_strength = SignalStrength(1.0);
 
         allocator.allocate_order(&mut input_order, None, input_signal_strength);
 
         let actual_result = input_order.quantity;
         let expected_order_size = ((default_order_value / order_close) * 10000.0).floor() / 10000.0;
-        let expected_result = expected_order_size * input_signal_strength as f64;
+        let expected_result = expected_order_size * input_signal_strength.0 as f64;
 
         assert_ne!(actual_result, 0.0);
         assert_eq!(actual_result, expected_result)
@@ -161,12 +162,12 @@ mod tests {
         input_order.market_meta.close = order_close;
         input_order.decision = Decision::Short;
 
-        let input_signal_strength = 1.0;
+        let input_signal_strength = SignalStrength(1.0);
 
         allocator.allocate_order(&mut input_order, None, input_signal_strength);
 
         let actual_result = input_order.quantity;
-        let expected_result = -(default_order_value / order_close) * input_signal_strength as f64;
+        let expected_result = -(default_order_value / order_close) * input_signal_strength.0 as f64;
 
         assert_eq!(actual_result, expected_result)
     }
@@ -183,13 +184,13 @@ mod tests {
         input_order.market_meta.close = order_close;
         input_order.decision = Decision::Short;
 
-        let input_signal_strength = 1.0;
+        let input_signal_strength = SignalStrength(1.0);
 
         allocator.allocate_order(&mut input_order, None, input_signal_strength);
 
         let actual_result = input_order.quantity;
         let expected_order_size = ((default_order_value / order_close) * 10000.0).floor() / 10000.0;
-        let expected_result = -expected_order_size * input_signal_strength as f64;
+        let expected_result = -expected_order_size * input_signal_strength.0;
 
         assert_ne!(actual_result, 0.0);
         assert_eq!(actual_result, expected_result)
