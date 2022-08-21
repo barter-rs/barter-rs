@@ -1,6 +1,6 @@
-use crate::statistic::metric::EquityPoint;
 use crate::statistic::algorithm::welford_online;
 use crate::statistic::dispersion::Range;
+use crate::statistic::metric::EquityPoint;
 use crate::statistic::{de_duration_from_secs, se_duration_as_secs};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -13,8 +13,11 @@ use serde::{Deserialize, Serialize};
 pub struct Drawdown {
     pub equity_range: Range,
     pub drawdown: f64,
-    pub start_timestamp: DateTime<Utc>,
-    #[serde(deserialize_with = "de_duration_from_secs", serialize_with = "se_duration_as_secs")]
+    pub start_time: DateTime<Utc>,
+    #[serde(
+        deserialize_with = "de_duration_from_secs",
+        serialize_with = "se_duration_as_secs"
+    )]
     pub duration: Duration,
 }
 
@@ -23,7 +26,7 @@ impl Default for Drawdown {
         Self {
             equity_range: Default::default(),
             drawdown: 0.0,
-            start_timestamp: Utc::now(),
+            start_time: Utc::now(),
             duration: Duration::zero(),
         }
     }
@@ -39,7 +42,7 @@ impl Drawdown {
                 low: starting_equity,
             },
             drawdown: 0.0,
-            start_timestamp: Utc::now(),
+            start_time: Utc::now(),
             duration: Duration::zero(),
         }
     }
@@ -60,7 +63,7 @@ impl Drawdown {
 
             // B) Start of new drawdown - previous equity point set peak & current equity lower
             (true, false) => {
-                self.start_timestamp = current.timestamp;
+                self.start_time = current.time;
                 self.equity_range.low = current.total;
                 self.drawdown = self.calculate();
                 None
@@ -68,9 +71,7 @@ impl Drawdown {
 
             // C) Continuation of drawdown - equity lower than most recent peak
             (false, false) => {
-                self.duration = current
-                    .timestamp
-                    .signed_duration_since(self.start_timestamp);
+                self.duration = current.time.signed_duration_since(self.start_time);
                 self.equity_range.update(current.total);
                 self.drawdown = self.calculate(); // I don't need to calculate this now if I don't want
                 None
@@ -82,11 +83,11 @@ impl Drawdown {
                 let finished_drawdown = Drawdown {
                     equity_range: self.equity_range,
                     drawdown: self.drawdown,
-                    start_timestamp: self.start_timestamp,
+                    start_time: self.start_time,
                     duration: self.duration,
                 };
 
-                // Clean up - start_timestamp overwritten next drawdown start
+                // Clean up - start_time overwritten next drawdown start
                 self.drawdown = 0.0; // ie/ waiting for peak = true
                 self.duration = Duration::zero();
 
@@ -145,7 +146,10 @@ impl MaxDrawdown {
 pub struct AvgDrawdown {
     pub count: u64,
     pub mean_drawdown: f64,
-    #[serde(deserialize_with = "de_duration_from_secs", serialize_with = "se_duration_as_secs")]
+    #[serde(
+        deserialize_with = "de_duration_from_secs",
+        serialize_with = "se_duration_as_secs"
+    )]
     pub mean_duration: Duration,
     mean_duration_milliseconds: i64,
 }
@@ -200,7 +204,7 @@ mod tests {
             input_equity: EquityPoint,
             expected_drawdown: Drawdown,
         }
-        let base_timestamp = Utc::now();
+        let base_time = Utc::now();
         let starting_equity = 100.0;
 
         let mut drawdown = Drawdown {
@@ -210,7 +214,7 @@ mod tests {
                 low: starting_equity,
             },
             drawdown: 0.0,
-            start_timestamp: base_timestamp,
+            start_time: base_time,
             duration: Duration::zero(),
         };
 
@@ -219,7 +223,7 @@ mod tests {
                 // Test case 0: No current drawdown
                 input_equity: EquityPoint {
                     total: 110.0,
-                    timestamp: base_timestamp.add(Duration::days(1)),
+                    time: base_time.add(Duration::days(1)),
                 },
                 expected_drawdown: Drawdown {
                     equity_range: Range {
@@ -228,7 +232,7 @@ mod tests {
                         low: 100.0,
                     },
                     drawdown: 0.0,
-                    start_timestamp: base_timestamp,
+                    start_time: base_time,
                     duration: Duration::zero(),
                 },
             },
@@ -236,7 +240,7 @@ mod tests {
                 // Test case 1: Start of new drawdown w/ lower equity than peak
                 input_equity: EquityPoint {
                     total: 100.0,
-                    timestamp: base_timestamp.add(Duration::days(2)),
+                    time: base_time.add(Duration::days(2)),
                 },
                 expected_drawdown: Drawdown {
                     equity_range: Range {
@@ -245,7 +249,7 @@ mod tests {
                         low: 100.0,
                     },
                     drawdown: (-10.0 / 110.0),
-                    start_timestamp: base_timestamp.add(Duration::days(2)),
+                    start_time: base_time.add(Duration::days(2)),
                     duration: Duration::zero(),
                 },
             },
@@ -253,7 +257,7 @@ mod tests {
                 // Test case 2: Continuation of drawdown w/ lower equity than previous
                 input_equity: EquityPoint {
                     total: 90.0,
-                    timestamp: base_timestamp.add(Duration::days(3)),
+                    time: base_time.add(Duration::days(3)),
                 },
                 expected_drawdown: Drawdown {
                     equity_range: Range {
@@ -262,7 +266,7 @@ mod tests {
                         low: 90.0,
                     },
                     drawdown: (-20.0 / 110.0),
-                    start_timestamp: base_timestamp.add(Duration::days(2)),
+                    start_time: base_time.add(Duration::days(2)),
                     duration: Duration::days(1),
                 },
             },
@@ -270,7 +274,7 @@ mod tests {
                 // Test case 3: Continuation of drawdown w/ higher equity than previous but not higher than peak
                 input_equity: EquityPoint {
                     total: 95.0,
-                    timestamp: base_timestamp.add(Duration::days(4)),
+                    time: base_time.add(Duration::days(4)),
                 },
                 expected_drawdown: Drawdown {
                     equity_range: Range {
@@ -279,7 +283,7 @@ mod tests {
                         low: 90.0,
                     },
                     drawdown: (-20.0 / 110.0),
-                    start_timestamp: base_timestamp.add(Duration::days(2)),
+                    start_time: base_time.add(Duration::days(2)),
                     duration: Duration::days(2),
                 },
             },
@@ -287,7 +291,7 @@ mod tests {
                 // Test case 4: End of drawdown w/ equity higher than peak
                 input_equity: EquityPoint {
                     total: 120.0,
-                    timestamp: base_timestamp.add(Duration::days(5)),
+                    time: base_time.add(Duration::days(5)),
                 },
                 expected_drawdown: Drawdown {
                     equity_range: Range {
@@ -296,15 +300,15 @@ mod tests {
                         low: 90.0,
                     },
                     drawdown: 0.0,
-                    start_timestamp: base_timestamp.add(Duration::days(2)),
+                    start_time: base_time.add(Duration::days(2)),
                     duration: Duration::zero(),
                 },
             },
             TestCase {
-                // Test case 5: No current drawdown w/ residual start_timestamp from previous
+                // Test case 5: No current drawdown w/ residual start_time from previous
                 input_equity: EquityPoint {
                     total: 200.0,
-                    timestamp: base_timestamp.add(Duration::days(6)),
+                    time: base_time.add(Duration::days(6)),
                 },
                 expected_drawdown: Drawdown {
                     equity_range: Range {
@@ -313,7 +317,7 @@ mod tests {
                         low: 90.0,
                     },
                     drawdown: 0.0,
-                    start_timestamp: base_timestamp.add(Duration::days(2)),
+                    start_time: base_time.add(Duration::days(2)),
                     duration: Duration::zero(),
                 },
             },
@@ -321,7 +325,7 @@ mod tests {
                 // Test case 6: Start of new drawdown w/ lower equity than peak & residual fields from previous drawdown
                 input_equity: EquityPoint {
                     total: 180.0,
-                    timestamp: base_timestamp.add(Duration::days(7)),
+                    time: base_time.add(Duration::days(7)),
                 },
                 expected_drawdown: Drawdown {
                     equity_range: Range {
@@ -330,7 +334,7 @@ mod tests {
                         low: 180.0,
                     },
                     drawdown: (-20.0 / 200.0),
-                    start_timestamp: base_timestamp.add(Duration::days(7)),
+                    start_time: base_time.add(Duration::days(7)),
                     duration: Duration::zero(),
                 },
             },
@@ -338,7 +342,7 @@ mod tests {
                 // Test case 7: Continuation of drawdown w/ equity equal to peak
                 input_equity: EquityPoint {
                     total: 200.0,
-                    timestamp: base_timestamp.add(Duration::days(8)),
+                    time: base_time.add(Duration::days(8)),
                 },
                 expected_drawdown: Drawdown {
                     equity_range: Range {
@@ -347,7 +351,7 @@ mod tests {
                         low: 180.0,
                     },
                     drawdown: (-20.0 / 200.0),
-                    start_timestamp: base_timestamp.add(Duration::days(7)),
+                    start_time: base_time.add(Duration::days(7)),
                     duration: Duration::days(1),
                 },
             },
@@ -355,7 +359,7 @@ mod tests {
                 // Test case 8: End of drawdown w/ equity higher than peak
                 input_equity: EquityPoint {
                     total: 200.01,
-                    timestamp: base_timestamp.add(Duration::days(9)),
+                    time: base_time.add(Duration::days(9)),
                 },
                 expected_drawdown: Drawdown {
                     equity_range: Range {
@@ -364,7 +368,7 @@ mod tests {
                         low: 180.0,
                     },
                     drawdown: 0.0,
-                    start_timestamp: base_timestamp.add(Duration::days(7)),
+                    start_time: base_time.add(Duration::days(7)),
                     duration: Duration::zero(),
                 },
             },
@@ -383,7 +387,7 @@ mod tests {
             expected_drawdown: Drawdown,
         }
 
-        let base_timestamp = Utc::now();
+        let base_time = Utc::now();
 
         let mut max_drawdown = MaxDrawdown::init();
 
@@ -397,7 +401,7 @@ mod tests {
                         low: 90.0,
                     },
                     drawdown: (-25.0 / 110.0),
-                    start_timestamp: base_timestamp,
+                    start_time: base_time,
                     duration: Duration::days(2),
                 },
                 expected_drawdown: Drawdown {
@@ -407,7 +411,7 @@ mod tests {
                         low: 90.0,
                     },
                     drawdown: (-25.0 / 110.0),
-                    start_timestamp: base_timestamp,
+                    start_time: base_time,
                     duration: Duration::days(2),
                 },
             },
@@ -420,7 +424,7 @@ mod tests {
                         low: 90.0,
                     },
                     drawdown: (-110.0 / 200.0),
-                    start_timestamp: base_timestamp.add(Duration::days(3)),
+                    start_time: base_time.add(Duration::days(3)),
                     duration: Duration::days(1),
                 },
                 expected_drawdown: Drawdown {
@@ -430,7 +434,7 @@ mod tests {
                         low: 90.0,
                     },
                     drawdown: (-110.0 / 200.0),
-                    start_timestamp: base_timestamp.add(Duration::days(3)),
+                    start_time: base_time.add(Duration::days(3)),
                     duration: Duration::days(1),
                 },
             },
@@ -443,7 +447,7 @@ mod tests {
                         low: 290.0,
                     },
                     drawdown: (-10.0 / 300.0),
-                    start_timestamp: base_timestamp.add(Duration::days(8)),
+                    start_time: base_time.add(Duration::days(8)),
                     duration: Duration::days(1),
                 },
                 expected_drawdown: Drawdown {
@@ -453,7 +457,7 @@ mod tests {
                         low: 90.0,
                     },
                     drawdown: (-110.0 / 200.0),
-                    start_timestamp: base_timestamp.add(Duration::days(3)),
+                    start_time: base_time.add(Duration::days(3)),
                     duration: Duration::days(1),
                 },
             },
@@ -466,7 +470,7 @@ mod tests {
                         low: 0.1,
                     },
                     drawdown: (-9999.9 / 10000.0),
-                    start_timestamp: base_timestamp.add(Duration::days(12)),
+                    start_time: base_time.add(Duration::days(12)),
                     duration: Duration::days(20),
                 },
                 expected_drawdown: Drawdown {
@@ -476,7 +480,7 @@ mod tests {
                         low: 0.1,
                     },
                     drawdown: (-9999.9 / 10000.0),
-                    start_timestamp: base_timestamp.add(Duration::days(12)),
+                    start_time: base_time.add(Duration::days(12)),
                     duration: Duration::days(20),
                 },
             },
@@ -499,7 +503,7 @@ mod tests {
             expected_avg_drawdown: AvgDrawdown,
         }
 
-        let base_timestamp = Utc::now();
+        let base_time = Utc::now();
 
         let mut avg_drawdown = AvgDrawdown::init();
 
@@ -513,7 +517,7 @@ mod tests {
                         low: 50.0,
                     },
                     drawdown: (-50.0 / 100.0),
-                    start_timestamp: base_timestamp,
+                    start_time: base_time,
                     duration: Duration::days(2),
                 },
                 expected_avg_drawdown: AvgDrawdown {
@@ -532,7 +536,7 @@ mod tests {
                         low: 100.0,
                     },
                     drawdown: (-100.0 / 200.0),
-                    start_timestamp: base_timestamp,
+                    start_time: base_time,
                     duration: Duration::days(2),
                 },
                 expected_avg_drawdown: AvgDrawdown {
@@ -551,7 +555,7 @@ mod tests {
                         low: 820.0,
                     },
                     drawdown: (-180.0 / 1000.0),
-                    start_timestamp: base_timestamp,
+                    start_time: base_time,
                     duration: Duration::days(5),
                 },
                 expected_avg_drawdown: AvgDrawdown {

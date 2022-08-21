@@ -1,8 +1,8 @@
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::execution::{Fees, FillEvent, ExecutionClient};
 use crate::execution::error::ExecutionError;
+use crate::execution::{ExecutionClient, Fees, FillEvent};
 use crate::portfolio::OrderEvent;
 
 /// Configuration for constructing a [`SimulatedExecution`] via the new() constructor method.
@@ -25,11 +25,9 @@ impl ExecutionClient for SimulatedExecution {
         let fill_value_gross = SimulatedExecution::calculate_fill_value_gross(order);
 
         Ok(FillEvent {
-            event_type: FillEvent::EVENT_TYPE,
-            trace_id: order.trace_id,
-            timestamp: Utc::now(),
-            exchange: order.exchange,
-            symbol: order.symbol.clone(),
+            time: Utc::now(),
+            exchange: order.exchange.clone(),
+            instrument: order.instrument.clone(),
             market_meta: order.market_meta,
             decision: order.decision,
             quantity: order.quantity,
@@ -64,8 +62,8 @@ impl SimulatedExecution {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_util::order_event;
     use super::*;
+    use crate::test_util::order_event;
 
     #[test]
     fn should_generate_ok_fill_event_with_valid_order_event_provided() {

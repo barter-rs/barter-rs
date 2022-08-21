@@ -1,21 +1,21 @@
-use crate::data::MarketEvent;
-use crate::strategy::{SignalEvent, SignalForceExit};
 use crate::execution::FillEvent;
-use crate::portfolio::{OrderEvent, Balance};
 use crate::portfolio::position::{Position, PositionExit, PositionUpdate};
+use crate::portfolio::{Balance, OrderEvent};
+use crate::strategy::{Signal, SignalForceExit};
+use barter_data::model::MarketEvent;
 use serde::Serialize;
 use std::fmt::Debug;
 use tokio::sync::mpsc;
 use tracing::warn;
 
-/// Events that occur when bartering. [`MarketEvent`], [`SignalEvent`], [`OrderEvent`], and
+/// Events that occur when bartering. [`MarketEvent`], [`Signal`], [`OrderEvent`], and
 /// [`FillEvent`] are vital to the [`Trader`](crate::engine::trader::Trader) event loop, dictating
-/// the trading sequence. The closed [`Position`] Event is a representation of work done by the system, and is
-/// useful for analysing performance & reconciliations.
+/// the trading sequence. The [`PositionExit`] Event is a representation of work done by the
+/// system, and is useful for analysing performance & reconciliations.
 #[derive(Clone, PartialEq, Debug, Serialize)]
 pub enum Event {
     Market(MarketEvent),
-    Signal(SignalEvent),
+    Signal(Signal),
     SignalForceExit(SignalForceExit),
     OrderNew(OrderEvent),
     OrderUpdate,
