@@ -254,9 +254,11 @@ pub mod test_util {
         portfolio::{position::Position, OrderEvent, OrderType},
         strategy::{Decision, Signal},
     };
+    pub use barter_data::test_util::{market_candle, market_trade};
     use barter_integration::model::{Exchange, Instrument, InstrumentKind, Side};
     use chrono::Utc;
 
+    /// Build a [`Signal`].
     pub fn signal() -> Signal {
         Signal {
             time: Utc::now(),
@@ -267,6 +269,7 @@ pub mod test_util {
         }
     }
 
+    /// Build an [`OrderEvent`] to buy 1.0 contract.
     pub fn order_event() -> OrderEvent {
         OrderEvent {
             time: Utc::now(),
@@ -279,6 +282,7 @@ pub mod test_util {
         }
     }
 
+    /// Build a [`FillEvent`] for a single bought contract.
     pub fn fill_event() -> FillEvent {
         FillEvent {
             time: Utc::now(),
@@ -292,6 +296,7 @@ pub mod test_util {
         }
     }
 
+    /// Build a [`Position`].
     pub fn position() -> Position {
         Position {
             position_id: "engine_id_trader_{}_{}_position".to_owned(),
