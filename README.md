@@ -85,8 +85,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Generate unique identifier to associate an Engine's components
     let engine_id = Uuid::new_v4();
     
-    // Create the Market(s) to be traded on (1-to-1 relationship with a Trader) 
-    let market = Market::new("binance", "btc_usdt".to_owned());
+    // Create the Market(s) to be traded on (1-to-1 relationship with a Trader)
+    let market = Market::new("binance", ("btc", "usdt", InstrumentKind::Spot));
     
     // Build global shared-state MetaPortfolio (1-to-1 relationship with an Engine)
     let portfolio = Arc::new(Mutex::new(
@@ -97,10 +97,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .repository(InMemoryRepository::new())
             .allocation_manager(DefaultAllocator { default_order_value: 100.0 })
             .risk_manager(DefaultRisk {})
-            .statistic_config(StatisticConfig { 
-                starting_equity: 10_000.0, 
-                trading_days_per_year: 365, 
-                risk_free_return: 0.0 
+            .statistic_config(StatisticConfig {
+                starting_equity: 10_000.0,
+                trading_days_per_year: 365,
+                risk_free_return: 0.0,
             })
             .build_and_init()
             .expect("failed to build & initialise MetaPortfolio"),
@@ -119,11 +119,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .command_rx(trader_command_rx)
             .event_tx(event_tx.clone())
             .portfolio(Arc::clone(&portfolio))
-            .data(HistoricCandleHandler::new(HistoricDataLego {
-                exchange: "binance",
-                symbol: "btcusdt".to_string(),
-                candles: vec![test_util::candle()].into_iter()
-            }))
+            .data(historical::MarketFeed::new([test_util::market_candle].into_iter()))
             .strategy(RSIStrategy::new(StrategyConfig { rsi_period: 14 }))
             .execution(SimulatedExecution::new(ExecutionConfig {
                 simulated_fees_pct: Fees {
