@@ -15,6 +15,7 @@ framework for trading.
 [![Build Status][actions-badge]][actions-url]
 [![Discord chat][discord-badge]][discord-url]
 
+
 [crates-badge]: https://img.shields.io/crates/v/barter.svg
 [crates-url]: https://crates.io/crates/barter
 
