@@ -203,6 +203,7 @@
     rust_2018_idioms,
     // missing_docs
 )]
+#![allow(clippy::type_complexity)]
 
 /// Defines a MarketEvent, and provides the Continuer and MarketGenerator traits for
 /// handling the generation of them. Contains implementations such as the (tick-by_tick)

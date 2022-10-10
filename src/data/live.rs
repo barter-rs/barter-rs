@@ -1,7 +1,7 @@
 use super::{error::DataError, Feed, MarketGenerator};
 use barter_data::{
     builder::Streams,
-    model::{MarketEvent, Subscription},
+    model::{subscription::Subscription, MarketEvent},
 };
 use tokio::sync::mpsc;
 
