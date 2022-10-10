@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use ta::{indicators::RelativeStrengthIndex, Next};
 
 /// Configuration for constructing a [`RSIStrategy`] via the new() constructor method.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Debug, Deserialize, Serialize)]
+#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct Config {
     pub rsi_period: usize,
 }

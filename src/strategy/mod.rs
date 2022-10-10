@@ -69,7 +69,7 @@ pub struct SignalStrength(pub f64);
 
 /// Force exit Signal produced after an [`Engine`](crate::engine::Engine) receives a
 /// [`Command::ExitPosition`](crate::engine::Command) from an external source.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Debug, Deserialize, Serialize)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct SignalForceExit {
     pub time: DateTime<Utc>,
     pub exchange: Exchange,

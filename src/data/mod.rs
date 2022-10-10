@@ -18,7 +18,7 @@ pub trait MarketGenerator {
 }
 
 /// Communicates the state of the [`Feed`] as well as the next event.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Debug, Deserialize, Serialize)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub enum Feed<Event> {
     Next(Event),
     Unhealthy,
