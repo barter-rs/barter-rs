@@ -35,7 +35,7 @@
 //! * **Engine**: Multi-threaded trading Engine capable of trading with an arbitrary number of Trader market pairs. Each
 //! contained Trader instance operates on its own thread.
 //!
-//! [`Barter`]: https://gitlab.com/open-source-keir/financial-modelling/trading/barter-rs
+//! [`Barter`]: https://github.com/barter-rs/barter-rs
 //! [`Barter-Data`]: https://crates.io/crates/barter-data
 //! [`Readme`]: https://crates.io/crates/barter
 //!
