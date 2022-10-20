@@ -19,10 +19,10 @@ framework for trading.
 [crates-url]: https://crates.io/crates/barter
 
 [mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
-[mit-url]: https://gitlab.com/open-source-keir/financial-modelling/trading/barter-rs/-/blob/main/LICENCE
+[mit-url]: https://github.com/barter-rs/barter-rs/blob/develop/LICENSE
 
-[actions-badge]: https://gitlab.com/open-source-keir/financial-modelling/trading/barter-rs/badges/-/blob/main/pipeline.svg
-[actions-url]: https://gitlab.com/open-source-keir/financial-modelling/trading/barter-rs/-/commits/master
+[actions-badge]: https://github.com/barter-rs/barter-rs/actions/workflows/ci.yml/badge.svg?branch=main
+[actions-url]: https://github.com/barter-rs/barter-rs/blob/main/.github/workflows/ci.yml
 
 [discord-badge]: https://img.shields.io/discord/910237311332151317.svg?logo=discord&style=flat-square
 [discord-url]: https://discord.gg/wE7RqhnQMV
@@ -184,7 +184,7 @@ as providing an example multi-timeframe Strategy using the utilities.
 ## Licence
 This project is licensed under the [MIT license].
 
-[MIT license]: https://gitlab.com/open-source-keir/financial-modelling/trading/barter-rs/-/blob/master/LICENSE
+[MIT license]: https://github.com/barter-rs/barter-rs/blob/develop/LICENSE
 
 ### Contribution
 Unless you explicitly state otherwise, any contribution intentionally submitted
