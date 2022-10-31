@@ -17,3 +17,7 @@ jobs:
           toolchain: stable
       - run: rustc --version && cargo --version
       - run: cargo test --workspace --verbose
+  clippy:
+    runs-on: ubuntu-latest
+  fmt:
+    runs-on: ubuntu-latest
