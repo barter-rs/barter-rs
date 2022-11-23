@@ -151,7 +151,7 @@ impl PositionUpdater for Position {
         let close = match &market.kind {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
-            DataKind::OrderBook(_) => todo!(),
+            _ => todo!(),
         };
 
         self.meta.update_time = market.exchange_time;
@@ -760,7 +760,7 @@ mod tests {
             // +100.0 higher than current_symbol_price
             DataKind::Candle(ref mut candle) => candle.close = 200.0,
             DataKind::Trade(ref mut trade) => trade.price = 200.0,
-            DataKind::OrderBook(_) => todo!(),
+            _ => todo!(),
         };
 
         // Update Position
@@ -780,7 +780,7 @@ mod tests {
         let close = match &input_market.kind {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
-            DataKind::OrderBook(_) => todo!(),
+            _ => todo!(),
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(
@@ -817,7 +817,7 @@ mod tests {
             // -50.0 lower than current_symbol_price
             DataKind::Candle(ref mut candle) => candle.close = 50.0,
             DataKind::Trade(ref mut trade) => trade.price = 50.0,
-            DataKind::OrderBook(_) => todo!(),
+            _ => todo!(),
         };
 
         // Update Position
@@ -837,7 +837,7 @@ mod tests {
         let close = match &input_market.kind {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
-            DataKind::OrderBook(_) => todo!(),
+            _ => todo!(),
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(
@@ -874,7 +874,7 @@ mod tests {
             // -50.0 lower than current_symbol_price
             DataKind::Candle(ref mut candle) => candle.close = 50.0,
             DataKind::Trade(ref mut trade) => trade.price = 50.0,
-            DataKind::OrderBook(_) => todo!(),
+            _ => todo!(),
         };
 
         // Update Position
@@ -894,7 +894,7 @@ mod tests {
         let close = match &input_market.kind {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
-            DataKind::OrderBook(_) => todo!(),
+            _ => todo!(),
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(
@@ -931,7 +931,7 @@ mod tests {
             // +100.0 higher than current_symbol_price
             DataKind::Candle(ref mut candle) => candle.close = 200.0,
             DataKind::Trade(ref mut trade) => trade.price = 200.0,
-            DataKind::OrderBook(_) => todo!(),
+            _ => todo!(),
         };
 
         // Update Position
@@ -951,7 +951,7 @@ mod tests {
         let close = match &input_market.kind {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
-            DataKind::OrderBook(_) => todo!(),
+            _ => todo!(),
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(

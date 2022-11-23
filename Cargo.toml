@@ -1,6 +1,6 @@
 [package]
 name = "barter"
-version = "0.8.4"
+version = "0.8.5"
 authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
 edition = "2021"
 license = "MIT"
@@ -15,8 +15,8 @@ categories = ["accessibility", "simulation"]
 
 [dependencies]
 # Barter Ecosystem
-barter-data = "0.5.6"
-barter-integration = "0.3.4"
+barter-data = "0.5.9"
+barter-integration = "0.4.0"
 
 # Logging
 tracing = "0.1.36"
