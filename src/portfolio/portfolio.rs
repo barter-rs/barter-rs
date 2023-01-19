@@ -750,6 +750,7 @@ pub mod tests {
             DataKind::Candle(ref mut candle) => candle.close = 200.0,
             DataKind::Trade(ref mut trade) => trade.price = 200.0,
             DataKind::OrderBook(_) => todo!(),
+            DataKind::Liquidation(_) => todo!(),
         };
 
         let result_pos_update = portfolio
@@ -798,6 +799,7 @@ pub mod tests {
             DataKind::Candle(ref mut candle) => candle.close = 50.0,
             DataKind::Trade(ref mut trade) => trade.price = 50.0,
             DataKind::OrderBook(_) => todo!(),
+            DataKind::Liquidation(_) => todo!(),
         };
 
         let result_pos_update = portfolio
@@ -843,6 +845,7 @@ pub mod tests {
             DataKind::Candle(ref mut candle) => candle.close = 50.0,
             DataKind::Trade(ref mut trade) => trade.price = 50.0,
             DataKind::OrderBook(_) => todo!(),
+            DataKind::Liquidation(_) => todo!(),
         };
 
         let result_pos_update = portfolio
@@ -888,6 +891,7 @@ pub mod tests {
             DataKind::Candle(ref mut candle) => candle.close = 200.0,
             DataKind::Trade(ref mut trade) => trade.price = 200.0,
             DataKind::OrderBook(_) => todo!(),
+            DataKind::Liquidation(_) => todo!(),
         };
 
         let result_pos_update = portfolio

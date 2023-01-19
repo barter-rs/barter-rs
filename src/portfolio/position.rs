@@ -152,6 +152,7 @@ impl PositionUpdater for Position {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
             DataKind::OrderBook(_) => todo!(),
+            DataKind::Liquidation(_) => todo!(),
         };
 
         self.meta.update_time = market.exchange_time;
@@ -761,6 +762,7 @@ mod tests {
             DataKind::Candle(ref mut candle) => candle.close = 200.0,
             DataKind::Trade(ref mut trade) => trade.price = 200.0,
             DataKind::OrderBook(_) => todo!(),
+            DataKind::Liquidation(_) => todo!(),
         };
 
         // Update Position
@@ -781,6 +783,7 @@ mod tests {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
             DataKind::OrderBook(_) => todo!(),
+            DataKind::Liquidation(_) => todo!(),
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(
@@ -818,6 +821,7 @@ mod tests {
             DataKind::Candle(ref mut candle) => candle.close = 50.0,
             DataKind::Trade(ref mut trade) => trade.price = 50.0,
             DataKind::OrderBook(_) => todo!(),
+            DataKind::Liquidation(_) => todo!(),
         };
 
         // Update Position
@@ -838,6 +842,7 @@ mod tests {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
             DataKind::OrderBook(_) => todo!(),
+            DataKind::Liquidation(_) => todo!(),
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(
@@ -875,6 +880,7 @@ mod tests {
             DataKind::Candle(ref mut candle) => candle.close = 50.0,
             DataKind::Trade(ref mut trade) => trade.price = 50.0,
             DataKind::OrderBook(_) => todo!(),
+            DataKind::Liquidation(_) => todo!(),
         };
 
         // Update Position
@@ -895,6 +901,7 @@ mod tests {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
             DataKind::OrderBook(_) => todo!(),
+            DataKind::Liquidation(_) => todo!(),
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(
@@ -932,6 +939,7 @@ mod tests {
             DataKind::Candle(ref mut candle) => candle.close = 200.0,
             DataKind::Trade(ref mut trade) => trade.price = 200.0,
             DataKind::OrderBook(_) => todo!(),
+            DataKind::Liquidation(_) => todo!(),
         };
 
         // Update Position
@@ -952,6 +960,7 @@ mod tests {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
             DataKind::OrderBook(_) => todo!(),
+            DataKind::Liquidation(_) => todo!(),
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(

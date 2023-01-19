@@ -15,8 +15,8 @@ categories = ["accessibility", "simulation"]
 
 [dependencies]
 # Barter Ecosystem
-barter-data = "0.5.6"
-barter-integration = "0.3.4"
+barter-data = "0.5.10"
+barter-integration = "0.4.0"
 
 # Logging
 tracing = "0.1.36"
@@ -34,13 +34,13 @@ serde = { version = "1.0.143", features = ["derive"] }
 serde_json = "1.0.83"
 
 # Persistence
-redis = "0.21.5"
+redis = "0.22.2"
 
 # Strategy
 ta = "0.5.0"
 
 # Misc
-uuid = {version = "0.8.2", features = ["v4", "serde"]}
+uuid = {version = "1.2.2", features = ["v4", "serde"]}
 chrono = {version = "0.4.21", features = ["serde"]}
-prettytable-rs = "0.8.0"
+prettytable-rs = "0.10.0"
 parking_lot = "0.12.1"
