@@ -17,9 +17,9 @@ pub struct Config {
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct TradingSummary {
-    pnl_returns: PnLReturnSummary,
-    drawdown: DrawdownSummary,
-    tear_sheet: TearSheet,
+    pub pnl_returns: PnLReturnSummary,
+    pub drawdown: DrawdownSummary,
+    pub tear_sheet: TearSheet,
 }
 
 impl Initialiser for TradingSummary {

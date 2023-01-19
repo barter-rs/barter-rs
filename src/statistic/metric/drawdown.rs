@@ -101,13 +101,13 @@ impl Drawdown {
 
     /// Determines if a [`Drawdown`] is waiting for the next equity peak. This is true if the new
     /// [`EquityPoint`] is higher than the previous peak.
-    fn is_waiting_for_peak(&self) -> bool {
+    pub fn is_waiting_for_peak(&self) -> bool {
         self.drawdown == 0.0
     }
 
     /// Calculates the value of the [`Drawdown`] in the specific period. Uses the formula:
     /// [`Drawdown`] = (range_low - range_high) / range_high
-    fn calculate(&self) -> f64 {
+    pub fn calculate(&self) -> f64 {
         // range_low - range_high / range_high
         (-self.equity_range.calculate()) / self.equity_range.high
     }
@@ -151,7 +151,7 @@ pub struct AvgDrawdown {
         serialize_with = "se_duration_as_secs"
     )]
     pub mean_duration: Duration,
-    mean_duration_milliseconds: i64,
+    pub mean_duration_milliseconds: i64,
 }
 
 impl Default for AvgDrawdown {

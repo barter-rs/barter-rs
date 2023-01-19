@@ -10,8 +10,8 @@ pub mod ratio;
 /// Total equity at a point in time - equates to [`Balance.total`](Balance).
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct EquityPoint {
-    time: DateTime<Utc>,
-    total: f64,
+    pub time: DateTime<Utc>,
+    pub total: f64,
 }
 
 impl Default for EquityPoint {

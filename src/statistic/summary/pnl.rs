@@ -113,7 +113,7 @@ impl PnLReturnSummary {
         }
     }
 
-    fn update_trading_session_duration(&mut self, position: &Position) {
+    pub fn update_trading_session_duration(&mut self, position: &Position) {
         self.duration = match position.meta.exit_balance {
             None => {
                 // Since Position is not exited, estimate duration w/ last_update_time
@@ -123,7 +123,7 @@ impl PnLReturnSummary {
         }
     }
 
-    fn update_trades_per_day(&mut self) {
+    pub fn update_trades_per_day(&mut self) {
         self.trades_per_day = self.total.count as f64
             / (self.duration.num_seconds() as f64 / PnLReturnSummary::SECONDS_IN_DAY)
     }
