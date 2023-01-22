@@ -95,15 +95,14 @@ where
         // Update Position if Portfolio has an open Position for that Symbol-Exchange combination
         if let Some(mut position) = self.repository.get_open_position(&position_id)? {
             // Derive PositionUpdate event that communicates the open Position's change in state
-            let position_update = position.update(market);
-
-            // Save updated open Position in the repository
-            self.repository.set_open_position(position)?;
-
-            Ok(Some(position_update))
-        } else {
-            Ok(None)
+            if let Some(position_update) = position.update(market) {
+                // Save updated open Position in the repository
+                self.repository.set_open_position(position)?;
+                return Ok(Some(position_update));
+            }
         }
+
+        Ok(None)
     }
 }
 
