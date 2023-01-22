@@ -3,7 +3,7 @@ use crate::{
     portfolio::{error::PortfolioError, Balance},
     strategy::Decision,
 };
-use barter_data::model::{DataKind, MarketEvent};
+use barter_data::event::{DataKind, MarketEvent};
 use barter_integration::model::{Exchange, Instrument, Side};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,7 @@ pub trait PositionEnterer {
 pub trait PositionUpdater {
     /// Updates an open [`Position`] using the latest input [`MarketEvent`], returning a
     /// [`PositionUpdate`] that communicates the open [`Position`]'s change in state.
-    fn update(&mut self, market: &MarketEvent) -> PositionUpdate;
+    fn update(&mut self, market: &MarketEvent<DataKind>) -> PositionUpdate;
 }
 
 /// Exits an open [`Position`].
@@ -146,12 +146,13 @@ impl PositionEnterer for Position {
 }
 
 impl PositionUpdater for Position {
-    fn update(&mut self, market: &MarketEvent) -> PositionUpdate {
+    fn update(&mut self, market: &MarketEvent<DataKind>) -> PositionUpdate {
         // Determine close from MarketEvent
         let close = match &market.kind {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
-            DataKind::OrderBook(_) => todo!(),
+            DataKind::OrderBookL1(book_l1) => book_l1.volume_weighed_mid_price(),
+            DataKind::OrderBook(book) => book.volume_weighed_mid_price(),
             DataKind::Liquidation(_) => todo!(),
         };
 
@@ -572,8 +573,7 @@ impl TryFrom<&mut Position> for PositionExit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::{fill_event, position};
-    use barter_data::test_util::market_trade;
+    use crate::test_util::{fill_event, market_event_trade, position};
     use barter_integration::model::Side;
 
     #[test]
@@ -756,13 +756,12 @@ mod tests {
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
-        let mut input_market = market_trade(Side::Buy);
+        let mut input_market = market_event_trade(Side::Buy);
         match input_market.kind {
             // +100.0 higher than current_symbol_price
             DataKind::Candle(ref mut candle) => candle.close = 200.0,
             DataKind::Trade(ref mut trade) => trade.price = 200.0,
-            DataKind::OrderBook(_) => todo!(),
-            DataKind::Liquidation(_) => todo!(),
+            _ => todo!(),
         };
 
         // Update Position
@@ -782,8 +781,7 @@ mod tests {
         let close = match &input_market.kind {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
-            DataKind::OrderBook(_) => todo!(),
-            DataKind::Liquidation(_) => todo!(),
+            _ => todo!(),
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(
@@ -814,14 +812,13 @@ mod tests {
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
-        let mut input_market = market_trade(Side::Sell);
+        let mut input_market = market_event_trade(Side::Sell);
 
         match input_market.kind {
             // -50.0 lower than current_symbol_price
             DataKind::Candle(ref mut candle) => candle.close = 50.0,
             DataKind::Trade(ref mut trade) => trade.price = 50.0,
-            DataKind::OrderBook(_) => todo!(),
-            DataKind::Liquidation(_) => todo!(),
+            _ => todo!(),
         };
 
         // Update Position
@@ -841,8 +838,7 @@ mod tests {
         let close = match &input_market.kind {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
-            DataKind::OrderBook(_) => todo!(),
-            DataKind::Liquidation(_) => todo!(),
+            _ => todo!(),
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(
@@ -873,14 +869,13 @@ mod tests {
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
-        let mut input_market = market_trade(Side::Buy);
+        let mut input_market = market_event_trade(Side::Buy);
 
         match input_market.kind {
             // -50.0 lower than current_symbol_price
             DataKind::Candle(ref mut candle) => candle.close = 50.0,
             DataKind::Trade(ref mut trade) => trade.price = 50.0,
-            DataKind::OrderBook(_) => todo!(),
-            DataKind::Liquidation(_) => todo!(),
+            _ => todo!(),
         };
 
         // Update Position
@@ -900,8 +895,7 @@ mod tests {
         let close = match &input_market.kind {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
-            DataKind::OrderBook(_) => todo!(),
-            DataKind::Liquidation(_) => todo!(),
+            _ => todo!(),
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(
@@ -932,14 +926,13 @@ mod tests {
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
-        let mut input_market = market_trade(Side::Sell);
+        let mut input_market = market_event_trade(Side::Sell);
 
         match input_market.kind {
             // +100.0 higher than current_symbol_price
             DataKind::Candle(ref mut candle) => candle.close = 200.0,
             DataKind::Trade(ref mut trade) => trade.price = 200.0,
-            DataKind::OrderBook(_) => todo!(),
-            DataKind::Liquidation(_) => todo!(),
+            _ => todo!(),
         };
 
         // Update Position
@@ -959,8 +952,7 @@ mod tests {
         let close = match &input_market.kind {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
-            DataKind::OrderBook(_) => todo!(),
-            DataKind::Liquidation(_) => todo!(),
+            _ => todo!(),
         };
         assert_eq!(position.current_symbol_price, close);
         assert_eq!(

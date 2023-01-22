@@ -15,8 +15,8 @@ use barter::{
         Initialiser,
     },
     strategy::example::{Config as StrategyConfig, RSIStrategy},
+    test_util::market_event_trade,
 };
-use barter_data::test_util::market_trade;
 use barter_integration::model::{InstrumentKind, Market, Side};
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc, time::Duration};
@@ -72,7 +72,7 @@ async fn engine_with_historic_data_stops_after_candles_finished() {
             .event_tx(event_tx.clone())
             .portfolio(Arc::clone(&portfolio))
             .data(historical::MarketFeed::new(
-                [market_trade(Side::Buy)].into_iter(),
+                [market_event_trade(Side::Buy)].into_iter(),
             ))
             .strategy(RSIStrategy::new(StrategyConfig { rsi_period: 14 }))
             .execution(SimulatedExecution::new(ExecutionConfig {

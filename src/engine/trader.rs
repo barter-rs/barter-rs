@@ -6,6 +6,7 @@ use crate::{
     portfolio::{FillUpdater, MarketUpdater, OrderGenerator},
     strategy::{SignalForceExit, SignalGenerator},
 };
+use barter_data::event::{DataKind, MarketEvent};
 use barter_integration::model::Market;
 use parking_lot::Mutex;
 use serde::Serialize;
@@ -21,7 +22,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: MarketGenerator,
+    Data: MarketGenerator<MarketEvent<DataKind>>,
     Strategy: SignalGenerator,
     Execution: ExecutionClient,
 {
@@ -57,7 +58,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: MarketGenerator + Send,
+    Data: MarketGenerator<MarketEvent<DataKind>> + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -91,7 +92,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: MarketGenerator + Send,
+    Data: MarketGenerator<MarketEvent<DataKind>> + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -141,7 +142,7 @@ where
             }
 
             // If the Feed<MarketEvent> yields, populate event_q with the next MarketEvent
-            match self.data.generate() {
+            match self.data.next() {
                 Feed::Next(market) => {
                     self.event_tx.send(Event::Market(market.clone()));
                     self.event_q.push_back(Event::Market(market));
@@ -268,7 +269,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: MarketGenerator,
+    Data: MarketGenerator<MarketEvent<DataKind>>,
     Strategy: SignalGenerator,
     Execution: ExecutionClient,
 {
@@ -289,7 +290,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: MarketGenerator + Send,
+    Data: MarketGenerator<MarketEvent<DataKind>> + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {

@@ -5,7 +5,7 @@ use crate::{
     portfolio::{error::PortfolioError, position::PositionUpdate},
     strategy::{Decision, Signal, SignalForceExit},
 };
-use barter_data::model::MarketEvent;
+use barter_data::event::{DataKind, MarketEvent};
 use barter_integration::model::{Exchange, Instrument};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -39,7 +39,7 @@ pub trait MarketUpdater {
     /// changes.
     fn update_from_market(
         &mut self,
-        market: &MarketEvent,
+        market: &MarketEvent<DataKind>,
     ) -> Result<Option<PositionUpdate>, PortfolioError>;
 }
 

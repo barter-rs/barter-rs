@@ -16,7 +16,8 @@ use barter::{
     },
     strategy::example::{Config as StrategyConfig, RSIStrategy},
 };
-use barter_data::model::{Candle, DataKind, MarketEvent};
+use barter_data::event::{DataKind, MarketEvent};
+use barter_data::subscription::candle::Candle;
 use barter_integration::model::{Exchange, Instrument, InstrumentKind, Market};
 use chrono::Utc;
 use parking_lot::Mutex;
@@ -110,7 +111,7 @@ async fn main() {
     engine.run().await;
 }
 
-fn load_json_market_event_candles() -> Vec<MarketEvent> {
+fn load_json_market_event_candles() -> Vec<MarketEvent<DataKind>> {
     let candles =
         fs::read_to_string("barter-rs/examples/data/candles_1h.json").expect("failed to read file");
 
@@ -120,7 +121,7 @@ fn load_json_market_event_candles() -> Vec<MarketEvent> {
     candles
         .into_iter()
         .map(|candle| MarketEvent {
-            exchange_time: candle.end_time,
+            exchange_time: candle.close_time,
             received_time: Utc::now(),
             exchange: Exchange::from("binance"),
             instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),

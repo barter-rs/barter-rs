@@ -12,4 +12,7 @@ pub enum DataError {
 
     #[error("Socket: {0}")]
     Socket(#[from] SocketError),
+
+    #[error("Barter-Data: {0}")]
+    Data(#[from] barter_data::error::DataError),
 }

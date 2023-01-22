@@ -44,14 +44,13 @@
 //! ```
 //!
 //!
-//! use barter::data::{Feed, historical, MarketGenerator};
-//! use barter_data::test_util::market_trade;
+//! use barter::{data::{Feed, historical, MarketGenerator}, test_util};
 //! use barter_integration::model::Side;
 //!
-//! let mut data = historical::MarketFeed::new([market_trade(Side::Buy)].into_iter());
+//! let mut data = historical::MarketFeed::new([test_util::market_event_trade(Side::Buy)].into_iter());
 //!
 //! loop {
-//!     let market_event = match data.generate() {
+//!     let market_event = match data.next() {
 //!         Feed::Next(market_event) => market_event,
 //!         Feed::Finished => break,
 //!         Feed::Unhealthy => continue,
@@ -63,10 +62,7 @@
 //! ```
 //! use barter::{
 //!     strategy::{SignalGenerator, example::{Config as StrategyConfig, RSIStrategy}},
-//! };
-//! use barter_data::{
 //!     test_util,
-//!     model::{MarketEvent }
 //! };
 //! use barter_integration::model::Side;
 //!
@@ -76,7 +72,7 @@
 //!
 //! let mut strategy = RSIStrategy::new(config);
 //!
-//! let market_event = test_util::market_trade(Side::Buy);
+//! let market_event = test_util::market_event_trade(Side::Buy);
 //!
 //! let signal_event = strategy.generate_signal(&market_event);
 //! ```
@@ -204,6 +200,7 @@
     // missing_docs
 )]
 #![allow(clippy::type_complexity)]
+#![allow(clippy::module_inception)]
 
 /// Defines a MarketEvent, and provides the Continuer and MarketGenerator traits for
 /// handling the generation of them. Contains implementations such as the (tick-by_tick)
@@ -255,9 +252,50 @@ pub mod test_util {
         portfolio::{position::Position, OrderEvent, OrderType},
         strategy::{Decision, Signal},
     };
-    pub use barter_data::test_util::{market_candle, market_trade};
+    use barter_data::{
+        event::{DataKind, MarketEvent},
+        exchange::ExchangeId,
+        subscription::{candle::Candle, trade::PublicTrade},
+    };
     use barter_integration::model::{Exchange, Instrument, InstrumentKind, Side};
     use chrono::Utc;
+    use std::ops::Add;
+
+    /// Build a [`MarketEvent`] of [`DataKind::PublicTrade`](DataKind) with the provided [`Side`].
+    pub fn market_event_trade(side: Side) -> MarketEvent<DataKind> {
+        MarketEvent {
+            exchange_time: Utc::now(),
+            received_time: Utc::now(),
+            exchange: Exchange::from(ExchangeId::BinanceSpot),
+            instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
+            kind: DataKind::Trade(PublicTrade {
+                id: "trade_id".to_string(),
+                price: 1000.0,
+                amount: 1.0,
+                side,
+            }),
+        }
+    }
+
+    /// Build a [`MarketEvent`] of [`DataKind::Candle`](DataKind).
+    pub fn market_event_candle() -> MarketEvent<DataKind> {
+        let now = Utc::now();
+        MarketEvent {
+            exchange_time: now,
+            received_time: now.add(chrono::Duration::milliseconds(200)),
+            exchange: Exchange::from(ExchangeId::BinanceSpot),
+            instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
+            kind: DataKind::Candle(Candle {
+                close_time: now,
+                open: 960.0,
+                high: 1100.0,
+                low: 950.0,
+                close: 1000.0,
+                volume: 100000.0,
+                trade_count: 1000,
+            }),
+        }
+    }
 
     /// Build a [`Signal`].
     pub fn signal() -> Signal {

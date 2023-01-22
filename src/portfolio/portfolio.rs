@@ -16,7 +16,7 @@ use crate::{
     statistic::summary::{Initialiser, PositionSummariser},
     strategy::{Decision, Signal, SignalForceExit, SignalStrength},
 };
-use barter_data::model::MarketEvent;
+use barter_data::event::{DataKind, MarketEvent};
 use barter_integration::model::{Market, MarketId, Side};
 use chrono::Utc;
 use serde::Serialize;
@@ -86,7 +86,7 @@ where
 {
     fn update_from_market(
         &mut self,
-        market: &MarketEvent,
+        market: &MarketEvent<DataKind>,
     ) -> Result<Option<PositionUpdate>, PortfolioError> {
         // Determine the position_id associated to the input MarketEvent
         let position_id =
@@ -559,9 +559,7 @@ pub mod tests {
     use crate::portfolio::risk::DefaultRisk;
     use crate::statistic::summary::pnl::PnLReturnSummary;
     use crate::strategy::SignalForceExit;
-    use crate::test_util::{fill_event, position, signal};
-    use barter_data::model::DataKind;
-    use barter_data::test_util::market_trade;
+    use crate::test_util::{fill_event, market_event_trade, position, signal};
     use barter_integration::model::{Exchange, Instrument, InstrumentKind, Side};
 
     #[derive(Default)]
@@ -743,14 +741,13 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
-        let mut input_market = market_trade(Side::Buy);
+        let mut input_market = market_event_trade(Side::Buy);
 
         match input_market.kind {
             // candle.close +100.0 on input_position.current_symbol_price
             DataKind::Candle(ref mut candle) => candle.close = 200.0,
             DataKind::Trade(ref mut trade) => trade.price = 200.0,
-            DataKind::OrderBook(_) => todo!(),
-            DataKind::Liquidation(_) => todo!(),
+            _ => todo!(),
         };
 
         let result_pos_update = portfolio
@@ -793,13 +790,12 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
-        let mut input_market = market_trade(Side::Buy);
+        let mut input_market = market_event_trade(Side::Buy);
         match input_market.kind {
             // -50.0 on input_position.current_symbol_price
             DataKind::Candle(ref mut candle) => candle.close = 50.0,
             DataKind::Trade(ref mut trade) => trade.price = 50.0,
-            DataKind::OrderBook(_) => todo!(),
-            DataKind::Liquidation(_) => todo!(),
+            _ => todo!(),
         };
 
         let result_pos_update = portfolio
@@ -838,14 +834,13 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
-        let mut input_market = market_trade(Side::Buy);
+        let mut input_market = market_event_trade(Side::Buy);
 
         match input_market.kind {
             // -50.0 on input_position.current_symbol_price
             DataKind::Candle(ref mut candle) => candle.close = 50.0,
             DataKind::Trade(ref mut trade) => trade.price = 50.0,
-            DataKind::OrderBook(_) => todo!(),
-            DataKind::Liquidation(_) => todo!(),
+            _ => todo!(),
         };
 
         let result_pos_update = portfolio
@@ -884,14 +879,13 @@ pub mod tests {
         let mut portfolio = new_mocked_portfolio(mock_repository).unwrap();
 
         // Input MarketEvent
-        let mut input_market = market_trade(Side::Buy);
+        let mut input_market = market_event_trade(Side::Buy);
 
         match input_market.kind {
             // +100.0 on input_position.current_symbol_price
             DataKind::Candle(ref mut candle) => candle.close = 200.0,
             DataKind::Trade(ref mut trade) => trade.price = 200.0,
-            DataKind::OrderBook(_) => todo!(),
-            DataKind::Liquidation(_) => todo!(),
+            _ => todo!(),
         };
 
         let result_pos_update = portfolio

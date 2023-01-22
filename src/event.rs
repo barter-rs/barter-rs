@@ -1,8 +1,12 @@
-use crate::execution::FillEvent;
-use crate::portfolio::position::{Position, PositionExit, PositionUpdate};
-use crate::portfolio::{Balance, OrderEvent};
-use crate::strategy::{Signal, SignalForceExit};
-use barter_data::model::MarketEvent;
+use crate::{
+    execution::FillEvent,
+    portfolio::{
+        position::{Position, PositionExit, PositionUpdate},
+        Balance, OrderEvent,
+    },
+    strategy::{Signal, SignalForceExit},
+};
+use barter_data::event::{DataKind, MarketEvent};
 use serde::Serialize;
 use std::fmt::Debug;
 use tokio::sync::mpsc;
@@ -14,7 +18,7 @@ use tracing::warn;
 /// system, and is useful for analysing performance & reconciliations.
 #[derive(Clone, PartialEq, Debug, Serialize)]
 pub enum Event {
-    Market(MarketEvent),
+    Market(MarketEvent<DataKind>),
     Signal(Signal),
     SignalForceExit(SignalForceExit),
     OrderNew(OrderEvent),

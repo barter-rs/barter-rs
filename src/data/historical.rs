@@ -1,33 +1,37 @@
 use crate::data::{Feed, MarketGenerator};
-use barter_data::model::MarketEvent;
 
-/// Historical [`Feed`] of [`MarketEvent`]s.
+/// Historical [`Feed`] of market events.
 #[derive(Debug)]
-pub struct MarketFeed<I>
+pub struct MarketFeed<Iter, Event>
 where
-    I: Iterator<Item = MarketEvent>,
+    Iter: Iterator<Item = Event>,
 {
-    pub market_iterator: I,
+    pub market_iterator: Iter,
 }
 
-impl<I> MarketGenerator for MarketFeed<I>
+impl<Iter, Event> MarketGenerator<Event> for MarketFeed<Iter, Event>
 where
-    I: Iterator<Item = MarketEvent>,
+    Iter: Iterator<Item = Event>,
 {
-    fn generate(&mut self) -> Feed<MarketEvent> {
+    fn next(&mut self) -> Feed<Event> {
         self.market_iterator
             .next()
             .map_or(Feed::Finished, Feed::Next)
     }
 }
 
-impl<I> MarketFeed<I>
+impl<Iter, Event> MarketFeed<Iter, Event>
 where
-    I: Iterator<Item = MarketEvent>,
+    Iter: Iterator<Item = Event>,
 {
-    /// Construct a historical [`MarketFeed`] that yields [`MarketEvent`]s from the `Iterator`
+    /// Construct a historical [`MarketFeed`] that yields market events from the `IntoIterator`
     /// provided.
-    pub fn new(market_iterator: I) -> Self {
-        Self { market_iterator }
+    pub fn new<IntoIter>(market_iterator: IntoIter) -> Self
+    where
+        IntoIter: IntoIterator<Item = Event, IntoIter = Iter>,
+    {
+        Self {
+            market_iterator: market_iterator.into_iter(),
+        }
     }
 }
