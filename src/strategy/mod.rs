@@ -1,5 +1,5 @@
 use crate::data::MarketMeta;
-use barter_data::model::MarketEvent;
+use barter_data::event::{DataKind, MarketEvent};
 use barter_integration::model::{Exchange, Instrument, Market};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,7 @@ pub mod example;
 /// May generate an advisory [`Signal`] as a result of analysing an input [`MarketEvent`].
 pub trait SignalGenerator {
     /// Optionally return a [`Signal`] given input [`MarketEvent`].
-    fn generate_signal(&mut self, market: &MarketEvent) -> Option<Signal>;
+    fn generate_signal(&mut self, market: &MarketEvent<DataKind>) -> Option<Signal>;
 }
 
 /// Advisory [`Signal`] for a [`Market`] detailing the [`SignalStrength`] associated with each
