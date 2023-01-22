@@ -1,4 +1,3 @@
-use barter_data::model::MarketEvent;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -11,10 +10,10 @@ pub mod live;
 /// Historical [`MarketEvent`] feed for backtesting.
 pub mod historical;
 
-/// Generates the latest [`MarketEvent`]. Acts as the system heartbeat.
-pub trait MarketGenerator {
-    /// Return the latest [`MarketEvent`].
-    fn generate(&mut self) -> Feed<MarketEvent>;
+/// Generates the next `Event`. Acts as the system heartbeat.
+pub trait MarketGenerator<Event> {
+    /// Return the next market `Event`.
+    fn next(&mut self) -> Feed<Event>;
 }
 
 /// Communicates the state of the [`Feed`] as well as the next event.

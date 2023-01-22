@@ -1,21 +1,17 @@
 use super::{error::DataError, Feed, MarketGenerator};
-use barter_data::{
-    builder::Streams,
-    model::{subscription::Subscription, MarketEvent},
-};
 use tokio::sync::mpsc;
 
-/// Live [`Feed`] of [`MarketEvent`]s.
+/// Live [`Feed`] of market events.
 #[derive(Debug)]
-pub struct MarketFeed {
-    pub market_rx: mpsc::UnboundedReceiver<MarketEvent>,
+pub struct MarketFeed<Event> {
+    pub market_rx: mpsc::UnboundedReceiver<Event>,
 }
 
-impl MarketGenerator for MarketFeed {
-    fn generate(&mut self) -> Feed<MarketEvent> {
+impl<Event> MarketGenerator<Event> for MarketFeed<Event> {
+    fn next(&mut self) -> Feed<Event> {
         loop {
             match self.market_rx.try_recv() {
-                Ok(market) => break Feed::Next(market),
+                Ok(event) => break Feed::Next(event),
                 Err(mpsc::error::TryRecvError::Empty) => continue,
                 Err(mpsc::error::TryRecvError::Disconnected) => break Feed::Finished,
             }
@@ -23,21 +19,18 @@ impl MarketGenerator for MarketFeed {
     }
 }
 
-impl MarketFeed {
-    /// Initialises a live [`MarketFeed`] that yields [`MarketEvent`]s for each [`Subscription`]
-    /// provided.
+impl<Event> MarketFeed<Event> {
+    /// Initialises a live [`MarketFeed`] that yields market `Event`s from the provided
+    /// [`mpsc::UnboundedReceiver`].
     ///
-    /// Utilises Barter-Data [`Streams`] to establish and maintain healthy connections with the
-    /// relevant exchange servers.
-    pub async fn init<SubIter, Sub>(subscriptions: SubIter) -> Result<Self, DataError>
-    where
-        SubIter: IntoIterator<Item = Sub>,
-        Sub: Into<Subscription>,
-    {
-        let streams = Streams::builder().subscribe(subscriptions).init().await?;
-
-        Ok(Self {
-            market_rx: streams.join().await,
-        })
+    /// Recommended use with the `Barter-Data` [`Streams`](barter_data::streams::Streams):
+    ///  1. Initialise a [`Streams`](barter_data::streams::Streams) using the
+    ///     [`StreamBuilder`](barter_data::streams::builder::StreamBuilder) or
+    ///     [`MultiStreamBuilder`](barter_data::streams::builder::multi::MultiStreamBuilder).
+    ///  2. Use [`Streams::join`](barter_data::streams::Streams::join) to join all exchange
+    ///     [`mpsc::UnboundedReceiver`] streams into a unified [`mpsc::UnboundedReceiver`].
+    ///  3. Construct [`Self`] with the unified [`mpsc::UnboundedReceiver`].
+    pub fn new(market_rx: mpsc::UnboundedReceiver<Event>) -> Result<Self, DataError> {
+        Ok(Self { market_rx })
     }
 }
