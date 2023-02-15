@@ -161,7 +161,7 @@ where
 
             // Handle Events in the event_q
             // '--> While loop will break when event_q is empty and requires another MarketEvent
-            while let Some(event) = self.event_q.pop_back() {
+            while let Some(event) = self.event_q.pop_front() {
                 match event {
                     Event::Market(market) => {
                         if let Some(signal) = self.strategy.generate_signal(&market) {
