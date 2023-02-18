@@ -1,6 +1,7 @@
 use barter::{
     engine::{trader::Trader, Engine},
     event::{Event, EventTx},
+    data::live,
     execution::{
         simulated::{Config as ExecutionConfig, SimulatedExecution},
         Fees,
@@ -15,17 +16,20 @@ use barter::{
     },
     strategy::example::{Config as StrategyConfig, RSIStrategy},
 };
-use barter_data::event::MarketEvent;
+use barter_data::{
+    event::MarketEvent,
+    exchange::{
+        ExchangeId,
+        binance::spot::BinanceSpot,
+    },
+    streams::Streams,
+    subscription::trade::{PublicTrade, PublicTrades},
+};
 use barter_integration::model::{InstrumentKind, Market};
-use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc};
-use barter_data::exchange::binance::spot::BinanceSpot;
-use barter_data::exchange::ExchangeId;
-use barter_data::streams::Streams;
-use barter_data::subscription::trade::{PublicTrade, PublicTrades};
+use parking_lot::Mutex;
 use tokio::sync::mpsc;
 use uuid::Uuid;
-use barter::data::live;
 
 #[tokio::main]
 async fn main() {
