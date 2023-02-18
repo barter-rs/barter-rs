@@ -114,11 +114,10 @@ async fn main() {
 }
 
 fn load_json_market_event_candles() -> Vec<MarketEvent<DataKind>> {
-    let candles = fs::read_to_string(DATA_HISTORIC_CANDLES_1H)
-        .expect("failed to read file");
+    let candles = fs::read_to_string(DATA_HISTORIC_CANDLES_1H).expect("failed to read file");
 
-    let candles = serde_json::from_str::<Vec<Candle>>(&candles)
-        .expect("failed to parse candles String");
+    let candles =
+        serde_json::from_str::<Vec<Candle>>(&candles).expect("failed to parse candles String");
 
     candles
         .into_iter()
