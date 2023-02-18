@@ -1,4 +1,4 @@
-use super::{error::DataError, Feed, MarketGenerator};
+use super::{Feed, MarketGenerator};
 use tokio::sync::mpsc;
 
 /// Live [`Feed`] of market events.
@@ -30,7 +30,7 @@ impl<Event> MarketFeed<Event> {
     ///  2. Use [`Streams::join`](barter_data::streams::Streams::join) to join all exchange
     ///     [`mpsc::UnboundedReceiver`] streams into a unified [`mpsc::UnboundedReceiver`].
     ///  3. Construct [`Self`] with the unified [`mpsc::UnboundedReceiver`].
-    pub fn new(market_rx: mpsc::UnboundedReceiver<Event>) -> Result<Self, DataError> {
-        Ok(Self { market_rx })
+    pub fn new(market_rx: mpsc::UnboundedReceiver<Event>) -> Self {
+        Self { market_rx }
     }
 }
