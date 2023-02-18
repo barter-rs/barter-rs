@@ -25,7 +25,7 @@ use std::{collections::HashMap, fs, sync::Arc};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-const DATA_HISTORIC_CANDLES_1H: &str = "barter-rs/examples/data/candles_1h.json";
+const DATA_HISTORIC_CANDLES_1H: &str = "examples/data/candles_1h.json";
 
 #[tokio::main]
 async fn main() {
