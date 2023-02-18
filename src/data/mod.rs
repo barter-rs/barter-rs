@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 /// Barter data module specific errors.
 pub mod error;
 
-/// Live [`MarketEvent`] feed for dry-trading & live-trading.
+/// Live market event feed for dry-trading & live-trading.
 pub mod live;
 
-/// Historical [`MarketEvent`] feed for backtesting.
+/// Historical market event feed for backtesting.
 pub mod historical;
 
 /// Generates the next `Event`. Acts as the system heartbeat.
@@ -24,14 +24,14 @@ pub enum Feed<Event> {
     Finished,
 }
 
-/// Metadata detailing the [`Candle`](barter_data::model::Candle) or
-/// [`Trade`](barter_data::model::PublicTrade) close price & it's associated timestamp. Used to
-/// propagate key market information in downstream Events.
+/// Metadata detailing the [`Candle`](barter_data::subscription::candle::Candle) or
+/// [`Trade`](barter_data::subscription::trade::PublicTrade) close price & it's associated
+/// timestamp. Used to propagate key market information in downstream Events.
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct MarketMeta {
-    /// Close value from the source [`MarketEvent`].
+    /// Close value from the source market event.
     pub close: f64,
-    /// Exchange timestamp from the source [`MarketEvent`].
+    /// Exchange timestamp from the source market event.
     pub time: DateTime<Utc>,
 }
 
