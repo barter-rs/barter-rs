@@ -52,12 +52,11 @@ where
         &mut self,
         position_id: &PositionId,
     ) -> Result<Option<Position>, RepositoryError> {
-        let position_value: String = self
-            .conn
-            .get(position_id)
-            .map_err(|_| RepositoryError::ReadError)?;
-
-        Ok(Some(serde_json::from_str::<Position>(&position_value)?))
+        let redis_position_value: Option<String> = self.conn.get(&position_id).ok();
+        match redis_position_value {
+            Some(value) => Ok(Some(serde_json::from_str::<Position>(&value)?)),
+            None => Ok(None),
+        }
     }
 
     fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
