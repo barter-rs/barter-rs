@@ -16,9 +16,14 @@ use barter::{
     },
     strategy::example::{Config as StrategyConfig, RSIStrategy},
 };
-use barter_data::event::{DataKind, MarketEvent};
-use barter_data::subscription::candle::Candle;
-use barter_integration::model::{Exchange, Instrument, InstrumentKind, Market};
+use barter_data::{
+    event::{DataKind, MarketEvent},
+    subscription::candle::Candle,
+};
+use barter_integration::model::{
+    instrument::{kind::InstrumentKind, Instrument},
+    Exchange, Market,
+};
 use chrono::Utc;
 use parking_lot::Mutex;
 use std::{collections::HashMap, fs, sync::Arc};

@@ -551,15 +551,20 @@ pub fn parse_signal_decisions<'a>(
 pub mod tests {
     use super::*;
 
-    use crate::execution::Fees;
-    use crate::portfolio::allocator::DefaultAllocator;
-    use crate::portfolio::position::PositionBuilder;
-    use crate::portfolio::repository::error::RepositoryError;
-    use crate::portfolio::risk::DefaultRisk;
-    use crate::statistic::summary::pnl::PnLReturnSummary;
-    use crate::strategy::SignalForceExit;
-    use crate::test_util::{fill_event, market_event_trade, position, signal};
-    use barter_integration::model::{Exchange, Instrument, InstrumentKind, Side};
+    use crate::{
+        execution::Fees,
+        portfolio::{
+            allocator::DefaultAllocator, position::PositionBuilder,
+            repository::error::RepositoryError, risk::DefaultRisk,
+        },
+        statistic::summary::pnl::PnLReturnSummary,
+        strategy::SignalForceExit,
+        test_util::{fill_event, market_event_trade, position, signal},
+    };
+    use barter_integration::model::{
+        instrument::{kind::InstrumentKind, Instrument},
+        Exchange, Side,
+    };
 
     #[derive(Default)]
     struct MockRepository<Statistic> {

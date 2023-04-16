@@ -94,7 +94,7 @@
 //!     event::Event,
 //!     test_util,
 //! };
-//! use barter_integration::model::{Market, InstrumentKind};
+//! use barter_integration::model::{Market, instrument::kind::InstrumentKind};
 //! use std::marker::PhantomData;
 //! use uuid::Uuid;
 //!
@@ -257,7 +257,10 @@ pub mod test_util {
         exchange::ExchangeId,
         subscription::{candle::Candle, trade::PublicTrade},
     };
-    use barter_integration::model::{Exchange, Instrument, InstrumentKind, Side};
+    use barter_integration::model::{
+        instrument::{kind::InstrumentKind, Instrument},
+        Exchange, Side,
+    };
     use chrono::Utc;
     use std::ops::Add;
 

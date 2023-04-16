@@ -1,8 +1,13 @@
-use crate::portfolio::position::Position;
-use crate::statistic::metric::ratio::{CalmarRatio, Ratio, SharpeRatio, SortinoRatio};
-use crate::statistic::summary::drawdown::DrawdownSummary;
-use crate::statistic::summary::pnl::PnLReturnSummary;
-use crate::statistic::summary::{Initialiser, PositionSummariser, TableBuilder};
+use crate::{
+    portfolio::position::Position,
+    statistic::{
+        metric::ratio::{CalmarRatio, Ratio, SharpeRatio, SortinoRatio},
+        summary::{
+            drawdown::DrawdownSummary, pnl::PnLReturnSummary, Initialiser, PositionSummariser,
+            TableBuilder,
+        },
+    },
+};
 use chrono::{DateTime, Duration, Utc};
 use prettytable::{Cell, Row};
 use serde::{Deserialize, Serialize};
