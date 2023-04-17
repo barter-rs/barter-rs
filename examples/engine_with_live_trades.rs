@@ -22,10 +22,9 @@ use barter_data::{
     streams::Streams,
     subscription::trade::PublicTrades,
 };
-use barter_integration::model::{InstrumentKind, Market};
+use barter_integration::model::{instrument::kind::InstrumentKind, Market};
 use parking_lot::Mutex;
-use std::time::Duration;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 

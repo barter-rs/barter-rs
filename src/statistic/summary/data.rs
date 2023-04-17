@@ -1,6 +1,4 @@
-use crate::statistic::algorithm::welford_online;
-use crate::statistic::dispersion::Dispersion;
-use crate::statistic::summary::TableBuilder;
+use crate::statistic::{algorithm::welford_online, dispersion::Dispersion, summary::TableBuilder};
 use prettytable::Row;
 use serde::{Deserialize, Serialize};
 

@@ -1,6 +1,7 @@
-use crate::portfolio::position::Position;
-use crate::portfolio::Balance;
-use crate::statistic::summary::PositionSummariser;
+use crate::{
+    portfolio::{position::Position, Balance},
+    statistic::summary::PositionSummariser,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
