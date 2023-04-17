@@ -7,7 +7,7 @@ use crate::{
     strategy::{Signal, SignalForceExit},
 };
 use barter_data::event::{DataKind, MarketEvent};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tokio::sync::mpsc;
 use tracing::warn;
@@ -16,7 +16,7 @@ use tracing::warn;
 /// [`FillEvent`] are vital to the [`Trader`](crate::engine::trader::Trader) event loop, dictating
 /// the trading sequence. The [`PositionExit`] Event is a representation of work done by the
 /// system, and is useful for analysing performance & reconciliations.
-#[derive(Clone, PartialEq, Debug, Serialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Event {
     Market(MarketEvent<DataKind>),
     Signal(Signal),
