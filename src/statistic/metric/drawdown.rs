@@ -1,7 +1,7 @@
-use crate::statistic::algorithm::welford_online;
-use crate::statistic::dispersion::Range;
-use crate::statistic::metric::EquityPoint;
-use crate::statistic::{de_duration_from_secs, se_duration_as_secs};
+use crate::statistic::{
+    algorithm::welford_online, de_duration_from_secs, dispersion::Range, metric::EquityPoint,
+    se_duration_as_secs,
+};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 

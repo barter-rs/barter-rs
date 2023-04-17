@@ -1,9 +1,10 @@
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::execution::error::ExecutionError;
-use crate::execution::{ExecutionClient, Fees, FillEvent};
-use crate::portfolio::OrderEvent;
+use crate::{
+    execution::{error::ExecutionError, ExecutionClient, Fees, FillEvent},
+    portfolio::OrderEvent,
+};
 
 /// Configuration for constructing a [`SimulatedExecution`] via the new() constructor method.
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
