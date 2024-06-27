@@ -114,7 +114,7 @@ where
             data: lego.data,
             strategy: lego.strategy,
             execution: lego.execution,
-            _statistic_marker: PhantomData::default(),
+            _statistic_marker: PhantomData,
         }
     }
 
@@ -391,7 +391,7 @@ where
             execution: self
                 .execution
                 .ok_or(EngineError::BuilderIncomplete("execution"))?,
-            _statistic_marker: PhantomData::default(),
+            _statistic_marker: PhantomData,
         })
     }
 }
