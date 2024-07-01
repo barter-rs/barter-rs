@@ -1,6 +1,6 @@
 [package]
 name = "barter"
-version = "0.8.13"
+version = "0.8.14"
 authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
 edition = "2021"
 license = "MIT"
@@ -15,32 +15,32 @@ categories = ["accessibility", "simulation"]
 
 [dependencies]
 # Barter Ecosystem
-barter-data = "0.7.0"
-barter-integration = "0.5.3"
+barter-data = "0.7.1"
+barter-integration = "0.7.2"
 
 # Logging
-tracing = "0.1.36"
+tracing = "0.1.40"
 
 # Async
-tokio = { version = "1.20.1", features = ["sync"] }
-tokio-stream = { version = "0.1.9", features = ["sync"] }
-futures = "0.3.21"
+tokio = { version = "1.38.0", features = ["sync"] }
+tokio-stream = { version = "0.1.15", features = ["sync"] }
+futures = "0.3.30"
 
 # Error
-thiserror = "1.0.32"
+thiserror = "1.0.61"
 
 # SerDe
-serde = { version = "1.0.143", features = ["derive"] }
-serde_json = "1.0.83"
+serde = { version = "1.0.203", features = ["derive"] }
+serde_json = "1.0.120"
 
 # Persistence
-redis = "0.22.2"
+redis = "0.25.4"
 
 # Strategy
 ta = "0.5.0"
 
 # Misc
-uuid = {version = "1.2.2", features = ["v4", "serde"]}
-chrono = {version = "0.4.21", features = ["serde"]}
+uuid = {version = "1.9.1", features = ["v4", "serde"]}
+chrono = {version = "0.4.38", features = ["serde"]}
 prettytable-rs = "0.10.0"
-parking_lot = "0.12.1"
+parking_lot = "0.12.3"
