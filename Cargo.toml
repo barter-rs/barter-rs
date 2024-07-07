@@ -1,23 +1,10 @@
-[package]
-name = "barter"
-version = "0.8.14"
-authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
-edition = "2021"
-license = "MIT"
-documentation = "https://docs.rs/barter/"
-repository = "https://github.com/barter-rs/barter-rs"
-readme = "README.md"
-description = "Framework for building event-driven live-trading & backtesting engines"
-keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
-categories = ["accessibility", "simulation"]
+[workspace]
+resolver = "2"
+members = [
+    "barter",
+]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-# Barter Ecosystem
-barter-data = "0.7.1"
-barter-integration = "0.7.2"
-
+[workspace.dependencies]
 # Logging
 tracing = "0.1.40"
 
@@ -33,14 +20,8 @@ thiserror = "1.0.61"
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.120"
 
-# Persistence
-redis = "0.25.4"
-
-# Strategy
-ta = "0.5.0"
-
 # Misc
-uuid = {version = "1.9.1", features = ["v4", "serde"]}
-chrono = {version = "0.4.38", features = ["serde"]}
+uuid = { version = "1.9.1", features = ["v4", "serde"]}
+chrono = { version = "0.4.38", features = ["serde"]}
 prettytable-rs = "0.10.0"
 parking_lot = "0.12.3"
