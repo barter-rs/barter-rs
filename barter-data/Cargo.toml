@@ -1,0 +1,51 @@
+[package]
+name = "barter-data"
+version = "0.8.1"
+authors = ["JustAStream"]
+edition = "2021"
+license = "MIT"
+documentation = "https://docs.rs/barter-data/"
+repository = "https://github.com/barter-rs/barter-rs"
+readme = "README.md"
+description = "High performance & normalised WebSocket intergration for leading cryptocurrency exchanges - batteries included."
+keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
+categories = ["accessibility", "simulation"]
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+
+[dependencies]
+# Barter Ecosystem
+barter-integration = { path = "../barter-integration", version = "0.7.3" }
+barter-macro =  { path = "../barter-macro", version = "0.1.1" }
+
+# Logging
+tracing = { workspace = true }
+
+# Async
+tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
+tokio-stream = { workspace = true, features = ["sync"] }
+futures = { workspace = true }
+async-trait = { workspace = true }
+
+# Protocol
+url = { workspace = true }
+reqwest = { workspace = true }
+
+# Error
+thiserror = { workspace = true }
+
+# SerDe
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+# Strategy
+ta = { workspace = true }
+
+# Misc
+chrono = { workspace = true, features = ["serde"]}
+derive_more = { workspace = true }
+itertools = { workspace = true }
+vecmap-rs = { workspace = true }
