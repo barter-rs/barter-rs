@@ -12,8 +12,8 @@ pub trait Initialiser {
 }
 
 pub trait PositionSummariser: Copy {
-    fn update(&mut self, position: &Position);
-    fn generate_summary(&mut self, positions: &[Position]) {
+    fn update<InstrumentId>(&mut self, position: &Position<InstrumentId>);
+    fn generate_summary<InstrumentId>(&mut self, positions: &[Position<InstrumentId>]) {
         for position in positions.iter() {
             self.update(position)
         }

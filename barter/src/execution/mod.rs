@@ -1,5 +1,5 @@
 use crate::{data::MarketMeta, portfolio::OrderEvent, strategy::Decision};
-use barter_integration::model::{instrument::Instrument, Exchange};
+use barter_integration::model::Exchange;
 use chrono::{DateTime, Utc};
 use error::ExecutionError;
 use serde::{Deserialize, Serialize};
@@ -13,16 +13,19 @@ pub mod simulated;
 /// Generates a result [`FillEvent`] by executing an [`OrderEvent`].
 pub trait ExecutionClient {
     /// Return a [`FillEvent`] from executing the input [`OrderEvent`].
-    fn generate_fill(&self, order: &OrderEvent) -> Result<FillEvent, ExecutionError>;
+    fn generate_fill<InstrumentId>(
+        &self,
+        order: &OrderEvent<InstrumentId>,
+    ) -> Result<FillEvent<InstrumentId>, ExecutionError>;
 }
 
 /// Fills are journals of work done by an Execution handler. These are sent back to the portfolio
 /// so it can apply updates.
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
-pub struct FillEvent {
+pub struct FillEvent<InstrumentId> {
     pub time: DateTime<Utc>,
     pub exchange: Exchange,
-    pub instrument: Instrument,
+    pub instrument: InstrumentId,
     /// Metadata propagated from source MarketEvent
     pub market_meta: MarketMeta,
     /// LONG, CloseLong, SHORT or CloseShort
@@ -35,11 +38,11 @@ pub struct FillEvent {
     pub fees: Fees,
 }
 
-impl FillEvent {
+impl<InstrumentId> FillEvent<InstrumentId> {
     pub const EVENT_TYPE: &'static str = "Fill";
 
     /// Returns a [`FillEventBuilder`] instance.
-    pub fn builder() -> FillEventBuilder {
+    pub fn builder() -> FillEventBuilder<InstrumentId> {
         FillEventBuilder::new()
     }
 }
@@ -67,10 +70,10 @@ pub type FeeAmount = f64;
 
 /// Builder to construct [FillEvent] instances.
 #[derive(Debug, Default)]
-pub struct FillEventBuilder {
+pub struct FillEventBuilder<InstrumentId> {
     pub time: Option<DateTime<Utc>>,
     pub exchange: Option<Exchange>,
-    pub instrument: Option<Instrument>,
+    pub instrument: Option<InstrumentId>,
     pub market_meta: Option<MarketMeta>,
     pub decision: Option<Decision>,
     pub quantity: Option<f64>,
@@ -78,9 +81,12 @@ pub struct FillEventBuilder {
     pub fees: Option<Fees>,
 }
 
-impl FillEventBuilder {
+impl<InstrumentId> FillEventBuilder<InstrumentId panic - start again and just go monolith before refacotring.. please, but save the work we've done already in the latest commit> {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            instrument: None,
+            ..Default::default()
+        }
     }
 
     pub fn time(self, value: DateTime<Utc>) -> Self {
@@ -97,7 +103,7 @@ impl FillEventBuilder {
         }
     }
 
-    pub fn instrument(self, value: Instrument) -> Self {
+    pub fn instrument(self, value: InstrumentId) -> Self {
         Self {
             instrument: Some(value),
             ..self
@@ -139,7 +145,7 @@ impl FillEventBuilder {
         }
     }
 
-    pub fn build(self) -> Result<FillEvent, ExecutionError> {
+    pub fn build(self) -> Result<FillEvent<InstrumentId>, ExecutionError> {
         Ok(FillEvent {
             time: self.time.ok_or(ExecutionError::BuilderIncomplete("time"))?,
             exchange: self

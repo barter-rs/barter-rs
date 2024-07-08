@@ -18,32 +18,38 @@ use uuid::Uuid;
 /// save the current equity, available cash, Positions, and market pair statistics.
 /// **Careful in production - no fault tolerant guarantees!**
 #[derive(Debug, Default)]
-pub struct InMemoryRepository<Statistic: PositionSummariser> {
-    open_positions: HashMap<PositionId, Position>,
-    closed_positions: HashMap<String, Vec<Position>>,
+pub struct InMemoryRepository<InstrumentId, Statistic> {
+    open_positions: HashMap<PositionId, Position<InstrumentId>>,
+    closed_positions: HashMap<String, Vec<Position<InstrumentId>>>,
     current_balances: HashMap<BalanceId, Balance>,
     statistics: HashMap<MarketId, Statistic>,
 }
 
-impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Statistic> {
-    fn set_open_position(&mut self, position: Position) -> Result<(), RepositoryError> {
+impl<InstrumentId, Statistic> PositionHandler for InMemoryRepository<InstrumentId, Statistic>
+where
+    Statistic: PositionSummariser,
+{
+    fn set_open_position(
+        &mut self,
+        position: Position<InstrumentId>,
+    ) -> Result<(), RepositoryError> {
         self.open_positions
             .insert(position.position_id.clone(), position);
         Ok(())
     }
 
-    fn get_open_position(
+    fn get_open_position<InstrumentId>(
         &mut self,
         position_id: &PositionId,
-    ) -> Result<Option<Position>, RepositoryError> {
+    ) -> Result<Option<Position<InstrumentId>>, RepositoryError> {
         Ok(self.open_positions.get(position_id).cloned())
     }
 
-    fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
+    fn get_open_positions<'a, InstrumentId, Markets: Iterator<Item = &'a Market>>(
         &mut self,
         engine_id: Uuid,
         markets: Markets,
-    ) -> Result<Vec<Position>, RepositoryError> {
+    ) -> Result<Vec<Position<InstrumentId>>, RepositoryError> {
         Ok(markets
             .filter_map(|market| {
                 self.open_positions
@@ -57,17 +63,17 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
             .collect())
     }
 
-    fn remove_position(
+    fn remove_position<InstrumentId>(
         &mut self,
         position_id: &String,
-    ) -> Result<Option<Position>, RepositoryError> {
+    ) -> Result<Option<Position<InstrumentId>>, RepositoryError> {
         Ok(self.open_positions.remove(position_id))
     }
 
-    fn set_exited_position(
+    fn set_exited_position<InstrumentId>(
         &mut self,
         engine_id: Uuid,
-        position: Position,
+        position: Position<InstrumentId>,
     ) -> Result<(), RepositoryError> {
         let exited_positions_key = determine_exited_positions_id(engine_id);
 
@@ -81,7 +87,10 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
         Ok(())
     }
 
-    fn get_exited_positions(&mut self, engine_id: Uuid) -> Result<Vec<Position>, RepositoryError> {
+    fn get_exited_positions<InstrumentId>(
+        &mut self,
+        engine_id: Uuid,
+    ) -> Result<Vec<Position<InstrumentId>>, RepositoryError> {
         Ok(self
             .closed_positions
             .get(&determine_exited_positions_id(engine_id))
@@ -90,7 +99,10 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
     }
 }
 
-impl<Statistic: PositionSummariser> BalanceHandler for InMemoryRepository<Statistic> {
+impl<InstrumentId, Statistic> BalanceHandler for InMemoryRepository<InstrumentId, Statistic>
+where
+    Statistic: PositionSummariser,
+{
     fn set_balance(&mut self, engine_id: Uuid, balance: Balance) -> Result<(), RepositoryError> {
         self.current_balances
             .insert(Balance::balance_id(engine_id), balance);
@@ -105,7 +117,11 @@ impl<Statistic: PositionSummariser> BalanceHandler for InMemoryRepository<Statis
     }
 }
 
-impl<Statistic: PositionSummariser> StatisticHandler<Statistic> for InMemoryRepository<Statistic> {
+impl<InstrumentId, Statistic> StatisticHandler<Statistic>
+    for InMemoryRepository<InstrumentId, Statistic>
+where
+    Statistic: PositionSummariser,
+{
     fn set_statistics(
         &mut self,
         market_id: MarketId,
@@ -123,7 +139,7 @@ impl<Statistic: PositionSummariser> StatisticHandler<Statistic> for InMemoryRepo
     }
 }
 
-impl<Statistic: PositionSummariser> InMemoryRepository<Statistic> {
+impl<InstrumentId, Statistic> InMemoryRepository<InstrumentId, Statistic> {
     /// Constructs a new [`InMemoryRepository`] component.
     pub fn new() -> Self {
         Self {

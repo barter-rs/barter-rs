@@ -18,36 +18,42 @@ pub mod redis;
 /// Handles the reading & writing of a [`Position`] to/from the persistence layer.
 pub trait PositionHandler {
     /// Upsert the open [`Position`] using it's [`PositionId`].
-    fn set_open_position(&mut self, position: Position) -> Result<(), RepositoryError>;
+    fn set_open_position<InstrumentId>(
+        &mut self,
+        position: Position<InstrumentId>,
+    ) -> Result<(), RepositoryError>;
 
     /// Get an open [`Position`] using the [`PositionId`] provided.
-    fn get_open_position(
+    fn get_open_position<InstrumentId>(
         &mut self,
         position_id: &PositionId,
-    ) -> Result<Option<Position>, RepositoryError>;
+    ) -> Result<Option<Position<InstrumentId>>, RepositoryError>;
 
     /// Get all open [`Position`]s associated with a Portfolio.
-    fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
+    fn get_open_positions<'a, InstrumentId, Markets: Iterator<Item = &'a Market>>(
         &mut self,
         engine_id: Uuid,
         markets: Markets,
-    ) -> Result<Vec<Position>, RepositoryError>;
+    ) -> Result<Vec<Position<InstrumentId>>, RepositoryError>;
 
     /// Remove the [`Position`] at the [`PositionId`].
-    fn remove_position(
+    fn remove_position<InstrumentId>(
         &mut self,
         position_id: &PositionId,
-    ) -> Result<Option<Position>, RepositoryError>;
+    ) -> Result<Option<Position<InstrumentId>>, RepositoryError>;
 
     /// Append an exited [`Position`] to the Portfolio's exited position list.
-    fn set_exited_position(
+    fn set_exited_position<InstrumentId>(
         &mut self,
         engine_id: Uuid,
-        position: Position,
+        position: Position<InstrumentId>,
     ) -> Result<(), RepositoryError>;
 
     /// Get every exited [`Position`] associated with the engine_id.
-    fn get_exited_positions(&mut self, engine_id: Uuid) -> Result<Vec<Position>, RepositoryError>;
+    fn get_exited_positions<InstrumentId>(
+        &mut self,
+        engine_id: Uuid,
+    ) -> Result<Vec<Position<InstrumentId>>, RepositoryError>;
 }
 
 /// Handles the reading & writing of a Portfolio's current balance to/from the persistence layer.

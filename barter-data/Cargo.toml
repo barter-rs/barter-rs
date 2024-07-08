@@ -18,8 +18,8 @@ rust_decimal_macros = { workspace = true }
 
 [dependencies]
 # Barter Ecosystem
-barter-integration = "0.7.1"
-barter-macro =  "0.1.1"
+barter-integration = { workspace = true }
+barter-macro =  { workspace = true }
 
 # Logging
 tracing = { workspace = true }

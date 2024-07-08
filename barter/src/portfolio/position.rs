@@ -13,21 +13,31 @@ use uuid::Uuid;
 /// Enters a new [`Position`].
 pub trait PositionEnterer {
     /// Returns a new [`Position`], given an input [`FillEvent`] & an associated engine_id.
-    fn enter(engine_id: Uuid, fill: &FillEvent) -> Result<Position, PortfolioError>;
+    fn enter<InstrumentId>(
+        engine_id: Uuid,
+        fill: &FillEvent<InstrumentId>,
+    ) -> Result<Position<InstrumentId>, PortfolioError>;
 }
 
 /// Updates an open [`Position`].
-pub trait PositionUpdater {
+pub trait PositionUpdater<MarketDataT> {
     /// Updates an open [`Position`] using the latest input [`MarketEvent`], returning a
     /// [`PositionUpdate`] that communicates the open [`Position`]'s change in state.
-    fn update(&mut self, market: &MarketEvent<DataKind>) -> Option<PositionUpdate>;
+    fn update<InstrumentId>(
+        &mut self,
+        market: &MarketEvent<InstrumentId, MarketDataT>,
+    ) -> Option<PositionUpdate>;
 }
 
 /// Exits an open [`Position`].
 pub trait PositionExiter {
     /// Exits an open [`Position`], given the input Portfolio equity & the [`FillEvent`] returned
     /// from an Execution handler.
-    fn exit(&mut self, balance: Balance, fill: &FillEvent) -> Result<PositionExit, PortfolioError>;
+    fn exit<InstrumentId>(
+        &mut self,
+        balance: Balance,
+        fill: &FillEvent<InstrumentId>,
+    ) -> Result<PositionExit, PortfolioError>;
 }
 
 /// Communicates a String represents a unique [`Position`] identifier.
@@ -44,7 +54,7 @@ pub fn determine_position_id(
 
 /// Data encapsulating the state of an ongoing or closed [`Position`].
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
-pub struct Position {
+pub struct Position<InstrumentId> {
     /// Unique identifier for a [`Position`] generated from an engine_id, [`Exchange`] & [`Instrument`].
     pub position_id: PositionId,
 
@@ -55,7 +65,7 @@ pub struct Position {
     pub exchange: Exchange,
 
     /// [`Instrument`] associated with this [`Position`].
-    pub instrument: Instrument,
+    pub instrument: InstrumentId,
 
     /// Buy or Sell.
     ///
@@ -104,8 +114,11 @@ pub struct Position {
     pub realised_profit_loss: f64,
 }
 
-impl PositionEnterer for Position {
-    fn enter(engine_id: Uuid, fill: &FillEvent) -> Result<Position, PortfolioError> {
+impl<InstrumentId> PositionEnterer for Position<InstrumentId> {
+    fn enter(
+        engine_id: Uuid,
+        fill: &FillEvent<InstrumentId>,
+    ) -> Result<Position<InstrumentId>, PortfolioError> {
         // Initialise Position Metadata
         let metadata = PositionMeta {
             enter_time: fill.market_meta.time,
@@ -145,8 +158,8 @@ impl PositionEnterer for Position {
     }
 }
 
-impl PositionUpdater for Position {
-    fn update(&mut self, market: &MarketEvent<DataKind>) -> Option<PositionUpdate> {
+impl<InstrumentId> PositionUpdater for Position<InstrumentId> {
+    fn update(&mut self, market: &MarketEvent<InstrumentId, DataKind>) -> Option<PositionUpdate> {
         // Determine close from MarketEvent
         let close = match &market.kind {
             DataKind::Trade(trade) => trade.price,
@@ -171,11 +184,11 @@ impl PositionUpdater for Position {
     }
 }
 
-impl PositionExiter for Position {
+impl<InstrumentId> PositionExiter for Position<InstrumentId> {
     fn exit(
         &mut self,
         mut balance: Balance,
-        fill: &FillEvent,
+        fill: &FillEvent<InstrumentId>,
     ) -> Result<PositionExit, PortfolioError> {
         if fill.decision.is_entry() {
             return Err(PortfolioError::CannotExitPositionWithEntryFill);
@@ -202,20 +215,20 @@ impl PositionExiter for Position {
     }
 }
 
-impl Position {
+impl<InstrumentId> Position<InstrumentId> {
     /// Returns a [`PositionBuilder`] instance.
-    pub fn builder() -> PositionBuilder {
+    pub fn builder() -> PositionBuilder<InstrumentId> {
         PositionBuilder::new()
     }
 
     /// Calculates the [`Position::enter_avg_price_gross`] or [`Position::exit_avg_price_gross`] of
     /// a [`FillEvent`].
-    pub fn calculate_avg_price_gross(fill: &FillEvent) -> f64 {
+    pub fn calculate_avg_price_gross(fill: &FillEvent<InstrumentId>) -> f64 {
         (fill.fill_value_gross / fill.quantity).abs()
     }
 
     /// Determine the [`Position`] entry [`Side`] by analysing the input [`FillEvent`].
-    pub fn parse_entry_side(fill: &FillEvent) -> Result<Side, PortfolioError> {
+    pub fn parse_entry_side(fill: &FillEvent<InstrumentId>) -> Result<Side, PortfolioError> {
         match fill.decision {
             Decision::Long if fill.quantity.is_sign_positive() => Ok(Side::Buy),
             Decision::Short if fill.quantity.is_sign_negative() => Ok(Side::Sell),
@@ -263,10 +276,10 @@ impl Position {
 
 /// Builder to construct [`Position`] instances.
 #[derive(Debug, Default)]
-pub struct PositionBuilder {
+pub struct PositionBuilder<InstrumentId> {
     pub position_id: Option<PositionId>,
     pub exchange: Option<Exchange>,
-    pub instrument: Option<Instrument>,
+    pub instrument: Option<InstrumentId>,
     pub meta: Option<PositionMeta>,
     pub side: Option<Side>,
     pub quantity: Option<f64>,
@@ -284,7 +297,7 @@ pub struct PositionBuilder {
     pub realised_profit_loss: Option<f64>,
 }
 
-impl PositionBuilder {
+impl<InstrumentId> PositionBuilder<InstrumentId> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -303,7 +316,7 @@ impl PositionBuilder {
         }
     }
 
-    pub fn instrument(self, value: Instrument) -> Self {
+    pub fn instrument(self, value: InstrumentId) -> Self {
         Self {
             instrument: Some(value),
             ..self
@@ -415,7 +428,7 @@ impl PositionBuilder {
         }
     }
 
-    pub fn build(self) -> Result<Position, PortfolioError> {
+    pub fn build(self) -> Result<Position<InstrumentId>, PortfolioError> {
         Ok(Position {
             position_id: self
                 .position_id
@@ -510,8 +523,8 @@ pub struct PositionUpdate {
     pub unrealised_profit_loss: f64,
 }
 
-impl From<&mut Position> for PositionUpdate {
-    fn from(updated_position: &mut Position) -> Self {
+impl<InstrumentId> From<&mut Position<InstrumentId>> for PositionUpdate {
+    fn from(updated_position: &mut Position<InstrumentId>) -> Self {
         Self {
             position_id: updated_position.position_id.clone(),
             update_time: updated_position.meta.update_time,
@@ -550,10 +563,10 @@ pub struct PositionExit {
     pub realised_profit_loss: f64,
 }
 
-impl TryFrom<&mut Position> for PositionExit {
+impl<InstrumentId> TryFrom<&mut Position<InstrumentId>> for PositionExit {
     type Error = PortfolioError;
 
-    fn try_from(exited_position: &mut Position) -> Result<Self, Self::Error> {
+    fn try_from(exited_position: &mut Position<InstrumentId>) -> Result<Self, Self::Error> {
         Ok(Self {
             position_id: exited_position.position_id.clone(),
             exit_time: exited_position.meta.update_time,

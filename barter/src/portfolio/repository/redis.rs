@@ -40,7 +40,10 @@ impl<Statistic> PositionHandler for RedisRepository<Statistic>
 where
     Statistic: PositionSummariser + Serialize + DeserializeOwned,
 {
-    fn set_open_position(&mut self, position: Position) -> Result<(), RepositoryError> {
+    fn set_open_position<InstrumentId>(
+        &mut self,
+        position: Position<InstrumentId>,
+    ) -> Result<(), RepositoryError> {
         let position_string = serde_json::to_string(&position)?;
 
         self.conn
@@ -48,23 +51,25 @@ where
             .map_err(|_| RepositoryError::WriteError)
     }
 
-    fn get_open_position(
+    fn get_open_position<InstrumentId>(
         &mut self,
         position_id: &PositionId,
-    ) -> Result<Option<Position>, RepositoryError> {
+    ) -> Result<Option<Position<InstrumentId>>, RepositoryError> {
         let position_value: String = self
             .conn
             .get(position_id)
             .map_err(|_| RepositoryError::ReadError)?;
 
-        Ok(Some(serde_json::from_str::<Position>(&position_value)?))
+        Ok(Some(serde_json::from_str::<Position<InstrumentId>>(
+            &position_value,
+        )?))
     }
 
-    fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
+    fn get_open_positions<'a, InstrumentId, Markets: Iterator<Item = &'a Market>>(
         &mut self,
         engine_id: Uuid,
         markets: Markets,
-    ) -> Result<Vec<Position>, RepositoryError> {
+    ) -> Result<Vec<Position<InstrumentId>>, RepositoryError> {
         markets
             .filter_map(|market| {
                 self.get_open_position(&determine_position_id(
@@ -77,10 +82,10 @@ where
             .collect()
     }
 
-    fn remove_position(
+    fn remove_position<InstrumentId>(
         &mut self,
         position_id: &String,
-    ) -> Result<Option<Position>, RepositoryError> {
+    ) -> Result<Option<Position<InstrumentId>>, RepositoryError> {
         let position = self.get_open_position(position_id)?;
 
         self.conn
@@ -90,10 +95,10 @@ where
         Ok(position)
     }
 
-    fn set_exited_position(
+    fn set_exited_position<InstrumentId>(
         &mut self,
         engine_id: Uuid,
-        position: Position,
+        position: Position<InstrumentId>,
     ) -> Result<(), RepositoryError> {
         self.conn
             .lpush(
@@ -103,7 +108,10 @@ where
             .map_err(|_| RepositoryError::WriteError)
     }
 
-    fn get_exited_positions(&mut self, engine_id: Uuid) -> Result<Vec<Position>, RepositoryError> {
+    fn get_exited_positions<InstrumentId>(
+        &mut self,
+        engine_id: Uuid,
+    ) -> Result<Vec<Position<InstrumentId>>, RepositoryError> {
         self.conn
             .get(determine_exited_positions_id(engine_id))
             .or_else(|err| match err.kind() {
@@ -111,8 +119,8 @@ where
                 _ => Err(RepositoryError::ReadError),
             })?
             .iter()
-            .map(|position| serde_json::from_str::<Position>(position))
-            .collect::<Result<Vec<Position>, serde_json::Error>>()
+            .map(|position| serde_json::from_str::<Position<InstrumentId>>(position))
+            .collect::<Result<Vec<Position<InstrumentId>>, serde_json::Error>>()
             .map_err(RepositoryError::JsonSerDeError)
     }
 }

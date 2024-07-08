@@ -6,7 +6,7 @@ use crate::{
     },
     strategy::{Signal, SignalForceExit},
 };
-use barter_data::event::{DataKind, MarketEvent};
+use barter_data::event::MarketEvent;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tokio::sync::mpsc;
@@ -17,14 +17,14 @@ use tracing::warn;
 /// the trading sequence. The [`PositionExit`] Event is a representation of work done by the
 /// system, and is useful for analysing performance & reconciliations.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub enum Event {
-    Market(MarketEvent<DataKind>),
-    Signal(Signal),
-    SignalForceExit(SignalForceExit),
-    OrderNew(OrderEvent),
+pub enum Event<InstrumentId, T> {
+    Market(MarketEvent<InstrumentId, T>),
+    Signal(Signal<InstrumentId>),
+    SignalForceExit(SignalForceExit<InstrumentId>),
+    OrderNew(OrderEvent<InstrumentId>),
     OrderUpdate,
-    Fill(FillEvent),
-    PositionNew(Position),
+    Fill(FillEvent<InstrumentId>),
+    PositionNew(Position<InstrumentId>),
     PositionUpdate(PositionUpdate),
     PositionExit(PositionExit),
     Balance(Balance),
@@ -42,15 +42,17 @@ pub trait MessageTransmitter<Message> {
 /// Transmitter for sending Barter [`Event`]s to an external sink. Useful for event-sourcing,
 /// real-time dashboards & general monitoring.
 #[derive(Debug, Clone)]
-pub struct EventTx {
+pub struct EventTx<InstrumentId, MarketDataT> {
     /// Flag to communicate if the external [`Event`] receiver has been dropped.
     receiver_dropped: bool,
     /// [`Event`] channel transmitter to send [`Event`]s to an external sink.
-    event_tx: mpsc::UnboundedSender<Event>,
+    event_tx: mpsc::UnboundedSender<Event<InstrumentId, MarketDataT>>,
 }
 
-impl MessageTransmitter<Event> for EventTx {
-    fn send(&mut self, message: Event) {
+impl<InstrumentId, MarketDataT> MessageTransmitter<Event<InstrumentId, MarketDataT>>
+    for EventTx<InstrumentId, MarketDataT>
+{
+    fn send(&mut self, message: Event<InstrumentId, MarketDataT>) {
         if self.receiver_dropped {
             return;
         }
@@ -65,7 +67,7 @@ impl MessageTransmitter<Event> for EventTx {
         }
     }
 
-    fn send_many(&mut self, messages: Vec<Event>) {
+    fn send_many(&mut self, messages: Vec<Event<InstrumentId, MarketDataT>>) {
         if self.receiver_dropped {
             return;
         }
@@ -76,9 +78,9 @@ impl MessageTransmitter<Event> for EventTx {
     }
 }
 
-impl EventTx {
+impl<InstrumentId, MarketDataT> EventTx<InstrumentId, MarketDataT> {
     /// Constructs a new [`EventTx`] instance using the provided channel transmitter.
-    pub fn new(event_tx: mpsc::UnboundedSender<Event>) -> Self {
+    pub fn new(event_tx: mpsc::UnboundedSender<Event<InstrumentId, MarketDataT>>) -> Self {
         Self {
             receiver_dropped: false,
             event_tx,

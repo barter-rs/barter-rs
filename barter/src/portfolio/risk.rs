@@ -10,7 +10,10 @@ pub trait OrderEvaluator {
 
     /// May return an amended [`OrderEvent`] if the associated risk is appropriate. Returns `None`
     /// if the risk is too high.
-    fn evaluate_order(&self, order: OrderEvent) -> Option<OrderEvent>;
+    fn evaluate_order<InstrumentId>(
+        &self,
+        order: OrderEvent<InstrumentId>,
+    ) -> Option<OrderEvent<InstrumentId>>;
 }
 
 /// Default risk manager that implements [`OrderEvaluator`].
@@ -20,7 +23,10 @@ pub struct DefaultRisk {}
 impl OrderEvaluator for DefaultRisk {
     const DEFAULT_ORDER_TYPE: OrderType = OrderType::Market;
 
-    fn evaluate_order(&self, mut order: OrderEvent) -> Option<OrderEvent> {
+    fn evaluate_order<InstrumentId>(
+        &self,
+        mut order: OrderEvent<InstrumentId>,
+    ) -> Option<OrderEvent<InstrumentId>> {
         if self.risk_too_high(&order) {
             return None;
         }

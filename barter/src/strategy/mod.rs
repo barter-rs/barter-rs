@@ -1,6 +1,6 @@
 use crate::data::MarketMeta;
-use barter_data::event::{DataKind, MarketEvent};
-use barter_integration::model::{instrument::Instrument, Exchange, Market};
+use barter_data::event::MarketEvent;
+use barter_integration::model::Exchange;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -9,18 +9,23 @@ use std::collections::HashMap;
 pub mod example;
 
 /// May generate an advisory [`Signal`] as a result of analysing an input [`MarketEvent`].
-pub trait SignalGenerator {
+pub trait SignalGenerator<T> {
     /// Optionally return a [`Signal`] given input [`MarketEvent`].
-    fn generate_signal(&mut self, market: &MarketEvent<DataKind>) -> Option<Signal>;
+    fn generate_signal<InstrumentId>(
+        &mut self,
+        market: &MarketEvent<InstrumentId, T>,
+    ) -> Option<Signal<InstrumentId>>
+    where
+        InstrumentId: Clone;
 }
 
 /// Advisory [`Signal`] for a [`Market`] detailing the [`SignalStrength`] associated with each
 /// possible [`Decision`]. Interpreted by an [`OrderGenerator`](crate::portfolio::OrderGenerator).
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
-pub struct Signal {
+pub struct Signal<InstrumentId> {
     pub time: DateTime<Utc>,
     pub exchange: Exchange,
-    pub instrument: Instrument,
+    pub instrument: InstrumentId,
     pub signals: HashMap<Decision, SignalStrength>,
     /// Metadata propagated from the [`MarketEvent`] that yielded this [`Signal`].
     pub market_meta: MarketMeta,
@@ -70,30 +75,20 @@ pub struct SignalStrength(pub f64);
 /// Force exit Signal produced after an [`Engine`](crate::engine::Engine) receives a
 /// [`Command::ExitPosition`](crate::engine::Command) from an external source.
 #[derive(Clone, Eq, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
-pub struct SignalForceExit {
+pub struct SignalForceExit<InstrumentId> {
     pub time: DateTime<Utc>,
     pub exchange: Exchange,
-    pub instrument: Instrument,
+    pub instrument: InstrumentId,
 }
 
-impl<M> From<M> for SignalForceExit
-where
-    M: Into<Market>,
-{
-    fn from(market: M) -> Self {
-        let market = market.into();
-        Self::new(market.exchange, market.instrument)
-    }
-}
-
-impl SignalForceExit {
+impl<InstrumentId> SignalForceExit<InstrumentId> {
     pub const FORCED_EXIT_SIGNAL: &'static str = "SignalForcedExit";
 
     /// Constructs a new [`Self`] using the configuration provided.
     pub fn new<E, I>(exchange: E, instrument: I) -> Self
     where
         E: Into<Exchange>,
-        I: Into<Instrument>,
+        I: Into<InstrumentId>,
     {
         Self {
             time: Utc::now(),

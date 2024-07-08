@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 pub trait OrderAllocator {
     /// Returns an [`OrderEvent`] with a calculated order quantity based on the input order,
     /// [`SignalStrength`] and potential existing [`Position`].
-    fn allocate_order(
+    fn allocate_order<InstrumentId>(
         &self,
-        order: &mut OrderEvent,
-        position: Option<&Position>,
+        order: &mut OrderEvent<InstrumentId>,
+        position: Option<&Position<InstrumentId>>,
         signal_strength: SignalStrength,
     );
 }
@@ -24,10 +24,10 @@ pub struct DefaultAllocator {
 }
 
 impl OrderAllocator for DefaultAllocator {
-    fn allocate_order(
+    fn allocate_order<InstrumentId>(
         &self,
-        order: &mut OrderEvent,
-        position: Option<&Position>,
+        order: &mut OrderEvent<InstrumentId>,
+        position: Option<&Position<InstrumentId>>,
         signal_strength: SignalStrength,
     ) {
         // Calculate exact order_size, then round it to a more appropriate decimal place

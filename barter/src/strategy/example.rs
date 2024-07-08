@@ -18,8 +18,14 @@ pub struct RSIStrategy {
     rsi: RelativeStrengthIndex,
 }
 
-impl SignalGenerator for RSIStrategy {
-    fn generate_signal(&mut self, market: &MarketEvent<DataKind>) -> Option<Signal> {
+impl SignalGenerator<DataKind> for RSIStrategy {
+    fn generate_signal<InstrumentId>(
+        &mut self,
+        market: &MarketEvent<InstrumentId, DataKind>,
+    ) -> Option<Signal<InstrumentId>>
+    where
+        InstrumentId: Clone,
+    {
         // Check if it's a MarketEvent with a candle
         let candle_close = match &market.kind {
             DataKind::Candle(candle) => candle.close,

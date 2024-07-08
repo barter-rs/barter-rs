@@ -114,7 +114,10 @@ where
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
 {
-    fn generate_order(&mut self, signal: &Signal) -> Result<Option<OrderEvent>, PortfolioError> {
+    fn generate_order<InstrumentId>(
+        &mut self,
+        signal: &Signal<InstrumentId>,
+    ) -> Result<Option<OrderEvent<InstrumentId>>, PortfolioError> {
         // Determine the position_id & associated Option<Position> related to input SignalEvent
         let position_id =
             determine_position_id(self.engine_id, &signal.exchange, &signal.instrument);
@@ -152,10 +155,10 @@ where
         Ok(self.risk_manager.evaluate_order(order))
     }
 
-    fn generate_exit_order(
+    fn generate_exit_order<InstrumentId>(
         &mut self,
-        signal: SignalForceExit,
-    ) -> Result<Option<OrderEvent>, PortfolioError> {
+        signal: SignalForceExit<InstrumentId>,
+    ) -> Result<Option<OrderEvent<InstrumentId>>, PortfolioError> {
         // Determine PositionId associated with the SignalForceExit
         let position_id =
             determine_position_id(self.engine_id, &signal.exchange, &signal.instrument);
@@ -196,9 +199,12 @@ where
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser + Serialize,
 {
-    fn update_from_fill(&mut self, fill: &FillEvent) -> Result<Vec<Event>, PortfolioError> {
+    fn update_from_fill<InstrumentId, DataT>(
+        &mut self,
+        fill: &FillEvent<InstrumentId>,
+    ) -> Result<Vec<Event<InstrumentId, DataT>>, PortfolioError> {
         // Allocate Vector<Event> to contain any update_from_fill generated events
-        let mut generated_events: Vec<Event> = Vec::with_capacity(2);
+        let mut generated_events = Vec::with_capacity(2);
 
         // Get the Portfolio Balance from Repository & update timestamp
         let mut balance = self.repository.get_balance(self.engine_id)?;
@@ -266,38 +272,48 @@ where
     RiskManager: OrderEvaluator,
     Statistic: Initialiser + PositionSummariser,
 {
-    fn set_open_position(&mut self, position: Position) -> Result<(), RepositoryError> {
+    fn set_open_position<InstrumentId>(
+        &mut self,
+        position: Position<InstrumentId>,
+    ) -> Result<(), RepositoryError> {
         self.repository.set_open_position(position)
     }
 
-    fn get_open_position(
+    fn get_open_position<InstrumentId>(
         &mut self,
         position_id: &PositionId,
-    ) -> Result<Option<Position>, RepositoryError> {
+    ) -> Result<Option<Position<InstrumentId>>, RepositoryError> {
         self.repository.get_open_position(position_id)
     }
 
-    fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
+    fn get_open_positions<'a, InstrumentId, Markets: Iterator<Item = &'a Market>>(
         &mut self,
         _: Uuid,
         markets: Markets,
-    ) -> Result<Vec<Position>, RepositoryError> {
+    ) -> Result<Vec<Position<InstrumentId>>, RepositoryError> {
         self.repository.get_open_positions(self.engine_id, markets)
     }
 
-    fn remove_position(
+    fn remove_position<InstrumentId>(
         &mut self,
         position_id: &PositionId,
-    ) -> Result<Option<Position>, RepositoryError> {
+    ) -> Result<Option<Position<InstrumentId>>, RepositoryError> {
         self.repository.remove_position(position_id)
     }
 
-    fn set_exited_position(&mut self, _: Uuid, position: Position) -> Result<(), RepositoryError> {
+    fn set_exited_position<InstrumentId>(
+        &mut self,
+        _: Uuid,
+        position: Position<InstrumentId>,
+    ) -> Result<(), RepositoryError> {
         self.repository
             .set_exited_position(self.engine_id, position)
     }
 
-    fn get_exited_positions(&mut self, _: Uuid) -> Result<Vec<Position>, RepositoryError> {
+    fn get_exited_positions<InstrumentId>(
+        &mut self,
+        _: Uuid,
+    ) -> Result<Vec<Position<InstrumentId>>, RepositoryError> {
         self.repository.get_exited_positions(self.engine_id)
     }
 }

@@ -17,13 +17,13 @@ use uuid::Uuid;
 
 /// Lego components for constructing a [`Trader`] via the new() constructor method.
 #[derive(Debug)]
-pub struct TraderLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+pub struct TraderLego<EventTx, InstrumentId, DataT, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event>,
+    EventTx: MessageTransmitter<Event<InstrumentId, DataT>>,
     Statistic: Serialize + Send,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    Portfolio: MarketUpdater<DataT> + OrderGenerator + FillUpdater,
     Data: MarketGenerator<MarketEvent<DataKind>>,
-    Strategy: SignalGenerator,
+    Strategy: SignalGenerator<DataT>,
     Execution: ExecutionClient,
 {
     /// Identifier for the [`Engine`](super::Engine) this [`Trader`] is associated with
@@ -32,7 +32,7 @@ where
     /// Communicates the unique [`Market`] this [`Trader`] is bartering on.
     pub market: Market,
     /// mpsc::Receiver for receiving [`Command`]s from a remote source.
-    pub command_rx: mpsc::Receiver<Command>,
+    pub command_rx: mpsc::Receiver<Command<InstrumentId>>,
     /// [`Event`] transmitter for sending every [`Event`] the [`Trader`] encounters to an external sink.
     pub event_tx: EventTx,
     /// Shared-access to a global Portfolio instance that implements [`MarketUpdater`],
@@ -44,7 +44,7 @@ where
     pub strategy: Strategy,
     /// Execution handler that implements [`ExecutionClient`].
     pub execution: Execution,
-    _statistic_marker: PhantomData<Statistic>,
+    _statistic_marker: PhantomData<(Statistic, DataT)>,
 }
 
 /// Trader instance capable of trading a single market pair with it's own Data Handler, Strategy &
@@ -53,13 +53,13 @@ where
 /// a [`Command::Terminate`] to the Trader's
 /// mpsc::Receiver command_rx.
 #[derive(Debug)]
-pub struct Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+pub struct Trader<EventTx, InstrumentId, DataT, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event>,
+    EventTx: MessageTransmitter<Event<InstrumentId, DataT>>,
     Statistic: Serialize + Send,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    Portfolio: MarketUpdater<DataT> + OrderGenerator + FillUpdater,
     Data: MarketGenerator<MarketEvent<DataKind>> + Send,
-    Strategy: SignalGenerator + Send,
+    Strategy: SignalGenerator<DataT> + Send,
     Execution: ExecutionClient + Send,
 {
     /// Identifier for the [`Engine`](super::Engine) this [`Trader`] is associated with
@@ -68,12 +68,12 @@ where
     /// Communicates the unique [`Market`] this [`Trader`] is bartering on.
     market: Market,
     /// `mpsc::Receiver` for receiving [`Command`]s from a remote source.
-    command_rx: mpsc::Receiver<Command>,
+    command_rx: mpsc::Receiver<Command<InstrumentId>>,
     /// [`Event`] transmitter for sending every [`Event`] the [`Trader`] encounters to an external
     /// sink.
     event_tx: EventTx,
     /// Queue for storing [`Event`]s used by the trading loop in the run() method.
-    event_q: VecDeque<Event>,
+    event_q: VecDeque<Event<InstrumentId, DataT>>,
     /// Shared-access to a global Portfolio instance that implements [`MarketUpdater`],
     /// [`OrderGenerator`] & [`FillUpdater`].
     portfolio: Arc<Mutex<Portfolio>>,
@@ -86,18 +86,29 @@ where
     _statistic_marker: PhantomData<Statistic>,
 }
 
-impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
-    Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+impl<EventTx, InstrumentId, DataT, Statistic, Portfolio, Data, Strategy, Execution>
+    Trader<EventTx, InstrumentId, DataT, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event>,
+    EventTx: MessageTransmitter<Event<InstrumentId, DataT>>,
     Statistic: Serialize + Send,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    Portfolio: MarketUpdater<DataT> + OrderGenerator + FillUpdater,
     Data: MarketGenerator<MarketEvent<DataKind>> + Send,
-    Strategy: SignalGenerator + Send,
+    Strategy: SignalGenerator<DataT> + Send,
     Execution: ExecutionClient + Send,
 {
     /// Constructs a new [`Trader`] instance using the provided [`TraderLego`].
-    pub fn new(lego: TraderLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>) -> Self {
+    pub fn new(
+        lego: TraderLego<
+            EventTx,
+            InstrumentId,
+            DataT,
+            Statistic,
+            Portfolio,
+            Data,
+            Strategy,
+            Execution,
+        >,
+    ) -> Self {
         info!(
             engine_id = %lego.engine_id,
             market = ?lego.market,
@@ -119,7 +130,9 @@ where
     }
 
     /// Builder to construct [`Trader`] instances.
-    pub fn builder() -> TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution> {
+    pub fn builder(
+    ) -> TraderBuilder<EventTx, InstrumentId, DataT, Statistic, Portfolio, Data, Strategy, Execution>
+    {
         TraderBuilder::new()
     }
 
@@ -133,9 +146,11 @@ where
             while let Some(command) = self.receive_remote_command() {
                 match command {
                     Command::Terminate(_) => break 'trading,
-                    Command::ExitPosition(market) => {
+                    Command::ExitPosition((exchange, instrument)) => {
                         self.event_q
-                            .push_back(Event::SignalForceExit(SignalForceExit::from(market)));
+                            .push_back(Event::SignalForceExit(SignalForceExit::new(
+                                exchange, instrument,
+                            )));
                     }
                     _ => continue,
                 }
@@ -235,7 +250,7 @@ where
     }
 
     /// Returns a [`Command`] if one has been received.
-    fn receive_remote_command(&mut self) -> Option<Command> {
+    fn receive_remote_command(&mut self) -> Option<Command<InstrumentId>> {
         match self.command_rx.try_recv() {
             Ok(command) => {
                 debug!(
@@ -264,18 +279,26 @@ where
 
 /// Builder to construct [`Trader`] instances.
 #[derive(Debug, Default)]
-pub struct TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
-where
-    EventTx: MessageTransmitter<Event>,
+pub struct TraderBuilder<
+    EventTx,
+    InstrumentId,
+    DataT,
+    Statistic,
+    Portfolio,
+    Data,
+    Strategy,
+    Execution,
+> where
+    EventTx: MessageTransmitter<Event<InstrumentId, DataT>>,
     Statistic: Serialize + Send,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    Portfolio: MarketUpdater<DataT> + OrderGenerator + FillUpdater,
     Data: MarketGenerator<MarketEvent<DataKind>>,
-    Strategy: SignalGenerator,
+    Strategy: SignalGenerator<DataT>,
     Execution: ExecutionClient,
 {
     engine_id: Option<Uuid>,
     market: Option<Market>,
-    command_rx: Option<mpsc::Receiver<Command>>,
+    command_rx: Option<mpsc::Receiver<Command<InstrumentId>>>,
     event_tx: Option<EventTx>,
     portfolio: Option<Arc<Mutex<Portfolio>>>,
     data: Option<Data>,
@@ -284,14 +307,14 @@ where
     _statistic_marker: Option<PhantomData<Statistic>>,
 }
 
-impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
-    TraderBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+impl<EventTx, InstrumentId, DataT, Statistic, Portfolio, Data, Strategy, Execution>
+    TraderBuilder<EventTx, InstrumentId, DataT, Statistic, Portfolio, Data, Strategy, Execution>
 where
-    EventTx: MessageTransmitter<Event>,
+    EventTx: MessageTransmitter<Event<InstrumentId, DataT>>,
     Statistic: Serialize + Send,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
+    Portfolio: MarketUpdater<DataT> + OrderGenerator + FillUpdater,
     Data: MarketGenerator<MarketEvent<DataKind>> + Send,
-    Strategy: SignalGenerator + Send,
+    Strategy: SignalGenerator<DataT> + Send,
     Execution: ExecutionClient + Send,
 {
     fn new() -> Self {
@@ -322,7 +345,7 @@ where
         }
     }
 
-    pub fn command_rx(self, value: mpsc::Receiver<Command>) -> Self {
+    pub fn command_rx(self, value: mpsc::Receiver<Command<InstrumentId>>) -> Self {
         Self {
             command_rx: Some(value),
             ..self
@@ -366,7 +389,10 @@ where
 
     pub fn build(
         self,
-    ) -> Result<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
+    ) -> Result<
+        Trader<EventTx, InstrumentId, DataT, Statistic, Portfolio, Data, Strategy, Execution>,
+        EngineError,
+    > {
         Ok(Trader {
             engine_id: self
                 .engine_id
