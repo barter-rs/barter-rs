@@ -1,0 +1,50 @@
+[package]
+name = "barter-integration"
+version = "0.7.3"
+authors = ["JustAStream"]
+edition = "2021"
+license = "MIT"
+documentation = "https://docs.rs/barter-integration/"
+repository = "https://github.com/barter-rs/barter-rs"
+readme = "README.md"
+description = "Low-level framework for composing flexible web integrations, especially with financial exchanges"
+keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
+categories = ["accessibility", "simulation"]
+
+[dev-dependencies]
+rust_decimal_macros = { workspace = true }
+
+[dependencies]
+# Logging
+tracing = { workspace = true }
+
+# SerDe
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_qs = { workspace = true }
+serde_urlencoded = { workspace = true }
+
+# Error
+thiserror = { workspace = true }
+
+# Async
+tokio = { workspace = true, features = ["net", "sync", "macros", "rt-multi-thread"] }
+futures = { workspace = true }
+async-trait = { workspace = true }
+pin-project = { workspace = true }
+
+# Protocol
+tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
+reqwest = { workspace = true, features = ["json"] }
+url = { workspace = true }
+
+# Cryptographic Signatures
+hmac = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+base64 = { workspace = true }
+
+# Misc
+chrono = { workspace = true, features = ["serde"] }
+bytes = { workspace = true }
+rust_decimal = { workspace = true }

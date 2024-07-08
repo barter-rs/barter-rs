@@ -180,7 +180,7 @@ where
     pub fn new(connection: Connection) -> Self {
         Self {
             conn: connection,
-            _statistic_marker: PhantomData::<Statistic>::default(),
+            _statistic_marker: PhantomData,
         }
     }
 
@@ -215,7 +215,7 @@ where
     pub fn new() -> Self {
         Self {
             conn: None,
-            _statistic_marker: PhantomData::<Statistic>::default(),
+            _statistic_marker: PhantomData,
         }
     }
 
@@ -229,7 +229,7 @@ where
     pub fn build(self) -> Result<RedisRepository<Statistic>, PortfolioError> {
         Ok(RedisRepository {
             conn: self.conn.ok_or(PortfolioError::BuilderIncomplete("conn"))?,
-            _statistic_marker: PhantomData::<Statistic>::default(),
+            _statistic_marker: PhantomData,
         })
     }
 }

@@ -15,8 +15,8 @@ categories = ["accessibility", "simulation"]
 
 [dependencies]
 # Barter Ecosystem
-barter-data = "0.7.1"
-barter-integration = "0.7.2"
+barter-data = "0.7.1" # Todo: update barter-rs to use latest barter-data-rs, and then add path = "../.."
+barter-integration = "0.7.3"
 
 # Logging
 tracing = { workspace = true }
@@ -25,6 +25,7 @@ tracing = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 tokio-stream = { workspace = true, features = ["sync"] }
 futures = { workspace = true }
+async-trait = { workspace = true }
 
 # Error
 thiserror = { workspace = true }
@@ -37,7 +38,7 @@ serde_json = { workspace = true }
 redis = "0.25.4"
 
 # Strategy
-ta = "0.5.0"
+ta = { workspace = true }
 
 # Misc
 uuid = { workspace = true, features = ["v4", "serde"] }
