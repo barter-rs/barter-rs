@@ -342,7 +342,7 @@ where
             repository: lego.repository,
             allocation_manager: lego.allocator,
             risk_manager: lego.risk,
-            _statistic_marker: PhantomData::default(),
+            _statistic_marker: PhantomData,
         };
 
         // Persist initial state in the repository
@@ -500,7 +500,7 @@ where
             risk_manager: self
                 .risk_manager
                 .ok_or(PortfolioError::BuilderIncomplete("risk_manager"))?,
-            _statistic_marker: PhantomData::default(),
+            _statistic_marker: PhantomData,
         };
 
         // Persist initial state in the Repository

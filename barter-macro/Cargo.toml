@@ -1,0 +1,23 @@
+[package]
+name = "barter-macro"
+version = "0.1.1"
+authors = ["JustAStream"]
+edition = "2021"
+license = "MIT"
+documentation = "https://docs.rs/barter-macro/"
+repository = "https://github.com/barter-rs/barter-macro-rs"
+description = "Barter ecosystem macros"
+keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
+categories = ["accessibility", "simulation"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+# Macro
+proc-macro2 = "1.0.49"
+syn = "1.0.107"
+quote = "1.0.23"
+
+# Misc
+convert_case = "0.6.0"

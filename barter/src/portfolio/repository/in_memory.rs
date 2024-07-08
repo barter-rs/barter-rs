@@ -36,7 +36,7 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
         &mut self,
         position_id: &PositionId,
     ) -> Result<Option<Position>, RepositoryError> {
-        Ok(self.open_positions.get(position_id).map(Position::clone))
+        Ok(self.open_positions.get(position_id).cloned())
     }
 
     fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
@@ -52,7 +52,7 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
                         &market.exchange,
                         &market.instrument,
                     ))
-                    .map(Position::clone)
+                    .cloned()
             })
             .collect())
     }
@@ -85,8 +85,8 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
         Ok(self
             .closed_positions
             .get(&determine_exited_positions_id(engine_id))
-            .map(Vec::clone)
-            .unwrap_or_else(Vec::new))
+            .cloned()
+            .unwrap_or_default())
     }
 }
 
