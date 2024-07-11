@@ -1,6 +1,7 @@
 use super::{Decision, Signal, SignalGenerator, SignalStrength};
 use crate::data::MarketMeta;
 use barter_data::event::{DataKind, MarketEvent};
+use barter_integration::model::instrument::Instrument;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -19,7 +20,7 @@ pub struct RSIStrategy {
 }
 
 impl SignalGenerator for RSIStrategy {
-    fn generate_signal(&mut self, market: &MarketEvent<DataKind>) -> Option<Signal> {
+    fn generate_signal(&mut self, market: &MarketEvent<Instrument, DataKind>) -> Option<Signal> {
         // Check if it's a MarketEvent with a candle
         let candle_close = match &market.kind {
             DataKind::Candle(candle) => candle.close,

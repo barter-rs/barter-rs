@@ -265,7 +265,7 @@ pub mod test_util {
     use std::ops::Add;
 
     /// Build a [`MarketEvent`] of [`DataKind::PublicTrade`](DataKind) with the provided [`Side`].
-    pub fn market_event_trade(side: Side) -> MarketEvent<DataKind> {
+    pub fn market_event_trade(side: Side) -> MarketEvent<Instrument, DataKind> {
         MarketEvent {
             exchange_time: Utc::now(),
             received_time: Utc::now(),
@@ -281,7 +281,7 @@ pub mod test_util {
     }
 
     /// Build a [`MarketEvent`] of [`DataKind::Candle`](DataKind).
-    pub fn market_event_candle() -> MarketEvent<DataKind> {
+    pub fn market_event_candle() -> MarketEvent<Instrument, DataKind> {
         let now = Utc::now();
         MarketEvent {
             exchange_time: now,

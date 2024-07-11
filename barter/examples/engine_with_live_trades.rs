@@ -22,7 +22,10 @@ use barter_data::{
     streams::Streams,
     subscription::trade::PublicTrades,
 };
-use barter_integration::model::{instrument::kind::InstrumentKind, Market};
+use barter_integration::model::{
+    instrument::{kind::InstrumentKind, Instrument},
+    Market,
+};
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::mpsc;
@@ -115,7 +118,8 @@ async fn main() {
     let _ = tokio::time::timeout(ENGINE_RUN_TIMEOUT, engine.run()).await;
 }
 
-async fn stream_market_event_trades() -> mpsc::UnboundedReceiver<MarketEvent<DataKind>> {
+async fn stream_market_event_trades() -> mpsc::UnboundedReceiver<MarketEvent<Instrument, DataKind>>
+{
     // Initialise PublicTrades Streams for BinanceSpot
     // '--> each call to StreamBuilder::subscribe() creates a separate WebSocket connection
     let mut streams = Streams::<PublicTrades>::builder()

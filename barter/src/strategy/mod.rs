@@ -11,7 +11,7 @@ pub mod example;
 /// May generate an advisory [`Signal`] as a result of analysing an input [`MarketEvent`].
 pub trait SignalGenerator {
     /// Optionally return a [`Signal`] given input [`MarketEvent`].
-    fn generate_signal(&mut self, market: &MarketEvent<DataKind>) -> Option<Signal>;
+    fn generate_signal(&mut self, market: &MarketEvent<Instrument, DataKind>) -> Option<Signal>;
 }
 
 /// Advisory [`Signal`] for a [`Market`] detailing the [`SignalStrength`] associated with each

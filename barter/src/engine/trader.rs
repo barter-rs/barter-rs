@@ -7,7 +7,7 @@ use crate::{
     strategy::{SignalForceExit, SignalGenerator},
 };
 use barter_data::event::{DataKind, MarketEvent};
-use barter_integration::model::Market;
+use barter_integration::model::{instrument::Instrument, Market};
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, sync::Arc};
@@ -22,7 +22,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: MarketGenerator<MarketEvent<DataKind>>,
+    Data: MarketGenerator<MarketEvent<Instrument, DataKind>>,
     Strategy: SignalGenerator,
     Execution: ExecutionClient,
 {
@@ -58,7 +58,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: MarketGenerator<MarketEvent<DataKind>> + Send,
+    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -92,7 +92,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: MarketGenerator<MarketEvent<DataKind>> + Send,
+    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -269,7 +269,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: MarketGenerator<MarketEvent<DataKind>>,
+    Data: MarketGenerator<MarketEvent<Instrument, DataKind>>,
     Strategy: SignalGenerator,
     Execution: ExecutionClient,
 {
@@ -290,7 +290,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: MarketGenerator<MarketEvent<DataKind>> + Send,
+    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {

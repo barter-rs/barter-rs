@@ -20,7 +20,7 @@ pub trait PositionEnterer {
 pub trait PositionUpdater {
     /// Updates an open [`Position`] using the latest input [`MarketEvent`], returning a
     /// [`PositionUpdate`] that communicates the open [`Position`]'s change in state.
-    fn update(&mut self, market: &MarketEvent<DataKind>) -> Option<PositionUpdate>;
+    fn update(&mut self, market: &MarketEvent<Instrument, DataKind>) -> Option<PositionUpdate>;
 }
 
 /// Exits an open [`Position`].
@@ -146,7 +146,7 @@ impl PositionEnterer for Position {
 }
 
 impl PositionUpdater for Position {
-    fn update(&mut self, market: &MarketEvent<DataKind>) -> Option<PositionUpdate> {
+    fn update(&mut self, market: &MarketEvent<Instrument, DataKind>) -> Option<PositionUpdate> {
         // Determine close from MarketEvent
         let close = match &market.kind {
             DataKind::Trade(trade) => trade.price,
