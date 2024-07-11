@@ -39,7 +39,7 @@ pub trait MarketUpdater {
     /// changes.
     fn update_from_market(
         &mut self,
-        market: &MarketEvent<DataKind>,
+        market: &MarketEvent<Instrument, DataKind>,
     ) -> Result<Option<PositionUpdate>, PortfolioError>;
 }
 

@@ -7,6 +7,7 @@ use crate::{
     strategy::{Signal, SignalForceExit},
 };
 use barter_data::event::{DataKind, MarketEvent};
+use barter_integration::model::instrument::Instrument;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tokio::sync::mpsc;
@@ -18,7 +19,7 @@ use tracing::warn;
 /// system, and is useful for analysing performance & reconciliations.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Event {
-    Market(MarketEvent<DataKind>),
+    Market(MarketEvent<Instrument, DataKind>),
     Signal(Signal),
     SignalForceExit(SignalForceExit),
     OrderNew(OrderEvent),
