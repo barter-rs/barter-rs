@@ -15,8 +15,8 @@ categories = ["accessibility", "simulation"]
 
 [dependencies]
 # Barter Ecosystem
-barter-data = "0.7.1" # Todo: update barter-rs to use latest barter-data-rs, and then add path = "../.."
-barter-integration = "0.7.3"
+barter-data = { path = "../barter-data", version = "0.8.1"}
+barter-integration = { path = "../barter-integration", version = "0.7.3" }
 
 # Logging
 tracing = { workspace = true }

@@ -12,7 +12,7 @@ use crate::{
     strategy::SignalGenerator,
 };
 use barter_data::event::{DataKind, MarketEvent};
-use barter_integration::model::{Market, MarketId};
+use barter_integration::model::{instrument::Instrument, Market, MarketId};
 use parking_lot::Mutex;
 use prettytable::Table;
 use serde::Serialize;
@@ -54,7 +54,7 @@ where
     EventTx: MessageTransmitter<Event> + Send,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
-    Data: MarketGenerator<MarketEvent<DataKind>> + Send,
+    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -94,7 +94,7 @@ where
         + FillUpdater
         + Send
         + 'static,
-    Data: MarketGenerator<MarketEvent<DataKind>> + Send + 'static,
+    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send + 'static,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -128,7 +128,7 @@ where
         + FillUpdater
         + Send
         + 'static,
-    Data: MarketGenerator<MarketEvent<DataKind>> + Send,
+    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send,
     Strategy: SignalGenerator + Send + 'static,
     Execution: ExecutionClient + Send + 'static,
 {
@@ -363,7 +363,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
-    Data: MarketGenerator<MarketEvent<DataKind>> + Send,
+    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -386,7 +386,7 @@ where
         + OrderGenerator
         + FillUpdater
         + Send,
-    Data: MarketGenerator<MarketEvent<DataKind>> + Send,
+    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {

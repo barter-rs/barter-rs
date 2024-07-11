@@ -118,7 +118,7 @@ async fn main() {
     engine.run().await;
 }
 
-fn load_json_market_event_candles() -> Vec<MarketEvent<DataKind>> {
+fn load_json_market_event_candles() -> Vec<MarketEvent<Instrument, DataKind>> {
     let candles = fs::read_to_string(DATA_HISTORIC_CANDLES_1H).expect("failed to read file");
 
     let candles =

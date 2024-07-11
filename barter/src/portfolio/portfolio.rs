@@ -17,7 +17,7 @@ use crate::{
     strategy::{Decision, Signal, SignalForceExit, SignalStrength},
 };
 use barter_data::event::{DataKind, MarketEvent};
-use barter_integration::model::{Market, MarketId, Side};
+use barter_integration::model::{instrument::Instrument, Market, MarketId, Side};
 use chrono::Utc;
 use serde::Serialize;
 use std::{collections::HashMap, marker::PhantomData};
@@ -86,7 +86,7 @@ where
 {
     fn update_from_market(
         &mut self,
-        market: &MarketEvent<DataKind>,
+        market: &MarketEvent<Instrument, DataKind>,
     ) -> Result<Option<PositionUpdate>, PortfolioError> {
         // Determine the position_id associated to the input MarketEvent
         let position_id =
