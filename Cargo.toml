@@ -32,7 +32,7 @@ serde_urlencoded = { version = "0.7.1" }
 # Protocol
 url = { version = "2.3.1 " }
 reqwest = { version = "0.12.4" }
-tokio-tungstenite = { version = "0.21.0" }
+tokio-tungstenite = { version = "0.23.1" }
 
 # Strategy
 ta = { version = "0.5.0" }
