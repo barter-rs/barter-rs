@@ -54,7 +54,7 @@ arbitrary number of exchange `MarketStream`s using input `Subscription`s. Simply
 |       **Bitmex**        |             `Bitmex`             |                  Perpetual                  |                   PublicTrades                   |
 |      **BybitSpot**      |      `BybitSpot::default()`      |                    Spot                     |                   PublicTrades                   |
 | **BybitPerpetualsUsd**  | `BybitPerpetualsUsd::default()`  |                  Perpetual                  |                   PublicTrades                   |
-|      **Coinbase**       |            `Coinbase`            |                    Spot                     |                   PublicTrades                   |
+|      **Coinbase**       |            `Coinbase`            |                    Spot                     |          PublicTrades <br> OrderBooksL1          |
 |     **GateioSpot**      |     `GateioSpot::default()`      |                    Spot                     |                   PublicTrades                   |
 |  **GateioFuturesUsd**   |  `GateioFuturesUsd::default()`   |                   Future                    |                   PublicTrades                   |
 |  **GateioFuturesBtc**   |  `GateioFuturesBtc::default()`   |                   Future                    |                   PublicTrades                   |
