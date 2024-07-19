@@ -16,6 +16,7 @@ use book::l1::CoinbaseOrderBookL1;
 use serde_json::json;
 use url::Url;
 
+/// OrderBook types for [`Coinbase`]
 pub mod book;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
@@ -82,7 +83,6 @@ where
     type Stream =
         ExchangeWsStream<StatelessTransformer<Self, Instrument::Id, PublicTrades, CoinbaseTrade>>;
 }
-
 
 impl<Instrument> StreamSelector<Instrument, OrderBooksL1> for Coinbase
 where
