@@ -204,14 +204,13 @@ impl OrderBookUpdater for BybitPerpetualsBookUpdater {
 
 /// Deserialize a [`BybitOrderBookL2`] "s" (eg/ "BTCUSDT") as the associated [`SubscriptionId`].
 ///
-/// eg/ "orderbook.1.BTCUSDT"
+/// eg/ "orderbook.50.BTCUSDT"
 pub fn de_ob_l2_subscription_id<'de, D>(deserializer: D) -> Result<SubscriptionId, D::Error>
 where
     D: serde::de::Deserializer<'de>,
 {
     <&str as Deserialize>::deserialize(deserializer)
-        .map(|market| ExchangeSub::from((BybitChannel::ORDER_BOOK_L1, market)).id())
-    // TODO
+        .map(|market| ExchangeSub::from((BybitChannel::ORDER_BOOK_L2, market)).id())
 }
 
 #[cfg(test)]
@@ -219,6 +218,10 @@ mod tests {
     use super::*;
 
     mod de {
+        use std::time::Duration;
+
+        use barter_integration::de::datetime_utc_from_epoch_duration;
+
         use super::*;
 
         #[test]
@@ -253,7 +256,8 @@ mod tests {
             }
         "#;
 
-            let time = Utc::now();
+        let time = datetime_utc_from_epoch_duration(Duration::from_millis(1687940967466));
+        let created_time = datetime_utc_from_epoch_duration(Duration::from_millis(1687940967464));
 
             assert_eq!(
                 serde_json::from_str::<BybitPerpetualsOrderBookL2>(input).unwrap(),
@@ -318,7 +322,7 @@ mod tests {
                         update_id: 177400507,
                         sequence: 66544703342
                     },
-                    created_time: time,
+                    created_time,
                 }
             );
         }

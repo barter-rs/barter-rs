@@ -77,6 +77,7 @@ impl<InstrumentId> DynamicStreams<InstrumentId> {
         Subscription<BybitSpot, Instrument, PublicTrades>: Identifier<BybitMarket>,
         Subscription<BybitPerpetualsUsd, Instrument, PublicTrades>: Identifier<BybitMarket>,
         Subscription<BybitPerpetualsUsd, Instrument, OrderBooksL1>: Identifier<BybitMarket>,
+        Subscription<BybitPerpetualsUsd, Instrument, Liquidations>: Identifier<BybitMarket>,
         Subscription<Coinbase, Instrument, PublicTrades>: Identifier<CoinbaseMarket>,
         Subscription<GateioSpot, Instrument, PublicTrades>: Identifier<GateioMarket>,
         Subscription<GateioFuturesUsd, Instrument, PublicTrades>: Identifier<GateioMarket>,
@@ -233,6 +234,25 @@ impl<InstrumentId> DynamicStreams<InstrumentId> {
                                 })
                                 .collect(),
                             channels.l1s.entry(exchange).or_default().tx.clone(),
+                        ));
+                    }
+                    (ExchangeId::BybitPerpetualsUsd, SubKind::Liquidations) => {
+                        tokio::spawn(consume::<BybitPerpetualsUsd, Instrument, Liquidations>(
+                            subs.into_iter()
+                                .map(|sub| {
+                                    Subscription::<_, Instrument, _>::new(
+                                        BybitPerpetualsUsd::default(),
+                                        sub.instrument,
+                                        Liquidations,
+                                    )
+                                })
+                                .collect(),
+                            channels
+                                .liquidations
+                                .entry(exchange)
+                                .or_default()
+                                .tx
+                                .clone(),
                         ));
                     }
                     (ExchangeId::Coinbase, SubKind::PublicTrades) => {

@@ -96,6 +96,10 @@ mod tests {
     use super::*;
 
     mod de {
+        use std::time::Duration;
+
+        use barter_integration::de::datetime_utc_from_epoch_duration;
+
         use super::*;
 
         #[test]
@@ -105,92 +109,55 @@ mod tests {
                 expected: BybitOrderBookL2,
             }
 
-            let time = Utc::now();
+            let res_time = datetime_utc_from_epoch_duration(Duration::from_millis(1716863719382));
+            let time = datetime_utc_from_epoch_duration(Duration::from_millis(1716863719031));
+            let created_time =
+                datetime_utc_from_epoch_duration(Duration::from_millis(1716863718905));
 
-            let tests = vec![
-                TestCase {
-                    // TC0: valid Spot BybitOrderBookL2
-                    input: r#"
+            let tests = vec![TestCase {
+                // TC0: valid BybitOrderBookL2
+                input: r#"
                     {
-                        "lastUpdateId": 1027024,
-                        "bids": [
-                            [
-                                "4.00000000",
-                                "431.00000000"
-                            ]
-                        ],
-                        "asks": [
-                            [
-                                "4.00000200",
-                                "12.00000000"
-                            ]
-                        ]
+                        "retCode": 0,
+                        "retMsg": "OK",
+                        "result": {
+                            "s": "BTCUSDT",
+                            "a": [
+                                ["65557.7", "16.606555"]
+                            ],
+                            "b": [
+                                ["65485.47", "47.081829"]
+                            ],
+                            "ts": 1716863719031,
+                            "u": 230704,
+                            "seq": 1432604333,
+                            "cts": 1716863718905
+                        },
+                        "retExtInfo": {},
+                        "time": 1716863719382
                     }
                     "#,
-                    expected: BybitOrderBookL2 {
-                        ret_code: 0,
-                        ret_msg: "OK".to_string(),
-                        result: BybitOrderBookL2Result {
-                            symbol: "".to_string(),
-                            asks: vec![BybitLevel {
-                                price: 4.00000200,
-                                amount: 12.0,
-                            }],
-                            bids: vec![BybitLevel {
-                                price: 4.0,
-                                amount: 431.0,
-                            }],
-                            time,
-                            last_update_id: 230704,
-                            sequence: 1432604333,
-                            created_time: time,
-                        },
+                expected: BybitOrderBookL2 {
+                    ret_code: 0,
+                    ret_msg: "OK".to_string(),
+                    result: BybitOrderBookL2Result {
+                        symbol: "BTCUSDT".to_string(),
+                        asks: vec![BybitLevel {
+                            price: 65557.7,
+                            amount: 16.606555,
+                        }],
+                        bids: vec![BybitLevel {
+                            price: 65485.47,
+                            amount: 47.081829,
+                        }],
                         time,
+                        last_update_id: 230704,
+                        sequence: 1432604333,
+                        created_time,
                     },
+                    time: res_time,
                 },
-                TestCase {
-                    // TC1: valid FuturePerpetual BybitOrderBookL2
-                    input: r#"
-                    {
-                        "lastUpdateId": 1027024,
-                        "E": 1589436922972,
-                        "T": 1589436922959,
-                        "bids": [
-                            [
-                                "4.00000000",
-                                "431.00000000"
-                            ]
-                        ],
-                        "asks": [
-                            [
-                                "4.00000200",
-                                "12.00000000"
-                            ]
-                        ]
-                    }
-                    "#,
-                    expected: BybitOrderBookL2 {
-                        ret_code: 0,
-                        ret_msg: "OK".to_string(),
-                        result: BybitOrderBookL2Result {
-                            symbol: "".to_string(),
-                            asks: vec![BybitLevel {
-                                price: 4.00000200,
-                                amount: 12.0,
-                            }],
-                            bids: vec![BybitLevel {
-                                price: 4.0,
-                                amount: 431.0,
-                            }],
-                            time,
-                            last_update_id: 230704,
-                            sequence: 1432604333,
-                            created_time: time,
-                        },
-                        time,
-                    },
-                },
-            ];
+            }];
 
             for (index, test) in tests.into_iter().enumerate() {
                 assert_eq!(

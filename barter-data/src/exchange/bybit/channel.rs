@@ -1,13 +1,13 @@
 use crate::{
     exchange::bybit::Bybit,
     subscription::{
-        book::{OrderBooksL1, OrderBooksL2},
-        trade::PublicTrades,
-        Subscription,
+        book::{OrderBooksL1, OrderBooksL2}, liquidation::Liquidations, trade::PublicTrades, Subscription
     },
     Identifier,
 };
 use serde::Serialize;
+
+use super::futures::BybitPerpetualsUsd;
 
 /// Type that defines how to translate a Barter [`Subscription`] into a [`Bybit`]
 /// channel to be subscribed to.
@@ -24,6 +24,8 @@ impl BybitChannel {
     /// See docs: <https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook>
     pub const ORDER_BOOK_L1: Self = Self("orderbook.1");
     pub const ORDER_BOOK_L2: Self = Self("orderbook.50");
+    /// See docs: <https://bybit-exchange.github.io/docs/v5/websocket/public/liquidation>
+    pub const LIQUIDATIONS: Self = Self("liquidation");
 }
 
 impl<Server, Instrument> Identifier<BybitChannel>
@@ -47,6 +49,14 @@ impl<Server, Instrument> Identifier<BybitChannel>
 {
     fn id(&self) -> BybitChannel {
         BybitChannel::ORDER_BOOK_L2
+    }
+}
+
+impl<Instrument> Identifier<BybitChannel>
+    for Subscription<BybitPerpetualsUsd, Instrument, Liquidations>
+{
+    fn id(&self) -> BybitChannel {
+        BybitChannel::LIQUIDATIONS
     }
 }
 
