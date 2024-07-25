@@ -1,6 +1,6 @@
 
 # Barter-Data
-A high-performance WebSocket integration library for streaming public market data from leading cryptocurrency 
+A high-performance WebSocket integration library for streaming public market data from leading cryptocurrency
 exchanges - batteries included. It is:
 * **Easy**: Barter-Data's simple StreamBuilder interface allows for easy & quick setup (see example below!).
 * **Normalised**: Barter-Data's unified interface for consuming public WebSocket data means every Exchange returns a normalised data model.
@@ -37,11 +37,11 @@ exchanges - batteries included. It is:
 [Chat]: https://discord.gg/wE7RqhnQMV
 
 ## Overview
-Barter-Data is a high-performance WebSocket integration library for streaming public market data from leading cryptocurrency 
+Barter-Data is a high-performance WebSocket integration library for streaming public market data from leading cryptocurrency
 exchanges. It presents an easy-to-use and extensible set of interfaces that can deliver normalised exchange data in real-time.
 
-From a user perspective, the major component is the `StreamBuilder` structures that assists in initialising an 
-arbitrary number of exchange `MarketStream`s using input `Subscription`s. Simply build your dream set of 
+From a user perspective, the major component is the `StreamBuilder` structures that assists in initialising an
+arbitrary number of exchange `MarketStream`s using input `Subscription`s. Simply build your dream set of
 `MarketStreams` and `Barter-Data` will do the rest!
 
 ### Supported Exchange Subscriptions
@@ -53,7 +53,7 @@ arbitrary number of exchange `MarketStream`s using input `Subscription`s. Simply
 |      **Bitfinex**       |            `Bitfinex`            |                    Spot                     |                   PublicTrades                   |
 |       **Bitmex**        |             `Bitmex`             |                  Perpetual                  |                   PublicTrades                   |
 |      **BybitSpot**      |      `BybitSpot::default()`      |                    Spot                     |                   PublicTrades                   |
-| **BybitPerpetualsUsd**  | `BybitPerpetualsUsd::default()`  |                  Perpetual                  |                   PublicTrades                   |
+| **BybitPerpetualsUsd**  | `BybitPerpetualsUsd::default()`  |                  Perpetual                  | PublicTrades <br> OrderBooksL1 <brOrderBooksL2   |
 |      **Coinbase**       |            `Coinbase`            |                    Spot                     |                   PublicTrades                   |
 |     **GateioSpot**      |     `GateioSpot::default()`      |                    Spot                     |                   PublicTrades                   |
 |  **GateioFuturesUsd**   |  `GateioFuturesUsd::default()`   |                   Future                    |                   PublicTrades                   |
@@ -66,7 +66,7 @@ arbitrary number of exchange `MarketStream`s using input `Subscription`s. Simply
 
 
 ## Examples
-See barter-data-rs/examples for a more comprehensive selection of examples! 
+See barter-data-rs/examples for a more comprehensive selection of examples!
 
 ### Multi Exchange Public Trades
 ```rust,no_run
@@ -155,11 +155,11 @@ async fn main() {
 ```
 
 ## Getting Help
-Firstly, see if the answer to your question can be found in the [API Documentation]. If the answer is not there, I'd be 
-happy to help via [Chat] and try answer your question via Discord. 
+Firstly, see if the answer to your question can be found in the [API Documentation]. If the answer is not there, I'd be
+happy to help via [Chat] and try answer your question via Discord.
 
 ## Contributing
-Thanks in advance for helping to develop the Barter ecosystem! Please do get hesitate to get touch via the Discord 
+Thanks in advance for helping to develop the Barter ecosystem! Please do get hesitate to get touch via the Discord
 [Chat] to discuss development, new features, and the future roadmap.
 
 ### Adding A New Exchange Connector
