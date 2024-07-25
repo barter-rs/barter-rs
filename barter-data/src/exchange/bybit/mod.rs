@@ -9,22 +9,27 @@ use crate::{
     },
     instrument::InstrumentData,
     subscriber::{validator::WebSocketSubValidator, WebSocketSubscriber},
-    subscription::{trade::PublicTrades, Map},
+    subscription::{book::OrderBooksL1, trade::PublicTrades, Map},
     transformer::stateless::StatelessTransformer,
     ExchangeWsStream,
 };
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
+use futures::l2::BybitPerpetualsOrderBookL2;
 use serde::de::{Error, Unexpected};
 use std::{fmt::Debug, marker::PhantomData, time::Duration};
 use tokio::time;
 use url::Url;
+
+/// OrderBook types common to both [`BybitSpot`](spot::BybitSpot) and
+/// [`BybitPerpetualsUsd`](futures::BybitPerpetualsUsd).
+pub mod book;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
 /// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
 /// [`ExchangeServer`] and [`StreamSelector`] implementations for
-/// [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
+/// [`BybitPerpetualsUsd`](futures::BybitPerpetualsUsd).
 pub mod futures;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
@@ -41,18 +46,18 @@ pub mod spot;
 
 /// [`Subscription`](crate::subscription::Subscription) response type and response
 /// [`Validator`](barter_integration::Validator) common to both [`BybitSpot`](spot::BybitSpot)
-/// and [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
+/// and [`BybitPerpetualsUsd`](futures::BybitPerpetualsUsd).
 pub mod subscription;
 
 /// Public trade types common to both [`BybitSpot`](spot::BybitSpot) and
-/// [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
+/// [`BybitPerpetualsUsd`](futures::BybitPerpetualsUsd).
 pub mod trade;
 
 /// Generic [`Bybit<Server>`](Bybit) exchange.
 ///
 /// ### Notes
 /// A `Server` [`ExchangeServer`] implementations exists for
-/// [`BybitSpot`](spot::BybitSpot) and [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
+/// [`BybitSpot`](spot::BybitSpot) and [`BybitPerpetualsUsd`](futures::BybitPerpetualsUsd).
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 pub struct Bybit<Server> {
     server: PhantomData<Server>,
@@ -114,6 +119,16 @@ where
 {
     type Stream =
         ExchangeWsStream<StatelessTransformer<Self, Instrument::Id, PublicTrades, BybitMessage>>;
+}
+
+impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL1> for Bybit<Server>
+where
+    Instrument: InstrumentData,
+    Server: ExchangeServer + Debug + Send + Sync,
+{
+    type Stream = ExchangeWsStream<
+        StatelessTransformer<Self, Instrument::Id, OrderBooksL1, BybitPerpetualsOrderBookL2>,
+    >;
 }
 
 impl<'de, Server> serde::Deserialize<'de> for Bybit<Server>
