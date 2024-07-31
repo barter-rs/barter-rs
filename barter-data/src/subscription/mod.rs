@@ -20,6 +20,10 @@ use std::{
     hash::Hash,
 };
 
+// TODO: AccountUpdateKind?
+/// AccountUpdates [`AccountUpdateKind`] and the associated Barter output data model.
+pub mod account;
+
 /// OrderBook [`SubscriptionKind`]s and the associated Barter output data models.
 pub mod book;
 

@@ -47,6 +47,12 @@ pub enum SocketError {
     #[error("HTTP error: {0}")]
     Http(reqwest::Error),
 
+    #[error("request authorization invalid: {0}")]
+    HttpUnauthorized(String),
+
+    #[error("HTTP execution error: {0}")]
+    HttpExecution(reqwest::Error),
+
     #[error("HTTP request timed out")]
     HttpTimeout(reqwest::Error),
 

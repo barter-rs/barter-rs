@@ -41,6 +41,9 @@ pub mod kraken;
 /// `Okx` [`Connector`] and [`StreamSelector`] implementations.
 pub mod okx;
 
+/// `Ibkr` [`Connector`] and [`StreamSelector`] implementations.
+pub mod ibkr;
+
 /// Defines the generic [`ExchangeSub`] containing a market and channel combination used by an
 /// exchange [`Connector`] to build [`WsMessage`] subscription payloads.
 pub mod subscription;
@@ -183,6 +186,7 @@ pub enum ExchangeId {
     GateioPerpetualsBtc,
     GateioPerpetualsUsd,
     GateioOptions,
+    Ibkr,
     Kraken,
     Okx,
 }
@@ -216,6 +220,7 @@ impl ExchangeId {
             ExchangeId::GateioPerpetualsUsd => "gateio_perpetuals_usd",
             ExchangeId::GateioPerpetualsBtc => "gateio_perpetuals_btc",
             ExchangeId::GateioOptions => "gateio_options",
+            ExchangeId::Ibkr => "ibkr",
             ExchangeId::Kraken => "kraken",
             ExchangeId::Okx => "okx",
         }
