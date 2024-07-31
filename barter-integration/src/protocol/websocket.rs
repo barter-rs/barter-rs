@@ -1,15 +1,19 @@
-use crate::{error::SocketError, protocol::StreamParser};
+use crate::{
+    error::SocketError,
+    protocol::{danger::NoCertificateVerification, StreamParser},
+};
+use rustls::{ClientConfig, RootCertStore};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
-    connect_async,
+    connect_async, connect_async_tls_with_config,
     tungstenite::{
         client::IntoClientRequest,
         error::ProtocolError,
         protocol::{frame::Frame, CloseFrame},
     },
-    MaybeTlsStream,
+    Connector, MaybeTlsStream,
 };
 use tracing::debug;
 
@@ -86,12 +90,15 @@ where
 {
     Some(
         serde_json::from_slice::<ExchangeMessage>(&payload).map_err(|error| {
-            debug!(
-                ?error,
-                ?payload,
-                action = "returning Some(Err(err))",
-                "failed to deserialize WebSocket Message into domain specific Message"
-            );
+            unsafe {
+                let payload_str: &str = std::str::from_utf8_unchecked(&payload);
+                debug!(
+                    ?error,
+                    payload = payload_str,
+                    action = "returning Some(Err(err))",
+                    "failed to deserialize WebSocket Message into domain specific Message"
+                );
+            }
             SocketError::Deserialise {
                 error,
                 payload: String::from_utf8(payload).unwrap_or_else(|x| x.to_string()),
@@ -141,6 +148,29 @@ where
 {
     debug!(?request, "attempting to establish WebSocket connection");
     connect_async(request)
+        .await
+        .map(|(websocket, _)| websocket)
+        .map_err(SocketError::WebSocket)
+}
+
+/// Connect asynchronously to a local [`WebSocket`] server.
+pub async fn connect_local<R>(request: R) -> Result<WebSocket, SocketError>
+where
+    R: IntoClientRequest + Unpin + Debug,
+{
+    debug!(?request, "attempting to establish WebSocket connection");
+    let root_cert_store = RootCertStore::empty();
+
+    let mut config = ClientConfig::builder()
+        .with_root_certificates(root_cert_store)
+        .with_no_client_auth();
+
+    config
+        .dangerous()
+        .set_certificate_verifier(Arc::new(NoCertificateVerification {}));
+
+    let connector = Connector::Rustls(Arc::new(config));
+    connect_async_tls_with_config(request, None, false, Some(connector))
         .await
         .map(|(websocket, _)| websocket)
         .map_err(SocketError::WebSocket)

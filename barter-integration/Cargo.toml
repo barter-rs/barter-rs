@@ -48,3 +48,5 @@ base64 = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 bytes = { workspace = true }
 rust_decimal = { workspace = true }
+# not upgrading this version due to rustls::crypto::ring change/build error
+rustls = "0.22.3"

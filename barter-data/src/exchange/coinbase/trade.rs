@@ -117,7 +117,7 @@ mod tests {
                     price: 400.23,
                     amount: 5.23512,
                     side: Side::Sell,
-                    time: DateTime::from_utc(
+                    time: DateTime::from_naive_utc_and_offset(
                         NaiveDateTime::from_str("2014-11-07T08:19:27.028459").unwrap(),
                         Utc,
                     ),
