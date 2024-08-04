@@ -16,10 +16,10 @@ use barter_integration::{
 use futures::SinkExt;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use tracing::{debug, info};
+use tracing::debug;
 
 /// [`SubscriptionMapper`] implementations defining how to map a
-/// collection of Barter [`Subscription`]s into exchange specific [`SubscriptionMeta`].
+/// collection of Barter [`Subscription`]s into execution specific [`SubscriptionMeta`].
 pub mod mapper;
 
 /// [`SubscriptionValidator`] implementations defining how to
@@ -72,7 +72,7 @@ impl Subscriber for WebSocketSubscriber {
         let url = Exchange::url()?;
         debug!(%exchange, %url, ?subscriptions, "subscribing to WebSocket");
 
-        // Connect to exchange
+        // Connect to execution
         let mut websocket = connect(url).await?;
         debug!(%exchange, ?subscriptions, "connected to WebSocket");
 
@@ -84,7 +84,7 @@ impl Subscriber for WebSocketSubscriber {
 
         // Send Subscriptions over WebSocket
         for subscription in ws_subscriptions {
-            debug!(%exchange, payload = ?subscription, "sending exchange subscription");
+            debug!(%exchange, payload = ?subscription, "sending execution subscription");
             websocket.send(subscription).await?;
         }
 
@@ -96,7 +96,7 @@ impl Subscriber for WebSocketSubscriber {
         >(instrument_map, &mut websocket)
         .await?;
 
-        info!(%exchange, "subscribed to WebSocket");
+        debug!(%exchange, "successfully initialised WebSocket stream with confirmed Subscriptions");
         Ok(Subscribed {
             websocket,
             map,

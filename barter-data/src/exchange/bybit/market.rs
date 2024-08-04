@@ -31,11 +31,11 @@ impl<Server, InstrumentKey, Kind> Identifier<BybitMarket>
     }
 }
 
-impl<Server, Kind> Identifier<BybitMarket>
-    for Subscription<Bybit<Server>, MarketInstrumentData, Kind>
+impl<Server, InstrumentKey, Kind> Identifier<BybitMarket>
+    for Subscription<Bybit<Server>, MarketInstrumentData<InstrumentKey>, Kind>
 {
     fn id(&self) -> BybitMarket {
-        BybitMarket(self.instrument.name_exchange.clone())
+        BybitMarket(self.instrument.name_exchange.name().clone())
     }
 }
 

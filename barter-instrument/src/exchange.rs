@@ -1,21 +1,39 @@
-use derive_more::Display;
+use derive_more::{Constructor, Display};
 use serde::{Deserialize, Serialize};
 
-/// Unique identifier for an exchange server.
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
+pub struct ExchangeIndex(pub usize);
+
+impl ExchangeIndex {
+    pub fn index(&self) -> usize {
+        self.0
+    }
+}
+
+impl Display for ExchangeIndex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ExchangeIndex({})", self.0)
+    }
+}
+
+/// Unique identifier for an execution server.
 ///
 /// ### Notes
-/// An exchange may have a distinct server for different
-/// [`InstrumentKinds`](InstrumentKind).
+/// An execution may have a distinct server for different
+/// [`InstrumentKinds`](super::instrument::kind::InstrumentKind).
 ///
 /// For example, BinanceSpot and BinanceFuturesUsd have distinct APIs, and are therefore
 /// represented as unique variants.
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display,
 )]
-#[serde(rename = "exchange", rename_all = "snake_case")]
+#[serde(rename = "execution", rename_all = "snake_case")]
 pub enum ExchangeId {
     Other,
     Simulated,
+    Mock,
     BinanceFuturesCoin,
     BinanceFuturesUsd,
     BinanceOptions,
@@ -64,6 +82,7 @@ impl ExchangeId {
         match self {
             ExchangeId::Other => "other",
             ExchangeId::Simulated => "simulated",
+            ExchangeId::Mock => "mock",
             ExchangeId::BinanceFuturesCoin => "binance_futures_coin",
             ExchangeId::BinanceFuturesUsd => "binance_futures_usd",
             ExchangeId::BinanceOptions => "binance_options",

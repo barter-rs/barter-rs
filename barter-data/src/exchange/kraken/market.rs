@@ -27,9 +27,11 @@ impl<InstrumentKey, Kind> Identifier<KrakenMarket>
     }
 }
 
-impl<Kind> Identifier<KrakenMarket> for Subscription<Kraken, MarketInstrumentData, Kind> {
+impl<InstrumentKey, Kind> Identifier<KrakenMarket>
+    for Subscription<Kraken, MarketInstrumentData<InstrumentKey>, Kind>
+{
     fn id(&self) -> KrakenMarket {
-        KrakenMarket(self.instrument.name_exchange.clone())
+        KrakenMarket(self.instrument.name_exchange.name().clone())
     }
 }
 

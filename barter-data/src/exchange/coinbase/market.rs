@@ -27,9 +27,11 @@ impl<InstrumentKey, Kind> Identifier<CoinbaseMarket>
     }
 }
 
-impl<Kind> Identifier<CoinbaseMarket> for Subscription<Coinbase, MarketInstrumentData, Kind> {
+impl<InstrumentKey, Kind> Identifier<CoinbaseMarket>
+    for Subscription<Coinbase, MarketInstrumentData<InstrumentKey>, Kind>
+{
     fn id(&self) -> CoinbaseMarket {
-        CoinbaseMarket(self.instrument.name_exchange.clone())
+        CoinbaseMarket(self.instrument.name_exchange.name().clone())
     }
 }
 

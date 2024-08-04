@@ -1,9 +1,23 @@
+#![forbid(unsafe_code)]
+#![warn(
+    unused,
+    clippy::cognitive_complexity,
+    unused_crate_dependencies,
+    unused_extern_crates,
+    clippy::unused_self,
+    clippy::useless_let_if_seq,
+    missing_debug_implementations,
+    rust_2018_idioms,
+    rust_2024_compatibility
+)]
+#![allow(clippy::type_complexity, clippy::too_many_arguments, type_alias_bounds)]
+
 //! # Barter
-//! [`Barter`] is an open-source Rust framework for building **event-driven live-trading & backtesting systems**.
+//! [`Barter`] is an open-source Rust framework for building **event-driven live-trading & back-testing systems**.
 //! Algorithmic trade with the peace of mind that comes from knowing your strategies have been
 //! backtested with a near-identical trading Engine.
 //! It is:
-//! * **Fast**: Barter provides a multi-threaded trading Engine framework built in high-performance Rust (in-rust-we-trust).
+//! * **Fast**: Barter provides a multithreaded trading Engine framework built in high-performance Rust (in-rust-we-trust).
 //! * **Easy**: Barter provides a modularised data architecture that focuses on simplicity.
 //! * **Customisable**: A set of traits define how every Barter component communicates, providing a highly extensible
 //!   framework for trading.
@@ -30,7 +44,7 @@
 //!   behaviour required in dry-trading or backtesting runs.
 //! * **Statistic**: Provides metrics such as Sharpe Ratio, Calmar Ratio, and Max Drawdown to analyse trading session
 //!   performance. One-pass dispersion algorithms analyse each closed Position and efficiently calculates a trading summary.
-//! * **Trader**: Capable of trading a single market pair using a customisable selection of it's own Data, Strategy &
+//! * **Trader**: Capable of trading a single market pair using a customisable selection of its own Data, Strategy &
 //!   Execution instances, as well as shared access to a global Portfolio.
 //! * **Engine**: Multi-threaded trading Engine capable of trading with an arbitrary number of Trader market pairs. Each
 //!   contained Trader instance operates on its own thread.
@@ -40,327 +54,182 @@
 //! [`Readme`]: https://crates.io/crates/barter
 //!
 //! ## Getting Started
-//! ### Data Handler
-//! ```
-//!
-//!
-//! use barter::{data::{Feed, historical, MarketGenerator}, test_util};
-//! use barter_integration::Side;
-//!
-//! let mut data = historical::MarketFeed::new([test_util::market_event_trade(Side::Buy)].into_iter());
-//!
-//! loop {
-//!     let market_event = match data.next() {
-//!         Feed::Next(market_event) => market_event,
-//!         Feed::Finished => break,
-//!         Feed::Unhealthy => continue,
-//!     };
-//! }
-//! ```
-//!
-//! ### Strategy
-//! ```
-//! use barter::{
-//!     strategy::{SignalGenerator, example::{Config as StrategyConfig, RSIStrategy}},
-//!     test_util,
-//! };
-//! use barter_integration::Side;
-//!
-//! let config = StrategyConfig {
-//!     rsi_period: 14,
-//! };
-//!
-//! let mut strategy = RSIStrategy::new(config);
-//!
-//! let market_event = test_util::market_event_trade(Side::Buy);
-//!
-//! let signal_event = strategy.generate_signal(&market_event);
-//! ```
-//!
-//! ### Portfolio
-//! ```
-//! use barter::{
-//!     portfolio::{
-//!         MarketUpdater, OrderGenerator, FillUpdater,
-//!         portfolio::{PortfolioLego, MetaPortfolio},
-//!         repository::in_memory::InMemoryRepository,
-//!         allocator::DefaultAllocator,
-//!         risk::DefaultRisk,
-//!     },
-//!     statistic::summary::{
-//!         pnl::PnLReturnSummary,
-//!         trading::{Config as StatisticConfig, TradingSummary},
-//!     },
-//!     event::Event,
-//!     test_util,
-//! };
-//! use std::marker::PhantomData;
-//! use uuid::Uuid;
-//! use barter_instrument::exchange::ExchangeId;
-//! use barter_instrument::instrument::market_data::kind::MarketDataInstrumentKind;
-//! use barter_instrument::market::Market;
-//!
-//! let components = PortfolioLego {
-//!     engine_id: Uuid::new_v4(),
-//!     markets: vec![Market::new(ExchangeId::BinanceSpot, ("btc", "usdt", MarketDataInstrumentKind::Spot))],
-//!     repository: InMemoryRepository::new(),
-//!     allocator: DefaultAllocator{ default_order_value: 100.0 },
-//!     risk: DefaultRisk{},
-//!     starting_cash: 10000.0,
-//!     statistic_config: StatisticConfig {
-//!         starting_equity: 10000.0 ,
-//!         trading_days_per_year: 365,
-//!         risk_free_return: 0.0
-//!     },
-//!     _statistic_marker: PhantomData::<TradingSummary>::default()
-//! };
-//!
-//! let mut portfolio = MetaPortfolio::init(components).unwrap();
-//!
-//! let some_event = Event::OrderNew(test_util::order_event());
-//!
-//! match some_event {
-//!     Event::Market(market) => {
-//!         portfolio.update_from_market(&market);
-//!     }
-//!     Event::Signal(signal) => {
-//!         portfolio.generate_order(&signal);
-//!     }
-//!     Event::SignalForceExit(signal) => {
-//!         portfolio.generate_exit_order(signal);
-//!     }
-//!     Event::Fill(fill) => {
-//!         portfolio.update_from_fill(&fill);
-//!     }
-//!     _ => {}
-//! }
-//! ```
-//!
-//! ### Execution
-//! ```
-//! use barter::{
-//!     test_util,
-//!     portfolio::OrderEvent,
-//!     execution::{
-//!         simulated::{Config as ExecutionConfig, SimulatedExecution},
-//!         Fees, ExecutionClient,
-//!     }
-//! };
-//!
-//! let config = ExecutionConfig {
-//!     simulated_fees_pct: Fees {
-//!         exchange: 0.1,
-//!         slippage: 0.05, // Simulated slippage modelled as a Fee
-//!         network: 0.0,
-//!     }
-//! };
-//!
-//! let mut execution = SimulatedExecution::new(config);
-//!
-//! let order_event = test_util::order_event();
-//!
-//! let fill_event = execution.generate_fill(&order_event);
-//! ```
-//!
-//! ### Statistic
-//! ```
-//! use barter::{
-//!     test_util,
-//!     portfolio::position::Position,
-//!     statistic::summary::{
-//!         trading::{Config as StatisticConfig, TradingSummary},
-//!         Initialiser, PositionSummariser, TableBuilder
-//!     }
-//! };
-//!
-//! // Do some automated trading with barter components that generates a vector of closed Positions
-//! let positions = vec![test_util::position(), test_util::position()];
-//!
-//! let config = StatisticConfig {
-//!     starting_equity: 10000.0,
-//!     trading_days_per_year: 253,
-//!     risk_free_return: 0.5,
-//! };
-//!
-//! let mut trading_summary = TradingSummary::init(config);
-//!
-//! trading_summary.generate_summary(&positions);
-//!
-//! trading_summary
-//!     .table("Total")
-//!     .printstd();
-//! ```
-//!
-//! ### Engine & Traders
+//! Todo: write docs
+//! ### Engine Examples
 //! [See Readme Engine Example](https://crates.io/crates/barter#example)
 
-#![warn(
-    unused,
-    missing_debug_implementations,
-    missing_copy_implementations,
-    rust_2018_idioms,
-    // missing_docs
-)]
-#![allow(clippy::type_complexity)]
-#![allow(clippy::module_inception)]
+use crate::{
+    engine::{command::Command, state::trading::TradingState},
+    execution::AccountStreamEvent,
+};
+use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
+use barter_execution::AccountEvent;
+use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
+use chrono::{DateTime, Utc};
+use derive_more::{Constructor, From};
+use serde::{Deserialize, Serialize};
 
-#[macro_use]
-extern crate prettytable;
-/// Defines a MarketEvent, and provides the Continuer and MarketGenerator traits for
-/// handling the generation of them. Contains implementations such as the (tick-by_tick)
-/// LiveTradeHandler, and HistoricalCandleHandler that generates a market feed and acts as the
-/// system heartbeat.
-pub mod data;
-
-/// Defines a SignalEvent and SignalForceExit, as well as the SignalGenerator trait for handling the
-/// generation of them. Contains an example RSIStrategy implementation that analyses a MarketEvent
-/// and may generate a new advisory SignalEvent to be analysed by the Portfolio OrderGenerator.
+pub mod engine;
+pub mod error;
+pub mod execution;
+pub mod logging;
+pub mod risk;
+pub mod statistic;
 pub mod strategy;
 
-/// Defines useful data structures such as an OrderEvent and Position. The Portfolio must
-/// interact with MarketEvents, SignalEvents, OrderEvents, and FillEvents. The useful traits
-/// MarketUpdater, OrderGenerator, & FillUpdater are provided that define the interactions
-/// with these events. Contains a MetaPortfolio implementation that persists state in a
-/// generic Repository. This also contains example implementations of an OrderAllocator &
-/// OrderEvaluator, which help the Portfolio make decisions on whether to generate OrderEvents and
-/// of what size.
-pub mod portfolio;
+// Todo: Must: Final Requirements
+//  - Comprehensive rust docs & check output
+//  - Comprehensive rust examples
+//  - Comprehensive readme.md for each crate & workspace
+//  - Comprehensive rust tests
 
-/// Defines a FillEvent, and provides a useful trait FillGenerator for handling the generation
-/// of them. Contains an example SimulatedExecution implementation that simulates live broker
-/// execution.
-pub mod execution;
+pub type FnvIndexMap<K, V> = indexmap::IndexMap<K, V, fnv::FnvBuildHasher>;
+pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
 
-/// Defines an Event enum that contains variants that are vital to the trading event loop
-/// (eg/ MarketEvent). Other variants communicate work done by the system (eg/ FillEvent), as well
-/// as changes in system state (eg/ PositionUpdate).
-pub mod event;
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Default,
+    Deserialize,
+    Serialize,
+    Constructor,
+)]
+pub struct Timed<T> {
+    pub value: T,
+    pub time: DateTime<Utc>,
+}
 
-/// Defines various iterative statistical methods that can be used to calculate trading performance
-/// metrics in one-pass. A trading performance summary implementation has been provided containing
-/// several key metrics such as Sharpe Ratio, Calmar Ratio, and Max Drawdown.
-pub mod statistic;
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
+pub enum EngineEvent<
+    MarketKind,
+    ExchangeKey = ExchangeIndex,
+    AssetKey = AssetIndex,
+    InstrumentKey = InstrumentIndex,
+> {
+    Shutdown,
+    Command(Command<ExchangeKey, AssetKey, InstrumentKey>),
+    TradingStateUpdate(TradingState),
+    Account(AccountStreamEvent<ExchangeKey, AssetKey, InstrumentKey>),
+    Market(MarketStreamEvent<InstrumentKey, MarketKind>),
+}
 
-/// Multi-threaded trading Engine capable of trading with an arbitrary number market pairs. Contains
-/// a Trader for each Market pair that consists of it's own Data, Strategy &
-/// Execution components, as well as shared access to a global Portfolio.
-pub mod engine;
+impl<MarketKind, ExchangeKey, AssetKey, InstrumentKey>
+    From<AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>
+    for EngineEvent<MarketKind, ExchangeKey, AssetKey, InstrumentKey>
+{
+    fn from(value: AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) -> Self {
+        Self::Account(AccountStreamEvent::Item(value))
+    }
+}
 
-pub mod test_util {
+impl<MarketKind, ExchangeKey, AssetKey, InstrumentKey> From<MarketEvent<InstrumentKey, MarketKind>>
+    for EngineEvent<MarketKind, ExchangeKey, AssetKey, InstrumentKey>
+{
+    fn from(value: MarketEvent<InstrumentKey, MarketKind>) -> Self {
+        Self::Market(MarketStreamEvent::Item(value))
+    }
+}
+
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
+pub struct Sequence(pub u64);
+
+impl Sequence {
+    pub fn value(&self) -> u64 {
+        self.0
+    }
+
+    pub fn fetch_add(&mut self) -> Sequence {
+        let sequence = *self;
+        self.0 += 1;
+        sequence
+    }
+}
+
+#[cfg(test)]
+pub mod test_utils {
     use crate::{
-        data::MarketMeta,
-        execution::{Fees, FillEvent},
-        portfolio::{position::Position, OrderEvent, OrderType},
-        strategy::{Decision, Signal},
+        engine::state::asset::AssetState, statistic::summary::asset::TearSheetAssetGenerator, Timed,
     };
-    use barter_data::{
-        event::{DataKind, MarketEvent},
-        subscription::{candle::Candle, trade::PublicTrade},
+    use barter_execution::{
+        balance::Balance,
+        order::{OrderId, StrategyId},
+        trade::{AssetFees, Trade, TradeId},
     };
     use barter_instrument::{
-        exchange::ExchangeId,
-        instrument::market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
+        asset::QuoteAsset, instrument::name::InstrumentNameInternal, test_utils::asset, Side,
     };
-    use barter_integration::Side;
-    use chrono::Utc;
-    use smol_str::ToSmolStr;
-    use std::ops::Add;
+    use chrono::{DateTime, Days, Utc};
+    use rust_decimal::Decimal;
 
-    /// Build a [`MarketEvent`] of [`DataKind::PublicTrade`](DataKind) with the provided [`Side`].
-    pub fn market_event_trade(side: Side) -> MarketEvent<MarketDataInstrument, DataKind> {
-        MarketEvent {
-            time_exchange: Utc::now(),
-            time_received: Utc::now(),
-            exchange: ExchangeId::BinanceSpot,
-            instrument: MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Spot)),
-            kind: DataKind::Trade(PublicTrade {
-                id: "trade_id".to_string(),
-                price: 1000.0,
-                amount: 1.0,
-                side,
-            }),
+    pub fn f64_is_eq(actual: f64, expected: f64, epsilon: f64) -> bool {
+        if actual.is_nan() && expected.is_nan() {
+            true
+        } else if actual.is_infinite() && expected.is_infinite() {
+            actual.is_sign_positive() == expected.is_sign_positive()
+        } else if actual.is_nan()
+            || expected.is_nan()
+            || actual.is_infinite()
+            || expected.is_infinite()
+        {
+            false
+        } else {
+            (actual - expected).abs() < epsilon
         }
     }
 
-    /// Build a [`MarketEvent`] of [`DataKind::Candle`](DataKind).
-    pub fn market_event_candle() -> MarketEvent<MarketDataInstrument, DataKind> {
-        let now = Utc::now();
-        MarketEvent {
-            time_exchange: now,
-            time_received: now.add(chrono::Duration::milliseconds(200)),
-            exchange: ExchangeId::BinanceSpot,
-            instrument: MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Spot)),
-            kind: DataKind::Candle(Candle {
-                close_time: now,
-                open: 960.0,
-                high: 1100.0,
-                low: 950.0,
-                close: 1000.0,
-                volume: 100000.0,
-                trade_count: 1000,
-            }),
+    pub fn time_plus_days(base: DateTime<Utc>, plus: u64) -> DateTime<Utc> {
+        base.checked_add_days(Days::new(plus)).unwrap()
+    }
+
+    pub fn trade(
+        time_exchange: DateTime<Utc>,
+        side: Side,
+        price: f64,
+        quantity: f64,
+        fees: f64,
+    ) -> Trade<QuoteAsset, InstrumentNameInternal> {
+        Trade {
+            id: TradeId::new("trade_id"),
+            order_id: OrderId::new("order_id"),
+            instrument: InstrumentNameInternal::new("instrument"),
+            strategy: StrategyId::new("strategy"),
+            time_exchange,
+            side,
+            price: price.try_into().unwrap(),
+            quantity: quantity.try_into().unwrap(),
+            fees: AssetFees {
+                asset: QuoteAsset,
+                fees: fees.try_into().unwrap(),
+            },
         }
     }
 
-    /// Build a [`Signal`].
-    pub fn signal() -> Signal {
-        Signal {
-            time: Utc::now(),
-            exchange: ExchangeId::BinanceSpot,
-            instrument: MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Spot)),
-            signals: Default::default(),
-            market_meta: Default::default(),
-        }
-    }
+    pub fn asset_state(
+        symbol: &str,
+        balance_total: f64,
+        balance_free: f64,
+        time_exchange: DateTime<Utc>,
+    ) -> AssetState {
+        let balance = Timed::new(
+            Balance::new(
+                Decimal::try_from(balance_total).unwrap(),
+                Decimal::try_from(balance_free).unwrap(),
+            ),
+            time_exchange,
+        );
 
-    /// Build an [`OrderEvent`] to buy 1.0 contract.
-    pub fn order_event() -> OrderEvent {
-        OrderEvent {
-            time: Utc::now(),
-            exchange: ExchangeId::BinanceSpot,
-            instrument: MarketDataInstrument::from(("eth", "usdt", MarketDataInstrumentKind::Spot)),
-            market_meta: MarketMeta::default(),
-            decision: Decision::default(),
-            quantity: 1.0,
-            order_type: OrderType::default(),
-        }
-    }
-
-    /// Build a [`FillEvent`] for a single bought contract.
-    pub fn fill_event() -> FillEvent {
-        FillEvent {
-            time: Utc::now(),
-            exchange: ExchangeId::BinanceSpot,
-            instrument: MarketDataInstrument::from(("eth", "usdt", MarketDataInstrumentKind::Spot)),
-            market_meta: Default::default(),
-            decision: Decision::default(),
-            quantity: 1.0,
-            fill_value_gross: 100.0,
-            fees: Fees::default(),
-        }
-    }
-
-    /// Build a [`Position`].
-    pub fn position() -> Position {
-        Position {
-            position_id: "engine_id_trader_{}_{}_position".to_smolstr(),
-            exchange: ExchangeId::BinanceSpot,
-            instrument: MarketDataInstrument::from(("eth", "usdt", MarketDataInstrumentKind::Spot)),
-            meta: Default::default(),
-            side: Side::Buy,
-            quantity: 1.0,
-            enter_fees: Default::default(),
-            enter_fees_total: 0.0,
-            enter_avg_price_gross: 100.0,
-            enter_value_gross: 100.0,
-            exit_fees: Default::default(),
-            exit_fees_total: 0.0,
-            exit_avg_price_gross: 0.0,
-            exit_value_gross: 0.0,
-            current_price: 100.0,
-            current_value_gross: 100.0,
-            unrealised_profit_loss: 0.0,
-            realised_profit_loss: 0.0,
+        AssetState {
+            asset: asset(symbol),
+            balance: Some(balance),
+            statistics: TearSheetAssetGenerator::init(&balance),
         }
     }
 }

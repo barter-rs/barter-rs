@@ -1,6 +1,6 @@
 [package]
 name = "barter-execution"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2021"
 authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
 license = "MIT"
@@ -16,7 +16,7 @@ categories = ["accessibility", "simulation"]
 # Barter Ecosystem
 barter-integration = { workspace = true }
 barter-instrument = { workspace = true }
-barter-data = { workspace = true }
+# barter-data = { workspace = true }
 
 # Logging
 tracing = { workspace = true }
@@ -26,12 +26,12 @@ tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
 tokio-stream = { workspace = true, features = ["sync"] }
 tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
 futures = { workspace = true }
-async-trait = { workspace = true }
-pin-project = { workspace = true }
 
 # Data Structures
-parking_lot = { workspace = true }
 smol_str = { workspace = true }
+fnv = { workspace = true }
+indexmap = { workspace = true }
+rust_decimal = { workspace = true }
 
 # Error
 thiserror = { workspace = true }
@@ -44,5 +44,8 @@ serde_json = { workspace = true }
 reqwest = { workspace = true, features = ["rustls-tls", "json"] }
 
 # Misc
-uuid = { workspace = true, features = ["v4", "serde"] }
-chrono = { workspace = true, features = ["serde"] }
+uuid = { workspace = true, features = ["v4", "serde"]}
+chrono = { workspace = true, features = ["serde"]}
+itertools = { workspace = true }
+derive_more = { workspace = true, features = ["constructor", "from", "display"]}
+

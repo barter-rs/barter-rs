@@ -47,9 +47,6 @@ parking_lot = { workspace = true }
 rust_decimal = { workspace = true, features = ["serde-with-str"] }
 smol_str = { workspace = true, features = ["serde"] }
 
-# Strategy
-ta = { workspace = true }
-
 # Misc
 chrono = { workspace = true, features = ["serde"] }
 derive_more = { workspace = true }
