@@ -1,9 +1,8 @@
 use super::ClientOrderId;
 use barter_instrument::{
     asset::name::AssetNameInternal, exchange::ExchangeId,
-    instrument::market_data::MarketDataInstrument,
+    instrument::market_data::MarketDataInstrument, Side,
 };
-use barter_integration::Side;
 use serde::{Deserialize, Serialize};
 use smol_str::{SmolStr, ToSmolStr};
 use std::{

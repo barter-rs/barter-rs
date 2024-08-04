@@ -107,9 +107,9 @@ where
                     .ok_or_else(|| DataError::InitialSnapshotMissing(sub_id.clone()))?;
 
                 let OrderBookEvent::Snapshot(snapshot) = &snapshot.kind else {
-                    return Err(DataError::InitialSnapshotInvalid(
+                    return Err(DataError::InitialSnapshotInvalid(String::from(
                         "expected OrderBookEvent::Snapshot but found OrderBookEvent::Update",
-                    ));
+                    )));
                 };
 
                 let sequencer = BinanceFuturesUsdOrderBookL2Sequencer {

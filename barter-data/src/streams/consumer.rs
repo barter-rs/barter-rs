@@ -13,6 +13,7 @@ use crate::{
     Identifier, MarketStream,
 };
 use barter_instrument::exchange::ExchangeId;
+use derive_more::Constructor;
 use futures::Stream;
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -56,10 +57,7 @@ where
     // Determine StreamKey for use in logging
     let stream_key = subscriptions
         .first()
-        .map(|sub| StreamKey {
-            exchange,
-            kind: sub.kind.as_str(),
-        })
+        .map(|sub| StreamKey::new("market_stream", exchange, Some(sub.kind.as_str())))
         .ok_or(DataError::SubscriptionsEmpty)?;
 
     info!(
@@ -67,7 +65,7 @@ where
         ?subscriptions,
         ?policy,
         ?stream_key,
-        "MarketStream with auto reconnect running"
+        "MarketStream with auto reconnect initialising"
     );
 
     Ok(init_reconnecting_stream(move || {
@@ -80,14 +78,26 @@ where
     .with_reconnection_events(exchange))
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+#[derive(
+    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
 pub struct StreamKey<Kind = &'static str> {
+    pub stream: &'static str,
     pub exchange: ExchangeId,
-    pub kind: Kind,
+    pub kind: Option<Kind>,
+}
+
+impl StreamKey {
+    pub fn new_general(stream: &'static str, exchange: ExchangeId) -> Self {
+        Self::new(stream, exchange, None)
+    }
 }
 
 impl std::fmt::Debug for StreamKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "market_stream-{}-{}", self.exchange, self.kind)
+        match self.kind {
+            None => write!(f, "{}-{}", self.stream, self.exchange),
+            Some(kind) => write!(f, "{}-{}-{}", self.stream, self.exchange, kind),
+        }
     }
 }

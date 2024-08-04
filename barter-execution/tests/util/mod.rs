@@ -16,8 +16,8 @@ use barter_instrument::{
     asset::name::AssetNameInternal,
     exchange::ExchangeId,
     instrument::market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
+    Side,
 };
-use barter_integration::Side;
 use std::{collections::HashMap, time::Duration};
 use tokio::sync::mpsc;
 

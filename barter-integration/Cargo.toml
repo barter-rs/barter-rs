@@ -12,8 +12,9 @@ keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
 [dev-dependencies]
-rust_decimal_macros = { workspace = true }
 barter-instrument = { path = "../barter-instrument", version = "0.1.0" }
+rust_decimal_macros = { workspace = true }
+tokio-test = { workspace = true }
 
 [dependencies]
 # Logging
@@ -52,5 +53,6 @@ base64 = { workspace = true }
 
 # Misc
 chrono = { workspace = true, features = ["serde"] }
+itertools = { workspace = true }
 bytes = { workspace = true }
 derive_more = { workspace = true, features = ["display", "constructor"] }

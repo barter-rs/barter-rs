@@ -8,9 +8,8 @@ use crate::{
 };
 use barter_instrument::{
     asset::name::AssetNameInternal, exchange::ExchangeId,
-    instrument::market_data::MarketDataInstrument,
+    instrument::market_data::MarketDataInstrument, Side,
 };
-use barter_integration::Side;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -17,8 +17,8 @@ use barter_execution::{
 use barter_instrument::{
     asset::name::AssetNameInternal,
     instrument::market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
+    Side,
 };
-use barter_integration::Side;
 use smol_str::ToSmolStr;
 use tokio::sync::mpsc;
 use uuid::Uuid;

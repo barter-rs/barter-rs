@@ -8,8 +8,9 @@ use crate::{
     Cancelled, ExecutionError, Open, Order, RequestCancel, RequestOpen,
 };
 use barter_data::subscription::trade::PublicTrade;
-use barter_instrument::{exchange::ExchangeId, instrument::market_data::MarketDataInstrument};
-use barter_integration::Side;
+use barter_instrument::{
+    exchange::ExchangeId, instrument::market_data::MarketDataInstrument, Side,
+};
 use chrono::Utc;
 use std::{fmt::Debug, time::Duration};
 use tokio::sync::{mpsc, oneshot};

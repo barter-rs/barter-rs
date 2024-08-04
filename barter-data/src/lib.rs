@@ -103,7 +103,8 @@ use barter_integration::{
         websocket::{WebSocketParser, WsMessage, WsSink, WsStream},
         StreamParser,
     },
-    ExchangeStream, Transformer,
+    stream::ExchangeStream,
+    Transformer,
 };
 use futures::{SinkExt, Stream, StreamExt};
 use std::{collections::VecDeque, future::Future};

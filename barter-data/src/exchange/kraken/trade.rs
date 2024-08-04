@@ -4,11 +4,10 @@ use crate::{
     subscription::trade::PublicTrade,
     Identifier,
 };
-use barter_instrument::exchange::ExchangeId;
+use barter_instrument::{exchange::ExchangeId, Side};
 use barter_integration::{
     de::{datetime_utc_from_epoch_duration, extract_next},
     subscription::SubscriptionId,
-    Side,
 };
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -211,9 +210,9 @@ mod tests {
 
     mod de {
         use super::*;
+        use barter_instrument::Side;
         use barter_integration::{
             de::datetime_utc_from_epoch_duration, error::SocketError, subscription::SubscriptionId,
-            Side,
         };
 
         #[test]

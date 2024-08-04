@@ -1,10 +1,11 @@
 use crate::subscription::SubKind;
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{error::SocketError, subscription::SubscriptionId};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// All errors generated in `barter-data`.
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
 pub enum DataError {
     #[error("failed to initialise reconnecting MarketStream due to empty subscriptions")]
     SubscriptionsEmpty,
@@ -16,7 +17,7 @@ pub enum DataError {
     InitialSnapshotMissing(SubscriptionId),
 
     #[error("initial snapshot invalid: {0}")]
-    InitialSnapshotInvalid(&'static str),
+    InitialSnapshotInvalid(String),
 
     #[error("SocketError: {0}")]
     Socket(String),

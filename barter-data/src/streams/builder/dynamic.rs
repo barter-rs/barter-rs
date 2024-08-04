@@ -42,7 +42,7 @@ use futures::{
 };
 use futures_util::{future::try_join_all, StreamExt};
 use itertools::Itertools;
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use vecmap::VecMap;
 
@@ -78,7 +78,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         SubIter: IntoIterator<Item = Sub>,
         Sub: Into<Subscription<ExchangeId, Instrument, SubKind>>,
         Instrument: InstrumentData<Key = InstrumentKey> + Ord + 'static,
-        InstrumentKey: Clone + Send + 'static,
+        InstrumentKey: Debug + Clone + Send + 'static,
         Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
         Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
         Subscription<BinanceSpot, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
@@ -135,7 +135,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.trades.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -155,7 +155,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.l1s.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -175,7 +175,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.trades.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -195,7 +195,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.l1s.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -215,7 +215,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.liquidations.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -235,7 +235,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.trades.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -255,7 +255,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.trades.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -275,7 +275,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.trades.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -295,7 +295,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.trades.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -315,7 +315,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.trades.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -335,7 +335,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.trades.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -355,7 +355,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.trades.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -375,7 +375,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.trades.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -395,7 +395,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.trades.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -415,7 +415,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.trades.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -435,7 +435,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.trades.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -455,7 +455,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.trades.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -475,7 +475,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         )
                                         .await
                                         .map(|stream| {
-                                            tokio::spawn(stream.boxed().forward_to(
+                                            tokio::spawn(stream.forward_to(
                                                 txs.l1s.get(&exchange).unwrap().clone(),
                                             ))
                                         })
@@ -491,7 +491,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     .await
                                     .map(|stream| {
                                         tokio::spawn(
-                                            stream.boxed().forward_to(
+                                            stream.forward_to(
                                                 txs.trades.get(&exchange).unwrap().clone(),
                                             ),
                                         )

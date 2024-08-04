@@ -98,8 +98,8 @@ pub mod test_util {
     use barter_instrument::{
         exchange::ExchangeId,
         instrument::market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
+        Side,
     };
-    use barter_integration::Side;
 
     pub fn client_orders(
         trade_number: u64,

@@ -12,6 +12,11 @@ keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+rust_decimal_macros = { workspace = true }
+
 [dependencies]
 # Barter Ecosystem
 barter-integration = { path = "../barter-integration", version = "0.7.4" }
@@ -37,9 +42,9 @@ serde_json = { workspace = true }
 # Data Structures
 rust_decimal = { workspace = true }
 smol_str = { workspace = true }
-
-# Persistence
-redis = "0.25.4"
+fnv = { workspace = true }
+vecmap-rs = { workspace = true, features = ["serde"] }
+indexmap = { workspace = true, features = ["serde"]}
 
 # Strategy
 ta = { workspace = true }
@@ -48,4 +53,6 @@ ta = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
 chrono = { workspace = true, features = ["serde"]}
 parking_lot = { workspace = true }
+derive_more = { workspace = true, features = ["constructor", "from", "display"]}
 prettytable-rs = "0.10.0"
+itertools = { workspace = true }

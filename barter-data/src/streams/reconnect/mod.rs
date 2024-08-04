@@ -1,3 +1,4 @@
+use derive_more::From;
 use serde::{Deserialize, Serialize};
 
 pub mod stream;
@@ -9,6 +10,12 @@ pub enum Event<Origin, T> {
     /// [`ReconnectingStream`] has disconnecting and is attempting to reconnect.
     Reconnecting(Origin),
     Item(T),
+}
+
+impl<Origin, T> From<T> for Event<Origin, T> {
+    fn from(value: T) -> Self {
+        Self::Item(value)
+    }
 }
 
 impl<Origin, T> Event<Origin, T> {

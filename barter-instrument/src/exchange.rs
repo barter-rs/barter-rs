@@ -1,5 +1,27 @@
-use derive_more::Display;
+use derive_more::{Constructor, Display};
 use serde::{Deserialize, Serialize};
+
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Deserialize,
+    Serialize,
+    Display,
+    Constructor,
+)]
+pub struct ExchangeIndex(usize);
+
+impl ExchangeIndex {
+    pub fn index(&self) -> usize {
+        self.0
+    }
+}
 
 /// Unique identifier for an exchange server.
 ///
@@ -16,6 +38,7 @@ use serde::{Deserialize, Serialize};
 pub enum ExchangeId {
     Other,
     Simulated,
+    Mock,
     BinanceFuturesCoin,
     BinanceFuturesUsd,
     BinanceOptions,
@@ -64,6 +87,7 @@ impl ExchangeId {
         match self {
             ExchangeId::Other => "other",
             ExchangeId::Simulated => "simulated",
+            ExchangeId::Mock => "mock",
             ExchangeId::BinanceFuturesCoin => "binance_futures_coin",
             ExchangeId::BinanceFuturesUsd => "binance_futures_usd",
             ExchangeId::BinanceOptions => "binance_options",

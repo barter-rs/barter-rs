@@ -11,11 +11,7 @@ use crate::{
     Identifier,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{
-    channel::{mpsc_unbounded, UnboundedRx, UnboundedTx},
-    Validator,
-};
-use futures_util::StreamExt;
+use barter_integration::{channel::Channel, Validator};
 use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 
 /// Defines the [`MultiStreamBuilder`](multi::MultiStreamBuilder) API for ergonomically
@@ -39,8 +35,7 @@ pub struct StreamBuilder<InstrumentKey, Kind>
 where
     Kind: SubscriptionKind,
 {
-    pub channels:
-        HashMap<ExchangeId, ExchangeChannel<MarketStreamResult<InstrumentKey, Kind::Event>>>,
+    pub channels: HashMap<ExchangeId, Channel<MarketStreamResult<InstrumentKey, Kind::Event>>>,
     pub futures: Vec<SubscribeFuture>,
 }
 
@@ -80,7 +75,7 @@ where
         Sub: Into<Subscription<Exchange, Instrument, Kind>>,
         Exchange: StreamSelector<Instrument, Kind> + Ord + Send + Sync + 'static,
         Instrument: InstrumentData<Key = InstrumentKey> + Ord + 'static,
-        Instrument::Key: Clone + Send + 'static,
+        Instrument::Key: Debug + Clone + Send + 'static,
         Kind: Ord + Send + Sync + 'static,
         Kind::Event: Clone + Send,
         Subscription<Exchange, Instrument, Kind>:
@@ -109,7 +104,7 @@ where
             let stream = init_market_stream(STREAM_RECONNECTION_POLICY, subscriptions).await?;
 
             // Forward MarketEvents to ExchangeTx
-            tokio::spawn(stream.boxed().forward_to(exchange_tx));
+            tokio::spawn(stream.forward_to(exchange_tx));
 
             Ok(())
         }));
@@ -137,27 +132,5 @@ where
                 .map(|(exchange, channel)| (exchange, channel.rx))
                 .collect(),
         })
-    }
-}
-
-/// Convenient type that holds the [`mpsc::UnboundedSender`] and [`mpsc::UnboundedReceiver`] for a
-/// [`MarketEvent<T>`](MarketEvent) channel.
-#[derive(Debug)]
-pub struct ExchangeChannel<T> {
-    tx: UnboundedTx<T>,
-    rx: UnboundedRx<T>,
-}
-
-impl<T> ExchangeChannel<T> {
-    /// Construct a new [`Self`].
-    pub fn new() -> Self {
-        let (tx, rx) = mpsc_unbounded();
-        Self { tx, rx }
-    }
-}
-
-impl<T> Default for ExchangeChannel<T> {
-    fn default() -> Self {
-        Self::new()
     }
 }

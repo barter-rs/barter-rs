@@ -55,7 +55,7 @@ impl SubscriptionMapper for WebSocketSubMapper {
                 // Determine the SubscriptionId associated with this exchange specific subscription
                 let subscription_id = exchange_sub.id();
 
-                // Use ExchangeSub SubscriptionId as the link to this Barter Subscription
+                // Use ExchangeSub SubscriptionId as the manager to this Barter Subscription
                 instrument_map
                     .0
                     .insert(subscription_id, subscription.instrument.key().clone());
