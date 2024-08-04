@@ -7,7 +7,7 @@ use serde::de::DeserializeOwned;
 pub mod websocket;
 
 /// Contains HTTP client capable of executing signed & unsigned requests, as well as an associated
-/// exchange oriented HTTP request.
+/// execution oriented HTTP request.
 pub mod http;
 
 /// `StreamParser`s are capable of parsing the input messages from a given stream protocol

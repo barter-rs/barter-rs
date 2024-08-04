@@ -91,8 +91,8 @@ impl From<BinanceOrderBookL2Snapshot> for OrderBookEvent {
 }
 
 /// Deserialize a
-/// [`BinanceSpotOrderBookL2Delta`](super::super::spot::l2::BinanceSpotOrderBookL2Delta) or
-/// [`BinanceFuturesOrderBookL2Delta`](super::super::futures::l2::BinanceFuturesOrderBookL2Update)
+/// [`BinanceSpotOrderBookL2Update`](super::super::spot::l2::BinanceSpotOrderBookL2Update) or
+/// [`BinanceFuturesOrderBookL2Update`](super::super::futures::l2::BinanceFuturesOrderBookL2Update)
 /// "s" field (eg/ "BTCUSDT") as the associated [`SubscriptionId`]
 ///
 /// eg/ "@depth@100ms|BTCUSDT"

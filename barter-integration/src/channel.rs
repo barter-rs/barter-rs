@@ -1,7 +1,9 @@
+use crate::Unrecoverable;
 use derive_more::{Constructor, Display};
 use futures::Sink;
 use serde::{Deserialize, Serialize};
 use std::{
+    fmt::Debug,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -9,11 +11,32 @@ use tracing::warn;
 
 pub trait Tx
 where
-    Self: Clone + Send,
+    Self: Debug + Clone + Send,
 {
     type Item;
-    type Error;
-    fn send(&self, item: Self::Item) -> Result<(), Self::Error>;
+    type Error: Unrecoverable + Debug;
+    fn send<Item: Into<Self::Item>>(&self, item: Item) -> Result<(), Self::Error>;
+}
+
+/// Convenience type that holds the [`UnboundedTx`] and [`UnboundedRx`].
+#[derive(Debug)]
+pub struct Channel<T> {
+    pub tx: UnboundedTx<T>,
+    pub rx: UnboundedRx<T>,
+}
+
+impl<T> Channel<T> {
+    /// Construct a new unbounded [`Channel`].
+    pub fn new() -> Self {
+        let (tx, rx) = mpsc_unbounded();
+        Self { tx, rx }
+    }
+}
+
+impl<T> Default for Channel<T> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -29,13 +52,19 @@ impl<T> UnboundedTx<T> {
 
 impl<T> Tx for UnboundedTx<T>
 where
-    T: Clone + Send,
+    T: Debug + Clone + Send,
 {
     type Item = T;
     type Error = tokio::sync::mpsc::error::SendError<T>;
 
-    fn send(&self, item: Self::Item) -> Result<(), Self::Error> {
-        self.tx.send(item)
+    fn send<Item: Into<Self::Item>>(&self, item: Item) -> Result<(), Self::Error> {
+        self.tx.send(item.into())
+    }
+}
+
+impl<T> Unrecoverable for tokio::sync::mpsc::error::SendError<T> {
+    fn is_unrecoverable(&self) -> bool {
+        true
     }
 }
 

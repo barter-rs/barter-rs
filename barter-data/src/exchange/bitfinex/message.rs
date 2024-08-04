@@ -132,7 +132,8 @@ impl<'de> serde::Deserialize<'de> for BitfinexMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use barter_integration::{de::datetime_utc_from_epoch_duration, error::SocketError, Side};
+    use barter_instrument::Side;
+    use barter_integration::{de::datetime_utc_from_epoch_duration, error::SocketError};
     use std::time::Duration;
 
     #[test]

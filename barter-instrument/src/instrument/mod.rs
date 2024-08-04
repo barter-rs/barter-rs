@@ -1,35 +1,35 @@
 use crate::{
     asset::Asset,
-    exchange::ExchangeId,
     instrument::{
         kind::InstrumentKind,
         market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
-        name::InstrumentNameInternal,
+        name::{InstrumentNameExchange, InstrumentNameInternal},
         spec::{InstrumentSpec, InstrumentSpecQuantity, OrderQuantityUnits},
     },
     Underlying,
 };
-use derive_more::Display;
+use derive_more::{Constructor, Display};
 use serde::{Deserialize, Serialize};
-use smol_str::SmolStr;
+use std::fmt::Formatter;
 
+/// Defines an [`Instrument`]s [`InstrumentKind`] (eg/ Spot, Perpetual, etc).
 pub mod kind;
 
-/// Defines the Barter [`AssetNameInternal`], used as a `SmolStr` identifier for an [`Asset`]
-/// (not unique across exchanges).
+/// Defines the [`InstrumentNameExchange`] and [`InstrumentNameExchange`] types, used as
+/// `SmolStr` identifiers for an [`Instrument`].
 pub mod name;
 
 /// Defines the [`InstrumentSpec`], including specifications for an [`Instrument`]s
 /// price, quantity and notional value.
 ///
-/// eg/ `InstrumentSpecPrice.tick_size`, `OrderQuantityUnits`, etc.  
+/// eg/ `InstrumentSpecPrice.tick_size`, `OrderQuantityUnits`, etc.
 pub mod spec;
 
 /// Defines a simplified [`MarketDataInstrument`], with only the necessary data to subscribe to
-/// market data feeds.  
+/// market data feeds.
 pub mod market_data;
 
-/// Unique identifier for an `Instrument` traded on an exchange.
+/// Unique identifier for an `Instrument` traded on an execution.
 ///
 /// Used to key data events in a memory efficient way.
 #[derive(
@@ -38,41 +38,75 @@ pub mod market_data;
 pub struct InstrumentId(pub u64);
 
 #[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display,
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
-pub struct InstrumentIndex(usize);
+pub struct InstrumentIndex(pub usize);
+
+impl InstrumentIndex {
+    pub fn index(&self) -> usize {
+        self.0
+    }
+}
+
+impl Display for InstrumentIndex {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "InstrumentIndex({})", self.0)
+    }
+}
 
 /// Comprehensive Instrument model, containing all the data required to subscribe to market data
 /// and generate correct orders.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
-pub struct Instrument<AssetKey> {
-    pub exchange: ExchangeId,
+pub struct Instrument<ExchangeKey, AssetKey> {
+    pub exchange: ExchangeKey,
     pub name_internal: InstrumentNameInternal,
-    pub name_exchange: SmolStr,
+    pub name_exchange: InstrumentNameExchange,
     pub underlying: Underlying<AssetKey>,
     #[serde(alias = "instrument_kind")]
     pub kind: InstrumentKind<AssetKey>,
-    pub spec: InstrumentSpec<AssetKey>,
+    pub spec: Option<InstrumentSpec<AssetKey>>,
 }
 
-impl<AssetKey> Instrument<AssetKey> {
+impl<ExchangeKey, AssetKey> Instrument<ExchangeKey, AssetKey> {
     /// Construct a new [`Self`] with the provided data, assuming the [`InstrumentNameInternal`]
     /// can be created via the [`InstrumentNameInternal::new_from_exchange`] constructor.
-    pub fn new<NameExchange>(
-        exchange: ExchangeId,
+    pub fn new<NameInternal, NameExchange>(
+        exchange: ExchangeKey,
+        name_internal: NameInternal,
         name_exchange: NameExchange,
         underlying: Underlying<AssetKey>,
         kind: InstrumentKind<AssetKey>,
-        spec: InstrumentSpec<AssetKey>,
+        spec: Option<InstrumentSpec<AssetKey>>,
     ) -> Self
     where
-        NameExchange: Into<SmolStr>,
+        NameInternal: Into<InstrumentNameInternal>,
+        NameExchange: Into<InstrumentNameExchange>,
     {
-        let name_exchange = name_exchange.into();
-        let name_internal =
-            InstrumentNameInternal::new_from_exchange(exchange, name_exchange.clone());
-
         Self {
+            exchange,
+            name_internal: name_internal.into(),
+            name_exchange: name_exchange.into(),
+            underlying,
+            kind,
+            spec,
+        }
+    }
+
+    /// Map this Instruments `ExchangeKey` to a new key.
+    pub fn map_exchange_key<NewExchangeKey>(
+        self,
+        exchange: NewExchangeKey,
+    ) -> Instrument<NewExchangeKey, AssetKey> {
+        let Instrument {
+            exchange: _,
+            name_internal,
+            name_exchange,
+            underlying,
+            kind,
+            spec,
+        } = self;
+
+        Instrument {
             exchange,
             name_internal,
             name_exchange,
@@ -83,10 +117,10 @@ impl<AssetKey> Instrument<AssetKey> {
     }
 
     /// Map this Instruments `AssetKey` to a new key, using the provided lookup closure.
-    pub fn map_asset_key<FnFindAsset, NewAssetKey, Error>(
+    pub fn map_asset_key_with_lookup<FnFindAsset, NewAssetKey, Error>(
         self,
         find_asset: FnFindAsset,
-    ) -> Result<Instrument<NewAssetKey>, Error>
+    ) -> Result<Instrument<ExchangeKey, NewAssetKey>, Error>
     where
         FnFindAsset: Fn(&AssetKey) -> Result<NewAssetKey, Error>,
     {
@@ -96,21 +130,11 @@ impl<AssetKey> Instrument<AssetKey> {
             name_exchange,
             underlying: Underlying { base, quote },
             kind,
-            spec:
-                InstrumentSpec {
-                    price,
-                    quantity:
-                        InstrumentSpecQuantity {
-                            unit,
-                            min,
-                            increment,
-                        },
-                    notional,
-                },
+            spec,
         } = self;
 
-        let base_index = find_asset(&base)?;
-        let quote_index = find_asset(&quote)?;
+        let base_new_key = find_asset(&base)?;
+        let quote_new_key = find_asset(&quote)?;
 
         let kind = match kind {
             InstrumentKind::Spot => InstrumentKind::Spot,
@@ -132,33 +156,54 @@ impl<AssetKey> Instrument<AssetKey> {
                 contract,
             },
         };
-        let unit = match unit {
-            OrderQuantityUnits::Asset(asset) => OrderQuantityUnits::Asset(find_asset(&asset)?),
-            OrderQuantityUnits::Contract => OrderQuantityUnits::Contract,
-            OrderQuantityUnits::Quote => OrderQuantityUnits::Quote,
+
+        let spec = match spec {
+            Some(spec) => {
+                let InstrumentSpec {
+                    price,
+                    quantity:
+                        InstrumentSpecQuantity {
+                            unit,
+                            min,
+                            increment,
+                        },
+                    notional,
+                } = spec;
+
+                let unit = match unit {
+                    OrderQuantityUnits::Asset(asset) => {
+                        OrderQuantityUnits::Asset(find_asset(&asset)?)
+                    }
+                    OrderQuantityUnits::Contract => OrderQuantityUnits::Contract,
+                    OrderQuantityUnits::Quote => OrderQuantityUnits::Quote,
+                };
+
+                Some(InstrumentSpec {
+                    price,
+                    quantity: InstrumentSpecQuantity {
+                        unit,
+                        min,
+                        increment,
+                    },
+                    notional,
+                })
+            }
+            None => None,
         };
 
         Ok(Instrument {
             exchange,
             name_internal,
             name_exchange,
-            underlying: Underlying::new(base_index, quote_index),
+            underlying: Underlying::new(base_new_key, quote_new_key),
             kind,
-            spec: InstrumentSpec {
-                price,
-                quantity: InstrumentSpecQuantity {
-                    unit,
-                    min,
-                    increment,
-                },
-                notional,
-            },
+            spec,
         })
     }
 }
 
-impl From<&Instrument<Asset>> for MarketDataInstrument {
-    fn from(value: &Instrument<Asset>) -> Self {
+impl<ExchangeKey> From<&Instrument<ExchangeKey, Asset>> for MarketDataInstrument {
+    fn from(value: &Instrument<ExchangeKey, Asset>) -> Self {
         Self {
             base: value.underlying.base.name_internal.clone(),
             quote: value.underlying.quote.name_internal.clone(),

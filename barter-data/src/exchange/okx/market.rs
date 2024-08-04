@@ -35,9 +35,11 @@ impl<InstrumentKey, Kind> Identifier<OkxMarket>
     }
 }
 
-impl<Kind> Identifier<OkxMarket> for Subscription<Okx, MarketInstrumentData, Kind> {
+impl<InstrumentKey, Kind> Identifier<OkxMarket>
+    for Subscription<Okx, MarketInstrumentData<InstrumentKey>, Kind>
+{
     fn id(&self) -> OkxMarket {
-        OkxMarket(self.instrument.name_exchange.clone())
+        OkxMarket(self.instrument.name_exchange.name().clone())
     }
 }
 

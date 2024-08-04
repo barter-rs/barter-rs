@@ -53,7 +53,7 @@ impl Validator for BitfinexPlatformEvent {
             BitfinexPlatformEvent::PlatformStatus(status) => match status.status {
                 Status::Operative => Ok(self),
                 Status::Maintenance => Err(SocketError::Subscribe(format!(
-                    "exchange version: {} with server_id: {} is in maintenance mode",
+                    "execution version: {} with server_id: {} is in maintenance mode",
                     status.api_version, status.server_id,
                 ))),
             },
@@ -294,7 +294,7 @@ mod tests {
                     status: Status::Maintenance,
                 }),
                 expected: Err(SocketError::Subscribe(format!(
-                    "exchange version: {} with server_id: {} is in maintenance mode",
+                    "execution version: {} with server_id: {} is in maintenance mode",
                     2, "server_id",
                 ))),
             },
