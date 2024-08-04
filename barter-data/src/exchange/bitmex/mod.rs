@@ -15,16 +15,17 @@ use crate::{
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
+use derive_more::Display;
 use serde::de::{Error, Unexpected};
 use std::fmt::Debug;
 use url::Url;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
+/// into an execution [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an exchange [`Connector`] specific market used for generating [`Connector::requests`].
+/// into an execution [`Connector`] specific market used for generating [`Connector::requests`].
 pub mod market;
 
 /// Generic [`BitmexMessage<T>`](message::BitmexMessage)
@@ -34,7 +35,7 @@ pub mod message;
 /// [`Validator`](barter_integration::Validator) for [`Bitmex`].
 pub mod subscription;
 
-/// Public trade types for [`Bitmex`](Bitmex)
+/// Public trade types for [`Bitmex`].
 pub mod trade;
 
 /// [`Bitmex`] server base url.
@@ -42,7 +43,7 @@ pub mod trade;
 /// See docs: <https://www.bitmex.com/app/wsAPI>
 pub const BASE_URL_BITMEX: &str = "wss://ws.bitmex.com/realtime";
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, Display)]
 pub struct Bitmex;
 
 impl Connector for Bitmex {

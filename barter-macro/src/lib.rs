@@ -11,7 +11,7 @@ pub fn de_exchange_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput =
         syn::parse(input).expect("de_exchange_derive() failed to parse input TokenStream");
 
-    // Determine exchange name
+    // Determine execution name
     let exchange = &ast.ident;
 
     let generated = quote! {

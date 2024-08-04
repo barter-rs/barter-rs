@@ -12,7 +12,7 @@ use tokio::sync::mpsc;
 pub mod stateless;
 
 /// Defines how to construct a [`Transformer`] used by [`MarketStream`](super::MarketStream)s to
-/// translate exchange specific types to normalised Barter types.
+/// translate execution specific types to normalised Barter types.
 #[async_trait]
 pub trait ExchangeTransformer<Exchange, InstrumentKey, Kind>
 where
@@ -22,7 +22,7 @@ where
     /// Initialise a new [`Self`], also fetching any market data snapshots required for the
     /// associated Exchange and SubscriptionKind market stream to function.
     ///
-    /// The [`mpsc::UnboundedSender`] can be used by [`Self`] to send messages back to the exchange.
+    /// The [`mpsc::UnboundedSender`] can be used by [`Self`] to send messages back to the execution.
     async fn init(
         instrument_map: Map<InstrumentKey>,
         initial_snapshots: &[MarketEvent<InstrumentKey, Kind::Event>],

@@ -11,6 +11,7 @@ use crate::{
     ExchangeWsStream,
 };
 use barter_instrument::exchange::ExchangeId;
+use std::fmt::{Display, Formatter};
 
 /// Level 2 OrderBook types.
 pub mod l2;
@@ -20,7 +21,7 @@ pub mod l2;
 /// See docs: <https://binance-docs.github.io/apidocs/spot/en/#websocket-market-streams>
 pub const WEBSOCKET_BASE_URL_BINANCE_SPOT: &str = "wss://stream.binance.com:9443/ws";
 
-/// [`Binance`] spot exchange.
+/// [`Binance`] spot execution.
 pub type BinanceSpot = Binance<BinanceServerSpot>;
 
 /// [`Binance`] spot [`ExchangeServer`].
@@ -41,4 +42,10 @@ where
 {
     type SnapFetcher = BinanceSpotOrderBooksL2SnapshotFetcher;
     type Stream = ExchangeWsStream<BinanceSpotOrderBooksL2Transformer<Instrument::Key>>;
+}
+
+impl Display for BinanceSpot {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BinanceSpot")
+    }
 }

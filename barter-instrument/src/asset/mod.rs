@@ -1,10 +1,12 @@
-use crate::{asset::name::AssetNameInternal, exchange::ExchangeId};
+use crate::{
+    asset::name::{AssetNameExchange, AssetNameInternal},
+    exchange::ExchangeId,
+};
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
-use smol_str::SmolStr;
 
-/// Defines the Barter [`AssetNameInternal`], used as a `SmolStr` identifier for an [`Asset`]
-/// (not unique across exchanges).
+/// Defines the [`AssetNameInternal`] and [`AssetNameExchange`] types, used as `SmolStr`
+/// identifiers for an [`Asset`].
 pub mod name;
 
 /// Unique identifier for an [`Asset`].
@@ -14,24 +16,19 @@ pub mod name;
 pub struct AssetId(pub u64);
 
 #[derive(
-    Debug,
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    Deserialize,
-    Serialize,
-    Display,
-    Constructor,
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
-pub struct AssetIndex(usize);
+pub struct AssetIndex(pub usize);
 
 impl AssetIndex {
     pub fn index(&self) -> usize {
         self.0
+    }
+}
+
+impl Display for AssetIndex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "AssetIndex({})", self.0)
     }
 }
 
@@ -46,12 +43,12 @@ pub struct ExchangeAsset<Asset> {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct Asset {
     pub name_internal: AssetNameInternal,
-    pub name_exchange: SmolStr,
+    pub name_exchange: AssetNameExchange,
 }
 
 impl<S> From<S> for Asset
 where
-    S: Into<SmolStr>,
+    S: Into<AssetNameExchange>,
 {
     fn from(value: S) -> Self {
         Self::new_from_exchange(value)
@@ -62,7 +59,7 @@ impl Asset {
     pub fn new<Internal, Exchange>(name_internal: Internal, name_exchange: Exchange) -> Self
     where
         Internal: Into<AssetNameInternal>,
-        Exchange: Into<SmolStr>,
+        Exchange: Into<AssetNameExchange>,
     {
         Self {
             name_internal: name_internal.into(),
@@ -72,11 +69,11 @@ impl Asset {
 
     pub fn new_from_exchange<S>(name_exchange: S) -> Self
     where
-        S: Into<SmolStr>,
+        S: Into<AssetNameExchange>,
     {
         let name_exchange = name_exchange.into();
         Self {
-            name_internal: AssetNameInternal::from(name_exchange.as_str()),
+            name_internal: AssetNameInternal::from(name_exchange.name().clone()),
             name_exchange,
         }
     }
@@ -94,3 +91,19 @@ impl From<Asset> for AssetNameInternal {
         value.name_internal
     }
 }
+
+/// Special type that represents a "base" [`Asset`].
+///
+/// Examples: <br>
+/// a) Instrument = btc_usdt_spot, [`BaseAsset`] => btc <br>
+/// b) Instrument = eth_btc_spot, [`BaseAsset`] => eth
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display)]
+pub struct BaseAsset;
+
+/// Special type that represents a "quote" [`Asset`].
+///
+/// Examples: <br>
+/// a) Instrument = btc_usdt_spot, [`QuoteAsset`] => usdt <br>
+/// b) Instrument = eth_btc_spot, [`QuoteAsset`] => btc
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display)]
+pub struct QuoteAsset;
