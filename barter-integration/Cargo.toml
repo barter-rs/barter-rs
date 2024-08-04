@@ -1,10 +1,10 @@
 [package]
 name = "barter-integration"
-version = "0.7.4"
-authors = ["JustAStream"]
+version = "0.8.0"
 edition = "2021"
+authors = ["JustAStream <justastream.code@gmail.com>"]
 license = "MIT"
-documentation = "https://docs.rs/barter-integration/"
+documentation = "https://docs.rs/barter-integration"
 repository = "https://github.com/barter-rs/barter-rs"
 readme = "README.md"
 description = "Low-level framework for composing flexible web integrations, especially with financial exchanges"
@@ -12,10 +12,13 @@ keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
 [dev-dependencies]
-rust_decimal_macros = { workspace = true }
-barter-instrument = { workspace = true }
+tokio-test = { workspace = true }
+sha2 = { workspace = true }
 
 [dependencies]
+# Barter Ecosystem
+barter-instrument = { path = "../barter-instrument", version = "0.2.0" }
+
 # Logging
 tracing = { workspace = true }
 
@@ -37,25 +40,25 @@ tokio = { workspace = true, features = [
 ] }
 tokio-stream = { workspace = true }
 futures = { workspace = true }
-async-trait = { workspace = true }
 pin-project = { workspace = true }
 
 # Data Structures
-rust_decimal = { workspace = true }
-smol_str = { workspace = true, features = ["serde"] }
+indexmap = { workspace = true }
+fnv = { workspace = true }
+smol_str = { workspace = true, features = ["serde"]}
 
 # Protocol
-tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
+tokio-tungstenite = { workspace = true, features = ["native-tls"] }
 reqwest = { workspace = true, features = ["json"] }
 url = { workspace = true }
 
 # Cryptographic Signatures
 hmac = { workspace = true }
-sha2 = { workspace = true }
 hex = { workspace = true }
 base64 = { workspace = true }
 
 # Misc
 chrono = { workspace = true, features = ["serde"] }
+itertools = { workspace = true }
 bytes = { workspace = true }
 derive_more = { workspace = true, features = ["display", "constructor"] }

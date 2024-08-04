@@ -1,165 +1,149 @@
+#![forbid(unsafe_code)]
 #![warn(
+    unused,
+    clippy::cognitive_complexity,
+    unused_crate_dependencies,
+    unused_extern_crates,
+    clippy::unused_self,
+    clippy::useless_let_if_seq,
     missing_debug_implementations,
-    missing_copy_implementations,
     rust_2018_idioms,
-    // missing_docs
+    rust_2024_compatibility
 )]
-#![allow(clippy::type_complexity)]
+#![allow(clippy::type_complexity, clippy::too_many_arguments, type_alias_bounds)]
 
 //! # Barter-Execution
-//! High-performance and normalised trading interface capable of executing across many financial
-//! venues. Also provides a feature rich simulated exchange to assist with backtesting
-//! and dry-trading. Communicate with an exchange by initialising it's associated
-//! `ExecutionClient` instance.
+//! Stream private account data from financial venues, and execute (live or mock) orders. Also provides
+//! a feature rich MockExchange and MockExecutionClient to assist with backtesting and paper-trading.
+//!
 //! **It is:**
-//! * **Easy**: ExecutionClient trait provides a unified and simple language for interacting with
-//!   exchanges.
-//! * **Normalised**: Allow your strategy to communicate with every real or simulated exchange
-//!   using the same interface.
-//! * **Extensible**: Barter-Execution is highly extensible, making it easy to contribute by adding
-//!   new exchange integrations!
+//! * **Easy**: ExecutionClient trait provides a unified and simple language for interacting with exchanges.
+//! * **Normalised**: Allow your strategy to communicate with every real or MockExchange using the same interface.
+//! * **Extensible**: Barter-Execution is highly extensible, making it easy to contribute by adding new exchange integrations!
 //!
 //! See `README.md` for more information and examples.
 
 use crate::{
-    error::ExecutionError,
-    model::{
-        balance::AssetBalance,
-        order::{Cancelled, Open, Order, OrderId, RequestCancel, RequestOpen},
-        AccountEvent,
-    },
+    balance::AssetBalance,
+    error::ClientError,
+    order::{Cancelled, ExchangeOrderState, Open, Order},
+    trade::Trade,
 };
-use async_trait::async_trait;
-use barter_instrument::exchange::ExchangeId;
-use tokio::sync::mpsc;
+use barter_instrument::{
+    asset::{name::AssetNameExchange, AssetIndex, QuoteAsset},
+    exchange::{ExchangeId, ExchangeIndex},
+    instrument::{name::InstrumentNameExchange, InstrumentIndex},
+};
+use barter_integration::snapshot::Snapshot;
+use derive_more::{Constructor, From};
+use serde::{Deserialize, Serialize};
 
-/// Errors generated during live, dry, or simulated execution.
+pub mod balance;
+pub mod client;
 pub mod error;
+pub mod exchange;
+pub mod indexer;
+pub mod map;
+pub mod order;
+pub mod trade;
 
-/// Core data structures to support executing on exchanges.
-///
-/// eg/ `Order`, `Balance`, `Trade` etc.
-pub mod model;
+/// Convenient type alias for an [`AccountEvent`] keyed with [`ExchangeId`],
+/// [`AssetNameExchange`], and [`InstrumentNameExchange`].
+pub type UnindexedAccountEvent =
+    AccountEvent<ExchangeId, AssetNameExchange, InstrumentNameExchange>;
 
-/// [`ExecutionClient`] implementations for official exchanges.
-pub mod execution;
+/// Convenient type alias for an [`AccountSnapshot`] keyed with [`ExchangeId`],
+/// [`AssetNameExchange`], and [`InstrumentNameExchange`].
+pub type UnindexedAccountSnapshot =
+    AccountSnapshot<ExchangeId, AssetNameExchange, InstrumentNameExchange>;
 
-/// Simulated Exchange and it's associated simulated [`ExecutionClient`].
-pub mod simulated;
-
-/// Defines the communication with the exchange. Each exchange integration requires it's own
-/// implementation.
-#[async_trait]
-pub trait ExecutionClient {
-    const CLIENT: ExchangeId;
-    type Config;
-
-    /// Initialise a new [`ExecutionClient`] with the provided [`Self::Config`] and
-    /// [`AccountEvent`] transmitter.
-    ///
-    /// **Note:**
-    /// Usually entails spawning an asynchronous WebSocket event loop to consume [`AccountEvent`]s
-    /// from the exchange, as well as returning the HTTP client `Self`.
-    async fn init(config: Self::Config, event_tx: mpsc::UnboundedSender<AccountEvent>) -> Self;
-
-    /// Fetch account [`Order<Open>`]s.
-    async fn fetch_orders_open(&self) -> Result<Vec<Order<Open>>, ExecutionError>;
-
-    /// Fetch account [`AssetBalance`]s.
-    async fn fetch_balances(&self) -> Result<Vec<AssetBalance>, ExecutionError>;
-
-    /// Open orders.
-    async fn open_orders(
-        &self,
-        open_requests: Vec<Order<RequestOpen>>,
-    ) -> Vec<Result<Order<Open>, ExecutionError>>;
-
-    /// Cancel [`Order<Open>`]s.
-    async fn cancel_orders(
-        &self,
-        cancel_requests: Vec<Order<RequestCancel>>,
-    ) -> Vec<Result<Order<Cancelled>, ExecutionError>>;
-
-    /// Cancel all account [`Order<Open>`]s.
-    async fn cancel_orders_all(&self) -> Result<Vec<Order<Cancelled>>, ExecutionError>;
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct AccountEvent<
+    ExchangeKey = ExchangeIndex,
+    AssetKey = AssetIndex,
+    InstrumentKey = InstrumentIndex,
+> {
+    pub exchange: ExchangeKey,
+    pub kind: AccountEventKind<ExchangeKey, AssetKey, InstrumentKey>,
 }
 
-/// Utilities for generating common data structures required for testing.
-pub mod test_util {
-    use crate::{
-        model::{
-            trade::{AssetFees, Trade, TradeId},
-            ClientOrderId,
-        },
-        simulated::exchange::account::order::Orders,
-        Open, Order, OrderId,
-    };
-    use barter_data::subscription::trade::PublicTrade;
-    use barter_instrument::{
-        exchange::ExchangeId,
-        instrument::market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
-    };
-    use barter_integration::Side;
-
-    pub fn client_orders(
-        trade_number: u64,
-        bids: Vec<Order<Open>>,
-        asks: Vec<Order<Open>>,
-    ) -> Orders {
-        Orders {
-            trade_counter: trade_number,
-            bids,
-            asks,
+impl<ExchangeKey, AssetKey, InstrumentKey> AccountEvent<ExchangeKey, AssetKey, InstrumentKey> {
+    pub fn new<K>(exchange: ExchangeKey, kind: K) -> Self
+    where
+        K: Into<AccountEventKind<ExchangeKey, AssetKey, InstrumentKey>>,
+    {
+        Self {
+            exchange,
+            kind: kind.into(),
         }
     }
+}
 
-    pub fn order_open(
-        cid: ClientOrderId,
-        side: Side,
-        price: f64,
-        quantity: f64,
-        filled: f64,
-    ) -> Order<Open> {
-        Order {
-            exchange: ExchangeId::Other,
-            instrument: MarketDataInstrument::from((
-                "base",
-                "quote",
-                MarketDataInstrumentKind::Perpetual,
-            )),
-            cid,
-            side,
-            state: Open {
-                id: OrderId::from("order_id"),
-                price,
-                quantity,
-                filled_quantity: filled,
-            },
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
+pub enum AccountEventKind<ExchangeKey, AssetKey, InstrumentKey> {
+    /// Full [`AccountSnapshot`] - replaces all existing state.
+    Snapshot(AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey>),
+
+    /// Single [`AssetBalance`] snapshot - replaces existing balance state.
+    BalanceSnapshot(Snapshot<AssetBalance<AssetKey>>),
+
+    /// Single [`Order<ExchangeKey, InstrumentKey, Open>`] snapshot - replaces existing order state.
+    OrderSnapshot(Snapshot<Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>),
+
+    /// Response to an [`Order<ExchangeKey, InstrumentKey, RequestOpen>`].
+    OrderOpened(
+        Order<ExchangeKey, InstrumentKey, Result<Open, ClientError<AssetKey, InstrumentKey>>>,
+    ),
+    /// Response to an [`Order<ExchangeKey, InstrumentKey, RequestCancel>`].
+    OrderCancelled(
+        Order<ExchangeKey, InstrumentKey, Result<Cancelled, ClientError<AssetKey, InstrumentKey>>>,
+    ),
+
+    /// [`Order<ExchangeKey, InstrumentKey, Open>`] partial or full fill.
+    Trade(Trade<QuoteAsset, InstrumentKey>),
+}
+
+impl<ExchangeKey, AssetKey, InstrumentKey> AccountEvent<ExchangeKey, AssetKey, InstrumentKey>
+where
+    AssetKey: Eq,
+    InstrumentKey: Eq,
+{
+    pub fn snapshot(self) -> Option<AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey>> {
+        if let AccountEventKind::Snapshot(snapshot) = self.kind {
+            Some(snapshot)
+        } else {
+            None
         }
     }
+}
 
-    pub fn public_trade(side: Side, price: f64, amount: f64) -> PublicTrade {
-        PublicTrade {
-            id: "trade_id".to_string(),
-            price,
-            amount,
-            side,
-        }
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize, Constructor,
+)]
+pub struct AccountSnapshot<
+    ExchangeKey = ExchangeIndex,
+    AssetKey = AssetIndex,
+    InstrumentKey = InstrumentIndex,
+> {
+    pub exchange: ExchangeKey,
+    pub balances: Vec<AssetBalance<AssetKey>>,
+    pub instruments: Vec<InstrumentAccountSnapshot<ExchangeKey, InstrumentKey>>,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize, Constructor,
+)]
+pub struct InstrumentAccountSnapshot<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
+    pub instrument: InstrumentKey,
+    pub orders: Vec<Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>,
+}
+
+impl<ExchangeKey, AssetKey, InstrumentKey> AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey> {
+    pub fn assets(&self) -> impl Iterator<Item = &AssetKey> {
+        self.balances.iter().map(|balance| &balance.asset)
     }
 
-    pub fn trade(id: TradeId, side: Side, price: f64, quantity: f64, fees: AssetFees) -> Trade {
-        Trade {
-            id,
-            order_id: OrderId::from("order_id"),
-            instrument: MarketDataInstrument::from((
-                "base",
-                "quote",
-                MarketDataInstrumentKind::Perpetual,
-            )),
-            side,
-            price,
-            quantity,
-            fees,
-        }
+    pub fn instruments(&self) -> impl Iterator<Item = &InstrumentKey> {
+        self.instruments.iter().map(|snapshot| &snapshot.instrument)
     }
 }

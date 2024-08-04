@@ -1,0 +1,389 @@
+[
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.175Z",
+        "time_received": "2024-12-20T19:05:18.319581890Z",
+        "exchange": "binance_spot",
+        "instrument": 0,
+        "kind": {
+          "Trade": {
+            "id": "4314349047",
+            "price": 96962.51,
+            "amount": 0.00006,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.175Z",
+        "time_received": "2024-12-20T19:05:18.319602488Z",
+        "exchange": "binance_spot",
+        "instrument": 0,
+        "kind": {
+          "Trade": {
+            "id": "4314349048",
+            "price": 96962.51,
+            "amount": 0.00008,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.175Z",
+        "time_received": "2024-12-20T19:05:18.319608249Z",
+        "exchange": "binance_spot",
+        "instrument": 0,
+        "kind": {
+          "Trade": {
+            "id": "4314349049",
+            "price": 96962.51,
+            "amount": 0.00386,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.178Z",
+        "time_received": "2024-12-20T19:05:18.324130668Z",
+        "exchange": "binance_spot",
+        "instrument": 0,
+        "kind": {
+          "Trade": {
+            "id": "4314349050",
+            "price": 96962.51,
+            "amount": 0.00103,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.196Z",
+        "time_received": "2024-12-20T19:05:18.330787554Z",
+        "exchange": "binance_spot",
+        "instrument": 2,
+        "kind": {
+          "Trade": {
+            "id": "902042153",
+            "price": 190.85,
+            "amount": 0.053,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Reconnecting": "binance_spot"
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.196Z",
+        "time_received": "2024-12-20T19:05:18.330811509Z",
+        "exchange": "binance_spot",
+        "instrument": 2,
+        "kind": {
+          "Trade": {
+            "id": "902042154",
+            "price": 190.85,
+            "amount": 0.054,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.196Z",
+        "time_received": "2024-12-20T19:05:18.330819884Z",
+        "exchange": "binance_spot",
+        "instrument": 2,
+        "kind": {
+          "Trade": {
+            "id": "902042155",
+            "price": 190.85,
+            "amount": 0.041,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.196Z",
+        "time_received": "2024-12-20T19:05:18.330827999Z",
+        "exchange": "binance_spot",
+        "instrument": 2,
+        "kind": {
+          "Trade": {
+            "id": "902042156",
+            "price": 190.85,
+            "amount": 0.038,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.196Z",
+        "time_received": "2024-12-20T19:05:18.330836285Z",
+        "exchange": "binance_spot",
+        "instrument": 2,
+        "kind": {
+          "Trade": {
+            "id": "902042157",
+            "price": 190.85,
+            "amount": 0.028,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.196Z",
+        "time_received": "2024-12-20T19:05:18.330844360Z",
+        "exchange": "binance_spot",
+        "instrument": 2,
+        "kind": {
+          "Trade": {
+            "id": "902042158",
+            "price": 190.85,
+            "amount": 0.035,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Reconnecting": "binance_spot"
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.196Z",
+        "time_received": "2024-12-20T19:05:18.330852385Z",
+        "exchange": "binance_spot",
+        "instrument": 2,
+        "kind": {
+          "Trade": {
+            "id": "902042159",
+            "price": 190.86,
+            "amount": 0.053,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.196Z",
+        "time_received": "2024-12-20T19:05:18.330860420Z",
+        "exchange": "binance_spot",
+        "instrument": 2,
+        "kind": {
+          "Trade": {
+            "id": "902042160",
+            "price": 190.86,
+            "amount": 0.027,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.196Z",
+        "time_received": "2024-12-20T19:05:18.330868405Z",
+        "exchange": "binance_spot",
+        "instrument": 2,
+        "kind": {
+          "Trade": {
+            "id": "902042161",
+            "price": 190.86,
+            "amount": 0.035,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.196Z",
+        "time_received": "2024-12-20T19:05:18.330876410Z",
+        "exchange": "binance_spot",
+        "instrument": 2,
+        "kind": {
+          "Trade": {
+            "id": "902042162",
+            "price": 190.86,
+            "amount": 0.037,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Reconnecting": "binance_spot"
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.196Z",
+        "time_received": "2024-12-20T19:05:18.330884224Z",
+        "exchange": "binance_spot",
+        "instrument": 2,
+        "kind": {
+          "Trade": {
+            "id": "902042163",
+            "price": 190.86,
+            "amount": 0.035,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.196Z",
+        "time_received": "2024-12-20T19:05:18.330891979Z",
+        "exchange": "binance_spot",
+        "instrument": 2,
+        "kind": {
+          "Trade": {
+            "id": "902042164",
+            "price": 190.86,
+            "amount": 0.028,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.197Z",
+        "time_received": "2024-12-20T19:05:18.334153772Z",
+        "exchange": "binance_spot",
+        "instrument": 0,
+        "kind": {
+          "Trade": {
+            "id": "4314349051",
+            "price": 96962.51,
+            "amount": 0.00008,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.197Z",
+        "time_received": "2024-12-20T19:05:18.334178128Z",
+        "exchange": "binance_spot",
+        "instrument": 0,
+        "kind": {
+          "Trade": {
+            "id": "4314349052",
+            "price": 96962.51,
+            "amount": 0.00006,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.197Z",
+        "time_received": "2024-12-20T19:05:18.334186764Z",
+        "exchange": "binance_spot",
+        "instrument": 0,
+        "kind": {
+          "Trade": {
+            "id": "4314349053",
+            "price": 96962.51,
+            "amount": 0.00008,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.197Z",
+        "time_received": "2024-12-20T19:05:18.334195090Z",
+        "exchange": "binance_spot",
+        "instrument": 0,
+        "kind": {
+          "Trade": {
+            "id": "4314349054",
+            "price": 96962.51,
+            "amount": 0.00008,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Item": {
+      "Ok": {
+        "time_exchange": "2024-12-20T19:05:18.197Z",
+        "time_received": "2024-12-20T19:05:18.334202984Z",
+        "exchange": "binance_spot",
+        "instrument": 0,
+        "kind": {
+          "Trade": {
+            "id": "4314349055",
+            "price": 96962.51,
+            "amount": 0.00008,
+            "side": "Buy"
+          }
+        }
+      }
+    }
+  }
+]

@@ -71,6 +71,18 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceOrderBookL1)>
     fn from(
         (exchange_id, instrument, book): (ExchangeId, InstrumentKey, BinanceOrderBookL1),
     ) -> Self {
+        let best_ask = if book.best_ask_price.is_zero() {
+            None
+        } else {
+            Some(Level::new(book.best_ask_price, book.best_ask_amount))
+        };
+
+        let best_bid = if book.best_bid_price.is_zero() {
+            None
+        } else {
+            Some(Level::new(book.best_bid_price, book.best_bid_amount))
+        };
+
         Self(vec![Ok(MarketEvent {
             time_exchange: book.time,
             time_received: Utc::now(),
@@ -78,8 +90,8 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceOrderBookL1)>
             instrument,
             kind: OrderBookL1 {
                 last_update_time: book.time,
-                best_bid: Level::new(book.best_bid_price, book.best_bid_amount),
-                best_ask: Level::new(book.best_ask_price, book.best_ask_amount),
+                best_bid,
+                best_ask,
             },
         })])
     }

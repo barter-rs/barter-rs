@@ -1,162 +1,148 @@
-use crate::data::MarketMeta;
-use barter_data::event::{DataKind, MarketEvent};
-use barter_instrument::{
-    exchange::ExchangeId, instrument::market_data::MarketDataInstrument, market::Market,
+use crate::{
+    engine::{
+        state::{
+            instrument::{filter::InstrumentFilter, market_data::MarketDataState},
+            EngineState,
+        },
+        Engine, Processor,
+    },
+    strategy::{
+        algo::AlgoStrategy,
+        close_positions::{close_open_positions_with_market_orders, ClosePositionsStrategy},
+        on_disconnect::OnDisconnectStrategy,
+        on_trading_disabled::OnTradingDisabled,
+    },
 };
-use chrono::{DateTime, Utc};
+use barter_data::event::MarketEvent;
+use barter_execution::{
+    order::{Order, RequestCancel, RequestOpen, StrategyId},
+    AccountEvent,
+};
+use barter_instrument::{
+    asset::AssetIndex,
+    exchange::{ExchangeId, ExchangeIndex},
+    instrument::InstrumentIndex,
+};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::marker::PhantomData;
 
-/// Barter example RSI strategy [`SignalGenerator`] implementation.
-pub mod example;
+/// Defines a strategy interface for generating algorithmic open and cancel order requests based
+/// on the current `EngineState`.
+pub mod algo;
 
-/// May generate an advisory [`Signal`] as a result of analysing an input [`MarketEvent`].
-pub trait SignalGenerator {
-    /// Optionally return a [`Signal`] given input [`MarketEvent`].
-    fn generate_signal(
-        &mut self,
-        market: &MarketEvent<MarketDataInstrument, DataKind>,
-    ) -> Option<Signal>;
+/// Defines a strategy interface for generating open and cancel order requests that close open
+/// positions.
+pub mod close_positions;
+
+/// Defines a strategy interface enables custom [`Engine`] to be performed in the event of an
+/// exchange disconnection.
+pub mod on_disconnect;
+
+/// Defines a strategy interface enables custom [`Engine`] to be performed in the event that the
+/// `TradingState` gets set to `TradingState::Disabled`.
+pub mod on_trading_disabled;
+
+/// Naive implementation of all strategy interfaces.
+///
+/// *THIS IS FOR DEMONSTRATION PURPOSES ONLY, NEVER USE FOR REAL TRADING OR IN PRODUCTION*.
+///
+/// This strategy:
+/// - Generates no algorithmic orders (AlgoStrategy).
+/// - Closes positions via the naive [`close_open_positions_with_market_orders`] logic (ClosePositionsStrategy).
+/// - Does nothing when an exchange disconnects (OnDisconnectStrategy).
+/// - Does nothing when trading state is set to disabled (OnDisconnectStrategy).
+#[derive(Debug, Clone)]
+pub struct DefaultStrategy<State> {
+    pub id: StrategyId,
+    phantom: PhantomData<State>,
 }
 
-/// Advisory [`Signal`] for a [`Market`] detailing the [`SignalStrength`] associated with each
-/// possible [`Decision`]. Interpreted by an [`OrderGenerator`](crate::portfolio::OrderGenerator).
-#[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
-pub struct Signal {
-    pub time: DateTime<Utc>,
-    pub exchange: ExchangeId,
-    pub instrument: MarketDataInstrument,
-    pub signals: HashMap<Decision, SignalStrength>,
-    /// Metadata propagated from the [`MarketEvent`] that yielded this [`Signal`].
-    pub market_meta: MarketMeta,
-}
-
-/// Describes the type of advisory signal the strategy is endorsing.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub enum Decision {
-    Long,
-    CloseLong,
-    Short,
-    CloseShort,
-}
-
-impl Default for Decision {
+impl<State> Default for DefaultStrategy<State> {
     fn default() -> Self {
-        Self::Long
-    }
-}
-
-impl Decision {
-    /// Determines if a [`Decision`] is Long.
-    pub fn is_long(&self) -> bool {
-        matches!(self, Decision::Long)
-    }
-
-    /// Determines if a [`Decision`] is Short.
-    pub fn is_short(&self) -> bool {
-        matches!(self, Decision::Short)
-    }
-
-    /// Determines if a [`Decision`] is an entry (long or short).
-    pub fn is_entry(&self) -> bool {
-        matches!(self, Decision::Short | Decision::Long)
-    }
-
-    /// Determines if a [`Decision`] is an exit (close_long or close_short).
-    pub fn is_exit(&self) -> bool {
-        matches!(self, Decision::CloseLong | Decision::CloseShort)
-    }
-}
-
-/// Strength of an advisory [`Signal`] decision produced by [`SignalGenerator`] strategy.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
-pub struct SignalStrength(pub f64);
-
-/// Force exit Signal produced after an [`Engine`](crate::engine::Engine) receives a
-/// [`Command::ExitPosition`](crate::engine::Command) from an external source.
-#[derive(Clone, Eq, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
-pub struct SignalForceExit {
-    pub time: DateTime<Utc>,
-    pub exchange: ExchangeId,
-    pub instrument: MarketDataInstrument,
-}
-
-impl<M> From<M> for SignalForceExit
-where
-    M: Into<Market>,
-{
-    fn from(market: M) -> Self {
-        let market = market.into();
-        Self::new(market.exchange, market.instrument)
-    }
-}
-
-impl SignalForceExit {
-    pub const FORCED_EXIT_SIGNAL: &'static str = "SignalForcedExit";
-
-    /// Constructs a new [`Self`] using the configuration provided.
-    pub fn new<E, I>(exchange: E, instrument: I) -> Self
-    where
-        E: Into<ExchangeId>,
-        I: Into<MarketDataInstrument>,
-    {
         Self {
-            time: Utc::now(),
-            exchange: exchange.into(),
-            instrument: instrument.into(),
+            id: StrategyId::new("default"),
+            phantom: PhantomData,
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+impl<State, ExchangeKey, InstrumentKey> AlgoStrategy<ExchangeKey, InstrumentKey>
+    for DefaultStrategy<State>
+{
+    type State = State;
 
-    #[test]
-    fn should_return_decision_is_long() {
-        let decision = Decision::Long;
-        assert_eq!(decision.is_long(), true)
+    fn generate_algo_orders(
+        &self,
+        _: &Self::State,
+    ) -> (
+        impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestCancel>>,
+        impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestOpen>>,
+    ) {
+        (std::iter::empty(), std::iter::empty())
     }
+}
 
-    #[test]
-    fn should_return_decision_is_not_long() {
-        let decision = Decision::Short;
-        assert_eq!(decision.is_long(), false)
-    }
+impl<MarketState, StrategyState, RiskState> ClosePositionsStrategy
+    for DefaultStrategy<EngineState<MarketState, StrategyState, RiskState>>
+where
+    MarketState: MarketDataState,
+{
+    type State = EngineState<MarketState, StrategyState, RiskState>;
 
-    #[test]
-    fn should_return_decision_is_short() {
-        let decision = Decision::Short;
-        assert_eq!(decision.is_short(), true)
+    fn close_positions_requests<'a>(
+        &'a self,
+        state: &'a Self::State,
+        filter: &'a InstrumentFilter,
+    ) -> (
+        impl IntoIterator<Item = Order<ExchangeIndex, InstrumentIndex, RequestCancel>> + 'a,
+        impl IntoIterator<Item = Order<ExchangeIndex, InstrumentIndex, RequestOpen>> + 'a,
+    )
+    where
+        ExchangeIndex: 'a,
+        AssetIndex: 'a,
+        InstrumentIndex: 'a,
+    {
+        close_open_positions_with_market_orders(&self.id, state, filter)
     }
+}
 
-    #[test]
-    fn should_return_decision_is_not_short() {
-        let decision = Decision::Long;
-        assert_eq!(decision.is_short(), false)
-    }
+impl<Clock, State, ExecutionTxs, Risk> OnDisconnectStrategy<Clock, State, ExecutionTxs, Risk>
+    for DefaultStrategy<State>
+{
+    type OnDisconnect = ();
 
-    #[test]
-    fn should_return_decision_is_entry() {
-        let decision = Decision::Long;
-        assert_eq!(decision.is_entry(), true)
+    fn on_disconnect(
+        _: &mut Engine<Clock, State, ExecutionTxs, Self, Risk>,
+        _: ExchangeId,
+    ) -> Self::OnDisconnect {
     }
+}
 
-    #[test]
-    fn should_return_decision_is_not_entry() {
-        let decision = Decision::CloseLong;
-        assert_eq!(decision.is_entry(), false)
-    }
+impl<Clock, State, ExecutionTxs, Risk> OnTradingDisabled<Clock, State, ExecutionTxs, Risk>
+    for DefaultStrategy<State>
+{
+    type OnTradingDisabled = ();
 
-    #[test]
-    fn should_return_decision_is_exit() {
-        let decision = Decision::CloseShort;
-        assert_eq!(decision.is_exit(), true)
+    fn on_trading_disabled(
+        _: &mut Engine<Clock, State, ExecutionTxs, Self, Risk>,
+    ) -> Self::OnTradingDisabled {
     }
+}
 
-    #[test]
-    fn should_return_decision_is_not_exit() {
-        let decision = Decision::Long;
-        assert_eq!(decision.is_exit(), false)
-    }
+/// Empty strategy state that can be used for strategies that require no specific global state.
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize,
+)]
+pub struct DefaultStrategyState;
+
+impl<ExchangeKey, AssetKey, InstrumentKey>
+    Processor<&AccountEvent<ExchangeKey, AssetKey, InstrumentKey>> for DefaultStrategyState
+{
+    type Audit = ();
+    fn process(&mut self, _: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) -> Self::Audit {}
+}
+
+impl<InstrumentKey, Kind> Processor<&MarketEvent<InstrumentKey, Kind>> for DefaultStrategyState {
+    type Audit = ();
+    fn process(&mut self, _: &MarketEvent<InstrumentKey, Kind>) -> Self::Audit {}
 }

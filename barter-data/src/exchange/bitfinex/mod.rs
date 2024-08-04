@@ -34,15 +34,16 @@ use crate::{
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
 use barter_macro::{DeExchange, SerExchange};
+use derive_more::Display;
 use serde_json::json;
 use url::Url;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
+/// into an execution [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an exchange [`Connector`] specific market used for generating [`Connector::requests`].
+/// into an execution [`Connector`] specific market used for generating [`Connector::requests`].
 pub mod market;
 
 /// [`BitfinexMessage`] type for [`Bitfinex`].
@@ -55,8 +56,7 @@ pub mod subscription;
 /// Public trade types for [`Bitfinex`].
 pub mod trade;
 
-/// Custom [`SubscriptionValidator`](validator::SubscriptionValidator)
-/// implementation for [`Bitfinex`].
+/// Custom `SubscriptionValidator` implementation for [`Bitfinex`].
 pub mod validator;
 
 /// [`Bitfinex`] server base url.
@@ -64,11 +64,22 @@ pub mod validator;
 /// See docs: <https://docs.bitfinex.com/docs/ws-general>
 pub const BASE_URL_BITFINEX: &str = "wss://api-pub.bitfinex.com/ws/2";
 
-/// [`Bitfinex`] exchange.
+/// [`Bitfinex`] execution.
 ///
 /// See docs: <https://docs.bitfinex.com/docs/ws-general>
 #[derive(
-    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, DeExchange, SerExchange,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Debug,
+    Default,
+    Display,
+    DeExchange,
+    SerExchange,
 )]
 pub struct Bitfinex;
 

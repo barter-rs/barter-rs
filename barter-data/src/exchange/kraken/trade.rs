@@ -4,11 +4,10 @@ use crate::{
     subscription::trade::PublicTrade,
     Identifier,
 };
-use barter_instrument::exchange::ExchangeId;
+use barter_instrument::{exchange::ExchangeId, Side};
 use barter_integration::{
     de::{datetime_utc_from_epoch_duration, extract_next},
     subscription::SubscriptionId,
-    Side,
 };
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -18,7 +17,7 @@ pub type KrakenTrades = KrakenMessage<KrakenTradesInner>;
 
 /// Collection of [`KrakenTrade`] items with an associated [`SubscriptionId`] (eg/ "trade|XBT/USD").
 ///
-/// See [`KrakenMessage`](super::message::KrakenMessage) for full raw payload examples.
+/// See [`KrakenMessage`] for full raw payload examples.
 ///
 /// See docs: <https://docs.kraken.com/websockets/#message-trade>
 #[derive(Clone, PartialEq, PartialOrd, Debug, Serialize)]
@@ -29,7 +28,7 @@ pub struct KrakenTradesInner {
 
 /// [`Kraken`](super::Kraken) trade.
 ///
-/// See [`KrakenMessage`](super::message::KrakenMessage) for full raw payload examples.
+/// See [`KrakenMessage`] for full raw payload examples.
 ///
 /// See docs: <https://docs.kraken.com/websockets/#message-trade>
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Serialize)]
@@ -211,9 +210,9 @@ mod tests {
 
     mod de {
         use super::*;
+        use barter_instrument::Side;
         use barter_integration::{
             de::datetime_utc_from_epoch_duration, error::SocketError, subscription::SubscriptionId,
-            Side,
         };
 
         #[test]

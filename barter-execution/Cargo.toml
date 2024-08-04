@@ -1,13 +1,13 @@
 [package]
 name = "barter-execution"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2021"
-authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
+authors = ["JustAStream <justastream.code@gmail.com>"]
 license = "MIT"
 documentation = "https://docs.rs/barter-execution/"
 repository = "https://github.com/barter-rs/barter-rs"
 readme = "README.md"
-description = "High-performance and normalised trading interface capable of executing across many financial venues. Also provides a feature rich simulated exchange."
+description = "Stream private account data from financial venues, and execute (live or mock) orders."
 keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
@@ -16,7 +16,6 @@ categories = ["accessibility", "simulation"]
 # Barter Ecosystem
 barter-integration = { workspace = true }
 barter-instrument = { workspace = true }
-barter-data = { workspace = true }
 
 # Logging
 tracing = { workspace = true }
@@ -24,25 +23,22 @@ tracing = { workspace = true }
 # Async
 tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
 tokio-stream = { workspace = true, features = ["sync"] }
-tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
 futures = { workspace = true }
-async-trait = { workspace = true }
-pin-project = { workspace = true }
 
 # Data Structures
-parking_lot = { workspace = true }
 smol_str = { workspace = true }
+fnv = { workspace = true }
+rust_decimal = { workspace = true }
 
 # Error
 thiserror = { workspace = true }
 
 # SerDe
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-
-# Protocol
-reqwest = { workspace = true, features = ["rustls-tls", "json"] }
 
 # Misc
-uuid = { workspace = true, features = ["v4", "serde"] }
-chrono = { workspace = true, features = ["serde"] }
+rand = { workspace = true }
+chrono = { workspace = true, features = ["serde"]}
+itertools = { workspace = true }
+derive_more = { workspace = true, features = ["constructor", "from", "display"]}
+

@@ -41,11 +41,11 @@ pub mod okx;
 pub mod subscription;
 
 /// Default [`Duration`] the [`Connector::SubValidator`] will wait to receive all success responses to actioned
-/// [`Subscription`](subscription::Subscription) requests.
+/// `Subscription` requests.
 pub const DEFAULT_SUBSCRIPTION_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Defines the [`MarketStream`] kind associated with an exchange
-/// [`Subscription`](subscription::Subscription) [`SubscriptionKind`].
+/// `Subscription` [`SubscriptionKind`].
 ///
 /// ### Notes
 /// Must be implemented by an exchange [`Connector`] if it supports a specific
@@ -72,9 +72,8 @@ where
     /// Unique identifier for the exchange server being connected with.
     const ID: ExchangeId;
 
-    /// Type that defines how to translate a Barter
-    /// [`Subscription`](ubscription::Subscription) into an exchange specific channel
-    /// to be subscribed to.
+    /// Type that defines how to translate a Barter `Subscription` into an exchange specific
+    /// channel to be subscribed to.
     ///
     /// ### Examples
     /// - [`BinanceChannel("@depth@100ms")`](binance::channel::BinanceChannel)
@@ -82,7 +81,7 @@ where
     type Channel: AsRef<str>;
 
     /// Type that defines how to translate a Barter
-    /// [`Subscription`](subscription::Subscription) into an exchange specific market that
+    /// `Subscription` into an exchange specific market that
     /// can be subscribed to.
     ///
     /// ### Examples
@@ -91,19 +90,19 @@ where
     type Market: AsRef<str>;
 
     /// [`Subscriber`] type that establishes a connection with the exchange server, and actions
-    /// [`Subscription`](subscription::Subscription)s over the socket.
+    /// `Subscription`s over the socket.
     type Subscriber: Subscriber;
 
     /// [`SubscriptionValidator`] type that listens to responses from the exchange server and
-    /// validates if the actioned [`Subscription`](subscription::Subscription)s were
+    /// validates if the actioned `Subscription`s were
     /// successful.
     type SubValidator: SubscriptionValidator;
 
     /// Deserialisable type that the [`Self::SubValidator`] expects to receive from the exchange server in
-    /// response to the [`Subscription`](subscription::Subscription) [`Self::requests`]
+    /// response to the `Subscription` [`Self::requests`]
     /// sent over the [`WebSocket`](barter_integration::protocol::websocket::WebSocket). Implements
     /// [`Validator`] in order to determine if [`Self`]
-    /// communicates a successful [`Subscription`](subscription::Subscription) outcome.
+    /// communicates a successful `Subscription` outcome.
     type SubResponse: Validator + Debug + DeserializeOwned;
 
     /// Base [`Url`] of the exchange server being connected with.
@@ -122,22 +121,22 @@ where
     /// subscription payloads sent to the exchange server.
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage>;
 
-    /// Number of [`Subscription`](subscription::Subscription) responses expected from the
-    /// exchange server in responses to the requests send. Used to validate all
-    /// [`Subscription`](subscription::Subscription)s were accepted.
+    /// Number of `Subscription` responses expected from the
+    /// execution server in responses to the requests send. Used to validate all
+    /// `Subscription`s were accepted.
     fn expected_responses<InstrumentKey>(map: &Map<InstrumentKey>) -> usize {
         map.0.len()
     }
 
     /// Expected [`Duration`] the [`SubscriptionValidator`] will wait to receive all success
-    /// responses to actioned [`Subscription`](subscription::Subscription) requests.
+    /// responses to actioned `Subscription` requests.
     fn subscription_timeout() -> Duration {
         DEFAULT_SUBSCRIPTION_TIMEOUT
     }
 }
 
-/// Used when an exchange has servers different
-/// [`InstrumentKind`] market data on distinct servers,
+/// Used when an execution has servers different
+/// [`InstrumentKind`](barter_instrument::instrument::kind::InstrumentKind) market data on distinct servers,
 /// allowing all the [`Connector`] logic to be identical apart from what this trait provides.
 ///
 /// ### Examples

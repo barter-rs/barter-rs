@@ -1,15 +1,23 @@
 [package]
 name = "barter-instrument"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
+authors = ["JustAStream <justastream.code@gmail.com>"]
+license = "MIT"
+documentation = "https://docs.rs/barter-instrument"
+repository = "https://github.com/barter-rs/barter-rs"
+readme = "README.md"
+description = "Core Barter Exchange, Instrument and Asset data structures and associated utilities."
+keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
+categories = ["accessibility", "simulation"]
 
 [dev-dependencies]
 rust_decimal_macros = { workspace = true }
+serde_json = { workspace = true }
 
 [dependencies]
 # SerDe
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
 
 # Data Structures
 smol_str = { workspace = true, features = ["serde"]}
@@ -18,3 +26,4 @@ rust_decimal = { workspace = true }
 # Misc
 chrono = { workspace = true, features = ["serde"] }
 derive_more = { workspace = true, features = ["display"] }
+thiserror = { workspace = true }

@@ -5,8 +5,8 @@ use crate::{
     subscription::trade::PublicTrade,
     Identifier,
 };
-use barter_instrument::exchange::ExchangeId;
-use barter_integration::{subscription::SubscriptionId, Side};
+use barter_instrument::{exchange::ExchangeId, Side};
+use barter_integration::subscription::SubscriptionId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

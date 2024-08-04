@@ -128,18 +128,13 @@ where
     }
 
     /// Future for forwarding items in [`Self`] to the provided channel [`Tx`].
-    fn forward_to<Transmitter>(mut self, tx: Transmitter) -> impl Future<Output = ()>
+    fn forward_to<Transmitter>(self, tx: Transmitter) -> impl Future<Output = ()> + Send
     where
-        Self: Stream + Unpin,
-        Transmitter: Tx<Item = Self::Item>,
+        Self: Stream + Sized + Send,
+        Self::Item: Into<Transmitter::Item>,
+        Transmitter: Tx + Send + 'static,
     {
-        async move {
-            while let Some(event) = self.next().await {
-                if tx.send(event).is_err() {
-                    break;
-                }
-            }
-        }
+        tokio_stream::StreamExt::map_while(self, move |event| tx.send(event.into()).ok()).collect()
     }
 }
 

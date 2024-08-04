@@ -1,51 +1,51 @@
 [package]
 name = "barter"
-version = "0.8.16"
-authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
+version = "0.9.0"
 edition = "2021"
+authors = ["JustAStream <justastream.code@gmail.com>"]
 license = "MIT"
-documentation = "https://docs.rs/barter/"
+documentation = "https://docs.rs/barter"
 repository = "https://github.com/barter-rs/barter-rs"
 readme = "README.md"
-description = "Framework for building event-driven live-trading & backtesting engines"
+description = "Framework for building high-performance live-trading, paper-trading and back-testing systems"
 keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dev-dependencies]
+rust_decimal_macros = { workspace = true }
+serde_json = { workspace = true }
+spin_sleep = { workspace = true }
+
 [dependencies]
 # Barter Ecosystem
 barter-integration = { workspace = true }
 barter-instrument = { workspace = true }
 barter-data = { workspace = true }
+barter-execution = { workspace = true }
 
 # Logging
 tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json", "registry"]}
 
 # Async
 tokio = { workspace = true, features = ["sync"] }
-tokio-stream = { workspace = true, features = ["sync"] }
 futures = { workspace = true }
-async-trait = { workspace = true }
+pin-project = { workspace = true }
 
 # Error
 thiserror = { workspace = true }
 
 # SerDe
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
 
 # Data Structures
-rust_decimal = { workspace = true }
 smol_str = { workspace = true }
-
-# Persistence
-redis = "0.25.4"
-
-# Strategy
-ta = { workspace = true }
+rust_decimal = { workspace = true }
+fnv = { workspace = true }
+indexmap = { workspace = true, features = ["serde"]}
 
 # Misc
-uuid = { workspace = true, features = ["v4", "serde"] }
-chrono = { workspace = true, features = ["serde"] }
-parking_lot = { workspace = true }
+chrono = { workspace = true, features = ["serde"]}
+derive_more = { workspace = true, features = ["constructor", "from", "display"]}
 prettytable-rs = "0.10.0"
+itertools = { workspace = true }

@@ -11,12 +11,13 @@ use crate::{
     Identifier,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{
-    channel::{mpsc_unbounded, UnboundedRx, UnboundedTx},
-    Validator,
+use barter_integration::{channel::Channel, Validator};
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display},
+    future::Future,
+    pin::Pin,
 };
-use futures_util::StreamExt;
-use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 
 /// Defines the [`MultiStreamBuilder`](multi::MultiStreamBuilder) API for ergonomically
 /// initialising a common [`Streams<Output>`](Streams) from multiple
@@ -24,11 +25,11 @@ use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 pub mod multi;
 
 /// Defines the [`DynamicStreams`](dynamic::DynamicStreams) API for initialising an arbitrary number
-/// of [`MarketStream`]s from the [`ExchangeId`] and [`SubKind`] enums, rather than concrete
+/// of `MarketStream`s from the [`ExchangeId`] and [`SubKind`](crate::subscription::SubKind) enums, rather than concrete
 /// types.
 pub mod dynamic;
 
-/// Communicative type alias representing the [`Future`] result of a [`Subscription`] [`validate`]
+/// Communicative type alias representing the [`Future`] result of a [`Subscription`] validation
 /// call generated whilst executing [`StreamBuilder::subscribe`].
 pub type SubscribeFuture = Pin<Box<dyn Future<Output = Result<(), DataError>>>>;
 
@@ -39,8 +40,7 @@ pub struct StreamBuilder<InstrumentKey, Kind>
 where
     Kind: SubscriptionKind,
 {
-    pub channels:
-        HashMap<ExchangeId, ExchangeChannel<MarketStreamResult<InstrumentKey, Kind::Event>>>,
+    pub channels: HashMap<ExchangeId, Channel<MarketStreamResult<InstrumentKey, Kind::Event>>>,
     pub futures: Vec<SubscribeFuture>,
 }
 
@@ -79,9 +79,9 @@ where
         SubIter: IntoIterator<Item = Sub>,
         Sub: Into<Subscription<Exchange, Instrument, Kind>>,
         Exchange: StreamSelector<Instrument, Kind> + Ord + Send + Sync + 'static,
-        Instrument: InstrumentData<Key = InstrumentKey> + Ord + 'static,
-        Instrument::Key: Clone + Send + 'static,
-        Kind: Ord + Send + Sync + 'static,
+        Instrument: InstrumentData<Key = InstrumentKey> + Ord + Display + 'static,
+        Instrument::Key: Debug + Clone + Send + 'static,
+        Kind: Ord + Display + Send + Sync + 'static,
         Kind::Event: Clone + Send,
         Subscription<Exchange, Instrument, Kind>:
             Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
@@ -109,7 +109,7 @@ where
             let stream = init_market_stream(STREAM_RECONNECTION_POLICY, subscriptions).await?;
 
             // Forward MarketEvents to ExchangeTx
-            tokio::spawn(stream.boxed().forward_to(exchange_tx));
+            tokio::spawn(stream.forward_to(exchange_tx));
 
             Ok(())
         }));
@@ -117,11 +117,11 @@ where
         self
     }
 
-    /// Spawn a [`MarketEvent<SubscriptionKind::Event>`](MarketEvent) consumer loop for each collection of
-    /// [`Subscription`]s added to [`StreamBuilder`] via the
+    /// Spawn a [`MarketStreamResult<SubscriptionKind::Event>`](MarketStreamResult) consumer loop
+    /// for each collection of [`Subscription`]s added to [`StreamBuilder`] via the
     /// [`subscribe()`](StreamBuilder::subscribe()) method.
     ///
-    /// Each consumer loop distributes consumed [`MarketEvent<SubscriptionKind::Event>s`](MarketEvent) to
+    /// Each consumer loop distributes consumed [`MarketStreamResult`] to
     /// the [`Streams`] `HashMap` returned by this method.
     pub async fn init(
         self,
@@ -137,27 +137,5 @@ where
                 .map(|(exchange, channel)| (exchange, channel.rx))
                 .collect(),
         })
-    }
-}
-
-/// Convenient type that holds the [`mpsc::UnboundedSender`] and [`mpsc::UnboundedReceiver`] for a
-/// [`MarketEvent<T>`](MarketEvent) channel.
-#[derive(Debug)]
-pub struct ExchangeChannel<T> {
-    tx: UnboundedTx<T>,
-    rx: UnboundedRx<T>,
-}
-
-impl<T> ExchangeChannel<T> {
-    /// Construct a new [`Self`].
-    pub fn new() -> Self {
-        let (tx, rx) = mpsc_unbounded();
-        Self { tx, rx }
-    }
-}
-
-impl<T> Default for ExchangeChannel<T> {
-    fn default() -> Self {
-        Self::new()
     }
 }

@@ -1,10 +1,10 @@
 [package]
 name = "barter-data"
-version = "0.9.0"
-authors = ["JustAStream"]
+version = "0.9.1"
 edition = "2021"
+authors = ["JustAStream <justastream.code@gmail.com>"]
 license = "MIT"
-documentation = "https://docs.rs/barter-data/"
+documentation = "https://docs.rs/barter-data"
 repository = "https://github.com/barter-rs/barter-rs"
 readme = "README.md"
 description = "High performance & normalised WebSocket intergration for leading cryptocurrency exchanges - batteries included."
@@ -46,9 +46,6 @@ serde_json = { workspace = true }
 parking_lot = { workspace = true }
 rust_decimal = { workspace = true, features = ["serde-with-str"] }
 smol_str = { workspace = true, features = ["serde"] }
-
-# Strategy
-ta = { workspace = true }
 
 # Misc
 chrono = { workspace = true, features = ["serde"] }

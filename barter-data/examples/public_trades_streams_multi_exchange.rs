@@ -3,7 +3,6 @@ use barter_data::{
         binance::{futures::BinanceFuturesUsd, spot::BinanceSpot},
         bitmex::Bitmex,
         bybit::{futures::BybitPerpetualsUsd, spot::BybitSpot},
-        coinbase::Coinbase,
         gateio::{
             option::GateioOptions,
             perpetual::{GateioPerpetualsBtc, GateioPerpetualsUsd},
@@ -42,11 +41,6 @@ async fn main() {
         .subscribe([
             (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
             (BinanceFuturesUsd::default(), "eth", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
-        ])
-
-        .subscribe([
-            (Coinbase, "btc", "usd", MarketDataInstrumentKind::Spot, PublicTrades),
-            (Coinbase, "eth", "usd", MarketDataInstrumentKind::Spot, PublicTrades),
         ])
 
         .subscribe([

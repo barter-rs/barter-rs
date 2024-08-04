@@ -82,6 +82,18 @@ pub enum DataKind {
     Liquidation(Liquidation),
 }
 
+impl DataKind {
+    pub fn kind_name(&self) -> &str {
+        match self {
+            DataKind::Trade(_) => "public_trade",
+            DataKind::OrderBookL1(_) => "l1",
+            DataKind::OrderBook(_) => "l2",
+            DataKind::Candle(_) => "candle",
+            DataKind::Liquidation(_) => "liquidation",
+        }
+    }
+}
+
 impl<InstrumentKey> From<MarketStreamResult<InstrumentKey, PublicTrade>>
     for MarketStreamResult<InstrumentKey, DataKind>
 {
