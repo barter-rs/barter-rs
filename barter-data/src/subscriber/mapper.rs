@@ -8,8 +8,8 @@ use barter_integration::subscription::SubscriptionId;
 use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 
-/// Defines how to map a collection of Barter [`Subscription`]s into exchange specific
-/// [`SubscriptionMeta`], containing subscription payloads that are sent to the exchange.
+/// Defines how to map a collection of Barter [`Subscription`]s into execution specific
+/// [`SubscriptionMeta`], containing subscription payloads that are sent to the execution.
 pub trait SubscriptionMapper {
     fn map<Exchange, Instrument, Kind>(
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
@@ -45,17 +45,17 @@ impl SubscriptionMapper for WebSocketSubMapper {
             Default::default(),
         ));
 
-        // Map Barter Subscriptions to exchange specific subscriptions
+        // Map Barter Subscriptions to execution specific subscriptions
         let exchange_subs = subscriptions
             .iter()
             .map(|subscription| {
-                // Translate Barter Subscription to exchange specific subscription
+                // Translate Barter Subscription to execution specific subscription
                 let exchange_sub = ExchangeSub::new(subscription);
 
-                // Determine the SubscriptionId associated with this exchange specific subscription
+                // Determine the SubscriptionId associated with this execution specific subscription
                 let subscription_id = exchange_sub.id();
 
-                // Use ExchangeSub SubscriptionId as the link to this Barter Subscription
+                // Use ExchangeSub SubscriptionId as the manager to this Barter Subscription
                 instrument_map
                     .0
                     .insert(subscription_id, subscription.instrument.key().clone());

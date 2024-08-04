@@ -1,11 +1,15 @@
 use crate::subscription::SubKind;
-use barter_instrument::exchange::ExchangeId;
+use barter_instrument::{exchange::ExchangeId, index::error::IndexError};
 use barter_integration::{error::SocketError, subscription::SubscriptionId};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// All errors generated in `barter-data`.
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
 pub enum DataError {
+    #[error("failed to index market data Subscriptions: {0}")]
+    Index(#[from] IndexError),
+
     #[error("failed to initialise reconnecting MarketStream due to empty subscriptions")]
     SubscriptionsEmpty,
 
@@ -16,12 +20,12 @@ pub enum DataError {
     InitialSnapshotMissing(SubscriptionId),
 
     #[error("initial snapshot invalid: {0}")]
-    InitialSnapshotInvalid(&'static str),
+    InitialSnapshotInvalid(String),
 
     #[error("SocketError: {0}")]
     Socket(String),
 
-    #[error("unsupported dynamic Subscription for exchange: {exchange}, kind: {sub_kind}")]
+    #[error("unsupported dynamic Subscription for execution: {exchange}, kind: {sub_kind}")]
     Unsupported {
         exchange: ExchangeId,
         sub_kind: SubKind,

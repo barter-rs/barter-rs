@@ -9,6 +9,7 @@ use crate::{
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_macro::{DeExchange, SerExchange};
+use std::fmt::Display;
 
 /// Public trades types.
 pub mod trade;
@@ -18,7 +19,7 @@ pub mod trade;
 /// See docs: <https://www.gate.io/docs/developers/apiv4/ws/en/>
 pub const WEBSOCKET_BASE_URL_GATEIO_SPOT: &str = "wss://api.gateio.ws/ws/v4/";
 
-/// [`Gateio`] spot exchange.
+/// [`Gateio`] spot execution.
 pub type GateioSpot = Gateio<GateioServerSpot>;
 
 /// [`Gateio`] spot [`ExchangeServer`].
@@ -43,4 +44,10 @@ where
     type Stream = ExchangeWsStream<
         StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioSpotTrade>,
     >;
+}
+
+impl Display for GateioSpot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "GateioSpot")
+    }
 }

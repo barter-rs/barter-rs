@@ -10,7 +10,7 @@ use tracing::debug;
 /// L2 [`OrderBook`]s.
 pub mod manager;
 
-/// Provides an abstract collection of cheaply cloneable shared-state [`OrderBooks`].
+/// Provides an abstract collection of cheaply cloneable shared-state [`OrderBook`].
 pub mod map;
 
 /// Normalised Barter [`OrderBook`] snapshot.
@@ -118,7 +118,7 @@ impl OrderBook {
     }
 }
 
-/// Normalised Barter [`Level`]s for one [`Side`] of the [`OrderBook`].
+/// Normalised Barter [`Level`]s for one `Side` ( of the [`OrderBook`].
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
 pub struct OrderBookSide<Side> {
     #[serde(skip_serializing)]

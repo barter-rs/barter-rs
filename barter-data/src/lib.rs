@@ -1,36 +1,41 @@
 #![forbid(unsafe_code)]
-#![warn(clippy::all)]
-#![allow(clippy::pedantic, clippy::type_complexity)]
 #![warn(
+    unused,
+    clippy::cognitive_complexity,
+    unused_crate_dependencies,
+    unused_extern_crates,
+    clippy::unused_self,
+    clippy::useless_let_if_seq,
     missing_debug_implementations,
     rust_2018_idioms,
     rust_2024_compatibility
 )]
+#![allow(clippy::type_complexity, clippy::too_many_arguments, type_alias_bounds)]
 
 //! # Barter-Data
 //! A high-performance WebSocket integration library for streaming public market data from leading cryptocurrency
 //! exchanges - batteries included. It is:
-//! * **Easy**: Barter-Data's simple [`StreamBuilder`](streams::builder::StreamBuilder) and [`DynamicStreams`](streams::builder::DynamicStreams) interface allows for easy & quick setup (see example below and /examples!).
+//! * **Easy**: Barter-Data's simple [`StreamBuilder`](streams::builder::StreamBuilder) and [`DynamicStreams`](streams::builder::dynamic::DynamicStreams) interface allows for easy & quick setup (see example below and /examples!).
 //! * **Normalised**: Barter-Data's unified interface for consuming public WebSocket data means every Exchange returns a normalised data model.
 //! * **Real-Time**: Barter-Data utilises real-time WebSocket integrations enabling the consumption of normalised tick-by-tick data.
 //! * **Extensible**: Barter-Data is highly extensible, and therefore easy to contribute to with coding new integrations!
 //!
 //! ## User API
 //! - [`StreamBuilder`](streams::builder::StreamBuilder) for initialising [`MarketStream`]s of specific data kinds.
-//! - [`DynamicStreams`](streams::builder::DynamicStreams) for initialising [`MarketStream`]s of every supported data kind at once.
-//! - Define what exchange market data you want to stream using the [`Subscription`] type.
-//! - Pass [`Subscription`]s to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) or [`DynamicStreams::init`](streams::builder::DynamicStreams::init) methods.
-//! - Each call to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) (or each batch passed to the [`DynamicStreams::init`](streams::builder::DynamicStreams::init))
-//!   method opens a new WebSocket connection to the exchange - giving you full control.
+//! - [`DynamicStreams`](streams::builder::dynamic::DynamicStreams) for initialising [`MarketStream`]s of every supported data kind at once.
+//! - Define what execution market data you want to stream using the [`Subscription`] type.
+//! - Pass [`Subscription`]s to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) or [`DynamicStreams::init`](streams::builder::dynamic::DynamicStreams::init) methods.
+//! - Each call to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) (or each batch passed to the [`DynamicStreams::init`](streams::builder::dynamic::DynamicStreams::init))
+//!   method opens a new WebSocket connection to the execution - giving you full control.
 //!
 //! ## Examples
 //! For a comprehensive collection of examples, see the /examples directory.
 //!
 //! ### Multi Exchange Public Trades
 //! ```rust,no_run
-//! use barter_data::exchange::gateio::spot::GateioSpot;
 //! use barter_data::{
 //!     exchange::{
+//!         gateio::spot::GateioSpot,
 //!         binance::{futures::BinanceFuturesUsd, spot::BinanceSpot},
 //!         coinbase::Coinbase,
 //!         okx::Okx,
@@ -85,25 +90,34 @@
 //!     }
 //! }
 //! ```
-
 use crate::{
     error::DataError,
-    event::MarketEvent,
+    event::{DataKind, MarketEvent},
     exchange::{Connector, PingInterval},
-    instrument::InstrumentData,
+    instrument::{index_market_data_subscriptions, InstrumentData},
+    streams::{
+        builder::dynamic::DynamicStreams,
+        consumer::{MarketStreamEvent, MarketStreamResult},
+        reconnect::stream::ReconnectingStream,
+    },
     subscriber::{Subscribed, Subscriber},
-    subscription::{Subscription, SubscriptionKind},
+    subscription::{SubKind, Subscription, SubscriptionKind},
     transformer::ExchangeTransformer,
 };
 use async_trait::async_trait;
-use barter_instrument::exchange::ExchangeId;
+use barter_instrument::{
+    exchange::ExchangeId,
+    index::IndexedInstruments,
+    instrument::{market_data::MarketDataInstrument, InstrumentIndex},
+};
 use barter_integration::{
     error::SocketError,
     protocol::{
         websocket::{WebSocketParser, WsMessage, WsSink, WsStream},
         StreamParser,
     },
-    ExchangeStream, Transformer,
+    stream::ExchangeStream,
+    Transformer,
 };
 use futures::{SinkExt, Stream, StreamExt};
 use std::{collections::VecDeque, future::Future};
@@ -116,7 +130,7 @@ pub mod error;
 /// Defines the generic [`MarketEvent<T>`](MarketEvent) used in every [`MarketStream`].
 pub mod event;
 
-/// [`Connector`] implementations for each exchange.
+/// [`Connector`] implementations for each execution.
 pub mod exchange;
 
 /// High-level API types used for building [`MarketStream`]s from collections
@@ -125,13 +139,13 @@ pub mod streams;
 
 /// [`Subscriber`], [`SubscriptionMapper`](subscriber::mapper::SubscriptionMapper) and
 /// [`SubscriptionValidator`](subscriber::validator::SubscriptionValidator)  traits that define how a
-/// [`Connector`] will subscribe to exchange [`MarketStream`]s.
+/// [`Connector`] will subscribe to execution [`MarketStream`]s.
 ///
 /// Standard implementations for subscribing to WebSocket [`MarketStream`]s are included.
 pub mod subscriber;
 
 /// Types that communicate the type of each [`MarketStream`] to initialise, and what normalised
-/// Barter output type the exchange will be transformed into.
+/// Barter output type the execution will be transformed into.
 pub mod subscription;
 
 /// [`InstrumentData`] trait for instrument describing data.
@@ -141,7 +155,7 @@ pub mod instrument;
 /// a collection of sorted local Instrument [`OrderBook`](books::OrderBook)s
 pub mod books;
 
-/// Generic [`ExchangeTransformer`] implementations used by [`MarketStream`]s to translate exchange
+/// Generic [`ExchangeTransformer`] implementations used by [`MarketStream`]s to translate execution
 /// specific types to normalised Barter types.
 ///
 /// A standard [`StatelessTransformer`](transformer::stateless::StatelessTransformer) implementation
@@ -237,7 +251,7 @@ where
         // Split WebSocket into WsStream & WsSink components
         let (ws_sink, ws_stream) = websocket.split();
 
-        // Spawn task to distribute Transformer messages (eg/ custom pongs) to the exchange
+        // Spawn task to distribute Transformer messages (eg/ custom pongs) to the execution
         let (ws_sink_tx, ws_sink_rx) = mpsc::unbounded_channel();
         tokio::spawn(distribute_messages_to_exchange(
             Exchange::ID,
@@ -245,7 +259,7 @@ where
             ws_sink_rx,
         ));
 
-        // Spawn optional task to distribute custom application-level pings to the exchange
+        // Spawn optional task to distribute custom application-level pings to the execution
         if let Some(ping_interval) = Exchange::ping_interval() {
             tokio::spawn(schedule_pings_to_exchange(
                 Exchange::ID,
@@ -315,7 +329,7 @@ where
         .collect()
 }
 
-/// Transmit [`WsMessage`]s sent from the [`ExchangeTransformer`] to the exchange via
+/// Transmit [`WsMessage`]s sent from the [`ExchangeTransformer`] to the execution via
 /// the [`WsSink`].
 ///
 /// **Note:**
@@ -336,13 +350,13 @@ pub async fn distribute_messages_to_exchange(
             error!(
                 %exchange,
                 %error,
-                "failed to send  output message to the exchange via WsSink"
+                "failed to send  output message to the execution via WsSink"
             );
         }
     }
 }
 
-/// Schedule the sending of custom application-level ping [`WsMessage`]s to the exchange using
+/// Schedule the sending of custom application-level ping [`WsMessage`]s to the execution using
 /// the provided [`PingInterval`].
 ///
 /// **Notes:**
@@ -357,12 +371,69 @@ pub async fn schedule_pings_to_exchange(
         // Wait for next scheduled ping
         interval.tick().await;
 
-        // Construct exchange custom application-level ping payload
+        // Construct execution custom application-level ping payload
         let payload = ping();
-        debug!(%exchange, %payload, "sending custom application-level ping to exchange");
+        debug!(%exchange, %payload, "sending custom application-level ping to execution");
 
         if ws_sink_tx.send(payload).is_err() {
             break;
+        }
+    }
+}
+
+/// Initialise an indexed market data stream using batches of unindexed [`Subscription`]s.
+///
+/// Uses [`IndexedInstruments`] for indexing and [`DynamicStreams`] for market stream
+/// initialisation.
+///
+/// See [`index_market_data_subscriptions`] for how unindexed `Subscriptions` are indexed.
+pub async fn init_indexed_market_data_stream<SubBatchIter, SubIter, Sub>(
+    indexes: &IndexedInstruments,
+    batches: SubBatchIter,
+) -> Result<impl Stream<Item = MarketStreamEvent<InstrumentIndex, DataKind>>, DataError>
+where
+    SubBatchIter: IntoIterator<Item = SubIter>,
+    SubIter: IntoIterator<Item = Sub>,
+    Sub: Into<Subscription<ExchangeId, MarketDataInstrument, SubKind>>,
+{
+    // Construct Indexed MarketData Subscriptions
+    let subscriptions = index_market_data_subscriptions(indexes, batches)?;
+
+    // Initialise MarketData Stream
+    let stream = DynamicStreams::init(subscriptions)
+        .await?
+        .select_all::<MarketStreamResult<InstrumentIndex, DataKind>>()
+        .with_error_handler(|error| warn!(?error, "MarketStream generated error"));
+
+    Ok(stream)
+}
+
+pub mod test_utils {
+    use crate::{
+        event::{DataKind, MarketEvent},
+        subscription::trade::PublicTrade,
+    };
+    use barter_instrument::{exchange::ExchangeId, Side};
+    use chrono::{DateTime, Utc};
+
+    pub fn market_event_trade_buy<InstrumentKey>(
+        time_exchange: DateTime<Utc>,
+        time_received: DateTime<Utc>,
+        instrument: InstrumentKey,
+        price: f64,
+        quantity: f64,
+    ) -> MarketEvent<InstrumentKey, DataKind> {
+        MarketEvent {
+            time_exchange,
+            time_received,
+            exchange: ExchangeId::BinanceSpot,
+            instrument,
+            kind: DataKind::Trade(PublicTrade {
+                id: "trade_id".to_string(),
+                price,
+                amount: quantity,
+                side: Side::Buy,
+            }),
         }
     }
 }
