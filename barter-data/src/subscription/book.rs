@@ -35,7 +35,7 @@ impl SubscriptionKind for OrderBooksL1 {
 }
 
 /// Normalised Barter [`OrderBookL1`] snapshot containing the latest best bid and ask.
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Deserialize, Serialize)]
 pub struct OrderBookL1 {
     pub last_update_time: DateTime<Utc>,
     pub best_bid: Level,

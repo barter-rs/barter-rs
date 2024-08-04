@@ -196,24 +196,29 @@
 
 #![warn(
     unused,
+    clippy::cognitive_complexity,
+    // unused_crate_dependencies,
+    unused_extern_crates,
+    clippy::unused_self,
+    clippy::useless_let_if_seq,
     missing_debug_implementations,
-    missing_copy_implementations,
     rust_2018_idioms,
-    // missing_docs
 )]
-#![allow(clippy::type_complexity)]
-#![allow(clippy::module_inception)]
+#![allow(clippy::type_complexity, clippy::too_many_arguments)]
+
+use fnv::FnvBuildHasher;
+use indexmap::IndexMap;
 
 /// Defines a MarketEvent, and provides the Continuer and MarketGenerator traits for
 /// handling the generation of them. Contains implementations such as the (tick-by_tick)
 /// LiveTradeHandler, and HistoricalCandleHandler that generates a market feed and acts as the
 /// system heartbeat.
-pub mod data;
+// pub mod data;
 
 /// Defines a SignalEvent and SignalForceExit, as well as the SignalGenerator trait for handling the
 /// generation of them. Contains an example RSIStrategy implementation that analyses a MarketEvent
 /// and may generate a new advisory SignalEvent to be analysed by the Portfolio OrderGenerator.
-pub mod strategy;
+// pub mod strategy;
 
 /// Defines useful data structures such as an OrderEvent and Position. The Portfolio must
 /// interact with MarketEvents, SignalEvents, OrderEvents, and FillEvents. The useful traits
@@ -222,146 +227,149 @@ pub mod strategy;
 /// generic Repository. This also contains example implementations of an OrderAllocator &
 /// OrderEvaluator, which help the Portfolio make decisions on whether to generate OrderEvents and
 /// of what size.
-pub mod portfolio;
+// pub mod portfolio;
 
 /// Defines a FillEvent, and provides a useful trait FillGenerator for handling the generation
 /// of them. Contains an example SimulatedExecution implementation that simulates live broker
 /// execution.
-pub mod execution;
+// pub mod execution;
 
 /// Defines an Event enum that contains variants that are vital to the trading event loop
 /// (eg/ MarketEvent). Other variants communicate work done by the system (eg/ FillEvent), as well
 /// as changes in system state (eg/ PositionUpdate).
-pub mod event;
+// pub mod event;
 
 /// Defines various iterative statistical methods that can be used to calculate trading performance
 /// metrics in one-pass. A trading performance summary implementation has been provided containing
 /// several key metrics such as Sharpe Ratio, Calmar Ratio, and Max Drawdown.
-pub mod statistic;
+// pub mod statistic;
 
-/// Multi-threaded trading Engine capable of trading with an arbitrary number market pairs. Contains
+/// Multithreaded trading Engine capable of trading with an arbitrary number market pairs. Contains
 /// a Trader for each Market pair that consists of it's own Data, Strategy &
 /// Execution components, as well as shared access to a global Portfolio.
-pub mod engine;
+// pub mod engine;
+pub mod v2;
 
-#[macro_use]
-extern crate prettytable;
+pub type FnvIndexMap<K, V> = IndexMap<K, V, FnvBuildHasher>;
 
-pub mod test_util {
-    use crate::{
-        data::MarketMeta,
-        execution::{Fees, FillEvent},
-        portfolio::{position::Position, OrderEvent, OrderType},
-        strategy::{Decision, Signal},
-    };
-    use barter_data::{
-        event::{DataKind, MarketEvent},
-        subscription::{candle::Candle, trade::PublicTrade},
-    };
-    use barter_instrument::{
-        exchange::ExchangeId,
-        instrument::{kind::InstrumentKind, Instrument},
-    };
-    use barter_integration::Side;
-    use chrono::Utc;
-    use smol_str::ToSmolStr;
-    use std::ops::Add;
+// #[macro_use]
+// extern crate prettytable;
 
-    /// Build a [`MarketEvent`] of [`DataKind::PublicTrade`](DataKind) with the provided [`Side`].
-    pub fn market_event_trade(side: Side) -> MarketEvent<Instrument, DataKind> {
-        MarketEvent {
-            time_exchange: Utc::now(),
-            time_received: Utc::now(),
-            exchange: ExchangeId::BinanceSpot,
-            instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
-            kind: DataKind::Trade(PublicTrade {
-                id: "trade_id".to_string(),
-                price: 1000.0,
-                amount: 1.0,
-                side,
-            }),
-        }
-    }
+// pub mod test_util {
+//     use crate::{
+//         data::MarketMeta,
+//         execution::{Fees, FillEvent},
+//         portfolio::{position::Position, OrderEvent, OrderType},
+//         strategy::{Decision, Signal},
+//     };
+//     use barter_data::{
+//         event::{DataKind, MarketEvent},
+//         subscription::{candle::Candle, trade::PublicTrade},
+//     };
+//     use barter_instrument::{
+//         exchange::ExchangeId,
+//         instrument::{kind::InstrumentKind, Instrument},
+//     };
+//     use barter_integration::Side;
+//     use chrono::Utc;
+//     use smol_str::ToSmolStr;
+//     use std::ops::Add;
 
-    /// Build a [`MarketEvent`] of [`DataKind::Candle`](DataKind).
-    pub fn market_event_candle() -> MarketEvent<Instrument, DataKind> {
-        let now = Utc::now();
-        MarketEvent {
-            time_exchange: now,
-            time_received: now.add(chrono::Duration::milliseconds(200)),
-            exchange: ExchangeId::BinanceSpot,
-            instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
-            kind: DataKind::Candle(Candle {
-                close_time: now,
-                open: 960.0,
-                high: 1100.0,
-                low: 950.0,
-                close: 1000.0,
-                volume: 100000.0,
-                trade_count: 1000,
-            }),
-        }
-    }
+//     /// Build a [`MarketEvent`] of [`DataKind::PublicTrade`](DataKind) with the provided [`Side`].
+//     pub fn market_event_trade(side: Side) -> MarketEvent<Instrument, DataKind> {
+//         MarketEvent {
+//             time_exchange: Utc::now(),
+//             time_received: Utc::now(),
+//             exchange: ExchangeId::BinanceSpot,
+//             instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
+//             kind: DataKind::Trade(PublicTrade {
+//                 id: "trade_id".to_string(),
+//                 price: 1000.0,
+//                 amount: 1.0,
+//                 side,
+//             }),
+//         }
+//     }
 
-    /// Build a [`Signal`].
-    pub fn signal() -> Signal {
-        Signal {
-            time: Utc::now(),
-            exchange: ExchangeId::BinanceSpot,
-            instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
-            signals: Default::default(),
-            market_meta: Default::default(),
-        }
-    }
+//     /// Build a [`MarketEvent`] of [`DataKind::Candle`](DataKind).
+//     pub fn market_event_candle() -> MarketEvent<Instrument, DataKind> {
+//         let now = Utc::now();
+//         MarketEvent {
+//             time_exchange: now,
+//             time_received: now.add(chrono::Duration::milliseconds(200)),
+//             exchange: ExchangeId::BinanceSpot,
+//             instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
+//             kind: DataKind::Candle(Candle {
+//                 close_time: now,
+//                 open: 960.0,
+//                 high: 1100.0,
+//                 low: 950.0,
+//                 close: 1000.0,
+//                 volume: 100000.0,
+//                 trade_count: 1000,
+//             }),
+//         }
+//     }
 
-    /// Build an [`OrderEvent`] to buy 1.0 contract.
-    pub fn order_event() -> OrderEvent {
-        OrderEvent {
-            time: Utc::now(),
-            exchange: ExchangeId::BinanceSpot,
-            instrument: Instrument::from(("eth", "usdt", InstrumentKind::Spot)),
-            market_meta: MarketMeta::default(),
-            decision: Decision::default(),
-            quantity: 1.0,
-            order_type: OrderType::default(),
-        }
-    }
+//     /// Build a [`Signal`].
+//     pub fn signal() -> Signal {
+//         Signal {
+//             time: Utc::now(),
+//             exchange: ExchangeId::BinanceSpot,
+//             instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
+//             signals: Default::default(),
+//             market_meta: Default::default(),
+//         }
+//     }
 
-    /// Build a [`FillEvent`] for a single bought contract.
-    pub fn fill_event() -> FillEvent {
-        FillEvent {
-            time: Utc::now(),
-            exchange: ExchangeId::BinanceSpot,
-            instrument: Instrument::from(("eth", "usdt", InstrumentKind::Spot)),
-            market_meta: Default::default(),
-            decision: Decision::default(),
-            quantity: 1.0,
-            fill_value_gross: 100.0,
-            fees: Fees::default(),
-        }
-    }
+//     /// Build an [`OrderEvent`] to buy 1.0 contract.
+//     pub fn order_event() -> OrderEvent {
+//         OrderEvent {
+//             time: Utc::now(),
+//             exchange: ExchangeId::BinanceSpot,
+//             instrument: Instrument::from(("eth", "usdt", InstrumentKind::Spot)),
+//             market_meta: MarketMeta::default(),
+//             decision: Decision::default(),
+//             quantity: 1.0,
+//             order_type: OrderType::default(),
+//         }
+//     }
 
-    /// Build a [`Position`].
-    pub fn position() -> Position {
-        Position {
-            position_id: "engine_id_trader_{}_{}_position".to_smolstr(),
-            exchange: ExchangeId::BinanceSpot,
-            instrument: Instrument::from(("eth", "usdt", InstrumentKind::Spot)),
-            meta: Default::default(),
-            side: Side::Buy,
-            quantity: 1.0,
-            enter_fees: Default::default(),
-            enter_fees_total: 0.0,
-            enter_avg_price_gross: 100.0,
-            enter_value_gross: 100.0,
-            exit_fees: Default::default(),
-            exit_fees_total: 0.0,
-            exit_avg_price_gross: 0.0,
-            exit_value_gross: 0.0,
-            current_symbol_price: 100.0,
-            current_value_gross: 100.0,
-            unrealised_profit_loss: 0.0,
-            realised_profit_loss: 0.0,
-        }
-    }
-}
+//     /// Build a [`FillEvent`] for a single bought contract.
+//     pub fn fill_event() -> FillEvent {
+//         FillEvent {
+//             time: Utc::now(),
+//             exchange: ExchangeId::BinanceSpot,
+//             instrument: Instrument::from(("eth", "usdt", InstrumentKind::Spot)),
+//             market_meta: Default::default(),
+//             decision: Decision::default(),
+//             quantity: 1.0,
+//             fill_value_gross: 100.0,
+//             fees: Fees::default(),
+//         }
+//     }
+
+//     /// Build a [`Position`].
+//     pub fn position() -> Position {
+//         Position {
+//             position_id: "engine_id_trader_{}_{}_position".to_smolstr(),
+//             exchange: ExchangeId::BinanceSpot,
+//             instrument: Instrument::from(("eth", "usdt", InstrumentKind::Spot)),
+//             meta: Default::default(),
+//             side: Side::Buy,
+//             quantity: 1.0,
+//             enter_fees: Default::default(),
+//             enter_fees_total: 0.0,
+//             enter_avg_price_gross: 100.0,
+//             enter_value_gross: 100.0,
+//             exit_fees: Default::default(),
+//             exit_fees_total: 0.0,
+//             exit_avg_price_gross: 0.0,
+//             exit_value_gross: 0.0,
+//             current_symbol_price: 100.0,
+//             current_value_gross: 100.0,
+//             unrealised_profit_loss: 0.0,
+//             realised_profit_loss: 0.0,
+//         }
+//     }
+// }
