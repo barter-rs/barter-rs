@@ -1,8 +1,16 @@
+use barter_execution::error::IndexedClientError;
+use barter_instrument::index::error::IndexError;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// All errors generated in the barter::execution module.
-#[derive(Error, Copy, Clone, Debug)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
 pub enum ExecutionError {
-    #[error("Failed to build struct due to missing attributes: {0}")]
-    BuilderIncomplete(&'static str),
+    #[error("ExecutionManager config invalid: {0}")]
+    Config(String),
+
+    #[error("IndexError: {0}")]
+    Index(#[from] IndexError),
+
+    #[error("{0}")]
+    Client(#[from] IndexedClientError),
 }

@@ -1,12 +1,12 @@
 use barter_instrument::{
     instrument::{
         market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
-        InstrumentId,
+        name::InstrumentNameExchange,
+        Instrument,
     },
     Keyed,
 };
 use serde::{Deserialize, Serialize};
-use smol_str::SmolStr;
 use std::fmt::Debug;
 
 /// Instrument related data that defines an associated unique `Id`.
@@ -51,20 +51,53 @@ impl InstrumentData for MarketDataInstrument {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
-pub struct MarketInstrumentData {
-    pub id: InstrumentId,
-    pub name_exchange: SmolStr,
+pub struct MarketInstrumentData<InstrumentKey> {
+    pub key: InstrumentKey,
+    pub name_exchange: InstrumentNameExchange,
     pub kind: MarketDataInstrumentKind,
 }
 
-impl InstrumentData for MarketInstrumentData {
-    type Key = InstrumentId;
+impl<InstrumentKey> InstrumentData for MarketInstrumentData<InstrumentKey>
+where
+    InstrumentKey: Debug + Clone + Eq + Send + Sync,
+{
+    type Key = InstrumentKey;
 
     fn key(&self) -> &Self::Key {
-        &self.id
+        &self.key
     }
 
     fn kind(&self) -> &MarketDataInstrumentKind {
         &self.kind
+    }
+}
+
+impl<InstrumentKey> std::fmt::Display for MarketInstrumentData<InstrumentKey>
+where
+    InstrumentKey: std::fmt::Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}_{}_{}",
+            self.key,
+            self.name_exchange.as_ref(),
+            self.kind
+        )
+    }
+}
+
+impl<ExchangeKey, AssetKey, InstrumentKey>
+    From<&Keyed<InstrumentKey, Instrument<ExchangeKey, AssetKey>>>
+    for MarketInstrumentData<InstrumentKey>
+where
+    InstrumentKey: Clone,
+{
+    fn from(value: &Keyed<InstrumentKey, Instrument<ExchangeKey, AssetKey>>) -> Self {
+        Self {
+            key: value.key.clone(),
+            name_exchange: value.value.name_exchange.clone(),
+            kind: MarketDataInstrumentKind::from(&value.value.kind),
+        }
     }
 }

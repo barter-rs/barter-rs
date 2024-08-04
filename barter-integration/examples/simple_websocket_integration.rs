@@ -1,7 +1,8 @@
 use barter_integration::{
     error::SocketError,
     protocol::websocket::{WebSocket, WebSocketParser, WsMessage},
-    ExchangeStream, Transformer,
+    stream::ExchangeStream,
+    Transformer,
 };
 use futures::{SinkExt, StreamExt};
 use serde::{de, Deserialize};

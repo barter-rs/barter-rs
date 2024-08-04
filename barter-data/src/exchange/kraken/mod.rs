@@ -13,6 +13,7 @@ use crate::{
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
 use barter_macro::{DeExchange, SerExchange};
+use derive_more::Display;
 use serde_json::json;
 use url::Url;
 
@@ -20,11 +21,11 @@ use url::Url;
 pub mod book;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
+/// into an execution [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an exchange [`Connector`]  specific market used for generating [`Connector::requests`].
+/// into an execution [`Connector`]  specific market used for generating [`Connector::requests`].
 pub mod market;
 
 /// [`KrakenMessage`] type for [`Kraken`].
@@ -42,11 +43,22 @@ pub mod trade;
 /// See docs: <https://docs.kraken.com/websockets/#overview>
 pub const BASE_URL_KRAKEN: &str = "wss://ws.kraken.com/";
 
-/// [`Kraken`] exchange.
+/// [`Kraken`] execution.
 ///
 /// See docs: <https://docs.kraken.com/websockets/#overview>
 #[derive(
-    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, DeExchange, SerExchange,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Debug,
+    Default,
+    Display,
+    DeExchange,
+    SerExchange,
 )]
 pub struct Kraken;
 

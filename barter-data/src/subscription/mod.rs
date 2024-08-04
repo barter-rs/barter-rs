@@ -11,7 +11,7 @@ use barter_integration::{
 use derive_more::Display;
 use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
-use smol_str::ToSmolStr;
+use smol_str::{format_smolstr, ToSmolStr};
 use std::{borrow::Borrow, fmt::Debug, hash::Hash};
 
 /// OrderBook [`SubscriptionKind`]s and the associated Barter output data models.
@@ -35,7 +35,7 @@ where
     fn as_str(&self) -> &'static str;
 }
 
-/// Barter [`Subscription`] used to subscribe to a [`SubscriptionKind`] for a particular exchange
+/// Barter [`Subscription`] used to subscribe to a [`SubscriptionKind`] for a particular execution
 /// [`MarketDataInstrument`].
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct Subscription<Exchange = ExchangeId, Inst = MarketDataInstrument, Kind = SubKind> {
@@ -46,16 +46,24 @@ pub struct Subscription<Exchange = ExchangeId, Inst = MarketDataInstrument, Kind
     pub kind: Kind,
 }
 
-#[derive(
-    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize, Display,
-)]
-pub enum SubKind {
-    PublicTrades,
-    OrderBooksL1,
-    OrderBooksL2,
-    OrderBooksL3,
-    Liquidations,
-    Candles,
+pub fn display_subscriptions_without_exchange<Exchange, Instrument, Kind>(
+    subscriptions: &[Subscription<Exchange, Instrument, Kind>],
+) -> String
+where
+    Instrument: Display,
+    Kind: Display,
+{
+    subscriptions
+        .iter()
+        .map(
+            |Subscription {
+                 exchange: _,
+                 instrument,
+                 kind,
+             }| { format_smolstr!("({instrument}, {kind})") },
+        )
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 impl<Exchange, Instrument, Kind> std::fmt::Display for Subscription<Exchange, Instrument, Kind>
@@ -65,8 +73,20 @@ where
     Kind: Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}_{}{}", self.exchange, self.kind, self.instrument)
+        write!(f, "({}|{}|{})", self.exchange, self.kind, self.instrument)
     }
+}
+
+#[derive(
+    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Deserialize, Serialize,
+)]
+pub enum SubKind {
+    PublicTrades,
+    OrderBooksL1,
+    OrderBooksL2,
+    OrderBooksL3,
+    Liquidations,
+    Candles,
 }
 
 impl<Exchange, S, Kind> From<(Exchange, S, S, MarketDataInstrumentKind, Kind)>
@@ -254,21 +274,21 @@ pub fn exchange_supports_instrument_kind_sub_kind(
     }
 }
 
-/// Metadata generated from a collection of Barter [`Subscription`]s, including the exchange
-/// specific subscription payloads that are sent to the exchange.
+/// Metadata generated from a collection of Barter [`Subscription`]s, including the execution
+/// specific subscription payloads that are sent to the execution.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct SubscriptionMeta<InstrumentKey> {
     /// `HashMap` containing the mapping between a [`SubscriptionId`] and
     /// it's associated Barter [`MarketDataInstrument`].
     pub instrument_map: Map<InstrumentKey>,
-    /// Collection of [`WsMessage`]s containing exchange specific subscription payloads to be sent.
+    /// Collection of [`WsMessage`]s containing execution specific subscription payloads to be sent.
     pub ws_subscriptions: Vec<WsMessage>,
 }
 
 /// New type`HashMap` that maps a [`SubscriptionId`] to some associated type `T`.
 ///
 /// Used by [`ExchangeTransformer`](crate::transformer::ExchangeTransformer)s to identify the
-/// Barter [`MarketDataInstrument`] associated with incoming exchange messages.
+/// Barter [`MarketDataInstrument`] associated with incoming execution messages.
 #[derive(Clone, Eq, PartialEq, Debug, Deserialize, Serialize)]
 pub struct Map<T>(pub FnvHashMap<SubscriptionId, T>);
 

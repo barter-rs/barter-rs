@@ -1,10 +1,11 @@
-use super::{ExchangeChannel, StreamBuilder, Streams};
+use super::{StreamBuilder, Streams};
 use crate::{
     error::DataError,
     streams::{consumer::MarketStreamResult, reconnect::stream::ReconnectingStream},
     subscription::SubscriptionKind,
 };
 use barter_instrument::exchange::ExchangeId;
+use barter_integration::channel::Channel;
 use futures_util::StreamExt;
 use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 
@@ -16,7 +17,7 @@ pub type BuilderInitFuture = Pin<Box<dyn Future<Output = Result<(), DataError>>>
 /// multiple [`StreamBuilder<SubscriptionKind>`](StreamBuilder)s.
 #[derive(Default)]
 pub struct MultiStreamBuilder<Output> {
-    pub channels: HashMap<ExchangeId, ExchangeChannel<Output>>,
+    pub channels: HashMap<ExchangeId, Channel<Output>>,
     pub futures: Vec<BuilderInitFuture>,
 }
 
@@ -50,20 +51,21 @@ impl<Output> MultiStreamBuilder<Output> {
     #[allow(clippy::should_implement_trait)]
     pub fn add<InstrumentKey, Kind>(mut self, builder: StreamBuilder<InstrumentKey, Kind>) -> Self
     where
-        Output: From<MarketStreamResult<InstrumentKey, Kind::Event>> + Clone + Send + 'static,
+        Output:
+            From<MarketStreamResult<InstrumentKey, Kind::Event>> + Debug + Clone + Send + 'static,
         InstrumentKey: Debug + Send + 'static,
         Kind: SubscriptionKind + 'static,
         Kind::Event: Send,
     {
-        // Allocate HashMap to hold the exchange_tx<Output> for each StreamBuilder exchange present
+        // Allocate HashMap to hold the exchange_tx<Output> for each StreamBuilder execution present
         let mut exchange_txs = HashMap::with_capacity(builder.channels.len());
 
-        // Iterate over each StreamBuilder exchange present
+        // Iterate over each StreamBuilder execution present
         for exchange in builder.channels.keys().cloned() {
-            // Insert ExchangeChannel<Output> Entry to Self for each exchange
+            // Insert ExchangeChannel<Output> Entry to Self for each execution
             let exchange_tx = self.channels.entry(exchange).or_default().tx.clone();
 
-            // Insert new exchange_tx<Output> into HashMap for each exchange
+            // Insert new exchange_tx<Output> into HashMap for each execution
             exchange_txs.insert(exchange, exchange_tx);
         }
 

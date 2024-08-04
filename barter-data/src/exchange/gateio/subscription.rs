@@ -9,7 +9,7 @@ pub type GateioSubResponse = GateioMessage<GateioSubResult>;
 /// Expected [`Gateio`](super::Gateio) [`Subscription`](crate::subscription::Subscription)
 /// response type.
 ///
-/// See [`GateioMessage`](super::message::GateioMessage) for full raw payload examples.
+/// See [`GateioMessage`] for full raw payload examples.
 ///
 /// See docs: <https://www.gate.io/docs/developers/apiv4/ws/en/#server-response>
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]

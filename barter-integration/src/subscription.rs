@@ -6,9 +6,9 @@ use std::fmt::{Display, Formatter};
 /// This is used to identify data structures received over the socket.
 ///
 /// For example, `Barter-Data` uses this identifier to associate received data structures from the
-/// exchange with the original `Barter-Data` `Subscription` that was actioned over the socket.
+/// execution with the original `Barter-Data` `Subscription` that was actioned over the socket.
 ///
-/// Note: Each exchange will require the use of different `String` identifiers depending on the
+/// Note: Each execution will require the use of different `String` identifiers depending on the
 /// data structures they send.
 ///
 /// eg/ [`SubscriptionId`] of an `FtxTrade` is "{BASE}/{QUOTE}" (ie/ market).

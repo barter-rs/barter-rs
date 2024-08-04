@@ -27,7 +27,9 @@ impl<InstrumentKey, Kind> Identifier<BitfinexMarket>
     }
 }
 
-impl<Kind> Identifier<BitfinexMarket> for Subscription<Bitfinex, MarketInstrumentData, Kind> {
+impl<InstrumentKey, Kind> Identifier<BitfinexMarket>
+    for Subscription<Bitfinex, MarketInstrumentData<InstrumentKey>, Kind>
+{
     fn id(&self) -> BitfinexMarket {
         BitfinexMarket(self.instrument.name_exchange.to_smolstr())
     }
