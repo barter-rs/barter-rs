@@ -5,22 +5,17 @@ use crate::{
     subscription::trade::PublicTrade,
     Identifier,
 };
-use barter_instrument::exchange::ExchangeId;
-use barter_integration::{subscription::SubscriptionId, Side};
+use barter_instrument::{exchange::ExchangeId, Side};
+use barter_integration::subscription::SubscriptionId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Terse type alias for a
-/// [`GateioFuturesUsdt`](super::super::futures::GateioFuturesUsdt),
-/// [`GateioFuturesBtc`](super::super::futures::GateioFuturesBtc),
-/// [`GateioPerpetualUsdt`](super::GateioPerpetualsUsd) and
-/// [`GateioPerpetualBtc`](super::GateioPerpetualsBtc) real-time trades WebSocket message.
+/// Terse type alias for a `GateioFuturesUsdt`, `GateioFuturesBtc`, `GateioPerpetualUsdt` and
+/// `GateioPerpetualBtc` real-time trades WebSocket message.
 pub type GateioFuturesTrades = GateioMessage<Vec<GateioFuturesTradeInner>>;
 
-/// [`GateioFuturesUsdt`](super::super::futures::GateioFuturesUsdt),
-/// [`GateioFuturesBtc`](super::super::futures::GateioFuturesBtc),
-/// [`GateioPerpetualUsdt`](super::GateioPerpetualsUsd) and
-/// [`GateioPerpetualBtc`](super::GateioPerpetualsBtc) real-time trade WebSocket message.
+/// `GateioFuturesUsdt`, `GateioFuturesBtc`, `GateioPerpetualUsdt` and `GateioPerpetualBtc`
+/// real-time trade WebSocket message.
 ///
 /// ### Raw Payload Examples
 /// #### Future Sell Trade

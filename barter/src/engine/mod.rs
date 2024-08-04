@@ -1,477 +1,508 @@
 use crate::{
-    data::MarketGenerator,
-    engine::{error::EngineError, trader::Trader},
-    event::{Event, MessageTransmitter},
-    execution::ExecutionClient,
-    portfolio::{
-        position::Position,
-        repository::{PositionHandler, StatisticHandler},
-        FillUpdater, MarketUpdater, OrderGenerator,
+    engine::{
+        action::{
+            cancel_orders::CancelOrders,
+            close_positions::ClosePositions,
+            generate_algo_orders::{GenerateAlgoOrders, GenerateAlgoOrdersOutput},
+            send_requests::SendRequests,
+            ActionOutput,
+        },
+        audit::{
+            context::EngineContext, shutdown::ShutdownAudit, AuditTick, Auditor, EngineAudit,
+            ProcessAudit,
+        },
+        clock::EngineClock,
+        command::Command,
+        execution_tx::ExecutionTxMap,
+        state::{
+            instrument::market_data::MarketDataState,
+            order::in_flight_recorder::InFlightRequestRecorder, position::PositionExited,
+            trading::TradingState, EngineState,
+        },
     },
-    statistic::summary::{PositionSummariser, TableBuilder},
-    strategy::SignalGenerator,
+    execution::AccountStreamEvent,
+    risk::RiskManager,
+    statistic::summary::TradingSummaryGenerator,
+    strategy::{
+        algo::AlgoStrategy, close_positions::ClosePositionsStrategy,
+        on_disconnect::OnDisconnectStrategy, on_trading_disabled::OnTradingDisabled,
+    },
+    EngineEvent, Sequence,
 };
-use barter_data::event::{DataKind, MarketEvent};
-use barter_instrument::{
-    instrument::market_data::MarketDataInstrument,
-    market::{Market, MarketId},
-};
-use parking_lot::Mutex;
-use prettytable::Table;
-use serde::Serialize;
-use smol_str::ToSmolStr;
-use std::{collections::HashMap, fmt::Debug, sync::Arc, thread};
-use tokio::sync::{mpsc, oneshot};
-use tracing::{error, info, warn};
-use uuid::Uuid;
+use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
+use barter_execution::AccountEvent;
+use barter_instrument::{asset::QuoteAsset, exchange::ExchangeIndex, instrument::InstrumentIndex};
+use barter_integration::channel::{ChannelTxDroppable, Tx};
+use chrono::{DateTime, Utc};
+use derive_more::From;
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
+use tracing::info;
 
-/// Barter Engine module specific errors.
+/// Defines how the [`Engine`] actions a [`Command`], and the associated outputs.
+pub mod action;
+
+/// Defines an `Engine` audit types as well as utilities for handling the `Engine` `AuditStream`.
+///
+/// eg/ `StateReplicaManager` component can be used to maintain an `EngineState` replica.
+pub mod audit;
+
+/// Defines the [`EngineClock`] interface used to determine the current `Engine` time.
+///
+/// This flexibility enables back-testing runs to use approximately correct historical timestamps.
+pub mod clock;
+
+/// Defines an [`Engine`] [`Command`] - used to give trading directives to the `Engine` from an
+/// external process (eg/ ClosePositions).
+pub mod command;
+
+/// Defines all possible errors that can occur in the [`Engine`].
 pub mod error;
 
-/// Contains the trading event loop for a Trader capable of trading a single market pair. A Trader
-/// has its own Data handler, Strategy & Execution handler, as well as shared access to a global
-/// Portfolio instance.
-pub mod trader;
+/// Defines the [`ExecutionTxMap`] interface that models a collection of transmitters used to route
+/// can `ExecutionRequest` to the appropriate `ExecutionManagers`.
+pub mod execution_tx;
 
-/// Commands that can be actioned by an [`Engine`] and it's associated [`Trader`]s.
-#[derive(Debug)]
-pub enum Command {
-    /// Fetches all the [`Engine`]'s open [`Position`]s and sends them on the provided
-    /// `oneshot::Sender`. Involves the [`Engine`] only.
-    FetchOpenPositions(oneshot::Sender<Result<Vec<Position>, EngineError>>),
-
-    /// Terminate every running [`Trader`] associated with this [`Engine`]. Involves all [`Trader`]s.
-    Terminate(String),
-
-    /// Exit every open [`Position`] associated with this [`Engine`]. Involves all [`Trader`]s.
-    ExitAllPositions,
-
-    /// Exit a [`Position`]. Uses the [`Market`] provided to route this [`Command`] to the relevant
-    /// [`Trader`] instance. Involves one [`Trader`].
-    ExitPosition(Market),
-}
-
-/// Lego components for constructing an [`Engine`] via the new() constructor method.
-#[derive(Debug)]
-pub struct EngineLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
-where
-    EventTx: MessageTransmitter<Event> + Send,
-    Statistic: Serialize + Send,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
-    Data: MarketGenerator<MarketEvent<MarketDataInstrument, DataKind>> + Send,
-    Strategy: SignalGenerator + Send,
-    Execution: ExecutionClient + Send,
-{
-    /// Unique identifier for an [`Engine`] in Uuid v4 format. Used as a unique identifier seed for
-    /// the Portfolio, Trader & Positions associated with this [`Engine`].
-    pub engine_id: Uuid,
-    /// mpsc::Receiver for receiving [`Command`]s from a remote source.
-    pub command_rx: mpsc::Receiver<Command>,
-    /// Shared-access to a global Portfolio instance.
-    pub portfolio: Arc<Mutex<Portfolio>>,
-    /// Collection of [`Trader`] instances that can concurrently trade a market pair on it's own thread.
-    pub traders: Vec<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>>,
-    /// `HashMap` containing a [`Command`] transmitter for every [`Trader`] associated with this
-    /// [`Engine`].
-    pub trader_command_txs: HashMap<Market, mpsc::Sender<Command>>,
-    /// Uses trading session's exited [`Position`]s to calculate an average statistical summary
-    /// across all [`Market`]s traded.
-    pub statistics_summary: Statistic,
-}
-
-/// Multi-threaded Trading Engine capable of trading with an arbitrary number of [`Trader`]s, one
-/// for each unique [`Market`].
+/// Defines all state used by the`Engine` to algorithmically trade.
 ///
-/// Each [`Trader`] operates on it's own thread and has it's own Data handler, Strategy &
-/// Execution Handler, as well as shared access to a global Portfolio instance. A graceful remote
-/// shutdown is made possible by sending a [`Command::Terminate`] to the Engine's broadcast::Receiver
-/// termination_rx.
-#[derive(Debug)]
-pub struct Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
-where
-    EventTx: MessageTransmitter<Event>,
-    Statistic: PositionSummariser + Serialize + Send,
-    Portfolio: PositionHandler
-        + StatisticHandler<Statistic>
-        + MarketUpdater
-        + OrderGenerator
-        + FillUpdater
-        + Send
-        + 'static,
-    Data: MarketGenerator<MarketEvent<MarketDataInstrument, DataKind>> + Send + 'static,
-    Strategy: SignalGenerator + Send,
-    Execution: ExecutionClient + Send,
-{
-    /// Unique identifier for an [`Engine`] in Uuid v4 format. Used as a unique identifier seed for
-    /// the Portfolio, Trader & Positions associated with this [`Engine`].
-    engine_id: Uuid,
-    /// mpsc::Receiver for receiving [`Command`]s from a remote source.
-    command_rx: mpsc::Receiver<Command>,
-    /// Shared-access to a global Portfolio instance that implements [`MarketUpdater`],
-    /// [`OrderGenerator`] & [`FillUpdater`].
-    portfolio: Arc<Mutex<Portfolio>>,
-    /// Collection of [`Trader`] instances that can concurrently trade a market pair on it's own thread.
-    traders: Vec<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>>,
-    /// `HashMap` containing a [`Command`] transmitter for every [`Trader`] associated with this
-    /// [`Engine`].
-    trader_command_txs: HashMap<Market, mpsc::Sender<Command>>,
-    /// Uses trading session's exited [`Position`]s to calculate an average statistical summary
-    /// across all [`Market`]s traded.
-    statistics_summary: Statistic,
+/// eg/ `ConnectivityStates`, `AssetStates`, `InstrumentStates`, `Position`, etc.
+pub mod state;
+
+/// Defines how a component processing an input Event and generates an appropriate Audit.
+pub trait Processor<Event> {
+    type Audit;
+    fn process(&mut self, event: Event) -> Self::Audit;
 }
 
-impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
-    Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+/// Primary `Engine` entry point that processes input `Events` and forwards audits to the provided
+/// `AuditTx`.
+///
+/// Runs until shutdown, returning a [`ShutdownAudit`] detailing the reason for the shutdown
+/// (eg/ `Events` `FeedEnded`, `Command::Shutdown`, etc.).
+///
+/// # Arguments
+/// * `Events` - Iterator of events for the `Engine` to process.
+/// * `Engine` - Event processor that produces audit events as output.
+/// * `AuditTx` - Channel for sending produced audit events.
+pub fn run<Events, Engine, AuditTx>(
+    feed: &mut Events,
+    engine: &mut Engine,
+    audit_tx: &mut ChannelTxDroppable<AuditTx>,
+) -> ShutdownAudit<Events::Item, Engine::Output>
 where
-    EventTx: MessageTransmitter<Event> + Send + 'static,
-    Statistic: PositionSummariser + TableBuilder + Serialize + Send + 'static,
-    Portfolio: PositionHandler
-        + StatisticHandler<Statistic>
-        + MarketUpdater
-        + OrderGenerator
-        + FillUpdater
-        + Send
-        + 'static,
-    Data: MarketGenerator<MarketEvent<MarketDataInstrument, DataKind>> + Send,
-    Strategy: SignalGenerator + Send + 'static,
-    Execution: ExecutionClient + Send + 'static,
+    Events: Iterator,
+    Events::Item: Debug + Clone,
+    Engine: Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext>,
+    Engine::Audit: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item, Engine::Output>>,
+    Engine::Output: Debug + Clone,
+    AuditTx: Tx<Item = AuditTick<Engine::Audit, EngineContext>>,
+    Option<ShutdownAudit<Events::Item, Engine::Output>>: for<'a> From<&'a Engine::Audit>,
 {
-    /// Constructs a new trading [`Engine`] instance using the provided [`EngineLego`].
-    pub fn new(lego: EngineLego<EventTx, Statistic, Portfolio, Data, Strategy, Execution>) -> Self {
-        info!(
-            engine_id = &*format!("{}", lego.engine_id),
-            "constructed new Engine instance"
-        );
-        Self {
-            engine_id: lego.engine_id,
-            command_rx: lego.command_rx,
-            portfolio: lego.portfolio,
-            traders: lego.traders,
-            trader_command_txs: lego.trader_command_txs,
-            statistics_summary: lego.statistics_summary,
+    info!("Engine running");
+
+    // Send initial Engine State snapshot
+    audit_tx.send(engine.audit(engine.snapshot()));
+
+    // Run Engine process loop until shutdown
+    let shutdown_audit = loop {
+        let Some(event) = feed.next() else {
+            audit_tx.send(engine.audit(ShutdownAudit::FeedEnded));
+            break ShutdownAudit::FeedEnded;
+        };
+
+        // Process Event with AuditTick generation
+        let audit = process_with_audit(engine, event);
+
+        // Check if AuditTick indicates shutdown is required
+        let shutdown = Option::<ShutdownAudit<Events::Item, Engine::Output>>::from(&audit.event);
+
+        // Send AuditTick to AuditManager
+        audit_tx.send(audit);
+
+        if let Some(shutdown) = shutdown {
+            break shutdown;
         }
-    }
+    };
 
-    /// Builder to construct [`Engine`] instances.
-    pub fn builder() -> EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution> {
-        EngineBuilder::new()
-    }
+    // Send Shutdown audit
+    audit_tx.send(engine.audit(shutdown_audit.clone()));
 
-    /// Run the trading [`Engine`]. Spawns a thread for each [`Trader`] to run on. Asynchronously
-    /// receives [`Command`]s via the `command_rx` and actions them
-    /// (eg/ terminate_traders, fetch_open_positions). If all of the [`Trader`]s stop organically
-    /// (eg/ due to a finished [`MarketGenerator`]), the [`Engine`] terminates & prints a summary
-    /// for the trading session.
-    pub async fn run(mut self) {
-        // Run Traders on threads & send notification when they have stopped organically
-        let mut notify_traders_stopped = self.run_traders().await;
+    info!(?shutdown_audit, "Engine shutting down");
+    shutdown_audit
+}
 
-        loop {
-            // Action received commands from remote, or wait for all Traders to stop organically
-            tokio::select! {
-                _ = notify_traders_stopped.recv() => {
-                    break;
-                },
+/// Process and `Event` with the `Engine` and product an [`AuditTick`] of work done.
+pub fn process_with_audit<Event, Engine>(
+    engine: &mut Engine,
+    event: Event,
+) -> AuditTick<Engine::Audit, EngineContext>
+where
+    Engine: Processor<Event> + Auditor<Engine::Audit, Context = EngineContext>,
+    Engine::Audit: From<Engine::Snapshot> + From<<Engine as Processor<Event>>::Audit>,
+{
+    let output = engine.process(event);
+    engine.audit(output)
+}
 
-                command = self.command_rx.recv() => {
-                    if let Some(command) = command {
-                        match command {
-                            Command::FetchOpenPositions(positions_tx) => {
-                                self.fetch_open_positions(positions_tx).await;
-                            },
-                            Command::Terminate(message) => {
-                                self.terminate_traders(message).await;
-                                break;
-                            },
-                            Command::ExitPosition(market) => {
-                                self.exit_position(market).await;
-                            },
-                            Command::ExitAllPositions => {
-                                self.exit_all_positions().await;
-                            },
-                        }
-                    } else {
-                        // Terminate traders due to dropped receiver
-                        break;
-                    }
+/// Algorithmic trading `Engine`.
+///
+/// The `Engine`:
+/// * Processes input [`EngineEvent`] (or custom events if implemented).
+/// * Maintains the internal [`EngineState`] (market data state, open orders, positions, etc.).
+/// * Generates algo orders (if `TradingState::Enabled`).
+///
+/// # Type Parameters
+/// * `Clock` - [`EngineClock`] implementation.
+/// * `State` - Engine `State` implementation (eg/ [`EngineState`]).
+/// * `ExecutionTxs` - [`ExecutionTxMap`] implementation for sending execution requests.
+/// * `Strategy` - Trading Strategy implementation (see [`super::strategy`]).
+/// * `Risk` - [`RiskManager`] implementation.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Engine<Clock, State, ExecutionTxs, Strategy, Risk> {
+    pub clock: Clock,
+    pub meta: EngineMeta,
+    pub state: State,
+    pub execution_txs: ExecutionTxs,
+    pub strategy: Strategy,
+    pub risk: Risk,
+}
+
+/// Running [`Engine`] metadata.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub struct EngineMeta {
+    /// [`EngineClock`] start timestamp of the current [`Engine`] `run`.
+    pub time_start: DateTime<Utc>,
+    /// Monotonically increasing [`Sequence`] associated with the number of events processed.
+    pub sequence: Sequence,
+}
+
+impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
+    Processor<EngineEvent<MarketState::EventKind>>
+    for Engine<
+        Clock,
+        EngineState<MarketState, StrategyState, RiskState>,
+        ExecutionTxs,
+        Strategy,
+        Risk,
+    >
+where
+    Clock: EngineClock + for<'a> Processor<&'a EngineEvent<MarketState::EventKind>>,
+    MarketState: MarketDataState,
+    StrategyState: for<'a> Processor<&'a AccountEvent>
+        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
+    RiskState: for<'a> Processor<&'a AccountEvent>
+        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
+    ExecutionTxs: ExecutionTxMap<ExchangeIndex, InstrumentIndex>,
+    Strategy: OnTradingDisabled<
+            Clock,
+            EngineState<MarketState, StrategyState, RiskState>,
+            ExecutionTxs,
+            Risk,
+        > + OnDisconnectStrategy<
+            Clock,
+            EngineState<MarketState, StrategyState, RiskState>,
+            ExecutionTxs,
+            Risk,
+        > + AlgoStrategy<State = EngineState<MarketState, StrategyState, RiskState>>
+        + ClosePositionsStrategy<State = EngineState<MarketState, StrategyState, RiskState>>,
+    Risk: RiskManager<State = EngineState<MarketState, StrategyState, RiskState>>,
+{
+    type Audit = EngineAudit<
+        EngineState<MarketState, StrategyState, RiskState>,
+        EngineEvent<MarketState::EventKind>,
+        EngineOutput<Strategy::OnTradingDisabled, Strategy::OnDisconnect>,
+    >;
+
+    fn process(&mut self, event: EngineEvent<MarketState::EventKind>) -> Self::Audit {
+        self.clock.process(&event);
+
+        let process_audit = match &event {
+            EngineEvent::Shutdown => return EngineAudit::shutdown_commanded(event),
+            EngineEvent::Command(command) => {
+                let output = self.action(command);
+
+                if let Some(unrecoverable) = output.unrecoverable_errors() {
+                    return EngineAudit::shutdown_on_err(event, unrecoverable, output);
+                } else {
+                    ProcessAudit::with_command_output(event, output)
                 }
             }
-        }
-
-        // Print Trading Session Summary
-        self.generate_session_summary().printstd();
-    }
-
-    /// Runs each [`Trader`] it's own thread. Sends a message on the returned `mpsc::Receiver<bool>`
-    /// if all the [`Trader`]s have stopped organically (eg/ due to a finished [`MarketEvent`] feed).
-    async fn run_traders(&mut self) -> mpsc::Receiver<bool> {
-        // Extract Traders out of the Engine so we can move them into threads
-        let traders = std::mem::take(&mut self.traders);
-
-        // Run each Trader instance on it's own thread
-        let mut thread_handles = Vec::with_capacity(traders.len());
-        for trader in traders.into_iter() {
-            let handle = thread::spawn(move || trader.run());
-            thread_handles.push(handle);
-        }
-
-        // Create channel to notify the Engine when the Traders have stopped organically
-        let (notify_tx, notify_rx) = mpsc::channel(1);
-
-        // Create Task that notifies Engine when the Traders have stopped organically
-        tokio::spawn(async move {
-            for handle in thread_handles {
-                if let Err(err) = handle.join() {
-                    error!(
-                        error = &*format!("{:?}", err),
-                        "Trader thread has panicked during execution",
-                    )
-                }
+            EngineEvent::TradingStateUpdate(trading_state) => {
+                let output = self.update_from_trading_state_update(*trading_state);
+                ProcessAudit::with_trading_state_update(event, output)
             }
-
-            let _ = notify_tx.send(true).await;
-        });
-
-        notify_rx
-    }
-
-    /// Fetches all the [`Engine`]'s open [`Position`]s and sends them on the provided
-    /// `oneshot::Sender`.
-    async fn fetch_open_positions(
-        &self,
-        positions_tx: oneshot::Sender<Result<Vec<Position>, EngineError>>,
-    ) {
-        let open_positions = self
-            .portfolio
-            .lock()
-            .get_open_positions(self.engine_id, self.trader_command_txs.keys())
-            .map_err(EngineError::RepositoryInteractionError);
-
-        if positions_tx.send(open_positions).is_err() {
-            warn!(
-                why = "oneshot receiver dropped",
-                "cannot action Command::FetchOpenPositions"
-            );
-        }
-    }
-
-    /// Terminate every running [`Trader`] associated with this [`Engine`].
-    async fn terminate_traders(&self, message: String) {
-        // Firstly, exit all Positions
-        self.exit_all_positions().await;
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
-        // Distribute Command::Terminate to all the Engine's Traders
-        for (market, command_tx) in self.trader_command_txs.iter() {
-            if command_tx
-                .send(Command::Terminate(message.clone()))
-                .await
-                .is_err()
-            {
-                error!(
-                    market = &*format!("{:?}", market),
-                    why = "dropped receiver",
-                    "failed to send Command::Terminate to Trader command_rx"
-                );
+            EngineEvent::Account(account) => {
+                let output = self.update_from_account_stream(account);
+                ProcessAudit::with_account_update(event, output)
             }
-        }
-    }
-
-    /// Exit every open [`Position`] associated with this [`Engine`].
-    async fn exit_all_positions(&self) {
-        for (market, command_tx) in self.trader_command_txs.iter() {
-            if command_tx
-                .send(Command::ExitPosition(market.clone()))
-                .await
-                .is_err()
-            {
-                error!(
-                    market = &*format!("{:?}", market),
-                    why = "dropped receiver",
-                    "failed to send Command::Terminate to Trader command_rx"
-                );
+            EngineEvent::Market(market) => {
+                let output = self.update_from_market_stream(market);
+                ProcessAudit::with_market_update(event, output)
             }
-        }
-    }
+        };
 
-    /// Exit a [`Position`]. Uses the [`Market`] provided to route this [`Command`] to the relevant
-    /// [`Trader`] instance.
-    async fn exit_position(&self, market: Market) {
-        if let Some((market_ref, command_tx)) = self.trader_command_txs.get_key_value(&market) {
-            if command_tx
-                .send(Command::ExitPosition(market))
-                .await
-                .is_err()
-            {
-                error!(
-                    market = &*format!("{:?}", market_ref),
-                    why = "dropped receiver",
-                    "failed to send Command::Terminate to Trader command_rx"
-                );
+        if let TradingState::Enabled = self.state.trading {
+            let output = self.generate_algo_orders();
+
+            if output.is_empty() {
+                EngineAudit::from(process_audit)
+            } else if let Some(unrecoverable) = output.unrecoverable_errors() {
+                EngineAudit::shutdown_on_err_with_process(process_audit, unrecoverable)
+            } else {
+                EngineAudit::from(process_audit.add_additional(output))
             }
         } else {
-            warn!(
-                market = &*format!("{:?}", market),
-                why = "Engine has no trader_command_tx associated with provided Market",
-                "failed to exit Position"
-            );
+            EngineAudit::from(process_audit)
+        }
+    }
+}
+
+impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
+    Engine<Clock, EngineState<MarketState, StrategyState, RiskState>, ExecutionTxs, Strategy, Risk>
+{
+    /// Action an `Engine` [`Command`], producing an [`ActionOutput`] of work done.
+    pub fn action(&mut self, command: &Command) -> ActionOutput
+    where
+        ExecutionTxs: ExecutionTxMap,
+        Strategy:
+            ClosePositionsStrategy<State = EngineState<MarketState, StrategyState, RiskState>>,
+        Risk: RiskManager,
+    {
+        match &command {
+            Command::SendCancelRequests(requests) => {
+                info!(
+                    ?requests,
+                    "Engine actioning user Command::SendCancelRequests"
+                );
+                let output = self.send_requests(requests.clone());
+                self.state.record_in_flight_cancels(&output.sent);
+                ActionOutput::CancelOrders(output)
+            }
+            Command::SendOpenRequests(requests) => {
+                info!(?requests, "Engine actioning user Command::SendOpenRequests");
+                let output = self.send_requests(requests.clone());
+                self.state.record_in_flight_opens(&output.sent);
+                ActionOutput::OpenOrders(output)
+            }
+            Command::ClosePositions(filter) => {
+                info!(?filter, "Engine actioning user Command::ClosePositions");
+                ActionOutput::ClosePositions(self.close_positions(filter))
+            }
+            Command::CancelOrders(filter) => {
+                info!(?filter, "Engine actioning user Command::CancelOrders");
+                ActionOutput::CancelOrders(self.cancel_orders(filter))
+            }
         }
     }
 
-    /// Generate a trading session summary. Uses the Portfolio's statistics per [`Market`] in
-    /// combination with the average statistics across all [`Market`]s traded.
-    fn generate_session_summary(mut self) -> Table {
-        // Fetch statistics for each Market
-        let stats_per_market = self.trader_command_txs.into_keys().filter_map(|market| {
-            let market_id = MarketId::from(&market);
+    /// Update the `Engine` [`TradingState`].
+    ///
+    /// If the `TradingState` transitions to `TradingState::Disabled`, the `Engine` will call
+    /// the configured [`OnTradingDisabled`] strategy logic.
+    pub fn update_from_trading_state_update(
+        &mut self,
+        update: TradingState,
+    ) -> Option<Strategy::OnTradingDisabled>
+    where
+        Strategy: OnTradingDisabled<
+            Clock,
+            EngineState<MarketState, StrategyState, RiskState>,
+            ExecutionTxs,
+            Risk,
+        >,
+    {
+        self.state
+            .trading
+            .update(update)
+            .transitioned_to_disabled()
+            .then(|| Strategy::on_trading_disabled(self))
+    }
 
-            match self.portfolio.lock().get_statistics(&market_id) {
-                Ok(statistics) => Some((market_id.0, statistics)),
-                Err(error) => {
-                    error!(
-                        ?error,
-                        ?market,
-                        "failed to get Market statistics when generating trading session summary"
-                    );
-                    None
-                }
+    /// Update the [`Engine`] from an [`AccountStreamEvent`].
+    ///
+    /// If the input `AccountStreamEvent` indicates the exchange execution link has disconnected,
+    /// the `Engine` will call the configured [`OnDisconnectStrategy`] strategy logic.
+    pub fn update_from_account_stream(
+        &mut self,
+        event: &AccountStreamEvent,
+    ) -> UpdateFromAccountOutput<Strategy::OnDisconnect>
+    where
+        StrategyState: for<'a> Processor<&'a AccountEvent>,
+        RiskState: for<'a> Processor<&'a AccountEvent>,
+        Strategy: OnDisconnectStrategy<
+            Clock,
+            EngineState<MarketState, StrategyState, RiskState>,
+            ExecutionTxs,
+            Risk,
+        >,
+    {
+        match event {
+            AccountStreamEvent::Reconnecting(exchange) => {
+                self.state
+                    .connectivity
+                    .update_from_account_reconnecting(exchange);
+
+                UpdateFromAccountOutput::OnDisconnect(Strategy::on_disconnect(self, *exchange))
             }
-        });
+            AccountStreamEvent::Item(event) => self
+                .state
+                .update_from_account(event)
+                .map(UpdateFromAccountOutput::PositionExit)
+                .unwrap_or(UpdateFromAccountOutput::None),
+        }
+    }
 
-        // Generate average statistics across all markets using session's exited Positions
-        self.portfolio
-            .lock()
-            .get_exited_positions(self.engine_id)
-            .map(|exited_positions| {
-                self.statistics_summary.generate_summary(&exited_positions);
-            })
-            .unwrap_or_else(|error| {
-                warn!(
-                    ?error,
-                    why = "failed to get exited Positions from Portfolio's repository",
-                    "failed to generate Statistics summary for trading session"
-                );
-            });
+    /// Update the [`Engine`] from a [`MarketStreamEvent`].
+    ///
+    /// If the input `MarketStreamEvent` indicates the exchange market data link has disconnected,
+    /// the `Engine` will call the configured [`OnDisconnectStrategy`] strategy logic.
+    pub fn update_from_market_stream(
+        &mut self,
+        event: &MarketStreamEvent<InstrumentIndex, MarketState::EventKind>,
+    ) -> UpdateFromMarketOutput<Strategy::OnDisconnect>
+    where
+        MarketState: MarketDataState,
+        StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
+        RiskState: for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
+        Strategy: OnDisconnectStrategy<
+            Clock,
+            EngineState<MarketState, StrategyState, RiskState>,
+            ExecutionTxs,
+            Risk,
+        >,
+    {
+        match event {
+            MarketStreamEvent::Reconnecting(exchange) => {
+                self.state
+                    .connectivity
+                    .update_from_market_reconnecting(exchange);
 
-        // Combine Total & Per-Market Statistics Into Table
-        crate::statistic::summary::combine(
-            stats_per_market.chain([("Total".to_smolstr(), self.statistics_summary)]),
+                UpdateFromMarketOutput::OnDisconnect(Strategy::on_disconnect(self, *exchange))
+            }
+            MarketStreamEvent::Item(event) => {
+                self.state.update_from_market(event);
+                UpdateFromMarketOutput::None
+            }
+        }
+    }
+
+    /// Returns a [`TradingSummaryGenerator`] for the current trading session.
+    pub fn trading_summary_generator(&self, risk_free_return: Decimal) -> TradingSummaryGenerator
+    where
+        Clock: EngineClock,
+    {
+        TradingSummaryGenerator::init(
+            risk_free_return,
+            self.meta.time_start,
+            self.clock.time(),
+            &self.state.instruments,
+            &self.state.assets,
         )
     }
 }
 
-/// Builder to construct [`Engine`] instances.
-#[derive(Debug, Default)]
-pub struct EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
+impl<Clock, State, ExecutionTxs, Strategy, Risk> Engine<Clock, State, ExecutionTxs, Strategy, Risk>
 where
-    EventTx: MessageTransmitter<Event>,
-    Statistic: Serialize + Send,
-    Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
-    Data: MarketGenerator<MarketEvent<MarketDataInstrument, DataKind>> + Send,
-    Strategy: SignalGenerator + Send,
-    Execution: ExecutionClient + Send,
+    Clock: EngineClock,
 {
-    engine_id: Option<Uuid>,
-    command_rx: Option<mpsc::Receiver<Command>>,
-    portfolio: Option<Arc<Mutex<Portfolio>>>,
-    traders: Option<Vec<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>>>,
-    trader_command_txs: Option<HashMap<Market, mpsc::Sender<Command>>>,
-    statistics_summary: Option<Statistic>,
-}
-
-impl<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
-    EngineBuilder<EventTx, Statistic, Portfolio, Data, Strategy, Execution>
-where
-    EventTx: MessageTransmitter<Event>,
-    Statistic: PositionSummariser + Serialize + Send,
-    Portfolio: PositionHandler
-        + StatisticHandler<Statistic>
-        + MarketUpdater
-        + OrderGenerator
-        + FillUpdater
-        + Send,
-    Data: MarketGenerator<MarketEvent<MarketDataInstrument, DataKind>> + Send,
-    Strategy: SignalGenerator + Send,
-    Execution: ExecutionClient + Send,
-{
-    fn new() -> Self {
-        Self {
-            engine_id: None,
-            command_rx: None,
-            portfolio: None,
-            traders: None,
-            trader_command_txs: None,
-            statistics_summary: None,
-        }
-    }
-
-    pub fn engine_id(self, value: Uuid) -> Self {
-        Self {
-            engine_id: Some(value),
-            ..self
-        }
-    }
-
-    pub fn command_rx(self, value: mpsc::Receiver<Command>) -> Self {
-        Self {
-            command_rx: Some(value),
-            ..self
-        }
-    }
-
-    pub fn portfolio(self, value: Arc<Mutex<Portfolio>>) -> Self {
-        Self {
-            portfolio: Some(value),
-            ..self
-        }
-    }
-
-    pub fn traders(
-        self,
-        value: Vec<Trader<EventTx, Statistic, Portfolio, Data, Strategy, Execution>>,
+    /// Construct a new `Engine`.
+    ///
+    /// An initial [`EngineMeta`] is constructed form the provided `clock` and `Sequence(0)`.
+    pub fn new(
+        clock: Clock,
+        state: State,
+        execution_txs: ExecutionTxs,
+        strategy: Strategy,
+        risk: Risk,
     ) -> Self {
         Self {
-            traders: Some(value),
-            ..self
+            meta: EngineMeta {
+                time_start: clock.time(),
+                sequence: Sequence(0),
+            },
+            clock,
+            state,
+            execution_txs,
+            strategy,
+            risk,
         }
     }
 
-    pub fn trader_command_txs(self, value: HashMap<Market, mpsc::Sender<Command>>) -> Self {
-        Self {
-            trader_command_txs: Some(value),
-            ..self
-        }
+    /// Return `Engine` clock time.
+    pub fn time(&self) -> DateTime<Utc> {
+        self.clock.time()
     }
 
-    pub fn statistics_summary(self, value: Statistic) -> Self {
-        Self {
-            statistics_summary: Some(value),
-            ..self
-        }
+    /// Reset the internal `EngineMeta` to the `clock` time and `Sequence(0)`.
+    pub fn reset_metadata(&mut self) {
+        self.meta.time_start = self.clock.time();
+        self.meta.sequence = Sequence(0);
     }
+}
 
-    pub fn build(
-        self,
-    ) -> Result<Engine<EventTx, Statistic, Portfolio, Data, Strategy, Execution>, EngineError> {
-        Ok(Engine {
-            engine_id: self
-                .engine_id
-                .ok_or(EngineError::BuilderIncomplete("engine_id"))?,
-            command_rx: self
-                .command_rx
-                .ok_or(EngineError::BuilderIncomplete("command_rx"))?,
-            portfolio: self
-                .portfolio
-                .ok_or(EngineError::BuilderIncomplete("portfolio"))?,
-            traders: self
-                .traders
-                .ok_or(EngineError::BuilderIncomplete("traders"))?,
-            trader_command_txs: self
-                .trader_command_txs
-                .ok_or(EngineError::BuilderIncomplete("trader_command_txs"))?,
-            statistics_summary: self
-                .statistics_summary
-                .ok_or(EngineError::BuilderIncomplete("statistics_summary"))?,
-        })
+/// Output produced by [`Engine`] operations, used to construct an `Engine` [`EngineAudit`].
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub enum EngineOutput<
+    OnTradingDisabled,
+    OnDisconnect,
+    ExchangeKey = ExchangeIndex,
+    InstrumentKey = InstrumentIndex,
+> {
+    Commanded(ActionOutput<ExchangeKey, InstrumentKey>),
+    OnTradingDisabled(OnTradingDisabled),
+    AccountDisconnect(OnDisconnect),
+    PositionExit(PositionExited<QuoteAsset, InstrumentKey>),
+    MarketDisconnect(OnDisconnect),
+    AlgoOrders(GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>),
+}
+
+/// Output produced by the [`Engine`] updating from an [`TradingState`], used to construct
+/// an `Engine` [`EngineAudit`].
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub enum UpdateTradingStateOutput<OnTradingDisabled> {
+    None,
+    OnTradingDisabled(OnTradingDisabled),
+}
+
+/// Output produced by the [`Engine`] updating from an [`AccountStreamEvent`], used to construct
+/// an `Engine` [`EngineAudit`].
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub enum UpdateFromAccountOutput<OnDisconnect, InstrumentKey = InstrumentIndex> {
+    None,
+    OnDisconnect(OnDisconnect),
+    PositionExit(PositionExited<QuoteAsset, InstrumentKey>),
+}
+
+/// Output produced by the [`Engine`] updating from an [`MarketStreamEvent`], used to construct
+/// an `Engine` [`EngineAudit`].
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub enum UpdateFromMarketOutput<OnDisconnect> {
+    None,
+    OnDisconnect(OnDisconnect),
+}
+
+impl<OnTradingDisabled, OnDisconnect> From<ActionOutput>
+    for EngineOutput<OnTradingDisabled, OnDisconnect>
+{
+    fn from(value: ActionOutput) -> Self {
+        Self::Commanded(value)
+    }
+}
+
+impl<OnTradingDisabled, OnDisconnect> From<PositionExited<QuoteAsset>>
+    for EngineOutput<OnTradingDisabled, OnDisconnect>
+{
+    fn from(value: PositionExited<QuoteAsset>) -> Self {
+        Self::PositionExit(value)
+    }
+}
+
+impl<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
+    From<GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>>
+    for EngineOutput<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
+{
+    fn from(value: GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>) -> Self {
+        Self::AlgoOrders(value)
     }
 }

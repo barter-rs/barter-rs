@@ -1,6 +1,6 @@
 [package]
 name = "barter-data"
-version = "0.9.0"
+version = "0.9.1"
 authors = ["JustAStream"]
 edition = "2021"
 license = "MIT"
@@ -46,9 +46,6 @@ serde_json = { workspace = true }
 parking_lot = { workspace = true }
 rust_decimal = { workspace = true, features = ["serde-with-str"] }
 smol_str = { workspace = true, features = ["serde"] }
-
-# Strategy
-ta = { workspace = true }
 
 # Misc
 chrono = { workspace = true, features = ["serde"] }

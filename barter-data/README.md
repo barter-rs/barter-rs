@@ -7,11 +7,11 @@ exchanges - batteries included. It is:
 * **Real-Time**: Barter-Data utilises real-time WebSocket integrations enabling the consumption of normalised tick-by-tick data.
 * **Extensible**: Barter-Data is highly extensible, and therefore easy to contribute to with coding new integrations!
 
-**See: [`Barter`], [`Barter-Integration`], [`Barter-Execution`] & [`Barter-Macro`]**
+**See: [`Barter`], [`Barter-Instrument`], [`Barter-Execution`] & [`Barter-Integration`] for
+comprehensive documentation of other Barter libraries.**
 
 [![Crates.io][crates-badge]][crates-url]
 [![MIT licensed][mit-badge]][mit-url]
-[![Build Status][actions-badge]][actions-url]
 [![Discord chat][discord-badge]][discord-url]
 
 [crates-badge]: https://img.shields.io/crates/v/barter-data.svg
@@ -20,9 +20,6 @@ exchanges - batteries included. It is:
 [mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
 [mit-url]: https://gitlab.com/open-source-keir/financial-modelling/trading/barter-data-rs/-/blob/main/LICENCE
 
-[actions-badge]: https://gitlab.com/open-source-keir/financial-modelling/trading/barter-data-rs/badges/-/blob/main/pipeline.svg
-[actions-url]: https://gitlab.com/open-source-keir/financial-modelling/trading/barter-data-rs/-/commits/main
-
 [discord-badge]: https://img.shields.io/discord/910237311332151317.svg?logo=discord&style=flat-square
 [discord-url]: https://discord.gg/wE7RqhnQMV
 
@@ -30,9 +27,9 @@ exchanges - batteries included. It is:
 [Chat]
 
 [`Barter`]: https://crates.io/crates/barter
-[`Barter-Integration`]: https://crates.io/crates/barter-integration
+[`Barter-Instrument`]: https://crates.io/crates/barter-instrument
 [`Barter-Execution`]: https://crates.io/crates/barter-execution
-[`Barter-Macro`]: https://crates.io/crates/barter-macro
+[`Barter-Integration`]: https://crates.io/crates/barter-integration
 [API Documentation]: https://docs.rs/barter-data/latest/barter_data
 [Chat]: https://discord.gg/wE7RqhnQMV
 
@@ -154,8 +151,17 @@ async fn main() {
 ```
 
 ## Getting Help
-Firstly, see if the answer to your question can be found in the [API Documentation]. If the answer is not there, I'd be 
-happy to help via [Chat] and try answer your question via Discord. 
+Firstly, see if the answer to your question can be found in the [API Documentation]. If the answer is not there, I'd be happy to help via [Chat] <br>
+and try answer your question via Discord.
+
+## Support Barter Development
+Help us advance Barter's capabilities by becoming a sponsor (or supporting me with a tip!).
+
+Your contribution will allow me to dedicate more time to Barter, accelerating feature development and improvements.
+
+**Please email *justastream.code@gmail.com* for all inquiries**
+
+Please see [here](../README.md#support-barter-development) for more information.
 
 ## Contributing
 Thanks in advance for helping to develop the Barter ecosystem! Please do get hesitate to get touch via the Discord 
@@ -173,25 +179,59 @@ Thanks in advance for helping to develop the Barter ecosystem! Please do get hes
 4. Try to compile and follow the remaining steps!
 5. Add a barter-data-rs/examples/<sub_kind_name>_streams.rs example in the standard format :)
 
-## Related Projects
-In addition to the Barter-Execution crate, the Barter project also maintains:
-* [`Barter`]: High-performance, extensible & modular trading components with batteries-included. Contains a
-  pre-built trading Engine that can serve as a live-trading or backtesting system.
-* [`Barter-Integration`]: High-performance, low-level framework for composing flexible web integrations.
-* [`Barter-Execution`]: High-performance WebSocket integration library for streaming public market data from leading
-  cryptocurrency exchanges.
-* [`Barter-Macro`]: Barter ecosystem macros.
-
-## Roadmap
-* Add support for more exchanges (easy to help with!)
-* Add support for more subscription kinds (easy to help with!)
-
-## Licence
+### Licence
 This project is licensed under the [MIT license].
 
-[MIT license]: https://gitlab.com/open-source-keir/financial-modelling/trading/barter-data-rs/-/blob/main/LICENSE
+[MIT license]: https://github.com/barter-rs/barter-rs/blob/develop/LICENSE
 
-### Contribution
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in Barter-Data by you, shall be licensed as MIT, without any additional
-terms or conditions.
+### Contribution License Agreement
+
+Any contribution you intentionally submit for inclusion in Barter workspace crates shall be:
+1. Licensed under MIT
+2. Subject to all disclaimers and limitations of liability stated below
+3. Provided without any additional terms or conditions
+4. Submitted with the understanding that the educational-only purpose and risk warnings apply
+
+By submitting a contribution, you certify that you have the right to do so under these terms.
+
+## LEGAL DISCLAIMER AND LIMITATION OF LIABILITY
+
+PLEASE READ THIS DISCLAIMER CAREFULLY BEFORE USING THE SOFTWARE. BY ACCESSING OR USING THE SOFTWARE, YOU ACKNOWLEDGE AND AGREE TO BE BOUND BY THE TERMS HEREIN.
+
+1. EDUCATIONAL PURPOSE
+   This software and related documentation ("Software") are provided solely for educational and research purposes. The Software is not intended, designed, tested, verified or certified for commercial deployment, live trading, or production use of any kind.
+
+2. NO FINANCIAL ADVICE
+   Nothing contained in the Software constitutes financial, investment, legal, or tax advice. No aspect of the Software should be relied upon for trading decisions or financial planning. Users are strongly advised to consult qualified professionals for investment guidance specific to their circumstances.
+
+3. ASSUMPTION OF RISK
+   Trading in financial markets, including but not limited to cryptocurrencies, securities, derivatives, and other financial instruments, carries substantial risk of loss. Users acknowledge that:
+   a) They may lose their entire investment;
+   b) Past performance does not indicate future results;
+   c) Hypothetical or simulated performance results have inherent limitations and biases.
+
+4. DISCLAIMER OF WARRANTIES
+   THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE AUTHORS AND COPYRIGHT HOLDERS EXPRESSLY DISCLAIM ALL WARRANTIES, INCLUDING BUT NOT LIMITED TO:
+   a) MERCHANTABILITY
+   b) FITNESS FOR A PARTICULAR PURPOSE
+   c) NON-INFRINGEMENT
+   d) ACCURACY OR RELIABILITY OF RESULTS
+   e) SYSTEM INTEGRATION
+   f) QUIET ENJOYMENT
+
+5. LIMITATION OF LIABILITY
+   IN NO EVENT SHALL THE AUTHORS, COPYRIGHT HOLDERS, CONTRIBUTORS, OR ANY AFFILIATED PARTIES BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING BUT NOT LIMITED TO PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+6. REGULATORY COMPLIANCE
+   The Software is not registered with, endorsed by, or approved by any financial regulatory authority. Users are solely responsible for:
+   a) Determining whether their use complies with applicable laws and regulations
+   b) Obtaining any required licenses, permits, or registrations
+   c) Meeting any regulatory obligations in their jurisdiction
+
+7. INDEMNIFICATION
+   Users agree to indemnify, defend, and hold harmless the authors, copyright holders, and any affiliated parties from and against any claims, liabilities, damages, losses, and expenses arising from their use of the Software.
+
+8. ACKNOWLEDGMENT
+   BY USING THE SOFTWARE, USERS ACKNOWLEDGE THAT THEY HAVE READ THIS DISCLAIMER, UNDERSTOOD IT, AND AGREE TO BE BOUND BY ITS TERMS AND CONDITIONS.
+
+THE ABOVE LIMITATIONS MAY NOT APPLY IN JURISDICTIONS THAT DO NOT ALLOW THE EXCLUSION OF CERTAIN WARRANTIES OR LIMITATIONS OF LIABILITY.

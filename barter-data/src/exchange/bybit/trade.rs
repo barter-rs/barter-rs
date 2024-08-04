@@ -3,8 +3,7 @@ use crate::{
     exchange::bybit::message::BybitPayload,
     subscription::trade::PublicTrade,
 };
-use barter_instrument::exchange::ExchangeId;
-use barter_integration::Side;
+use barter_instrument::{exchange::ExchangeId, Side};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

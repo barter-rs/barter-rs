@@ -102,9 +102,9 @@ where
                     .ok_or_else(|| DataError::InitialSnapshotMissing(sub_id.clone()))?;
 
                 let OrderBookEvent::Snapshot(snapshot) = &snapshot.kind else {
-                    return Err(DataError::InitialSnapshotInvalid(
+                    return Err(DataError::InitialSnapshotInvalid(String::from(
                         "expected OrderBookEvent::Snapshot but found OrderBookEvent::Update",
-                    ));
+                    )));
                 };
 
                 let book_meta = BinanceOrderBookL2Meta::new(
@@ -148,11 +148,6 @@ where
             Ok(None) => return vec![],
             Err(error) => return vec![Err(error)],
         };
-
-        println!(
-            "Update: {}-{}",
-            valid_update.first_update_id, valid_update.last_update_id
-        );
 
         MarketIter::<InstrumentKey, OrderBookEvent>::from((
             BinanceSpot::ID,

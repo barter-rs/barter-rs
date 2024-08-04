@@ -1,8 +1,5 @@
 use barter_data::{
-    exchange::{
-        binance::{futures::BinanceFuturesUsd, spot::BinanceSpot},
-        kraken::Kraken,
-    },
+    exchange::binance::{futures::BinanceFuturesUsd, spot::BinanceSpot},
     streams::{reconnect::stream::ReconnectingStream, Streams},
     subscription::book::OrderBooksL1,
 };
@@ -26,12 +23,6 @@ async fn main() {
         .subscribe([
             (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, OrderBooksL1),
             (BinanceFuturesUsd::default(), "eth", "usd", MarketDataInstrumentKind::Perpetual, OrderBooksL1),
-        ])
-        .subscribe([
-            (Kraken, "xbt", "usd", MarketDataInstrumentKind::Spot, OrderBooksL1),
-            (Kraken, "ada", "usd", MarketDataInstrumentKind::Spot, OrderBooksL1),
-            (Kraken, "matic", "usd", MarketDataInstrumentKind::Spot, OrderBooksL1),
-            (Kraken, "dot", "usd", MarketDataInstrumentKind::Spot, OrderBooksL1),
         ])
         .init()
         .await

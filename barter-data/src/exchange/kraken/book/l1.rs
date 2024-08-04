@@ -60,17 +60,37 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, KrakenOrderBookL1)>
         (exchange_id, instrument, book): (ExchangeId, InstrumentKey, KrakenOrderBookL1),
     ) -> Self {
         match book {
-            KrakenOrderBookL1::Data(book) => Self(vec![Ok(MarketEvent {
-                time_exchange: book.spread.time,
-                time_received: Utc::now(),
-                exchange: exchange_id,
-                instrument,
-                kind: OrderBookL1 {
-                    last_update_time: book.spread.time,
-                    best_bid: Level::new(book.spread.best_bid_price, book.spread.best_bid_amount),
-                    best_ask: Level::new(book.spread.best_ask_price, book.spread.best_ask_amount),
-                },
-            })]),
+            KrakenOrderBookL1::Data(book) => {
+                let best_ask = if book.spread.best_ask_price.is_zero() {
+                    None
+                } else {
+                    Some(Level::new(
+                        book.spread.best_ask_price,
+                        book.spread.best_ask_amount,
+                    ))
+                };
+
+                let best_bid = if book.spread.best_bid_price.is_zero() {
+                    None
+                } else {
+                    Some(Level::new(
+                        book.spread.best_bid_price,
+                        book.spread.best_bid_amount,
+                    ))
+                };
+
+                Self(vec![Ok(MarketEvent {
+                    time_exchange: book.spread.time,
+                    time_received: Utc::now(),
+                    exchange: exchange_id,
+                    instrument,
+                    kind: OrderBookL1 {
+                        last_update_time: book.spread.time,
+                        best_bid,
+                        best_ask,
+                    },
+                })])
+            }
             KrakenOrderBookL1::Event(_) => MarketIter(vec![]),
         }
     }

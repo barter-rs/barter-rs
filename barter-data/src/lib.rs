@@ -1,26 +1,31 @@
 #![forbid(unsafe_code)]
-#![warn(clippy::all)]
-#![allow(clippy::pedantic, clippy::type_complexity)]
 #![warn(
+    unused,
+    clippy::cognitive_complexity,
+    unused_crate_dependencies,
+    unused_extern_crates,
+    clippy::unused_self,
+    clippy::useless_let_if_seq,
     missing_debug_implementations,
     rust_2018_idioms,
     rust_2024_compatibility
 )]
+#![allow(clippy::type_complexity, clippy::too_many_arguments, type_alias_bounds)]
 
 //! # Barter-Data
 //! A high-performance WebSocket integration library for streaming public market data from leading cryptocurrency
 //! exchanges - batteries included. It is:
-//! * **Easy**: Barter-Data's simple [`StreamBuilder`](streams::builder::StreamBuilder) and [`DynamicStreams`](streams::builder::DynamicStreams) interface allows for easy & quick setup (see example below and /examples!).
+//! * **Easy**: Barter-Data's simple [`StreamBuilder`](streams::builder::StreamBuilder) and [`DynamicStreams`](streams::builder::dynamic::DynamicStreams) interface allows for easy & quick setup (see example below and /examples!).
 //! * **Normalised**: Barter-Data's unified interface for consuming public WebSocket data means every Exchange returns a normalised data model.
 //! * **Real-Time**: Barter-Data utilises real-time WebSocket integrations enabling the consumption of normalised tick-by-tick data.
 //! * **Extensible**: Barter-Data is highly extensible, and therefore easy to contribute to with coding new integrations!
 //!
 //! ## User API
 //! - [`StreamBuilder`](streams::builder::StreamBuilder) for initialising [`MarketStream`]s of specific data kinds.
-//! - [`DynamicStreams`](streams::builder::DynamicStreams) for initialising [`MarketStream`]s of every supported data kind at once.
+//! - [`DynamicStreams`](streams::builder::dynamic::DynamicStreams) for initialising [`MarketStream`]s of every supported data kind at once.
 //! - Define what exchange market data you want to stream using the [`Subscription`] type.
-//! - Pass [`Subscription`]s to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) or [`DynamicStreams::init`](streams::builder::DynamicStreams::init) methods.
-//! - Each call to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) (or each batch passed to the [`DynamicStreams::init`](streams::builder::DynamicStreams::init))
+//! - Pass [`Subscription`]s to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) or [`DynamicStreams::init`](streams::builder::dynamic::DynamicStreams::init) methods.
+//! - Each call to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) (or each batch passed to the [`DynamicStreams::init`](streams::builder::dynamic::DynamicStreams::init))
 //!   method opens a new WebSocket connection to the exchange - giving you full control.
 //!
 //! ## Examples
@@ -28,9 +33,9 @@
 //!
 //! ### Multi Exchange Public Trades
 //! ```rust,no_run
-//! use barter_data::exchange::gateio::spot::GateioSpot;
 //! use barter_data::{
 //!     exchange::{
+//!         gateio::spot::GateioSpot,
 //!         binance::{futures::BinanceFuturesUsd, spot::BinanceSpot},
 //!         coinbase::Coinbase,
 //!         okx::Okx,
@@ -85,7 +90,6 @@
 //!     }
 //! }
 //! ```
-
 use crate::{
     error::DataError,
     event::MarketEvent,
@@ -103,7 +107,8 @@ use barter_integration::{
         websocket::{WebSocketParser, WsMessage, WsSink, WsStream},
         StreamParser,
     },
-    ExchangeStream, Transformer,
+    stream::ExchangeStream,
+    Transformer,
 };
 use futures::{SinkExt, Stream, StreamExt};
 use std::{collections::VecDeque, future::Future};
@@ -336,7 +341,7 @@ pub async fn distribute_messages_to_exchange(
             error!(
                 %exchange,
                 %error,
-                "failed to send  output message to the exchange via WsSink"
+                "failed to send output message to the exchange via WsSink"
             );
         }
     }
@@ -363,6 +368,36 @@ pub async fn schedule_pings_to_exchange(
 
         if ws_sink_tx.send(payload).is_err() {
             break;
+        }
+    }
+}
+
+pub mod test_utils {
+    use crate::{
+        event::{DataKind, MarketEvent},
+        subscription::trade::PublicTrade,
+    };
+    use barter_instrument::{exchange::ExchangeId, Side};
+    use chrono::{DateTime, Utc};
+
+    pub fn market_event_trade_buy<InstrumentKey>(
+        time_exchange: DateTime<Utc>,
+        time_received: DateTime<Utc>,
+        instrument: InstrumentKey,
+        price: f64,
+        quantity: f64,
+    ) -> MarketEvent<InstrumentKey, DataKind> {
+        MarketEvent {
+            time_exchange,
+            time_received,
+            exchange: ExchangeId::BinanceSpot,
+            instrument,
+            kind: DataKind::Trade(PublicTrade {
+                id: "trade_id".to_string(),
+                price,
+                amount: quantity,
+                side: Side::Buy,
+            }),
         }
     }
 }
