@@ -37,18 +37,18 @@ pub mod kraken;
 pub mod okx;
 
 /// Defines the generic [`ExchangeSub`] containing a market and channel combination used by an
-/// exchange [`Connector`] to build [`WsMessage`] subscription payloads.
+/// execution [`Connector`] to build [`WsMessage`] subscription payloads.
 pub mod subscription;
 
 /// Default [`Duration`] the [`Connector::SubValidator`] will wait to receive all success responses to actioned
 /// [`Subscription`](subscription::Subscription) requests.
 pub const DEFAULT_SUBSCRIPTION_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Defines the [`MarketStream`] kind associated with an exchange
+/// Defines the [`MarketStream`] kind associated with an execution
 /// [`Subscription`](subscription::Subscription) [`SubscriptionKind`].
 ///
 /// ### Notes
-/// Must be implemented by an exchange [`Connector`] if it supports a specific
+/// Must be implemented by an execution [`Connector`] if it supports a specific
 /// [`SubscriptionKind`].
 pub trait StreamSelector<Instrument, Kind>
 where
@@ -60,20 +60,20 @@ where
     type Stream: MarketStream<Self, Instrument, Kind>;
 }
 
-/// Primary exchange abstraction. Defines how to translate Barter types into exchange specific
-/// types, as well as connecting, subscribing, and interacting with the exchange server.
+/// Primary execution abstraction. Defines how to translate Barter types into execution specific
+/// types, as well as connecting, subscribing, and interacting with the execution server.
 ///
 /// ### Notes
-/// This must be implemented for a new exchange integration!
+/// This must be implemented for a new execution integration!
 pub trait Connector
 where
     Self: Clone + Default + Debug + for<'de> Deserialize<'de> + Serialize + Sized,
 {
-    /// Unique identifier for the exchange server being connected with.
+    /// Unique identifier for the execution server being connected with.
     const ID: ExchangeId;
 
     /// Type that defines how to translate a Barter
-    /// [`Subscription`](ubscription::Subscription) into an exchange specific channel
+    /// [`Subscription`](subscription::Subscription) into an execution specific channel
     /// to be subscribed to.
     ///
     /// ### Examples
@@ -82,7 +82,7 @@ where
     type Channel: AsRef<str>;
 
     /// Type that defines how to translate a Barter
-    /// [`Subscription`](subscription::Subscription) into an exchange specific market that
+    /// [`Subscription`](subscription::Subscription) into an execution specific market that
     /// can be subscribed to.
     ///
     /// ### Examples
@@ -90,27 +90,27 @@ where
     /// - [`KrakenMarket("BTC/USDT")`](kraken::market::KrakenMarket)
     type Market: AsRef<str>;
 
-    /// [`Subscriber`] type that establishes a connection with the exchange server, and actions
+    /// [`Subscriber`] type that establishes a connection with the execution server, and actions
     /// [`Subscription`](subscription::Subscription)s over the socket.
     type Subscriber: Subscriber;
 
-    /// [`SubscriptionValidator`] type that listens to responses from the exchange server and
+    /// [`SubscriptionValidator`] type that listens to responses from the execution server and
     /// validates if the actioned [`Subscription`](subscription::Subscription)s were
     /// successful.
     type SubValidator: SubscriptionValidator;
 
-    /// Deserialisable type that the [`Self::SubValidator`] expects to receive from the exchange server in
+    /// Deserialisable type that the [`Self::SubValidator`] expects to receive from the execution server in
     /// response to the [`Subscription`](subscription::Subscription) [`Self::requests`]
     /// sent over the [`WebSocket`](barter_integration::protocol::websocket::WebSocket). Implements
     /// [`Validator`] in order to determine if [`Self`]
     /// communicates a successful [`Subscription`](subscription::Subscription) outcome.
     type SubResponse: Validator + Debug + DeserializeOwned;
 
-    /// Base [`Url`] of the exchange server being connected with.
+    /// Base [`Url`] of the execution server being connected with.
     fn url() -> Result<Url, SocketError>;
 
     /// Defines [`PingInterval`] of custom application-level
-    /// [`WebSocket`](barter_integration::protocol::websocket::WebSocket) pings for the exchange
+    /// [`WebSocket`](barter_integration::protocol::websocket::WebSocket) pings for the execution
     /// server being connected with.
     ///
     /// Defaults to `None`, meaning that no custom pings are sent.
@@ -119,11 +119,11 @@ where
     }
 
     /// Defines how to translate a collection of [`ExchangeSub`]s into the [`WsMessage`]
-    /// subscription payloads sent to the exchange server.
+    /// subscription payloads sent to the execution server.
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage>;
 
     /// Number of [`Subscription`](subscription::Subscription) responses expected from the
-    /// exchange server in responses to the requests send. Used to validate all
+    /// execution server in responses to the requests send. Used to validate all
     /// [`Subscription`](subscription::Subscription)s were accepted.
     fn expected_responses<InstrumentKey>(map: &Map<InstrumentKey>) -> usize {
         map.0.len()
@@ -136,8 +136,8 @@ where
     }
 }
 
-/// Used when an exchange has servers different
-/// [`InstrumentKind`] market data on distinct servers,
+/// Used when an execution has servers different
+/// [`InstrumentKind`](barter_instrument::instrument::kind::InstrumentKind) market data on distinct servers,
 /// allowing all the [`Connector`] logic to be identical apart from what this trait provides.
 ///
 /// ### Examples

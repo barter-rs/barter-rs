@@ -3,8 +3,8 @@ resolver = "2"
 members = [
     "barter",
     "barter-data",
-    "barter-integration",
     "barter-execution",
+    "barter-integration",
     "barter-macro"
 , "barter-instrument"]
 
@@ -16,6 +16,7 @@ tracing-subscriber = { version = "0.3.16" }
 # Async
 tokio = { version = "1.38.0" }
 tokio-stream = { version = "0.1.15" }
+tokio-test = { version = "0.4.4" }
 futures = { version = "0.3.30" }
 futures-util = { version = "0.3.31" }
 async-trait = { version = "0.1.57" }
@@ -39,7 +40,9 @@ tokio-tungstenite = { version = "0.21.0" }
 ta = { version = "0.5.0" }
 
 # Data Structures
+fnv = { version = "1.0.7" }
 vecmap-rs = { version = "0.2.1" }
+indexmap = { version = "2.6.0" }
 parking_lot = { version = "0.12.3" }
 rust_decimal = { version = "1.29.1" }
 smol_str = { version = "0.3.1" }
@@ -57,5 +60,5 @@ derive_more = { version = "1.0.0", features = ["constructor", "display", "from"]
 itertools = { version = "0.13.0" }
 rust_decimal_macros = { version = "1.29.1" }
 bytes = { version = "1.5.0" }
-fnv = "1.0.7"
+approx = { version = "0.5.1 "}
 

@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
-/// Configuration of an [`InstrumentKind::Option`] contract.
+/// Configuration of an [`InstrumentKind::Option`](super::InstrumentKind) contract.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub struct OptionContract {
     pub kind: OptionKind,

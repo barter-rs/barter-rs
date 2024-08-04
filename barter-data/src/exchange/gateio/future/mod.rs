@@ -9,13 +9,14 @@ use crate::{
     ExchangeWsStream, NoInitialSnapshots,
 };
 use barter_instrument::exchange::ExchangeId;
+use std::fmt::Display;
 
 /// [`GateioFuturesUsd`] WebSocket server base url.
 ///
 /// See docs: <https://www.gate.io/docs/developers/delivery/ws/en/>
 pub const WEBSOCKET_BASE_URL_GATEIO_FUTURES_USD: &str = "wss://fx-ws.gateio.ws/v4/ws/delivery/usdt";
 
-/// [`Gateio`] perpetual usd exchange.
+/// [`Gateio`] perpetual usd execution.
 pub type GateioFuturesUsd = Gateio<GateioServerFuturesUsd>;
 
 /// [`Gateio`] perpetual usd [`ExchangeServer`].
@@ -40,12 +41,18 @@ where
     >;
 }
 
+impl Display for GateioFuturesUsd {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "GateioFuturesUsd")
+    }
+}
+
 /// [`GateioFuturesBtc`] WebSocket server base url.
 ///
 /// See docs: <https://www.gate.io/docs/developers/delivery/ws/en/>
 pub const WEBSOCKET_BASE_URL_GATEIO_FUTURES_BTC: &str = "wss://fx-ws.gateio.ws/v4/ws/delivery/btc";
 
-/// [`Gateio`] perpetual btc exchange.
+/// [`Gateio`] perpetual btc execution.
 pub type GateioFuturesBtc = Gateio<GateioServerFuturesBtc>;
 
 /// [`Gateio`] perpetual btc [`ExchangeServer`].
@@ -68,4 +75,10 @@ where
     type Stream = ExchangeWsStream<
         StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
     >;
+}
+
+impl Display for GateioFuturesBtc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "GateioFuturesBtc")
+    }
 }

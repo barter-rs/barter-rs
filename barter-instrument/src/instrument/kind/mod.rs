@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub mod future;
 pub mod option;
 
+/// [`Instrument`](super::Instrument) kind, one of `Spot`, `Perpetual`, `Future` and `Option`.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InstrumentKind<AssetKey> {
@@ -25,6 +26,8 @@ pub enum InstrumentKind<AssetKey> {
 }
 
 impl<AssetKey> InstrumentKind<AssetKey> {
+    /// For `Perpetual`, `Future` & `Option` variants of [`Self`], returns the settlement
+    /// `AssetKey`, and `None` for Spot.
     pub fn settlement_asset(&self) -> Option<&AssetKey> {
         match self {
             InstrumentKind::Spot => None,
@@ -40,6 +43,8 @@ impl<AssetKey> InstrumentKind<AssetKey> {
         }
     }
 
+    /// Determines if the provided [`MarketDataInstrumentKind`] is equivalent to [`Self`] (ignores
+    /// settlement asset).
     pub fn eq_market_data_instrument_kind(&self, other: &MarketDataInstrumentKind) -> bool {
         match (self, other) {
             (Self::Spot, MarketDataInstrumentKind::Spot) => true,
