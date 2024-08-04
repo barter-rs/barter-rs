@@ -1,7 +1,21 @@
+#![forbid(unsafe_code)]
+#![warn(
+    unused,
+    clippy::cognitive_complexity,
+    unused_crate_dependencies,
+    unused_extern_crates,
+    clippy::unused_self,
+    clippy::useless_let_if_seq,
+    missing_debug_implementations,
+    rust_2018_idioms,
+    rust_2024_compatibility
+)]
+#![allow(clippy::type_complexity, clippy::too_many_arguments, type_alias_bounds)]
+
 //! # Barter-Integration
 //! High-performance, low-level framework for composing flexible web integrations.
 //!
-//! Utilised by other Barter trading ecosystem crates to build robust financial exchange integrations,
+//! Utilised by other Barter trading ecosystem crates to build robust financial execution integrations,
 //! primarily for public data collection & trade execution. It is:
 //! * **Low-Level**: Translates raw data streams communicated over the web into any desired data model using arbitrary data transformations.
 //! * **Flexible**: Compatible with any protocol (WebSocket, FIX, Http, etc.), any input/output model, and any user defined transformations.
@@ -12,23 +26,8 @@
 //!
 //! Both core abstractions provide the robust glue you need to conveniently translate between server & client data models.
 
-#![warn(
-    missing_debug_implementations,
-    missing_copy_implementations,
-    rust_2018_idioms
-)]
-
-use crate::{error::SocketError, protocol::StreamParser};
-use futures::Stream;
-use pin_project::pin_project;
-use serde::{Deserialize, Serialize};
-use std::{
-    collections::VecDeque,
-    fmt::{Debug, Display, Formatter},
-    marker::PhantomData,
-    pin::Pin,
-    task::{Context, Poll},
-};
+use crate::error::SocketError;
+use serde::Deserialize;
 
 /// All [`Error`](std::error::Error)s generated in Barter-Integration.
 pub mod error;
@@ -54,6 +53,13 @@ pub mod subscription;
 /// eg/ `UnboundedTx`, `ChannelTxDroppable`, etc.
 pub mod channel;
 
+pub mod collection;
+
+/// Stream utilities.
+pub mod stream;
+
+pub mod snapshot;
+
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.
 pub trait Validator {
@@ -73,112 +79,9 @@ pub trait Transformer {
     fn transform(&mut self, input: Self::Input) -> Self::OutputIter;
 }
 
-/// An [`ExchangeStream`] is a communication protocol agnostic [`Stream`]. It polls protocol
-/// messages from the inner [`Stream`], and transforms them into the desired output data structure.
-#[derive(Debug)]
-#[pin_project]
-pub struct ExchangeStream<Protocol, InnerStream, StreamTransformer>
-where
-    Protocol: StreamParser,
-    InnerStream: Stream,
-    StreamTransformer: Transformer,
-{
-    #[pin]
-    pub stream: InnerStream,
-    pub transformer: StreamTransformer,
-    pub buffer: VecDeque<Result<StreamTransformer::Output, StreamTransformer::Error>>,
-    pub protocol_marker: PhantomData<Protocol>,
-}
-
-impl<Protocol, InnerStream, StreamTransformer> Stream
-    for ExchangeStream<Protocol, InnerStream, StreamTransformer>
-where
-    Protocol: StreamParser,
-    InnerStream: Stream<Item = Result<Protocol::Message, Protocol::Error>> + Unpin,
-    StreamTransformer: Transformer,
-    StreamTransformer::Error: From<SocketError>,
-{
-    type Item = Result<StreamTransformer::Output, StreamTransformer::Error>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        loop {
-            // Flush Self::Item buffer if it is not currently empty
-            if let Some(output) = self.buffer.pop_front() {
-                return Poll::Ready(Some(output));
-            }
-
-            // Poll inner `Stream` for next the next input protocol message
-            let input = match self.as_mut().project().stream.poll_next(cx) {
-                Poll::Ready(Some(input)) => input,
-                Poll::Ready(None) => return Poll::Ready(None),
-                Poll::Pending => return Poll::Pending,
-            };
-
-            // Parse input protocol message into `ExchangeMessage`
-            let exchange_message = match Protocol::parse::<StreamTransformer::Input>(input) {
-                // `StreamParser` successfully deserialised `ExchangeMessage`
-                Some(Ok(exchange_message)) => exchange_message,
-
-                // If `StreamParser` returns an Err pass it downstream
-                Some(Err(err)) => return Poll::Ready(Some(Err(err.into()))),
-
-                // If `StreamParser` returns None it's a safe-to-skip message
-                None => continue,
-            };
-
-            // Transform `ExchangeMessage` into `Transformer::OutputIter`
-            // ie/ IntoIterator<Item = Result<Output, SocketError>>
-            self.transformer
-                .transform(exchange_message)
-                .into_iter()
-                .for_each(
-                    |output_result: Result<StreamTransformer::Output, StreamTransformer::Error>| {
-                        self.buffer.push_back(output_result)
-                    },
-                );
-        }
-    }
-}
-
-impl<Protocol, InnerStream, StreamTransformer>
-    ExchangeStream<Protocol, InnerStream, StreamTransformer>
-where
-    Protocol: StreamParser,
-    InnerStream: Stream,
-    StreamTransformer: Transformer,
-{
-    pub fn new(
-        stream: InnerStream,
-        transformer: StreamTransformer,
-        buffer: VecDeque<Result<StreamTransformer::Output, StreamTransformer::Error>>,
-    ) -> Self {
-        Self {
-            stream,
-            transformer,
-            buffer,
-            protocol_marker: PhantomData,
-        }
-    }
-}
-
-/// [`Side`] of a trade or position - Buy or Sell.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub enum Side {
-    #[serde(alias = "buy", alias = "BUY", alias = "b")]
-    Buy,
-    #[serde(alias = "sell", alias = "SELL", alias = "s")]
-    Sell,
-}
-
-impl Display for Side {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Side::Buy => "buy",
-                Side::Sell => "sell",
-            }
-        )
-    }
+/// Determines if something is considered "unrecoverable", such as an unrecoverable error.
+///
+/// Note that the meaning of [`Unrecoverable`] may vary depending on the context.
+pub trait Unrecoverable {
+    fn is_unrecoverable(&self) -> bool;
 }

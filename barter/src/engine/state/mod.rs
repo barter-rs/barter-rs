@@ -1,0 +1,216 @@
+use crate::engine::{
+    state::{
+        asset::{filter::AssetFilter, generate_empty_indexed_asset_states, AssetStates},
+        builder::EngineStateBuilder,
+        connectivity::{generate_empty_indexed_connectivity_states, ConnectivityStates},
+        instrument::{
+            filter::InstrumentFilter, generate_empty_indexed_instrument_states,
+            generate_unindexed_instrument_account_snapshot, market_data::MarketDataState,
+            InstrumentStates,
+        },
+        order::manager::OrderManager,
+        position::PositionExited,
+        trading::TradingState,
+    },
+    Processor,
+};
+use barter_data::event::MarketEvent;
+use barter_execution::{
+    balance::AssetBalance, AccountEvent, AccountEventKind, UnindexedAccountSnapshot,
+};
+use barter_instrument::{
+    asset::{AssetIndex, QuoteAsset},
+    exchange::{ExchangeId, ExchangeIndex},
+    index::IndexedInstruments,
+    instrument::InstrumentIndex,
+};
+use barter_integration::{collection::one_or_many::OneOrMany, snapshot::Snapshot};
+use chrono::{DateTime, Utc};
+use derive_more::Constructor;
+use fnv::FnvHashMap;
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
+
+pub mod asset;
+pub mod connectivity;
+pub mod instrument;
+pub mod order;
+pub mod position;
+pub mod trading;
+
+/// [`EngineState`] builder utility.
+pub mod builder;
+
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+pub struct EngineState<Market, Strategy, Risk> {
+    pub trading: TradingState,
+    pub connectivity: ConnectivityStates,
+    pub assets: AssetStates,
+    pub instruments: InstrumentStates<Market, ExchangeIndex, AssetIndex, InstrumentIndex>,
+    pub strategy: Strategy,
+    pub risk: Risk,
+}
+
+impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
+    /// Construct an [`EngineStateBuilder`] to assist with `EngineState` initialisation.
+    pub fn builder(
+        instruments: &IndexedInstruments,
+    ) -> EngineStateBuilder<'_, Market, Strategy, Risk>
+    where
+        Market: Default,
+        Strategy: Default,
+        Risk: Default,
+    {
+        EngineStateBuilder::new(instruments)
+    }
+
+    pub fn update_from_account(
+        &mut self,
+        event: &AccountEvent,
+    ) -> Option<PositionExited<QuoteAsset>>
+    where
+        Strategy: for<'a> Processor<&'a AccountEvent>,
+        Risk: for<'a> Processor<&'a AccountEvent>,
+    {
+        // Set exchange account connectivity to Healthy if it was Reconnecting
+        self.connectivity.update_from_account_event(&event.exchange);
+
+        let output = match &event.kind {
+            AccountEventKind::Snapshot(snapshot) => {
+                for balance in &snapshot.balances {
+                    self.assets
+                        .asset_index_mut(&balance.asset)
+                        .update_from_balance(Snapshot(balance))
+                }
+                for instrument in &snapshot.instruments {
+                    self.instruments
+                        .instrument_index_mut(&instrument.instrument)
+                        .update_from_account_snapshot(instrument)
+                }
+                None
+            }
+            AccountEventKind::BalanceSnapshot(balance) => {
+                self.assets
+                    .asset_index_mut(&balance.0.asset)
+                    .update_from_balance(balance.as_ref());
+                None
+            }
+            AccountEventKind::OrderSnapshot(order) => {
+                self.instruments
+                    .instrument_index_mut(&order.0.instrument)
+                    .orders
+                    .update_from_order_snapshot(order.as_ref());
+                None
+            }
+            AccountEventKind::OrderOpened(response) => {
+                self.instruments
+                    .instrument_index_mut(&response.instrument)
+                    .orders
+                    .update_from_open(response);
+                None
+            }
+            AccountEventKind::OrderCancelled(response) => {
+                self.instruments
+                    .instrument_index_mut(&response.instrument)
+                    .orders
+                    .update_from_cancel(response);
+                None
+            }
+            AccountEventKind::Trade(trade) => {
+                let _position_exited = self
+                    .instruments
+                    .instrument_index_mut(&trade.instrument)
+                    .update_from_trade(trade);
+                None
+            }
+        };
+
+        // Update any user provided Strategy & Risk State
+        self.strategy.process(event);
+        self.risk.process(event);
+
+        output
+    }
+
+    pub fn update_from_market(&mut self, event: &MarketEvent<InstrumentIndex, Market::EventKind>)
+    where
+        Market: MarketDataState,
+        Strategy: for<'a> Processor<&'a MarketEvent<InstrumentIndex, Market::EventKind>>,
+        Risk: for<'a> Processor<&'a MarketEvent<InstrumentIndex, Market::EventKind>>,
+    {
+        // Set exchange market data connectivity to Healthy if it was Reconnecting
+        self.connectivity.update_from_market_event(&event.exchange);
+
+        let instrument_state = self.instruments.instrument_index_mut(&event.instrument);
+
+        instrument_state.market.process(event);
+        self.strategy.process(event);
+        self.risk.process(event);
+    }
+}
+
+impl<Market, Strategy, Risk> From<&EngineState<Market, Strategy, Risk>>
+    for FnvHashMap<ExchangeId, UnindexedAccountSnapshot>
+{
+    fn from(value: &EngineState<Market, Strategy, Risk>) -> Self {
+        let EngineState {
+            trading: _,
+            connectivity,
+            assets,
+            instruments,
+            strategy: _,
+            risk: _,
+        } = value;
+
+        // Allocate appropriately
+        let mut snapshots =
+            FnvHashMap::with_capacity_and_hasher(connectivity.exchanges.len(), Default::default());
+
+        // Insert UnindexedAccountSnapshot for each exchange
+        for (index, exchange) in connectivity.exchange_ids().enumerate() {
+            snapshots.insert(
+                *exchange,
+                UnindexedAccountSnapshot {
+                    exchange: *exchange,
+                    balances: assets
+                        .filtered(&AssetFilter::Exchanges(OneOrMany::One(*exchange)))
+                        .map(AssetBalance::from)
+                        .collect(),
+                    instruments: instruments
+                        .filtered(&InstrumentFilter::Exchanges(OneOrMany::One(ExchangeIndex(
+                            index,
+                        ))))
+                        .map(|snapshot| {
+                            generate_unindexed_instrument_account_snapshot(*exchange, snapshot)
+                        })
+                        .collect::<Vec<_>>(),
+                },
+            );
+        }
+
+        snapshots
+    }
+}
+
+pub fn generate_empty_indexed_engine_state<Market, Strategy, Risk>(
+    trading_state: TradingState,
+    instruments: &IndexedInstruments,
+    time_engine_start: DateTime<Utc>,
+    strategy: Strategy,
+    risk: Risk,
+) -> EngineState<Market, Strategy, Risk>
+where
+    Market: Default,
+{
+    EngineState {
+        trading: trading_state,
+        connectivity: generate_empty_indexed_connectivity_states(instruments),
+        assets: generate_empty_indexed_asset_states(instruments),
+        instruments: generate_empty_indexed_instrument_states::<Market>(
+            instruments,
+            time_engine_start,
+        ),
+        strategy,
+        risk,
+    }
+}

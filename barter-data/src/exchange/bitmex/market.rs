@@ -29,9 +29,11 @@ impl<InstrumentKey, Kind> Identifier<BitmexMarket>
     }
 }
 
-impl<Kind> Identifier<BitmexMarket> for Subscription<Bitmex, MarketInstrumentData, Kind> {
+impl<InstrumentKey, Kind> Identifier<BitmexMarket>
+    for Subscription<Bitmex, MarketInstrumentData<InstrumentKey>, Kind>
+{
     fn id(&self) -> BitmexMarket {
-        BitmexMarket(self.instrument.name_exchange.clone())
+        BitmexMarket(self.instrument.name_exchange.name().clone())
     }
 }
 

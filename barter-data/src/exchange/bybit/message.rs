@@ -12,7 +12,7 @@ use serde::{
     Deserialize, Serialize,
 };
 
-/// [`Bybit`](super::Bybit) websocket message supports both [`BybitTrade`](BybitTrade) and [`BybitResponse`](BybitResponse) .
+/// [`Bybit`](super::Bybit) websocket message supports both [`BybitTrade`] and [`BybitResponse`].
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BybitMessage {

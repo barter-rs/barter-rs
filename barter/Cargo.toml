@@ -12,40 +12,42 @@ keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dev-dependencies]
+rust_decimal_macros = { workspace = true }
+serde_json = { workspace = true }
+spin_sleep = { workspace = true }
+
 [dependencies]
 # Barter Ecosystem
-barter-integration = { path = "../barter-integration", version = "0.7.4" }
-barter-instrument = { path = "../barter-instrument", version = "0.1.0" }
+barter-integration = { path = "../barter-integration", version = "0.8.0" }
+barter-instrument = { path = "../barter-instrument", version = "0.2.0" }
 barter-data = { path = "../barter-data", version = "0.9.0" }
+barter-execution = { path = "../barter-execution", version = "0.4.0"}
 
 # Logging
 tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json", "registry"]}
 
 # Async
 tokio = { workspace = true, features = ["sync"] }
-tokio-stream = { workspace = true, features = ["sync"] }
 futures = { workspace = true }
-async-trait = { workspace = true }
+pin-project = { workspace = true }
 
 # Error
 thiserror = { workspace = true }
 
 # SerDe
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
 
 # Data Structures
-rust_decimal = { workspace = true }
 smol_str = { workspace = true }
-
-# Persistence
-redis = "0.25.4"
-
-# Strategy
-ta = { workspace = true }
+rust_decimal = { workspace = true }
+fnv = { workspace = true }
+indexmap = { workspace = true, features = ["serde"]}
 
 # Misc
-uuid = { workspace = true, features = ["v4", "serde"] }
 chrono = { workspace = true, features = ["serde"]}
-parking_lot = { workspace = true }
+derive_more = { workspace = true, features = ["constructor", "from", "display"]}
 prettytable-rs = "0.10.0"
+itertools = { workspace = true }

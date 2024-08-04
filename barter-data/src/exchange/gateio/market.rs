@@ -37,11 +37,11 @@ impl<Server, InstrumentKey, Kind> Identifier<GateioMarket>
     }
 }
 
-impl<Server, Kind> Identifier<GateioMarket>
-    for Subscription<Gateio<Server>, MarketInstrumentData, Kind>
+impl<Server, InstrumentKey, Kind> Identifier<GateioMarket>
+    for Subscription<Gateio<Server>, MarketInstrumentData<InstrumentKey>, Kind>
 {
     fn id(&self) -> GateioMarket {
-        GateioMarket(self.instrument.name_exchange.clone())
+        GateioMarket(self.instrument.name_exchange.name().clone())
     }
 }
 
