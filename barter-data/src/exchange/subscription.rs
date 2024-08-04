@@ -2,10 +2,10 @@ use crate::{subscription::Subscription, Identifier};
 use barter_integration::subscription::SubscriptionId;
 use serde::Deserialize;
 
-/// Defines an exchange specific market and channel combination used by an exchange
+/// Defines an execution specific market and channel combination used by an execution
 /// [`Connector`](super::Connector) to build the
 /// [`WsMessage`](barter_integration::protocol::websocket::WsMessage) subscription payloads to
-/// send to the exchange server.
+/// send to the execution server.
 ///
 /// ### Examples
 /// #### Binance OrderBooksL2
@@ -24,7 +24,7 @@ use serde::Deserialize;
 /// ```
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize)]
 pub struct ExchangeSub<Channel, Market> {
-    /// Type that defines how to translate a Barter [`Subscription`] into an exchange specific
+    /// Type that defines how to translate a Barter [`Subscription`] into an execution specific
     /// channel to be subscribed to.
     ///
     /// ### Examples
@@ -32,7 +32,7 @@ pub struct ExchangeSub<Channel, Market> {
     /// - [`KrakenChannel("trade")`](super::kraken::channel::KrakenChannel)
     pub channel: Channel,
 
-    /// Type that defines how to translate a Barter [`Subscription`] into an exchange specific
+    /// Type that defines how to translate a Barter [`Subscription`] into an execution specific
     /// market that can be subscribed to.
     ///
     /// ### Examples
@@ -60,7 +60,7 @@ where
     Channel: AsRef<str>,
     Market: AsRef<str>,
 {
-    /// Construct a new exchange specific [`Self`] with the Barter [`Subscription`] provided.
+    /// Construct a new execution specific [`Self`] with the Barter [`Subscription`] provided.
     pub fn new<Exchange, Instrument, Kind>(sub: &Subscription<Exchange, Instrument, Kind>) -> Self
     where
         Subscription<Exchange, Instrument, Kind>: Identifier<Channel> + Identifier<Market>,

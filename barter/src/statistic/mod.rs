@@ -1,25 +1,16 @@
-use chrono::Duration;
-use serde::{Deserialize, Deserializer, Serializer};
-
+/// Statistical algorithms for analysing datasets.
 pub mod algorithm;
-pub mod dispersion;
-pub mod error;
+
+/// Financial metrics and the means to calculate them over different
+/// [`TimeIntervals`](time::TimeInterval).
 pub mod metric;
+
+/// Statistical summaries for financial datasets.
+///
+/// For example, `TradingSummary`, `TearSheet`, `TearSheetAsset`, `PnLReturns`, etc.
 pub mod summary;
 
-/// Serialize a [`Duration`] into a `u64` representing the associated seconds.
-pub fn se_duration_as_secs<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_i64(duration.num_seconds())
-}
-
-/// Deserialize a number representing seconds into a [`Duration`]
-pub fn de_duration_from_secs<'de, D>(deserializer: D) -> Result<Duration, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let seconds: i64 = Deserialize::deserialize(deserializer)?;
-    Ok(Duration::seconds(seconds))
-}
+/// TimeInterval definitions used for financial calculations.
+///
+/// For example, `Annual365`, `Annual252`, `Daily`, etc.
+pub mod time;

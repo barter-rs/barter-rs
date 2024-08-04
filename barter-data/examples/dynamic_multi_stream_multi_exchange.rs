@@ -66,8 +66,8 @@ async fn main() {
     // Select all streams, mapping each SubscriptionKind `MarketStreamResult<T>` into a unified
     // `Output` (eg/ `MarketStreamResult<_, DataKind>`), where MarketStreamResult<T>: Into<Output>
     // Notes on other DynamicStreams methods:
-    //  - Use `streams.select_trades(ExchangeId)` to return a stream of trades from a given exchange.
-    //  - Use `streams.select_<T>(ExchangeId)` to return a stream of T from a given exchange.
+    //  - Use `streams.select_trades(ExchangeId)` to return a stream of trades from a given execution.
+    //  - Use `streams.select_<T>(ExchangeId)` to return a stream of T from a given execution.
     //  - Use `streams.select_all_trades(ExchangeId)` to return a stream of trades from all exchanges
     let mut merged = streams
         .select_all::<MarketStreamResult<MarketDataInstrument, DataKind>>()

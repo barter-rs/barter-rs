@@ -17,7 +17,11 @@ use fnv::FnvHashMap;
 use futures::Stream;
 use futures_util::StreamExt;
 use parking_lot::RwLock;
-use std::{fmt::Debug, hash::Hash, sync::Arc};
+use std::{
+    fmt::{Debug, Display},
+    hash::Hash,
+    sync::Arc,
+};
 use tracing::warn;
 
 /// Maintains a set of local L2 [`OrderBook`]s by applying streamed [`OrderBookEvent`]s to the
@@ -78,8 +82,8 @@ where
     SubBatchIter: IntoIterator<Item = SubIter>,
     SubIter: IntoIterator<Item = Sub>,
     Sub: Into<Subscription<Exchange, Instrument, OrderBooksL2>>,
-    Exchange: StreamSelector<Instrument, OrderBooksL2> + Ord + Send + Sync + 'static,
-    Instrument: InstrumentData + Ord + 'static,
+    Exchange: StreamSelector<Instrument, OrderBooksL2> + Ord + Display + Send + Sync + 'static,
+    Instrument: InstrumentData + Ord + Display + 'static,
     Instrument::Key: Eq + Hash + Send + 'static,
     Subscription<Exchange, Instrument, OrderBooksL2>:
         Identifier<Exchange::Channel> + Identifier<Exchange::Market>,

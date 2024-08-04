@@ -20,7 +20,7 @@ pub struct MarketDataInstrument {
 
 impl Display for MarketDataInstrument {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}_{}, {})", self.base, self.quote, self.kind)
+        write!(f, "{}_{}_{}", self.base, self.quote, self.kind)
     }
 }
 

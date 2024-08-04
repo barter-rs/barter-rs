@@ -1,23 +1,11 @@
 use super::SubscriptionKind;
 use chrono::{DateTime, Utc};
-use derive_more::Display;
 use serde::{Deserialize, Serialize};
 
 /// Barter [`Subscription`](super::Subscription) [`SubscriptionKind`] that yields [`Candle`]
 /// [`MarketEvent<T>`](crate::event::MarketEvent) events.
 #[derive(
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    Display,
+    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, Deserialize, Serialize,
 )]
 pub struct Candles;
 
@@ -26,6 +14,12 @@ impl SubscriptionKind for Candles {
 
     fn as_str(&self) -> &'static str {
         "candles"
+    }
+}
+
+impl std::fmt::Display for Candles {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }
 
