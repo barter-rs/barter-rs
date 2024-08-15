@@ -1,19 +1,23 @@
 use self::{
-    channel::CoinbaseChannel, market::CoinbaseMarket, subscription::CoinbaseSubResponse,
-    trade::CoinbaseTrade,
+    book::l1::CoinbaseOrderBookL1, channel::CoinbaseChannel, market::CoinbaseMarket,
+    subscription::CoinbaseSubResponse, trade::CoinbaseTrade,
 };
 use crate::{
     exchange::{Connector, ExchangeId, ExchangeSub, StreamSelector},
     instrument::InstrumentData,
     subscriber::{validator::WebSocketSubValidator, WebSocketSubscriber},
-    subscription::trade::PublicTrades,
+    subscription::{book::OrderBooksL1, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
     ExchangeWsStream,
 };
+
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
 use barter_macro::{DeExchange, SerExchange};
 use serde_json::json;
 use url::Url;
+
+/// OrderBook types for [`Coinbase`]
+pub mod book;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
 /// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
@@ -78,4 +82,13 @@ where
 {
     type Stream =
         ExchangeWsStream<StatelessTransformer<Self, Instrument::Id, PublicTrades, CoinbaseTrade>>;
+}
+
+impl<Instrument> StreamSelector<Instrument, OrderBooksL1> for Coinbase
+where
+    Instrument: InstrumentData,
+{
+    type Stream = ExchangeWsStream<
+        StatelessTransformer<Self, Instrument::Id, OrderBooksL1, CoinbaseOrderBookL1>,
+    >;
 }
