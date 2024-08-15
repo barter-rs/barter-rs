@@ -1,7 +1,6 @@
-use self::book::l1::CoinbaseOrderBookL1;
 use self::{
-    channel::CoinbaseChannel, market::CoinbaseMarket, subscription::CoinbaseSubResponse,
-    trade::CoinbaseTrade,
+    book::l1::CoinbaseOrderBookL1, channel::CoinbaseChannel, market::CoinbaseMarket,
+    subscription::CoinbaseSubResponse, trade::CoinbaseTrade,
 };
 use crate::{
     exchange::{Connector, ExchangeId, ExchangeSub, StreamSelector},
