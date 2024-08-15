@@ -1,6 +1,6 @@
 use self::{
-    channel::CoinbaseChannel, market::CoinbaseMarket, subscription::CoinbaseSubResponse,
-    trade::CoinbaseTrade,
+    book::l1::CoinbaseOrderBookL1, channel::CoinbaseChannel, market::CoinbaseMarket,
+    subscription::CoinbaseSubResponse, trade::CoinbaseTrade,
 };
 use crate::{
     exchange::{Connector, ExchangeSub, StreamSelector},
