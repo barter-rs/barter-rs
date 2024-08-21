@@ -79,3 +79,30 @@ where
             table
         })
 }
+
+pub fn transpose(table: Table) -> Table {
+    let mut modified_table = Table::new();
+    // Get title from titles
+    let titles = table.titles.clone();
+
+    for title in titles.iter() {
+        for (row_index, (index, title_cell)) in title.iter().enumerate().enumerate() {
+            let mut new_row = Row::new(vec![]);
+            if row_index == 0 {
+                new_row.add_cell(Cell::new("#"));
+            } else {
+                new_row.add_cell(Cell::new(&row_index.to_string()));
+            }
+            if index == 0 {
+                new_row.add_cell(Cell::new("Metric"));
+            } else {
+                new_row.add_cell(Cell::new(&title_cell.get_content()));
+            }
+            for col in table.column_iter(row_index) {
+                new_row.add_cell(Cell::new(&col.get_content()));
+            }
+            modified_table.add_row(new_row);
+        }
+    }
+    modified_table
+}

@@ -195,7 +195,7 @@ where
         }
 
         // Print Trading Session Summary
-        self.generate_session_summary().printstd();
+       self.generate_session_summary(true).printstd();
     }
 
     /// Runs each [`Trader`] it's own thread. Sends a message on the returned `mpsc::Receiver<bool>`
@@ -316,7 +316,7 @@ where
 
     /// Generate a trading session summary. Uses the Portfolio's statistics per [`Market`] in
     /// combination with the average statistics across all [`Market`]s traded.
-    fn generate_session_summary(mut self) -> Table {
+    fn generate_session_summary(mut self, transpose: bool) -> Table {
         // Fetch statistics for each Market
         let stats_per_market = self.trader_command_txs.into_keys().filter_map(|market| {
             let market_id = MarketId::from(&market);
@@ -349,10 +349,18 @@ where
                 );
             });
 
-        // Combine Total & Per-Market Statistics Into Table
-        crate::statistic::summary::combine(
-            stats_per_market.chain([("Total".to_owned(), self.statistics_summary)]),
-        )
+        // Combine Total & Per-Market Statistics Into Table; Transpose Table if required
+        if !transpose {
+            crate::statistic::summary::combine(
+                stats_per_market.chain([("Total".to_owned(), self.statistics_summary)]),
+            )
+        } else {
+            crate::statistic::summary::transpose(
+                crate::statistic::summary::combine(
+                    stats_per_market.chain([("Total".to_owned(), self.statistics_summary)]),
+                )
+            )
+        }
     }
 }
 
