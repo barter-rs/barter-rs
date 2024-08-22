@@ -30,6 +30,12 @@ pub mod subscription;
 /// Public trade types for [`Okx`].
 pub mod trade;
 
+/// Futures types for [`Okx`].
+pub mod futures;
+
+/// OrderBook type for [`Okx`].
+pub mod book;
+
 /// [`Okx`] server base url.
 ///
 /// See docs: <https://www.okx.com/docs-v5/en/#overview-api-resources-and-support>
