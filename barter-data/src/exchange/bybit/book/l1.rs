@@ -6,7 +6,7 @@ use crate::{
 };
 use barter_integration::model::{Exchange, SubscriptionId};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct BybitOrderBookL1 {
@@ -69,8 +69,6 @@ impl<InstrumentId> From<(ExchangeId, InstrumentId, BybitOrderBookL1)>
 
 #[cfg(test)]
 mod tests {
-    use crate::exchange::bybit::spot::BybitSpot;
-
     use super::*;
 
     #[test]
@@ -96,10 +94,10 @@ mod tests {
         assert_eq!(actual.ts.timestamp_millis(), 1724458107654);
         assert_eq!(actual.update_type, "delta");
         assert_eq!(actual.data.s, "BTCUSDT");
-        assert_eq!(actual.data.b[0][0], "64055.75");
-        assert_eq!(actual.data.b[0][1], "0.503641");
-        assert_eq!(actual.data.a[0][0], "64055.76");
-        assert_eq!(actual.data.a[0][1], "0.123456");
+        assert_eq!(actual.data.b[0], 64055.75);
+        assert_eq!(actual.data.b[1], 0.503641);
+        assert_eq!(actual.data.a[0], 64055.76);
+        assert_eq!(actual.data.a[1], 0.123456);
         assert_eq!(actual.data.u, 37965267);
         assert_eq!(actual.data.seq, 38244420107);
         assert_eq!(actual.cts, 1724458107650);
@@ -116,17 +114,13 @@ mod tests {
 
         if let Some(Ok(market_event)) = market_iter.0.get(0) {
             assert_eq!(market_event.instrument, "BTCUSDT");
-            if let OrderBookL1 {
+            let OrderBookL1 {
                 best_bid, best_ask, ..
-            } = &market_event.kind
-            {
-                assert_eq!(best_bid.price, 64055.75);
-                assert_eq!(best_bid.amount, 0.503641);
-                assert_eq!(best_ask.price, 64055.76);
-                assert_eq!(best_ask.amount, 0.123456);
-            } else {
-                panic!("Unexpected market event kind");
-            }
+            } = &market_event.kind;
+            assert_eq!(best_bid.price, 64055.75);
+            assert_eq!(best_bid.amount, 0.503641);
+            assert_eq!(best_ask.price, 64055.76);
+            assert_eq!(best_ask.amount, 0.123456);
         } else {
             panic!("Failed to get market event from MarketIter");
         }
