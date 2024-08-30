@@ -1,6 +1,10 @@
 use super::Bybit;
 use crate::{
-    subscription::{book::OrderBooksL1, trade::PublicTrades, Subscription},
+    subscription::{
+        book::{OrderBooksL1, OrderBooksL2},
+        trade::PublicTrades,
+        Subscription,
+    },
     Identifier,
 };
 use serde::Serialize;
@@ -20,6 +24,9 @@ impl BybitChannel {
 
     /// See docs: <https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook>
     pub const ORDER_BOOK_L1: Self = Self("orderbook.1");
+
+    /// Same docs as L1: <https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook>
+    pub const ORDER_BOOK_L2: Self = Self("orderbook.50");
 }
 
 impl<Server, Instrument> Identifier<BybitChannel>
@@ -35,6 +42,14 @@ impl<Server, Instrument> Identifier<BybitChannel>
 {
     fn id(&self) -> BybitChannel {
         BybitChannel::ORDER_BOOK_L1
+    }
+}
+
+impl<Server, Instrument> Identifier<BybitChannel>
+    for Subscription<Bybit<Server>, Instrument, OrderBooksL2>
+{
+    fn id(&self) -> BybitChannel {
+        BybitChannel::ORDER_BOOK_L2
     }
 }
 

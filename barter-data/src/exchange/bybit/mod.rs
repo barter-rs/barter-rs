@@ -9,12 +9,11 @@ use crate::{
     },
     instrument::InstrumentData,
     subscriber::{validator::WebSocketSubValidator, WebSocketSubscriber},
-    subscription::{book::OrderBooksL1, trade::PublicTrades, Map},
+    subscription::{trade::PublicTrades, Map},
     transformer::stateless::StatelessTransformer,
     ExchangeWsStream,
 };
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
-use book::l1::BybitOrderBookL1;
 use serde::de::{Error, Unexpected};
 use std::{fmt::Debug, marker::PhantomData, time::Duration};
 use tokio::time;
@@ -153,12 +152,18 @@ where
     }
 }
 
-impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL1> for Bybit<Server>
-where
-    Instrument: InstrumentData,
-    Server: ExchangeServer + Debug + Send + Sync,
-{
-    type Stream = ExchangeWsStream<
-        StatelessTransformer<Self, Instrument::Id, OrderBooksL1, BybitOrderBookL1>,
-    >;
-}
+// impl StreamSelector<Instu
+
+// impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL1> for BybitSpot
+// where
+//     Instrument: InstrumentData,
+//     Server: ExchangeServer + Debug + Send + Sync,
+// {
+//     // type Stream = ExchangeWsStream<
+//     //     StatelessTransformer<Self, Instrument::Id, OrderBooksL1, BybitOrderBookL1>,
+//     // >;
+
+//     type Stream = ExchangeWsStream<
+//         MultiBookTransformer<Self, Instrument, OrderBooksL1, BybitOrderBookL1Updater>,
+//     >;
+// }
