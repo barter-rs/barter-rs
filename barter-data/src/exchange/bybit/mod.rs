@@ -151,19 +151,3 @@ where
         serializer.serialize_str(exchange_id)
     }
 }
-
-// impl StreamSelector<Instu
-
-// impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL1> for BybitSpot
-// where
-//     Instrument: InstrumentData,
-//     Server: ExchangeServer + Debug + Send + Sync,
-// {
-//     // type Stream = ExchangeWsStream<
-//     //     StatelessTransformer<Self, Instrument::Id, OrderBooksL1, BybitOrderBookL1>,
-//     // >;
-
-//     type Stream = ExchangeWsStream<
-//         MultiBookTransformer<Self, Instrument, OrderBooksL1, BybitOrderBookL1Updater>,
-//     >;
-// }
