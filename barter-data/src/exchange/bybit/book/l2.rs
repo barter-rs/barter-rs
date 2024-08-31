@@ -71,7 +71,7 @@ pub fn de_ob_l2_levels<'de, D>(deserializer: D) -> Result<Vec<BybitLevel>, D::Er
 where
     D: serde::de::Deserializer<'de>,
 {
-    let levels: Vec<[String; 2]> = Vec::<[String; 2]>::deserialize(deserializer)?;
+    let levels = Vec::<[&str; 2]>::deserialize(deserializer)?;
 
     levels
         .into_iter()
