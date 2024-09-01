@@ -48,6 +48,10 @@ pub mod subscription;
 /// [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
 pub mod trade;
 
+/// Level 1 OrderBook types (top of book) common to both [`BybitSpot`](spot::BybitSpot) and
+/// [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
+pub mod book;
+
 /// Generic [`Bybit<Server>`](Bybit) exchange.
 ///
 /// ### Notes
