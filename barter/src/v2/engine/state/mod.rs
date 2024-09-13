@@ -27,13 +27,16 @@ pub mod instrument;
 //  - Should I collapse nested VecMap in balances and use eg/ VecMap<ExchangeAssetKey, Balance>
 //  - Add tests for all Managers, especially Orders & Positions!
 //  - Consider removing duplicate logs when calling instrument.state, state_mut, and also Balances!
-//  - Consider adding Error generics/assoc types to improve flexibility of Strategy & Risk managers
 //  - Extract methods from impl OrderManager for Orders (eg/ update_from_snapshot covers all bases)
 //    '--> also ensure duplication is removed from update_from_open & update_from_cancel
-//  - Make EngineError more generic to add flexibility to user to define their own
-//  - Allow users to perform shutdown tasks
 //  - Add interface for user Strategy & Risk to access Instrument contract
 //  - EngineState should have assoc types for AssetKey & InstrumentKey, to pass to Strategy & Risk?
+
+// Todo: could make an EngineBuilder which allows you to opt in to functionality such as:
+//    - On AccountEventKind::ConnectivityError
+//    - On shutdown
+//    - On MarketDataError
+//    - ?
 
 // Todo: OrderManager:
 //  - OrderManager update_from_open & update_from_cancel may want to return "in flight failed due to X api reason"
@@ -44,8 +47,6 @@ pub mod instrument;
 pub trait EngineState<Event, AssetKey, InstrumentKey, StrategyState, RiskState>
 where
     Self: for<'a> TryUpdater<&'a Event> + Debug + Clone,
-    StrategyState: for<'a> TryUpdater<&'a Event> + Debug + Clone,
-    RiskState: for<'a> TryUpdater<&'a Event> + Debug + Clone,
 {
     fn market_data(&self) -> &impl MarketDataManager<InstrumentKey>;
     fn market_data_mut(&mut self) -> &mut impl MarketDataManager<InstrumentKey>;
@@ -69,9 +70,7 @@ pub struct DefaultEngineState<StrategyState, RiskState> {
     pub risk: RiskState,
 }
 
-impl<StrategyState, RiskState>
-    EngineState<EngineEvent, AssetId, InstrumentId, StrategyState, RiskState>
-    for DefaultEngineState<StrategyState, RiskState>
+impl<StrategyState, RiskState> EngineState<EngineEvent, AssetId, InstrumentId, StrategyState, RiskState> for DefaultEngineState<StrategyState, RiskState>
 where
     StrategyState: for<'a> TryUpdater<&'a EngineEvent, Error = EngineError> + Debug + Clone,
     RiskState: for<'a> TryUpdater<&'a EngineEvent, Error = EngineError> + Debug + Clone,
@@ -125,8 +124,7 @@ where
     }
 }
 
-impl<StrategyState, RiskState> TryUpdater<&EngineEvent>
-    for DefaultEngineState<StrategyState, RiskState>
+impl<StrategyState, RiskState> TryUpdater<&EngineEvent> for DefaultEngineState<StrategyState, RiskState>
 where
     StrategyState: for<'a> TryUpdater<&'a EngineEvent, Error = EngineError>,
     RiskState: for<'a> TryUpdater<&'a EngineEvent, Error = EngineError>,
@@ -197,8 +195,8 @@ impl<StrategyState, RiskState> DefaultEngineState<StrategyState, RiskState> {
                 Ok(())
             }
             AccountEventKind::ConnectivityError(error) => {
-                // Todo: handle error
-                panic!("{}", error)
+                warn!(%error, "Engine aware of Account ConnectivityError");
+                Ok(())
             }
         }
     }

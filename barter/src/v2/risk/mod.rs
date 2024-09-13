@@ -15,7 +15,7 @@ pub trait RiskManager<EngineState> {
     type Event;
     type State: for<'a> TryUpdater<&'a Self::Event> + Debug + Clone;
 
-    fn approve_orders(
+    fn check(
         &self,
         engine_state: &EngineState,
         cancels: impl IntoIterator<Item = Order<InstrumentId, RequestCancel>>,
@@ -68,12 +68,18 @@ impl<InstrumentKey: Clone> From<&RiskApproved<Order<InstrumentKey, RequestOpen>>
     for Order<InstrumentKey, OpenInFlight>
 {
     fn from(value: &RiskApproved<Order<InstrumentKey, RequestOpen>>) -> Self {
+        Order::from(&value.0)
+    }
+}
+
+impl<InstrumentKey: Clone> From<&Order<InstrumentKey, RequestOpen>> for Order<InstrumentKey, OpenInFlight> {
+    fn from(value: &Order<InstrumentKey, RequestOpen>) -> Self {
         let Order {
             instrument,
             cid,
             side,
             state: _,
-        } = &value.0;
+        } = &value;
 
         Self {
             instrument: instrument.clone(),

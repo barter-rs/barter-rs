@@ -18,7 +18,7 @@ impl<StrategyState> RiskManager<DefaultEngineState<StrategyState, DefaultRiskMan
     type Event = EngineEvent;
     type State = DefaultRiskManagerState;
 
-    fn approve_orders(
+    fn check(
         &self,
         _: &DefaultEngineState<StrategyState, DefaultRiskManagerState>,
         cancels: impl IntoIterator<Item = Order<InstrumentId, RequestCancel>>,

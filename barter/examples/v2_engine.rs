@@ -143,7 +143,10 @@ async fn main() {
         strategy: DefaultStrategy,
         risk: DefaultRiskManager,
     }
-    .run();
+    .run_with_shutdown(|_| {
+        println!("shutting down Engine");
+        Ok(())
+    }).unwrap();
 }
 
 fn init_logging() {

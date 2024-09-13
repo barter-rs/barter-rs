@@ -1,3 +1,4 @@
+use std::time::Duration;
 use crate::v2::execution::error::ExecutionError;
 use barter_data::error::DataError;
 use barter_integration::model::Exchange;
@@ -14,6 +15,9 @@ pub enum EngineError {
         supported: Exchange,
         unsupported: Exchange,
     },
+
+    #[error("timeout {0:?} reached")]
+    Timeout(Duration),
 
     #[error("data: {0}")]
     Data(String),

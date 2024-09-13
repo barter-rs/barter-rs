@@ -55,6 +55,20 @@ pub enum InternalOrderState {
     CancelInFlight(CancelInFlight),
 }
 
+impl InternalOrderState {
+    pub fn order_id(&self) -> Option<OrderId> {
+        match self {
+            InternalOrderState::OpenInFlight(_) => None,
+            InternalOrderState::Open(state) => Some(state.id.clone()),
+            InternalOrderState::CancelInFlight(state) => Some(state.id.clone()),
+        }
+    }
+
+    pub fn is_open_or_in_flight(&self) -> bool {
+        matches!(self, InternalOrderState::OpenInFlight(_) | InternalOrderState::Open(_))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, From)]
 pub enum ExchangeOrderState {
     Open(Open),

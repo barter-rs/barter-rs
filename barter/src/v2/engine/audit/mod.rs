@@ -1,6 +1,5 @@
 use crate::v2::{
     channel::{ChannelState, Tx},
-    engine::error::EngineError,
     order::{Order, RequestCancel, RequestOpen},
     risk::{RiskApproved, RiskRefused},
 };
@@ -35,9 +34,9 @@ pub struct Auditor<AuditTx> {
     pub state: ChannelState<AuditTx>,
 }
 
-impl<AuditTx, Event, InstrumentKey, State> Auditor<AuditTx>
+impl<AuditTx, Event, InstrumentKey, State, Error> Auditor<AuditTx>
 where
-    AuditTx: Tx<Item = AuditEvent<State, Event, InstrumentKey>, Error = EngineError>,
+    AuditTx: Tx<Item = AuditEvent<State, Event, InstrumentKey>, Error = Error>,
     Event: Debug,
     InstrumentKey: Debug,
     State: Debug,
