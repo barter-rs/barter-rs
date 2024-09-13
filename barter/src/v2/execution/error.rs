@@ -8,7 +8,7 @@ use thiserror::Error;
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
 pub enum ExecutionError {
     #[error("todo")]
-    X,
+    Todo,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]

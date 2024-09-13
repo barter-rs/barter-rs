@@ -38,6 +38,8 @@ pub mod instrument;
 // Todo: OrderManager:
 //  - OrderManager update_from_open & update_from_cancel may want to return "in flight failed due to X api reason"
 //    '--> eg/ find logic associated with "OrderManager received ExecutionError for Order<InFlight>"
+//  - Possible we want a 5m window buffer for "strange order updates" to handle out of orders
+//    '--> eg/ adding InFlight, receiving Cancelled, the receiving Open -> ghost orders
 
 pub trait EngineState<Event, AssetKey, InstrumentKey, StrategyState, RiskState>
 where
@@ -155,7 +157,7 @@ where
 }
 
 impl<StrategyState, RiskState> DefaultEngineState<StrategyState, RiskState> {
-    pub fn update_from_command(&mut self, command: &Command) {
+    pub fn update_from_command(&mut self, _command: &Command) {
         todo!()
     }
 

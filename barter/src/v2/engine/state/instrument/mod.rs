@@ -172,7 +172,7 @@ impl PositionManager<InstrumentId> for Instruments {
         })
     }
 
-    fn update_from_trade(&mut self, trade: &Trade<InstrumentId>) {
+    fn update_from_trade(&mut self, _trade: &Trade<InstrumentId>) {
         todo!()
     }
 

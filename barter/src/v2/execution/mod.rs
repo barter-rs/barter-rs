@@ -1,9 +1,7 @@
 use crate::v2::{
     balance::AssetBalance,
     execution::error::{ConnectivityError, ExecutionError},
-    order::{
-        Cancelled, ClientOrderId, ExchangeOrderState, Open, Order, RequestCancel, RequestOpen,
-    },
+    order::{Cancelled, ExchangeOrderState, Open, Order, RequestCancel, RequestOpen},
     position::Position,
     trade::Trade,
     Snapshot,
@@ -11,7 +9,6 @@ use crate::v2::{
 use barter_integration::model::Exchange;
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
-use vecmap::VecMap;
 
 pub mod error;
 pub mod link;

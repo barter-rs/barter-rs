@@ -2,19 +2,14 @@ use crate::v2::{
     engine::state::instrument::OrderManager,
     execution::error::ExecutionError,
     order::{
-        CancelInFlight, Cancelled, ClientOrderId, ExchangeOrderState, InternalOrderState, Open,
-        OpenInFlight, Order,
+        Cancelled, ClientOrderId, ExchangeOrderState, InternalOrderState, Open, OpenInFlight, Order,
     },
     Snapshot,
 };
-use derive_more::{Constructor, From};
+use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    fmt::{Debug, Display},
-};
+use std::fmt::{Debug, Display};
 use tracing::{debug, error, warn};
-use uuid::Uuid;
 use vecmap::{map::Entry, VecMap};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
@@ -78,7 +73,22 @@ where
                     );
                 }
             },
-            (Entry::Occupied(mut order), Err(_)) => match &order.get().state {
+            (Entry::Vacant(cid_untracked), Ok(new_open)) => {
+                warn!(
+                    instrument = %response.instrument,
+                    cid = %response.cid,
+                    update = ?response,
+                    "OrderManager received Order<Open> for untracked ClientOrderId - now tracking"
+                );
+
+                cid_untracked.insert(Order::new(
+                    response.instrument.clone(),
+                    response.cid,
+                    response.side,
+                    InternalOrderState::from(new_open.clone()),
+                ));
+            }
+            (Entry::Occupied(order), Err(_)) => match &order.get().state {
                 InternalOrderState::OpenInFlight(_) => {
                     warn!(
                         instrument = %response.instrument,
@@ -108,21 +118,6 @@ where
                     );
                 }
             },
-            (Entry::Vacant(cid_untracked), Ok(new_open)) => {
-                warn!(
-                    instrument = %response.instrument,
-                    cid = %response.cid,
-                    update = ?response,
-                    "OrderManager received Order<Open> for untracked ClientOrderId - now tracking"
-                );
-
-                cid_untracked.insert(Order::new(
-                    response.instrument.clone(),
-                    response.cid,
-                    response.side,
-                    InternalOrderState::from(new_open.clone()),
-                ));
-            }
             (Entry::Vacant(_), Err(_)) => {
                 error!(
                     instrument = %response.instrument,
@@ -138,13 +133,65 @@ where
         &mut self,
         response: &Order<InstrumentKey, Result<Cancelled, ExecutionError>>,
     ) {
-        match &response.state {
-            Ok(cancelled) => {
-                todo!()
+        match (self.inner.entry(response.cid), &response.state) {
+            (Entry::Occupied(order), Ok(_new_cancel)) => match &order.get().state {
+                InternalOrderState::OpenInFlight(_) => {
+                    warn!(
+                        instrument = %response.instrument,
+                        cid = %response.cid,
+                        order = ?order.get(),
+                        update = ?response,
+                        "OrderManager received Order<Cancelled> Ok response for existing Order<OpenInFlight>"
+                    );
+                    order.remove();
+                }
+                InternalOrderState::Open(_) => {
+                    warn!(
+                        instrument = %response.instrument,
+                        cid = %response.cid,
+                        order = ?order.get(),
+                        update = ?response,
+                        "OrderManager received Order<Cancelled> Ok response for existing Order<Open>"
+                    );
+                    order.remove();
+                }
+                InternalOrderState::CancelInFlight(_) => {
+                    debug!(
+                        instrument = %response.instrument,
+                        cid = %response.cid,
+                        order = ?order.get(),
+                        update = ?response,
+                        "OrderManager transitioned Order<CancelInFlight> to Order<Cancelled>"
+                    );
+                    order.remove();
+                }
+            },
+            (Entry::Vacant(_cid_untracked), Ok(_new_cancel)) => {
+                warn!(
+                    instrument = %response.instrument,
+                    cid = %response.cid,
+                    update = ?response,
+                    "OrderManager received Order<Cancelled> Ok response for untracked ClientOrderId - ignoring"
+                );
             }
-            Err(error) => {
-                // Remove from InFlight & log error
-                todo!()
+            (Entry::Occupied(order), Err(_err)) => match &order.get().state {
+                InternalOrderState::OpenInFlight(_) => {
+                    // Todo: Depends on Err... then fix test
+                }
+                InternalOrderState::Open(_) => {
+                    // Todo: Depends on Err... then fix test
+                }
+                InternalOrderState::CancelInFlight(_) => {
+                    // Todo: Depends on Err... then fix test
+                }
+            },
+            (Entry::Vacant(_), Err(_)) => {
+                error!(
+                    instrument = %response.instrument,
+                    cid = %response.cid,
+                    update = ?response,
+                    "OrderManager received ExecutionError for untracked ClientOrderId"
+                );
             }
         }
     }
@@ -342,7 +389,7 @@ mod tests {
             instrument: 1,
             cid,
             side: Side::Buy,
-            state: Err(ExecutionError::X),
+            state: Err(ExecutionError::Todo),
         }
     }
 
@@ -352,6 +399,30 @@ mod tests {
             cid,
             side: Side::Buy,
             state: InternalOrderState::CancelInFlight(CancelInFlight { id }),
+        }
+    }
+
+    fn cancel_ok(cid: ClientOrderId, id: OrderId) -> Order<u64, Result<Cancelled, ExecutionError>> {
+        Order {
+            instrument: 1,
+            cid,
+            side: Side::Buy,
+            state: Ok(Cancelled {
+                id,
+                time_exchange: Default::default(),
+            }),
+        }
+    }
+
+    fn cancel_err(
+        cid: ClientOrderId,
+        id: OrderId,
+    ) -> Order<u64, Result<Cancelled, ExecutionError>> {
+        Order {
+            instrument: 1,
+            cid,
+            side: Side::Sell,
+            state: Err(ExecutionError::Todo),
         }
     }
 
@@ -485,8 +556,70 @@ mod tests {
 
     #[test]
     fn test_update_from_cancel() {
-        todo!()
+        struct TestCase {
+            state: Orders<u64>,
+            input: Order<u64, Result<Cancelled, ExecutionError>>,
+            expected: Orders<u64>,
+        }
 
+        let cid_1 = ClientOrderId(Uuid::new_v4());
+        let order_id_1 = OrderId::new("order_id_1".to_string());
+
+        let cases = vec![
+            // TC0: cid existing OpenInFlight, response Ok
+            TestCase {
+                state: orders([open_in_flight(cid_1)]),
+                input: cancel_ok(cid_1, order_id_1.clone()),
+                expected: orders([]),
+            },
+            // TC1: cid existing Open, response Ok(Cancelled)
+            TestCase {
+                state: orders([open(cid_1, order_id_1.clone(), 0)]),
+                input: cancel_ok(cid_1, order_id_1.clone()),
+                expected: orders([]),
+            },
+            // TC2: cid existing CancelInFlight, response Ok(Cancelled)
+            TestCase {
+                state: orders([cancel_in_flight(cid_1, order_id_1.clone())]),
+                input: cancel_ok(cid_1, order_id_1.clone()),
+                expected: orders([]),
+            },
+            // TC3: cid untracked, response Ok(Cancelled)
+            TestCase {
+                state: orders([]),
+                input: cancel_ok(cid_1, order_id_1.clone()),
+                expected: orders([]),
+            },
+            // TC4: cid existing OpenInFlight, response Err
+            TestCase {
+                state: orders([open_in_flight(cid_1)]),
+                input: cancel_err(cid_1, order_id_1.clone()),
+                expected: orders([]), // Todo: What should this be?
+            },
+            // TC5: cid existing Open, response Err
+            TestCase {
+                state: orders([open(cid_1, order_id_1.clone(), 0)]),
+                input: cancel_err(cid_1, order_id_1.clone()),
+                expected: orders([]), // Todo: What should this be?
+            },
+            // TC6: cid existing CancelInFlight, response Err
+            TestCase {
+                state: orders([cancel_in_flight(cid_1, order_id_1.clone())]),
+                input: cancel_err(cid_1, order_id_1.clone()),
+                expected: orders([]), // Todo: What should this be?
+            },
+            // TC7: cid untracked, response Err
+            TestCase {
+                state: orders([]),
+                input: cancel_err(cid_1, order_id_1.clone()),
+                expected: orders([]),
+            },
+        ];
+
+        for (index, mut test) in cases.into_iter().enumerate() {
+            test.state.update_from_cancel(&test.input);
+            assert_eq!(test.state, test.expected, "TestCase {index} failed")
+        }
         // Todo: update these scenarios, they are from update_from_open
         // Scenarios:
         // - InFlight present, Open not-present, response Ok(open)

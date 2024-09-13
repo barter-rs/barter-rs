@@ -7,7 +7,7 @@ use futures::Stream;
 
 pub async fn init<AssetKey, InstrumentKey>(
     _execution_rx: impl Stream<Item = ExecutionRequest<InstrumentKey>>,
-    instruments: &[Instrument],
+    _instruments: &[Instrument],
 ) -> Result<impl Stream<Item = AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>, EngineError>
 {
     Ok(futures::stream::iter([]))
