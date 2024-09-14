@@ -7,6 +7,10 @@ use thiserror::Error;
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
 pub enum EngineError {
+    #[error("EngineBuilder error: {0}")]
+    EngineBuilder(&'static str),
+
+
     #[error("failed to send item over {0} channel due to dropped receiver")]
     RxDropped(&'static str),
 

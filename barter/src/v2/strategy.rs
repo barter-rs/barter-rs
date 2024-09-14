@@ -1,21 +1,20 @@
 use crate::v2::{
     engine::{error::EngineError, state::DefaultEngineState},
     order::{Order, RequestCancel, RequestOpen},
-    EngineEvent, TryUpdater,
+    EngineEvent, StateUpdater,
 };
-use barter_data::instrument::InstrumentId;
 use std::fmt::Debug;
 
 pub trait Strategy<EngineState> {
     type Event;
-    type State: for<'a> TryUpdater<&'a Self::Event> + Debug + Clone;
+    type State: for<'a> StateUpdater<&'a Self::Event> + Debug + Clone;
 
-    fn generate_orders(
+    fn generate_orders<InstrumentKey>(
         &self,
         engine_state: &EngineState,
     ) -> (
-        impl Iterator<Item = Order<InstrumentId, RequestCancel>>,
-        impl Iterator<Item = Order<InstrumentId, RequestOpen>>,
+        impl Iterator<Item = Order<InstrumentKey, RequestCancel>>,
+        impl Iterator<Item = Order<InstrumentKey, RequestOpen>>,
     );
 }
 
@@ -26,12 +25,12 @@ impl<RiskState> Strategy<DefaultEngineState<DefaultStrategyState, RiskState>> fo
     type Event = EngineEvent;
     type State = DefaultStrategyState;
 
-    fn generate_orders(
+    fn generate_orders<InstrumentKey>(
         &self,
         _: &DefaultEngineState<Self::State, RiskState>,
     ) -> (
-        impl Iterator<Item = Order<InstrumentId, RequestCancel>>,
-        impl Iterator<Item = Order<InstrumentId, RequestOpen>>,
+        impl Iterator<Item = Order<InstrumentKey, RequestCancel>>,
+        impl Iterator<Item = Order<InstrumentKey, RequestOpen>>,
     ) {
         (std::iter::empty(), std::iter::empty())
     }
@@ -40,7 +39,8 @@ impl<RiskState> Strategy<DefaultEngineState<DefaultStrategyState, RiskState>> fo
 #[derive(Debug, Clone)]
 pub struct DefaultStrategyState;
 
-impl TryUpdater<&EngineEvent> for DefaultStrategyState {
+impl StateUpdater<&EngineEvent> for DefaultStrategyState {
+    type Output = ();
     type Error = EngineError;
 
     fn try_update(&mut self, _: &EngineEvent) -> Result<(), Self::Error> {

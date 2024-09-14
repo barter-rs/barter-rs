@@ -10,7 +10,7 @@ use crate::v2::{
     execution::{AccountEvent, AccountEventKind, AccountSnapshot},
     instrument::asset::AssetId,
     order::Order,
-    EngineEvent, Snapshot, TryUpdater,
+    EngineEvent, Snapshot, StateUpdater,
 };
 use barter_data::{event::MarketEvent, instrument::InstrumentId};
 use barter_integration::model::Exchange;
@@ -22,32 +22,43 @@ use tracing::{debug, info, warn};
 pub mod balance;
 pub mod instrument;
 
-// Todo:
-//  - Setup some way to get "diffs" for eg/ should Orders.update_from_order_snapshot return a diff?
-//  - Should I collapse nested VecMap in balances and use eg/ VecMap<ExchangeAssetKey, Balance>
-//  - Add tests for all Managers, especially Orders & Positions!
+// Todo: Must Have:
+//  - Utility to re-create state from Audit snapshot + updates w/ interactive mode (backward would require Vec<State> to be created on .next()) (add compression using file system)
+//  - Basic Command functionality
+//  - All state update implementations:
+//  - Add tests for all Managers:
+//  - Add interface for user strategy & risk to access Instrument contract
+//  - Abstract AssetKey & InstrumentKey all the way up.
+//  - Engine functionality can be injected, on_shutdown, on_state_update_error, on_disconnect, etc.
+//  - Utility for AssetKey, InstrumentKey lookups, as well as constructing Instruments contracts, etc
+
+// Todo: Nice To Have:
+//  - Sequenced log stream that can enrich logs w/ additional context eg/ InstrumentName
 //  - Consider removing duplicate logs when calling instrument.state, state_mut, and also Balances!
 //  - Extract methods from impl OrderManager for Orders (eg/ update_from_snapshot covers all bases)
 //    '--> also ensure duplication is removed from update_from_open & update_from_cancel
-//  - Add interface for user Strategy & Risk to access Instrument contract
-//  - EngineState should have assoc types for AssetKey & InstrumentKey, to pass to Strategy & Risk?
+//  - Should I collapse nested VecMap in balances and use eg/ VecMap<ExchangeAssetKey, Balance>
+//  - Setup some way to get "diffs" for eg/ should Orders.update_from_order_snapshot return a diff?
+//  - Could use TradingState like concept to switch between Strategies / run loops
 
-// Todo: could make an EngineBuilder which allows you to opt in to functionality such as:
-//    - On AccountEventKind::ConnectivityError
-//    - On shutdown
-//    - On MarketDataError
-//    - ?
-
-// Todo: OrderManager:
+// Todo: Nice To Have: OrderManager:
 //  - OrderManager update_from_open & update_from_cancel may want to return "in flight failed due to X api reason"
 //    '--> eg/ find logic associated with "OrderManager received ExecutionError for Order<InFlight>"
 //  - Possible we want a 5m window buffer for "strange order updates" to handle out of orders
 //    '--> eg/ adding InFlight, receiving Cancelled, the receiving Open -> ghost orders
 
+// Could have Generic command, with custom functionality for it:
+// match command {
+//    Terminate => engine.terminate(),
+// etc. etc.
+//
+//
+
 pub trait EngineState<Event, AssetKey, InstrumentKey, StrategyState, RiskState>
 where
-    Self: for<'a> TryUpdater<&'a Event> + Debug + Clone,
+    Self: for<'a> StateUpdater<&'a Event> + Debug + Clone,
 {
+    fn trading_enabled(&self) -> bool;
     fn market_data(&self) -> &impl MarketDataManager<InstrumentKey>;
     fn market_data_mut(&mut self) -> &mut impl MarketDataManager<InstrumentKey>;
     fn balances(&self) -> &impl BalanceManager<AssetKey>;
@@ -62,8 +73,14 @@ where
     fn risk_mut(&mut self) -> &mut RiskState;
 }
 
+pub enum TradingState {
+    Enabled,
+    Disabled,
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct DefaultEngineState<StrategyState, RiskState> {
+    pub trading_on: bool,
     pub balances: Balances,
     pub instruments: Instruments,
     pub strategy: StrategyState,
@@ -72,9 +89,13 @@ pub struct DefaultEngineState<StrategyState, RiskState> {
 
 impl<StrategyState, RiskState> EngineState<EngineEvent, AssetId, InstrumentId, StrategyState, RiskState> for DefaultEngineState<StrategyState, RiskState>
 where
-    StrategyState: for<'a> TryUpdater<&'a EngineEvent, Error = EngineError> + Debug + Clone,
-    RiskState: for<'a> TryUpdater<&'a EngineEvent, Error = EngineError> + Debug + Clone,
+    StrategyState: for<'a> StateUpdater<&'a EngineEvent, Output = (), Error = EngineError> + Debug + Clone,
+    RiskState: for<'a> StateUpdater<&'a EngineEvent, Output = (), Error = EngineError> + Debug + Clone,
 {
+    fn trading_enabled(&self) -> bool {
+        self.trading_on
+    }
+
     fn market_data(&self) -> &impl MarketDataManager<InstrumentId> {
         &self.instruments
     }
@@ -124,11 +145,12 @@ where
     }
 }
 
-impl<StrategyState, RiskState> TryUpdater<&EngineEvent> for DefaultEngineState<StrategyState, RiskState>
+impl<StrategyState, RiskState> StateUpdater<&EngineEvent> for DefaultEngineState<StrategyState, RiskState>
 where
-    StrategyState: for<'a> TryUpdater<&'a EngineEvent, Error = EngineError>,
-    RiskState: for<'a> TryUpdater<&'a EngineEvent, Error = EngineError>,
+    StrategyState: for<'a> StateUpdater<&'a EngineEvent, Error = EngineError, Output = ()>,
+    RiskState: for<'a> StateUpdater<&'a EngineEvent, Error = EngineError, Output = ()>,
 {
+    type Output = ();
     type Error = EngineError;
 
     fn try_update(&mut self, event: &EngineEvent) -> Result<(), Self::Error> {
@@ -155,8 +177,34 @@ where
 }
 
 impl<StrategyState, RiskState> DefaultEngineState<StrategyState, RiskState> {
-    pub fn update_from_command(&mut self, _command: &Command) {
-        todo!()
+    pub fn update_from_command(&mut self, command: &Command<InstrumentId>) {
+        match command {
+            Command::EnableTrading => self.update_from_command_enable_trading(),
+            Command::DisableTrading => self.update_from_command_disable_trading(),
+            Command::Terminate => {}
+            Command::ReSyncEngineState => {}
+            Command::Execute(_) => {}
+            Command::ClosePosition => {}
+            Command::CloseAllPositions => {}
+        }
+    }
+
+    pub fn update_from_command_enable_trading(&mut self) {
+        if self.trading_on {
+           info!("Engine enable trading, although it was already enabled");
+        } else {
+            self.trading_on = true;
+            info!("Engine enabled trading");
+        }
+    }
+
+    pub fn update_from_command_disable_trading(&mut self) {
+        if self.trading_on {
+            self.trading_on = false;
+            info!("Engine disabled trading");
+        } else {
+            info!("Engine disabled trading, although it was already disabled");
+        }
     }
 
     pub fn try_update_from_account(

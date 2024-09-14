@@ -20,14 +20,15 @@ pub mod risk;
 pub mod strategy;
 pub mod trade;
 
-pub trait TryUpdater<Event> {
+pub trait StateUpdater<Event> {
+    type Output;
     type Error: Debug;
-    fn try_update(&mut self, event: Event) -> Result<(), Self::Error>;
+    fn try_update(&mut self, event: Event) -> Result<Self::Output, Self::Error>;
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
 pub enum EngineEvent<AssetKey = AssetId, InstrumentKey = InstrumentId> {
-    Command(Command),
+    Command(Command<InstrumentKey>),
     Account(AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>),
     Market(MarketEvent<InstrumentKey>),
 }

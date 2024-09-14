@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+use std::time::Duration;
 use barter::v2::{
     channel::{mpsc_unbounded, Tx, UnboundedRx, UnboundedTx},
     engine::{
@@ -19,7 +21,7 @@ use barter::v2::{
     position::{PortfolioId, Position},
     risk::default::{DefaultRiskManager, DefaultRiskManagerState},
     strategy::{DefaultStrategy, DefaultStrategyState},
-    EngineEvent, TryUpdater,
+    EngineEvent, StateUpdater,
 };
 use barter_data::{
     event::MarketEvent,
@@ -31,6 +33,7 @@ use barter_data::{
 use barter_integration::model::{instrument::kind::InstrumentKind, Side};
 use futures::{try_join, Stream, StreamExt};
 use tracing::info;
+use barter::v2::engine::command::Command;
 
 #[tokio::main]
 async fn main() {
@@ -78,6 +81,7 @@ async fn main() {
 
     // Construct EngineState
     let state = DefaultEngineState {
+        trading_on: false,
         balances: Balances::default(),
         instruments: instruments
             .into_iter()
@@ -92,61 +96,83 @@ async fn main() {
         risk: DefaultRiskManagerState,
     };
 
-    // Spawn task to consume & log AuditEvents
+    // // Spawn task to consume & log AuditEvents
     join_set.spawn({
         let mut audit_stream = audit_rx.into_stream();
         let mut state = state.clone();
 
         async move {
             while let Some(audit) = audit_stream.next().await {
+                // Todo: validate sequence
+
                 match audit.kind {
                     AuditEventKind::Snapshot(snapshot) => {
                         let _ = std::mem::replace(&mut state, snapshot);
                     }
-                    AuditEventKind::Update {
-                        input,
-                        cancels,
-                        opens,
-                        refused_cancels,
-                        refused_opens,
-                    } => {
-                        info!(event = ?input, "Engine received event");
-                        state.try_update(&input).unwrap();
+                    AuditEventKind::Update { event } => {
+                        info!(?event, "Engine received event");
+                        state.try_update(&event).unwrap();
+                    }
+                    AuditEventKind::UpdateWithRequests { event, requests } => {
+                        info!(?event, "Engine received event");
+                        state.try_update(&event).unwrap();
 
-                        if !cancels.is_empty() {
-                            info!(?cancels, "Engine generated risk approved cancel requests")
+                        if !requests.cancels.is_empty() {
+                            info!(?requests.cancels, "Engine generated risk approved cancel requests")
                         }
-                        if !opens.is_empty() {
-                            info!(?opens, "Engine generated risk approved open requests")
+                        if !requests.opens.is_empty() {
+                            info!(?requests.opens, "Engine generated risk approved open requests")
                         }
-                        if !refused_cancels.is_empty() {
+                        if !requests.refused_cancels.is_empty() {
                             info!(
-                                ?refused_cancels,
+                                ?requests.refused_cancels,
                                 "Engine RiskManager refused cancel requests"
                             )
                         }
-                        if !refused_opens.is_empty() {
-                            info!(?refused_opens, "Engine RiskManager refused open requests")
+                        if !requests.refused_opens.is_empty() {
+                            info!(?requests.refused_opens, "Engine RiskManager refused open requests")
                         }
+                    }
+                    AuditEventKind::Error { event, error } => {
+                        info!(?event, "Engine received event");
+                        state.try_update(&event).unwrap();
+                        todo!()
                     }
                 }
             }
         }
     });
 
-    // Run Engine
-    Engine {
-        feed: event_rx,
+    let mut engine = Engine {
+        sequence: u64::MIN,
+        time: || chrono::Utc::now(),
         execution_tx,
-        auditor: Auditor::new(audit_tx),
         state: state.clone(),
         strategy: DefaultStrategy,
         risk: DefaultRiskManager,
-    }
-    .run_with_shutdown(|_| {
-        println!("shutting down Engine");
-        Ok(())
-    }).unwrap();
+        phantom: PhantomData,
+    };
+
+    // Run Engine
+    let task = join_set.spawn_blocking(move || {
+        engine.run(event_rx, Auditor::new(audit_tx)).unwrap();
+    });
+
+    // // Run Engine
+    // join_set.spawn_blocking(|| {
+    //
+    //     .run_with_shutdown(|_| {
+    //         println!("shutting down Engine");
+    //     Ok(())
+    //     }).unwrap();
+    // });
+
+    tokio::time::sleep(Duration::from_secs(5)).await;
+    event_tx.send(EngineEvent::Command(Command::EnableTrading)).unwrap();
+
+
+
+    join_set.join_all().await;
 }
 
 fn init_logging() {
@@ -175,6 +201,7 @@ fn init_channels() -> (
             DefaultEngineState<DefaultStrategyState, DefaultRiskManagerState>,
             EngineEvent,
             InstrumentId,
+            EngineError,
         >,
         EngineError,
     >,
@@ -183,6 +210,7 @@ fn init_channels() -> (
             DefaultEngineState<DefaultStrategyState, DefaultRiskManagerState>,
             EngineEvent,
             InstrumentId,
+            EngineError,
         >,
     >,
 ) {

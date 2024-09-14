@@ -1,11 +1,12 @@
 use crate::v2::{channel::Tx, engine::{
     audit::{AuditEvent, Auditor},
     state::{instrument::OrderManager, EngineState},
-}, execution::ExecutionRequest, instrument::asset::AssetId, order::{OpenInFlight, Order, RequestCancel, RequestOpen}, risk::{RiskApproved, RiskManager}, strategy::Strategy, TryUpdater};
-use barter_data::instrument::InstrumentId;
+}, execution::ExecutionRequest, order::{OpenInFlight, Order, RequestCancel, RequestOpen}, risk::{RiskApproved, RiskManager}, strategy::Strategy, EngineEvent};
 use derive_more::Constructor;
 use std::fmt::Debug;
-
+use std::marker::PhantomData;
+use chrono::{DateTime, Utc};
+use crate::v2::engine::audit::{build_audit, AuditEventKind, AuditEventKindRequests};
 
 pub mod audit;
 pub mod command;
@@ -14,83 +15,132 @@ pub mod state;
 pub mod ext;
 
 #[derive(Debug, Constructor)]
-pub struct Engine<EventFeed, ExecutionTx, AuditTx, State, StrategyT, Risk> {
-    pub feed: EventFeed,
+pub struct Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> {
+    pub sequence: u64,
+    pub time: fn() -> DateTime<Utc>, // Todo: does this need state? eg/ adapts internal time based on event time diffs
     pub execution_tx: ExecutionTx,
-    pub auditor: Auditor<AuditTx>,
     pub state: State,
     pub strategy: StrategyT,
     pub risk: Risk,
+    pub phantom: PhantomData<(AssetKey, InstrumentKey)>
 }
 
-impl<EventFeed, Event, ExecutionTx, AuditTx, State, StrategyT, Risk, Error>
-    Engine<EventFeed, ExecutionTx, AuditTx, State, StrategyT, Risk>
+// impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Error> Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+// where
+//     State: EngineState<EngineEvent, AssetKey, InstrumentKey, StrategyT::State, Risk::State, Error = Error>,
+//     StrategyT: Strategy<State, Event = EngineEvent>,
+//     Risk: RiskManager<State, Event = EngineEvent>,
+// {
+//     pub fn run() {
+//
+//     }
+//
+// }
+
+impl<Event, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Error>
+    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
-    EventFeed: Iterator<Item = Event>,
-    Event: Debug,
-    ExecutionTx: Tx<Item = ExecutionRequest<InstrumentId>, Error = Error>,
-    AuditTx: Tx<Item = AuditEvent<State, Event, InstrumentId>, Error = Error>,
-    State: EngineState<Event, AssetId, InstrumentId, StrategyT::State, Risk::State>,
+    Event: Debug + Clone, // Todo: remove once the dust settled,
+    ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
+    State: EngineState<Event, AssetKey, InstrumentKey, StrategyT::State, Risk::State, Error = Error>,
     StrategyT: Strategy<State, Event = Event>,
     Risk: RiskManager<State, Event = Event>,
+    InstrumentKey: Debug + Clone,
 {
-    pub fn run_with_shutdown<F>(&mut self, shutdown: F) -> Result<(), Error>
+    pub fn run<EventFeed, AuditTx>(
+        &mut self,
+        mut feed: EventFeed,
+        mut auditor: Auditor<AuditTx>,
+    ) -> Result<(), Error>
     where
-        F: Fn(&mut Self) -> Result<(), Error>,
-        Error: for<'a> From<<State as TryUpdater<&'a Event>>::Error>
+        EventFeed: Iterator<Item = Event>,
+        Event: Clone,
+        AuditTx: Tx<Item = AuditEvent<State, Event, InstrumentKey, Error>, Error = Error>,
     {
-        self.run()?;
-        shutdown(self)
-    }
+        let snapshot = self.audit_snapshot();
+        auditor.send(snapshot);
 
-    pub fn run(&mut self) -> Result<(), Error>
-    where
-        Error: for<'a> From<<State as TryUpdater<&'a Event>>::Error>
-    {
-        // Send initial EngineState audit snapshot
-        self.auditor.audit_snapshot(self.state.clone());
+        // Todo: Add user functionality such as on_error, etc inside Engine via Builder or Runner
 
-        while let Some(event) = self.feed.next() {
-            self.state.try_update(&event)?;
-
-            // Generate orders
-            let (cancels, opens) = self.strategy.generate_orders(&self.state);
-
-            // RiskApprove & RiskRefuse order requests
-            let (
-                cancels,
-                opens,
-                refused_cancels,
-                refused_opens
-            ) = self.risk.check(&self.state, cancels, opens);
-
-            // Generate InFlights for RiskApproved orders
-            let (in_flights, opens): (Vec<_>, Vec<_>) = opens
-                .map(|request| (Order::<_, OpenInFlight>::from(&request), request))
-                .unzip();
-
-            // Collect remaining order Iterators
-            let cancels = cancels.collect::<Vec<_>>();
-            let refused_cancels = refused_cancels.collect::<Vec<_>>();
-            let refused_opens = refused_opens.collect::<Vec<_>>();
-
-            // Send Risk checked requests
-            self.send_approved_orders_for_execution(&cancels, &opens)?;
-
-            // Record RiskApproved InFlight orders
-            self.state.orders_mut().record_in_flights(in_flights);
-
-            // Send EngineState audit update
-            self.auditor.audit(event, cancels, opens, refused_cancels, refused_opens);
+        while let Some(event) = feed.next() {
+            let audit = self.process(event);
+            auditor.send(audit)
         }
 
         Ok(())
     }
 
+    pub fn process(
+        &mut self,
+        event: Event,
+    ) -> AuditEvent<State, Event, InstrumentKey, Error>
+    {
+        match self.state.try_update(&event) {
+            Ok(actions) => actions,
+            Err(error) => {
+                return self.audit(AuditEventKind::Error { event: event.clone(), error} );
+            }
+        };
+
+        let audit = if self.state.trading_enabled() {
+            match self.trade() {
+                Ok(requests) => {
+                    AuditEventKind::UpdateWithRequests { event, requests }
+                },
+                Err(error) => {
+                    AuditEventKind::Error { event, error }
+                }
+            }
+        } else {
+            AuditEventKind::Update { event }
+        };
+
+        self.audit(audit)
+    }
+
+    fn trade(&mut self) -> Result<AuditEventKindRequests<InstrumentKey>, Error> {
+        // Generate orders
+        let (
+            cancels,
+            opens
+        ) = self.strategy.generate_orders(&self.state);
+
+        // RiskApprove & RiskRefuse order requests
+        let (
+            cancels,
+            opens,
+            refused_cancels,
+            refused_opens
+        ) = self.risk.check(&self.state, cancels, opens);
+
+        // Generate InFlights for RiskApproved orders
+        let (in_flights, opens): (Vec<_>, Vec<_>) = opens
+            .map(|request| (Order::<_, OpenInFlight>::from(&request), request))
+            .unzip();
+
+        // Collect remaining order Iterators
+        let cancels = cancels.collect::<Vec<_>>();
+        let refused_cancels = refused_cancels.collect::<Vec<_>>();
+        let refused_opens = refused_opens.collect::<Vec<_>>();
+
+        // Send Risk checked requests
+        self.send_approved_orders_for_execution(&cancels, &opens)?;
+
+        // Record RiskApproved InFlight orders
+        self.state.orders_mut().record_in_flights(in_flights);
+
+        Ok(AuditEventKindRequests {
+            cancels,
+            opens,
+            refused_cancels,
+            refused_opens
+        })
+    }
+
     fn send_approved_orders_for_execution(
         &self,
-        cancels: &[RiskApproved<Order<InstrumentId, RequestCancel>>],
-        opens: &[RiskApproved<Order<InstrumentId, RequestOpen>>],
+        cancels: &[RiskApproved<Order<InstrumentKey, RequestCancel>>],
+        opens: &[RiskApproved<Order<InstrumentKey, RequestOpen>>],
     ) -> Result<(), Error>
     {
         if !cancels.is_empty() {
@@ -106,5 +156,76 @@ where
         }
 
         Ok(())
+    }
+
+    pub fn audit_snapshot(&mut self) -> AuditEvent<State, Event, InstrumentKey, Error> {
+        self.audit(AuditEventKind::Snapshot(self.state.clone()))
+    }
+
+    pub fn audit(
+        &mut self,
+        kind: AuditEventKind<State, Event, InstrumentKey, Error>
+    ) -> AuditEvent<State, Event, InstrumentKey, Error> {
+        build_audit(self.sequence_fetch_add(), (self.time)(), kind)
+    }
+
+    pub fn sequence_fetch_add(&mut self) -> u64 {
+        let sequence = self.sequence;
+        self.sequence +=1;
+        sequence
+    }
+}
+
+pub struct EngineRunBuilder<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, FnShutdown> {
+    feed: Option<EventFeed>,
+    auditor: Option<Auditor<AuditTx>>,
+    engine: Option<Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>>,
+    on_shutdown: Option<FnShutdown>,
+}
+
+impl<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, FnShutdown, Error>
+EngineRunBuilder<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, FnShutdown>
+where
+    FnShutdown: Fn(&mut Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>) -> Result<(), Error>,
+{
+    pub fn new() -> Self {
+        Self {
+            feed: None,
+            auditor: None,
+            engine: None,
+            on_shutdown: None,
+        }
+    }
+
+    pub fn feed(self, feed: EventFeed) -> Self {
+        Self {
+            feed: Some(feed),
+            ..self
+        }
+    }
+
+    pub fn auditor(self, auditor: Auditor<AuditTx>) -> Self {
+        Self {
+            auditor: Some(auditor),
+            ..self
+        }
+    }
+
+    pub fn engine(self, engine: Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>) -> Self {
+        Self {
+            engine: Some(engine),
+            ..self
+        }
+    }
+
+    pub fn on_shutdown(self, on_shutdown: FnShutdown) -> Self {
+        Self {
+            on_shutdown: Some(on_shutdown),
+            ..self
+        }
+    }
+
+    pub fn build(self) {
+        todo!()
     }
 }

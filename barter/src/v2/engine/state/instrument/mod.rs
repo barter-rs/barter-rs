@@ -164,15 +164,12 @@ impl PositionManager<InstrumentId> for Instruments {
         InstrumentId: 'a,
     {
         self.0.values().filter_map(move |state| {
-            if state.position.portfolio == portfolio {
-                Some(&state.position)
-            } else {
-                None
-            }
+            (state.position.portfolio == portfolio).then_some(&state.position)
         })
     }
 
     fn update_from_trade(&mut self, _trade: &Trade<InstrumentId>) {
+        // Todo: should Trade contain PortfolioId? Or could remove concept for now...
         todo!()
     }
 

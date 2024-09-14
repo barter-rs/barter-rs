@@ -1,8 +1,7 @@
 use crate::v2::{
     order::{OpenInFlight, Order, RequestCancel, RequestOpen},
-    TryUpdater,
+    StateUpdater,
 };
-use barter_data::instrument::InstrumentId;
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -13,18 +12,18 @@ pub mod default;
 
 pub trait RiskManager<EngineState> {
     type Event;
-    type State: for<'a> TryUpdater<&'a Self::Event> + Debug + Clone;
+    type State: for<'a> StateUpdater<&'a Self::Event> + Debug + Clone;
 
-    fn check(
+    fn check<InstrumentKey>(
         &self,
         engine_state: &EngineState,
-        cancels: impl IntoIterator<Item = Order<InstrumentId, RequestCancel>>,
-        opens: impl IntoIterator<Item = Order<InstrumentId, RequestOpen>>,
+        cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
+        opens: impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
     ) -> (
-        impl Iterator<Item = RiskApproved<Order<InstrumentId, RequestCancel>>>,
-        impl Iterator<Item = RiskApproved<Order<InstrumentId, RequestOpen>>>,
-        impl Iterator<Item = RiskRefused<Order<InstrumentId, RequestCancel>>>,
-        impl Iterator<Item = RiskRefused<Order<InstrumentId, RequestOpen>>>,
+        impl Iterator<Item = RiskApproved<Order<InstrumentKey, RequestCancel>>>,
+        impl Iterator<Item = RiskApproved<Order<InstrumentKey, RequestOpen>>>,
+        impl Iterator<Item = RiskRefused<Order<InstrumentKey, RequestCancel>>>,
+        impl Iterator<Item = RiskRefused<Order<InstrumentKey, RequestOpen>>>,
     );
 }
 

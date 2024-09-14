@@ -2,9 +2,8 @@ use crate::v2::{
     engine::{error::EngineError, state::DefaultEngineState},
     order::{Order, RequestCancel, RequestOpen},
     risk::{RiskApproved, RiskManager, RiskRefused},
-    EngineEvent, TryUpdater,
+    EngineEvent, StateUpdater,
 };
-use barter_data::instrument::InstrumentId;
 
 /// Example [`RiskManager`] implementation that approves all order requests.
 ///
@@ -18,16 +17,16 @@ impl<StrategyState> RiskManager<DefaultEngineState<StrategyState, DefaultRiskMan
     type Event = EngineEvent;
     type State = DefaultRiskManagerState;
 
-    fn check(
+    fn check<InstrumentKey>(
         &self,
         _: &DefaultEngineState<StrategyState, DefaultRiskManagerState>,
-        cancels: impl IntoIterator<Item = Order<InstrumentId, RequestCancel>>,
-        opens: impl IntoIterator<Item = Order<InstrumentId, RequestOpen>>,
+        cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
+        opens: impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
     ) -> (
-        impl Iterator<Item = RiskApproved<Order<InstrumentId, RequestCancel>>>,
-        impl Iterator<Item = RiskApproved<Order<InstrumentId, RequestOpen>>>,
-        impl Iterator<Item = RiskRefused<Order<InstrumentId, RequestCancel>>>,
-        impl Iterator<Item = RiskRefused<Order<InstrumentId, RequestOpen>>>,
+        impl Iterator<Item = RiskApproved<Order<InstrumentKey, RequestCancel>>>,
+        impl Iterator<Item = RiskApproved<Order<InstrumentKey, RequestOpen>>>,
+        impl Iterator<Item = RiskRefused<Order<InstrumentKey, RequestCancel>>>,
+        impl Iterator<Item = RiskRefused<Order<InstrumentKey, RequestOpen>>>,
     ) {
         (
             cancels.into_iter().map(RiskApproved::new),
@@ -41,7 +40,8 @@ impl<StrategyState> RiskManager<DefaultEngineState<StrategyState, DefaultRiskMan
 #[derive(Debug, Clone)]
 pub struct DefaultRiskManagerState;
 
-impl TryUpdater<&EngineEvent> for DefaultRiskManagerState {
+impl StateUpdater<&EngineEvent> for DefaultRiskManagerState {
+    type Output = ();
     type Error = EngineError;
 
     fn try_update(&mut self, _: &EngineEvent) -> Result<(), Self::Error> {
