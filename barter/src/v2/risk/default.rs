@@ -2,8 +2,9 @@ use crate::v2::{
     engine::{error::EngineError, state::DefaultEngineState},
     order::{Order, RequestCancel, RequestOpen},
     risk::{RiskApproved, RiskManager, RiskRefused},
-    EngineEvent, StateUpdater,
+    EngineEvent,
 };
+use crate::v2::engine::Processor;
 
 /// Example [`RiskManager`] implementation that approves all order requests.
 ///
@@ -11,15 +12,19 @@ use crate::v2::{
 #[derive(Debug, Clone)]
 pub struct DefaultRiskManager;
 
-impl<StrategyState> RiskManager<DefaultEngineState<StrategyState, DefaultRiskManagerState>>
+impl<AssetKey, InstrumentKey, StrategyState> RiskManager<DefaultEngineState<AssetKey, InstrumentKey, StrategyState, DefaultRiskManagerState>, InstrumentKey>
     for DefaultRiskManager
+where
+    AssetKey: Eq,
+    InstrumentKey: Eq,
+
 {
-    type Event = EngineEvent;
+    type Event = EngineEvent<AssetKey, InstrumentKey>;
     type State = DefaultRiskManagerState;
 
-    fn check<InstrumentKey>(
+    fn check(
         &self,
-        _: &DefaultEngineState<StrategyState, DefaultRiskManagerState>,
+        _: &DefaultEngineState<AssetKey, InstrumentKey, StrategyState, DefaultRiskManagerState>,
         cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
         opens: impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
     ) -> (
@@ -40,11 +45,10 @@ impl<StrategyState> RiskManager<DefaultEngineState<StrategyState, DefaultRiskMan
 #[derive(Debug, Clone)]
 pub struct DefaultRiskManagerState;
 
-impl StateUpdater<&EngineEvent> for DefaultRiskManagerState {
-    type Output = ();
-    type Error = EngineError;
+impl<AssetKey, InstrumentKey> Processor<&EngineEvent<AssetKey, InstrumentKey>> for DefaultRiskManagerState {
+    type Output = Result<(), EngineError>;
 
-    fn try_update(&mut self, _: &EngineEvent) -> Result<(), Self::Error> {
+    fn process(&mut self, _: &EngineEvent<AssetKey, InstrumentKey>) -> Self::Output {
         Ok(())
     }
 }

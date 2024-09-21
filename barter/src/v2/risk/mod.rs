@@ -1,20 +1,20 @@
 use crate::v2::{
     order::{OpenInFlight, Order, RequestCancel, RequestOpen},
-    StateUpdater,
 };
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use crate::v2::engine::Processor;
 
 /// Todo:
 /// *EXAMPLE IMPLEMENTATION ONLY, PLEASE DO NOT USE FOR ANYTHING OTHER THAN TESTING PURPOSES.*
 pub mod default;
 
-pub trait RiskManager<EngineState> {
+pub trait RiskManager<EngineState, InstrumentKey> {
     type Event;
-    type State: for<'a> StateUpdater<&'a Self::Event> + Debug + Clone;
+    type State: for<'a> Processor<&'a Self::Event> + Debug + Clone;
 
-    fn check<InstrumentKey>(
+    fn check(
         &self,
         engine_state: &EngineState,
         cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,

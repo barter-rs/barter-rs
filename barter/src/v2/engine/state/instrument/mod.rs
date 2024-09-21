@@ -9,7 +9,6 @@ use crate::v2::{
 };
 use barter_data::{
     event::{DataKind, MarketEvent},
-    instrument::InstrumentId,
 };
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
@@ -54,18 +53,21 @@ pub trait PositionManager<InstrumentKey> {
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize, From)]
-pub struct Instruments(pub VecMap<InstrumentId, InstrumentState>);
+pub struct Instruments<InstrumentKey: Eq>(pub VecMap<InstrumentKey, InstrumentState<InstrumentKey>>);
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct InstrumentState {
-    pub instrument: Instrument,
+pub struct InstrumentState<InstrumentKey> {
+    pub instrument: Instrument<InstrumentKey>,
     pub market: MarketState,
-    pub orders: Orders<InstrumentId>,
-    pub position: Position,
+    pub orders: Orders<InstrumentKey>,
+    pub position: Position<InstrumentKey>,
 }
 
-impl MarketDataManager<InstrumentId> for Instruments {
-    fn update_from_market(&mut self, event: &MarketEvent<InstrumentId>) {
+impl<InstrumentKey> MarketDataManager<InstrumentKey> for Instruments<InstrumentKey>
+where
+    InstrumentKey: Debug + Eq,
+{
+    fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey>) {
         let Some(state) = self.state_mut(&event.instrument) else {
             warn!(
                 exchange = %event.exchange,
@@ -88,10 +90,13 @@ impl MarketDataManager<InstrumentId> for Instruments {
     }
 }
 
-impl OrderManager<InstrumentId> for Instruments {
+impl <InstrumentKey> OrderManager<InstrumentKey> for Instruments<InstrumentKey>
+where
+    InstrumentKey: Debug + Clone + Eq,
+{
     fn record_in_flights(
         &mut self,
-        requests: impl IntoIterator<Item = Order<InstrumentId, OpenInFlight>>,
+        requests: impl IntoIterator<Item = Order<InstrumentKey, OpenInFlight>>,
     ) {
         for request in requests {
             let state = self.state_mut(&request.instrument).unwrap_or_else(|| {
@@ -105,10 +110,10 @@ impl OrderManager<InstrumentId> for Instruments {
         }
     }
 
-    fn update_from_open(&mut self, response: &Order<InstrumentId, Result<Open, ExecutionError>>) {
+    fn update_from_open(&mut self, response: &Order<InstrumentKey, Result<Open, ExecutionError>>) {
         let Some(state) = self.state_mut(&response.instrument) else {
             warn!(
-                instrument = %response.instrument,
+                instrument = ?response.instrument,
                 event = ?response,
                 "OrderManager ignoring Order<RequestOpen> response received for non-configured instrument"
             );
@@ -120,11 +125,11 @@ impl OrderManager<InstrumentId> for Instruments {
 
     fn update_from_cancel(
         &mut self,
-        response: &Order<InstrumentId, Result<Cancelled, ExecutionError>>,
+        response: &Order<InstrumentKey, Result<Cancelled, ExecutionError>>,
     ) {
         let Some(state) = self.state_mut(&response.instrument) else {
             warn!(
-                instrument = %response.instrument,
+                instrument = ?response.instrument,
                 event = ?response,
                 "OrderManager ignoring Order<RequestCancel> response received for non-configured instrument"
             );
@@ -136,7 +141,7 @@ impl OrderManager<InstrumentId> for Instruments {
 
     fn update_from_order_snapshot(
         &mut self,
-        snapshot: &Snapshot<Order<InstrumentId, ExchangeOrderState>>,
+        snapshot: &Snapshot<Order<InstrumentKey, ExchangeOrderState>>,
     ) {
         let Some(state) = self.state_mut(&snapshot.0.instrument) else {
             warn!(
@@ -151,29 +156,32 @@ impl OrderManager<InstrumentId> for Instruments {
     }
 }
 
-impl PositionManager<InstrumentId> for Instruments {
-    fn position(&self, instrument: &InstrumentId) -> Option<&Position<InstrumentId>> {
+impl<InstrumentKey> PositionManager<InstrumentKey> for Instruments<InstrumentKey>
+where
+    InstrumentKey: Debug + Eq + Clone,
+{
+    fn position(&self, instrument: &InstrumentKey) -> Option<&Position<InstrumentKey>> {
         self.state(instrument).map(|state| &state.position)
     }
 
     fn positions_by_portfolio<'a>(
         &'a self,
         portfolio: PortfolioId,
-    ) -> impl Iterator<Item = &'a Position<InstrumentId>>
+    ) -> impl Iterator<Item = &'a Position<InstrumentKey>>
     where
-        InstrumentId: 'a,
+        InstrumentKey: 'a,
     {
         self.0.values().filter_map(move |state| {
             (state.position.portfolio == portfolio).then_some(&state.position)
         })
     }
 
-    fn update_from_trade(&mut self, _trade: &Trade<InstrumentId>) {
+    fn update_from_trade(&mut self, _trade: &Trade<InstrumentKey>) {
         // Todo: should Trade contain PortfolioId? Or could remove concept for now...
         todo!()
     }
 
-    fn update_from_position_snapshot(&mut self, snapshot: &Snapshot<Position<InstrumentId>>) {
+    fn update_from_position_snapshot(&mut self, snapshot: &Snapshot<Position<InstrumentKey>>) {
         let Some(state) = self.state_mut(&snapshot.0.instrument) else {
             warn!(
                 instrument_id = ?snapshot.0.instrument,
@@ -187,20 +195,26 @@ impl PositionManager<InstrumentId> for Instruments {
     }
 }
 
-impl Instruments {
-    pub fn state(&self, instrument: &InstrumentId) -> Option<&InstrumentState> {
+impl<InstrumentKey> Instruments<InstrumentKey>
+where
+    InstrumentKey: Eq
+{
+    pub fn state(&self, instrument: &InstrumentKey) -> Option<&InstrumentState<InstrumentKey>> {
         self.0.get(instrument)
     }
-    pub fn state_mut(&mut self, instrument: &InstrumentId) -> Option<&mut InstrumentState> {
+    pub fn state_mut(&mut self, instrument: &InstrumentKey) -> Option<&mut InstrumentState<InstrumentKey>> {
         self.0.get_mut(instrument)
     }
 }
 
-impl FromIterator<InstrumentState> for Instruments {
-    fn from_iter<T: IntoIterator<Item = InstrumentState>>(iter: T) -> Self {
+impl<InstrumentKey> FromIterator<InstrumentState<InstrumentKey>> for Instruments<InstrumentKey>
+where
+    InstrumentKey: Clone + Eq,
+{
+    fn from_iter<T: IntoIterator<Item = InstrumentState<InstrumentKey>>>(iter: T) -> Self {
         Instruments(
             iter.into_iter()
-                .map(|state| (state.instrument.id, state))
+                .map(|state| (state.instrument.id.clone(), state))
                 .collect(),
         )
     }

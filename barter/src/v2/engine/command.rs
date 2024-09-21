@@ -6,11 +6,11 @@ use crate::v2::execution::ExecutionRequest;
     Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, From,
 )]
 pub enum Command<InstrumentKey> {
-    EnableTrading,
-    DisableTrading,
-    Terminate,
-    ReSyncEngineState,
+    EnableTrading, // Todo: currently involves state
+    DisableTrading, // Todo: currently involves state
+
+    // ReSyncEngineState,
     Execute(ExecutionRequest<InstrumentKey>),
-    ClosePosition,
+    ClosePosition(InstrumentKey),
     CloseAllPositions,
 }

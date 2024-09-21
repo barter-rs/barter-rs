@@ -1,13 +1,14 @@
+use std::fmt::Debug;
 use crate::v2::instrument::asset::AssetId;
-use barter_data::{exchange::ExchangeId, instrument::InstrumentId};
+use barter_data::{exchange::ExchangeId};
 use barter_integration::model::instrument::kind::InstrumentKind;
 use serde::{Deserialize, Serialize};
 
 pub mod asset;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
-pub struct Instrument {
-    pub id: InstrumentId,
+pub struct Instrument<InstrumentKey> {
+    pub id: InstrumentKey,
     pub exchange: ExchangeId,
     pub name_exchange: String,
     pub kind: InstrumentKind,

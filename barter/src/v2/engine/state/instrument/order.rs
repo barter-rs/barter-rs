@@ -8,7 +8,7 @@ use crate::v2::{
 };
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug};
 use tracing::{debug, error, warn};
 use vecmap::{map::Entry, VecMap};
 
@@ -19,7 +19,7 @@ pub struct Orders<InstrumentKey> {
 
 impl<InstrumentKey> OrderManager<InstrumentKey> for Orders<InstrumentKey>
 where
-    InstrumentKey: Debug + Display + Clone + PartialEq,
+    InstrumentKey: Debug + Clone + PartialEq,
 {
     fn record_in_flights(
         &mut self,
@@ -42,7 +42,7 @@ where
             (Entry::Occupied(mut order), Ok(new_open)) => match &order.get().state {
                 InternalOrderState::OpenInFlight(_) => {
                     debug!(
-                        instrument = %response.instrument,
+                        instrument = ?response.instrument,
                         cid = %response.cid,
                         order = ?order.get(),
                         update = ?response,
@@ -52,7 +52,7 @@ where
                 }
                 InternalOrderState::Open(existing_open) => {
                     warn!(
-                        instrument = %response.instrument,
+                        instrument = ?response.instrument,
                         cid = %response.cid,
                         order = ?order.get(),
                         update = ?response,
@@ -65,7 +65,7 @@ where
                 }
                 InternalOrderState::CancelInFlight(_) => {
                     error!(
-                        instrument = %response.instrument,
+                        instrument = ?response.instrument,
                         cid = %response.cid,
                         order = ?order.get(),
                         update = ?response,
@@ -75,7 +75,7 @@ where
             },
             (Entry::Vacant(cid_untracked), Ok(new_open)) => {
                 warn!(
-                    instrument = %response.instrument,
+                    instrument = ?response.instrument,
                     cid = %response.cid,
                     update = ?response,
                     "OrderManager received Order<Open> for untracked ClientOrderId - now tracking"
@@ -91,7 +91,7 @@ where
             (Entry::Occupied(order), Err(_)) => match &order.get().state {
                 InternalOrderState::OpenInFlight(_) => {
                     warn!(
-                        instrument = %response.instrument,
+                        instrument = ?response.instrument,
                         cid = %response.cid,
                         order = ?order.get(),
                         update = ?response,
@@ -101,7 +101,7 @@ where
                 }
                 InternalOrderState::Open(_) => {
                     error!(
-                        instrument = %response.instrument,
+                        instrument = ?response.instrument,
                         cid = %response.cid,
                         order = ?order.get(),
                         update = ?response,
@@ -110,7 +110,7 @@ where
                 }
                 InternalOrderState::CancelInFlight(_) => {
                     error!(
-                        instrument = %response.instrument,
+                        instrument = ?response.instrument,
                         cid = %response.cid,
                         ?order,
                         update = ?response,
@@ -120,7 +120,7 @@ where
             },
             (Entry::Vacant(_), Err(_)) => {
                 error!(
-                    instrument = %response.instrument,
+                    instrument = ?response.instrument,
                     cid = %response.cid,
                     update = ?response,
                     "OrderManager received ExecutionError for untracked ClientOrderId"
@@ -137,7 +137,7 @@ where
             (Entry::Occupied(order), Ok(_new_cancel)) => match &order.get().state {
                 InternalOrderState::OpenInFlight(_) => {
                     warn!(
-                        instrument = %response.instrument,
+                        instrument = ?response.instrument,
                         cid = %response.cid,
                         order = ?order.get(),
                         update = ?response,
@@ -147,7 +147,7 @@ where
                 }
                 InternalOrderState::Open(_) => {
                     warn!(
-                        instrument = %response.instrument,
+                        instrument = ?response.instrument,
                         cid = %response.cid,
                         order = ?order.get(),
                         update = ?response,
@@ -157,7 +157,7 @@ where
                 }
                 InternalOrderState::CancelInFlight(_) => {
                     debug!(
-                        instrument = %response.instrument,
+                        instrument = ?response.instrument,
                         cid = %response.cid,
                         order = ?order.get(),
                         update = ?response,
@@ -168,7 +168,7 @@ where
             },
             (Entry::Vacant(_cid_untracked), Ok(_new_cancel)) => {
                 warn!(
-                    instrument = %response.instrument,
+                    instrument = ?response.instrument,
                     cid = %response.cid,
                     update = ?response,
                     "OrderManager received Order<Cancelled> Ok response for untracked ClientOrderId - ignoring"
@@ -187,7 +187,7 @@ where
             },
             (Entry::Vacant(_), Err(_)) => {
                 error!(
-                    instrument = %response.instrument,
+                    instrument = ?response.instrument,
                     cid = %response.cid,
                     update = ?response,
                     "OrderManager received ExecutionError for untracked ClientOrderId"

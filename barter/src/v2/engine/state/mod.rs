@@ -1,6 +1,5 @@
 use crate::v2::{
     engine::{
-        command::Command,
         error::EngineError,
         state::{
             balance::{BalanceManager, Balances},
@@ -8,16 +7,16 @@ use crate::v2::{
         },
     },
     execution::{AccountEvent, AccountEventKind, AccountSnapshot},
-    instrument::asset::AssetId,
     order::Order,
-    EngineEvent, Snapshot, StateUpdater,
+    Snapshot,
 };
-use barter_data::{event::MarketEvent, instrument::InstrumentId};
+use barter_data::{event::MarketEvent};
 use barter_integration::model::Exchange;
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::{debug, info, warn};
+use crate::v2::engine::{Processor};
 
 pub mod balance;
 pub mod instrument;
@@ -54,9 +53,11 @@ pub mod instrument;
 //
 //
 
-pub trait EngineState<Event, AssetKey, InstrumentKey, StrategyState, RiskState>
-where
-    Self: for<'a> StateUpdater<&'a Event> + Debug + Clone,
+// pub trait EngineState<Event, AssetKey, InstrumentKey, StrategyState, RiskState>
+pub trait EngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
+// where
+    // Self: for<'a> StateUpdater<&'a Event> + Debug + Clone,
+    // Self: for<'a> Processor<&'a Event> + Debug + Clone,
 {
     fn trading_enabled(&self) -> bool;
     fn market_data(&self) -> &impl MarketDataManager<InstrumentKey>;
@@ -79,52 +80,60 @@ pub enum TradingState {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct DefaultEngineState<StrategyState, RiskState> {
+pub struct DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
+where
+    AssetKey: Eq,
+    InstrumentKey: Eq,
+{
     pub trading_on: bool,
-    pub balances: Balances,
-    pub instruments: Instruments,
+    pub balances: Balances<AssetKey>,
+    pub instruments: Instruments<InstrumentKey>,
     pub strategy: StrategyState,
     pub risk: RiskState,
 }
 
-impl<StrategyState, RiskState> EngineState<EngineEvent, AssetId, InstrumentId, StrategyState, RiskState> for DefaultEngineState<StrategyState, RiskState>
+impl<AssetKey, InstrumentKey, StrategyState, RiskState> EngineState<AssetKey, InstrumentKey, StrategyState, RiskState> for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
 where
-    StrategyState: for<'a> StateUpdater<&'a EngineEvent, Output = (), Error = EngineError> + Debug + Clone,
-    RiskState: for<'a> StateUpdater<&'a EngineEvent, Output = (), Error = EngineError> + Debug + Clone,
+    AssetKey: Debug + Eq,
+    InstrumentKey: Debug + Eq + Clone,
+    // StrategyState: for<'a> StateUpdater<&'a EngineEvent, Output = (), Error = EngineError> + Debug + Clone,
+    // RiskState: for<'a> StateUpdater<&'a EngineEvent, Output = (), Error = EngineError> + Debug + Clone,
+    // StrategyState: for<'a> Processor<&'a EngineEvent> + Debug + Clone,
+    // RiskState: for<'a> Processor<&'a EngineEvent> + Debug + Clone,
 {
     fn trading_enabled(&self) -> bool {
         self.trading_on
     }
 
-    fn market_data(&self) -> &impl MarketDataManager<InstrumentId> {
+    fn market_data(&self) -> &impl MarketDataManager<InstrumentKey> {
         &self.instruments
     }
 
-    fn market_data_mut(&mut self) -> &mut impl MarketDataManager<InstrumentId> {
+    fn market_data_mut(&mut self) -> &mut impl MarketDataManager<InstrumentKey> {
         &mut self.instruments
     }
 
-    fn balances(&self) -> &impl BalanceManager<AssetId> {
+    fn balances(&self) -> &impl BalanceManager<AssetKey> {
         &self.balances
     }
 
-    fn balances_mut(&mut self) -> &mut impl BalanceManager<AssetId> {
+    fn balances_mut(&mut self) -> &mut impl BalanceManager<AssetKey> {
         &mut self.balances
     }
 
-    fn orders(&self) -> &impl OrderManager<InstrumentId> {
+    fn orders(&self) -> &impl OrderManager<InstrumentKey> {
         &self.instruments
     }
 
-    fn orders_mut(&mut self) -> &mut impl OrderManager<InstrumentId> {
+    fn orders_mut(&mut self) -> &mut impl OrderManager<InstrumentKey> {
         &mut self.instruments
     }
 
-    fn positions(&self) -> &impl PositionManager<InstrumentId> {
+    fn positions(&self) -> &impl PositionManager<InstrumentKey> {
         &self.instruments
     }
 
-    fn positions_mut(&mut self) -> &mut impl PositionManager<InstrumentId> {
+    fn positions_mut(&mut self) -> &mut impl PositionManager<InstrumentKey> {
         &mut self.instruments
     }
 
@@ -145,53 +154,85 @@ where
     }
 }
 
-impl<StrategyState, RiskState> StateUpdater<&EngineEvent> for DefaultEngineState<StrategyState, RiskState>
+impl<AssetKey, InstrumentKey, StrategyState, RiskState> Processor<&AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
+for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
 where
-    StrategyState: for<'a> StateUpdater<&'a EngineEvent, Error = EngineError, Output = ()>,
-    RiskState: for<'a> StateUpdater<&'a EngineEvent, Error = EngineError, Output = ()>,
+    AssetKey: Debug + Eq,
+    InstrumentKey: Debug + Clone + Eq,
+    StrategyState: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>,
+    RiskState: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>,
 {
     type Output = ();
-    type Error = EngineError;
 
-    fn try_update(&mut self, event: &EngineEvent) -> Result<(), Self::Error> {
-        // Update core EngineState components
-        match event {
-            EngineEvent::Command(command) => {
-                info!(?command, "updating EngineState from Command");
-                self.update_from_command(command);
-            }
-            EngineEvent::Account(event) => {
-                info!(account = ?event, "updating EngineState from AccountEvent");
-                self.try_update_from_account(event)?
-            }
-            EngineEvent::Market(event) => {
-                debug!(market = ?event, "updating EngineState from MarketEvent");
-                self.update_from_market(event);
-            }
-        }
+    fn process(&mut self, event: &AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>) -> Self::Output {
+        info!(account = ?event, "updating EngineState from AccountEvent");
+        self.try_update_from_account(event).unwrap(); // Todo: handle this w/ audit, etc audit?
 
         // Update any user provided Strategy & Risk State
-        self.strategy.try_update(event)?;
-        self.risk.try_update(event)
+        self.strategy.process(event); // Todo: probably return an error, or perhaps some AuditKind?
+        self.risk.process(event); // Todo: probably return an error, or perhaps some AuditKind?
     }
 }
 
-impl<StrategyState, RiskState> DefaultEngineState<StrategyState, RiskState> {
-    pub fn update_from_command(&mut self, command: &Command<InstrumentId>) {
-        match command {
-            Command::EnableTrading => self.update_from_command_enable_trading(),
-            Command::DisableTrading => self.update_from_command_disable_trading(),
-            Command::Terminate => {}
-            Command::ReSyncEngineState => {}
-            Command::Execute(_) => {}
-            Command::ClosePosition => {}
-            Command::CloseAllPositions => {}
-        }
-    }
+impl<AssetKey, InstrumentKey, StrategyState, RiskState> Processor<&MarketEvent<InstrumentKey>>
+for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
+where
+    AssetKey: Debug + Eq,
+    InstrumentKey: Debug + Clone + Eq,
+    StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentKey>>, //, Output = Result<(), EngineError>>,
+    RiskState: for<'a> Processor<&'a MarketEvent<InstrumentKey>> //, Output = Result<(), EngineError>>,
+{
+    type Output = ();
 
+    fn process(&mut self, event: &MarketEvent<InstrumentKey>) -> Self::Output {
+        debug!(market = ?event, "updating EngineState from MarketEvent");
+        self.update_from_market(event); // Todo: should this return an error?
+
+        // Update any user provided Strategy & Risk State
+        self.strategy.process(event); // Todo: probably return an error, or perhaps some AuditKind?
+        self.risk.process(event); // Todo: probably return an error, or perhaps some AuditKind?
+    }
+}
+
+// impl<StrategyState, RiskState> StateUpdater<&EngineEvent> for DefaultEngineState<StrategyState, RiskState>
+// where
+//     StrategyState: for<'a> StateUpdater<&'a EngineEvent, Error = EngineError, Output = ()>,
+//     RiskState: for<'a> StateUpdater<&'a EngineEvent, Error = EngineError, Output = ()>,
+// {
+//     type Output = ();
+//     type Error = EngineError;
+//
+//     fn try_update(&mut self, event: &EngineEvent) -> Result<(), Self::Error> {
+//         // Update core EngineState components
+//         match event {
+//             EngineEvent::Command(command) => {
+//                 info!(?command, "updating EngineState from Command");
+//                 self.update_from_command(command);
+//             }
+//             EngineEvent::Account(event) => {
+//                 info!(account = ?event, "updating EngineState from AccountEvent");
+//                 self.try_update_from_account(event)?
+//             }
+//             EngineEvent::Market(event) => {
+//                 debug!(market = ?event, "updating EngineState from MarketEvent");
+//                 self.update_from_market(event);
+//             }
+//         }
+//
+//         // Update any user provided Strategy & Risk State
+//         self.strategy.try_update(event)?;
+//         self.risk.try_update(event)
+//     }
+// }
+
+impl<AssetKey, InstrumentKey, StrategyState, RiskState> DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
+where
+    AssetKey: Debug + Eq,
+    InstrumentKey: Debug + Clone + Eq,
+{
     pub fn update_from_command_enable_trading(&mut self) {
         if self.trading_on {
-           info!("Engine enable trading, although it was already enabled");
+           info!("Engine enabled trading, although it was already enabled");
         } else {
             self.trading_on = true;
             info!("Engine enabled trading");
@@ -209,7 +250,7 @@ impl<StrategyState, RiskState> DefaultEngineState<StrategyState, RiskState> {
 
     pub fn try_update_from_account(
         &mut self,
-        event: &AccountEvent<AccountEventKind<AssetId, InstrumentId>>,
+        event: &AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>,
     ) -> Result<(), EngineError> {
         let AccountEvent { exchange, kind } = event;
         match kind {
@@ -255,7 +296,7 @@ impl<StrategyState, RiskState> DefaultEngineState<StrategyState, RiskState> {
     pub fn update_from_account_snapshot(
         &mut self,
         exchange: &Exchange,
-        snapshot: &AccountSnapshot<AssetId, InstrumentId>,
+        snapshot: &AccountSnapshot<AssetKey, InstrumentKey>,
     ) {
         let AccountSnapshot {
             balances,
@@ -270,8 +311,8 @@ impl<StrategyState, RiskState> DefaultEngineState<StrategyState, RiskState> {
 
         // Update InstrumentStates (Positions & Orders)
         for snapshot in instruments {
-            let instrument = snapshot.position.instrument;
-            if let Some(state) = self.instruments.state_mut(&instrument) {
+            let instrument = &snapshot.position.instrument;
+            if let Some(state) = self.instruments.state_mut(instrument) {
                 let _ = std::mem::replace(&mut state.position, snapshot.position.clone());
 
                 // Note: this wipes all open & cancel in-flight requests
@@ -293,7 +334,7 @@ impl<StrategyState, RiskState> DefaultEngineState<StrategyState, RiskState> {
         }
     }
 
-    pub fn update_from_market(&mut self, event: &MarketEvent<InstrumentId>) {
+    pub fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey>) {
         self.instruments.update_from_market(event);
     }
 }

@@ -1,6 +1,5 @@
 use crate::v2::{
     balance::{AssetBalance, Balance},
-    instrument::asset::AssetId,
     Snapshot,
 };
 use barter_integration::model::Exchange;
@@ -29,10 +28,13 @@ pub trait BalanceManager<AssetKey> {
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize, From, Constructor)]
-pub struct Balances(pub VecMap<Exchange, VecMap<AssetId, Balance>>);
+pub struct Balances<AssetKey: Eq>(pub VecMap<Exchange, VecMap<AssetKey, Balance>>);
 
-impl BalanceManager<AssetId> for Balances {
-    fn balance(&self, exchange: &Exchange, asset: &AssetId) -> Option<&Balance> {
+impl<AssetKey> BalanceManager<AssetKey> for Balances<AssetKey>
+where
+    AssetKey: Eq + Debug,
+{
+    fn balance(&self, exchange: &Exchange, asset: &AssetKey) -> Option<&Balance> {
         self.0
             .get(exchange)
             .and_then(|balances| balances.get(asset))
@@ -41,9 +43,9 @@ impl BalanceManager<AssetId> for Balances {
     fn balances_by_exchange<'a>(
         &'a self,
         exchange: &Exchange,
-    ) -> impl Iterator<Item = (&'a AssetId, &'a Balance)>
+    ) -> impl Iterator<Item = (&'a AssetKey, &'a Balance)>
     where
-        AssetId: 'a,
+        AssetKey: 'a,
     {
         self.0.get(exchange).map_or_else(
             || {
@@ -60,7 +62,7 @@ impl BalanceManager<AssetId> for Balances {
     fn update_from_snapshot(
         &mut self,
         exchange: &Exchange,
-        snapshot: Snapshot<&AssetBalance<AssetId>>,
+        snapshot: Snapshot<&AssetBalance<AssetKey>>,
     ) {
         let Some(exchange_balances) = self.0.get_mut(exchange) else {
             warn!(

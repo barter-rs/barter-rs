@@ -1,4 +1,3 @@
-use barter_data::instrument::InstrumentId;
 use barter_integration::model::Side;
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
@@ -15,7 +14,7 @@ impl From<&str> for PortfolioId<String> {
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
-pub struct Position<InstrumentKey = InstrumentId, PortfolioKey = PortfolioId<String>> {
+pub struct Position<InstrumentKey, PortfolioKey = PortfolioId<String>> {
     pub instrument: InstrumentKey,
     pub portfolio: PortfolioKey,
     pub side: Side,
