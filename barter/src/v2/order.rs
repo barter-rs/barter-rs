@@ -65,7 +65,10 @@ impl InternalOrderState {
     }
 
     pub fn is_open_or_in_flight(&self) -> bool {
-        matches!(self, InternalOrderState::OpenInFlight(_) | InternalOrderState::Open(_))
+        matches!(
+            self,
+            InternalOrderState::OpenInFlight(_) | InternalOrderState::Open(_)
+        )
     }
 }
 
@@ -105,8 +108,9 @@ pub enum TimeInForce {
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
-pub struct RequestCancel {
-    pub id: OrderId,
+pub struct RequestCancel<InstrumentKey, OrderKey> {
+    pub instrument: InstrumentKey,
+    pub order: OrderKey,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
@@ -169,7 +173,7 @@ where
 }
 
 impl<InstrumentKey> From<&Order<InstrumentKey, RequestCancel>>
-for Order<InstrumentKey, InternalOrderState>
+    for Order<InstrumentKey, InternalOrderState>
 where
     InstrumentKey: Clone,
 {

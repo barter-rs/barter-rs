@@ -1,17 +1,15 @@
+use crate::v2::order::{OrderId, RequestCancel, RequestOpen};
 use crate::v2::{
     engine::state::instrument::OrderManager,
     execution::error::ExecutionError,
-    order::{
-        Cancelled, ClientOrderId, ExchangeOrderState, InternalOrderState, Open, Order,
-    },
+    order::{Cancelled, ClientOrderId, ExchangeOrderState, InternalOrderState, Open, Order},
     Snapshot,
 };
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug};
+use std::fmt::Debug;
 use tracing::{debug, error, warn};
 use vecmap::{map::Entry, VecMap};
-use crate::v2::order::{RequestCancel, RequestOpen};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct Orders<InstrumentKey> {
@@ -23,24 +21,22 @@ where
     InstrumentKey: Debug + Clone + PartialEq,
 {
     fn record_in_flight_open(&mut self, request: &Order<InstrumentKey, RequestOpen>) {
-        if let Some(duplicate_cid_order) = self.inner.insert(request.cid, Order::from(request))
-        {
+        if let Some(duplicate_cid_order) = self.inner.insert(request.cid, Order::from(request)) {
             error!(
-                    cid = %duplicate_cid_order.cid,
-                    event = ?duplicate_cid_order,
-                    "OrderManager upserted Order OpenInFlight with duplicate ClientOrderId"
-                );
+                cid = %duplicate_cid_order.cid,
+                event = ?duplicate_cid_order,
+                "OrderManager upserted Order OpenInFlight with duplicate ClientOrderId"
+            );
         }
     }
 
-    fn record_in_flight_cancel(&mut self, request: &Order<InstrumentKey, RequestCancel>) {
-        if let Some(duplicate_cid_order) = self.inner.insert(request.cid, Order::from(request))
-        {
+    fn record_in_flight_cancel<OrderKey>(&mut self, request: &RequestCancel<InstrumentKey, OrderKey>) {
+        if let Some(duplicate_cid_order) = self.inner.insert(request.cid, Order::from(request)) {
             error!(
-                    cid = %duplicate_cid_order.cid,
-                    event = ?duplicate_cid_order,
-                    "OrderManager upserted Order CancelInFlight with duplicate ClientOrderId"
-                );
+                cid = %duplicate_cid_order.cid,
+                event = ?duplicate_cid_order,
+                "OrderManager upserted Order CancelInFlight with duplicate ClientOrderId"
+            );
         }
     }
 
@@ -300,6 +296,22 @@ where
         //     }
         // }
     }
+
+    // fn order_by_id(&self, _: &InstrumentKey, find: &OrderId) -> Option<&Order<InstrumentKey, InternalOrderState>> {
+    //     self.inner
+    //         .values()
+    //         .find(|order| order
+    //             .state
+    //             .order_id()
+    //             .is_some_and(|order_id| order_id == *find)
+    //         )
+    // }
+    //
+    // fn order_by_cid(&self, _: &InstrumentKey, find: &ClientOrderId) -> Option<&Order<InstrumentKey, InternalOrderState>> {
+    //     self.inner
+    //         .values()
+    //         .find(|order| order.cid == *find)
+    // }
 }
 
 impl<InstrumentKey> Default for Orders<InstrumentKey> {

@@ -1,3 +1,4 @@
+use crate::v2::engine::Processor;
 use crate::v2::{
     engine::{
         error::EngineError,
@@ -10,13 +11,12 @@ use crate::v2::{
     order::Order,
     Snapshot,
 };
-use barter_data::{event::MarketEvent};
+use barter_data::event::MarketEvent;
 use barter_integration::model::Exchange;
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::{debug, info, warn};
-use crate::v2::engine::{Processor};
 
 pub mod balance;
 pub mod instrument;
@@ -54,11 +54,7 @@ pub mod instrument;
 //
 
 // pub trait EngineState<Event, AssetKey, InstrumentKey, StrategyState, RiskState>
-pub trait EngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
-// where
-    // Self: for<'a> StateUpdater<&'a Event> + Debug + Clone,
-    // Self: for<'a> Processor<&'a Event> + Debug + Clone,
-{
+pub trait EngineState<AssetKey, InstrumentKey, StrategyState, RiskState> {
     fn trading_enabled(&self) -> bool;
     fn market_data(&self) -> &impl MarketDataManager<InstrumentKey>;
     fn market_data_mut(&mut self) -> &mut impl MarketDataManager<InstrumentKey>;
@@ -87,7 +83,9 @@ where
     pub risk: RiskState,
 }
 
-impl<AssetKey, InstrumentKey, StrategyState, RiskState> EngineState<AssetKey, InstrumentKey, StrategyState, RiskState> for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
+impl<AssetKey, InstrumentKey, StrategyState, RiskState>
+    EngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
+    for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
 where
     AssetKey: Debug + Eq,
     InstrumentKey: Debug + Eq + Clone,
@@ -149,8 +147,9 @@ where
     }
 }
 
-impl<AssetKey, InstrumentKey, StrategyState, RiskState> Processor<&AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
-for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
+impl<AssetKey, InstrumentKey, StrategyState, RiskState>
+    Processor<&AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
+    for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
 where
     AssetKey: Debug + Eq,
     InstrumentKey: Debug + Clone + Eq,
@@ -159,7 +158,10 @@ where
 {
     type Output = ();
 
-    fn process(&mut self, event: &AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>) -> Self::Output {
+    fn process(
+        &mut self,
+        event: &AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>,
+    ) -> Self::Output {
         info!(account = ?event, "updating EngineState from AccountEvent");
         self.try_update_from_account(event).unwrap(); // Todo: handle this w/ audit, etc audit?
 
@@ -170,12 +172,12 @@ where
 }
 
 impl<AssetKey, InstrumentKey, StrategyState, RiskState> Processor<&MarketEvent<InstrumentKey>>
-for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
+    for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
 where
     AssetKey: Debug + Eq,
     InstrumentKey: Debug + Clone + Eq,
     StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentKey>>, //, Output = Result<(), EngineError>>,
-    RiskState: for<'a> Processor<&'a MarketEvent<InstrumentKey>> //, Output = Result<(), EngineError>>,
+    RiskState: for<'a> Processor<&'a MarketEvent<InstrumentKey>>, //, Output = Result<(), EngineError>>,
 {
     type Output = ();
 
@@ -220,14 +222,15 @@ where
 //     }
 // }
 
-impl<AssetKey, InstrumentKey, StrategyState, RiskState> DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
+impl<AssetKey, InstrumentKey, StrategyState, RiskState>
+    DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
 where
     AssetKey: Debug + Eq,
     InstrumentKey: Debug + Clone + Eq,
 {
     pub fn update_from_command_enable_trading(&mut self) {
         if self.trading_on {
-           info!("Engine enabled trading, although it was already enabled");
+            info!("Engine enabled trading, although it was already enabled");
         } else {
             self.trading_on = true;
             info!("Engine enabled trading");

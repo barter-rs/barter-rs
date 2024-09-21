@@ -1,9 +1,6 @@
-
-use crate::v2::{
-    order::{Order, RequestCancel, RequestOpen},
-};
-use std::fmt::Debug;
 use crate::v2::engine::Processor;
+use crate::v2::order::{Order, RequestCancel, RequestOpen};
+use std::fmt::Debug;
 
 pub trait Strategy<EngineState, InstrumentKey> {
     type Event;
@@ -29,8 +26,8 @@ pub trait Strategy<EngineState, InstrumentKey> {
     //  then make trait StrategyExt?
     fn close_all_positions_request(
         &self,
-        instrument: &InstrumentKey,
         engine_state: &EngineState,
     ) -> impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>;
 }
 
+// Todo: probably StrategyExt

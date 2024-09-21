@@ -1,20 +1,26 @@
-use crate::v2::{channel::Tx, engine::{
-    audit::{AuditEvent},
-    state::{instrument::OrderManager, EngineState},
-}, execution::ExecutionRequest, risk::{RiskApproved, RiskManager}, strategy::Strategy};
+use crate::v2::engine::audit::{AuditEventKind, AuditEventKindRequests};
+use crate::v2::order::{InternalOrderState, Order, OrderId, RequestCancel};
+use crate::v2::{
+    channel::Tx,
+    engine::{
+        audit::AuditEvent,
+        state::{instrument::OrderManager, EngineState},
+    },
+    execution::ExecutionRequest,
+    risk::{RiskApproved, RiskManager},
+    strategy::Strategy,
+};
+use chrono::{DateTime, Utc};
 use derive_more::Constructor;
+use itertools::Itertools;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use chrono::{DateTime, Utc};
-use itertools::Itertools;
-use crate::v2::engine::audit::{AuditEventKind, AuditEventKindRequests};
-use crate::v2::order::{Order, RequestCancel};
 
 pub mod audit;
 pub mod command;
 pub mod error;
-pub mod state;
 pub mod ext;
+pub mod state;
 
 pub trait Processor<Event> {
     type Output;
@@ -35,7 +41,7 @@ pub struct Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> 
     pub state: State,
     pub strategy: StrategyT,
     pub risk: Risk,
-    pub phantom: PhantomData<(AssetKey, InstrumentKey)>
+    pub phantom: PhantomData<(AssetKey, InstrumentKey)>,
 }
 
 // Todo: What do I want?
@@ -79,15 +85,17 @@ pub struct Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> 
 // }
 
 impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
     State: Clone,
 {
-    pub fn audit_snapshot<Event, Error>(&mut self) -> AuditEvent<AuditEventKind<State, Event, InstrumentKey, Error>> {
+    pub fn audit_snapshot<Event, Error>(
+        &mut self,
+    ) -> AuditEvent<AuditEventKind<State, Event, InstrumentKey, Error>> {
         AuditEvent::new(
             self.sequence_fetch_add(),
             (self.time)(),
-            AuditEventKind::Snapshot(self.state.clone())
+            AuditEventKind::Snapshot(self.state.clone()),
         )
     }
 }
@@ -103,36 +111,29 @@ where
 {
     pub fn trade(&mut self) -> Result<AuditEventKindRequests<InstrumentKey>, Error> {
         // Generate orders
-        let (
-            cancels,
-            opens
-        ) = self.strategy.generate_orders(&self.state);
+        let (cancels, opens) = self.strategy.generate_orders(&self.state);
 
         // RiskApprove & RiskRefuse order requests
-        let (
-            cancels,
-            opens,
-            refused_cancels,
-            refused_opens
-        ) = self.risk.check(&self.state, cancels, opens);
+        let (cancels, opens, refused_cancels, refused_opens) =
+            self.risk.check(&self.state, cancels, opens);
 
         // Send risk approved order request
         let (cancel_oks, cancel_errs): (Vec<_>, Vec<_>) = cancels
             .into_iter()
-            .map(|RiskApproved(cancel)| self
-                .execution_tx
-                .send(ExecutionRequest::Cancel(cancel.clone()))
-                .map(|_| cancel)
-            )
+            .map(|RiskApproved(cancel)| {
+                self.execution_tx
+                    .send(ExecutionRequest::Cancel(cancel.clone()))
+                    .map(|_| cancel)
+            })
             .partition_result();
 
         let (open_oks, open_errs): (Vec<_>, Vec<_>) = opens
             .into_iter()
-            .map(|RiskApproved(open)|self
-                .execution_tx
-                .send(ExecutionRequest::Open(open.clone()))
-                .map(|_| open)
-            )
+            .map(|RiskApproved(open)| {
+                self.execution_tx
+                    .send(ExecutionRequest::Open(open.clone()))
+                    .map(|_| open)
+            })
             .partition_result();
 
         // Collect remaining Iterators
@@ -157,19 +158,23 @@ where
             cancels: cancel_oks,
             opens: open_oks,
             refused_cancels: refused_cancels.into_iter().collect::<Vec<_>>(),
-            refused_opens: refused_opens.into_iter().collect::<Vec<_>>()
+            refused_opens: refused_opens.into_iter().collect::<Vec<_>>(),
         })
     }
 
-    pub fn close_position(&mut self, instrument: InstrumentKey) -> Result<Vec<Order<InstrumentKey, RequestCancel>>, Error> {
-        let (open_oks, open_errs): (Vec<_>, Vec<_>) = self.strategy
+    pub fn close_position(
+        &mut self,
+        instrument: &InstrumentKey,
+    ) -> Result<Vec<Order<InstrumentKey, RequestCancel>>, Error> {
+        let (open_oks, open_errs): (Vec<_>, Vec<_>) = self
+            .strategy
             .close_position_request(&instrument, &self.state)
             .into_iter()
-            .map(|open| self
-                .execution_tx
-                .send(ExecutionRequest::Open(open.clone()))
-                .map(|_| open)
-            )
+            .map(|open| {
+                self.execution_tx
+                    .send(ExecutionRequest::Open(open.clone()))
+                    .map(|_| open)
+            })
             .partition_result();
 
         // Record in flight order requests
@@ -183,6 +188,49 @@ where
             todo!()
         }
         todo!()
+    }
+
+    pub fn close_all_positions(
+        &mut self,
+    ) -> Result<Vec<Order<InstrumentKey, RequestCancel>>, Error> {
+        let (open_oks, open_errs): (Vec<_>, Vec<_>) = self
+            .strategy
+            .close_all_positions_request(&self.state)
+            .into_iter()
+            .map(|open| {
+                self.execution_tx
+                    .send(ExecutionRequest::Open(open.clone()))
+                    .map(|_| open)
+            })
+            .partition_result();
+
+        // Record in flight order requests
+        let order_manager = self.state.orders_mut();
+        for request in open_oks.iter() {
+            order_manager.record_in_flight_open(request);
+        }
+
+        if !open_errs.is_empty() {
+            // Todo: return Audit that give requests but also gives the fact ExecutionTx is dropped
+            todo!()
+        }
+        todo!()
+    }
+
+    pub fn cancel_order_by_key<OrderKey>(
+        &mut self,
+        instrument: InstrumentKey,
+        id: OrderKey,
+    ) -> Result<(), Error>
+    {
+        self.execution_tx.send(ExecutionRequest::Cancel(RequestCancel::new(instrument, id)))
+    }
+
+    pub fn cancel_all_orders(
+        &mut self,
+    ) -> Result<(), Error>
+    {
+
     }
 
     // fn send_cancel_order_request_for_execution<Error>(
@@ -243,7 +291,7 @@ where
 }
 
 impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 {
     pub fn audit<AuditKind>(&mut self, kind: AuditKind) -> AuditEvent<AuditKind> {
         AuditEvent {
@@ -255,7 +303,7 @@ Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 
     pub fn sequence_fetch_add(&mut self) -> u64 {
         let sequence = self.sequence;
-        self.sequence +=1;
+        self.sequence += 1;
         sequence
     }
 
@@ -309,15 +357,12 @@ Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 
     pub fn send_execution_request_old<Request, Error>(
         &mut self,
-        request: Request
+        request: Request,
     ) -> Result<(), Error>
     where
         ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
         Request: Into<ExecutionRequest<InstrumentKey>>,
     {
-
-
-
         self.execution_tx.send(request.into())
     }
 }

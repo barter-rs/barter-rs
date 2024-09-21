@@ -1,3 +1,4 @@
+use crate::v2::order::{ClientOrderId, InternalOrderState, OrderId, RequestCancel, RequestOpen};
 use crate::v2::{
     engine::state::instrument::{market_data::MarketState, order::Orders},
     execution::error::ExecutionError,
@@ -7,15 +8,12 @@ use crate::v2::{
     trade::Trade,
     Snapshot,
 };
-use barter_data::{
-    event::{DataKind, MarketEvent},
-};
+use barter_data::event::{DataKind, MarketEvent};
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::warn;
 use vecmap::VecMap;
-use crate::v2::order::{RequestCancel, RequestOpen};
 
 pub mod market_data;
 pub mod order;
@@ -26,14 +24,9 @@ pub trait MarketDataManager<InstrumentKey> {
 }
 
 pub trait OrderManager<InstrumentKey> {
-    fn record_in_flight_cancel(
-        &mut self,
-        request: &Order<InstrumentKey, RequestCancel>,
-    );
-    fn record_in_flight_open(
-        &mut self,
-        request: &Order<InstrumentKey, RequestOpen>,
-    );
+    fn orders(&self) -> impl Iterator<Item = &Order<InstrumentKey, InternalOrderState>>;
+    fn record_in_flight_cancel<OrderKey>(&mut self, request: RequestCancel<OrderKey, OrderKey>);
+    fn record_in_flight_open(&mut self, request: &Order<InstrumentKey, RequestOpen>);
     fn update_from_cancel(
         &mut self,
         response: &Order<InstrumentKey, Result<Cancelled, ExecutionError>>,
@@ -43,6 +36,8 @@ pub trait OrderManager<InstrumentKey> {
         &mut self,
         snapshot: &Snapshot<Order<InstrumentKey, ExchangeOrderState>>,
     );
+    // fn order_by_id(&self, instrument: &InstrumentKey, id: &OrderId) -> Option<&Order<InstrumentKey, InternalOrderState>>;
+    // fn order_by_cid(&self, instrument: &InstrumentKey, cid: &ClientOrderId) -> Option<&Order<InstrumentKey, InternalOrderState>>;
 }
 
 pub trait PositionManager<InstrumentKey> {
@@ -58,7 +53,9 @@ pub trait PositionManager<InstrumentKey> {
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize, From)]
-pub struct Instruments<InstrumentKey: Eq>(pub VecMap<InstrumentKey, InstrumentState<InstrumentKey>>);
+pub struct Instruments<InstrumentKey: Eq>(
+    pub VecMap<InstrumentKey, InstrumentState<InstrumentKey>>,
+);
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct InstrumentState<InstrumentKey> {
@@ -95,7 +92,7 @@ where
     }
 }
 
-impl <InstrumentKey> OrderManager<InstrumentKey> for Instruments<InstrumentKey>
+impl<InstrumentKey> OrderManager<InstrumentKey> for Instruments<InstrumentKey>
 where
     InstrumentKey: Debug + Clone + Eq,
 {
@@ -165,6 +162,18 @@ where
 
         state.orders.update_from_order_snapshot(snapshot);
     }
+
+    // fn order_by_id(&self, instrument: &InstrumentKey, id: &OrderId) -> Option<&Order<InstrumentKey, InternalOrderState>> {
+    //     self.state(instrument)?
+    //         .orders
+    //         .order_by_id(instrument, id)
+    // }
+    //
+    // fn order_by_cid(&self, instrument: &InstrumentKey, cid: &ClientOrderId) -> Option<&Order<InstrumentKey, InternalOrderState>> {
+    //     self.state(instrument)?
+    //         .orders
+    //         .order_by_cid(instrument, cid)
+    // }
 }
 
 impl<InstrumentKey> PositionManager<InstrumentKey> for Instruments<InstrumentKey>
@@ -208,12 +217,15 @@ where
 
 impl<InstrumentKey> Instruments<InstrumentKey>
 where
-    InstrumentKey: Eq
+    InstrumentKey: Eq,
 {
     pub fn state(&self, instrument: &InstrumentKey) -> Option<&InstrumentState<InstrumentKey>> {
         self.0.get(instrument)
     }
-    pub fn state_mut(&mut self, instrument: &InstrumentKey) -> Option<&mut InstrumentState<InstrumentKey>> {
+    pub fn state_mut(
+        &mut self,
+        instrument: &InstrumentKey,
+    ) -> Option<&mut InstrumentState<InstrumentKey>> {
         self.0.get_mut(instrument)
     }
 }

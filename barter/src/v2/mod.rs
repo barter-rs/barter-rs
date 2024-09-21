@@ -1,17 +1,17 @@
+use crate::v2::channel::Tx;
+use crate::v2::engine::audit::{AuditEvent, AuditEventKind, Auditor};
+use crate::v2::engine::error::EngineError;
+use crate::v2::engine::{Engine, Processor};
+use crate::v2::execution::ExecutionRequest;
+use crate::v2::strategy::Strategy;
 use crate::v2::{
     engine::command::Command,
     execution::{AccountEvent, AccountEventKind},
 };
-use barter_data::{event::MarketEvent};
+use barter_data::event::MarketEvent;
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use crate::v2::channel::Tx;
-use crate::v2::engine::audit::{AuditEvent, AuditEventKind, Auditor};
-use crate::v2::engine::{Engine, Processor};
-use crate::v2::engine::error::EngineError;
-use crate::v2::execution::ExecutionRequest;
-use crate::v2::strategy::Strategy;
 
 pub mod balance;
 pub mod channel;
@@ -61,12 +61,18 @@ pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, In
     feed: &mut EventFeed,
     auditor: &mut Auditor<AuditTx>,
     engine: &mut Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>,
-)
-where
+) where
     EventFeed: Iterator<Item = EngineEvent<AssetKey, InstrumentKey>>,
-    AuditTx: Tx<Item = AuditEvent<AuditEventKind<State, EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, EngineError>>>,
-    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>: for<'a> Processor<&'a Command<InstrumentKey>>,
-    for<'a> State: Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>> + Processor<&'a MarketEvent<InstrumentKey>> + Clone,
+    AuditTx: Tx<
+        Item = AuditEvent<
+            AuditEventKind<State, EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, EngineError>,
+        >,
+    >,
+    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>:
+        for<'a> Processor<&'a Command<InstrumentKey>>,
+    for<'a> State: Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
+        + Processor<&'a MarketEvent<InstrumentKey>>
+        + Clone,
 {
     let snapshot = engine.audit_snapshot();
     auditor.send(snapshot);
@@ -97,8 +103,9 @@ where
     // Todo: shutdown operations, etc.
 }
 
-impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Error> Processor<&Command<InstrumentKey>>
-for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Error>
+    Processor<&Command<InstrumentKey>>
+    for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
     StrategyT: Strategy<State, InstrumentKey>,
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
@@ -115,22 +122,24 @@ where
                 todo!()
             }
             Command::Execute(request) => {
-
                 // Todo: ack requests, etc.
                 let result = self.execution_tx.send(request.clone());
             }
             Command::ClosePosition(instrument) => {
-                let request = self
-                    .strategy
-                    .close_position_request(instrument, &self.state)
-                    .into_iter()
-                    .collect::<ExecutionRequest<InstrumentKey>>();
-
-                // Todo: ack requests, etc.
-                self.execution_tx.send(request.clone());
+                self.close_position(instrument).unwrap();
             }
             Command::CloseAllPositions => {
+                self.close_all_positions().unwrap();
                 // Todo: ask strategy...
+            }
+            Command::CancelOrderById((instrument, id)) => {
+                self.cancel_order_by_key(instrument.clone(), id.clone()).unwrap();
+            }
+            Command::CancelOrderByCid((instrument, cid)) => {
+                self.cancel_order_by_key(instrument.clone(), cid.clone()).unwrap();
+            }
+            Command::CancelAllOrders => {
+
             }
         }
 
@@ -166,27 +175,3 @@ where
 //         todo!()
 //     }
 // }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

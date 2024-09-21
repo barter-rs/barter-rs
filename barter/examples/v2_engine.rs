@@ -1,5 +1,4 @@
-use std::marker::PhantomData;
-use std::time::Duration;
+use barter::v2::engine::command::Command;
 use barter::v2::{
     channel::{mpsc_unbounded, Tx, UnboundedRx, UnboundedTx},
     engine::{
@@ -32,8 +31,9 @@ use barter_data::{
 };
 use barter_integration::model::{instrument::kind::InstrumentKind, Side};
 use futures::{try_join, Stream, StreamExt};
+use std::marker::PhantomData;
+use std::time::Duration;
 use tracing::info;
-use barter::v2::engine::command::Command;
 
 #[tokio::main]
 async fn main() {
@@ -168,9 +168,9 @@ async fn main() {
     // });
 
     tokio::time::sleep(Duration::from_secs(5)).await;
-    event_tx.send(EngineEvent::Command(Command::EnableTrading)).unwrap();
-
-
+    event_tx
+        .send(EngineEvent::Command(Command::EnableTrading))
+        .unwrap();
 
     join_set.join_all().await;
 }
@@ -197,21 +197,25 @@ fn init_channels() -> (
     UnboundedTx<ExecutionRequest<InstrumentId>, EngineError>,
     UnboundedRx<ExecutionRequest<InstrumentId>>,
     UnboundedTx<
-        AuditEvent<AuditEventKind<
-            DefaultEngineState<DefaultStrategyState, DefaultRiskManagerState>,
-            EngineEvent,
-            InstrumentId,
-            EngineError,
-        >>,
+        AuditEvent<
+            AuditEventKind<
+                DefaultEngineState<DefaultStrategyState, DefaultRiskManagerState>,
+                EngineEvent,
+                InstrumentId,
+                EngineError,
+            >,
+        >,
         EngineError,
     >,
     UnboundedRx<
-        AuditEvent<AuditEventKind<
-            DefaultEngineState<DefaultStrategyState, DefaultRiskManagerState>,
-            EngineEvent,
-            InstrumentId,
-            EngineError,
-        >>,
+        AuditEvent<
+            AuditEventKind<
+                DefaultEngineState<DefaultStrategyState, DefaultRiskManagerState>,
+                EngineEvent,
+                InstrumentId,
+                EngineError,
+            >,
+        >,
     >,
 ) {
     let (event_tx, event_rx) = mpsc_unbounded();

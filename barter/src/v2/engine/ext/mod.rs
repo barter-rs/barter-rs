@@ -210,5 +210,3 @@
 //     CancelRejected(Order<InstrumentKey, CancelRejectedReason>),
 //     Cancelled(Order<InstrumentKey, Cancelled>)
 // }
-
-

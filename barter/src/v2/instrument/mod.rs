@@ -1,8 +1,8 @@
-use std::fmt::Debug;
 use crate::v2::instrument::asset::AssetId;
-use barter_data::{exchange::ExchangeId};
+use barter_data::exchange::ExchangeId;
 use barter_integration::model::instrument::kind::InstrumentKind;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 pub mod asset;
 

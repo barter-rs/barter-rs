@@ -1,10 +1,10 @@
+use crate::v2::engine::Processor;
 use crate::v2::{
     engine::{error::EngineError, state::DefaultEngineState},
     order::{Order, RequestCancel, RequestOpen},
     risk::{RiskApproved, RiskManager, RiskRefused},
     EngineEvent,
 };
-use crate::v2::engine::Processor;
 
 /// Example [`RiskManager`] implementation that approves all order requests.
 ///
@@ -12,12 +12,14 @@ use crate::v2::engine::Processor;
 #[derive(Debug, Clone)]
 pub struct DefaultRiskManager;
 
-impl<AssetKey, InstrumentKey, StrategyState> RiskManager<DefaultEngineState<AssetKey, InstrumentKey, StrategyState, DefaultRiskManagerState>, InstrumentKey>
-    for DefaultRiskManager
+impl<AssetKey, InstrumentKey, StrategyState>
+    RiskManager<
+        DefaultEngineState<AssetKey, InstrumentKey, StrategyState, DefaultRiskManagerState>,
+        InstrumentKey,
+    > for DefaultRiskManager
 where
     AssetKey: Eq,
     InstrumentKey: Eq,
-
 {
     type Event = EngineEvent<AssetKey, InstrumentKey>;
     type State = DefaultRiskManagerState;
@@ -45,7 +47,9 @@ where
 #[derive(Debug, Clone)]
 pub struct DefaultRiskManagerState;
 
-impl<AssetKey, InstrumentKey> Processor<&EngineEvent<AssetKey, InstrumentKey>> for DefaultRiskManagerState {
+impl<AssetKey, InstrumentKey> Processor<&EngineEvent<AssetKey, InstrumentKey>>
+    for DefaultRiskManagerState
+{
     type Output = Result<(), EngineError>;
 
     fn process(&mut self, _: &EngineEvent<AssetKey, InstrumentKey>) -> Self::Output {

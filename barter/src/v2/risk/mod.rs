@@ -1,10 +1,8 @@
-use crate::v2::{
-    order::{Order, RequestCancel, RequestOpen},
-};
+use crate::v2::engine::Processor;
+use crate::v2::order::{Order, RequestCancel, RequestOpen};
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use crate::v2::engine::Processor;
 
 /// Todo:
 /// *EXAMPLE IMPLEMENTATION ONLY, PLEASE DO NOT USE FOR ANYTHING OTHER THAN TESTING PURPOSES.*

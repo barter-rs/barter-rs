@@ -1,13 +1,14 @@
 use crate::v2::{
     channel::{ChannelState, Tx},
     order::{Order, RequestCancel, RequestOpen},
-    risk::{RiskRefused},
+    risk::RiskRefused,
 };
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use tracing::{warn};
+use tracing::warn;
+use crate::v2::order::OrderId;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct AuditEvent<Kind> {
@@ -18,16 +19,9 @@ pub struct AuditEvent<Kind> {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum AuditEventKind<State, Event, InstrumentKey, Error> {
-
-
-
-
-
-
-
     Snapshot(State),
     Update {
-        event: Event
+        event: Event,
     },
     UpdateWithRequests {
         event: Event,
@@ -41,9 +35,9 @@ pub enum AuditEventKind<State, Event, InstrumentKey, Error> {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct AuditEventKindRequests<InstrumentKey> {
-    pub cancels: Vec<Order<InstrumentKey, RequestCancel>>,
+    pub cancels: Vec<Order<InstrumentKey, RequestCancel<InstrumentKey, OrderId>>>,
     pub opens: Vec<Order<InstrumentKey, RequestOpen>>,
-    pub refused_cancels: Vec<RiskRefused<Order<InstrumentKey, RequestCancel>>>,
+    pub refused_cancels: Vec<RiskRefused<Order<InstrumentKey, RequestCancel<InstrumentKey, OrderId>>>>,
     pub refused_opens: Vec<RiskRefused<Order<InstrumentKey, RequestOpen>>>,
 }
 
@@ -54,7 +48,7 @@ pub struct Auditor<AuditTx> {
 
 impl<AuditTx, Audit> Auditor<AuditTx>
 where
-    AuditTx: Tx<Item = Audit>
+    AuditTx: Tx<Item = Audit>,
 {
     pub fn new(audit_tx: AuditTx) -> Self {
         Self {
