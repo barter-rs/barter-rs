@@ -6,13 +6,20 @@ use derive_more::Constructor;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use chrono::{DateTime, Utc};
-use crate::v2::engine::audit::{build_audit, AuditEventKind, AuditEventKindRequests};
+use crate::v2::engine::audit::{AuditEventKind, AuditEventKindRequests};
 
 pub mod audit;
 pub mod command;
 pub mod error;
 pub mod state;
 pub mod ext;
+
+pub trait Processor<Event, Error> {
+    type Audit;
+
+    fn audit_snapshot(&mut self) -> Self::Audit;
+    fn process(&mut self, event: Event) -> Self::Audit;
+}
 
 #[derive(Debug, Constructor)]
 pub struct Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> {
@@ -25,56 +32,26 @@ pub struct Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> 
     pub phantom: PhantomData<(AssetKey, InstrumentKey)>
 }
 
-// impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Error> Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-// where
-//     State: EngineState<EngineEvent, AssetKey, InstrumentKey, StrategyT::State, Risk::State, Error = Error>,
-//     StrategyT: Strategy<State, Event = EngineEvent>,
-//     Risk: RiskManager<State, Event = EngineEvent>,
-// {
-//     pub fn run() {
-//
-//     }
-//
-// }
-
-impl<Event, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Error>
-    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+impl<Error, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> Processor<EngineEvent, Error>
+for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
-    Event: Debug + Clone, // Todo: remove once the dust settled,
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
-    State: EngineState<Event, AssetKey, InstrumentKey, StrategyT::State, Risk::State, Error = Error>,
-    StrategyT: Strategy<State, Event = Event>,
-    Risk: RiskManager<State, Event = Event>,
-    InstrumentKey: Debug + Clone,
+    State: EngineState<EngineEvent, AssetKey, InstrumentKey, StrategyT::State, Risk::State, Error = Error>,
+    StrategyT: Strategy<State, Event = EngineEvent>,
+    Risk: RiskManager<State, Event = EngineEvent>,
+    InstrumentKey: Clone,
 {
-    pub fn run<EventFeed, AuditTx>(
-        &mut self,
-        mut feed: EventFeed,
-        mut auditor: Auditor<AuditTx>,
-    ) -> Result<(), Error>
-    where
-        EventFeed: Iterator<Item = Event>,
-        Event: Clone,
-        AuditTx: Tx<Item = AuditEvent<State, Event, InstrumentKey, Error>, Error = Error>,
-    {
-        let snapshot = self.audit_snapshot();
-        auditor.send(snapshot);
+    type Audit = AuditEvent<AuditEventKind<State, EngineEvent, InstrumentKey, Error>>;
 
-        // Todo: Add user functionality such as on_error, etc inside Engine via Builder or Runner
-
-        while let Some(event) = feed.next() {
-            let audit = self.process(event);
-            auditor.send(audit)
-        }
-
-        Ok(())
+    fn audit_snapshot(&mut self) -> Self::Audit {
+        AuditEvent::new(
+            self.sequence_fetch_add(),
+            (self.time)(),
+            AuditEventKind::Snapshot(self.state.clone())
+        )
     }
 
-    pub fn process(
-        &mut self,
-        event: Event,
-    ) -> AuditEvent<State, Event, InstrumentKey, Error>
-    {
+    fn process(&mut self, event: EngineEvent) -> Self::Audit {
         match self.state.try_update(&event) {
             Ok(actions) => actions,
             Err(error) => {
@@ -96,6 +73,39 @@ where
         };
 
         self.audit(audit)
+    }
+}
+
+impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Event, Error>
+    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+where
+    Self: Processor<Event, Error>,
+    ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
+    State: EngineState<Event, AssetKey, InstrumentKey, StrategyT::State, Risk::State, Error = Error>,
+    StrategyT: Strategy<State, Event = Event>,
+    Risk: RiskManager<State, Event = Event>,
+    InstrumentKey: Clone,
+{
+    pub fn run<EventFeed, AuditTx>(
+        &mut self,
+        mut feed: EventFeed,
+        mut auditor: Auditor<AuditTx>,
+    ) -> Result<(), Error>
+    where
+        EventFeed: Iterator<Item = Event>,
+        AuditTx: Tx<Item = <Self as Processor<Event, Error>>::Audit, Error = Error>,
+    {
+        let snapshot = self.audit_snapshot();
+        auditor.send(snapshot);
+
+        // Todo: Add user functionality such as on_error, etc inside Engine via Builder or Runner
+
+        while let Some(event) = feed.next() {
+            let audit = self.process(event);
+            auditor.send(audit)
+        }
+
+        Ok(())
     }
 
     fn trade(&mut self) -> Result<AuditEventKindRequests<InstrumentKey>, Error> {
@@ -136,12 +146,33 @@ where
             refused_opens
         })
     }
+}
 
-    fn send_approved_orders_for_execution(
+impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+{
+    pub fn audit<AuditKind>(&mut self, kind: AuditKind) -> AuditEvent<AuditKind> {
+        AuditEvent {
+            id: self.sequence_fetch_add(),
+            time: (self.time)(),
+            kind,
+        }
+    }
+
+    pub fn sequence_fetch_add(&mut self) -> u64 {
+        let sequence = self.sequence;
+        self.sequence +=1;
+        sequence
+    }
+
+    fn send_approved_orders_for_execution<Error>(
         &self,
         cancels: &[RiskApproved<Order<InstrumentKey, RequestCancel>>],
         opens: &[RiskApproved<Order<InstrumentKey, RequestOpen>>],
     ) -> Result<(), Error>
+    where
+        ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
+        InstrumentKey: Clone,
     {
         if !cancels.is_empty() {
             self.execution_tx.send(ExecutionRequest::from_iter(
@@ -156,23 +187,6 @@ where
         }
 
         Ok(())
-    }
-
-    pub fn audit_snapshot(&mut self) -> AuditEvent<State, Event, InstrumentKey, Error> {
-        self.audit(AuditEventKind::Snapshot(self.state.clone()))
-    }
-
-    pub fn audit(
-        &mut self,
-        kind: AuditEventKind<State, Event, InstrumentKey, Error>
-    ) -> AuditEvent<State, Event, InstrumentKey, Error> {
-        build_audit(self.sequence_fetch_add(), (self.time)(), kind)
-    }
-
-    pub fn sequence_fetch_add(&mut self) -> u64 {
-        let sequence = self.sequence;
-        self.sequence +=1;
-        sequence
     }
 }
 

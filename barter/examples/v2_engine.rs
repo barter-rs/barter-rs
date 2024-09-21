@@ -197,21 +197,21 @@ fn init_channels() -> (
     UnboundedTx<ExecutionRequest<InstrumentId>, EngineError>,
     UnboundedRx<ExecutionRequest<InstrumentId>>,
     UnboundedTx<
-        AuditEvent<
+        AuditEvent<AuditEventKind<
             DefaultEngineState<DefaultStrategyState, DefaultRiskManagerState>,
             EngineEvent,
             InstrumentId,
             EngineError,
-        >,
+        >>,
         EngineError,
     >,
     UnboundedRx<
-        AuditEvent<
+        AuditEvent<AuditEventKind<
             DefaultEngineState<DefaultStrategyState, DefaultRiskManagerState>,
             EngineEvent,
             InstrumentId,
             EngineError,
-        >,
+        >>,
     >,
 ) {
     let (event_tx, event_rx) = mpsc_unbounded();
