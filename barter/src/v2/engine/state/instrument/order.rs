@@ -2,7 +2,7 @@ use crate::v2::{
     engine::state::instrument::OrderManager,
     execution::error::ExecutionError,
     order::{
-        Cancelled, ClientOrderId, ExchangeOrderState, InternalOrderState, Open, OpenInFlight, Order,
+        Cancelled, ClientOrderId, ExchangeOrderState, InternalOrderState, Open, Order,
     },
     Snapshot,
 };
@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Debug};
 use tracing::{debug, error, warn};
 use vecmap::{map::Entry, VecMap};
+use crate::v2::order::{RequestCancel, RequestOpen};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct Orders<InstrumentKey> {
@@ -21,19 +22,25 @@ impl<InstrumentKey> OrderManager<InstrumentKey> for Orders<InstrumentKey>
 where
     InstrumentKey: Debug + Clone + PartialEq,
 {
-    fn record_in_flights(
-        &mut self,
-        requests: impl IntoIterator<Item = Order<InstrumentKey, OpenInFlight>>,
-    ) {
-        for request in requests {
-            if let Some(duplicate_cid_order) = self.inner.insert(request.cid, Order::from(request))
-            {
-                error!(
+    fn record_in_flight_open(&mut self, request: &Order<InstrumentKey, RequestOpen>) {
+        if let Some(duplicate_cid_order) = self.inner.insert(request.cid, Order::from(request))
+        {
+            error!(
                     cid = %duplicate_cid_order.cid,
                     event = ?duplicate_cid_order,
-                    "OrderManager upserted Order<OpenInFlight> with duplicate ClientOrderId"
+                    "OrderManager upserted Order OpenInFlight with duplicate ClientOrderId"
                 );
-            }
+        }
+    }
+
+    fn record_in_flight_cancel(&mut self, request: &Order<InstrumentKey, RequestCancel>) {
+        if let Some(duplicate_cid_order) = self.inner.insert(request.cid, Order::from(request))
+        {
+            error!(
+                    cid = %duplicate_cid_order.cid,
+                    event = ?duplicate_cid_order,
+                    "OrderManager upserted Order CancelInFlight with duplicate ClientOrderId"
+                );
         }
     }
 

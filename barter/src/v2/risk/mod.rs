@@ -1,5 +1,5 @@
 use crate::v2::{
-    order::{OpenInFlight, Order, RequestCancel, RequestOpen},
+    order::{Order, RequestCancel, RequestOpen},
 };
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
@@ -20,10 +20,10 @@ pub trait RiskManager<EngineState, InstrumentKey> {
         cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
         opens: impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
     ) -> (
-        impl Iterator<Item = RiskApproved<Order<InstrumentKey, RequestCancel>>>,
-        impl Iterator<Item = RiskApproved<Order<InstrumentKey, RequestOpen>>>,
-        impl Iterator<Item = RiskRefused<Order<InstrumentKey, RequestCancel>>>,
-        impl Iterator<Item = RiskRefused<Order<InstrumentKey, RequestOpen>>>,
+        impl IntoIterator<Item = RiskApproved<Order<InstrumentKey, RequestCancel>>>,
+        impl IntoIterator<Item = RiskApproved<Order<InstrumentKey, RequestOpen>>>,
+        impl IntoIterator<Item = RiskRefused<Order<InstrumentKey, RequestCancel>>>,
+        impl IntoIterator<Item = RiskRefused<Order<InstrumentKey, RequestOpen>>>,
     );
 }
 
@@ -60,31 +60,5 @@ pub struct RiskRefused<T, Reason = String> {
 impl<T, Reason> RiskRefused<T, Reason> {
     pub fn into_item(self) -> T {
         self.item
-    }
-}
-
-impl<InstrumentKey: Clone> From<&RiskApproved<Order<InstrumentKey, RequestOpen>>>
-    for Order<InstrumentKey, OpenInFlight>
-{
-    fn from(value: &RiskApproved<Order<InstrumentKey, RequestOpen>>) -> Self {
-        Order::from(&value.0)
-    }
-}
-
-impl<InstrumentKey: Clone> From<&Order<InstrumentKey, RequestOpen>> for Order<InstrumentKey, OpenInFlight> {
-    fn from(value: &Order<InstrumentKey, RequestOpen>) -> Self {
-        let Order {
-            instrument,
-            cid,
-            side,
-            state: _,
-        } = &value;
-
-        Self {
-            instrument: instrument.clone(),
-            cid: *cid,
-            side: *side,
-            state: OpenInFlight,
-        }
     }
 }

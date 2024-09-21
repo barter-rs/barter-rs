@@ -13,8 +13,24 @@ pub trait Strategy<EngineState, InstrumentKey> {
         &self,
         engine_state: &EngineState,
     ) -> (
-        impl Iterator<Item = Order<InstrumentKey, RequestCancel>>,
-        impl Iterator<Item = Order<InstrumentKey, RequestOpen>>,
+        impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
+        impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
     );
+
+    // Todo: maybe this should be feature gated, along with the Command
+    //  then make trait StrategyExt?
+    fn close_position_request(
+        &self,
+        instrument: &InstrumentKey,
+        engine_state: &EngineState,
+    ) -> impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>;
+
+    // Todo: maybe this should be feature gated, along with the Command
+    //  then make trait StrategyExt?
+    fn close_all_positions_request(
+        &self,
+        instrument: &InstrumentKey,
+        engine_state: &EngineState,
+    ) -> impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>;
 }
 

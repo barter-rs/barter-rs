@@ -28,10 +28,10 @@ where
         cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
         opens: impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
     ) -> (
-        impl Iterator<Item = RiskApproved<Order<InstrumentKey, RequestCancel>>>,
-        impl Iterator<Item = RiskApproved<Order<InstrumentKey, RequestOpen>>>,
-        impl Iterator<Item = RiskRefused<Order<InstrumentKey, RequestCancel>>>,
-        impl Iterator<Item = RiskRefused<Order<InstrumentKey, RequestOpen>>>,
+        impl IntoIterator<Item = RiskApproved<Order<InstrumentKey, RequestCancel>>>,
+        impl IntoIterator<Item = RiskApproved<Order<InstrumentKey, RequestOpen>>>,
+        impl IntoIterator<Item = RiskRefused<Order<InstrumentKey, RequestCancel>>>,
+        impl IntoIterator<Item = RiskRefused<Order<InstrumentKey, RequestOpen>>>,
     ) {
         (
             cancels.into_iter().map(RiskApproved::new),

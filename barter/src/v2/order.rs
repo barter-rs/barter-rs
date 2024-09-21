@@ -146,10 +146,34 @@ pub struct Cancelled {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
 pub struct CancelRejectedReason(pub String);
 
-impl<InstrumentKey> From<Order<InstrumentKey, OpenInFlight>>
+impl<InstrumentKey> From<&Order<InstrumentKey, RequestOpen>>
     for Order<InstrumentKey, InternalOrderState>
+where
+    InstrumentKey: Clone,
 {
-    fn from(value: Order<InstrumentKey, OpenInFlight>) -> Self {
+    fn from(value: &Order<InstrumentKey, RequestOpen>) -> Self {
+        let Order {
+            instrument,
+            cid,
+            side,
+            state: _,
+        } = value;
+
+        Self {
+            instrument: instrument.clone(),
+            cid: *cid,
+            side: *side,
+            state: InternalOrderState::OpenInFlight(OpenInFlight),
+        }
+    }
+}
+
+impl<InstrumentKey> From<&Order<InstrumentKey, RequestCancel>>
+for Order<InstrumentKey, InternalOrderState>
+where
+    InstrumentKey: Clone,
+{
+    fn from(value: &Order<InstrumentKey, RequestCancel>) -> Self {
         let Order {
             instrument,
             cid,
@@ -158,10 +182,12 @@ impl<InstrumentKey> From<Order<InstrumentKey, OpenInFlight>>
         } = value;
 
         Self {
-            instrument,
-            cid,
-            side,
-            state: InternalOrderState::OpenInFlight(state),
+            instrument: instrument.clone(),
+            cid: *cid,
+            side: *side,
+            state: InternalOrderState::CancelInFlight(CancelInFlight {
+                id: state.id.clone(),
+            }),
         }
     }
 }

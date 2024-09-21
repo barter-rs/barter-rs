@@ -1,12 +1,14 @@
 use crate::v2::{channel::Tx, engine::{
     audit::{AuditEvent},
     state::{instrument::OrderManager, EngineState},
-}, execution::ExecutionRequest, order::{OpenInFlight, Order, RequestCancel, RequestOpen}, risk::{RiskApproved, RiskManager}, strategy::Strategy};
+}, execution::ExecutionRequest, risk::{RiskApproved, RiskManager}, strategy::Strategy};
 use derive_more::Constructor;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use chrono::{DateTime, Utc};
+use itertools::Itertools;
 use crate::v2::engine::audit::{AuditEventKind, AuditEventKindRequests};
+use crate::v2::order::{Order, RequestCancel};
 
 pub mod audit;
 pub mod command;
@@ -114,29 +116,130 @@ where
             refused_opens
         ) = self.risk.check(&self.state, cancels, opens);
 
-        // Generate InFlights for RiskApproved orders
-        let (in_flights, opens): (Vec<_>, Vec<_>) = opens
-            .map(|request| (Order::<_, OpenInFlight>::from(&request), request))
-            .unzip();
+        // Send risk approved order request
+        let (cancel_oks, cancel_errs): (Vec<_>, Vec<_>) = cancels
+            .into_iter()
+            .map(|RiskApproved(cancel)| self
+                .execution_tx
+                .send(ExecutionRequest::Cancel(cancel.clone()))
+                .map(|_| cancel)
+            )
+            .partition_result();
 
-        // Collect remaining order Iterators
-        let cancels = cancels.collect::<Vec<_>>();
-        let refused_cancels = refused_cancels.collect::<Vec<_>>();
-        let refused_opens = refused_opens.collect::<Vec<_>>();
+        let (open_oks, open_errs): (Vec<_>, Vec<_>) = opens
+            .into_iter()
+            .map(|RiskApproved(open)|self
+                .execution_tx
+                .send(ExecutionRequest::Open(open.clone()))
+                .map(|_| open)
+            )
+            .partition_result();
 
-        // Send Risk checked requests
-        self.send_approved_orders_for_execution(&cancels, &opens)?;
+        // Collect remaining Iterators
+        let refused_cancels = refused_cancels.into_iter().collect::<Vec<_>>();
+        let refused_opens = refused_opens.into_iter().collect::<Vec<_>>();
 
-        // Record RiskApproved InFlight orders
-        self.state.orders_mut().record_in_flights(in_flights);
+        // Record in flight order requests
+        let order_manager = self.state.orders_mut();
+        for request in cancel_oks.iter() {
+            order_manager.record_in_flight_cancel(request);
+        }
+        for request in open_oks.iter() {
+            order_manager.record_in_flight_open(request);
+        }
+
+        if !cancel_errs.is_empty() | !open_errs.is_empty() {
+            // Todo: return Audit that give requests but also gives the fact ExecutionTx is dropped
+            todo!()
+        }
 
         Ok(AuditEventKindRequests {
-            cancels,
-            opens,
-            refused_cancels,
-            refused_opens
+            cancels: cancel_oks,
+            opens: open_oks,
+            refused_cancels: refused_cancels.into_iter().collect::<Vec<_>>(),
+            refused_opens: refused_opens.into_iter().collect::<Vec<_>>()
         })
     }
+
+    pub fn close_position(&mut self, instrument: InstrumentKey) -> Result<Vec<Order<InstrumentKey, RequestCancel>>, Error> {
+        let (open_oks, open_errs): (Vec<_>, Vec<_>) = self.strategy
+            .close_position_request(&instrument, &self.state)
+            .into_iter()
+            .map(|open| self
+                .execution_tx
+                .send(ExecutionRequest::Open(open.clone()))
+                .map(|_| open)
+            )
+            .partition_result();
+
+        // Record in flight order requests
+        let order_manager = self.state.orders_mut();
+        for request in open_oks.iter() {
+            order_manager.record_in_flight_open(request);
+        }
+
+        if !open_errs.is_empty() {
+            // Todo: return Audit that give requests but also gives the fact ExecutionTx is dropped
+            todo!()
+        }
+        todo!()
+    }
+
+    // fn send_cancel_order_request_for_execution<Error>(
+    //     order_manager: &mut impl OrderManager<InstrumentKey>,
+    //     cancel: &RiskApproved<Order<InstrumentKey, RequestCancel>>
+    // ) -> Result<(), Error> {
+    //     todo!()
+    // }
+    //
+    // fn send_open_order_request_for_execution<Error>(
+    //     order_manager: &mut impl OrderManager<InstrumentKey>,
+    //     cancel: &RiskApproved<Order<InstrumentKey, RequestOpen>>
+    // ) -> Result<(), Error> {
+    //     todo!()
+    // }
+    //
+    //
+    // fn send_order_requests_for_execution<Error>(
+    //     &mut self,
+    //     cancels: [RiskApproved<Order<InstrumentKey, RequestCancel>>],
+    //     opens: [RiskApproved<Order<InstrumentKey, RequestOpen>>],
+    // ) -> Result<(), Error>
+    // {
+    //     let order_manager = self.state.orders_mut();
+    //     for RiskApproved(cancel) in cancels {
+    //         order_manager.record_in_flight_cancel(&cancel);
+    //         self.execution_tx.send(cancel);
+    //     }
+    //
+    //
+    //     let cancels = cancels
+    //         .iter()
+    //         .map(RiskApproved::into_item)
+    //         .inspect(|request| {
+    //             self.state.orders_mut().record_in_flight_cancel(request);
+    //         })
+    //         .collect::<ExecutionRequest<InstrumentKey>>();
+    //
+    //     if !cancels.is_empty() {
+    //         self.execution_tx.send(cancels)?;
+    //     }
+    //
+    //     let opens = cancels
+    //         .iter()
+    //         .map(RiskApproved::into_item)
+    //         .inspect(|request| {
+    //             self.state.orders_mut().record_in_flight_cancel(request);
+    //         })
+    //         .collect::<ExecutionRequest<InstrumentKey>>();
+    //
+    //     if !cancels.is_empty() {
+    //         self.execution_tx.send(cancels)?;
+    //     }
+    //
+    //
+    //     Ok(())
+    // }
 }
 
 impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
@@ -156,38 +259,65 @@ Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
         sequence
     }
 
-    fn send_approved_orders_for_execution<Error>(
-        &self,
-        cancels: &[RiskApproved<Order<InstrumentKey, RequestCancel>>],
-        opens: &[RiskApproved<Order<InstrumentKey, RequestOpen>>],
-    ) -> Result<(), Error>
-    where
-        ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
-        InstrumentKey: Clone,
-    {
-        if !cancels.is_empty() {
-            self.execution_tx.send(ExecutionRequest::from_iter(
-                opens.iter().cloned().map(RiskApproved::into_item),
-            ))?;
-        }
+    // fn send_approved_orders_for_execution<Error>(
+    //     &self,
+    //     cancels: &[RiskApproved<Order<InstrumentKey, RequestCancel>>],
+    //     opens: &[RiskApproved<Order<InstrumentKey, RequestOpen>>],
+    // ) -> Result<(), Error>
+    // where
+    //     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
+    //     InstrumentKey: Clone,
+    // {
+    //     // Record RiskApproved InFlight orders
+    //     self.state.orders_mut().record_in_flights(in_flights);
+    //
+    //     if !cancels.is_empty() {
+    //         self.execution_tx.send(ExecutionRequest::from_iter(
+    //             opens.iter().cloned().map(RiskApproved::into_item),
+    //         ))?;
+    //     }
+    //
+    //     if !opens.is_empty() {
+    //         self.execution_tx.send(ExecutionRequest::from_iter(
+    //             opens.iter().cloned().map(RiskApproved::into_item),
+    //         ))?;
+    //     }
+    //
+    //     Ok(())
+    // }
 
-        if !opens.is_empty() {
-            self.execution_tx.send(ExecutionRequest::from_iter(
-                opens.iter().cloned().map(RiskApproved::into_item),
-            ))?;
-        }
+    // Todo: do I want to send requests as single units, to avoid the collect?
+    //    -> what are the pros and cons of this...?
+    //    - Command::Execute is less convenient... but could be fine if it's just Vec<Order<_, _>>>
+    // pub fn send_order_requests_for_execution<Kind, Request, Error>(
+    //     &mut self,
+    //     cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
+    //     opens: impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
+    // ) -> Result<(), Error>
+    // where
+    //     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
+    //     Request: Into<ExecutionRequest<InstrumentKey>>,
+    // {
+    //
+    //
+    //
+    //
+    //
+    //
+    //     self.execution_tx.send(request.into())
+    // }
 
-        Ok(())
-    }
-
-    pub fn send_execution_request<Request, Error>(
-        &self,
+    pub fn send_execution_request_old<Request, Error>(
+        &mut self,
         request: Request
     ) -> Result<(), Error>
     where
         ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
         Request: Into<ExecutionRequest<InstrumentKey>>,
     {
+
+
+
         self.execution_tx.send(request.into())
     }
 }

@@ -15,6 +15,8 @@ pub mod link;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, From)]
 pub enum ExecutionRequest<InstrumentKey> {
+    Cancel(Order<InstrumentKey, RequestCancel>),
+    Open(Order<InstrumentKey, RequestOpen>),
     CancelOrders(Vec<Order<InstrumentKey, RequestCancel>>),
     OpenOrders(Vec<Order<InstrumentKey, RequestOpen>>),
 }
@@ -22,6 +24,7 @@ pub enum ExecutionRequest<InstrumentKey> {
 impl<InstrumentKey> ExecutionRequest<InstrumentKey> {
     pub fn is_empty(&self) -> bool {
         match self {
+            ExecutionRequest::Cancel(_) | ExecutionRequest::Open(_) => false,
             ExecutionRequest::CancelOrders(cancels) => cancels.is_empty(),
             ExecutionRequest::OpenOrders(opens) => opens.is_empty(),
         }

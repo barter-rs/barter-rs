@@ -74,11 +74,6 @@ pub trait EngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
     fn risk_mut(&mut self) -> &mut RiskState;
 }
 
-pub enum TradingState {
-    Enabled,
-    Disabled,
-}
-
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
 where

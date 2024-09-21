@@ -11,6 +11,7 @@ use crate::v2::engine::audit::{AuditEvent, AuditEventKind, Auditor};
 use crate::v2::engine::{Engine, Processor};
 use crate::v2::engine::error::EngineError;
 use crate::v2::execution::ExecutionRequest;
+use crate::v2::strategy::Strategy;
 
 pub mod balance;
 pub mod channel;
@@ -90,33 +91,50 @@ where
         //    engine.trade()
         //
 
-        auditor.send(audit);
+        // auditor.send(audit);
+        todo!()
     }
     // Todo: shutdown operations, etc.
 }
 
-impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Error> Processor<Command<InstrumentKey>>
+impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Error> Processor<&Command<InstrumentKey>>
 for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
+    StrategyT: Strategy<State, InstrumentKey>,
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
+    InstrumentKey: Clone,
 {
-    // type Audit = AuditEvent<AuditEventKind<State, Command<InstrumentKey>, InstrumentKey, Error>>;
-    type Output = ();
+    type Output = AuditEventKind<State, Command<InstrumentKey>, InstrumentKey, Error>;
 
-    fn process(&mut self, event: Command<InstrumentKey>) -> Self::Output {
+    fn process(&mut self, event: &Command<InstrumentKey>) -> Self::Output {
         match event {
-            Command::EnableTrading => {}
-            Command::DisableTrading => {}
-            Command::Execute(request) => {
-                let result = self.execution_tx.send(request);
+            Command::EnableTrading => {
+                todo!()
             }
-            Command::ClosePosition(_instrument) => {
-                // Todo: ask strategy to produce ExecutionRequest for an instrument
+            Command::DisableTrading => {
+                todo!()
+            }
+            Command::Execute(request) => {
+
+                // Todo: ack requests, etc.
+                let result = self.execution_tx.send(request.clone());
+            }
+            Command::ClosePosition(instrument) => {
+                let request = self
+                    .strategy
+                    .close_position_request(instrument, &self.state)
+                    .into_iter()
+                    .collect::<ExecutionRequest<InstrumentKey>>();
+
+                // Todo: ack requests, etc.
+                self.execution_tx.send(request.clone());
             }
             Command::CloseAllPositions => {
                 // Todo: ask strategy...
             }
         }
+
+        todo!()
     }
 }
 

@@ -2,7 +2,7 @@ use crate::v2::{
     engine::state::instrument::{market_data::MarketState, order::Orders},
     execution::error::ExecutionError,
     instrument::Instrument,
-    order::{Cancelled, ExchangeOrderState, Open, OpenInFlight, Order},
+    order::{Cancelled, ExchangeOrderState, Open, Order},
     position::{PortfolioId, Position},
     trade::Trade,
     Snapshot,
@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::warn;
 use vecmap::VecMap;
+use crate::v2::order::{RequestCancel, RequestOpen};
 
 pub mod market_data;
 pub mod order;
@@ -25,15 +26,19 @@ pub trait MarketDataManager<InstrumentKey> {
 }
 
 pub trait OrderManager<InstrumentKey> {
-    fn record_in_flights(
+    fn record_in_flight_cancel(
         &mut self,
-        requests: impl IntoIterator<Item = Order<InstrumentKey, OpenInFlight>>,
+        request: &Order<InstrumentKey, RequestCancel>,
     );
-    fn update_from_open(&mut self, response: &Order<InstrumentKey, Result<Open, ExecutionError>>);
+    fn record_in_flight_open(
+        &mut self,
+        request: &Order<InstrumentKey, RequestOpen>,
+    );
     fn update_from_cancel(
         &mut self,
         response: &Order<InstrumentKey, Result<Cancelled, ExecutionError>>,
     );
+    fn update_from_open(&mut self, response: &Order<InstrumentKey, Result<Open, ExecutionError>>);
     fn update_from_order_snapshot(
         &mut self,
         snapshot: &Snapshot<Order<InstrumentKey, ExchangeOrderState>>,
@@ -94,20 +99,26 @@ impl <InstrumentKey> OrderManager<InstrumentKey> for Instruments<InstrumentKey>
 where
     InstrumentKey: Debug + Clone + Eq,
 {
-    fn record_in_flights(
-        &mut self,
-        requests: impl IntoIterator<Item = Order<InstrumentKey, OpenInFlight>>,
-    ) {
-        for request in requests {
-            let state = self.state_mut(&request.instrument).unwrap_or_else(|| {
-                panic!(
-                    "OrderManager cannot record Order<InFlight> for non-configured instrument: {:?}",
-                    request.instrument
-                )
-            });
+    fn record_in_flight_cancel(&mut self, request: &Order<InstrumentKey, RequestCancel>) {
+        let state = self.state_mut(&request.instrument).unwrap_or_else(|| {
+            panic!(
+                "OrderManager cannot record in flight Order<RequestCancel> for non-configured instrument: {:?}",
+                request.instrument
+            )
+        });
 
-            state.orders.record_in_flights(std::iter::once(request))
-        }
+        state.orders.record_in_flight_cancel(request)
+    }
+
+    fn record_in_flight_open(&mut self, request: &Order<InstrumentKey, RequestOpen>) {
+        let state = self.state_mut(&request.instrument).unwrap_or_else(|| {
+            panic!(
+                "OrderManager cannot record in flight Order<RequestOpen> for non-configured instrument: {:?}",
+                request.instrument
+            )
+        });
+
+        state.orders.record_in_flight_open(request)
     }
 
     fn update_from_open(&mut self, response: &Order<InstrumentKey, Result<Open, ExecutionError>>) {

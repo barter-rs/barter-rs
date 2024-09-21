@@ -1,7 +1,7 @@
 use crate::v2::{
     channel::{ChannelState, Tx},
     order::{Order, RequestCancel, RequestOpen},
-    risk::{RiskApproved, RiskRefused},
+    risk::{RiskRefused},
 };
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
@@ -18,6 +18,13 @@ pub struct AuditEvent<Kind> {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum AuditEventKind<State, Event, InstrumentKey, Error> {
+
+
+
+
+
+
+
     Snapshot(State),
     Update {
         event: Event
@@ -34,8 +41,8 @@ pub enum AuditEventKind<State, Event, InstrumentKey, Error> {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct AuditEventKindRequests<InstrumentKey> {
-    pub cancels: Vec<RiskApproved<Order<InstrumentKey, RequestCancel>>>,
-    pub opens: Vec<RiskApproved<Order<InstrumentKey, RequestOpen>>>,
+    pub cancels: Vec<Order<InstrumentKey, RequestCancel>>,
+    pub opens: Vec<Order<InstrumentKey, RequestOpen>>,
     pub refused_cancels: Vec<RiskRefused<Order<InstrumentKey, RequestCancel>>>,
     pub refused_opens: Vec<RiskRefused<Order<InstrumentKey, RequestOpen>>>,
 }
