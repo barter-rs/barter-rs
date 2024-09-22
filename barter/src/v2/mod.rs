@@ -1,6 +1,6 @@
 use crate::v2::channel::Tx;
-use crate::v2::engine::audit::{AuditEvent, AuditEventKind, Auditor};
-use crate::v2::engine::error::EngineError;
+use crate::v2::engine::audit::{AuditEvent, AuditEventKindOld, Auditor, ProcessAccountAudit, ProcessAudit, ProcessCommandAudit, ProcessMarketAudit};
+use crate::v2::engine::error::{EngineError, ExecutionRxDropped};
 use crate::v2::engine::{Engine, Processor};
 use crate::v2::execution::ExecutionRequest;
 use crate::v2::strategy::Strategy;
@@ -12,6 +12,8 @@ use barter_data::event::MarketEvent;
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::ops::ControlFlow;
+use tracing::error;
 use crate::v2::engine::state::EngineState;
 use crate::v2::risk::RiskManager;
 
@@ -58,61 +60,83 @@ impl<T> Snapshot<T> {
     }
 }
 
-// Todo: Add user functionality such as on_error, etc inside "default" Engine via Builder or Runner
 pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>(
     feed: &mut EventFeed,
     auditor: &mut Auditor<AuditTx>,
     engine: &mut Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>,
 ) where
     EventFeed: Iterator<Item = EngineEvent<AssetKey, InstrumentKey>>,
-    AuditTx: Tx<Item = AuditEvent<AuditEventKind<State, EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, EngineError>>>,
+    AuditTx: Tx<Item = AuditEvent<AuditEventKindOld<State, EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, EngineError>>>,
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>>,
     State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
     StrategyT: Strategy<State, InstrumentKey>,
     Risk: RiskManager<State, InstrumentKey>,
     InstrumentKey: Clone,
     Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>:
-        for<'a> Processor<&'a Command<InstrumentKey>>,
+        for<'a> Processor<&'a Command<InstrumentKey>, Output = Result<ProcessCommandAudit, ExecutionRxDropped>>,
     for<'a> State: Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
         + Processor<&'a MarketEvent<InstrumentKey>>
         + Clone,
 {
-    let snapshot = engine.build_audit(AuditEventKind::Snapshot(engine.state.clone()));
+    let snapshot = engine.build_audit(AuditEventKindOld::Snapshot(engine.state.clone()));
     auditor.send(snapshot);
 
     for event in feed {
-        match event {
+        let result = match &event {
             EngineEvent::Terminate => {
+                // auditor.send()
+                // Todo audit
                 break;
             }
             EngineEvent::Command(command) => {
-                engine.process(&command); // AuditEventKind::External?
+                engine.process(command)
             }
             EngineEvent::Account(account) => {
-                engine.state.process(&account); // AuditEventKind::Update?
+                Ok(engine.state.process(account))
             }
             EngineEvent::Market(market) => {
-                engine.state.process(&market); // AuditEventKind::Update?
+                Ok(engine.state.process(market))
             }
         };
 
-        engine.trade();
+        if let Ok(process_audit) = result {
+            if engine.state.trading_enabled() {
 
-        // Todo: generate orders...!
+            }
+
+            if let Ok(trade_audit) = engine.trade() {
+                // Todo:
+            }
+        }
+
+        let Ok(process_audit) = result else {
+            // Todo: Audit
+            error!("ExecutionRx dropped");
+            break;
+        };
+
+        let Ok(audit) = engine.trade() else {
+            error!("ExecutionRx dropped");
+            break;
+        };
     }
-    // Todo: shutdown operations, etc.
+
+
+
+
+    // Todo: shutdown operations, ideally by user input w/ on_error, etc. (use "RunBuilder"?)
 }
 
-impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Error> Processor<&Command<InstrumentKey>>
+impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> Processor<&Command<InstrumentKey>>
 for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
-    ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
+    ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
     State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
     StrategyT: Strategy<State, InstrumentKey>,
     Risk: RiskManager<State, InstrumentKey>,
     InstrumentKey: Clone,
 {
-    type Output = AuditEventKind<State, Command<InstrumentKey>, InstrumentKey, Error>;
+    type Output = Result<ProcessCommandAudit, ExecutionRxDropped>;
 
     fn process(&mut self, event: &Command<InstrumentKey>) -> Self::Output {
         match event {
@@ -124,7 +148,9 @@ where
             }
             Command::Execute(request) => {
                 // Todo: ack requests, etc.
-                let _result = self.execution_tx.send(request.clone());
+                //   Maybe custom error _struct_ for ExecutionTx<Error>? can react accordingly
+                //    '--> make sure I still send an Audit to AuditSnapshot can still update state
+                self.execution_tx.send(request.clone())?;
             }
             Command::ClosePosition(instrument) => {
                 let _result = self.close_position(instrument);
@@ -136,7 +162,7 @@ where
                 let _result = self.cancel_order_by_id(instrument.clone(), id.clone());
             }
             Command::CancelAllOrders => {
-
+                let _result = self.cancel_all_orders();
             }
         }
 

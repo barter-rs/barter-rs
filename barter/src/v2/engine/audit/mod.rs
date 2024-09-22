@@ -16,15 +16,51 @@ pub struct AuditEvent<Kind> {
     pub kind: Kind,
 }
 
-pub enum ConcreteAuditEventKind<State> {
+pub enum AuditEventKind<State> {
     Snapshot(State),
+
+
 
 }
 
-// pub struct AuditEventKind
+pub enum ConcreteAuditEventKind<State> {
+    Snapshot(State),
+    Process(ProcessAudit),
+    GeneratedRequests,
+    Error,
+}
+
+
+
+pub enum ProcessAudit {
+    Command(ProcessCommandAudit),
+    Account(ProcessAccountAudit),
+    Market(ProcessMarketAudit),
+}
+
+pub struct ProcessCommandAudit;
+pub struct ProcessAccountAudit {
+    pub engine: ProcessAccountEngineAudit,
+    pub risk: ProcessAccountRiskAudit,
+    pub strategy: ProcessAccountStrategyAudit,
+}
+
+pub struct ProcessAccountEngineAudit;
+pub struct ProcessAccountRiskAudit;
+pub struct ProcessAccountStrategyAudit;
+
+pub struct ProcessMarketAudit {
+    pub engine: ProcessMarketEngineAudit,
+    pub risk: ProcessMarketRiskAudit,
+    pub strategy: ProcessMarketStrategyAudit,
+}
+
+pub struct ProcessMarketEngineAudit;
+pub struct ProcessMarketRiskAudit;
+pub struct ProcessMarketStrategyAudit;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub enum AuditEventKind<State, Event, InstrumentKey, Error> {
+pub enum AuditEventKindOld<State, Event, InstrumentKey, Error> {
     Snapshot(State),
     Update {
         event: Event,

@@ -9,8 +9,7 @@ use std::fmt::Debug;
 pub mod default;
 
 pub trait RiskManager<EngineState, InstrumentKey> {
-    type Event;
-    type State: for<'a> Processor<&'a Self::Event> + Debug + Clone;
+    type State;
 
     fn check(
         &self,

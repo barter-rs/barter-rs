@@ -29,6 +29,8 @@ pub enum EngineError {
     Execution(#[from] ExecutionError),
 }
 
+pub struct ExecutionRxDropped;
+
 impl EngineError {
     pub fn is_terminal(&self) -> bool {
         false

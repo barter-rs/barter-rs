@@ -17,41 +17,11 @@ use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::{debug, info, warn};
+use crate::v2::engine::audit::{ProcessAccountAudit, ProcessAccountEngineAudit, ProcessAudit, ProcessMarketAudit, ProcessMarketEngineAudit};
 
 pub mod balance;
 pub mod instrument;
 
-// Todo: Must Have:
-//  - Utility to re-create state from Audit snapshot + updates w/ interactive mode (backward would require Vec<State> to be created on .next()) (add compression using file system)
-//  - All state update implementations:
-//  - Add tests for all Managers:
-//  - Add interface for user strategy & risk to access Instrument contract
-//  - Utility for AssetKey, InstrumentKey lookups, as well as constructing Instruments contracts, etc
-//  - Engine functionality can be injected, on_shutdown, on_state_update_error, on_disconnect, etc.
-
-// Todo: Nice To Have:
-//  - Sequenced log stream that can enrich logs w/ additional context eg/ InstrumentName
-//  - Consider removing duplicate logs when calling instrument.state, state_mut, and also Balances!
-//  - Extract methods from impl OrderManager for Orders (eg/ update_from_snapshot covers all bases)
-//    '--> also ensure duplication is removed from update_from_open & update_from_cancel
-//  - Should I collapse nested VecMap in balances and use eg/ VecMap<ExchangeAssetKey, Balance>
-//  - Setup some way to get "diffs" for eg/ should Orders.update_from_order_snapshot return a diff?
-//  - Could use TradingState like concept to switch between Strategies / run loops
-
-// Todo: Nice To Have: OrderManager:
-//  - OrderManager update_from_open & update_from_cancel may want to return "in flight failed due to X api reason"
-//    '--> eg/ find logic associated with "OrderManager received ExecutionError for Order<InFlight>"
-//  - Possible we want a 5m window buffer for "strange order updates" to handle out of orders
-//    '--> eg/ adding InFlight, receiving Cancelled, the receiving Open -> ghost orders
-
-// Could have Generic command, with custom functionality for it:
-// match command {
-//    Terminate => engine.terminate(),
-// etc. etc.
-//
-//
-
-// pub trait EngineState<Event, AssetKey, InstrumentKey, StrategyState, RiskState>
 pub trait EngineState<AssetKey, InstrumentKey, StrategyState, RiskState> {
     fn trading_enabled(&self) -> bool;
     fn market_data(&self) -> &impl MarketDataManager<InstrumentKey>;
@@ -150,18 +120,24 @@ where
     StrategyState: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>,
     RiskState: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>,
 {
-    type Output = ();
+    type Output = ProcessAudit;
 
     fn process(
         &mut self,
         event: &AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>,
     ) -> Self::Output {
-        info!(account = ?event, "updating EngineState from AccountEvent");
-        self.try_update_from_account(event).unwrap(); // Todo: handle this w/ audit, etc audit?
+        info!(account = ?event, "updating EngineState, RiskState, StrategyState from AccountEvent");
+        let engine = self.update_from_account(event);
 
         // Update any user provided Strategy & Risk State
-        self.strategy.process(event); // Todo: probably return an error, or perhaps some AuditKind?
-        self.risk.process(event); // Todo: probably return an error, or perhaps some AuditKind?
+        let strategy = self.strategy.process(event);
+        let risk = self.risk.process(event);
+
+        ProcessAudit::Account(ProcessAccountAudit {
+            engine,
+            strategy,
+            risk,
+        })
     }
 }
 
@@ -170,18 +146,24 @@ impl<AssetKey, InstrumentKey, StrategyState, RiskState> Processor<&MarketEvent<I
 where
     AssetKey: Debug + Eq,
     InstrumentKey: Debug + Clone + Eq,
-    StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentKey>>, //, Output = Result<(), EngineError>>,
-    RiskState: for<'a> Processor<&'a MarketEvent<InstrumentKey>>, //, Output = Result<(), EngineError>>,
+    StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
+    RiskState: for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
 {
-    type Output = ();
+    type Output = ProcessAudit;
 
     fn process(&mut self, event: &MarketEvent<InstrumentKey>) -> Self::Output {
-        debug!(market = ?event, "updating EngineState from MarketEvent");
-        self.update_from_market(event); // Todo: should this return an error?
+        debug!(market = ?event, "updating EngineState, RiskState, StrategyState from MarketEvent");
+        let engine = self.update_from_market(event);
 
         // Update any user provided Strategy & Risk State
-        self.strategy.process(event); // Todo: probably return an error, or perhaps some AuditKind?
-        self.risk.process(event); // Todo: probably return an error, or perhaps some AuditKind?
+        let strategy = self.strategy.process(event);
+        let risk = self.risk.process(event);
+
+        ProcessAudit::Market(ProcessMarketAudit {
+            engine,
+            strategy,
+            risk,
+        })
     }
 }
 
@@ -209,46 +191,40 @@ where
         }
     }
 
-    pub fn try_update_from_account(
+    pub fn update_from_account(
         &mut self,
         event: &AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>,
-    ) -> Result<(), EngineError> {
+    ) -> ProcessAccountEngineAudit {
         let AccountEvent { exchange, kind } = event;
         match kind {
             AccountEventKind::Snapshot(account) => {
                 self.update_from_account_snapshot(exchange, account);
-                Ok(())
             }
             AccountEventKind::BalanceSnapshot(balance) => {
                 self.balances
                     .update_from_snapshot(exchange, balance.as_ref());
-                Ok(())
             }
             AccountEventKind::OrderSnapshot(order) => {
                 self.instruments.update_from_order_snapshot(order);
-                Ok(())
             }
             AccountEventKind::PositionSnapshot(position) => {
                 self.instruments.update_from_position_snapshot(position);
-                Ok(())
             }
             AccountEventKind::OrderOpened(response) => {
                 self.instruments.update_from_open(response);
-                Ok(())
             }
             AccountEventKind::OrderCancelled(response) => {
                 self.instruments.update_from_cancel(response);
-                Ok(())
             }
             AccountEventKind::Trade(trade) => {
                 self.instruments.update_from_trade(trade);
-                Ok(())
             }
             AccountEventKind::ConnectivityError(error) => {
                 warn!(%error, "Engine aware of Account ConnectivityError");
-                Ok(())
             }
         }
+
+        ProcessAccountEngineAudit
     }
 
     /// Replace all [`Self`] state with the [`AccountSnapshot`].
@@ -295,7 +271,8 @@ where
         }
     }
 
-    pub fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey>) {
+    pub fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey>) -> ProcessMarketEngineAudit {
         self.instruments.update_from_market(event);
+        ProcessMarketEngineAudit
     }
 }
