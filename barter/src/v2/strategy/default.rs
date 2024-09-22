@@ -7,19 +7,29 @@ pub struct DefaultStrategy;
 impl<EngineState, InstrumentKey> Strategy<EngineState, InstrumentKey> for DefaultStrategy {
     type State = DefaultStrategyState;
 
-    fn generate_orders(&self, _: &EngineState) -> (
+    fn generate_orders(
+        &self,
+        _: &EngineState,
+    ) -> (
         impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
-        impl IntoIterator<Item=Order<InstrumentKey, RequestOpen>>
+        impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
     ) {
         (std::iter::empty(), std::iter::empty())
     }
 
-    fn close_position_request(&self, _: &InstrumentKey, _: &EngineState) -> impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>> {
+    fn close_position_request(
+        &self,
+        _: &InstrumentKey,
+        _: &EngineState,
+    ) -> impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>> {
         // Todo: I could orchestrate a OrderKind=Market to close the position
         std::iter::empty()
     }
 
-    fn close_all_positions_request(&self, _: &EngineState) -> impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>> {
+    fn close_all_positions_request(
+        &self,
+        _: &EngineState,
+    ) -> impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>> {
         // Todo: I could orchestrate a OrderKind=Market to close the positions
         std::iter::empty()
     }
@@ -58,4 +68,3 @@ pub struct DefaultStrategyState;
 //         todo!()
 //     }
 // }
-

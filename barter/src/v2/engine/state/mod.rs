@@ -1,10 +1,8 @@
 use crate::v2::engine::Processor;
 use crate::v2::{
-    engine::{
-        state::{
-            balance::{BalanceManager, Balances},
-            instrument::{Instruments, MarketDataManager, OrderManager, PositionManager},
-        },
+    engine::state::{
+        balance::{BalanceManager, Balances},
+        instrument::{Instruments, MarketDataManager, OrderManager, PositionManager},
     },
     execution::{AccountEvent, AccountEventKind, AccountSnapshot},
     order::Order,

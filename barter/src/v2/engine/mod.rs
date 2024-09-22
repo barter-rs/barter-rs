@@ -1,21 +1,28 @@
-use crate::v2::engine::audit::{AuditEventKind, GeneratedRequestsAudit, Auditor, ProcessAudit};
+use crate::v2::engine::audit::{
+    AuditKind, Auditor, GeneratedRequestsAudit, ProcessAudit, ProcessWithTradingAudit,
+    TerminationAudit,
+};
+use crate::v2::engine::command::Command;
+use crate::v2::engine::error::ExecutionRxDropped;
+use crate::v2::execution::{AccountEvent, AccountEventKind};
 use crate::v2::order::{Order, OrderId, RequestOpen};
 use crate::v2::{
     channel::Tx,
     engine::{
-        audit::AuditEvent,
+        audit::Audit,
         state::{instrument::OrderManager, EngineState},
     },
     execution::ExecutionRequest,
     risk::{RiskApproved, RiskManager},
     strategy::Strategy,
+    EngineEvent,
 };
+use barter_data::event::MarketEvent;
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use itertools::Itertools;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use crate::v2::engine::error::ExecutionRxDropped;
 
 pub mod audit;
 pub mod command;
@@ -102,6 +109,61 @@ pub struct Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> 
 // }
 
 impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+    Processor<EngineEvent<AssetKey, InstrumentKey>>
+    for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+where
+    Self: for<'a> Processor<
+        &'a Command<InstrumentKey>,
+        Output = Result<ProcessAudit<EngineEvent<AssetKey, InstrumentKey>>, ExecutionRxDropped>,
+    >,
+    ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
+    State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
+    StrategyT: Strategy<State, InstrumentKey>,
+    Risk: RiskManager<State, InstrumentKey>,
+    InstrumentKey: Clone,
+    for<'a> State: Processor<
+            &'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>,
+            Output = ProcessAudit<EngineEvent<AssetKey, InstrumentKey>>,
+        > + Processor<
+            &'a MarketEvent<InstrumentKey>,
+            Output = ProcessAudit<EngineEvent<AssetKey, InstrumentKey>>,
+        > + Clone,
+{
+    type Output =
+        AuditKind<State, EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, ExecutionRxDropped>;
+
+    fn process(&mut self, event: EngineEvent<AssetKey, InstrumentKey>) -> Self::Output {
+        let process_audit = match &event {
+            EngineEvent::Terminate => {
+                return AuditKind::Termination(TerminationAudit::AfterEvent(event));
+            }
+            EngineEvent::Command(command) => {
+                let Ok(audit) = self.process(command) else {
+                    return AuditKind::Termination(TerminationAudit::ExecutionEnded);
+                };
+                audit
+            }
+            EngineEvent::Account(account) => self.state.process(account),
+            EngineEvent::Market(market) => self.state.process(market),
+        };
+
+        if self.state.trading_enabled() {
+            if let Ok(requests_audit) = self.trade() {
+                AuditKind::ProcessWithTrading(ProcessWithTradingAudit {
+                    event,
+                    kind: process_audit.kind,
+                    requests: requests_audit,
+                })
+            } else {
+                AuditKind::Termination(TerminationAudit::ExecutionEnded)
+            }
+        } else {
+            AuditKind::Process(process_audit)
+        }
+    }
+}
+
+impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
     Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
@@ -150,7 +212,7 @@ where
         }
 
         if !cancel_send_errs.is_empty() | !open_send_errs.is_empty() {
-            return Err(ExecutionRxDropped)
+            return Err(ExecutionRxDropped);
         }
 
         Ok(GeneratedRequestsAudit {
@@ -183,7 +245,7 @@ where
         }
 
         if !open_send_errs.is_empty() {
-            return Err(ExecutionRxDropped)
+            return Err(ExecutionRxDropped);
         }
         todo!()
     }
@@ -209,7 +271,7 @@ where
         }
 
         if !open_send_errs.is_empty() {
-            return Err(ExecutionRxDropped)
+            return Err(ExecutionRxDropped);
         }
         todo!()
     }
@@ -218,16 +280,12 @@ where
         &mut self,
         _instrument: InstrumentKey,
         _id: OrderId,
-    ) -> Result<(), ExecutionRxDropped>
-    {
+    ) -> Result<(), ExecutionRxDropped> {
         todo!()
         // self.execution_tx.send(ExecutionRequest::CancelOrder(RequestCancel::new(instrument, id)))
     }
 
-    pub fn cancel_all_orders(
-        &mut self,
-    ) -> Result<(), ExecutionRxDropped>
-    {
+    pub fn cancel_all_orders(&mut self) -> Result<(), ExecutionRxDropped> {
         todo!()
     }
 }
@@ -239,14 +297,22 @@ where
 {
     pub fn send_snapshot_audit<AuditTx, Event, Error>(&mut self, tx: &mut Auditor<AuditTx>)
     where
-        AuditTx: Tx<Item = AuditEvent<AuditEventKind<State, Event, InstrumentKey, Error>>>,
+        AuditTx: Tx<Item = Audit<AuditKind<State, Event, InstrumentKey, Error>>>,
     {
-        let audit = self.build_audit(AuditEventKind::Snapshot(self.state.clone()));
+        let audit = self.build_audit(AuditKind::Snapshot(self.state.clone()));
         tx.send(audit);
     }
 
-    pub fn build_audit<AuditKind>(&mut self, kind: AuditKind) -> AuditEvent<AuditKind> {
-        AuditEvent {
+    pub fn send_audit<AuditTx, Kind>(&mut self, tx: &mut Auditor<AuditTx>, kind: Kind)
+    where
+        AuditTx: Tx<Item = Audit<Kind>>,
+    {
+        let audit = self.build_audit(kind);
+        tx.send(audit);
+    }
+
+    pub fn build_audit<AuditKind>(&mut self, kind: AuditKind) -> Audit<AuditKind> {
+        Audit {
             id: self.sequence_fetch_add(),
             time: (self.time)(),
             kind,
@@ -259,60 +325,59 @@ where
         sequence
     }
 
-    pub fn send_termination_audit<AuditTx, Event, Error>(&mut self, tx: &mut Auditor<AuditTx>, event: Event)
-    where
-        AuditTx: Tx<Item = AuditEvent<AuditEventKind<State, Event, InstrumentKey, Error>>>,
-    {
-        let audit = self.build_audit(AuditEventKind::Terminate {
-            event,
-            error: None,
-        });
-        tx.send(audit);
-    }
+    // pub fn send_termination_audit<AuditTx, Event, Error>(&mut self, tx: &mut Auditor<AuditTx>, event: Event)
+    // where
+    //     AuditTx: Tx<Item = AuditEvent<AuditEventKind<State, Event, InstrumentKey, Error>>>,
+    // {
+    //     let audit = self.build_audit(AuditEventKind::from(TerminationAudit {
+    //         event,
+    //         error: None,
+    //     }));
+    //     tx.send(audit);
+    // }
+    //
+    // pub fn send_termination_with_err_audit<AuditTx, Event, Error>(&mut self, tx: &mut Auditor<AuditTx>, event: Event, error: Error)
+    // where
+    //     AuditTx: Tx<Item = AuditEvent<AuditEventKind<State, Event, InstrumentKey, Error>>>,
+    // {
+    //     let audit = self.build_audit(AuditEventKind::from(TerminationAudit {
+    //         event,
+    //         error: Some(error),
+    //     });
+    //     tx.send(audit);
+    // }
 
-    pub fn send_termination_with_err_audit<AuditTx, Event, Error>(&mut self, tx: &mut Auditor<AuditTx>, event: Event, error: Error)
-    where
-        AuditTx: Tx<Item = AuditEvent<AuditEventKind<State, Event, InstrumentKey, Error>>>,
-    {
-        let audit = self.build_audit(AuditEventKind::Terminate {
-            event,
-            error: Some(error),
-        });
-        tx.send(audit);
-    }
-
-    pub fn send_process_with_trading_audit<AuditTx, Event, Error>(
-        &mut self,
-        tx: &mut Auditor<AuditTx>,
-        event: Event,
-        process: ProcessAudit,
-        requests: GeneratedRequestsAudit<InstrumentKey>
-    )
-    where
-        AuditTx: Tx<Item = AuditEvent<AuditEventKind<State, Event, InstrumentKey, Error>>>,
-    {
-        let audit = self.build_audit(AuditEventKind::ProcessWithTrading {
-            event,
-            audit: process,
-            requests,
-        });
-        tx.send(audit);
-    }
-
-    pub fn send_process_audit<AuditTx, Event, Error>(
-        &mut self,
-        tx: &mut Auditor<AuditTx>,
-        event: Event,
-        process: ProcessAudit,
-    )
-    where
-        AuditTx: Tx<Item = AuditEvent<AuditEventKind<State, Event, InstrumentKey, Error>>>,
-    {
-        let audit = self.build_audit(AuditEventKind::Process {
-            event,
-            audit: process,
-        });
-        tx.send(audit);
-    }
-
+    // pub fn send_process_with_trading_audit<AuditTx, Event, Error>(
+    //     &mut self,
+    //     tx: &mut Auditor<AuditTx>,
+    //     event: Event,
+    //     process: ProcessAudit<Event>,
+    //     requests: GeneratedRequestsAudit<InstrumentKey>
+    // )
+    // where
+    //     AuditTx: Tx<Item = AuditEvent<AuditEventKind<State, Event, InstrumentKey, Error>>>,
+    // {
+    //     let audit = self.build_audit(AuditEventKind::from(ProcessWithTradingAudit {
+    //         event,
+    //         kind: process.kind,
+    //         requests,
+    //     }));
+    //     tx.send(audit);
+    // }
+    //
+    // pub fn send_process_audit<AuditTx, Event, Error>(
+    //     &mut self,
+    //     tx: &mut Auditor<AuditTx>,
+    //     event: Event,
+    //     process: ProcessAudit<Event>,
+    // )
+    // where
+    //     AuditTx: Tx<Item = AuditEvent<AuditEventKind<State, Event, InstrumentKey, Error>>>,
+    // {
+    //     let audit = self.build_audit(AuditEventKind::from(ProcessAudit {
+    //         event,
+    //         kind: process,
+    //     }));
+    //     tx.send(audit);
+    // }
 }

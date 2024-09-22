@@ -1,8 +1,10 @@
 use crate::v2::channel::Tx;
-use crate::v2::engine::audit::{AuditEvent, AuditEventKind, Auditor, ProcessAudit};
-use crate::v2::engine::error::{ExecutionRxDropped};
+use crate::v2::engine::audit::{Audit, AuditKind, Auditor, ProcessAudit, TerminationAudit};
+use crate::v2::engine::error::ExecutionRxDropped;
+use crate::v2::engine::state::EngineState;
 use crate::v2::engine::{Engine, Processor};
 use crate::v2::execution::ExecutionRequest;
+use crate::v2::risk::RiskManager;
 use crate::v2::strategy::Strategy;
 use crate::v2::{
     engine::command::Command,
@@ -12,8 +14,6 @@ use barter_data::event::MarketEvent;
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use crate::v2::engine::state::EngineState;
-use crate::v2::risk::RiskManager;
 
 pub mod balance;
 pub mod channel;
@@ -64,64 +64,66 @@ pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, In
     engine: &mut Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>,
 ) where
     EventFeed: Iterator<Item = EngineEvent<AssetKey, InstrumentKey>>,
-    AuditTx: Tx<Item = AuditEvent<AuditEventKind<State, EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, ExecutionRxDropped>>>,
+    AuditTx: Tx<
+        Item = Audit<
+            AuditKind<
+                State,
+                EngineEvent<AssetKey, InstrumentKey>,
+                InstrumentKey,
+                ExecutionRxDropped,
+            >,
+        >,
+    >,
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
     State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
     StrategyT: Strategy<State, InstrumentKey>,
     Risk: RiskManager<State, InstrumentKey>,
     InstrumentKey: Clone,
-    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>:
-        for<'a> Processor<&'a Command<InstrumentKey>, Output = Result<ProcessAudit, ExecutionRxDropped>>,
-    for<'a> State: Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>, Output = ProcessAudit>
-        + Processor<&'a MarketEvent<InstrumentKey>, Output = ProcessAudit>
-        + Clone,
+    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>: Processor<
+            EngineEvent<AssetKey, InstrumentKey>,
+            Output = AuditKind<
+                State,
+                EngineEvent<AssetKey, InstrumentKey>,
+                InstrumentKey,
+                ExecutionRxDropped,
+            >,
+        > + for<'a> Processor<
+            &'a Command<InstrumentKey>,
+            Output = Result<ProcessAudit<EngineEvent<AssetKey, InstrumentKey>>, ExecutionRxDropped>,
+        >,
+    for<'a> State: Processor<
+            &'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>,
+            Output = ProcessAudit<EngineEvent<AssetKey, InstrumentKey>>,
+        > + Processor<
+            &'a MarketEvent<InstrumentKey>,
+            Output = ProcessAudit<EngineEvent<AssetKey, InstrumentKey>>,
+        > + Clone,
 {
     // Send initial EngineState snapshot
     engine.send_snapshot_audit(audit_tx);
 
-    // Todo: maybe re-factor this loop to return an AuditEvent in case of "break"
-
-    for event in feed {
-        let process_audit = match &event {
-            EngineEvent::Terminate => {
-                engine.send_termination_audit(audit_tx, event);
-                break;
-            }
-            EngineEvent::Command(command) => {
-                let Ok(audit) = engine.process(command) else {
-                    engine.send_termination_with_err_audit(audit_tx, event, ExecutionRxDropped);
-                    break;
-                };
-                audit
-            }
-            EngineEvent::Account(account) => {
-                engine.state.process(account)
-            }
-            EngineEvent::Market(market) => {
-                engine.state.process(market)
-            }
+    let termination_audit = loop {
+        let Some(event) = feed.next() else {
+            break AuditKind::Termination(TerminationAudit::FeedEnded);
         };
 
-        if engine.state.trading_enabled() {
-            let Ok(requests_audit) = engine.trade() else {
-                engine.send_termination_with_err_audit(audit_tx, event, ExecutionRxDropped);
-                break;
-            };
+        let audit = engine.process(event);
 
-            engine.send_process_with_trading_audit(audit_tx, event, process_audit, requests_audit);
-        } else {
-            engine.send_process_audit(audit_tx, event, process_audit)
+        if audit.is_termination() {
+            break audit;
         }
-    }
 
+        engine.send_audit(audit_tx, audit);
+    };
 
-
+    engine.send_audit(audit_tx, termination_audit);
 
     // Todo: shutdown operations, ideally by user input w/ on_error, etc. (use "RunBuilder"?)
 }
 
-impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> Processor<&Command<InstrumentKey>>
-for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+    Processor<&Command<InstrumentKey>>
+    for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
     State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
@@ -129,7 +131,7 @@ where
     Risk: RiskManager<State, InstrumentKey>,
     InstrumentKey: Clone,
 {
-    type Output = Result<ProcessAudit, ExecutionRxDropped>;
+    type Output = Result<ProcessAudit<EngineEvent<AssetKey, InstrumentKey>>, ExecutionRxDropped>;
 
     fn process(&mut self, event: &Command<InstrumentKey>) -> Self::Output {
         match event {

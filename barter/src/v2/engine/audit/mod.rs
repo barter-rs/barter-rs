@@ -4,40 +4,24 @@ use crate::v2::{
     risk::RiskRefused,
 };
 use chrono::{DateTime, Utc};
-use derive_more::Constructor;
+use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::warn;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct AuditEvent<Kind> {
+pub struct Audit<Kind> {
     pub id: u64,
     pub time: DateTime<Utc>,
     pub kind: Kind,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub enum ProcessAudit {
-    Command(ProcessCommandAudit),
-    Account,
-    Market
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct ProcessCommandAudit;
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub enum AuditEventKind<State, Event, InstrumentKey, Error> {
+pub enum AuditKind<State, Event, InstrumentKey, Error> {
     Snapshot(State),
-    Process {
-        event: Event,
-        audit: ProcessAudit,
-    },
-    ProcessWithTrading {
-        event: Event,
-        audit: ProcessAudit,
-        requests: GeneratedRequestsAudit<InstrumentKey>,
-    },
+    Process(ProcessAudit<Event>),
+    ProcessWithTrading(ProcessWithTradingAudit<Event, InstrumentKey>),
+    Termination(TerminationAudit<Event, Error>),
     // Update {
     //     event: Event,
     // },
@@ -49,10 +33,47 @@ pub enum AuditEventKind<State, Event, InstrumentKey, Error> {
     //     event: Event,
     //     error: Error,
     // },
-    Terminate {
-        event: Event,
-        error: Option<Error>,
+    // Terminate {
+    //     event: Event,
+    //     error: Option<Error>,
+    // }
+}
+
+impl<State, Event, InstrumentKey, Error> AuditKind<State, Event, InstrumentKey, Error> {
+    pub fn is_termination(&self) -> bool {
+        matches!(self, Self::Termination(_))
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct ProcessAudit<Event, Kind = ProcessAuditKind> {
+    pub event: Event,
+    pub kind: Kind,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
+pub enum ProcessAuditKind {
+    Command(ProcessCommandAudit),
+    Account,
+    Market,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct ProcessWithTradingAudit<Event, InstrumentKey, Kind = ProcessAuditKind> {
+    pub event: Event,
+    pub kind: Kind,
+    pub requests: GeneratedRequestsAudit<InstrumentKey>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct ProcessCommandAudit;
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub enum TerminationAudit<Event, Error> {
+    FeedEnded,
+    ExecutionEnded,
+    AfterEvent(Event),
+    WithError(Event, Error),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]

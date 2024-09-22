@@ -2,7 +2,7 @@ use barter::v2::engine::command::Command;
 use barter::v2::{
     channel::{mpsc_unbounded, Tx, UnboundedRx, UnboundedTx},
     engine::{
-        audit::{AuditEvent, AuditEventKind, Auditor},
+        audit::{Audit, AuditKind, Auditor},
         error::EngineError,
         state::{
             balance::Balances,
@@ -106,14 +106,14 @@ async fn main() {
                 // Todo: validate sequence
 
                 match audit.kind {
-                    AuditEventKind::Snapshot(snapshot) => {
+                    AuditKind::Snapshot(snapshot) => {
                         let _ = std::mem::replace(&mut state, snapshot);
                     }
-                    AuditEventKind::Update { event } => {
+                    AuditKind::Update { event } => {
                         info!(?event, "Engine received event");
                         state.try_update(&event).unwrap();
                     }
-                    AuditEventKind::UpdateWithRequests { event, requests } => {
+                    AuditKind::UpdateWithRequests { event, requests } => {
                         info!(?event, "Engine received event");
                         state.try_update(&event).unwrap();
 
@@ -133,7 +133,7 @@ async fn main() {
                             info!(?requests.refused_opens, "Engine RiskManager refused open requests")
                         }
                     }
-                    AuditEventKind::Error { event, error } => {
+                    AuditKind::Error { event, error } => {
                         info!(?event, "Engine received event");
                         state.try_update(&event).unwrap();
                         todo!()
@@ -197,8 +197,8 @@ fn init_channels() -> (
     UnboundedTx<ExecutionRequest<InstrumentId>, EngineError>,
     UnboundedRx<ExecutionRequest<InstrumentId>>,
     UnboundedTx<
-        AuditEvent<
-            AuditEventKind<
+        Audit<
+            AuditKind<
                 DefaultEngineState<DefaultStrategyState, DefaultRiskManagerState>,
                 EngineEvent,
                 InstrumentId,
@@ -208,8 +208,8 @@ fn init_channels() -> (
         EngineError,
     >,
     UnboundedRx<
-        AuditEvent<
-            AuditEventKind<
+        Audit<
+            AuditKind<
                 DefaultEngineState<DefaultStrategyState, DefaultRiskManagerState>,
                 EngineEvent,
                 InstrumentId,

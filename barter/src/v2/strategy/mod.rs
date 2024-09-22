@@ -1,6 +1,5 @@
 use crate::v2::order::{Order, RequestCancel, RequestOpen};
 
-
 pub mod default;
 
 pub trait Strategy<EngineState, InstrumentKey> {
