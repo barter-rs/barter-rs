@@ -8,7 +8,6 @@ use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::warn;
-use crate::v2::order::OrderId;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct AuditEvent<Kind> {
@@ -35,9 +34,9 @@ pub enum AuditEventKind<State, Event, InstrumentKey, Error> {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct AuditEventKindRequests<InstrumentKey> {
-    pub cancels: Vec<Order<InstrumentKey, RequestCancel<InstrumentKey, OrderId>>>,
+    pub cancels: Vec<Order<InstrumentKey, RequestCancel>>,
     pub opens: Vec<Order<InstrumentKey, RequestOpen>>,
-    pub refused_cancels: Vec<RiskRefused<Order<InstrumentKey, RequestCancel<InstrumentKey, OrderId>>>>,
+    pub refused_cancels: Vec<RiskRefused<Order<InstrumentKey, RequestCancel>>>,
     pub refused_opens: Vec<RiskRefused<Order<InstrumentKey, RequestOpen>>>,
 }
 

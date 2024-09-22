@@ -1,4 +1,4 @@
-use crate::v2::order::{ClientOrderId, InternalOrderState, OrderId, RequestCancel, RequestOpen};
+use crate::v2::order::{InternalOrderState, RequestCancel, RequestOpen};
 use crate::v2::{
     engine::state::instrument::{market_data::MarketState, order::Orders},
     execution::error::ExecutionError,
@@ -24,8 +24,10 @@ pub trait MarketDataManager<InstrumentKey> {
 }
 
 pub trait OrderManager<InstrumentKey> {
-    fn orders(&self) -> impl Iterator<Item = &Order<InstrumentKey, InternalOrderState>>;
-    fn record_in_flight_cancel<OrderKey>(&mut self, request: RequestCancel<OrderKey, OrderKey>);
+    fn orders<'a>(&'a self) -> impl Iterator<Item = &'a Order<InstrumentKey, InternalOrderState>>
+    where
+        InstrumentKey: 'a;
+    fn record_in_flight_cancel(&mut self, request: &Order<InstrumentKey, RequestCancel>);
     fn record_in_flight_open(&mut self, request: &Order<InstrumentKey, RequestOpen>);
     fn update_from_cancel(
         &mut self,
@@ -36,8 +38,6 @@ pub trait OrderManager<InstrumentKey> {
         &mut self,
         snapshot: &Snapshot<Order<InstrumentKey, ExchangeOrderState>>,
     );
-    // fn order_by_id(&self, instrument: &InstrumentKey, id: &OrderId) -> Option<&Order<InstrumentKey, InternalOrderState>>;
-    // fn order_by_cid(&self, instrument: &InstrumentKey, cid: &ClientOrderId) -> Option<&Order<InstrumentKey, InternalOrderState>>;
 }
 
 pub trait PositionManager<InstrumentKey> {
@@ -96,6 +96,13 @@ impl<InstrumentKey> OrderManager<InstrumentKey> for Instruments<InstrumentKey>
 where
     InstrumentKey: Debug + Clone + Eq,
 {
+    fn orders<'a>(&'a self) -> impl Iterator<Item = &'a Order<InstrumentKey, InternalOrderState>>
+    where
+        InstrumentKey: 'a,
+    {
+        self.0.values().flat_map(|state| state.orders.orders())
+    }
+
     fn record_in_flight_cancel(&mut self, request: &Order<InstrumentKey, RequestCancel>) {
         let state = self.state_mut(&request.instrument).unwrap_or_else(|| {
             panic!(
@@ -118,19 +125,6 @@ where
         state.orders.record_in_flight_open(request)
     }
 
-    fn update_from_open(&mut self, response: &Order<InstrumentKey, Result<Open, ExecutionError>>) {
-        let Some(state) = self.state_mut(&response.instrument) else {
-            warn!(
-                instrument = ?response.instrument,
-                event = ?response,
-                "OrderManager ignoring Order<RequestOpen> response received for non-configured instrument"
-            );
-            return;
-        };
-
-        state.orders.update_from_open(response);
-    }
-
     fn update_from_cancel(
         &mut self,
         response: &Order<InstrumentKey, Result<Cancelled, ExecutionError>>,
@@ -145,6 +139,19 @@ where
         };
 
         state.orders.update_from_cancel(response);
+    }
+
+    fn update_from_open(&mut self, response: &Order<InstrumentKey, Result<Open, ExecutionError>>) {
+        let Some(state) = self.state_mut(&response.instrument) else {
+            warn!(
+                instrument = ?response.instrument,
+                event = ?response,
+                "OrderManager ignoring Order<RequestOpen> response received for non-configured instrument"
+            );
+            return;
+        };
+
+        state.orders.update_from_open(response);
     }
 
     fn update_from_order_snapshot(

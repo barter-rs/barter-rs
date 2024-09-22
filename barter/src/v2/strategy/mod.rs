@@ -1,10 +1,10 @@
-use crate::v2::engine::Processor;
 use crate::v2::order::{Order, RequestCancel, RequestOpen};
-use std::fmt::Debug;
+
+
+pub mod default;
 
 pub trait Strategy<EngineState, InstrumentKey> {
-    type Event;
-    type State: for<'a> Processor<&'a Self::Event> + Debug + Clone;
+    type State;
 
     fn generate_orders(
         &self,

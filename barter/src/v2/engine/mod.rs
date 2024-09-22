@@ -1,5 +1,5 @@
-use crate::v2::engine::audit::{AuditEventKind, AuditEventKindRequests};
-use crate::v2::order::{InternalOrderState, Order, OrderId, RequestCancel};
+use crate::v2::engine::audit::{AuditEventKindRequests};
+use crate::v2::order::{Order, OrderId, RequestOpen};
 use crate::v2::{
     channel::Tx,
     engine::{
@@ -26,12 +26,6 @@ pub trait Processor<Event> {
     type Output;
     fn process(&mut self, event: Event) -> Self::Output;
 }
-
-// pub trait StateUpdater<Event> {
-//     type Output;
-//     type Error: Debug;
-//     fn try_update(&mut self, event: Event) -> Result<Self::Output, Self::Error>;
-// }
 
 #[derive(Debug, Constructor)]
 pub struct Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> {
@@ -84,28 +78,12 @@ pub struct Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> 
 //     }
 // }
 
-impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-where
-    State: Clone,
-{
-    pub fn audit_snapshot<Event, Error>(
-        &mut self,
-    ) -> AuditEvent<AuditEventKind<State, Event, InstrumentKey, Error>> {
-        AuditEvent::new(
-            self.sequence_fetch_add(),
-            (self.time)(),
-            AuditEventKind::Snapshot(self.state.clone()),
-        )
-    }
-}
-
 impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Event, Error>
     Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
     State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
-    StrategyT: Strategy<State, InstrumentKey, Event = Event>,
+    StrategyT: Strategy<State, InstrumentKey>,
     Risk: RiskManager<State, InstrumentKey, Event = Event>,
     InstrumentKey: Clone,
 {
@@ -122,7 +100,7 @@ where
             .into_iter()
             .map(|RiskApproved(cancel)| {
                 self.execution_tx
-                    .send(ExecutionRequest::Cancel(cancel.clone()))
+                    .send(ExecutionRequest::CancelOrder(cancel.clone()))
                     .map(|_| cancel)
             })
             .partition_result();
@@ -165,10 +143,10 @@ where
     pub fn close_position(
         &mut self,
         instrument: &InstrumentKey,
-    ) -> Result<Vec<Order<InstrumentKey, RequestCancel>>, Error> {
+    ) -> Result<Vec<Order<InstrumentKey, RequestOpen>>, Error> {
         let (open_oks, open_errs): (Vec<_>, Vec<_>) = self
             .strategy
-            .close_position_request(&instrument, &self.state)
+            .close_position_request(instrument, &self.state)
             .into_iter()
             .map(|open| {
                 self.execution_tx
@@ -192,7 +170,7 @@ where
 
     pub fn close_all_positions(
         &mut self,
-    ) -> Result<Vec<Order<InstrumentKey, RequestCancel>>, Error> {
+    ) -> Result<Vec<Order<InstrumentKey, RequestOpen>>, Error> {
         let (open_oks, open_errs): (Vec<_>, Vec<_>) = self
             .strategy
             .close_all_positions_request(&self.state)
@@ -217,77 +195,22 @@ where
         todo!()
     }
 
-    pub fn cancel_order_by_key<OrderKey>(
+    pub fn cancel_order_by_id(
         &mut self,
-        instrument: InstrumentKey,
-        id: OrderKey,
+        _instrument: InstrumentKey,
+        _id: OrderId,
     ) -> Result<(), Error>
     {
-        self.execution_tx.send(ExecutionRequest::Cancel(RequestCancel::new(instrument, id)))
+        todo!()
+        // self.execution_tx.send(ExecutionRequest::CancelOrder(RequestCancel::new(instrument, id)))
     }
 
     pub fn cancel_all_orders(
         &mut self,
     ) -> Result<(), Error>
     {
-
+        todo!()
     }
-
-    // fn send_cancel_order_request_for_execution<Error>(
-    //     order_manager: &mut impl OrderManager<InstrumentKey>,
-    //     cancel: &RiskApproved<Order<InstrumentKey, RequestCancel>>
-    // ) -> Result<(), Error> {
-    //     todo!()
-    // }
-    //
-    // fn send_open_order_request_for_execution<Error>(
-    //     order_manager: &mut impl OrderManager<InstrumentKey>,
-    //     cancel: &RiskApproved<Order<InstrumentKey, RequestOpen>>
-    // ) -> Result<(), Error> {
-    //     todo!()
-    // }
-    //
-    //
-    // fn send_order_requests_for_execution<Error>(
-    //     &mut self,
-    //     cancels: [RiskApproved<Order<InstrumentKey, RequestCancel>>],
-    //     opens: [RiskApproved<Order<InstrumentKey, RequestOpen>>],
-    // ) -> Result<(), Error>
-    // {
-    //     let order_manager = self.state.orders_mut();
-    //     for RiskApproved(cancel) in cancels {
-    //         order_manager.record_in_flight_cancel(&cancel);
-    //         self.execution_tx.send(cancel);
-    //     }
-    //
-    //
-    //     let cancels = cancels
-    //         .iter()
-    //         .map(RiskApproved::into_item)
-    //         .inspect(|request| {
-    //             self.state.orders_mut().record_in_flight_cancel(request);
-    //         })
-    //         .collect::<ExecutionRequest<InstrumentKey>>();
-    //
-    //     if !cancels.is_empty() {
-    //         self.execution_tx.send(cancels)?;
-    //     }
-    //
-    //     let opens = cancels
-    //         .iter()
-    //         .map(RiskApproved::into_item)
-    //         .inspect(|request| {
-    //             self.state.orders_mut().record_in_flight_cancel(request);
-    //         })
-    //         .collect::<ExecutionRequest<InstrumentKey>>();
-    //
-    //     if !cancels.is_empty() {
-    //         self.execution_tx.send(cancels)?;
-    //     }
-    //
-    //
-    //     Ok(())
-    // }
 }
 
 impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
@@ -306,54 +229,6 @@ impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
         self.sequence += 1;
         sequence
     }
-
-    // fn send_approved_orders_for_execution<Error>(
-    //     &self,
-    //     cancels: &[RiskApproved<Order<InstrumentKey, RequestCancel>>],
-    //     opens: &[RiskApproved<Order<InstrumentKey, RequestOpen>>],
-    // ) -> Result<(), Error>
-    // where
-    //     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
-    //     InstrumentKey: Clone,
-    // {
-    //     // Record RiskApproved InFlight orders
-    //     self.state.orders_mut().record_in_flights(in_flights);
-    //
-    //     if !cancels.is_empty() {
-    //         self.execution_tx.send(ExecutionRequest::from_iter(
-    //             opens.iter().cloned().map(RiskApproved::into_item),
-    //         ))?;
-    //     }
-    //
-    //     if !opens.is_empty() {
-    //         self.execution_tx.send(ExecutionRequest::from_iter(
-    //             opens.iter().cloned().map(RiskApproved::into_item),
-    //         ))?;
-    //     }
-    //
-    //     Ok(())
-    // }
-
-    // Todo: do I want to send requests as single units, to avoid the collect?
-    //    -> what are the pros and cons of this...?
-    //    - Command::Execute is less convenient... but could be fine if it's just Vec<Order<_, _>>>
-    // pub fn send_order_requests_for_execution<Kind, Request, Error>(
-    //     &mut self,
-    //     cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
-    //     opens: impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
-    // ) -> Result<(), Error>
-    // where
-    //     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
-    //     Request: Into<ExecutionRequest<InstrumentKey>>,
-    // {
-    //
-    //
-    //
-    //
-    //
-    //
-    //     self.execution_tx.send(request.into())
-    // }
 
     pub fn send_execution_request_old<Request, Error>(
         &mut self,

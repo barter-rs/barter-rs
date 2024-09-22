@@ -89,10 +89,6 @@ impl<AssetKey, InstrumentKey, StrategyState, RiskState>
 where
     AssetKey: Debug + Eq,
     InstrumentKey: Debug + Eq + Clone,
-    // StrategyState: for<'a> StateUpdater<&'a EngineEvent, Output = (), Error = EngineError> + Debug + Clone,
-    // RiskState: for<'a> StateUpdater<&'a EngineEvent, Output = (), Error = EngineError> + Debug + Clone,
-    // StrategyState: for<'a> Processor<&'a EngineEvent> + Debug + Clone,
-    // RiskState: for<'a> Processor<&'a EngineEvent> + Debug + Clone,
 {
     fn trading_enabled(&self) -> bool {
         self.trading_on
@@ -190,37 +186,6 @@ where
         self.risk.process(event); // Todo: probably return an error, or perhaps some AuditKind?
     }
 }
-
-// impl<StrategyState, RiskState> StateUpdater<&EngineEvent> for DefaultEngineState<StrategyState, RiskState>
-// where
-//     StrategyState: for<'a> StateUpdater<&'a EngineEvent, Error = EngineError, Output = ()>,
-//     RiskState: for<'a> StateUpdater<&'a EngineEvent, Error = EngineError, Output = ()>,
-// {
-//     type Output = ();
-//     type Error = EngineError;
-//
-//     fn try_update(&mut self, event: &EngineEvent) -> Result<(), Self::Error> {
-//         // Update core EngineState components
-//         match event {
-//             EngineEvent::Command(command) => {
-//                 info!(?command, "updating EngineState from Command");
-//                 self.update_from_command(command);
-//             }
-//             EngineEvent::Account(event) => {
-//                 info!(account = ?event, "updating EngineState from AccountEvent");
-//                 self.try_update_from_account(event)?
-//             }
-//             EngineEvent::Market(event) => {
-//                 debug!(market = ?event, "updating EngineState from MarketEvent");
-//                 self.update_from_market(event);
-//             }
-//         }
-//
-//         // Update any user provided Strategy & Risk State
-//         self.strategy.try_update(event)?;
-//         self.risk.try_update(event)
-//     }
-// }
 
 impl<AssetKey, InstrumentKey, StrategyState, RiskState>
     DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>

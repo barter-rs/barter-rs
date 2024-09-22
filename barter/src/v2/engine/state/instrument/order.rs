@@ -1,4 +1,4 @@
-use crate::v2::order::{OrderId, RequestCancel, RequestOpen};
+use crate::v2::order::{RequestCancel, RequestOpen};
 use crate::v2::{
     engine::state::instrument::OrderManager,
     execution::error::ExecutionError,
@@ -20,6 +20,23 @@ impl<InstrumentKey> OrderManager<InstrumentKey> for Orders<InstrumentKey>
 where
     InstrumentKey: Debug + Clone + PartialEq,
 {
+    fn orders<'a>(&'a self) -> impl Iterator<Item = &'a Order<InstrumentKey, InternalOrderState>>
+    where
+        InstrumentKey: 'a,
+    {
+        self.inner.values()
+    }
+
+    fn record_in_flight_cancel(&mut self, request: &Order<InstrumentKey, RequestCancel>) {
+        if let Some(duplicate_cid_order) = self.inner.insert(request.cid, Order::from(request)) {
+            error!(
+                cid = %duplicate_cid_order.cid,
+                event = ?duplicate_cid_order,
+                "OrderManager upserted Order CancelInFlight with duplicate ClientOrderId"
+            );
+        }
+    }
+
     fn record_in_flight_open(&mut self, request: &Order<InstrumentKey, RequestOpen>) {
         if let Some(duplicate_cid_order) = self.inner.insert(request.cid, Order::from(request)) {
             error!(
@@ -30,13 +47,70 @@ where
         }
     }
 
-    fn record_in_flight_cancel<OrderKey>(&mut self, request: &RequestCancel<InstrumentKey, OrderKey>) {
-        if let Some(duplicate_cid_order) = self.inner.insert(request.cid, Order::from(request)) {
-            error!(
-                cid = %duplicate_cid_order.cid,
-                event = ?duplicate_cid_order,
-                "OrderManager upserted Order CancelInFlight with duplicate ClientOrderId"
-            );
+    fn update_from_cancel(
+        &mut self,
+        response: &Order<InstrumentKey, Result<Cancelled, ExecutionError>>,
+    ) {
+        match (self.inner.entry(response.cid), &response.state) {
+            (Entry::Occupied(order), Ok(_new_cancel)) => match &order.get().state {
+                InternalOrderState::OpenInFlight(_) => {
+                    warn!(
+                        instrument = ?response.instrument,
+                        cid = %response.cid,
+                        order = ?order.get(),
+                        update = ?response,
+                        "OrderManager received Order<Cancelled> Ok response for existing Order<OpenInFlight>"
+                    );
+                    order.remove();
+                }
+                InternalOrderState::Open(_) => {
+                    warn!(
+                        instrument = ?response.instrument,
+                        cid = %response.cid,
+                        order = ?order.get(),
+                        update = ?response,
+                        "OrderManager received Order<Cancelled> Ok response for existing Order<Open>"
+                    );
+                    order.remove();
+                }
+                InternalOrderState::CancelInFlight(_) => {
+                    debug!(
+                        instrument = ?response.instrument,
+                        cid = %response.cid,
+                        order = ?order.get(),
+                        update = ?response,
+                        "OrderManager transitioned Order<CancelInFlight> to Order<Cancelled>"
+                    );
+                    order.remove();
+                }
+            },
+            (Entry::Vacant(_cid_untracked), Ok(_new_cancel)) => {
+                warn!(
+                    instrument = ?response.instrument,
+                    cid = %response.cid,
+                    update = ?response,
+                    "OrderManager received Order<Cancelled> Ok response for untracked ClientOrderId - ignoring"
+                );
+            }
+            (Entry::Occupied(order), Err(_err)) => match &order.get().state {
+                InternalOrderState::OpenInFlight(_) => {
+                    // Todo: Depends on Err... then fix test
+                }
+                InternalOrderState::Open(_) => {
+                    // Todo: Depends on Err... then fix test
+                }
+                InternalOrderState::CancelInFlight(_) => {
+                    // Todo: Depends on Err... then fix test
+                }
+            },
+            (Entry::Vacant(_), Err(_)) => {
+                error!(
+                    instrument = ?response.instrument,
+                    cid = %response.cid,
+                    update = ?response,
+                    "OrderManager received ExecutionError for untracked ClientOrderId"
+                );
+            }
         }
     }
 
@@ -119,73 +193,6 @@ where
                         update = ?response,
                         "OrderManager received ExecutionError for existing Order<CancelInFlight>"
                     );
-                }
-            },
-            (Entry::Vacant(_), Err(_)) => {
-                error!(
-                    instrument = ?response.instrument,
-                    cid = %response.cid,
-                    update = ?response,
-                    "OrderManager received ExecutionError for untracked ClientOrderId"
-                );
-            }
-        }
-    }
-
-    fn update_from_cancel(
-        &mut self,
-        response: &Order<InstrumentKey, Result<Cancelled, ExecutionError>>,
-    ) {
-        match (self.inner.entry(response.cid), &response.state) {
-            (Entry::Occupied(order), Ok(_new_cancel)) => match &order.get().state {
-                InternalOrderState::OpenInFlight(_) => {
-                    warn!(
-                        instrument = ?response.instrument,
-                        cid = %response.cid,
-                        order = ?order.get(),
-                        update = ?response,
-                        "OrderManager received Order<Cancelled> Ok response for existing Order<OpenInFlight>"
-                    );
-                    order.remove();
-                }
-                InternalOrderState::Open(_) => {
-                    warn!(
-                        instrument = ?response.instrument,
-                        cid = %response.cid,
-                        order = ?order.get(),
-                        update = ?response,
-                        "OrderManager received Order<Cancelled> Ok response for existing Order<Open>"
-                    );
-                    order.remove();
-                }
-                InternalOrderState::CancelInFlight(_) => {
-                    debug!(
-                        instrument = ?response.instrument,
-                        cid = %response.cid,
-                        order = ?order.get(),
-                        update = ?response,
-                        "OrderManager transitioned Order<CancelInFlight> to Order<Cancelled>"
-                    );
-                    order.remove();
-                }
-            },
-            (Entry::Vacant(_cid_untracked), Ok(_new_cancel)) => {
-                warn!(
-                    instrument = ?response.instrument,
-                    cid = %response.cid,
-                    update = ?response,
-                    "OrderManager received Order<Cancelled> Ok response for untracked ClientOrderId - ignoring"
-                );
-            }
-            (Entry::Occupied(order), Err(_err)) => match &order.get().state {
-                InternalOrderState::OpenInFlight(_) => {
-                    // Todo: Depends on Err... then fix test
-                }
-                InternalOrderState::Open(_) => {
-                    // Todo: Depends on Err... then fix test
-                }
-                InternalOrderState::CancelInFlight(_) => {
-                    // Todo: Depends on Err... then fix test
                 }
             },
             (Entry::Vacant(_), Err(_)) => {

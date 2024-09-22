@@ -12,6 +12,8 @@ use barter_data::event::MarketEvent;
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use crate::v2::engine::state::EngineState;
+use crate::v2::risk::RiskManager;
 
 pub mod balance;
 pub mod channel;
@@ -74,11 +76,11 @@ pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, In
         + Processor<&'a MarketEvent<InstrumentKey>>
         + Clone,
 {
-    let snapshot = engine.audit_snapshot();
+    let snapshot = engine.audit(AuditEventKind::Snapshot(engine.state.clone()));
     auditor.send(snapshot);
 
-    while let Some(event) = feed.next() {
-        let audit = match event {
+    for event in feed {
+        match event {
             EngineEvent::Terminate => {
                 break;
             }
@@ -92,13 +94,6 @@ pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, In
                 engine.state.process(&market); // AuditEventKind::Update?
             }
         };
-
-        // if engine.trading_enabled ()
-        //    engine.trade()
-        //
-
-        // auditor.send(audit);
-        todo!()
     }
     // Todo: shutdown operations, etc.
 }
@@ -107,7 +102,9 @@ impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Error>
     Processor<&Command<InstrumentKey>>
     for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
-    StrategyT: Strategy<State, InstrumentKey>,
+    State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
+    StrategyT: for<'a> Strategy<State, InstrumentKey>,
+    Risk: for<'a> RiskManager<State, InstrumentKey>,
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
     InstrumentKey: Clone,
 {
@@ -123,20 +120,16 @@ where
             }
             Command::Execute(request) => {
                 // Todo: ack requests, etc.
-                let result = self.execution_tx.send(request.clone());
+                let _result = self.execution_tx.send(request.clone());
             }
             Command::ClosePosition(instrument) => {
-                self.close_position(instrument).unwrap();
+                let _result = self.close_position(instrument);
             }
             Command::CloseAllPositions => {
-                self.close_all_positions().unwrap();
-                // Todo: ask strategy...
+                let _result = self.close_all_positions();
             }
             Command::CancelOrderById((instrument, id)) => {
-                self.cancel_order_by_key(instrument.clone(), id.clone()).unwrap();
-            }
-            Command::CancelOrderByCid((instrument, cid)) => {
-                self.cancel_order_by_key(instrument.clone(), cid.clone()).unwrap();
+                let _result = self.cancel_order_by_id(instrument.clone(), id.clone());
             }
             Command::CancelAllOrders => {
 

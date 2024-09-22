@@ -108,9 +108,8 @@ pub enum TimeInForce {
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
-pub struct RequestCancel<InstrumentKey, OrderKey> {
-    pub instrument: InstrumentKey,
-    pub order: OrderKey,
+pub struct RequestCancel {
+    pub id: OrderId,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
