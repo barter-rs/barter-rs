@@ -1,7 +1,7 @@
 use crate::v2::channel::Tx;
 use crate::v2::engine::audit::{Audit, AuditKind, Auditor, ProcessAudit, TerminationAudit};
 use crate::v2::engine::error::ExecutionRxDropped;
-use crate::v2::engine::state::EngineState;
+use crate::v2::engine::state::{EngineState, TradingState};
 use crate::v2::engine::{Engine, Processor};
 use crate::v2::execution::ExecutionRequest;
 use crate::v2::risk::RiskManager;
@@ -29,11 +29,14 @@ pub mod trade;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
 pub enum EngineEvent<AssetKey, InstrumentKey> {
-    Terminate,
+    Terminate, // Todo: maybe Shutdown to match user injected fn on_shutdown
     Command(Command<InstrumentKey>),
     Account(AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>),
     Market(MarketEvent<InstrumentKey>),
+    TradingStateUpdate(TradingState),
 }
+
+
 
 #[derive(
     Debug,
@@ -116,80 +119,8 @@ pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, In
         engine.send_audit(audit_tx, audit);
     };
 
+    // Todo: add results of shutdown tasks into TerminationAudit
     engine.send_audit(audit_tx, termination_audit);
 
     // Todo: shutdown operations, ideally by user input w/ on_error, etc. (use "RunBuilder"?)
 }
-
-impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-    Processor<&Command<InstrumentKey>>
-    for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-where
-    ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
-    State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
-    StrategyT: Strategy<State, InstrumentKey>,
-    Risk: RiskManager<State, InstrumentKey>,
-    InstrumentKey: Clone,
-{
-    type Output = Result<ProcessAudit<EngineEvent<AssetKey, InstrumentKey>>, ExecutionRxDropped>;
-
-    fn process(&mut self, event: &Command<InstrumentKey>) -> Self::Output {
-        match event {
-            Command::EnableTrading => {
-                todo!()
-            }
-            Command::DisableTrading => {
-                todo!()
-            }
-            Command::Execute(request) => {
-                // Todo: ack requests, etc.
-                //   Maybe custom error _struct_ for ExecutionTx<Error>? can react accordingly
-                //    '--> make sure I still send an Audit to AuditSnapshot can still update state
-                self.execution_tx.send(request.clone())?;
-            }
-            Command::ClosePosition(instrument) => {
-                let _result = self.close_position(instrument);
-            }
-            Command::CloseAllPositions => {
-                let _result = self.close_all_positions();
-            }
-            Command::CancelOrderById((instrument, id)) => {
-                let _result = self.cancel_order_by_id(instrument.clone(), id.clone());
-            }
-            Command::CancelAllOrders => {
-                let _result = self.cancel_all_orders();
-            }
-        }
-
-        todo!()
-    }
-}
-
-// impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Error> Processor<AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
-// for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-// where
-//     State: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
-// {
-//     // type Audit = AuditEvent<AuditEventKind<State, AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>, InstrumentKey, Error>>;
-//     type Output = ();
-//
-//     fn process(&mut self, event: AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>) -> Self::Output {
-//         let output = self.state.process(&event);
-//         // Todo: this may be able to be removed, since so far we are only updating state...
-//         todo!()
-//     }
-// }
-//
-// impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Error> Processor<MarketEvent<InstrumentKey>>
-// for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-// where
-//     State: for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
-// {
-//     // type Audit = AuditEvent<AuditEventKind<State, MarketEvent<InstrumentKey>, InstrumentKey, Error>>;
-//     type Output = ();
-//
-//     fn process(&mut self, event: MarketEvent<InstrumentKey>) -> Self::Output {
-//         let output = self.state.process(&event);
-//         todo!()
-//     }
-// }

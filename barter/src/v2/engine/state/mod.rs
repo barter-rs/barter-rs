@@ -19,7 +19,8 @@ pub mod balance;
 pub mod instrument;
 
 pub trait EngineState<AssetKey, InstrumentKey, StrategyState, RiskState> {
-    fn trading_enabled(&self) -> bool;
+    fn trading_state(&self) -> TradingState;
+    fn trading_state_mut(&mut self) -> &mut TradingState;
     fn market_data(&self) -> &impl MarketDataManager<InstrumentKey>;
     fn market_data_mut(&mut self) -> &mut impl MarketDataManager<InstrumentKey>;
     fn balances(&self) -> &impl BalanceManager<AssetKey>;
@@ -34,13 +35,30 @@ pub trait EngineState<AssetKey, InstrumentKey, StrategyState, RiskState> {
     fn risk_mut(&mut self) -> &mut RiskState;
 }
 
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Deserialize,
+    Serialize,
+)]
+pub enum TradingState {
+    Enabled,
+    Disabled,
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
 where
     AssetKey: Eq,
     InstrumentKey: Eq,
 {
-    pub trading_on: bool,
+    pub trading: TradingState,
     pub balances: Balances<AssetKey>,
     pub instruments: Instruments<InstrumentKey>,
     pub strategy: StrategyState,
@@ -54,8 +72,12 @@ where
     AssetKey: Debug + Eq,
     InstrumentKey: Debug + Eq + Clone,
 {
-    fn trading_enabled(&self) -> bool {
-        self.trading_on
+    fn trading_state(&self) -> TradingState {
+        self.trading
+    }
+
+    fn trading_state_mut(&mut self) -> &mut TradingState {
+        &mut self.trading
     }
 
     fn market_data(&self) -> &impl MarketDataManager<InstrumentKey> {
@@ -104,6 +126,41 @@ where
 
     fn risk_mut(&mut self) -> &mut RiskState {
         &mut self.risk
+    }
+}
+
+impl<AssetKey, InstrumentKey, StrategyState, RiskState> Processor<TradingState>
+for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
+where
+    AssetKey: Debug + Eq,
+    InstrumentKey: Debug + Clone + Eq,
+{
+    type Output = ();
+
+    fn process(
+        &mut self,
+        event: TradingState,
+    ) -> Self::Output {
+        let next = match (self.trading, event) {
+            (TradingState::Enabled, TradingState::Disabled) => {
+                info!("Engine disabled trading");
+                TradingState::Disabled
+            }
+            (TradingState::Disabled, TradingState::Enabled) => {
+                info!("Engine enabled trading");
+                TradingState::Enabled
+            }
+            (TradingState::Enabled, TradingState::Enabled) => {
+                info!("Engine enabled trading, although it was already enabled");
+                TradingState::Enabled
+            }
+            (TradingState::Disabled, TradingState::Disabled) => {
+                info!("Engine disabled trading, although it was already disabled");
+                TradingState::Disabled
+            }
+        };
+
+        *self.trading_state_mut() = next;
     }
 }
 
@@ -157,24 +214,6 @@ where
     AssetKey: Debug + Eq,
     InstrumentKey: Debug + Clone + Eq,
 {
-    pub fn update_from_command_enable_trading(&mut self) {
-        if self.trading_on {
-            info!("Engine enabled trading, although it was already enabled");
-        } else {
-            self.trading_on = true;
-            info!("Engine enabled trading");
-        }
-    }
-
-    pub fn update_from_command_disable_trading(&mut self) {
-        if self.trading_on {
-            self.trading_on = false;
-            info!("Engine disabled trading");
-        } else {
-            info!("Engine disabled trading, although it was already disabled");
-        }
-    }
-
     pub fn update_from_account(
         &mut self,
         event: &AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>,

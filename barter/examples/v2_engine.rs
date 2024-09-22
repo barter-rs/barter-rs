@@ -19,8 +19,7 @@ use barter::v2::{
     },
     position::{PortfolioId, Position},
     risk::default::{DefaultRiskManager, DefaultRiskManagerState},
-    strategy::{DefaultStrategy, DefaultStrategyState},
-    EngineEvent, StateUpdater,
+    EngineEvent,
 };
 use barter_data::{
     event::MarketEvent,
@@ -34,6 +33,9 @@ use futures::{try_join, Stream, StreamExt};
 use std::marker::PhantomData;
 use std::time::Duration;
 use tracing::info;
+use barter::v2::engine::audit::{ProcessAudit, ProcessWithTradingAudit};
+use barter::v2::engine::Processor;
+use barter::v2::strategy::default::DefaultStrategyState;
 
 #[tokio::main]
 async fn main() {
@@ -100,18 +102,35 @@ async fn main() {
     join_set.spawn({
         let mut audit_stream = audit_rx.into_stream();
         let mut state = state.clone();
+        let mut engine_running = false;
 
         async move {
             while let Some(audit) = audit_stream.next().await {
                 // Todo: validate sequence
 
+
                 match audit.kind {
                     AuditKind::Snapshot(snapshot) => {
                         let _ = std::mem::replace(&mut state, snapshot);
+                        info!("Engine sent EngineState snapshot");
                     }
-                    AuditKind::Update { event } => {
-                        info!(?event, "Engine received event");
+
+                    // Todo: perhaps AuditKind::ProcessCommand, ProcessAccount, etc
+                    AuditKind::Process(ProcessAudit { event, kind }) => {
+                        info!(?event, "Engine processed event");
+
+                        match event {
+                            EngineEvent::Command(Command::EnableTrading) => {
+
+                            },
+
+                            EngineEvent::Terminate => {},
+                        }
+                        // state.process(event)
                         state.try_update(&event).unwrap();
+                    }
+                    AuditKind::ProcessWithTrading(ProcessWithTradingAudit { event, kind, requests }) => {
+
                     }
                     AuditKind::UpdateWithRequests { event, requests } => {
                         info!(?event, "Engine received event");

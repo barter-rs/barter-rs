@@ -9,6 +9,10 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::warn;
 
+// Todo: may want to move this outside of mod engine, perhaps with all the most general types
+pub mod manager;
+
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct Audit<Kind> {
     pub id: u64,
@@ -22,21 +26,6 @@ pub enum AuditKind<State, Event, InstrumentKey, Error> {
     Process(ProcessAudit<Event>),
     ProcessWithTrading(ProcessWithTradingAudit<Event, InstrumentKey>),
     Termination(TerminationAudit<Event, Error>),
-    // Update {
-    //     event: Event,
-    // },
-    // UpdateWithRequests {
-    //     event: Event,
-    //     requests: AuditEventKindRequests<InstrumentKey>,
-    // },
-    // Error {
-    //     event: Event,
-    //     error: Error,
-    // },
-    // Terminate {
-    //     event: Event,
-    //     error: Option<Error>,
-    // }
 }
 
 impl<State, Event, InstrumentKey, Error> AuditKind<State, Event, InstrumentKey, Error> {
@@ -56,6 +45,7 @@ pub enum ProcessAuditKind {
     Command(ProcessCommandAudit),
     Account,
     Market,
+    TradingState,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
