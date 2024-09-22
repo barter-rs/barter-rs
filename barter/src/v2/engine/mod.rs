@@ -104,7 +104,6 @@ where
                     .map(|_| cancel)
             })
             .partition_result();
-
         let (open_oks, open_errs): (Vec<_>, Vec<_>) = opens
             .into_iter()
             .map(|RiskApproved(open)| {
@@ -135,8 +134,8 @@ where
         Ok(AuditEventKindRequests {
             cancels: cancel_oks,
             opens: open_oks,
-            refused_cancels: refused_cancels.into_iter().collect::<Vec<_>>(),
-            refused_opens: refused_opens.into_iter().collect::<Vec<_>>(),
+            refused_cancels,
+            refused_opens,
         })
     }
 
@@ -216,7 +215,7 @@ where
 impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
     Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 {
-    pub fn audit<AuditKind>(&mut self, kind: AuditKind) -> AuditEvent<AuditKind> {
+    pub fn build_audit<AuditKind>(&mut self, kind: AuditKind) -> AuditEvent<AuditKind> {
         AuditEvent {
             id: self.sequence_fetch_add(),
             time: (self.time)(),
@@ -228,16 +227,5 @@ impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
         let sequence = self.sequence;
         self.sequence += 1;
         sequence
-    }
-
-    pub fn send_execution_request_old<Request, Error>(
-        &mut self,
-        request: Request,
-    ) -> Result<(), Error>
-    where
-        ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
-        Request: Into<ExecutionRequest<InstrumentKey>>,
-    {
-        self.execution_tx.send(request.into())
     }
 }

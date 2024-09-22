@@ -58,25 +58,26 @@ impl<T> Snapshot<T> {
     }
 }
 
-// Todo: Add user functionality such as on_error, etc inside Engine via Builder or Runner
+// Todo: Add user functionality such as on_error, etc inside "default" Engine via Builder or Runner
 pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>(
     feed: &mut EventFeed,
     auditor: &mut Auditor<AuditTx>,
     engine: &mut Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>,
 ) where
     EventFeed: Iterator<Item = EngineEvent<AssetKey, InstrumentKey>>,
-    AuditTx: Tx<
-        Item = AuditEvent<
-            AuditEventKind<State, EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, EngineError>,
-        >,
-    >,
+    AuditTx: Tx<Item = AuditEvent<AuditEventKind<State, EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, EngineError>>>,
+    ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>>,
+    State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
+    StrategyT: Strategy<State, InstrumentKey>,
+    Risk: RiskManager<State, InstrumentKey>,
+    InstrumentKey: Clone,
     Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>:
         for<'a> Processor<&'a Command<InstrumentKey>>,
     for<'a> State: Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
         + Processor<&'a MarketEvent<InstrumentKey>>
         + Clone,
 {
-    let snapshot = engine.audit(AuditEventKind::Snapshot(engine.state.clone()));
+    let snapshot = engine.build_audit(AuditEventKind::Snapshot(engine.state.clone()));
     auditor.send(snapshot);
 
     for event in feed {
@@ -94,18 +95,21 @@ pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, In
                 engine.state.process(&market); // AuditEventKind::Update?
             }
         };
+
+        engine.trade();
+
+        // Todo: generate orders...!
     }
     // Todo: shutdown operations, etc.
 }
 
-impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Error>
-    Processor<&Command<InstrumentKey>>
-    for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey, Error> Processor<&Command<InstrumentKey>>
+for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
-    State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
-    StrategyT: for<'a> Strategy<State, InstrumentKey>,
-    Risk: for<'a> RiskManager<State, InstrumentKey>,
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = Error>,
+    State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
+    StrategyT: Strategy<State, InstrumentKey>,
+    Risk: RiskManager<State, InstrumentKey>,
     InstrumentKey: Clone,
 {
     type Output = AuditEventKind<State, Command<InstrumentKey>, InstrumentKey, Error>;

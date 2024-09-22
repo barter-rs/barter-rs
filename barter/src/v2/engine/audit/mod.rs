@@ -16,6 +16,13 @@ pub struct AuditEvent<Kind> {
     pub kind: Kind,
 }
 
+pub enum ConcreteAuditEventKind<State> {
+    Snapshot(State),
+
+}
+
+// pub struct AuditEventKind
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum AuditEventKind<State, Event, InstrumentKey, Error> {
     Snapshot(State),
