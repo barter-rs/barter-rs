@@ -11,8 +11,6 @@ where
     fn send(&self, item: Self::Item) -> Result<(), Self::Error>;
 }
 
-pub struct RxDropped(pub &'static str);
-
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, Display)]
 pub enum ChannelState<Tx> {
     Active(Tx),

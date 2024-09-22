@@ -1,7 +1,6 @@
 use crate::v2::engine::Processor;
 use crate::v2::{
     engine::{
-        error::EngineError,
         state::{
             balance::{BalanceManager, Balances},
             instrument::{Instruments, MarketDataManager, OrderManager, PositionManager},
@@ -17,7 +16,6 @@ use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::{debug, info, warn};
-use crate::v2::engine::audit::{ProcessAccountAudit, ProcessAccountEngineAudit, ProcessAudit, ProcessMarketAudit, ProcessMarketEngineAudit};
 
 pub mod balance;
 pub mod instrument;
@@ -120,24 +118,18 @@ where
     StrategyState: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>,
     RiskState: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>,
 {
-    type Output = ProcessAudit;
+    type Output = ();
 
     fn process(
         &mut self,
         event: &AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>,
     ) -> Self::Output {
         info!(account = ?event, "updating EngineState, RiskState, StrategyState from AccountEvent");
-        let engine = self.update_from_account(event);
+        self.update_from_account(event);
 
         // Update any user provided Strategy & Risk State
-        let strategy = self.strategy.process(event);
-        let risk = self.risk.process(event);
-
-        ProcessAudit::Account(ProcessAccountAudit {
-            engine,
-            strategy,
-            risk,
-        })
+        self.strategy.process(event);
+        self.risk.process(event);
     }
 }
 
@@ -149,21 +141,15 @@ where
     StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
     RiskState: for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
 {
-    type Output = ProcessAudit;
+    type Output = ();
 
     fn process(&mut self, event: &MarketEvent<InstrumentKey>) -> Self::Output {
         debug!(market = ?event, "updating EngineState, RiskState, StrategyState from MarketEvent");
-        let engine = self.update_from_market(event);
+        self.update_from_market(event);
 
         // Update any user provided Strategy & Risk State
-        let strategy = self.strategy.process(event);
-        let risk = self.risk.process(event);
-
-        ProcessAudit::Market(ProcessMarketAudit {
-            engine,
-            strategy,
-            risk,
-        })
+        self.strategy.process(event);
+        self.risk.process(event);
     }
 }
 
@@ -194,7 +180,7 @@ where
     pub fn update_from_account(
         &mut self,
         event: &AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>,
-    ) -> ProcessAccountEngineAudit {
+    ) {
         let AccountEvent { exchange, kind } = event;
         match kind {
             AccountEventKind::Snapshot(account) => {
@@ -223,8 +209,6 @@ where
                 warn!(%error, "Engine aware of Account ConnectivityError");
             }
         }
-
-        ProcessAccountEngineAudit
     }
 
     /// Replace all [`Self`] state with the [`AccountSnapshot`].
@@ -271,8 +255,7 @@ where
         }
     }
 
-    pub fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey>) -> ProcessMarketEngineAudit {
+    pub fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey>) {
         self.instruments.update_from_market(event);
-        ProcessMarketEngineAudit
     }
 }

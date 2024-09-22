@@ -29,6 +29,7 @@ pub enum EngineError {
     Execution(#[from] ExecutionError),
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct ExecutionRxDropped;
 
 impl EngineError {

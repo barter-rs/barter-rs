@@ -1,4 +1,3 @@
-use crate::v2::engine::Processor;
 use crate::v2::order::{Order, RequestCancel, RequestOpen};
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};

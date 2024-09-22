@@ -16,67 +16,47 @@ pub struct AuditEvent<Kind> {
     pub kind: Kind,
 }
 
-pub enum AuditEventKind<State> {
-    Snapshot(State),
-
-
-
-}
-
-pub enum ConcreteAuditEventKind<State> {
-    Snapshot(State),
-    Process(ProcessAudit),
-    GeneratedRequests,
-    Error,
-}
-
-
-
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum ProcessAudit {
     Command(ProcessCommandAudit),
-    Account(ProcessAccountAudit),
-    Market(ProcessMarketAudit),
+    Account,
+    Market
 }
 
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct ProcessCommandAudit;
-pub struct ProcessAccountAudit {
-    pub engine: ProcessAccountEngineAudit,
-    pub risk: ProcessAccountRiskAudit,
-    pub strategy: ProcessAccountStrategyAudit,
-}
-
-pub struct ProcessAccountEngineAudit;
-pub struct ProcessAccountRiskAudit;
-pub struct ProcessAccountStrategyAudit;
-
-pub struct ProcessMarketAudit {
-    pub engine: ProcessMarketEngineAudit,
-    pub risk: ProcessMarketRiskAudit,
-    pub strategy: ProcessMarketStrategyAudit,
-}
-
-pub struct ProcessMarketEngineAudit;
-pub struct ProcessMarketRiskAudit;
-pub struct ProcessMarketStrategyAudit;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub enum AuditEventKindOld<State, Event, InstrumentKey, Error> {
+pub enum AuditEventKind<State, Event, InstrumentKey, Error> {
     Snapshot(State),
-    Update {
+    Process {
         event: Event,
+        audit: ProcessAudit,
     },
-    UpdateWithRequests {
+    ProcessWithTrading {
         event: Event,
-        requests: AuditEventKindRequests<InstrumentKey>,
+        audit: ProcessAudit,
+        requests: GeneratedRequestsAudit<InstrumentKey>,
     },
-    Error {
+    // Update {
+    //     event: Event,
+    // },
+    // UpdateWithRequests {
+    //     event: Event,
+    //     requests: AuditEventKindRequests<InstrumentKey>,
+    // },
+    // Error {
+    //     event: Event,
+    //     error: Error,
+    // },
+    Terminate {
         event: Event,
-        error: Error,
-    },
+        error: Option<Error>,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct AuditEventKindRequests<InstrumentKey> {
+pub struct GeneratedRequestsAudit<InstrumentKey> {
     pub cancels: Vec<Order<InstrumentKey, RequestCancel>>,
     pub opens: Vec<Order<InstrumentKey, RequestOpen>>,
     pub refused_cancels: Vec<RiskRefused<Order<InstrumentKey, RequestCancel>>>,

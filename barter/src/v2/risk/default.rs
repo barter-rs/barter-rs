@@ -21,7 +21,6 @@ where
     AssetKey: Eq,
     InstrumentKey: Eq,
 {
-    type Event = EngineEvent<AssetKey, InstrumentKey>;
     type State = DefaultRiskManagerState;
 
     fn check(
