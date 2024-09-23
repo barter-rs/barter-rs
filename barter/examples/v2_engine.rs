@@ -33,10 +33,10 @@ use futures::{try_join, Stream, StreamExt};
 use std::marker::PhantomData;
 use std::time::Duration;
 use tracing::info;
-use barter::v2::engine::audit::{ProcessAudit, ProcessWithTradingAudit};
+use barter::v2::engine::audit::manager::run;
 use barter::v2::engine::Processor;
 use barter::v2::engine::state::TradingState;
-use barter::v2::strategy::default::DefaultStrategyState;
+use barter::v2::strategy::default::{DefaultStrategy, DefaultStrategyState};
 
 #[tokio::main]
 async fn main() {
@@ -101,66 +101,10 @@ async fn main() {
 
     // // Spawn task to consume & log AuditEvents
     join_set.spawn({
-        let mut audit_stream = audit_rx.into_stream();
-        let mut state = state.clone();
-        let mut engine_running = false;
-
-        async move {
-            while let Some(audit) = audit_stream.next().await {
-                // Todo: validate sequence
-
-
-                match audit.kind {
-                    AuditKind::Snapshot(snapshot) => {
-                        let _ = std::mem::replace(&mut state, snapshot);
-                        info!("Engine sent EngineState snapshot");
-                    }
-
-                    // Todo: perhaps AuditKind::ProcessCommand, ProcessAccount, etc
-                    AuditKind::Process(ProcessAudit { event, kind }) => {
-                        info!(?event, "Engine processed event");
-
-                        match event {
-                            EngineEvent::Command(Command::EnableTrading) => {
-
-                            },
-
-                            EngineEvent::Shutdown => {}
-                        }
-                        // state.process(event)
-                        state.try_update(&event).unwrap();
-                    }
-                    AuditKind::ProcessWithTrading(ProcessWithTradingAudit { event, kind, requests }) => {
-
-                    }
-                    AuditKind::UpdateWithRequests { event, requests } => {
-                        info!(?event, "Engine received event");
-                        state.try_update(&event).unwrap();
-
-                        if !requests.cancels.is_empty() {
-                            info!(?requests.cancels, "Engine generated risk approved cancel requests")
-                        }
-                        if !requests.opens.is_empty() {
-                            info!(?requests.opens, "Engine generated risk approved open requests")
-                        }
-                        if !requests.refused_cancels.is_empty() {
-                            info!(
-                                ?requests.refused_cancels,
-                                "Engine RiskManager refused cancel requests"
-                            )
-                        }
-                        if !requests.refused_opens.is_empty() {
-                            info!(?requests.refused_opens, "Engine RiskManager refused open requests")
-                        }
-                    }
-                    AuditKind::Error { event, error } => {
-                        info!(?event, "Engine received event");
-                        state.try_update(&event).unwrap();
-                        todo!()
-                    }
-                }
-            }
-        }
+        run(
+            state.clone(),
+            audit_rx.into_stream()
+        )
     });
 
     let mut engine = Engine {

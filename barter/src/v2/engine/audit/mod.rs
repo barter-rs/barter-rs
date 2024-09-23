@@ -4,51 +4,13 @@ use crate::v2::{
     risk::RiskRefused,
 };
 use chrono::{DateTime, Utc};
-use derive_more::{Constructor, From};
+use derive_more::{Constructor};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::warn;
 
 // Todo: may want to move this outside of mod engine, perhaps with all the most general types
 pub mod manager;
-
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct Audit<Kind> {
-    pub id: u64,
-    pub time: DateTime<Utc>,
-    pub kind: Kind,
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub enum AuditKind<State, Event, InstrumentKey, Error> {
-    Snapshot(State),
-    Process(Event),
-    ProcessWithGeneratedRequests(Event, GeneratedRequestsAudit<InstrumentKey>),
-    Shutdown(ShutdownAudit<Event, Error>),
-}
-
-impl<State, Event, InstrumentKey, Error> AuditKind<State, Event, InstrumentKey, Error> {
-    pub fn is_termination(&self) -> bool {
-        matches!(self, Self::Shutdown(_))
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub enum ShutdownAudit<Event, Error> {
-    FeedEnded,
-    ExecutionEnded,
-    AfterEvent(Event),
-    WithError(Event, Error),
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct GeneratedRequestsAudit<InstrumentKey> {
-    pub cancels: Vec<Order<InstrumentKey, RequestCancel>>,
-    pub opens: Vec<Order<InstrumentKey, RequestOpen>>,
-    pub refused_cancels: Vec<RiskRefused<Order<InstrumentKey, RequestCancel>>>,
-    pub refused_opens: Vec<RiskRefused<Order<InstrumentKey, RequestOpen>>>,
-}
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Auditor<AuditTx> {
@@ -75,4 +37,35 @@ where
             self.state = ChannelState::Disabled
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
+pub struct Audit<Kind> {
+    pub id: u64,
+    pub time: DateTime<Utc>,
+    pub kind: Kind,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub enum AuditKind<State, Event, InstrumentKey, Error> {
+    Snapshot(State),
+    Process(Event),
+    ProcessWithGeneratedRequests(Event, GeneratedRequestsAudit<InstrumentKey>),
+    Shutdown(ShutdownAudit<Event, Error>),
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct GeneratedRequestsAudit<InstrumentKey> {
+    pub cancels: Vec<Order<InstrumentKey, RequestCancel>>,
+    pub opens: Vec<Order<InstrumentKey, RequestOpen>>,
+    pub refused_cancels: Vec<RiskRefused<Order<InstrumentKey, RequestCancel>>>,
+    pub refused_opens: Vec<RiskRefused<Order<InstrumentKey, RequestOpen>>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub enum ShutdownAudit<Event, Error> {
+    FeedEnded,
+    ExecutionEnded,
+    AfterEvent(Event),
+    WithError(Event, Error),
 }

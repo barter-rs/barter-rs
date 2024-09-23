@@ -83,9 +83,9 @@ pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, In
     Risk: RiskManager<State, InstrumentKey>,
     InstrumentKey: Clone,
     Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>: for<'a> Processor<&'a Command<InstrumentKey>, Output = Result<(), ExecutionRxDropped>>,
-    for<'a> State: Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
+    for<'a> State: Processor<TradingState>
+        + Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
         + Processor<&'a MarketEvent<InstrumentKey>>
-        + Processor<TradingState>
         + Clone,
 {
     // Send initial EngineState snapshot
