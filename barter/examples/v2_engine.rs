@@ -35,6 +35,7 @@ use std::time::Duration;
 use tracing::info;
 use barter::v2::engine::audit::{ProcessAudit, ProcessWithTradingAudit};
 use barter::v2::engine::Processor;
+use barter::v2::engine::state::TradingState;
 use barter::v2::strategy::default::DefaultStrategyState;
 
 #[tokio::main]
@@ -83,7 +84,7 @@ async fn main() {
 
     // Construct EngineState
     let state = DefaultEngineState {
-        trading_on: false,
+        trading: TradingState::Disabled,
         balances: Balances::default(),
         instruments: instruments
             .into_iter()
@@ -124,7 +125,7 @@ async fn main() {
 
                             },
 
-                            EngineEvent::Terminate => {},
+                            EngineEvent::Shutdown => {}
                         }
                         // state.process(event)
                         state.try_update(&event).unwrap();

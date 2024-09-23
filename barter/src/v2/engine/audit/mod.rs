@@ -23,43 +23,19 @@ pub struct Audit<Kind> {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum AuditKind<State, Event, InstrumentKey, Error> {
     Snapshot(State),
-    Process(ProcessAudit<Event>),
-    ProcessWithTrading(ProcessWithTradingAudit<Event, InstrumentKey>),
-    Termination(TerminationAudit<Event, Error>),
+    Process(Event),
+    ProcessWithGeneratedRequests(Event, GeneratedRequestsAudit<InstrumentKey>),
+    Shutdown(ShutdownAudit<Event, Error>),
 }
 
 impl<State, Event, InstrumentKey, Error> AuditKind<State, Event, InstrumentKey, Error> {
     pub fn is_termination(&self) -> bool {
-        matches!(self, Self::Termination(_))
+        matches!(self, Self::Shutdown(_))
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct ProcessAudit<Event, Kind = ProcessAuditKind> {
-    pub event: Event,
-    pub kind: Kind,
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
-pub enum ProcessAuditKind {
-    Command(ProcessCommandAudit),
-    Account,
-    Market,
-    TradingState,
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct ProcessWithTradingAudit<Event, InstrumentKey, Kind = ProcessAuditKind> {
-    pub event: Event,
-    pub kind: Kind,
-    pub requests: GeneratedRequestsAudit<InstrumentKey>,
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct ProcessCommandAudit;
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub enum TerminationAudit<Event, Error> {
+pub enum ShutdownAudit<Event, Error> {
     FeedEnded,
     ExecutionEnded,
     AfterEvent(Event),

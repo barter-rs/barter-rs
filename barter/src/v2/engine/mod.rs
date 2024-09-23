@@ -1,10 +1,8 @@
 use crate::v2::engine::audit::{
-    AuditKind, Auditor, GeneratedRequestsAudit, ProcessAudit, ProcessWithTradingAudit,
-    TerminationAudit,
+    AuditKind, Auditor, GeneratedRequestsAudit,
 };
 use crate::v2::engine::command::Command;
 use crate::v2::engine::error::ExecutionRxDropped;
-use crate::v2::execution::{AccountEvent, AccountEventKind};
 use crate::v2::order::{Order, OrderId, RequestOpen};
 use crate::v2::{
     channel::Tx,
@@ -15,15 +13,12 @@ use crate::v2::{
     execution::ExecutionRequest,
     risk::{RiskApproved, RiskManager},
     strategy::Strategy,
-    EngineEvent,
 };
-use barter_data::event::MarketEvent;
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use itertools::Itertools;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use crate::v2::engine::state::TradingState;
 
 pub mod audit;
 pub mod command;
@@ -77,63 +72,6 @@ pub struct Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> 
 }
 
 impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-    Processor<EngineEvent<AssetKey, InstrumentKey>>
-    for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-where
-    Self: for<'a> Processor<
-        &'a Command<InstrumentKey>,
-        Output = Result<ProcessAudit<EngineEvent<AssetKey, InstrumentKey>>, ExecutionRxDropped>,
-    >,
-    ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
-    for<'a> State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State> + Processor<
-        &'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>,
-        Output = ProcessAudit<EngineEvent<AssetKey, InstrumentKey>>,
-    > + Processor<
-        &'a MarketEvent<InstrumentKey>,
-        Output = ProcessAudit<EngineEvent<AssetKey, InstrumentKey>>,
-    > + Processor<TradingState, Output = ProcessAudit<EngineEvent<AssetKey, InstrumentKey>>>
-    + Clone,
-    StrategyT: Strategy<State, InstrumentKey>,
-    Risk: RiskManager<State, InstrumentKey>,
-    InstrumentKey: Clone,
-    for<'a> State: ,
-{
-    type Output =
-        AuditKind<State, EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, ExecutionRxDropped>;
-
-    fn process(&mut self, event: EngineEvent<AssetKey, InstrumentKey>) -> Self::Output {
-        let process_audit = match &event {
-            EngineEvent::Terminate => {
-                return AuditKind::Termination(TerminationAudit::AfterEvent(event));
-            }
-            EngineEvent::Command(command) => {
-                let Ok(audit) = self.process(command) else {
-                    return AuditKind::Termination(TerminationAudit::ExecutionEnded);
-                };
-                audit
-            }
-            EngineEvent::Account(account) => self.state.process(account),
-            EngineEvent::Market(market) => self.state.process(market),
-            EngineEvent::TradingStateUpdate(trading_state) => self.state.process(*trading_state),
-        };
-
-        if let TradingState::Enabled = self.state.trading_state() {
-            if let Ok(requests_audit) = self.trade() {
-                AuditKind::ProcessWithTrading(ProcessWithTradingAudit {
-                    event,
-                    kind: process_audit.kind,
-                    requests: requests_audit,
-                })
-            } else {
-                AuditKind::Termination(TerminationAudit::ExecutionEnded)
-            }
-        } else {
-            AuditKind::Process(process_audit)
-        }
-    }
-}
-
-impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 Processor<&Command<InstrumentKey>>
 for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
@@ -143,14 +81,12 @@ where
     Risk: RiskManager<State, InstrumentKey>,
     InstrumentKey: Clone,
 {
-    type Output = Result<ProcessAudit<EngineEvent<AssetKey, InstrumentKey>>, ExecutionRxDropped>;
+    type Output = Result<(), ExecutionRxDropped>;
 
     fn process(&mut self, event: &Command<InstrumentKey>) -> Self::Output {
         match event {
             Command::Execute(request) => {
                 // Todo: ack requests, etc.
-                //   Maybe custom error _struct_ for ExecutionTx<Error>? can react accordingly
-                //    '--> make sure I still send an Audit to AuditSnapshot can still update state
                 self.execution_tx.send(request.clone())?;
             }
             Command::ClosePosition(instrument) => {
