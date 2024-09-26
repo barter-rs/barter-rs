@@ -10,16 +10,16 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub struct BybitSpotBookUpdater(BybitBookUpdater);
+pub struct BybitPerpetualsBookUpdater(BybitBookUpdater);
 
-impl BybitSpotBookUpdater {
+impl BybitPerpetualsBookUpdater {
     pub fn new(last_update_id: u64, last_sequence: u64) -> Self {
         Self(BybitBookUpdater::new(last_update_id, last_sequence))
     }
 }
 
 #[async_trait]
-impl OrderBookUpdater for BybitSpotBookUpdater {
+impl OrderBookUpdater for BybitPerpetualsBookUpdater {
     type OrderBook = OrderBook;
     type Update = BybitOrderBookL2;
 

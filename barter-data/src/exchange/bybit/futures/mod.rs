@@ -1,5 +1,14 @@
-use super::{Bybit, ExchangeServer};
-use crate::exchange::ExchangeId;
+use self::l2::BybitPerpetualsBookUpdater;
+use super::Bybit;
+use crate::{
+    exchange::{ExchangeId, ExchangeServer, StreamSelector},
+    subscription::book::OrderBooksL2,
+    transformer::book::MultiBookTransformer,
+    ExchangeWsStream,
+};
+use barter_integration::model::instrument::Instrument;
+
+pub mod l2;
 
 /// [`BybitPerpetualsUsd`] WebSocket server base url.
 ///
@@ -19,4 +28,10 @@ impl ExchangeServer for BybitServerPerpetualsUsd {
     fn websocket_url() -> &'static str {
         WEBSOCKET_BASE_URL_BYBIT_PERPETUALS_USD
     }
+}
+
+impl StreamSelector<Instrument, OrderBooksL2> for BybitPerpetualsUsd {
+    type Stream = ExchangeWsStream<
+        MultiBookTransformer<Self, Instrument, OrderBooksL2, BybitPerpetualsBookUpdater>,
+    >;
 }
