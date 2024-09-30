@@ -59,9 +59,9 @@ pub trait Processor<Event> {
 }
 
 #[derive(Debug, Constructor)]
-pub struct Engine<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> {
+pub struct Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> {
     pub sequence: u64,
-    pub clock: Clock,
+    pub time: fn() -> DateTime<Utc>,
     pub execution_tx: ExecutionTx,
     pub state: State,
     pub strategy: StrategyT,
@@ -69,9 +69,9 @@ pub struct Engine<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, Instrume
     pub phantom: PhantomData<(AssetKey, InstrumentKey)>,
 }
 
-impl<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
     Processor<&Command<InstrumentKey>>
-    for Engine<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+    for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
     State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
@@ -105,8 +105,8 @@ where
     }
 }
 
-impl<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-    Engine<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
     State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
@@ -232,8 +232,8 @@ where
     }
 }
 
-impl<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-    Engine<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
     State: Clone,
 {
