@@ -27,7 +27,7 @@ pub trait BalanceManager<AssetKey> {
     );
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize, From, Constructor)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From, Constructor)]
 pub struct Balances<AssetKey: Eq>(pub VecMap<Exchange, VecMap<AssetKey, Balance>>);
 
 impl<AssetKey> BalanceManager<AssetKey> for Balances<AssetKey>
@@ -87,5 +87,11 @@ where
         };
 
         *asset_balance = *balance;
+    }
+}
+
+impl<AssetKey: Eq> Default for Balances<AssetKey> {
+    fn default() -> Self {
+        Self(VecMap::default())
     }
 }

@@ -1,10 +1,11 @@
 use crate::v2::engine::Processor;
+use crate::v2::execution::{AccountEvent, AccountEventKind};
 use crate::v2::{
-    engine::{error::EngineError, state::DefaultEngineState},
+    engine::state::DefaultEngineState,
     order::{Order, RequestCancel, RequestOpen},
     risk::{RiskApproved, RiskManager, RiskRefused},
-    EngineEvent,
 };
+use barter_data::event::MarketEvent;
 
 /// Example [`RiskManager`] implementation that approves all order requests.
 ///
@@ -46,12 +47,18 @@ where
 #[derive(Debug, Clone)]
 pub struct DefaultRiskManagerState;
 
-impl<AssetKey, InstrumentKey> Processor<&EngineEvent<AssetKey, InstrumentKey>>
+impl<AssetKey, InstrumentKey> Processor<&AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
     for DefaultRiskManagerState
 {
-    type Output = Result<(), EngineError>;
-
-    fn process(&mut self, _: &EngineEvent<AssetKey, InstrumentKey>) -> Self::Output {
-        Ok(())
+    type Output = ();
+    fn process(
+        &mut self,
+        _: &AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>,
+    ) -> Self::Output {
     }
+}
+
+impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey>> for DefaultRiskManagerState {
+    type Output = ();
+    fn process(&mut self, _: &MarketEvent<InstrumentKey>) -> Self::Output {}
 }

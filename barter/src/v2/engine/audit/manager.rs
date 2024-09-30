@@ -1,33 +1,39 @@
-use futures::{Stream, StreamExt};
-use tracing::{error, info, warn};
-use barter_data::event::MarketEvent;
 use crate::v2::engine::audit::{Audit, AuditKind, GeneratedRequestsAudit, ShutdownAudit};
-use crate::v2::engine::error::ExecutionRxDropped;
-use crate::v2::engine::Processor;
-use crate::v2::engine::state::{EngineState, TradingState};
+use crate::v2::engine::error::{EngineError, ExecutionRxDropped};
 use crate::v2::engine::state::instrument::OrderManager;
-use crate::v2::EngineEvent;
+use crate::v2::engine::state::{EngineState, TradingState};
+use crate::v2::engine::Processor;
 use crate::v2::execution::{AccountEvent, AccountEventKind};
 use crate::v2::order::{Order, RequestCancel, RequestOpen};
 use crate::v2::risk::RiskManager;
 use crate::v2::strategy::Strategy;
+use crate::v2::EngineEvent;
+use barter_data::event::MarketEvent;
+use futures::{Stream, StreamExt};
+use std::fmt::Debug;
+use tracing::{error, info, warn};
 
-pub struct AuditSnapshot {
-
-}
+// pub struct AuditSnapshot {
+//
+// }
 
 pub async fn run<State, AssetKey, InstrumentKey, StrategyT, Risk, Updates>(
     mut state: State,
     mut audit_stream: Updates,
-)
-where
+) where
     State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>
         + Processor<TradingState>
         + for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
         + for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
+    AssetKey: Debug,
+    InstrumentKey: Debug,
     StrategyT: Strategy<State, InstrumentKey>,
     Risk: RiskManager<State, InstrumentKey>,
-    Updates: Stream<Item = Audit<AuditKind<State, EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, ExecutionRxDropped>>> + Unpin
+    Updates: Stream<
+            Item = Audit<
+                AuditKind<State, EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, EngineError>,
+            >,
+        > + Unpin,
 {
     let mut sequence = u64::MIN;
     while let Some(audit) = audit_stream.next().await {
@@ -51,9 +57,7 @@ where
                 update_from_in_flight_cancel_requests(order_manager, &requests.cancels);
                 update_from_in_flight_open_requests(order_manager, &requests.opens);
             }
-            AuditKind::Shutdown(shutdown) => {
-                log_shutdown_audit(shutdown)
-            }
+            AuditKind::Shutdown(shutdown) => log_shutdown_audit(shutdown),
         }
     }
 }
@@ -61,12 +65,11 @@ where
 pub fn update_state<State, AssetKey, InstrumentKey, StrategyT, Risk>(
     state: &mut State,
     event: EngineEvent<AssetKey, InstrumentKey>,
-)
-where
+) where
     State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>
-    + Processor<TradingState>
-    + for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
-    + for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
+        + Processor<TradingState>
+        + for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
+        + for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
     StrategyT: Strategy<State, InstrumentKey>,
     Risk: RiskManager<State, InstrumentKey>,
 {
@@ -74,15 +77,15 @@ where
         EngineEvent::Shutdown => {
             // Todo: this will never hit, since it would be an AuditKind::Shutdown
             //  '--> shutdown back inside process(command)?
-        },
+        }
         EngineEvent::TradingStateUpdate(trading_state) => {
             state.process(trading_state);
         }
         EngineEvent::Account(account) => {
-            state.process(account);
+            state.process(&account);
         }
         EngineEvent::Market(market) => {
-            state.process(market);
+            state.process(&market);
         }
         EngineEvent::Command(command) => {}
     }
@@ -91,8 +94,7 @@ where
 pub fn update_from_in_flight_cancel_requests<InstrumentKey>(
     order_manager: &mut impl OrderManager<InstrumentKey>,
     cancels: &[Order<InstrumentKey, RequestCancel>],
-)
-{
+) {
     for request in cancels {
         order_manager.record_in_flight_cancel(request)
     }
@@ -101,8 +103,7 @@ pub fn update_from_in_flight_cancel_requests<InstrumentKey>(
 pub fn update_from_in_flight_open_requests<InstrumentKey>(
     order_manager: &mut impl OrderManager<InstrumentKey>,
     opens: &[Order<InstrumentKey, RequestOpen>],
-)
-{
+) {
     for request in opens {
         order_manager.record_in_flight_open(request)
     }
@@ -110,7 +111,9 @@ pub fn update_from_in_flight_open_requests<InstrumentKey>(
 
 pub fn log_engine_generated_requests<InstrumentKey>(
     requests: &GeneratedRequestsAudit<InstrumentKey>,
-) {
+) where
+    InstrumentKey: Debug,
+{
     if !requests.cancels.is_empty() {
         info!(?requests.cancels, "Engine generated risk approved cancel requests")
     }
@@ -125,7 +128,11 @@ pub fn log_engine_generated_requests<InstrumentKey>(
     }
 }
 
-pub fn log_shutdown_audit<Event, Error>(audit: ShutdownAudit<Event, Error>) {
+pub fn log_shutdown_audit<Event, Error>(audit: ShutdownAudit<Event, Error>)
+where
+    Event: Debug,
+    Error: Debug,
+{
     match audit {
         ShutdownAudit::FeedEnded => {
             info!("Engine shutdown to due input EventFeed ending");
@@ -137,7 +144,11 @@ pub fn log_shutdown_audit<Event, Error>(audit: ShutdownAudit<Event, Error>) {
             info!(?event, "Engine shutdown after processing event");
         }
         ShutdownAudit::WithError(event, error) => {
-            error!(?event, ?error, "Engine shutdown after processing event generated an error")
+            error!(
+                ?event,
+                ?error,
+                "Engine shutdown after processing event generated an error"
+            )
         }
     }
 }

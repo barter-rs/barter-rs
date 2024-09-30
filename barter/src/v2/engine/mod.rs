@@ -1,6 +1,4 @@
-use crate::v2::engine::audit::{
-    AuditKind, Auditor, GeneratedRequestsAudit,
-};
+use crate::v2::engine::audit::{AuditKind, Auditor, GeneratedRequestsAudit};
 use crate::v2::engine::command::Command;
 use crate::v2::engine::error::ExecutionRxDropped;
 use crate::v2::order::{Order, OrderId, RequestOpen};
@@ -72,8 +70,8 @@ pub struct Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> 
 }
 
 impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-Processor<&Command<InstrumentKey>>
-for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+    Processor<&Command<InstrumentKey>>
+    for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
     State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,

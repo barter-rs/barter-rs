@@ -35,18 +35,7 @@ pub trait EngineState<AssetKey, InstrumentKey, StrategyState, RiskState> {
     fn risk_mut(&mut self) -> &mut RiskState;
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    Deserialize,
-    Serialize,
-)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub enum TradingState {
     Enabled,
     Disabled,
@@ -130,17 +119,14 @@ where
 }
 
 impl<AssetKey, InstrumentKey, StrategyState, RiskState> Processor<TradingState>
-for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
+    for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
 where
     AssetKey: Debug + Eq,
     InstrumentKey: Debug + Clone + Eq,
 {
     type Output = ();
 
-    fn process(
-        &mut self,
-        event: TradingState,
-    ) -> Self::Output {
+    fn process(&mut self, event: TradingState) -> Self::Output {
         let next = match (self.trading, event) {
             (TradingState::Enabled, TradingState::Disabled) => {
                 info!("Engine disabled trading");

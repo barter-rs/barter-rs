@@ -44,6 +44,12 @@ impl<T> From<tokio::sync::mpsc::error::SendError<T>> for EngineError {
     }
 }
 
+impl<T> From<tokio::sync::mpsc::error::SendError<T>> for ExecutionRxDropped {
+    fn from(_: tokio::sync::mpsc::error::SendError<T>) -> Self {
+        Self
+    }
+}
+
 impl From<DataError> for EngineError {
     fn from(value: DataError) -> Self {
         Self::Data(value.to_string())

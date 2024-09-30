@@ -1,5 +1,8 @@
+use crate::v2::engine::Processor;
+use crate::v2::execution::{AccountEvent, AccountEventKind};
 use crate::v2::order::{Order, RequestCancel, RequestOpen};
 use crate::v2::strategy::Strategy;
+use barter_data::event::MarketEvent;
 
 #[derive(Debug, Clone)]
 pub struct DefaultStrategy;
@@ -37,6 +40,22 @@ impl<EngineState, InstrumentKey> Strategy<EngineState, InstrumentKey> for Defaul
 
 #[derive(Debug, Clone)]
 pub struct DefaultStrategyState;
+
+impl<AssetKey, InstrumentKey> Processor<&AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
+    for DefaultStrategyState
+{
+    type Output = ();
+    fn process(
+        &mut self,
+        _: &AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>,
+    ) -> Self::Output {
+    }
+}
+
+impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey>> for DefaultStrategyState {
+    type Output = ();
+    fn process(&mut self, _: &MarketEvent<InstrumentKey>) -> Self::Output {}
+}
 
 // impl Processor<&EngineEvent> for DefaultStrategyState {
 //     type Output = Result<(), EngineError>;

@@ -1,6 +1,6 @@
 use crate::v2::channel::Tx;
 use crate::v2::engine::audit::{Audit, AuditKind, Auditor, ShutdownAudit};
-use crate::v2::engine::error::ExecutionRxDropped;
+use crate::v2::engine::error::{EngineError, ExecutionRxDropped};
 use crate::v2::engine::state::{EngineState, TradingState};
 use crate::v2::engine::{Engine, Processor};
 use crate::v2::execution::ExecutionRequest;
@@ -36,8 +36,6 @@ pub enum EngineEvent<AssetKey, InstrumentKey> {
     Command(Command<InstrumentKey>),
 }
 
-
-
 #[derive(
     Debug,
     Clone,
@@ -69,12 +67,7 @@ pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, In
     EventFeed: Iterator<Item = EngineEvent<AssetKey, InstrumentKey>>,
     AuditTx: Tx<
         Item = Audit<
-            AuditKind<
-                State,
-                EngineEvent<AssetKey, InstrumentKey>,
-                InstrumentKey,
-                ExecutionRxDropped,
-            >,
+            AuditKind<State, EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, EngineError>,
         >,
     >,
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
@@ -82,7 +75,8 @@ pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, In
     StrategyT: Strategy<State, InstrumentKey>,
     Risk: RiskManager<State, InstrumentKey>,
     InstrumentKey: Clone,
-    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>: for<'a> Processor<&'a Command<InstrumentKey>, Output = Result<(), ExecutionRxDropped>>,
+    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>:
+        for<'a> Processor<&'a Command<InstrumentKey>, Output = Result<(), ExecutionRxDropped>>,
     for<'a> State: Processor<TradingState>
         + Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
         + Processor<&'a MarketEvent<InstrumentKey>>
@@ -93,13 +87,11 @@ pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, In
 
     let termination_audit = loop {
         let Some(event) = feed.next() else {
-            break AuditKind::Shutdown(ShutdownAudit::FeedEnded)
+            break AuditKind::Shutdown(ShutdownAudit::FeedEnded);
         };
 
         match &event {
-            EngineEvent::Shutdown => {
-                break AuditKind::Shutdown(ShutdownAudit::AfterEvent(event))
-            }
+            EngineEvent::Shutdown => break AuditKind::Shutdown(ShutdownAudit::AfterEvent(event)),
             EngineEvent::TradingStateUpdate(trading_state) => {
                 engine.state.process(*trading_state);
             }
@@ -111,14 +103,14 @@ pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, In
             }
             EngineEvent::Command(command) => {
                 if engine.process(command).is_err() {
-                    break AuditKind::Shutdown(ShutdownAudit::ExecutionEnded)
+                    break AuditKind::Shutdown(ShutdownAudit::ExecutionEnded);
                 }
             }
         }
 
         let audit_kind = if let TradingState::Enabled = engine.state.trading_state() {
             let Ok(generated_requests_audit) = engine.trade() else {
-                break AuditKind::Shutdown(ShutdownAudit::ExecutionEnded)
+                break AuditKind::Shutdown(ShutdownAudit::ExecutionEnded);
             };
             AuditKind::ProcessWithGeneratedRequests(event, generated_requests_audit)
         } else {

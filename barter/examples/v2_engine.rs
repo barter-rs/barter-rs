@@ -1,4 +1,7 @@
-use barter::v2::engine::command::Command;
+use barter::v2::engine::error::ExecutionRxDropped;
+use barter::v2::engine::state::TradingState;
+use barter::v2::instrument::asset::AssetId;
+use barter::v2::strategy::default::{DefaultStrategy, DefaultStrategyState};
 use barter::v2::{
     channel::{mpsc_unbounded, Tx, UnboundedRx, UnboundedTx},
     engine::{
@@ -6,7 +9,7 @@ use barter::v2::{
         error::EngineError,
         state::{
             balance::Balances,
-            instrument::{market_data::MarketState, order::Orders, InstrumentState, Instruments},
+            instrument::{market_data::MarketState, order::Orders, InstrumentState},
             DefaultEngineState,
         },
         Engine,
@@ -17,7 +20,7 @@ use barter::v2::{
         Instrument, InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice,
         InstrumentSpecQuantity, OrderQuantityUnits,
     },
-    position::{PortfolioId, Position},
+    position::Position,
     risk::default::{DefaultRiskManager, DefaultRiskManagerState},
     EngineEvent,
 };
@@ -26,24 +29,19 @@ use barter_data::{
     exchange::ExchangeId,
     instrument::{InstrumentId, MarketInstrumentData},
     streams::builder::dynamic::DynamicStreams,
-    subscription::{book::OrderBookL1, SubKind, Subscription},
+    subscription::{SubKind, Subscription},
 };
-use barter_integration::model::{instrument::kind::InstrumentKind, Side};
+use barter_integration::model::instrument::kind::InstrumentKind;
 use futures::{try_join, Stream, StreamExt};
 use std::marker::PhantomData;
 use std::time::Duration;
-use tracing::info;
-use barter::v2::engine::audit::manager::run;
-use barter::v2::engine::Processor;
-use barter::v2::engine::state::TradingState;
-use barter::v2::strategy::default::{DefaultStrategy, DefaultStrategyState};
 
 #[tokio::main]
 async fn main() {
     init_logging();
 
     // Initialise channels
-    let (event_tx, event_rx, execution_tx, execution_rx, audit_tx, audit_rx) = init_channels();
+    let (event_tx, mut event_rx, execution_tx, execution_rx, audit_tx, audit_rx) = init_channels();
 
     // Construct Instrument definitions
     let instruments = instruments();
@@ -101,9 +99,9 @@ async fn main() {
 
     // // Spawn task to consume & log AuditEvents
     join_set.spawn({
-        run(
+        barter::v2::engine::audit::manager::run::<_, _, _, DefaultStrategy, DefaultRiskManager, _>(
             state.clone(),
-            audit_rx.into_stream()
+            audit_rx.into_stream(),
         )
     });
 
@@ -119,21 +117,17 @@ async fn main() {
 
     // Run Engine
     let task = join_set.spawn_blocking(move || {
-        engine.run(event_rx, Auditor::new(audit_tx)).unwrap();
+        let mut auditor = Auditor::new(audit_tx);
+        barter::v2::run(&mut event_rx, &mut auditor, &mut engine)
+        // .run_with_shutdown(|_| {
+        //     println!("shutting down Engine");
+        //     Ok(())
+        // }).unwrap();
     });
-
-    // // Run Engine
-    // join_set.spawn_blocking(|| {
-    //
-    //     .run_with_shutdown(|_| {
-    //         println!("shutting down Engine");
-    //     Ok(())
-    //     }).unwrap();
-    // });
 
     tokio::time::sleep(Duration::from_secs(5)).await;
     event_tx
-        .send(EngineEvent::Command(Command::EnableTrading))
+        .send(EngineEvent::TradingStateUpdate(TradingState::Enabled))
         .unwrap();
 
     join_set.join_all().await;
@@ -156,15 +150,20 @@ fn init_logging() {
 }
 
 fn init_channels() -> (
-    UnboundedTx<EngineEvent, EngineError>,
-    UnboundedRx<EngineEvent>,
-    UnboundedTx<ExecutionRequest<InstrumentId>, EngineError>,
+    UnboundedTx<EngineEvent<AssetId, InstrumentId>, EngineError>,
+    UnboundedRx<EngineEvent<AssetId, InstrumentId>>,
+    UnboundedTx<ExecutionRequest<InstrumentId>, ExecutionRxDropped>,
     UnboundedRx<ExecutionRequest<InstrumentId>>,
     UnboundedTx<
         Audit<
             AuditKind<
-                DefaultEngineState<DefaultStrategyState, DefaultRiskManagerState>,
-                EngineEvent,
+                DefaultEngineState<
+                    AssetId,
+                    InstrumentId,
+                    DefaultStrategyState,
+                    DefaultRiskManagerState,
+                >,
+                EngineEvent<AssetId, InstrumentId>,
                 InstrumentId,
                 EngineError,
             >,
@@ -174,8 +173,13 @@ fn init_channels() -> (
     UnboundedRx<
         Audit<
             AuditKind<
-                DefaultEngineState<DefaultStrategyState, DefaultRiskManagerState>,
-                EngineEvent,
+                DefaultEngineState<
+                    AssetId,
+                    InstrumentId,
+                    DefaultStrategyState,
+                    DefaultRiskManagerState,
+                >,
+                EngineEvent<AssetId, InstrumentId>,
                 InstrumentId,
                 EngineError,
             >,
@@ -196,7 +200,7 @@ fn init_channels() -> (
     )
 }
 
-fn instruments() -> Vec<Instrument> {
+fn instruments() -> Vec<Instrument<InstrumentId>> {
     vec![
         Instrument {
             id: InstrumentId(1),
@@ -256,7 +260,7 @@ fn instruments() -> Vec<Instrument> {
 }
 
 async fn init_market_link(
-    instruments: &[Instrument],
+    instruments: &[Instrument<InstrumentId>],
 ) -> Result<impl Stream<Item = MarketEvent<InstrumentId>>, EngineError> {
     // OrderBookL1 subscription batches (ie/ Iterator<Item = [Subscription]>)
     //  '-> this example uses a batch/websocket connection for each instrument OrderBookL1

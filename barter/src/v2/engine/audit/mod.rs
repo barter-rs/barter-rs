@@ -4,7 +4,7 @@ use crate::v2::{
     risk::RiskRefused,
 };
 use chrono::{DateTime, Utc};
-use derive_more::{Constructor};
+use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::warn;
