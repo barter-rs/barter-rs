@@ -23,6 +23,7 @@ pub mod command;
 pub mod error;
 pub mod ext;
 pub mod state;
+pub mod clock;
 
 // Todo: Must Have:
 //  - Utility to re-create state from Audit snapshot + updates w/ interactive mode (backward would require Vec<State> to be created on .next()) (add compression using file system)
@@ -33,7 +34,6 @@ pub mod state;
 //  - Engine functionality can be injected, on_shutdown, on_state_update_error, on_disconnect, etc.
 
 // Todo: Nice To Have:
-//  - Clean up Audit nonsense, it's pretty weird terminating from an if audit.is_termination() etc etc
 //  - Sequenced log stream that can enrich logs w/ additional context eg/ InstrumentName
 //  - Consider removing duplicate logs when calling instrument.state, state_mut, and also Balances!
 //  - Extract methods from impl OrderManager for Orders (eg/ update_from_snapshot covers all bases)
@@ -59,9 +59,9 @@ pub trait Processor<Event> {
 }
 
 #[derive(Debug, Constructor)]
-pub struct Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> {
+pub struct Engine<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> {
     pub sequence: u64,
-    pub time: fn() -> DateTime<Utc>,
+    pub clock: Clock,
     pub execution_tx: ExecutionTx,
     pub state: State,
     pub strategy: StrategyT,
@@ -69,9 +69,9 @@ pub struct Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey> 
     pub phantom: PhantomData<(AssetKey, InstrumentKey)>,
 }
 
-impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+impl<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
     Processor<&Command<InstrumentKey>>
-    for Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+    for Engine<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
     State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
@@ -105,8 +105,8 @@ where
     }
 }
 
-impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+impl<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+    Engine<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
     State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
@@ -232,8 +232,8 @@ where
     }
 }
 
-impl<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
-    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+impl<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
+    Engine<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>
 where
     State: Clone,
 {

@@ -332,26 +332,32 @@ impl<InstrumentKey> Default for Orders<InstrumentKey> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::v2::order::OrderId;
+    use crate::v2::order::{CancelInFlight, OpenInFlight, OrderId, OrderKind, TimeInForce};
     use barter_integration::model::Side;
     use chrono::{DateTime, Utc};
     use std::ops::Add;
+    use uuid::Uuid;
 
-    fn specific_open_in_flights(
-        orders: impl IntoIterator<Item = Order<u64, OpenInFlight>>,
+    fn specific_request_opens(
+        orders: impl IntoIterator<Item = Order<u64, RequestOpen>>,
     ) -> VecMap<ClientOrderId, Order<u64, InternalOrderState>> {
         orders
             .into_iter()
-            .map(|order| (order.cid, Order::from(order)))
+            .map(|order| (order.cid, Order::from(&order)))
             .collect()
     }
 
-    fn specific_open_in_flight(cid: ClientOrderId) -> Order<u64, OpenInFlight> {
+    fn specific_request_open(cid: ClientOrderId) -> Order<u64, RequestOpen> {
         Order {
             instrument: 1,
             cid,
             side: Side::Buy,
-            state: OpenInFlight,
+            state: RequestOpen {
+                kind: OrderKind::Limit,
+                time_in_force: TimeInForce::GoodUntilEndOfDay,
+                price: 0.0,
+                quantity: 0.0,
+            },
         }
     }
 
@@ -456,7 +462,7 @@ mod tests {
     fn test_record_in_flights() {
         struct TestCase {
             state: Orders<u64>,
-            input: Vec<Order<u64, OpenInFlight>>,
+            input: Vec<Order<u64, RequestOpen>>,
             expected: Orders<u64>,
         }
 
@@ -467,41 +473,43 @@ mod tests {
             TestCase {
                 // TC0: Insert unseen InFlight
                 state: Orders::default(),
-                input: vec![specific_open_in_flight(cid_1)],
+                input: vec![specific_request_open(cid_1)],
                 expected: Orders {
-                    inner: specific_open_in_flights([specific_open_in_flight(cid_1)]),
+                    inner: specific_request_opens([specific_request_open(cid_1)]),
                 },
             },
             TestCase {
                 // TC1: Insert InFlight that is already tracked
                 state: Orders {
-                    inner: specific_open_in_flights([specific_open_in_flight(cid_1)]),
+                    inner: specific_request_opens([specific_request_open(cid_1)]),
                 },
-                input: vec![specific_open_in_flight(cid_1)],
+                input: vec![specific_request_open(cid_1)],
                 expected: Orders {
-                    inner: specific_open_in_flights([specific_open_in_flight(cid_1)]),
+                    inner: specific_request_opens([specific_request_open(cid_1)]),
                 },
             },
             TestCase {
                 // TC2: Insert one untracked InFlight, and one already tracked
                 state: Orders {
-                    inner: specific_open_in_flights([specific_open_in_flight(cid_1)]),
+                    inner: specific_request_opens([specific_request_open(cid_1)]),
                 },
                 input: vec![
-                    specific_open_in_flight(cid_1),
-                    specific_open_in_flight(cid_2),
+                    specific_request_open(cid_1),
+                    specific_request_open(cid_2),
                 ],
                 expected: Orders {
-                    inner: specific_open_in_flights([
-                        specific_open_in_flight(cid_1),
-                        specific_open_in_flight(cid_2),
+                    inner: specific_request_opens([
+                        specific_request_open(cid_1),
+                        specific_request_open(cid_2),
                     ]),
                 },
             },
         ];
 
         for (index, mut test) in cases.into_iter().enumerate() {
-            test.state.record_in_flights(test.input);
+            for in_flight in test.input {
+                test.state.record_in_flight_open(&in_flight);
+            }
             assert_eq!(test.state, test.expected, "TestCase {index} failed")
         }
     }

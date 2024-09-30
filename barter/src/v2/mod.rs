@@ -59,10 +59,10 @@ impl<T> Snapshot<T> {
     }
 }
 
-pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>(
+pub fn run<EventFeed, AuditTx, Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>(
     feed: &mut EventFeed,
     audit_tx: &mut Auditor<AuditTx>,
-    engine: &mut Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>,
+    engine: &mut Engine<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>,
 ) where
     EventFeed: Iterator<Item = EngineEvent<AssetKey, InstrumentKey>>,
     AuditTx: Tx<
@@ -75,7 +75,7 @@ pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, In
     StrategyT: Strategy<State, InstrumentKey>,
     Risk: RiskManager<State, InstrumentKey>,
     InstrumentKey: Clone,
-    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>:
+    Engine<Clock, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>:
         for<'a> Processor<&'a Command<InstrumentKey>, Output = Result<(), ExecutionRxDropped>>,
     for<'a> State: Processor<TradingState>
         + Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
