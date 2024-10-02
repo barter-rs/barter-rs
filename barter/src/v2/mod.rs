@@ -1,7 +1,7 @@
 use crate::v2::channel::Tx;
 use crate::v2::engine::audit::{Audit, AuditKind, Auditor, ShutdownAudit};
 use crate::v2::engine::error::{EngineError, ExecutionRxDropped};
-use crate::v2::engine::state::{EngineState, TradingState};
+use crate::v2::engine::state::{EngineState, InstrumentStateManager, TradingState};
 use crate::v2::engine::{Engine, Processor};
 use crate::v2::execution::ExecutionRequest;
 use crate::v2::risk::RiskManager;
@@ -59,28 +59,33 @@ impl<T> Snapshot<T> {
     }
 }
 
-pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>(
+// pub fn run<EventFeed, AuditTx, ExecutionTx, InstrumentState, StrategyT, StrategyState, Risk, RiskState, AssetKey, InstrumentKey>(
+pub fn run<EventFeed, AuditTx, ExecutionTx, InstrumentState, StrategyT, Risk, AssetKey, InstrumentKey, StrategyState, RiskState>(
     feed: &mut EventFeed,
     audit_tx: &mut Auditor<AuditTx>,
-    engine: &mut Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>,
+    engine: &mut Engine<ExecutionTx, InstrumentState, StrategyT, Risk, AssetKey, InstrumentKey>,
 ) where
     EventFeed: Iterator<Item = EngineEvent<AssetKey, InstrumentKey>>,
     AuditTx: Tx<
         Item = Audit<
-            AuditKind<State, EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, EngineError>,
+                AuditKind<EngineState<InstrumentState, StrategyT::State, Risk::State, AssetKey, InstrumentKey>,
+                EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, EngineError>,
         >,
     >,
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
-    State: EngineState<AssetKey, InstrumentKey, StrategyT::State, Risk::State>,
-    StrategyT: Strategy<State, InstrumentKey>,
-    Risk: RiskManager<State, InstrumentKey>,
-    InstrumentKey: Clone,
-    Engine<ExecutionTx, State, StrategyT, Risk, AssetKey, InstrumentKey>:
+    InstrumentState: InstrumentStateManager<AssetKey, InstrumentKey>,
+    StrategyT: Strategy<InstrumentState, AssetKey, InstrumentKey, State = StrategyState, RiskState = RiskState>,
+    StrategyT::State: Clone
+        + for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
+        + for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
+    Risk: RiskManager<InstrumentState, AssetKey, InstrumentKey, State = RiskState, StrategyState = StrategyState>,
+    Risk::State: Clone
+        + for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
+        + for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
+    AssetKey: Debug + Clone,
+    InstrumentKey: Debug + Clone,
+    Engine<ExecutionTx, InstrumentState, StrategyT, Risk, AssetKey, InstrumentKey>:
         for<'a> Processor<&'a Command<InstrumentKey>, Output = Result<(), ExecutionRxDropped>>,
-    for<'a> State: Processor<TradingState>
-        + Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
-        + Processor<&'a MarketEvent<InstrumentKey>>
-        + Clone,
 {
     // Send initial EngineState snapshot
     engine.send_snapshot_audit(audit_tx);
@@ -108,7 +113,7 @@ pub fn run<EventFeed, AuditTx, ExecutionTx, State, StrategyT, Risk, AssetKey, In
             }
         }
 
-        let audit_kind = if let TradingState::Enabled = engine.state.trading_state() {
+        let audit_kind = if let TradingState::Enabled = engine.state.trading {
             let Ok(generated_requests_audit) = engine.trade() else {
                 break AuditKind::Shutdown(ShutdownAudit::ExecutionEnded);
             };

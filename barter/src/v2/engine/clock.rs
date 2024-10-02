@@ -9,6 +9,7 @@ pub trait EngineClock {
     fn engine_time(&self) -> Self::Time;
 }
 
+#[derive(Debug)]
 pub struct LiveClock;
 
 impl EngineClock for LiveClock {
@@ -21,6 +22,7 @@ impl EngineClock for LiveClock {
     }
 }
 
+#[derive(Debug)]
 pub struct BacktestClock {
     pub event_time: DateTime<Utc>,
     pub last_event_instant: Instant,

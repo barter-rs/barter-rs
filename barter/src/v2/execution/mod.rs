@@ -15,36 +15,8 @@ pub mod link;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, From)]
 pub enum ExecutionRequest<InstrumentKey> {
-    CancelOrder(Order<InstrumentKey, RequestCancel>),
-    CancelOrders(Vec<Order<InstrumentKey, RequestCancel>>),
+    Cancel(Order<InstrumentKey, RequestCancel>),
     Open(Order<InstrumentKey, RequestOpen>),
-    OpenOrders(Vec<Order<InstrumentKey, RequestOpen>>),
-}
-
-impl<InstrumentKey> ExecutionRequest<InstrumentKey> {
-    pub fn is_empty(&self) -> bool {
-        match self {
-            ExecutionRequest::CancelOrder(_) | ExecutionRequest::Open(_) => false,
-            ExecutionRequest::CancelOrders(cancels) => cancels.is_empty(),
-            ExecutionRequest::OpenOrders(opens) => opens.is_empty(),
-        }
-    }
-}
-
-impl<InstrumentKey> FromIterator<Order<InstrumentKey, RequestCancel>>
-    for ExecutionRequest<InstrumentKey>
-{
-    fn from_iter<T: IntoIterator<Item = Order<InstrumentKey, RequestCancel>>>(iter: T) -> Self {
-        Self::CancelOrders(iter.into_iter().collect())
-    }
-}
-
-impl<InstrumentKey> FromIterator<Order<InstrumentKey, RequestOpen>>
-    for ExecutionRequest<InstrumentKey>
-{
-    fn from_iter<T: IntoIterator<Item = Order<InstrumentKey, RequestOpen>>>(iter: T) -> Self {
-        Self::OpenOrders(iter.into_iter().collect())
-    }
 }
 
 #[derive(

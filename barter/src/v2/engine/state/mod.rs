@@ -1,26 +1,26 @@
 use crate::v2::engine::Processor;
 use crate::v2::{
     engine::state::{
-        balance::{BalanceManager, Balances},
-        instrument::{Instruments, MarketDataManager, OrderManager, PositionManager},
+        balance::{BalanceManager},
+        instrument::{MarketDataManager, OrderManager, PositionManager},
     },
     execution::{AccountEvent, AccountEventKind, AccountSnapshot},
-    order::Order,
-    Snapshot,
 };
 use barter_data::event::MarketEvent;
-use barter_integration::model::Exchange;
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::marker::PhantomData;
 use tracing::{debug, info, warn};
 
 pub mod balance;
 pub mod instrument;
 
-pub trait EngineState<AssetKey, InstrumentKey, StrategyState, RiskState> {
-    fn trading_state(&self) -> TradingState;
-    fn trading_state_mut(&mut self) -> &mut TradingState;
+pub trait InstrumentStateManager<AssetKey, InstrumentKey>
+where
+    Self: Clone,
+{
+    fn update_from_snapshot(&mut self, snapshot: &AccountSnapshot<AssetKey, InstrumentKey>);
     fn market_data(&self) -> &impl MarketDataManager<InstrumentKey>;
     fn market_data_mut(&mut self) -> &mut impl MarketDataManager<InstrumentKey>;
     fn balances(&self) -> &impl BalanceManager<AssetKey>;
@@ -29,10 +29,15 @@ pub trait EngineState<AssetKey, InstrumentKey, StrategyState, RiskState> {
     fn orders_mut(&mut self) -> &mut impl OrderManager<InstrumentKey>;
     fn positions(&self) -> &impl PositionManager<InstrumentKey>;
     fn positions_mut(&mut self) -> &mut impl PositionManager<InstrumentKey>;
-    fn strategy(&self) -> &StrategyState;
-    fn strategy_mut(&mut self) -> &mut StrategyState;
-    fn risk(&self) -> &RiskState;
-    fn risk_mut(&mut self) -> &mut RiskState;
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
+pub struct EngineState<InstrumentState, StrategyState, RiskState, AssetKey, InstrumentKey> {
+    pub trading: TradingState,
+    pub instrument: InstrumentState,
+    pub strategy: StrategyState,
+    pub risk: RiskState,
+    phantom: PhantomData<(AssetKey, InstrumentKey)>,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
@@ -41,89 +46,8 @@ pub enum TradingState {
     Disabled,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
-where
-    AssetKey: Eq,
-    InstrumentKey: Eq,
-{
-    pub trading: TradingState,
-    pub balances: Balances<AssetKey>,
-    pub instruments: Instruments<InstrumentKey>,
-    pub strategy: StrategyState,
-    pub risk: RiskState,
-}
-
-impl<AssetKey, InstrumentKey, StrategyState, RiskState>
-    EngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
-    for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
-where
-    AssetKey: Debug + Eq,
-    InstrumentKey: Debug + Eq + Clone,
-{
-    fn trading_state(&self) -> TradingState {
-        self.trading
-    }
-
-    fn trading_state_mut(&mut self) -> &mut TradingState {
-        &mut self.trading
-    }
-
-    fn market_data(&self) -> &impl MarketDataManager<InstrumentKey> {
-        &self.instruments
-    }
-
-    fn market_data_mut(&mut self) -> &mut impl MarketDataManager<InstrumentKey> {
-        &mut self.instruments
-    }
-
-    fn balances(&self) -> &impl BalanceManager<AssetKey> {
-        &self.balances
-    }
-
-    fn balances_mut(&mut self) -> &mut impl BalanceManager<AssetKey> {
-        &mut self.balances
-    }
-
-    fn orders(&self) -> &impl OrderManager<InstrumentKey> {
-        &self.instruments
-    }
-
-    fn orders_mut(&mut self) -> &mut impl OrderManager<InstrumentKey> {
-        &mut self.instruments
-    }
-
-    fn positions(&self) -> &impl PositionManager<InstrumentKey> {
-        &self.instruments
-    }
-
-    fn positions_mut(&mut self) -> &mut impl PositionManager<InstrumentKey> {
-        &mut self.instruments
-    }
-
-    fn strategy(&self) -> &StrategyState {
-        &self.strategy
-    }
-
-    fn strategy_mut(&mut self) -> &mut StrategyState {
-        &mut self.strategy
-    }
-
-    fn risk(&self) -> &RiskState {
-        &self.risk
-    }
-
-    fn risk_mut(&mut self) -> &mut RiskState {
-        &mut self.risk
-    }
-}
-
-impl<AssetKey, InstrumentKey, StrategyState, RiskState> Processor<TradingState>
-    for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
-where
-    AssetKey: Debug + Eq,
-    InstrumentKey: Debug + Clone + Eq,
-{
+impl<InstrumentState, StrategyState, RiskState, AssetKey, InstrumentKey> Processor<TradingState>
+    for EngineState<InstrumentState, StrategyState, RiskState, AssetKey, InstrumentKey> {
     type Output = ();
 
     fn process(&mut self, event: TradingState) -> Self::Output {
@@ -146,16 +70,17 @@ where
             }
         };
 
-        *self.trading_state_mut() = next;
+        self.trading = next;
     }
 }
 
-impl<AssetKey, InstrumentKey, StrategyState, RiskState>
+impl<AssetKey, InstrumentKey, InstrumentState, StrategyState, RiskState>
     Processor<&AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
-    for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
+    for EngineState<InstrumentState, StrategyState, RiskState, AssetKey, InstrumentKey>
 where
-    AssetKey: Debug + Eq,
-    InstrumentKey: Debug + Clone + Eq,
+    AssetKey: Debug + Clone,
+    InstrumentKey: Debug + Clone,
+    InstrumentState: InstrumentStateManager<AssetKey, InstrumentKey>,
     StrategyState: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>,
     RiskState: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>,
 {
@@ -174,11 +99,12 @@ where
     }
 }
 
-impl<AssetKey, InstrumentKey, StrategyState, RiskState> Processor<&MarketEvent<InstrumentKey>>
-    for DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
+impl<AssetKey, InstrumentKey, InstrumentState, StrategyState, RiskState> Processor<&MarketEvent<InstrumentKey>>
+    for EngineState<InstrumentState, StrategyState, RiskState, AssetKey, InstrumentKey>
 where
-    AssetKey: Debug + Eq,
-    InstrumentKey: Debug + Clone + Eq,
+    AssetKey: Clone,// + Eq,
+    InstrumentKey: Debug + Clone,// + Eq,
+    InstrumentState: InstrumentStateManager<AssetKey, InstrumentKey>,
     StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
     RiskState: for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
 {
@@ -186,7 +112,7 @@ where
 
     fn process(&mut self, event: &MarketEvent<InstrumentKey>) -> Self::Output {
         debug!(market = ?event, "updating EngineState, RiskState, StrategyState from MarketEvent");
-        self.update_from_market(event);
+        self.instrument.market_data_mut().update_from_market(event);
 
         // Update any user provided Strategy & Risk State
         self.strategy.process(event);
@@ -194,11 +120,11 @@ where
     }
 }
 
-impl<AssetKey, InstrumentKey, StrategyState, RiskState>
-    DefaultEngineState<AssetKey, InstrumentKey, StrategyState, RiskState>
+impl<InstrumentState, StrategyState, RiskState, AssetKey, InstrumentKey> EngineState<InstrumentState, StrategyState, RiskState, AssetKey, InstrumentKey>
 where
-    AssetKey: Debug + Eq,
-    InstrumentKey: Debug + Clone + Eq,
+    InstrumentState: InstrumentStateManager<AssetKey, InstrumentKey>,
+    // AssetKey: Clone,
+    InstrumentKey: Debug// + Clone,
 {
     pub fn update_from_account(
         &mut self,
@@ -207,26 +133,25 @@ where
         let AccountEvent { exchange, kind } = event;
         match kind {
             AccountEventKind::Snapshot(account) => {
-                self.update_from_account_snapshot(exchange, account);
+                self.instrument.update_from_snapshot(account);
             }
             AccountEventKind::BalanceSnapshot(balance) => {
-                self.balances
-                    .update_from_snapshot(exchange, balance.as_ref());
+                self.instrument.balances_mut().update_from_snapshot(exchange, balance.as_ref());
             }
             AccountEventKind::OrderSnapshot(order) => {
-                self.instruments.update_from_order_snapshot(order);
+                self.instrument.orders_mut().update_from_order_snapshot(order);
             }
             AccountEventKind::PositionSnapshot(position) => {
-                self.instruments.update_from_position_snapshot(position);
+                self.instrument.positions_mut().update_from_position_snapshot(position);
             }
             AccountEventKind::OrderOpened(response) => {
-                self.instruments.update_from_open(response);
+                self.instrument.orders_mut().update_from_open(response);
             }
             AccountEventKind::OrderCancelled(response) => {
-                self.instruments.update_from_cancel(response);
+                self.instrument.orders_mut().update_from_cancel(response);
             }
             AccountEventKind::Trade(trade) => {
-                self.instruments.update_from_trade(trade);
+                self.instrument.positions_mut().update_from_trade(trade);
             }
             AccountEventKind::ConnectivityError(error) => {
                 warn!(%error, "Engine aware of Account ConnectivityError");
@@ -234,51 +159,52 @@ where
         }
     }
 
-    /// Replace all [`Self`] state with the [`AccountSnapshot`].
-    ///
-    /// All open & cancel in-flight requests will be deleted.
-    pub fn update_from_account_snapshot(
-        &mut self,
-        exchange: &Exchange,
-        snapshot: &AccountSnapshot<AssetKey, InstrumentKey>,
-    ) {
-        let AccountSnapshot {
-            balances,
-            instruments,
-        } = snapshot;
-
-        // Update Balances
-        balances.iter().for_each(|asset_balance| {
-            self.balances
-                .update_from_snapshot(exchange, Snapshot(asset_balance))
-        });
-
-        // Update InstrumentStates (Positions & Orders)
-        for snapshot in instruments {
-            let instrument = &snapshot.position.instrument;
-            if let Some(state) = self.instruments.state_mut(instrument) {
-                let _ = std::mem::replace(&mut state.position, snapshot.position.clone());
-
-                // Note: this wipes all open & cancel in-flight requests
-                let _ = std::mem::replace(
-                    &mut state.orders.inner,
-                    snapshot
-                        .orders
-                        .iter()
-                        .map(|order| (order.cid, Order::from(order.clone())))
-                        .collect(),
-                );
-            } else {
-                warn!(
-                    ?instrument,
-                    event = ?snapshot,
-                    "EngineState ignoring InstrumentAccountSnapshot received for non-configured instrument"
-                );
-            }
-        }
-    }
-
-    pub fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey>) {
-        self.instruments.update_from_market(event);
-    }
+    // /// Replace all [`Self`] state with the [`AccountSnapshot`].
+    // ///
+    // /// All open & cancel in-flight requests will be deleted.
+    // pub fn update_from_account_snapshot(
+    //     &mut self,
+    //     exchange: &Exchange,
+    //     snapshot: &AccountSnapshot<AssetKey, InstrumentKey>,
+    // ) {
+    //     let AccountSnapshot {
+    //         balances,
+    //         instruments,
+    //     } = snapshot;
+    //
+    //     // Update Balances
+    //     balances.iter().for_each(|asset_balance| {
+    //         self.instrument
+    //             .balances_mut()
+    //             .update_from_snapshot(exchange, Snapshot(asset_balance))
+    //     });
+    //
+    //     // Update InstrumentStates (Positions & Orders)
+    //     for snapshot in instruments {
+    //         let instrument = &snapshot.position.instrument;
+    //         if let Some(state) = self.instrument.state_mut(instrument) {
+    //             let _ = std::mem::replace(&mut state.position, snapshot.position.clone());
+    //
+    //             // Note: this wipes all open & cancel in-flight requests
+    //             let _ = std::mem::replace(
+    //                 &mut state.orders.inner,
+    //                 snapshot
+    //                     .orders
+    //                     .iter()
+    //                     .map(|order| (order.cid, Order::from(order.clone())))
+    //                     .collect(),
+    //             );
+    //         } else {
+    //             warn!(
+    //                 ?instrument,
+    //                 event = ?snapshot,
+    //                 "EngineState ignoring InstrumentAccountSnapshot received for non-configured instrument"
+    //             );
+    //         }
+    //     }
+    // }
+    //
+    // pub fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey>) {
+    //     self.instrument.market_data_mut().update_from_market(event);
+    // }
 }

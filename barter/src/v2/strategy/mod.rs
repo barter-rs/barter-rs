@@ -1,13 +1,15 @@
+use crate::v2::engine::state::EngineState;
 use crate::v2::order::{Order, RequestCancel, RequestOpen};
 
 pub mod default;
 
-pub trait Strategy<EngineState, InstrumentKey> {
+pub trait Strategy<InstrumentState, AssetKey, InstrumentKey> {
     type State;
+    type RiskState;
 
     fn generate_orders(
         &self,
-        engine_state: &EngineState,
+        engine_state: &EngineState<InstrumentState, Self::State, Self::RiskState, AssetKey, InstrumentKey>,
     ) -> (
         impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
         impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
@@ -18,14 +20,14 @@ pub trait Strategy<EngineState, InstrumentKey> {
     fn close_position_request(
         &self,
         instrument: &InstrumentKey,
-        engine_state: &EngineState,
+        engine_state: &EngineState<InstrumentState, Self::State, Self::RiskState, AssetKey, InstrumentKey>,
     ) -> impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>;
 
     // Todo: maybe this should be feature gated, along with the Command
     //  then make trait StrategyExt?
     fn close_all_positions_request(
         &self,
-        engine_state: &EngineState,
+        engine_state: &EngineState<InstrumentState, Self::State, Self::RiskState, AssetKey, InstrumentKey>,
     ) -> impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>;
 }
 

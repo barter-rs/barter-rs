@@ -10,7 +10,7 @@ use barter::v2::{
         state::{
             balance::Balances,
             instrument::{market_data::MarketState, order::Orders, InstrumentState},
-            DefaultEngineState,
+            EngineState,
         },
         Engine,
     },
@@ -81,7 +81,7 @@ async fn main() {
     });
 
     // Construct EngineState
-    let state = DefaultEngineState {
+    let state = EngineState {
         trading: TradingState::Disabled,
         balances: Balances::default(),
         instruments: instruments
@@ -157,7 +157,7 @@ fn init_channels() -> (
     UnboundedTx<
         Audit<
             AuditKind<
-                DefaultEngineState<
+                EngineState<
                     AssetId,
                     InstrumentId,
                     DefaultStrategyState,
@@ -173,7 +173,7 @@ fn init_channels() -> (
     UnboundedRx<
         Audit<
             AuditKind<
-                DefaultEngineState<
+                EngineState<
                     AssetId,
                     InstrumentId,
                     DefaultStrategyState,

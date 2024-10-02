@@ -2,17 +2,19 @@ use crate::v2::order::{Order, RequestCancel, RequestOpen};
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use crate::v2::engine::state::EngineState;
 
 /// Todo:
 /// *EXAMPLE IMPLEMENTATION ONLY, PLEASE DO NOT USE FOR ANYTHING OTHER THAN TESTING PURPOSES.*
 pub mod default;
 
-pub trait RiskManager<EngineState, InstrumentKey> {
+pub trait RiskManager<InstrumentState, AssetKey, InstrumentKey> {
     type State;
+    type StrategyState;
 
     fn check(
         &self,
-        engine_state: &EngineState,
+        engine_state: &EngineState<InstrumentState, Self::StrategyState, Self::State, AssetKey, InstrumentKey>,
         cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
         opens: impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
     ) -> (
