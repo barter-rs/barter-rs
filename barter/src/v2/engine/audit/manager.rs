@@ -1,7 +1,6 @@
-use crate::v2::engine::audit::{Audit, AuditKind, GeneratedRequestsAudit, ShutdownAudit};
-use crate::v2::engine::error::{EngineError};
-use crate::v2::engine::state::instrument::OrderManager;
-use crate::v2::engine::state::{EngineState, InstrumentStateManager};
+use crate::v2::engine::audit::{AuditKind, DefaultAudit, GeneratedRequestsAudit, ShutdownAudit};
+use crate::v2::engine::state::instrument::{InstrumentStateManager};
+use crate::v2::engine::state::{EngineState};
 use crate::v2::engine::Processor;
 use crate::v2::execution::{AccountEvent, AccountEventKind};
 use crate::v2::order::{Order, RequestCancel, RequestOpen};
@@ -12,24 +11,25 @@ use barter_data::event::MarketEvent;
 use futures::{Stream, StreamExt};
 use std::fmt::Debug;
 use tracing::{error, info, warn};
+use crate::v2::engine::state::balance::BalanceManager;
+use crate::v2::engine::state::instrument::order::OrderManager;
 
-pub async fn run<InstrumentState, StrategyT, StrategyState, Risk, RiskState, Updates, AssetKey, InstrumentKey>(
-    mut state: EngineState<InstrumentState, StrategyT::State, Risk::State, AssetKey, InstrumentKey>,
+pub async fn run<InstrumentState, BalanceState, StrategyT, StrategyState, Risk, RiskState, Updates, AssetKey, InstrumentKey>(
+    mut state: EngineState<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey>,
     mut audit_stream: Updates,
 ) where
-    InstrumentState: InstrumentStateManager<AssetKey, InstrumentKey>,
-    StrategyT: Strategy<InstrumentState, AssetKey, InstrumentKey>,
+    InstrumentState: InstrumentStateManager<InstrumentKey>,
+    BalanceState: BalanceManager<AssetKey>,
+    StrategyT: Strategy<InstrumentState, BalanceState, AssetKey, InstrumentKey, State = StrategyState, RiskState = RiskState>,
     StrategyT::State: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
         + for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
-    Risk: RiskManager<InstrumentState, AssetKey, InstrumentKey>,
+    Risk: RiskManager<InstrumentState, BalanceState, AssetKey, InstrumentKey, State = RiskState, StrategyState = StrategyState>,
     Risk::State: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
         + for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
     InstrumentKey: Debug + Clone,
     AssetKey: Debug + Clone,
     Updates: Stream<
-            Item = Audit<
-                AuditKind<EngineState<InstrumentState, StrategyT::State, Risk::State, AssetKey, InstrumentKey>, EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, EngineError>,
-            >,
+            Item = DefaultAudit<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey>,
         > + Unpin,
 {
     let mut sequence = u64::MIN;
@@ -45,11 +45,11 @@ pub async fn run<InstrumentState, StrategyT, StrategyState, Risk, RiskState, Upd
                 info!("Engine sent EngineState snapshot");
             }
             AuditKind::Process(event) => {
-                update_state::<_, StrategyT, Risk, AssetKey, InstrumentKey>(&mut state, event);
+                update_state::<_, _, StrategyT, Risk, AssetKey, InstrumentKey>(&mut state, event);
             }
             AuditKind::ProcessWithGeneratedRequests(event, requests) => {
-                update_state::<_, StrategyT, Risk, AssetKey, InstrumentKey>(&mut state, event);
-                let order_manager = state.instrument.orders_mut();
+                update_state::<_, _, StrategyT, Risk, AssetKey, InstrumentKey>(&mut state, event);
+                let order_manager = state.instruments.orders_mut();
 
                 update_from_in_flight_cancel_requests(order_manager, &requests.cancels);
                 update_from_in_flight_open_requests(order_manager, &requests.opens);
@@ -59,15 +59,16 @@ pub async fn run<InstrumentState, StrategyT, StrategyState, Risk, RiskState, Upd
     }
 }
 
-pub fn update_state<InstrumentState, StrategyT, Risk, AssetKey, InstrumentKey, >(
-    state: &mut EngineState<InstrumentState, StrategyT::State, Risk::State, AssetKey, InstrumentKey>,
+pub fn update_state<InstrumentState, BalanceState, StrategyT, Risk, AssetKey, InstrumentKey>(
+    state: &mut EngineState<InstrumentState, BalanceState, StrategyT::State, Risk::State, AssetKey, InstrumentKey>,
     event: EngineEvent<AssetKey, InstrumentKey>,
 ) where
-    InstrumentState: InstrumentStateManager<AssetKey, InstrumentKey>,
-    StrategyT: Strategy<InstrumentState, AssetKey, InstrumentKey>,
+    InstrumentState: InstrumentStateManager<InstrumentKey>,
+    BalanceState: BalanceManager<AssetKey>,
+    StrategyT: Strategy<InstrumentState, BalanceState, AssetKey, InstrumentKey>,
     StrategyT::State: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
         + for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
-    Risk: RiskManager<InstrumentState, AssetKey, InstrumentKey>,
+    Risk: RiskManager<InstrumentState, BalanceState, AssetKey, InstrumentKey>,
     Risk::State: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
         + for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
     AssetKey: Debug + Clone,

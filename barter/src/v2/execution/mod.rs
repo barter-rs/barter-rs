@@ -63,12 +63,12 @@ impl<AssetKey: Eq, InstrumentKey: Eq> AccountEvent<AccountEventKind<AssetKey, In
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct AccountSnapshot<AssetKey, InstrumentKey> {
-    pub balances: Vec<AssetBalance<AssetKey>>,
+    pub balances: Snapshot<Vec<AssetBalance<AssetKey>>>,
     pub instruments: Vec<InstrumentAccountSnapshot<InstrumentKey>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct InstrumentAccountSnapshot<InstrumentKey> {
-    pub position: Position<InstrumentKey>,
-    pub orders: Vec<Order<InstrumentKey, Open>>,
+    pub position: Snapshot<Position<InstrumentKey>>,
+    pub orders: Snapshot<Vec<Order<InstrumentKey, Open>>>,
 }

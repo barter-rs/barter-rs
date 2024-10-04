@@ -1,10 +1,10 @@
-use crate::v2::instrument::asset::AssetId;
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 
+
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
-pub struct AssetBalance<Key = AssetId> {
-    pub asset: Key,
+pub struct AssetBalance<AssetKey> {
+    pub asset: AssetKey,
     pub balance: Balance,
 }
 

@@ -1,60 +1,35 @@
-use crate::v2::order::{InternalOrderState, RequestCancel, RequestOpen};
-use crate::v2::{
-    engine::state::instrument::{market_data::MarketState, order::Orders},
-    execution::error::ExecutionError,
-    instrument::Instrument,
-    order::{Cancelled, ExchangeOrderState, Open, Order},
-    position::{PortfolioId, Position},
-    trade::Trade,
-    Snapshot,
-};
+use crate::v2::order::{ExchangeOrderState, InternalOrderState, RequestCancel, RequestOpen};
+use crate::v2::{engine::state::instrument::{market_data::MarketState, order::Orders}, execution::error::ExecutionError, instrument::Instrument, order::{Cancelled, Open, Order}, trade::Trade, Snapshot};
 use barter_data::event::{DataKind, MarketEvent};
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::hash::Hash;
+use fnv::FnvHashMap;
 use tracing::warn;
-use vecmap::VecMap;
+use position::PositionManager;
+use crate::v2::engine::state::instrument::market_data::MarketDataManager;
+use crate::v2::engine::state::instrument::order::OrderManager;
+use crate::v2::execution::{InstrumentAccountSnapshot};
 
 pub mod market_data;
 pub mod order;
 pub mod position;
 
-pub trait MarketDataManager<InstrumentKey> {
-    fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey>);
+pub trait InstrumentStateManager<InstrumentKey>: Clone {
+    fn update_from_snapshot(&mut self, snapshot: &[InstrumentAccountSnapshot<InstrumentKey>]);
+    fn market_data(&self) -> &impl MarketDataManager<InstrumentKey>;
+    fn market_data_mut(&mut self) -> &mut impl MarketDataManager<InstrumentKey>;
+    fn orders(&self) -> &impl OrderManager<InstrumentKey>;
+    fn orders_mut(&mut self) -> &mut impl OrderManager<InstrumentKey>;
+    fn positions(&self) -> &impl PositionManager<InstrumentKey>;
+    fn positions_mut(&mut self) -> &mut impl PositionManager<InstrumentKey>;
 }
 
-pub trait OrderManager<InstrumentKey> {
-    fn orders<'a>(&'a self) -> impl Iterator<Item = &'a Order<InstrumentKey, InternalOrderState>>
-    where
-        InstrumentKey: 'a;
-    fn record_in_flight_cancel(&mut self, request: &Order<InstrumentKey, RequestCancel>);
-    fn record_in_flight_open(&mut self, request: &Order<InstrumentKey, RequestOpen>);
-    fn update_from_cancel(
-        &mut self,
-        response: &Order<InstrumentKey, Result<Cancelled, ExecutionError>>,
-    );
-    fn update_from_open(&mut self, response: &Order<InstrumentKey, Result<Open, ExecutionError>>);
-    fn update_from_order_snapshot(
-        &mut self,
-        snapshot: &Snapshot<Order<InstrumentKey, ExchangeOrderState>>,
-    );
-}
-
-pub trait PositionManager<InstrumentKey> {
-    fn position(&self, instrument: &InstrumentKey) -> Option<&Position<InstrumentKey>>;
-    fn positions_by_portfolio<'a>(
-        &'a self,
-        portfolio: PortfolioId,
-    ) -> impl Iterator<Item = &'a Position<InstrumentKey>>
-    where
-        InstrumentKey: 'a;
-    fn update_from_trade(&mut self, trade: &Trade<InstrumentKey>);
-    fn update_from_position_snapshot(&mut self, snapshot: &Snapshot<Position<InstrumentKey>>);
-}
 
 #[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize, From)]
-pub struct Instruments<InstrumentKey: Eq>(
-    pub VecMap<InstrumentKey, InstrumentState<InstrumentKey>>,
+pub struct Instruments<InstrumentKey: Eq + Hash>(
+    pub FnvHashMap<InstrumentKey, InstrumentState<InstrumentKey>>,
 );
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
@@ -65,10 +40,47 @@ pub struct InstrumentState<InstrumentKey> {
     pub position: Position<InstrumentKey>,
 }
 
+impl<InstrumentKey> InstrumentStateManager<InstrumentKey> for Instruments<InstrumentKey>
+where
+    InstrumentKey: Debug + Clone + Eq + Hash,
+{
+    fn update_from_snapshot(&mut self, snapshot: &[InstrumentAccountSnapshot<InstrumentKey>]) {
+        todo!()
+    }
+
+    fn market_data(&self) -> &impl MarketDataManager<InstrumentKey> {
+        self
+    }
+
+    fn market_data_mut(&mut self) -> &mut impl MarketDataManager<InstrumentKey> {
+        self
+    }
+
+    fn orders(&self) -> &impl OrderManager<InstrumentKey> {
+        self
+    }
+
+    fn orders_mut(&mut self) -> &mut impl OrderManager<InstrumentKey> {
+        self
+    }
+
+    fn positions(&self) -> &impl PositionManager<InstrumentKey> {
+        self
+    }
+
+    fn positions_mut(&mut self) -> &mut impl PositionManager<InstrumentKey> {
+        self
+    }
+}
+
 impl<InstrumentKey> MarketDataManager<InstrumentKey> for Instruments<InstrumentKey>
 where
-    InstrumentKey: Debug + Eq,
+    InstrumentKey: Debug + Clone + Eq + Hash,
 {
+    fn update_from_snapshot(&mut self, snapshot: Snapshot<Self>) {
+        todo!()
+    }
+
     fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey>) {
         let Some(state) = self.state_mut(&event.instrument) else {
             warn!(
@@ -92,10 +104,28 @@ where
     }
 }
 
+
 impl<InstrumentKey> OrderManager<InstrumentKey> for Instruments<InstrumentKey>
 where
-    InstrumentKey: Debug + Clone + Eq,
+    InstrumentKey: Debug + Clone + PartialEq + Eq + Hash,
 {
+    fn update_from_orders_snapshot(&mut self, snapshot: Snapshot<&Vec<Order<InstrumentKey, Open>>>) {
+        todo!()
+    }
+
+    fn update_from_order_snapshot(&mut self, snapshot: Snapshot<&Order<InstrumentKey, ExchangeOrderState>>) {
+        let Some(state) = self.state_mut(&snapshot.0.instrument) else {
+            warn!(
+                instrument_id = ?snapshot.0.instrument,
+                event = ?snapshot,
+                "OrderManager ignoring Snapshot<Order> received for non-configured instrument"
+            );
+            return;
+        };
+
+        state.orders.update_from_order_snapshot(snapshot);
+    }
+
     fn orders<'a>(&'a self) -> impl Iterator<Item = &'a Order<InstrumentKey, InternalOrderState>>
     where
         InstrumentKey: 'a,
@@ -153,78 +183,11 @@ where
 
         state.orders.update_from_open(response);
     }
-
-    fn update_from_order_snapshot(
-        &mut self,
-        snapshot: &Snapshot<Order<InstrumentKey, ExchangeOrderState>>,
-    ) {
-        let Some(state) = self.state_mut(&snapshot.0.instrument) else {
-            warn!(
-                instrument_id = ?snapshot.0.instrument,
-                event = ?snapshot,
-                "OrderManager ignoring Snapshot<Order> received for non-configured instrument"
-            );
-            return;
-        };
-
-        state.orders.update_from_order_snapshot(snapshot);
-    }
-
-    // fn order_by_id(&self, instrument: &InstrumentKey, id: &OrderId) -> Option<&Order<InstrumentKey, InternalOrderState>> {
-    //     self.state(instrument)?
-    //         .orders
-    //         .order_by_id(instrument, id)
-    // }
-    //
-    // fn order_by_cid(&self, instrument: &InstrumentKey, cid: &ClientOrderId) -> Option<&Order<InstrumentKey, InternalOrderState>> {
-    //     self.state(instrument)?
-    //         .orders
-    //         .order_by_cid(instrument, cid)
-    // }
-}
-
-impl<InstrumentKey> PositionManager<InstrumentKey> for Instruments<InstrumentKey>
-where
-    InstrumentKey: Debug + Eq + Clone,
-{
-    fn position(&self, instrument: &InstrumentKey) -> Option<&Position<InstrumentKey>> {
-        self.state(instrument).map(|state| &state.position)
-    }
-
-    fn positions_by_portfolio<'a>(
-        &'a self,
-        portfolio: PortfolioId,
-    ) -> impl Iterator<Item = &'a Position<InstrumentKey>>
-    where
-        InstrumentKey: 'a,
-    {
-        self.0.values().filter_map(move |state| {
-            (state.position.portfolio == portfolio).then_some(&state.position)
-        })
-    }
-
-    fn update_from_trade(&mut self, _trade: &Trade<InstrumentKey>) {
-        // Todo: should Trade contain PortfolioId? Or could remove concept for now...
-        todo!()
-    }
-
-    fn update_from_position_snapshot(&mut self, snapshot: &Snapshot<Position<InstrumentKey>>) {
-        let Some(state) = self.state_mut(&snapshot.0.instrument) else {
-            warn!(
-                instrument_id = ?snapshot.0.instrument,
-                event = ?snapshot,
-                "OrderManager ignoring Snapshot<Position> received for non-configured instrument"
-            );
-            return;
-        };
-
-        state.position = snapshot.0.clone();
-    }
 }
 
 impl<InstrumentKey> Instruments<InstrumentKey>
 where
-    InstrumentKey: Eq,
+    InstrumentKey: Eq + Hash,
 {
     pub fn state(&self, instrument: &InstrumentKey) -> Option<&InstrumentState<InstrumentKey>> {
         self.0.get(instrument)
@@ -239,7 +202,7 @@ where
 
 impl<InstrumentKey> FromIterator<InstrumentState<InstrumentKey>> for Instruments<InstrumentKey>
 where
-    InstrumentKey: Clone + Eq,
+    InstrumentKey: Clone + Hash + Eq,
 {
     fn from_iter<T: IntoIterator<Item = InstrumentState<InstrumentKey>>>(iter: T) -> Self {
         Instruments(

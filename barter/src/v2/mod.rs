@@ -1,7 +1,7 @@
 use crate::v2::channel::Tx;
-use crate::v2::engine::audit::{Audit, AuditKind, Auditor, ShutdownAudit};
-use crate::v2::engine::error::{EngineError, ExecutionRxDropped};
-use crate::v2::engine::state::{EngineState, InstrumentStateManager, TradingState};
+use crate::v2::engine::audit::{AuditKind, Auditor, DefaultAudit, ShutdownAudit};
+use crate::v2::engine::error::{ExecutionRxDropped};
+use crate::v2::engine::state::{TradingState};
 use crate::v2::engine::{Engine, Processor};
 use crate::v2::execution::ExecutionRequest;
 use crate::v2::risk::RiskManager;
@@ -14,6 +14,8 @@ use barter_data::event::MarketEvent;
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use crate::v2::engine::state::balance::BalanceManager;
+use crate::v2::engine::state::instrument::InstrumentStateManager;
 
 pub mod balance;
 pub mod channel;
@@ -59,32 +61,27 @@ impl<T> Snapshot<T> {
     }
 }
 
-// pub fn run<EventFeed, AuditTx, ExecutionTx, InstrumentState, StrategyT, StrategyState, Risk, RiskState, AssetKey, InstrumentKey>(
-pub fn run<EventFeed, AuditTx, ExecutionTx, InstrumentState, StrategyT, Risk, AssetKey, InstrumentKey, StrategyState, RiskState>(
+pub fn run<EventFeed, AuditTx, ExecutionTx, InstrumentState, BalanceState, StrategyT, Risk, AssetKey, InstrumentKey, StrategyState, RiskState>(
     feed: &mut EventFeed,
     audit_tx: &mut Auditor<AuditTx>,
-    engine: &mut Engine<ExecutionTx, InstrumentState, StrategyT, Risk, AssetKey, InstrumentKey>,
+    engine: &mut Engine<ExecutionTx, InstrumentState, BalanceState, StrategyT, Risk, AssetKey, InstrumentKey>,
 ) where
     EventFeed: Iterator<Item = EngineEvent<AssetKey, InstrumentKey>>,
-    AuditTx: Tx<
-        Item = Audit<
-                AuditKind<EngineState<InstrumentState, StrategyT::State, Risk::State, AssetKey, InstrumentKey>,
-                EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, EngineError>,
-        >,
-    >,
+    AuditTx: Tx<Item = DefaultAudit<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey>>,
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
-    InstrumentState: InstrumentStateManager<AssetKey, InstrumentKey>,
-    StrategyT: Strategy<InstrumentState, AssetKey, InstrumentKey, State = StrategyState, RiskState = RiskState>,
-    StrategyT::State: Clone
+    InstrumentState: InstrumentStateManager<InstrumentKey>,
+    BalanceState: BalanceManager<AssetKey>,
+    StrategyT: Strategy<InstrumentState, BalanceState, AssetKey, InstrumentKey, State = StrategyState, RiskState = RiskState>,
+    StrategyState: Clone
         + for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
         + for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
-    Risk: RiskManager<InstrumentState, AssetKey, InstrumentKey, State = RiskState, StrategyState = StrategyState>,
-    Risk::State: Clone
+    Risk: RiskManager<InstrumentState, BalanceState, AssetKey, InstrumentKey, State = RiskState, StrategyState = StrategyState>,
+    RiskState: Clone
         + for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
         + for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
     AssetKey: Debug + Clone,
     InstrumentKey: Debug + Clone,
-    Engine<ExecutionTx, InstrumentState, StrategyT, Risk, AssetKey, InstrumentKey>:
+    Engine<ExecutionTx, InstrumentState, BalanceState, StrategyT, Risk, AssetKey, InstrumentKey>:
         for<'a> Processor<&'a Command<InstrumentKey>, Output = Result<(), ExecutionRxDropped>>,
 {
     // Send initial EngineState snapshot

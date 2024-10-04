@@ -8,13 +8,13 @@ use crate::v2::engine::state::EngineState;
 /// *EXAMPLE IMPLEMENTATION ONLY, PLEASE DO NOT USE FOR ANYTHING OTHER THAN TESTING PURPOSES.*
 pub mod default;
 
-pub trait RiskManager<InstrumentState, AssetKey, InstrumentKey> {
+pub trait RiskManager<InstrumentState, BalanceState, AssetKey, InstrumentKey> {
     type State;
     type StrategyState;
 
     fn check(
         &self,
-        engine_state: &EngineState<InstrumentState, Self::StrategyState, Self::State, AssetKey, InstrumentKey>,
+        engine_state: &EngineState<InstrumentState, BalanceState, Self::StrategyState, Self::State, AssetKey, InstrumentKey>,
         cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
         opens: impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
     ) -> (

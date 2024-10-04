@@ -1,6 +1,6 @@
+use std::collections::hash_map::Entry;
 use crate::v2::order::{RequestCancel, RequestOpen};
 use crate::v2::{
-    engine::state::instrument::OrderManager,
     execution::error::ExecutionError,
     order::{Cancelled, ClientOrderId, ExchangeOrderState, InternalOrderState, Open, Order},
     Snapshot,
@@ -8,18 +8,41 @@ use crate::v2::{
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use fnv::FnvHashMap;
 use tracing::{debug, error, warn};
-use vecmap::{map::Entry, VecMap};
+
+pub trait OrderManager<InstrumentKey>: Clone {
+    fn update_from_orders_snapshot(&mut self, snapshot: Snapshot<&Vec<Order<InstrumentKey, Open>>>);
+    fn update_from_order_snapshot(&mut self, snapshot: Snapshot<&Order<InstrumentKey, ExchangeOrderState>>);
+    fn orders<'a>(&'a self) -> impl Iterator<Item = &'a Order<InstrumentKey, InternalOrderState>>
+    where
+        InstrumentKey: 'a;
+    fn record_in_flight_cancel(&mut self, request: &Order<InstrumentKey, RequestCancel>);
+    fn record_in_flight_open(&mut self, request: &Order<InstrumentKey, RequestOpen>);
+    fn update_from_cancel(
+        &mut self,
+        response: &Order<InstrumentKey, Result<Cancelled, ExecutionError>>,
+    );
+    fn update_from_open(&mut self, response: &Order<InstrumentKey, Result<Open, ExecutionError>>);
+}
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct Orders<InstrumentKey> {
-    pub inner: VecMap<ClientOrderId, Order<InstrumentKey, InternalOrderState>>,
+    pub inner: FnvHashMap<ClientOrderId, Order<InstrumentKey, InternalOrderState>>,
 }
 
 impl<InstrumentKey> OrderManager<InstrumentKey> for Orders<InstrumentKey>
 where
     InstrumentKey: Debug + Clone + PartialEq,
 {
+    fn update_from_orders_snapshot(&mut self, snapshot: Snapshot<&Vec<Order<InstrumentKey, Open>>>) {
+        todo!()
+    }
+
+    fn update_from_order_snapshot(&mut self, snapshot: Snapshot<&Order<InstrumentKey, ExchangeOrderState>>) {
+        todo!()
+    }
+
     fn orders<'a>(&'a self) -> impl Iterator<Item = &'a Order<InstrumentKey, InternalOrderState>>
     where
         InstrumentKey: 'a,
@@ -206,103 +229,103 @@ where
         }
     }
 
-    fn update_from_order_snapshot(
-        &mut self,
-        snapshot: &Snapshot<Order<InstrumentKey, ExchangeOrderState>>,
-    ) {
-        let Snapshot(snapshot) = snapshot;
-        let existing = self.inner.entry(snapshot.cid);
-
-        // Todo: add logging where appropriate below
-        // '--> is this robust enough? It's more simple than the previous impl way below
-        panic!("todo");
-
-        match &snapshot.state {
-            ExchangeOrderState::Open(new_open) => {
-                self.inner
-                    .entry(snapshot.cid)
-                    .and_modify(|order| order.state = InternalOrderState::Open(new_open.clone()))
-                    .or_insert(Order::new(
-                        snapshot.instrument.clone(),
-                        snapshot.cid,
-                        snapshot.side,
-                        InternalOrderState::Open(new_open.clone()),
-                    ));
-            }
-            ExchangeOrderState::OpenRejected(reason) => {
-                if let Some(removed) = self.inner.remove(&snapshot.cid) {
-                    // Todo: Log
-                }
-            }
-            ExchangeOrderState::CancelRejected(reason) => {
-                if let Some(removed) = self.inner.remove(&snapshot.cid) {
-                    // Todo: Log
-                }
-            }
-            ExchangeOrderState::Cancelled(new_cancelled) => {
-                if let Some(removed) = self.inner.remove(&snapshot.cid) {
-                    // Todo: Log
-                }
-            }
-        }
-
-        // match &order.state {
-        //     // Remove InFlight order (if present), and upsert the Open Order
-        //     OrderState::Open(open) => {
-        //         if let Some(in_flight) = self.in_flights.remove(&order.cid) {
-        //             debug!(
-        //                 instrument = %order.instrument,
-        //                 cid = %order.cid,
-        //                 ?in_flight,
-        //                 open = ?order,
-        //                 "OrderManager removed Order<InFlight> after receiving Snapshot<Order<Open>>"
-        //             );
-        //         }
-        //
-        //         if let Some(replaced) = self.opens.insert(
-        //             order.cid,
-        //             Order::new(
-        //                 order.instrument.clone(),
-        //                 order.cid,
-        //                 order.side,
-        //                 open.clone(),
-        //             ),
-        //         ) {
-        //             assert_eq!(
-        //                 replaced.instrument, order.instrument,
-        //                 "Snapshot<Order> does not have same instrument as existing Order<Open>"
-        //             );
-        //         }
-        //     }
-        //     // Remove associated Open (expected), or InFlight (unexpected) order
-        //     OrderState::Cancelled(_cancelled) => {
-        //         if let Some(open) = self.opens.remove(&order.cid) {
-        //             debug!(
-        //                 instrument = %order.instrument,
-        //                 cid = %order.cid,
-        //                 ?open,
-        //                 cancel = ?order,
-        //                 "OrderManager removed Order<Open> after receiving Snapshot<Order<Cancelled>>"
-        //             );
-        //         } else if let Some(in_flight) = self.in_flights.remove(&order.cid) {
-        //             warn!(
-        //                 instrument = %order.instrument,
-        //                 cid = %order.cid,
-        //                 ?in_flight,
-        //                 cancel = ?order,
-        //                 "OrderManager removed Order<InFlight> after receiving Snapshot<Order<Cancelled>> - why was this still InFlight?"
-        //             );
-        //         } else {
-        //             warn!(
-        //                 instrument = %order.instrument,
-        //                 cid = %order.cid,
-        //                 cancel = ?order,
-        //                 "OrderManager ignoring Snapshot<Order<Cancelled> for un-tracked Order"
-        //             );
-        //         }
-        //     }
-        // }
-    }
+    // fn update_from_order_snapshot(
+    //     &mut self,
+    //     snapshot: &Snapshot<Order<InstrumentKey, ExchangeOrderState>>,
+    // ) {
+    //     let Snapshot(snapshot) = snapshot;
+    //     let existing = self.inner.entry(snapshot.cid);
+    //
+    //     // Todo: add logging where appropriate below
+    //     // '--> is this robust enough? It's more simple than the previous impl way below
+    //     panic!("todo");
+    //
+    //     match &snapshot.state {
+    //         ExchangeOrderState::Open(new_open) => {
+    //             self.inner
+    //                 .entry(snapshot.cid)
+    //                 .and_modify(|order| order.state = InternalOrderState::Open(new_open.clone()))
+    //                 .or_insert(Order::new(
+    //                     snapshot.instrument.clone(),
+    //                     snapshot.cid,
+    //                     snapshot.side,
+    //                     InternalOrderState::Open(new_open.clone()),
+    //                 ));
+    //         }
+    //         ExchangeOrderState::OpenRejected(reason) => {
+    //             if let Some(removed) = self.inner.remove(&snapshot.cid) {
+    //                 // Todo: Log
+    //             }
+    //         }
+    //         ExchangeOrderState::CancelRejected(reason) => {
+    //             if let Some(removed) = self.inner.remove(&snapshot.cid) {
+    //                 // Todo: Log
+    //             }
+    //         }
+    //         ExchangeOrderState::Cancelled(new_cancelled) => {
+    //             if let Some(removed) = self.inner.remove(&snapshot.cid) {
+    //                 // Todo: Log
+    //             }
+    //         }
+    //     }
+    //
+    //     // match &order.state {
+    //     //     // Remove InFlight order (if present), and upsert the Open Order
+    //     //     OrderState::Open(open) => {
+    //     //         if let Some(in_flight) = self.in_flights.remove(&order.cid) {
+    //     //             debug!(
+    //     //                 instrument = %order.instrument,
+    //     //                 cid = %order.cid,
+    //     //                 ?in_flight,
+    //     //                 open = ?order,
+    //     //                 "OrderManager removed Order<InFlight> after receiving Snapshot<Order<Open>>"
+    //     //             );
+    //     //         }
+    //     //
+    //     //         if let Some(replaced) = self.opens.insert(
+    //     //             order.cid,
+    //     //             Order::new(
+    //     //                 order.instrument.clone(),
+    //     //                 order.cid,
+    //     //                 order.side,
+    //     //                 open.clone(),
+    //     //             ),
+    //     //         ) {
+    //     //             assert_eq!(
+    //     //                 replaced.instrument, order.instrument,
+    //     //                 "Snapshot<Order> does not have same instrument as existing Order<Open>"
+    //     //             );
+    //     //         }
+    //     //     }
+    //     //     // Remove associated Open (expected), or InFlight (unexpected) order
+    //     //     OrderState::Cancelled(_cancelled) => {
+    //     //         if let Some(open) = self.opens.remove(&order.cid) {
+    //     //             debug!(
+    //     //                 instrument = %order.instrument,
+    //     //                 cid = %order.cid,
+    //     //                 ?open,
+    //     //                 cancel = ?order,
+    //     //                 "OrderManager removed Order<Open> after receiving Snapshot<Order<Cancelled>>"
+    //     //             );
+    //     //         } else if let Some(in_flight) = self.in_flights.remove(&order.cid) {
+    //     //             warn!(
+    //     //                 instrument = %order.instrument,
+    //     //                 cid = %order.cid,
+    //     //                 ?in_flight,
+    //     //                 cancel = ?order,
+    //     //                 "OrderManager removed Order<InFlight> after receiving Snapshot<Order<Cancelled>> - why was this still InFlight?"
+    //     //             );
+    //     //         } else {
+    //     //             warn!(
+    //     //                 instrument = %order.instrument,
+    //     //                 cid = %order.cid,
+    //     //                 cancel = ?order,
+    //     //                 "OrderManager ignoring Snapshot<Order<Cancelled> for un-tracked Order"
+    //     //             );
+    //     //         }
+    //     //     }
+    //     // }
+    // }
 
     // fn order_by_id(&self, _: &InstrumentKey, find: &OrderId) -> Option<&Order<InstrumentKey, InternalOrderState>> {
     //     self.inner

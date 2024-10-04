@@ -35,6 +35,7 @@ use barter_integration::model::instrument::kind::InstrumentKind;
 use futures::{try_join, Stream, StreamExt};
 use std::marker::PhantomData;
 use std::time::Duration;
+use barter::v2::engine::state::instrument::Instruments;
 
 #[tokio::main]
 async fn main() {
@@ -95,11 +96,12 @@ async fn main() {
             .collect(),
         strategy: DefaultStrategyState,
         risk: DefaultRiskManagerState,
+        phantom: PhantomData,
     };
 
     // // Spawn task to consume & log AuditEvents
     join_set.spawn({
-        barter::v2::engine::audit::manager::run::<_, _, _, DefaultStrategy, DefaultRiskManager, _>(
+        barter::v2::engine::audit::manager::run::<_, _, DefaultStrategy, _, DefaultRiskManager, _, _, _, _>(
             state.clone(),
             audit_rx.into_stream(),
         )
@@ -112,7 +114,6 @@ async fn main() {
         state: state.clone(),
         strategy: DefaultStrategy,
         risk: DefaultRiskManager,
-        phantom: PhantomData,
     };
 
     // Run Engine
@@ -158,10 +159,12 @@ fn init_channels() -> (
         Audit<
             AuditKind<
                 EngineState<
-                    AssetId,
-                    InstrumentId,
+                    Instruments<InstrumentId>,
+                    Balances<AssetId>,
                     DefaultStrategyState,
                     DefaultRiskManagerState,
+                    AssetId,
+                    InstrumentId,
                 >,
                 EngineEvent<AssetId, InstrumentId>,
                 InstrumentId,
@@ -174,10 +177,12 @@ fn init_channels() -> (
         Audit<
             AuditKind<
                 EngineState<
-                    AssetId,
-                    InstrumentId,
+                    Instruments<InstrumentId>,
+                    Balances<AssetId>,
                     DefaultStrategyState,
                     DefaultRiskManagerState,
+                    AssetId,
+                    InstrumentId,
                 >,
                 EngineEvent<AssetId, InstrumentId>,
                 InstrumentId,

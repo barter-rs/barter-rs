@@ -7,10 +7,24 @@ use derive_more::{Constructor, From};
 use itertools::Either;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::hash::Hash;
+use fnv::FnvHashMap;
 use tracing::warn;
 use vecmap::VecMap;
 
-pub trait BalanceManager<AssetKey> {
+pub trait BalanceManager<AssetKey>: Clone {
+    fn update_from_exchange_balance_snapshot(
+        &mut self,
+        exchange: &Exchange,
+        snapshot: Snapshot<&Vec<AssetBalance<AssetKey>>>
+    );
+
+    fn update_from_balance_snapshot(
+        &mut self,
+        exchange: &Exchange,
+        snapshot: Snapshot<&AssetBalance<AssetKey>>
+    );
+
     fn balance(&self, exchange: &Exchange, asset: &AssetKey) -> Option<&Balance>;
 
     fn balances_by_exchange<'a>(
@@ -19,51 +33,35 @@ pub trait BalanceManager<AssetKey> {
     ) -> impl Iterator<Item = (&'a AssetKey, &'a Balance)>
     where
         AssetKey: 'a;
-
-    fn update_from_snapshot(
-        &mut self,
-        exchange: &Exchange,
-        snapshot: Snapshot<&AssetBalance<AssetKey>>,
-    );
 }
 
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From, Constructor)]
-pub struct Balances<AssetKey: Eq>(pub VecMap<Exchange, VecMap<AssetKey, Balance>>);
+pub struct Balances<AssetKey: Eq + Hash>(pub VecMap<Exchange, FnvHashMap<AssetKey, Balance>>);
+
 
 impl<AssetKey> BalanceManager<AssetKey> for Balances<AssetKey>
 where
-    AssetKey: Eq + Debug,
+    AssetKey: Debug + Clone + Eq + Hash,
 {
-    fn balance(&self, exchange: &Exchange, asset: &AssetKey) -> Option<&Balance> {
-        self.0
-            .get(exchange)
-            .and_then(|balances| balances.get(asset))
+    fn update_from_exchange_balance_snapshot(&mut self, exchange: &Exchange, snapshot: Snapshot<&Vec<AssetBalance<AssetKey>>>) {
+        let Some(exchange_balances) = self.0.get_mut(exchange) else {
+            warn!(
+                %exchange,
+                event = ?snapshot,
+                "BalanceManager ignoring Snapshot<AssetBalance> received for non-configured exchange",
+            );
+            return;
+        };
+
+        let Snapshot(balances) = snapshot;
+        *exchange_balances = balances
+            .into_iter()
+            .map(|balance| (balance.asset.clone(), balance.balance))
+            .collect();
     }
 
-    fn balances_by_exchange<'a>(
-        &'a self,
-        exchange: &Exchange,
-    ) -> impl Iterator<Item = (&'a AssetKey, &'a Balance)>
-    where
-        AssetKey: 'a,
-    {
-        self.0.get(exchange).map_or_else(
-            || {
-                warn!(
-                    %exchange,
-                    "BalanceManager cannot return balances for non-configured exchange",
-                );
-                Either::Left(std::iter::empty())
-            },
-            |balances| Either::Right(balances.iter()),
-        )
-    }
-
-    fn update_from_snapshot(
-        &mut self,
-        exchange: &Exchange,
-        snapshot: Snapshot<&AssetBalance<AssetKey>>,
-    ) {
+    fn update_from_balance_snapshot(&mut self, exchange: &Exchange, snapshot: Snapshot<&AssetBalance<AssetKey>>) {
         let Some(exchange_balances) = self.0.get_mut(exchange) else {
             warn!(
                 %exchange,
@@ -88,9 +86,37 @@ where
 
         *asset_balance = *balance;
     }
+
+    fn balance(&self, exchange: &Exchange, asset: &AssetKey) -> Option<&Balance> {
+        self.0
+            .get(exchange)
+            .and_then(|balances| balances.get(asset))
+    }
+
+    fn balances_by_exchange<'a>(
+        &'a self,
+        exchange: &Exchange,
+    ) -> impl Iterator<Item = (&'a AssetKey, &'a Balance)>
+    where
+        AssetKey: 'a,
+    {
+        self.0.get(exchange).map_or_else(
+            || {
+                warn!(
+                    %exchange,
+                    "BalanceManager cannot return balances for non-configured exchange",
+                );
+                Either::Left(std::iter::empty())
+            },
+            |balances| Either::Right(balances.iter()),
+        )
+    }
 }
 
-impl<AssetKey: Eq> Default for Balances<AssetKey> {
+impl<AssetKey> Default for Balances<AssetKey>
+where
+    AssetKey: Eq + Hash
+{
     fn default() -> Self {
         Self(VecMap::default())
     }
