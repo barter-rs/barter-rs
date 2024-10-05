@@ -15,7 +15,6 @@ impl<InstrumentState, BalanceState, AssetKey, InstrumentKey>
     type State = DefaultStrategyState;
     type RiskState = DefaultRiskManagerState;
 
-    // <InstrumentState, StrategyState, RiskState, AssetKey, InstrumentKey>
     fn generate_orders(
         &self,
         _: &EngineState<

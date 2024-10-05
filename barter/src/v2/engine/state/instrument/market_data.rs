@@ -4,10 +4,11 @@ use barter_data::subscription::book::{OrderBook, OrderBookL1};
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use crate::v2::engine::state::UpdateFromSnapshot;
 
 pub trait MarketDataManager<InstrumentKey>
 where
-    Self: for<'a> Processor<&'a MarketEvent<InstrumentKey, Self::MarketEventKind>>,
+    Self: for<'a> Processor<&'a MarketEvent<InstrumentKey, Self::MarketEventKind>>
 {
     type Snapshot: Clone;
     type MarketEventKind: Debug;

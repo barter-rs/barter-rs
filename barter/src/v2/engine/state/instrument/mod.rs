@@ -1,5 +1,5 @@
 use crate::v2::engine::state::instrument::order::OrderManager;
-use crate::v2::engine::state::UpdateFromSnapshot;
+use crate::v2::engine::state::{UpdateFromKeyedSnapshot, UpdateFromSnapshot};
 use crate::v2::execution::InstrumentAccountSnapshot;
 use crate::v2::order::{ExchangeOrderState, InternalOrderState, RequestCancel, RequestOpen};
 use crate::v2::position::Position;
@@ -16,6 +16,9 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::hash::Hash;
 use tracing::warn;
+use barter_data::event::MarketEvent;
+use crate::v2::engine::Processor;
+use crate::v2::engine::state::instrument::market_data::MarketDataManager;
 
 pub mod market_data;
 pub mod order;
@@ -58,37 +61,43 @@ where
                 warn!(
                     ?instrument,
                     event = ?snapshot,
-                    "EngineState ignoring InstrumentAccountSnapshot received for non-configured instrument"
+                    "InstrumentState ignoring snapshot received for non-configured instrument"
                 );
             }
         }
     }
 }
 
-// impl<InstrumentKey, MarketState> MarketDataManager<InstrumentKey> for Instruments<InstrumentKey, MarketState>
-// where
-//     Self: UpdateFromKeyedSnapshot<MarketState::Snapshot>,
-//     InstrumentKey: Debug + Clone + Eq + Hash,
-//     MarketState: Debug + MarketDataManager<InstrumentKey>,
-//     MarketState::MarketDataKind: Debug,
-// {
-//     type Snapshot = MarketState::Snapshot;
-//     type MarketDataKind = MarketState::MarketDataKind;
-//
-//     fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey, MarketState::MarketDataKind>) {
-//         let Some(state) = self.state_mut(&event.instrument) else {
-//             warn!(
-//                 exchange = %event.exchange,
-//                 instrument = ?event.instrument,
-//                 ?event,
-//                 "MarketDataManager ignoring MarketEvent received for non-configured instrument",
-//             );
-//             return;
-//         };
-//
-//         state.market.update_from_market(event);
-//     }
-// }
+impl<InstrumentKey, MarketState> MarketDataManager<InstrumentKey> for Instruments<InstrumentKey, MarketState>
+where
+    InstrumentKey: Debug + Eq + Hash,
+    MarketState: MarketDataManager<InstrumentKey>,
+{
+    type Snapshot = MarketState::Snapshot;
+    type MarketEventKind = MarketState::MarketEventKind;
+}
+
+impl<InstrumentKey, MarketState> Processor<&MarketEvent<InstrumentKey, MarketState::MarketEventKind>> for Instruments<InstrumentKey, MarketState>
+where
+    InstrumentKey: Debug + Eq + Hash,
+    MarketState: MarketDataManager<InstrumentKey>,
+{
+    type Output = ();
+
+    fn process(&mut self, event: &MarketEvent<InstrumentKey, MarketState::MarketEventKind>) -> Self::Output {
+        let Some(state) = self.state_mut(&event.instrument) else {
+            warn!(
+                exchange = %event.exchange,
+                instrument = ?event.instrument,
+                ?event,
+                "InstrumentState ignoring MarketEvent received for non-configured instrument",
+            );
+            return
+        };
+
+        state.market.process(event);
+    }
+}
 
 impl<InstrumentKey, MarketState> UpdateFromSnapshot<Vec<Order<InstrumentKey, Open>>>
     for Instruments<InstrumentKey, MarketState>
@@ -110,7 +119,7 @@ where
             warn!(
                 instrument_id = ?snapshot.0.instrument,
                 event = ?snapshot,
-                "OrderManager ignoring Snapshot<Order> received for non-configured instrument"
+                "OrderManager ignoring snapshot received for non-configured instrument"
             );
             return;
         };
