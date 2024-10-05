@@ -38,6 +38,7 @@ tokio-tungstenite = { version = "0.21.0" }
 ta = { version = "0.5.0" }
 
 # Data Structures
+fnv = { version = "1.0.7" }
 vecmap-rs = { version = "0.2.1" }
 parking_lot = { version = "0.12.3" }
 
@@ -50,7 +51,7 @@ base64 = { version = "0.22.0" }
 # Misc
 uuid = { version = "1.9.1", features = ["v4", "serde"]}
 chrono = { version = "0.4.38", features = ["serde"]}
-derive_more = { version = "0.99.17" }
+derive_more = { version = "1.0.0" }
 itertools = { version = "0.13.0" }
 rust_decimal = { version = "1.29.1" }
 rust_decimal_macros = { version = "1.29.1" }
