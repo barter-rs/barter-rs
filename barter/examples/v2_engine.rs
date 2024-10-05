@@ -1,4 +1,5 @@
 use barter::v2::engine::error::ExecutionRxDropped;
+use barter::v2::engine::state::instrument::Instruments;
 use barter::v2::engine::state::TradingState;
 use barter::v2::instrument::asset::AssetId;
 use barter::v2::strategy::default::{DefaultStrategy, DefaultStrategyState};
@@ -35,7 +36,6 @@ use barter_integration::model::instrument::kind::InstrumentKind;
 use futures::{try_join, Stream, StreamExt};
 use std::marker::PhantomData;
 use std::time::Duration;
-use barter::v2::engine::state::instrument::Instruments;
 
 #[tokio::main]
 async fn main() {
@@ -101,10 +101,17 @@ async fn main() {
 
     // // Spawn task to consume & log AuditEvents
     join_set.spawn({
-        barter::v2::engine::audit::manager::run::<_, _, DefaultStrategy, _, DefaultRiskManager, _, _, _, _>(
-            state.clone(),
-            audit_rx.into_stream(),
-        )
+        barter::v2::engine::audit::manager::run::<
+            _,
+            _,
+            DefaultStrategy,
+            _,
+            DefaultRiskManager,
+            _,
+            _,
+            _,
+            _,
+        >(state.clone(), audit_rx.into_stream())
     });
 
     let mut engine = Engine {

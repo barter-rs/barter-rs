@@ -1,28 +1,26 @@
+use crate::v2::engine::state::UpdateFromKeyedSnapshot;
 use crate::v2::{
     balance::{AssetBalance, Balance},
     Snapshot,
 };
 use barter_integration::model::Exchange;
 use derive_more::{Constructor, From};
+use fnv::FnvHashMap;
 use itertools::Either;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::hash::Hash;
-use fnv::FnvHashMap;
 use tracing::warn;
 use vecmap::VecMap;
 
-pub trait BalanceManager<AssetKey>: Clone {
-    fn update_from_exchange_balance_snapshot(
+pub trait BalanceManager<AssetKey>
+where
+    Self: UpdateFromKeyedSnapshot<Vec<AssetBalance<AssetKey>>, Key = Exchange>,
+{
+    fn update_from_balance(
         &mut self,
         exchange: &Exchange,
-        snapshot: Snapshot<&Vec<AssetBalance<AssetKey>>>
-    );
-
-    fn update_from_balance_snapshot(
-        &mut self,
-        exchange: &Exchange,
-        snapshot: Snapshot<&AssetBalance<AssetKey>>
+        snapshot: Snapshot<&AssetBalance<AssetKey>>,
     );
 
     fn balance(&self, exchange: &Exchange, asset: &AssetKey) -> Option<&Balance>;
@@ -35,33 +33,45 @@ pub trait BalanceManager<AssetKey>: Clone {
         AssetKey: 'a;
 }
 
-
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From, Constructor)]
 pub struct Balances<AssetKey: Eq + Hash>(pub VecMap<Exchange, FnvHashMap<AssetKey, Balance>>);
 
+impl<AssetKey> UpdateFromKeyedSnapshot<Vec<AssetBalance<AssetKey>>> for Balances<AssetKey>
+where
+    AssetKey: Debug + Clone + Eq + Hash,
+{
+    type Key = Exchange;
+
+    fn update_from_keyed_snapshot(
+        &mut self,
+        key: &Self::Key,
+        snapshot: &Vec<AssetBalance<AssetKey>>,
+    ) {
+        let Some(exchange_state) = self.0.get_mut(key) else {
+            warn!(
+                exchange = %key,
+                event = ?snapshot,
+                "BalanceManager ignoring keyed snapshot received for non-configured exchange"
+            );
+            return;
+        };
+
+        *exchange_state = snapshot
+            .iter()
+            .map(|balance| (balance.asset.clone(), balance.balance))
+            .collect()
+    }
+}
 
 impl<AssetKey> BalanceManager<AssetKey> for Balances<AssetKey>
 where
     AssetKey: Debug + Clone + Eq + Hash,
 {
-    fn update_from_exchange_balance_snapshot(&mut self, exchange: &Exchange, snapshot: Snapshot<&Vec<AssetBalance<AssetKey>>>) {
-        let Some(exchange_balances) = self.0.get_mut(exchange) else {
-            warn!(
-                %exchange,
-                event = ?snapshot,
-                "BalanceManager ignoring Snapshot<AssetBalance> received for non-configured exchange",
-            );
-            return;
-        };
-
-        let Snapshot(balances) = snapshot;
-        *exchange_balances = balances
-            .into_iter()
-            .map(|balance| (balance.asset.clone(), balance.balance))
-            .collect();
-    }
-
-    fn update_from_balance_snapshot(&mut self, exchange: &Exchange, snapshot: Snapshot<&AssetBalance<AssetKey>>) {
+    fn update_from_balance(
+        &mut self,
+        exchange: &Exchange,
+        snapshot: Snapshot<&AssetBalance<AssetKey>>,
+    ) {
         let Some(exchange_balances) = self.0.get_mut(exchange) else {
             warn!(
                 %exchange,
@@ -115,7 +125,7 @@ where
 
 impl<AssetKey> Default for Balances<AssetKey>
 where
-    AssetKey: Eq + Hash
+    AssetKey: Eq + Hash,
 {
     fn default() -> Self {
         Self(VecMap::default())

@@ -1,9 +1,13 @@
 use crate::v2::channel::Tx;
 use crate::v2::engine::audit::{AuditKind, Auditor, DefaultAudit, ShutdownAudit};
-use crate::v2::engine::error::{ExecutionRxDropped};
-use crate::v2::engine::state::{TradingState};
+use crate::v2::engine::error::ExecutionRxDropped;
+use crate::v2::engine::state::balance::BalanceManager;
+use crate::v2::engine::state::instrument::market_data::MarketDataManager;
+use crate::v2::engine::state::instrument::order::OrderManager;
+use crate::v2::engine::state::instrument::position::PositionManager;
+use crate::v2::engine::state::{TradingState, UpdateFromSnapshot};
 use crate::v2::engine::{Engine, Processor};
-use crate::v2::execution::ExecutionRequest;
+use crate::v2::execution::{ExecutionRequest, InstrumentAccountSnapshot};
 use crate::v2::risk::RiskManager;
 use crate::v2::strategy::Strategy;
 use crate::v2::{
@@ -14,8 +18,6 @@ use barter_data::event::MarketEvent;
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use crate::v2::engine::state::balance::BalanceManager;
-use crate::v2::engine::state::instrument::InstrumentStateManager;
 
 pub mod balance;
 pub mod channel;
@@ -29,12 +31,47 @@ pub mod risk;
 pub mod strategy;
 pub mod trade;
 
+// Todo: Must Have:
+//  - Utility to re-create state from Audit snapshot + updates w/ interactive mode
+//    (backward would require Vec<State> to be created on .next()) (add compression using file system)
+//  - All state update implementations
+//  - Add tests for all Managers
+//  - Add interface for user strategy & risk to access Instrument contract
+//  - Engine functionality can be injected, on_shutdown, on_state_update_error, on_disconnect, etc.
+//  - Find suitable place & usage of trait EngineClock.
+//   '--> Just Auditor? in EngineState, or perhaps just Engine?
+//  - Change all state update implementations to add new Entries without key clone if they have not been seen
+//  - Change OrderBook flow so DefaultMarketState actually has a RwLock<OrderBook>
+//    '--> upgrade to latest thinking on the topic, too
+
+// Todo: Nice To Have:
+//  - Utility for AssetKey, InstrumentKey lookups, as well as constructing Instruments contracts, etc
+//  - Sequenced log stream that can enrich logs w/ additional context eg/ InstrumentName
+//  - Consider removing duplicate logs when calling instrument.state, state_mut, and also Balances!
+//  - Extract methods from impl OrderManager for Orders (eg/ update_from_snapshot covers all bases)
+//    '--> also ensure duplication is removed from update_from_open & update_from_cancel
+//  - Should I collapse nested VecMap in balances and use eg/ VecMap<ExchangeAssetKey, Balance>
+//  - Setup some way to get "diffs" for eg/ should Orders.update_from_order_snapshot return a diff?
+
+// Todo: Nice To Have: OrderManager:
+//  - OrderManager update_from_open & update_from_cancel may want to return "in flight failed due to X api reason"
+//    '--> eg/ find logic associated with "OrderManager received ExecutionError for Order<InFlight>"
+//  - Possible we want a 5m window buffer for "strange order updates" to handle out of orders
+//    '--> eg/ adding InFlight, receiving Cancelled, the receiving Open -> ghost orders
+
+// Todo: Open Questions:
+//  - Process account,market,risk,strategy may want to return errors, especially risk and strategy
+
+// Todo: Way off:
+//  - Could use TradingState like concept to switch between Strategies / run loops
+//    '--> this continues that idea of scriptable Engine now we everything takes &mut
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
-pub enum EngineEvent<AssetKey, InstrumentKey> {
+pub enum EngineEvent<AssetKey, InstrumentKey, MarketKind> {
     Shutdown,
     TradingStateUpdate(TradingState),
     Account(AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>),
-    Market(MarketEvent<InstrumentKey>),
+    Market(MarketEvent<InstrumentKey, MarketKind>),
     Command(Command<InstrumentKey>),
 }
 
@@ -61,24 +98,73 @@ impl<T> Snapshot<T> {
     }
 }
 
-pub fn run<EventFeed, AuditTx, ExecutionTx, InstrumentState, BalanceState, StrategyT, Risk, AssetKey, InstrumentKey, StrategyState, RiskState>(
+pub fn run<
+    EventFeed,
+    AuditTx,
+    ExecutionTx,
+    InstrumentState,
+    BalanceState,
+    StrategyT,
+    Risk,
+    AssetKey,
+    InstrumentKey,
+    StrategyState,
+    RiskState,
+>(
     feed: &mut EventFeed,
     audit_tx: &mut Auditor<AuditTx>,
-    engine: &mut Engine<ExecutionTx, InstrumentState, BalanceState, StrategyT, Risk, AssetKey, InstrumentKey>,
+    engine: &mut Engine<
+        ExecutionTx,
+        InstrumentState,
+        BalanceState,
+        StrategyT,
+        Risk,
+        AssetKey,
+        InstrumentKey,
+    >,
 ) where
-    EventFeed: Iterator<Item = EngineEvent<AssetKey, InstrumentKey>>,
-    AuditTx: Tx<Item = DefaultAudit<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey>>,
+    EventFeed:
+        Iterator<Item = EngineEvent<AssetKey, InstrumentKey, InstrumentState::MarketEventKind>>,
+    AuditTx: Tx<
+        Item = DefaultAudit<
+            InstrumentState,
+            BalanceState,
+            StrategyState,
+            RiskState,
+            AssetKey,
+            InstrumentKey,
+            InstrumentState::MarketEventKind,
+        >,
+    >,
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
-    InstrumentState: InstrumentStateManager<InstrumentKey>,
-    BalanceState: BalanceManager<AssetKey>,
-    StrategyT: Strategy<InstrumentState, BalanceState, AssetKey, InstrumentKey, State = StrategyState, RiskState = RiskState>,
+    InstrumentState: Clone
+        + UpdateFromSnapshot<Vec<InstrumentAccountSnapshot<InstrumentKey>>>
+        + MarketDataManager<InstrumentKey>
+        + OrderManager<InstrumentKey>
+        + PositionManager<InstrumentKey>,
+    BalanceState: Clone + BalanceManager<AssetKey>,
+    StrategyT: Strategy<
+        InstrumentState,
+        BalanceState,
+        AssetKey,
+        InstrumentKey,
+        State = StrategyState,
+        RiskState = RiskState,
+    >,
     StrategyState: Clone
         + for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
-        + for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
-    Risk: RiskManager<InstrumentState, BalanceState, AssetKey, InstrumentKey, State = RiskState, StrategyState = StrategyState>,
+        + for<'a> Processor<&'a MarketEvent<InstrumentKey, InstrumentState::MarketEventKind>>,
+    Risk: RiskManager<
+        InstrumentState,
+        BalanceState,
+        AssetKey,
+        InstrumentKey,
+        State = RiskState,
+        StrategyState = StrategyState,
+    >,
     RiskState: Clone
         + for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
-        + for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
+        + for<'a> Processor<&'a MarketEvent<InstrumentKey, InstrumentState::MarketEventKind>>,
     AssetKey: Debug + Clone,
     InstrumentKey: Debug + Clone,
     Engine<ExecutionTx, InstrumentState, BalanceState, StrategyT, Risk, AssetKey, InstrumentKey>:

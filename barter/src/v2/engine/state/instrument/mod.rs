@@ -1,119 +1,111 @@
+use crate::v2::engine::state::instrument::order::OrderManager;
+use crate::v2::engine::state::UpdateFromSnapshot;
+use crate::v2::execution::InstrumentAccountSnapshot;
 use crate::v2::order::{ExchangeOrderState, InternalOrderState, RequestCancel, RequestOpen};
-use crate::v2::{engine::state::instrument::{market_data::MarketState, order::Orders}, execution::error::ExecutionError, instrument::Instrument, order::{Cancelled, Open, Order}, trade::Trade, Snapshot};
-use barter_data::event::{DataKind, MarketEvent};
+use crate::v2::position::Position;
+use crate::v2::{
+    engine::state::instrument::order::Orders,
+    execution::error::ExecutionError,
+    instrument::Instrument,
+    order::{Cancelled, Open, Order},
+    Snapshot,
+};
 use derive_more::{Constructor, From};
+use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::hash::Hash;
-use fnv::FnvHashMap;
 use tracing::warn;
-use position::PositionManager;
-use crate::v2::engine::state::instrument::market_data::MarketDataManager;
-use crate::v2::engine::state::instrument::order::OrderManager;
-use crate::v2::execution::{InstrumentAccountSnapshot};
 
 pub mod market_data;
 pub mod order;
 pub mod position;
 
-pub trait InstrumentStateManager<InstrumentKey>: Clone {
-    fn update_from_snapshot(&mut self, snapshot: &[InstrumentAccountSnapshot<InstrumentKey>]);
-    fn market_data(&self) -> &impl MarketDataManager<InstrumentKey>;
-    fn market_data_mut(&mut self) -> &mut impl MarketDataManager<InstrumentKey>;
-    fn orders(&self) -> &impl OrderManager<InstrumentKey>;
-    fn orders_mut(&mut self) -> &mut impl OrderManager<InstrumentKey>;
-    fn positions(&self) -> &impl PositionManager<InstrumentKey>;
-    fn positions_mut(&mut self) -> &mut impl PositionManager<InstrumentKey>;
-}
-
-
 #[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize, From)]
-pub struct Instruments<InstrumentKey: Eq + Hash>(
-    pub FnvHashMap<InstrumentKey, InstrumentState<InstrumentKey>>,
+pub struct Instruments<InstrumentKey: Eq + Hash, MarketState>(
+    pub FnvHashMap<InstrumentKey, InstrumentState<InstrumentKey, MarketState>>,
 );
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct InstrumentState<InstrumentKey> {
+pub struct InstrumentState<InstrumentKey, MarketState> {
     pub instrument: Instrument<InstrumentKey>,
     pub market: MarketState,
     pub orders: Orders<InstrumentKey>,
     pub position: Position<InstrumentKey>,
 }
 
-impl<InstrumentKey> InstrumentStateManager<InstrumentKey> for Instruments<InstrumentKey>
+impl<InstrumentKey, MarketState> UpdateFromSnapshot<Vec<InstrumentAccountSnapshot<InstrumentKey>>>
+    for Instruments<InstrumentKey, MarketState>
 where
     InstrumentKey: Debug + Clone + Eq + Hash,
 {
-    fn update_from_snapshot(&mut self, snapshot: &[InstrumentAccountSnapshot<InstrumentKey>]) {
-        todo!()
-    }
+    fn update_from_snapshot(&mut self, snapshots: &Vec<InstrumentAccountSnapshot<InstrumentKey>>) {
+        for snapshot in snapshots {
+            let instrument = &snapshot.position.instrument;
+            if let Some(state) = self.state_mut(instrument) {
+                let _ = std::mem::replace(&mut state.position, snapshot.position.clone());
 
-    fn market_data(&self) -> &impl MarketDataManager<InstrumentKey> {
-        self
-    }
-
-    fn market_data_mut(&mut self) -> &mut impl MarketDataManager<InstrumentKey> {
-        self
-    }
-
-    fn orders(&self) -> &impl OrderManager<InstrumentKey> {
-        self
-    }
-
-    fn orders_mut(&mut self) -> &mut impl OrderManager<InstrumentKey> {
-        self
-    }
-
-    fn positions(&self) -> &impl PositionManager<InstrumentKey> {
-        self
-    }
-
-    fn positions_mut(&mut self) -> &mut impl PositionManager<InstrumentKey> {
-        self
-    }
-}
-
-impl<InstrumentKey> MarketDataManager<InstrumentKey> for Instruments<InstrumentKey>
-where
-    InstrumentKey: Debug + Clone + Eq + Hash,
-{
-    fn update_from_snapshot(&mut self, snapshot: Snapshot<Self>) {
-        todo!()
-    }
-
-    fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey>) {
-        let Some(state) = self.state_mut(&event.instrument) else {
-            warn!(
-                exchange = %event.exchange,
-                instrument = ?event.instrument,
-                ?event,
-                "MarketDataManager ignoring MarketEvent received for non-configured instrument",
-            );
-            return;
-        };
-
-        if let DataKind::OrderBookL1(l1) = event.kind {
-            state.market.update_from_l1(l1)
-        } else {
-            warn!(
-                ?event,
-                supported = "[OrderBookL1]",
-                "MarketDataManager ignoring MarketEvent since it's Kind is not supported"
-            );
+                // Note: this wipes all open & cancel in-flight requests
+                let _ = std::mem::replace(
+                    &mut state.orders.inner,
+                    snapshot
+                        .orders
+                        .iter()
+                        .map(|order| (order.cid, Order::from(order.clone())))
+                        .collect(),
+                );
+            } else {
+                warn!(
+                    ?instrument,
+                    event = ?snapshot,
+                    "EngineState ignoring InstrumentAccountSnapshot received for non-configured instrument"
+                );
+            }
         }
     }
 }
 
+// impl<InstrumentKey, MarketState> MarketDataManager<InstrumentKey> for Instruments<InstrumentKey, MarketState>
+// where
+//     Self: UpdateFromKeyedSnapshot<MarketState::Snapshot>,
+//     InstrumentKey: Debug + Clone + Eq + Hash,
+//     MarketState: Debug + MarketDataManager<InstrumentKey>,
+//     MarketState::MarketDataKind: Debug,
+// {
+//     type Snapshot = MarketState::Snapshot;
+//     type MarketDataKind = MarketState::MarketDataKind;
+//
+//     fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey, MarketState::MarketDataKind>) {
+//         let Some(state) = self.state_mut(&event.instrument) else {
+//             warn!(
+//                 exchange = %event.exchange,
+//                 instrument = ?event.instrument,
+//                 ?event,
+//                 "MarketDataManager ignoring MarketEvent received for non-configured instrument",
+//             );
+//             return;
+//         };
+//
+//         state.market.update_from_market(event);
+//     }
+// }
 
-impl<InstrumentKey> OrderManager<InstrumentKey> for Instruments<InstrumentKey>
+impl<InstrumentKey, MarketState> UpdateFromSnapshot<Vec<Order<InstrumentKey, Open>>>
+    for Instruments<InstrumentKey, MarketState>
+where
+    InstrumentKey: Eq + Hash,
+{
+    fn update_from_snapshot(&mut self, snapshot: &Vec<Order<InstrumentKey, Open>>) {
+        todo!()
+    }
+}
+
+impl<InstrumentKey, MarketState> OrderManager<InstrumentKey>
+    for Instruments<InstrumentKey, MarketState>
 where
     InstrumentKey: Debug + Clone + PartialEq + Eq + Hash,
 {
-    fn update_from_orders_snapshot(&mut self, snapshot: Snapshot<&Vec<Order<InstrumentKey, Open>>>) {
-        todo!()
-    }
-
-    fn update_from_order_snapshot(&mut self, snapshot: Snapshot<&Order<InstrumentKey, ExchangeOrderState>>) {
+    fn update_from_order(&mut self, snapshot: Snapshot<&Order<InstrumentKey, ExchangeOrderState>>) {
         let Some(state) = self.state_mut(&snapshot.0.instrument) else {
             warn!(
                 instrument_id = ?snapshot.0.instrument,
@@ -123,7 +115,7 @@ where
             return;
         };
 
-        state.orders.update_from_order_snapshot(snapshot);
+        state.orders.update_from_order(snapshot);
     }
 
     fn orders<'a>(&'a self) -> impl Iterator<Item = &'a Order<InstrumentKey, InternalOrderState>>
@@ -185,26 +177,32 @@ where
     }
 }
 
-impl<InstrumentKey> Instruments<InstrumentKey>
+impl<InstrumentKey, MarketState> Instruments<InstrumentKey, MarketState>
 where
     InstrumentKey: Eq + Hash,
 {
-    pub fn state(&self, instrument: &InstrumentKey) -> Option<&InstrumentState<InstrumentKey>> {
+    pub fn state(
+        &self,
+        instrument: &InstrumentKey,
+    ) -> Option<&InstrumentState<InstrumentKey, MarketState>> {
         self.0.get(instrument)
     }
     pub fn state_mut(
         &mut self,
         instrument: &InstrumentKey,
-    ) -> Option<&mut InstrumentState<InstrumentKey>> {
+    ) -> Option<&mut InstrumentState<InstrumentKey, MarketState>> {
         self.0.get_mut(instrument)
     }
 }
 
-impl<InstrumentKey> FromIterator<InstrumentState<InstrumentKey>> for Instruments<InstrumentKey>
+impl<InstrumentKey, MarketState> FromIterator<InstrumentState<InstrumentKey, MarketState>>
+    for Instruments<InstrumentKey, MarketState>
 where
     InstrumentKey: Clone + Hash + Eq,
 {
-    fn from_iter<T: IntoIterator<Item = InstrumentState<InstrumentKey>>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = InstrumentState<InstrumentKey, MarketState>>>(
+        iter: T,
+    ) -> Self {
         Instruments(
             iter.into_iter()
                 .map(|state| (state.instrument.id.clone(), state))

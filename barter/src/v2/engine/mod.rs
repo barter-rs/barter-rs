@@ -1,61 +1,28 @@
 use crate::v2::engine::audit::{AuditKind, Auditor, DefaultAudit, GeneratedRequestsAudit};
 use crate::v2::engine::command::Command;
 use crate::v2::engine::error::ExecutionRxDropped;
+use crate::v2::engine::state::instrument::market_data::MarketDataManager;
+use crate::v2::engine::state::instrument::order::OrderManager;
+use crate::v2::engine::state::EngineState;
 use crate::v2::order::{Order, OrderId, RequestOpen};
 use crate::v2::{
     channel::Tx,
-    engine::{
-        audit::Audit,
-    },
+    engine::audit::Audit,
     execution::ExecutionRequest,
     risk::{RiskApproved, RiskManager},
     strategy::Strategy,
 };
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
-use itertools::{Itertools};
+use itertools::Itertools;
 use std::fmt::Debug;
-use crate::v2::engine::state::{EngineState};
-use crate::v2::engine::state::instrument::InstrumentStateManager;
-use crate::v2::engine::state::instrument::order::OrderManager;
 
 pub mod audit;
+pub mod clock;
 pub mod command;
 pub mod error;
 pub mod ext;
 pub mod state;
-pub mod clock;
-
-// Todo: Must Have:
-//  - Utility to re-create state from Audit snapshot + updates w/ interactive mode (backward would require Vec<State> to be created on .next()) (add compression using file system)
-//  - All state update implementations:
-//  - Add tests for all Managers:
-//  - Add interface for user strategy & risk to access Instrument contract
-//  - Utility for AssetKey, InstrumentKey lookups, as well as constructing Instruments contracts, etc
-//  - Engine functionality can be injected, on_shutdown, on_state_update_error, on_disconnect, etc.
-//  - Find suitable place & usage of trait EngineClock.
-//   '--> Just Auditor? in EngineState, or perhaps just Engine?
-
-// Todo: Nice To Have:
-//  - Sequenced log stream that can enrich logs w/ additional context eg/ InstrumentName
-//  - Consider removing duplicate logs when calling instrument.state, state_mut, and also Balances!
-//  - Extract methods from impl OrderManager for Orders (eg/ update_from_snapshot covers all bases)
-//    '--> also ensure duplication is removed from update_from_open & update_from_cancel
-//  - Should I collapse nested VecMap in balances and use eg/ VecMap<ExchangeAssetKey, Balance>
-//  - Setup some way to get "diffs" for eg/ should Orders.update_from_order_snapshot return a diff?
-
-// Todo: Nice To Have: OrderManager:
-//  - OrderManager update_from_open & update_from_cancel may want to return "in flight failed due to X api reason"
-//    '--> eg/ find logic associated with "OrderManager received ExecutionError for Order<InFlight>"
-//  - Possible we want a 5m window buffer for "strange order updates" to handle out of orders
-//    '--> eg/ adding InFlight, receiving Cancelled, the receiving Open -> ghost orders
-
-// Todo: Open Questions:
-//  - Process account,market,risk,strategy may want to return errors, especially risk and strategy
-
-// Todo: Way off:
-//  - Could use TradingState like concept to switch between Strategies / run loops
-//    '--> this continues that idea of scriptable Engine now we everything takes &mut
 
 pub trait Processor<Event> {
     type Output;
@@ -63,30 +30,67 @@ pub trait Processor<Event> {
 }
 
 #[derive(Debug, Constructor)]
-pub struct Engine<ExecutionTx, InstrumentState, BalanceState, StrategyT, Risk, AssetKey, InstrumentKey>
-where
+pub struct Engine<
+    ExecutionTx,
+    InstrumentState,
+    BalanceState,
+    StrategyT,
+    Risk,
+    AssetKey,
+    InstrumentKey,
+> where
     StrategyT: Strategy<InstrumentState, BalanceState, AssetKey, InstrumentKey>,
     Risk: RiskManager<InstrumentState, BalanceState, AssetKey, InstrumentKey>,
 {
     pub sequence: u64,
     pub time: fn() -> DateTime<Utc>,
     pub execution_tx: ExecutionTx,
-    pub state: EngineState<InstrumentState, BalanceState, StrategyT::State, Risk::State, AssetKey, InstrumentKey>,
+    pub state: EngineState<
+        InstrumentState,
+        BalanceState,
+        StrategyT::State,
+        Risk::State,
+        AssetKey,
+        InstrumentKey,
+    >,
     pub strategy: StrategyT,
     pub risk: Risk,
 }
 
-impl<ExecutionTx, InstrumentState, BalanceState, StrategyT, Risk, AssetKey, InstrumentKey, StrategyState, RiskState>
-    Processor<&Command<InstrumentKey>>
+impl<
+        ExecutionTx,
+        InstrumentState,
+        BalanceState,
+        StrategyT,
+        Risk,
+        AssetKey,
+        InstrumentKey,
+        StrategyState,
+        RiskState,
+    > Processor<&Command<InstrumentKey>>
     for Engine<ExecutionTx, InstrumentState, BalanceState, StrategyT, Risk, AssetKey, InstrumentKey>
 where
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
-    InstrumentState: InstrumentStateManager<InstrumentKey>,
-    StrategyT: Strategy<InstrumentState, BalanceState, AssetKey, InstrumentKey, State = StrategyState, RiskState = RiskState>,
+    InstrumentState: OrderManager<InstrumentKey>,
+    StrategyT: Strategy<
+        InstrumentState,
+        BalanceState,
+        AssetKey,
+        InstrumentKey,
+        State = StrategyState,
+        RiskState = RiskState,
+    >,
     StrategyState: Clone,
-    Risk: RiskManager<InstrumentState, BalanceState, AssetKey, InstrumentKey, State = RiskState, StrategyState = StrategyState>,
+    Risk: RiskManager<
+        InstrumentState,
+        BalanceState,
+        AssetKey,
+        InstrumentKey,
+        State = RiskState,
+        StrategyState = StrategyState,
+    >,
     RiskState: Clone,
-    InstrumentKey: Clone
+    InstrumentKey: Clone,
 {
     type Output = Result<(), ExecutionRxDropped>;
 
@@ -113,14 +117,37 @@ where
     }
 }
 
-impl<ExecutionTx, InstrumentState, BalanceState, StrategyT, Risk, AssetKey, InstrumentKey, StrategyState, RiskState>
-    Engine<ExecutionTx, InstrumentState, BalanceState, StrategyT, Risk, AssetKey, InstrumentKey>
+impl<
+        ExecutionTx,
+        InstrumentState,
+        BalanceState,
+        StrategyT,
+        Risk,
+        AssetKey,
+        InstrumentKey,
+        StrategyState,
+        RiskState,
+    > Engine<ExecutionTx, InstrumentState, BalanceState, StrategyT, Risk, AssetKey, InstrumentKey>
 where
     ExecutionTx: Tx<Item = ExecutionRequest<InstrumentKey>, Error = ExecutionRxDropped>,
-    InstrumentState: InstrumentStateManager<InstrumentKey>,
-    StrategyT: Strategy<InstrumentState, BalanceState, AssetKey, InstrumentKey, State = StrategyState, RiskState = RiskState>,
+    InstrumentState: OrderManager<InstrumentKey>,
+    StrategyT: Strategy<
+        InstrumentState,
+        BalanceState,
+        AssetKey,
+        InstrumentKey,
+        State = StrategyState,
+        RiskState = RiskState,
+    >,
     StrategyState: Clone,
-    Risk: RiskManager<InstrumentState, BalanceState, AssetKey, InstrumentKey, State = RiskState, StrategyState = StrategyState>,
+    Risk: RiskManager<
+        InstrumentState,
+        BalanceState,
+        AssetKey,
+        InstrumentKey,
+        State = RiskState,
+        StrategyState = StrategyState,
+    >,
     RiskState: Clone,
     InstrumentKey: Clone,
 {
@@ -155,12 +182,11 @@ where
         let refused_opens = refused_opens.into_iter().collect::<Vec<_>>();
 
         // Record in flight order requests
-        let order_manager = self.state.instruments.orders_mut();
         for request in cancels_sent.iter() {
-            order_manager.record_in_flight_cancel(request);
+            self.state.instruments.record_in_flight_cancel(request);
         }
         for request in opens_sent.iter() {
-            order_manager.record_in_flight_open(request);
+            self.state.instruments.record_in_flight_open(request);
         }
 
         if !cancel_send_errs.is_empty() | !open_send_errs.is_empty() {
@@ -175,16 +201,18 @@ where
         })
     }
 
-    pub fn execute(&mut self, request: &ExecutionRequest<InstrumentKey>) -> Result<(), ExecutionRxDropped> {
+    pub fn execute(
+        &mut self,
+        request: &ExecutionRequest<InstrumentKey>,
+    ) -> Result<(), ExecutionRxDropped> {
         self.execution_tx.send(request.clone())?;
 
-        let order_manager = self.state.instruments.orders_mut();
         match request {
             ExecutionRequest::Cancel(cancel) => {
-                order_manager.record_in_flight_cancel(cancel);
+                self.state.instruments.record_in_flight_cancel(cancel);
             }
             ExecutionRequest::Open(open) => {
-                order_manager.record_in_flight_open(open);
+                self.state.instruments.record_in_flight_open(open);
             }
         }
 
@@ -207,9 +235,8 @@ where
             .partition_result();
 
         // Record in flight order requests
-        let order_manager = self.state.instruments.orders_mut();
         for request in opens_sent.iter() {
-            order_manager.record_in_flight_open(request);
+            self.state.instruments.record_in_flight_open(request);
         }
 
         if !open_send_errs.is_empty() {
@@ -233,9 +260,8 @@ where
             .partition_result();
 
         // Record in flight order requests
-        let order_manager = self.state.instruments.orders_mut();
         for request in opens_sent.iter() {
-            order_manager.record_in_flight_open(request);
+            self.state.instruments.record_in_flight_open(request);
         }
 
         if !open_send_errs.is_empty() {
@@ -261,7 +287,7 @@ where
 impl<ExecutionTx, InstrumentState, BalanceState, StrategyT, Risk, AssetKey, InstrumentKey>
     Engine<ExecutionTx, InstrumentState, BalanceState, StrategyT, Risk, AssetKey, InstrumentKey>
 where
-    InstrumentState: Clone,
+    InstrumentState: Clone + MarketDataManager<InstrumentKey>,
     BalanceState: Clone,
     StrategyT: Strategy<InstrumentState, BalanceState, AssetKey, InstrumentKey>,
     StrategyT::State: Clone,
@@ -272,7 +298,17 @@ where
 {
     pub fn send_snapshot_audit<AuditTx>(&mut self, tx: &mut Auditor<AuditTx>)
     where
-        AuditTx: Tx<Item = DefaultAudit<InstrumentState, BalanceState, StrategyT::State, Risk::State, AssetKey, InstrumentKey>>,
+        AuditTx: Tx<
+            Item = DefaultAudit<
+                InstrumentState,
+                BalanceState,
+                StrategyT::State,
+                Risk::State,
+                AssetKey,
+                InstrumentKey,
+                InstrumentState::MarketEventKind,
+            >,
+        >,
     {
         let audit = self.build_audit(AuditKind::Snapshot(self.state.clone()));
         tx.send(audit);

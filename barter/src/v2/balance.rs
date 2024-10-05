@@ -1,7 +1,6 @@
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
 pub struct AssetBalance<AssetKey> {
     pub asset: AssetKey,

@@ -1,12 +1,12 @@
 use crate::v2::engine::Processor;
 use crate::v2::execution::{AccountEvent, AccountEventKind};
+use crate::v2::strategy::default::DefaultStrategyState;
 use crate::v2::{
     engine::state::EngineState,
     order::{Order, RequestCancel, RequestOpen},
     risk::{RiskApproved, RiskManager, RiskRefused},
 };
 use barter_data::event::MarketEvent;
-use crate::v2::strategy::default::DefaultStrategyState;
 
 /// Example [`RiskManager`] implementation that approves all order requests.
 ///
@@ -14,13 +14,22 @@ use crate::v2::strategy::default::DefaultStrategyState;
 #[derive(Debug, Clone)]
 pub struct DefaultRiskManager;
 
-impl<InstrumentState, BalanceState, AssetKey, InstrumentKey> RiskManager<InstrumentState, BalanceState, AssetKey, InstrumentKey> for DefaultRiskManager {
+impl<InstrumentState, BalanceState, AssetKey, InstrumentKey>
+    RiskManager<InstrumentState, BalanceState, AssetKey, InstrumentKey> for DefaultRiskManager
+{
     type State = DefaultRiskManagerState;
     type StrategyState = DefaultStrategyState;
 
     fn check(
         &self,
-        _: &EngineState<InstrumentState, BalanceState, Self::StrategyState, Self::State, AssetKey, InstrumentKey>,
+        _: &EngineState<
+            InstrumentState,
+            BalanceState,
+            Self::StrategyState,
+            Self::State,
+            AssetKey,
+            InstrumentKey,
+        >,
         cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
         opens: impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
     ) -> (

@@ -1,12 +1,12 @@
+use crate::v2::engine::state::instrument::Instruments;
+use crate::v2::position::{PortfolioId, Position};
+use crate::v2::trade::Trade;
+use crate::v2::Snapshot;
 use std::fmt::Debug;
 use std::hash::Hash;
 use tracing::warn;
-use crate::v2::engine::state::instrument::Instruments;
-use crate::v2::position::{PortfolioId, Position};
-use crate::v2::Snapshot;
-use crate::v2::trade::Trade;
 
-pub trait PositionManager<InstrumentKey>: Clone {
+pub trait PositionManager<InstrumentKey> {
     fn update_from_position_snapshot(&mut self, snapshot: Snapshot<&Position<InstrumentKey>>);
     fn position(&self, instrument: &InstrumentKey) -> Option<&Position<InstrumentKey>>;
     fn positions_by_portfolio<'a>(
@@ -18,7 +18,8 @@ pub trait PositionManager<InstrumentKey>: Clone {
     fn update_from_trade(&mut self, trade: &Trade<InstrumentKey>);
 }
 
-impl<InstrumentKey> PositionManager<InstrumentKey> for Instruments<InstrumentKey>
+impl<InstrumentKey, MarketState> PositionManager<InstrumentKey>
+    for Instruments<InstrumentKey, MarketState>
 where
     InstrumentKey: Debug + Clone + Eq + Hash,
 {

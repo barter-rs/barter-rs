@@ -1,28 +1,40 @@
+use crate::v2::engine::state::instrument::order::OrderManager;
 use crate::v2::engine::Processor;
+use crate::v2::execution::InstrumentAccountSnapshot;
 use crate::v2::{
     engine::state::balance::BalanceManager,
     execution::{AccountEvent, AccountEventKind},
+    Snapshot,
 };
 use barter_data::event::MarketEvent;
 use derive_more::Constructor;
+use instrument::position::PositionManager;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use tracing::{debug, info, warn};
-use instrument::position::PositionManager;
-use crate::v2::engine::state::instrument::InstrumentStateManager;
-use crate::v2::engine::state::instrument::market_data::MarketDataManager;
-use crate::v2::engine::state::instrument::order::OrderManager;
 
 pub mod balance;
 pub mod instrument;
 
-// pub trait UpdateFromSnapshot<Snapshot> {
-//     fn update_from_snapshot(&mut self, snapshot: &Snapshot);
-// }
+pub trait UpdateFromKeyedSnapshot<Snapshot> {
+    type Key;
+    fn update_from_keyed_snapshot(&mut self, key: &Self::Key, snapshot: &Snapshot);
+}
+
+pub trait UpdateFromSnapshot<Snapshot> {
+    fn update_from_snapshot(&mut self, snapshot: &Snapshot);
+}
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct EngineState<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey> {
+pub struct EngineState<
+    InstrumentState,
+    BalanceState,
+    StrategyState,
+    RiskState,
+    AssetKey,
+    InstrumentKey,
+> {
     pub trading: TradingState,
     pub instruments: InstrumentState,
     pub balances: BalanceState,
@@ -37,8 +49,17 @@ pub enum TradingState {
     Disabled,
 }
 
-impl<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey> Processor<TradingState>
-    for EngineState<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey> {
+impl<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey>
+    Processor<TradingState>
+    for EngineState<
+        InstrumentState,
+        BalanceState,
+        StrategyState,
+        RiskState,
+        AssetKey,
+        InstrumentKey,
+    >
+{
     type Output = ();
 
     fn process(&mut self, event: TradingState) -> Self::Output {
@@ -67,9 +88,18 @@ impl<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, Instrume
 
 impl<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey>
     Processor<&AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
-    for EngineState<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey>
+    for EngineState<
+        InstrumentState,
+        BalanceState,
+        StrategyState,
+        RiskState,
+        AssetKey,
+        InstrumentKey,
+    >
 where
-    InstrumentState: InstrumentStateManager<InstrumentKey>,
+    InstrumentState: UpdateFromSnapshot<Vec<InstrumentAccountSnapshot<InstrumentKey>>>
+        + OrderManager<InstrumentKey>
+        + PositionManager<InstrumentKey>,
     BalanceState: BalanceManager<AssetKey>,
     StrategyState: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>,
     RiskState: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>,
@@ -90,27 +120,30 @@ where
         // Update InstrumentState & BalanceState
         let AccountEvent { exchange, kind } = event;
         match kind {
-            AccountEventKind::Snapshot(account) => {
-                self.instruments.update_from_snapshot(&account.instruments);
-                self.balances.update_from_exchange_balance_snapshot(exchange, account.balances.as_ref());
+            AccountEventKind::Snapshot(snapshot) => {
+                self.balances
+                    .update_from_keyed_snapshot(exchange, &snapshot.balances);
+                self.instruments.update_from_snapshot(&snapshot.instruments);
             }
             AccountEventKind::BalanceSnapshot(balance) => {
-                self.balances.update_from_balance_snapshot(exchange, balance.as_ref());
+                self.balances
+                    .update_from_balance(exchange, balance.as_ref());
             }
             AccountEventKind::OrderSnapshot(order) => {
-                self.instruments.orders_mut().update_from_order_snapshot(order.as_ref());
+                self.instruments.update_from_order(order.as_ref());
             }
             AccountEventKind::PositionSnapshot(position) => {
-                self.instruments.positions_mut().update_from_position_snapshot(position.as_ref());
+                self.instruments
+                    .update_from_position_snapshot(position.as_ref());
             }
             AccountEventKind::OrderOpened(response) => {
-                self.instruments.orders_mut().update_from_open(response);
+                self.instruments.update_from_open(response);
             }
             AccountEventKind::OrderCancelled(response) => {
-                self.instruments.orders_mut().update_from_cancel(response);
+                self.instruments.update_from_cancel(response);
             }
             AccountEventKind::Trade(trade) => {
-                self.instruments.positions_mut().update_from_trade(trade);
+                self.instruments.update_from_trade(trade);
             }
             AccountEventKind::ConnectivityError(error) => {
                 warn!(%error, "Engine aware of Account ConnectivityError");
@@ -123,79 +156,40 @@ where
     }
 }
 
-impl<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey> Processor<&MarketEvent<InstrumentKey>>
-    for EngineState<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey>
+impl<
+        InstrumentState,
+        BalanceState,
+        StrategyState,
+        RiskState,
+        AssetKey,
+        InstrumentKey,
+        MarketDataKind,
+    > Processor<&MarketEvent<InstrumentKey, MarketDataKind>>
+    for EngineState<
+        InstrumentState,
+        BalanceState,
+        StrategyState,
+        RiskState,
+        AssetKey,
+        InstrumentKey,
+    >
 where
+    InstrumentState: for<'a> Processor<&'a MarketEvent<InstrumentKey, MarketDataKind>>,
+    StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentKey, MarketDataKind>>,
+    RiskState: for<'a> Processor<&'a MarketEvent<InstrumentKey, MarketDataKind>>,
     InstrumentKey: Debug + Clone,
-    InstrumentState: InstrumentStateManager<InstrumentKey>,
-    StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
-    RiskState: for<'a> Processor<&'a MarketEvent<InstrumentKey>>,
+    MarketDataKind: Debug,
 {
     type Output = ();
 
-    fn process(&mut self, event: &MarketEvent<InstrumentKey>) -> Self::Output {
-        debug!(market = ?event, "updating EngineState, RiskState, StrategyState from MarketEvent");
-        self.instruments.market_data_mut().update_from_market(event);
+    fn process(&mut self, event: &MarketEvent<InstrumentKey, MarketDataKind>) -> Self::Output {
+        debug!(
+            market = ?event,
+            "updating InstrumentState, BalanceState, RiskState, StrategyState from MarketEvent"
+        );
 
-        // Update any user provided Strategy & Risk State
+        self.instruments.process(event);
         self.strategy.process(event);
         self.risk.process(event);
     }
 }
-
-// impl<InstrumentState, BalanceState, StrategyState, RiskState, InstrumentKey, AssetKey> EngineState<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey>
-// where
-//     InstrumentState: InstrumentStateManager<InstrumentKey>,
-//     BalanceState: BalanceManager<AssetKey>,
-//     // AssetKey: Clone,
-//     InstrumentKey: Debug// + Clone,
-// {
-//     /// Replace all [`Self`] state with the [`AccountSnapshot`].
-//     ///
-//     /// All open & cancel in-flight requests will be deleted.
-//     pub fn update_from_account_snapshot(
-//         &mut self,
-//         exchange: &Exchange,
-//         snapshot: &AccountSnapshot<AssetKey, InstrumentKey>,
-//     ) {
-//         let AccountSnapshot {
-//             balances,
-//             instruments,
-//         } = snapshot;
-//
-//         // Update Balances
-//         balances.iter().for_each(|asset_balance| {
-//             self.instrument
-//                 .balances_mut()
-//                 .update_from_snapshot(exchange, Snapshot(asset_balance))
-//         });
-//
-//         // Update InstrumentStates (Positions & Orders)
-//         for snapshot in instruments {
-//             let instrument = &snapshot.position.instrument;
-//             if let Some(state) = self.instrument.state_mut(instrument) {
-//                 let _ = std::mem::replace(&mut state.position, snapshot.position.clone());
-//
-//                 // Note: this wipes all open & cancel in-flight requests
-//                 let _ = std::mem::replace(
-//                     &mut state.orders.inner,
-//                     snapshot
-//                         .orders
-//                         .iter()
-//                         .map(|order| (order.cid, Order::from(order.clone())))
-//                         .collect(),
-//                 );
-//             } else {
-//                 warn!(
-//                     ?instrument,
-//                     event = ?snapshot,
-//                     "EngineState ignoring InstrumentAccountSnapshot received for non-configured instrument"
-//                 );
-//             }
-//         }
-//     }
-//
-//     pub fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey>) {
-//         self.instrument.market_data_mut().update_from_market(event);
-//     }
-// }

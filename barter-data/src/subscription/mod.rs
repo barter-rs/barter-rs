@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::Borrow,
     collections::HashMap,
-    fmt::{Debug, Display, Formatter},
+    fmt::{Debug, Formatter},
     hash::Hash,
 };
 
@@ -63,7 +63,7 @@ pub enum SubKind {
     Candles,
 }
 
-impl<Exchange, Instrument, Kind> Display for Subscription<Exchange, Instrument, Kind>
+impl<Exchange, Instrument, Kind> std::fmt::Display for Subscription<Exchange, Instrument, Kind>
 where
     Exchange: Display,
     Instrument: Display,

@@ -9,7 +9,14 @@ pub trait Strategy<InstrumentState, BalanceState, AssetKey, InstrumentKey> {
 
     fn generate_orders(
         &self,
-        engine_state: &EngineState<InstrumentState, BalanceState, Self::State, Self::RiskState, AssetKey, InstrumentKey>,
+        engine_state: &EngineState<
+            InstrumentState,
+            BalanceState,
+            Self::State,
+            Self::RiskState,
+            AssetKey,
+            InstrumentKey,
+        >,
     ) -> (
         impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
         impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
@@ -20,14 +27,28 @@ pub trait Strategy<InstrumentState, BalanceState, AssetKey, InstrumentKey> {
     fn close_position_request(
         &self,
         instrument: &InstrumentKey,
-        engine_state: &EngineState<InstrumentState, BalanceState, Self::State, Self::RiskState, AssetKey, InstrumentKey>,
+        engine_state: &EngineState<
+            InstrumentState,
+            BalanceState,
+            Self::State,
+            Self::RiskState,
+            AssetKey,
+            InstrumentKey,
+        >,
     ) -> impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>;
 
     // Todo: maybe this should be feature gated, along with the Command
     //  then make trait StrategyExt?
     fn close_all_positions_request(
         &self,
-        engine_state: &EngineState<InstrumentState, BalanceState, Self::State, Self::RiskState, AssetKey, InstrumentKey>,
+        engine_state: &EngineState<
+            InstrumentState,
+            BalanceState,
+            Self::State,
+            Self::RiskState,
+            AssetKey,
+            InstrumentKey,
+        >,
     ) -> impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>;
 }
 

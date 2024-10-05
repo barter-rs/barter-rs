@@ -1,4 +1,4 @@
-use std::collections::hash_map::Entry;
+use crate::v2::engine::state::UpdateFromSnapshot;
 use crate::v2::order::{RequestCancel, RequestOpen};
 use crate::v2::{
     execution::error::ExecutionError,
@@ -6,14 +6,18 @@ use crate::v2::{
     Snapshot,
 };
 use derive_more::Constructor;
-use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 use fnv::FnvHashMap;
+use serde::{Deserialize, Serialize};
+use std::collections::hash_map::Entry;
+use std::fmt::Debug;
+use std::hash::Hash;
 use tracing::{debug, error, warn};
 
-pub trait OrderManager<InstrumentKey>: Clone {
-    fn update_from_orders_snapshot(&mut self, snapshot: Snapshot<&Vec<Order<InstrumentKey, Open>>>);
-    fn update_from_order_snapshot(&mut self, snapshot: Snapshot<&Order<InstrumentKey, ExchangeOrderState>>);
+pub trait OrderManager<InstrumentKey>
+where
+    Self: UpdateFromSnapshot<Vec<Order<InstrumentKey, Open>>>,
+{
+    fn update_from_order(&mut self, snapshot: Snapshot<&Order<InstrumentKey, ExchangeOrderState>>);
     fn orders<'a>(&'a self) -> impl Iterator<Item = &'a Order<InstrumentKey, InternalOrderState>>
     where
         InstrumentKey: 'a;
@@ -31,15 +35,20 @@ pub struct Orders<InstrumentKey> {
     pub inner: FnvHashMap<ClientOrderId, Order<InstrumentKey, InternalOrderState>>,
 }
 
-impl<InstrumentKey> OrderManager<InstrumentKey> for Orders<InstrumentKey>
+impl<InstrumentKey> UpdateFromSnapshot<Vec<Order<InstrumentKey, Open>>> for Orders<InstrumentKey>
 where
-    InstrumentKey: Debug + Clone + PartialEq,
+    InstrumentKey: Eq + Hash,
 {
-    fn update_from_orders_snapshot(&mut self, snapshot: Snapshot<&Vec<Order<InstrumentKey, Open>>>) {
+    fn update_from_snapshot(&mut self, snapshot: &Vec<Order<InstrumentKey, Open>>) {
         todo!()
     }
+}
 
-    fn update_from_order_snapshot(&mut self, snapshot: Snapshot<&Order<InstrumentKey, ExchangeOrderState>>) {
+impl<InstrumentKey> OrderManager<InstrumentKey> for Orders<InstrumentKey>
+where
+    InstrumentKey: Debug + Clone + Eq + Hash,
+{
+    fn update_from_order(&mut self, snapshot: Snapshot<&Order<InstrumentKey, ExchangeOrderState>>) {
         todo!()
     }
 
@@ -516,10 +525,7 @@ mod tests {
                 state: Orders {
                     inner: specific_request_opens([specific_request_open(cid_1)]),
                 },
-                input: vec![
-                    specific_request_open(cid_1),
-                    specific_request_open(cid_2),
-                ],
+                input: vec![specific_request_open(cid_1), specific_request_open(cid_2)],
                 expected: Orders {
                     inner: specific_request_opens([
                         specific_request_open(cid_1),

@@ -1,18 +1,42 @@
-use crate::v2::{channel::{ChannelState, Tx}, order::{Order, RequestCancel, RequestOpen}, risk::RiskRefused, EngineEvent};
+use crate::v2::engine::error::EngineError;
+use crate::v2::engine::state::EngineState;
+use crate::v2::{
+    channel::{ChannelState, Tx},
+    order::{Order, RequestCancel, RequestOpen},
+    risk::RiskRefused,
+    EngineEvent,
+};
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::warn;
-use crate::v2::engine::error::EngineError;
-use crate::v2::engine::state::EngineState;
 
 // Todo: may want to move this outside of mod engine, perhaps with all the most general types
 pub mod manager;
 
-pub type DefaultAudit<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey> = Audit<
-    AuditKind<EngineState<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey>,
-        EngineEvent<AssetKey, InstrumentKey>, InstrumentKey, EngineError>,
+pub type DefaultAudit<
+    InstrumentState,
+    BalanceState,
+    StrategyState,
+    RiskState,
+    AssetKey,
+    InstrumentKey,
+    MarketKind,
+> = Audit<
+    AuditKind<
+        EngineState<
+            InstrumentState,
+            BalanceState,
+            StrategyState,
+            RiskState,
+            AssetKey,
+            InstrumentKey,
+        >,
+        EngineEvent<AssetKey, InstrumentKey, MarketKind>,
+        InstrumentKey,
+        EngineError,
+    >,
 >;
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]

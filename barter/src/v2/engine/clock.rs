@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
-use std::time::{Instant};
-
+use std::time::Instant;
 
 pub trait EngineClock {
     type Time;

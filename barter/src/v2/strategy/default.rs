@@ -1,22 +1,31 @@
+use crate::v2::engine::state::EngineState;
 use crate::v2::engine::Processor;
 use crate::v2::execution::{AccountEvent, AccountEventKind};
 use crate::v2::order::{Order, RequestCancel, RequestOpen};
+use crate::v2::risk::default::DefaultRiskManagerState;
 use crate::v2::strategy::Strategy;
 use barter_data::event::MarketEvent;
-use crate::v2::engine::state::EngineState;
-use crate::v2::risk::default::DefaultRiskManagerState;
 
 #[derive(Debug, Clone)]
 pub struct DefaultStrategy;
 
-impl<InstrumentState, BalanceState, AssetKey, InstrumentKey> Strategy<InstrumentState, BalanceState, AssetKey, InstrumentKey> for DefaultStrategy {
+impl<InstrumentState, BalanceState, AssetKey, InstrumentKey>
+    Strategy<InstrumentState, BalanceState, AssetKey, InstrumentKey> for DefaultStrategy
+{
     type State = DefaultStrategyState;
     type RiskState = DefaultRiskManagerState;
 
     // <InstrumentState, StrategyState, RiskState, AssetKey, InstrumentKey>
     fn generate_orders(
         &self,
-        _: &EngineState<InstrumentState, BalanceState, Self::State, Self::RiskState, AssetKey, InstrumentKey>
+        _: &EngineState<
+            InstrumentState,
+            BalanceState,
+            Self::State,
+            Self::RiskState,
+            AssetKey,
+            InstrumentKey,
+        >,
     ) -> (
         impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
         impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
@@ -27,7 +36,14 @@ impl<InstrumentState, BalanceState, AssetKey, InstrumentKey> Strategy<Instrument
     fn close_position_request(
         &self,
         _: &InstrumentKey,
-        _: &EngineState<InstrumentState, BalanceState, Self::State, Self::RiskState, AssetKey, InstrumentKey>
+        _: &EngineState<
+            InstrumentState,
+            BalanceState,
+            Self::State,
+            Self::RiskState,
+            AssetKey,
+            InstrumentKey,
+        >,
     ) -> impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>> {
         // Todo: I could orchestrate a OrderKind=Market to close the position
         std::iter::empty()
@@ -35,7 +51,14 @@ impl<InstrumentState, BalanceState, AssetKey, InstrumentKey> Strategy<Instrument
 
     fn close_all_positions_request(
         &self,
-        _: &EngineState<InstrumentState, BalanceState, Self::State, Self::RiskState, AssetKey, InstrumentKey>
+        _: &EngineState<
+            InstrumentState,
+            BalanceState,
+            Self::State,
+            Self::RiskState,
+            AssetKey,
+            InstrumentKey,
+        >,
     ) -> impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>> {
         // Todo: I could orchestrate a OrderKind=Market to close the positions
         std::iter::empty()

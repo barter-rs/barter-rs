@@ -51,6 +51,6 @@ ta = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
 chrono = { workspace = true, features = ["serde"]}
 parking_lot = { workspace = true }
-derive_more = { workspace = true}
+derive_more = { workspace = true, features = ["constructor", "from", "display"]}
 prettytable-rs = "0.10.0"
 itertools = { workspace = true }

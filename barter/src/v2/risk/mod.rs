@@ -1,8 +1,8 @@
+use crate::v2::engine::state::EngineState;
 use crate::v2::order::{Order, RequestCancel, RequestOpen};
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use crate::v2::engine::state::EngineState;
 
 /// Todo:
 /// *EXAMPLE IMPLEMENTATION ONLY, PLEASE DO NOT USE FOR ANYTHING OTHER THAN TESTING PURPOSES.*
@@ -14,7 +14,14 @@ pub trait RiskManager<InstrumentState, BalanceState, AssetKey, InstrumentKey> {
 
     fn check(
         &self,
-        engine_state: &EngineState<InstrumentState, BalanceState, Self::StrategyState, Self::State, AssetKey, InstrumentKey>,
+        engine_state: &EngineState<
+            InstrumentState,
+            BalanceState,
+            Self::StrategyState,
+            Self::State,
+            AssetKey,
+            InstrumentKey,
+        >,
         cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
         opens: impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
     ) -> (
