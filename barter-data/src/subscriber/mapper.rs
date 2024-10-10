@@ -5,15 +5,15 @@ use crate::{
     Identifier,
 };
 use barter_integration::model::SubscriptionId;
+use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Defines how to map a collection of Barter [`Subscription`]s into exchange specific
 /// [`SubscriptionMeta`], containing subscription payloads that are sent to the exchange.
 pub trait SubscriptionMapper {
     fn map<Exchange, Instrument, Kind>(
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> SubscriptionMeta<Instrument::Id>
+    ) -> SubscriptionMeta<Instrument::Key>
     where
         Exchange: Connector,
         Instrument: InstrumentData,
@@ -30,17 +30,20 @@ pub struct WebSocketSubMapper;
 impl SubscriptionMapper for WebSocketSubMapper {
     fn map<Exchange, Instrument, Kind>(
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> SubscriptionMeta<Instrument::Id>
+    ) -> SubscriptionMeta<Instrument::Key>
     where
         Exchange: Connector,
-        Kind: SubscriptionKind,
         Instrument: InstrumentData,
+        Kind: SubscriptionKind,
         Subscription<Exchange, Instrument, Kind>:
             Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
         ExchangeSub<Exchange::Channel, Exchange::Market>: Identifier<SubscriptionId>,
     {
         // Allocate SubscriptionIds HashMap to track identifiers for each actioned Subscription
-        let mut instrument_map = Map(HashMap::with_capacity(subscriptions.len()));
+        let mut instrument_map = Map(FnvHashMap::with_capacity_and_hasher(
+            subscriptions.len(),
+            Default::default(),
+        ));
 
         // Map Barter Subscriptions to exchange specific subscriptions
         let exchange_subs = subscriptions
@@ -55,18 +58,18 @@ impl SubscriptionMapper for WebSocketSubMapper {
                 // Use ExchangeSub SubscriptionId as the link to this Barter Subscription
                 instrument_map
                     .0
-                    .insert(subscription_id, subscription.instrument.id().clone());
+                    .insert(subscription_id, subscription.instrument.key().clone());
 
                 exchange_sub
             })
             .collect::<Vec<ExchangeSub<Exchange::Channel, Exchange::Market>>>();
 
         // Construct WebSocket message subscriptions requests
-        let subscriptions = Exchange::requests(exchange_subs);
+        let ws_subscriptions = Exchange::requests(exchange_subs);
 
         SubscriptionMeta {
             instrument_map,
-            subscriptions,
+            ws_subscriptions,
         }
     }
 }

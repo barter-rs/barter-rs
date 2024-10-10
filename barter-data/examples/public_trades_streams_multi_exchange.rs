@@ -11,7 +11,7 @@ use barter_data::{
         },
         okx::Okx,
     },
-    streams::Streams,
+    streams::{reconnect::stream::ReconnectingStream, Streams},
     subscription::trade::PublicTrades,
 };
 use barter_integration::model::instrument::kind::{
@@ -19,7 +19,7 @@ use barter_integration::model::instrument::kind::{
 };
 use chrono::{TimeZone, Utc};
 use futures::StreamExt;
-use tracing::info;
+use tracing::{info, warn};
 
 #[rustfmt::skip]
 #[tokio::main]
@@ -34,54 +34,65 @@ async fn main() {
             (BinanceSpot::default(), "btc", "usdt", InstrumentKind::Spot, PublicTrades),
             (BinanceSpot::default(), "eth", "usdt", InstrumentKind::Spot, PublicTrades),
         ])
+
         .subscribe([
             (BinanceFuturesUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
             (BinanceFuturesUsd::default(), "eth", "usdt", InstrumentKind::Perpetual, PublicTrades),
         ])
+
         .subscribe([
             (Coinbase, "btc", "usd", InstrumentKind::Spot, PublicTrades),
             (Coinbase, "eth", "usd", InstrumentKind::Spot, PublicTrades),
         ])
+
         .subscribe([
             (GateioSpot::default(), "btc", "usdt", InstrumentKind::Spot, PublicTrades),
         ])
+
         .subscribe([
             (GateioPerpetualsUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
         ])
+
         .subscribe([
             (GateioPerpetualsBtc::default(), "btc", "usd", InstrumentKind::Perpetual, PublicTrades),
         ])
+
         .subscribe([
             (GateioOptions::default(), "btc", "usdt", InstrumentKind::Option(put_contract()), PublicTrades),
         ])
+
         .subscribe([
             (Okx, "btc", "usdt", InstrumentKind::Spot, PublicTrades),
             (Okx, "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
             (Okx, "btc", "usd", InstrumentKind::Future(future_contract()), PublicTrades),
             (Okx, "btc", "usd", InstrumentKind::Option(call_contract()), PublicTrades),
         ])
+
         .subscribe([
             (BybitSpot::default(), "btc", "usdt", InstrumentKind::Spot, PublicTrades),
             (BybitSpot::default(), "eth", "usdt", InstrumentKind::Spot, PublicTrades),
         ])
+
         .subscribe([
             (BybitPerpetualsUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
         ])
+
         .subscribe([
             (Bitmex, "xbt", "usd", InstrumentKind::Perpetual, PublicTrades)
         ])
+
         .init()
         .await
         .unwrap();
 
-    // Join all exchange PublicTrades streams into a single tokio_stream::StreamMap
-    // Notes:
-    //  - Use `streams.select(ExchangeId)` to interact with the individual exchange streams!
-    //  - Use `streams.join()` to join all exchange streams into a single mpsc::UnboundedReceiver!
-    let mut joined_stream = streams.join_map().await;
+    // Select and merge every exchange Stream using futures_util::stream::select_all
+    // Note: use `Streams.select(ExchangeId)` to interact with individual exchange streams!
+    let mut joined_stream = streams
+        .select_all()
+        .with_error_handler(|error| warn!(?error, "MarketStream generated error"));
 
-    while let Some((exchange, trade)) = joined_stream.next().await {
-        info!("Exchange: {exchange}, MarketEvent<PublicTrade>: {trade:?}");
+    while let Some(event) = joined_stream.next().await {
+        info!("{event:?}");
     }
 }
 
@@ -103,25 +114,36 @@ fn init_logging() {
 }
 
 fn put_contract() -> OptionContract {
+    let expiry = Utc.timestamp_millis_opt(1758844800000).unwrap();
+    if expiry < Utc::now() {
+        panic!("Put contract has expired, please configure a non-expired instrument")
+    }
     OptionContract {
         kind: OptionKind::Put,
         exercise: OptionExercise::European,
-        expiry: Utc.timestamp_millis_opt(1703808000000).unwrap(),
-        strike: rust_decimal_macros::dec!(50000),
+        expiry,
+        strike: rust_decimal_macros::dec!(70000),
     }
 }
 
 fn future_contract() -> FutureContract {
-    FutureContract {
-        expiry: Utc.timestamp_millis_opt(1695945600000).unwrap(),
+    let expiry = Utc.timestamp_millis_opt(1743120000000).unwrap();
+    if expiry < Utc::now() {
+        panic!("Future contract has expired, please configure a non-expired instrument")
     }
+    FutureContract { expiry }
 }
 
 fn call_contract() -> OptionContract {
+    let expiry = Utc.timestamp_millis_opt(1758844800000).unwrap();
+    if expiry < Utc::now() {
+        panic!("Future contract has expired, please configure a non-expired instrument")
+    }
+
     OptionContract {
         kind: OptionKind::Call,
         exercise: OptionExercise::American,
-        expiry: Utc.timestamp_millis_opt(1703808000000).unwrap(),
-        strike: rust_decimal_macros::dec!(35000),
+        expiry,
+        strike: rust_decimal_macros::dec!(70000),
     }
 }

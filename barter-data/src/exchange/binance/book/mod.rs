@@ -1,10 +1,11 @@
-use crate::subscription::book::Level;
+use crate::books::Level;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-/// Level 1 OrderBook types (top of book).
+/// Level 1 OrderBook types (top of books).
 pub mod l1;
 
-/// Level 2 OrderBook types (top of book).
+/// Level 2 OrderBook types.
 pub mod l2;
 
 /// [`Binance`](super::Binance) OrderBook level.
@@ -16,10 +17,10 @@ pub mod l2;
 /// ```
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct BinanceLevel {
-    #[serde(deserialize_with = "barter_integration::de::de_str")]
-    pub price: f64,
-    #[serde(deserialize_with = "barter_integration::de::de_str")]
-    pub amount: f64,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub price: Decimal,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub amount: Decimal,
 }
 
 impl From<BinanceLevel> for Level {
@@ -37,6 +38,7 @@ mod tests {
 
     mod de {
         use super::*;
+        use rust_decimal_macros::dec;
 
         #[test]
         fn test_binance_level() {
@@ -44,8 +46,8 @@ mod tests {
             assert_eq!(
                 serde_json::from_str::<BinanceLevel>(input).unwrap(),
                 BinanceLevel {
-                    price: 4.00000200,
-                    amount: 12.0
+                    price: dec!(4.00000200),
+                    amount: dec!(12.0)
                 },
             )
         }

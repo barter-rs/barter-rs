@@ -6,6 +6,7 @@ use barter_integration::{
 use futures::{SinkExt, StreamExt};
 use serde::{de, Deserialize};
 use serde_json::json;
+use std::collections::VecDeque;
 use std::str::FromStr;
 use tokio_tungstenite::connect_async;
 use tracing::debug;
@@ -79,7 +80,7 @@ async fn main() {
     let transformer = StatefulTransformer { sum_of_volume: 0.0 };
 
     // ExchangeWsStream includes pre-defined WebSocket Sink/Stream & WebSocket StreamParser
-    let mut ws_stream = ExchangeWsStream::new(binance_conn, transformer);
+    let mut ws_stream = ExchangeWsStream::new(binance_conn, transformer, VecDeque::new());
 
     // Receive a stream of your desired Output data model from the ExchangeStream
     while let Some(volume_result) = ws_stream.next().await {

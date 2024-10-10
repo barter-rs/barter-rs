@@ -1,16 +1,18 @@
-use self::{l2::BinanceFuturesBookUpdater, liquidation::BinanceLiquidation};
+use self::liquidation::BinanceLiquidation;
 use super::{Binance, ExchangeServer};
+use crate::exchange::binance::futures::l2::{
+    BinanceFuturesUsdOrderBooksL2SnapshotFetcher, BinanceFuturesUsdOrderBooksL2Transformer,
+};
+use crate::subscription::book::OrderBooksL2;
 use crate::{
     exchange::{ExchangeId, StreamSelector},
     instrument::InstrumentData,
-    subscription::{book::OrderBooksL2, liquidation::Liquidations},
-    transformer::{book::MultiBookTransformer, stateless::StatelessTransformer},
-    ExchangeWsStream,
+    subscription::liquidation::Liquidations,
+    transformer::stateless::StatelessTransformer,
+    ExchangeWsStream, NoInitialSnapshots,
 };
-use barter_integration::model::instrument::Instrument;
 
-/// Level 2 OrderBook types (top of book) and perpetual
-/// [`OrderBookUpdater`](crate::transformer::book::OrderBookUpdater) implementation.
+/// Level 2 OrderBook types.
 pub mod l2;
 
 /// Liquidation types.
@@ -36,17 +38,20 @@ impl ExchangeServer for BinanceServerFuturesUsd {
     }
 }
 
-impl StreamSelector<Instrument, OrderBooksL2> for BinanceFuturesUsd {
-    type Stream = ExchangeWsStream<
-        MultiBookTransformer<Self, Instrument, OrderBooksL2, BinanceFuturesBookUpdater>,
-    >;
+impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for BinanceFuturesUsd
+where
+    Instrument: InstrumentData,
+{
+    type SnapFetcher = BinanceFuturesUsdOrderBooksL2SnapshotFetcher;
+    type Stream = ExchangeWsStream<BinanceFuturesUsdOrderBooksL2Transformer<Instrument::Key>>;
 }
 
 impl<Instrument> StreamSelector<Instrument, Liquidations> for BinanceFuturesUsd
 where
     Instrument: InstrumentData,
 {
+    type SnapFetcher = NoInitialSnapshots;
     type Stream = ExchangeWsStream<
-        StatelessTransformer<Self, Instrument::Id, Liquidations, BinanceLiquidation>,
+        StatelessTransformer<Self, Instrument::Key, Liquidations, BinanceLiquidation>,
     >;
 }

@@ -1,6 +1,6 @@
 [package]
 name = "barter-data"
-version = "0.8.1"
+version = "0.9.0"
 authors = ["JustAStream"]
 edition = "2021"
 license = "MIT"
@@ -13,7 +13,6 @@ categories = ["accessibility", "simulation"]
 
 [dev-dependencies]
 tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
-rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 
 [dependencies]
@@ -28,6 +27,7 @@ tracing = { workspace = true }
 tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
 tokio-stream = { workspace = true, features = ["sync"] }
 futures = { workspace = true }
+futures-util = { workspace = true }
 async-trait = { workspace = true }
 
 # Protocol
@@ -41,6 +41,10 @@ thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 
+# Data Structures
+parking_lot = { workspace = true }
+rust_decimal = { workspace = true, features = ["serde-with-str"] }
+
 # Strategy
 ta = { workspace = true }
 
@@ -49,3 +53,4 @@ chrono = { workspace = true, features = ["serde"]}
 derive_more = { workspace = true }
 itertools = { workspace = true }
 vecmap-rs = { workspace = true }
+fnv = { workspace = true }

@@ -19,27 +19,27 @@ pub trait InstrumentData
 where
     Self: Clone + Debug + Send + Sync,
 {
-    type Id: Debug + Clone + Send + Sync;
-    fn id(&self) -> &Self::Id;
+    type Key: Debug + Clone + Eq + Send + Sync;
+    fn key(&self) -> &Self::Key;
     fn kind(&self) -> InstrumentKind;
 }
 
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
-pub struct KeyedInstrument<Id = InstrumentId> {
-    pub id: Id,
+pub struct KeyedInstrument<Key = InstrumentId> {
+    pub key: Key,
     pub data: Instrument,
 }
 
-impl<Id> InstrumentData for KeyedInstrument<Id>
+impl<Key> InstrumentData for KeyedInstrument<Key>
 where
-    Id: Debug + Clone + Send + Sync,
+    Key: Debug + Clone + Eq + Send + Sync,
 {
-    type Id = Id;
+    type Key = Key;
 
-    fn id(&self) -> &Self::Id {
-        &self.id
+    fn key(&self) -> &Self::Key {
+        &self.key
     }
 
     fn kind(&self) -> InstrumentKind {
@@ -47,16 +47,16 @@ where
     }
 }
 
-impl<Id> AsRef<Instrument> for KeyedInstrument<Id> {
+impl<Key> AsRef<Instrument> for KeyedInstrument<Key> {
     fn as_ref(&self) -> &Instrument {
         &self.data
     }
 }
 
 impl InstrumentData for Instrument {
-    type Id = Self;
+    type Key = Self;
 
-    fn id(&self) -> &Self::Id {
+    fn key(&self) -> &Self::Key {
         self
     }
 
@@ -73,9 +73,9 @@ pub struct MarketInstrumentData {
 }
 
 impl InstrumentData for MarketInstrumentData {
-    type Id = InstrumentId;
+    type Key = InstrumentId;
 
-    fn id(&self) -> &Self::Id {
+    fn key(&self) -> &Self::Key {
         &self.id
     }
 
