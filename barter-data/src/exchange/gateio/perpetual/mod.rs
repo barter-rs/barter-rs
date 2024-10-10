@@ -5,7 +5,7 @@ use crate::{
     instrument::InstrumentData,
     subscription::trade::PublicTrades,
     transformer::stateless::StatelessTransformer,
-    ExchangeWsStream,
+    ExchangeWsStream, NoInitialSnapshots,
 };
 
 /// Public trades types.
@@ -35,8 +35,9 @@ impl<Instrument> StreamSelector<Instrument, PublicTrades> for GateioPerpetualsUs
 where
     Instrument: InstrumentData,
 {
+    type SnapFetcher = NoInitialSnapshots;
     type Stream = ExchangeWsStream<
-        StatelessTransformer<Self, Instrument::Id, PublicTrades, GateioFuturesTrades>,
+        StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
     >;
 }
 
@@ -64,7 +65,8 @@ impl<Instrument> StreamSelector<Instrument, PublicTrades> for GateioPerpetualsBt
 where
     Instrument: InstrumentData,
 {
+    type SnapFetcher = NoInitialSnapshots;
     type Stream = ExchangeWsStream<
-        StatelessTransformer<Self, Instrument::Id, PublicTrades, GateioFuturesTrades>,
+        StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
     >;
 }

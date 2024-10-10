@@ -1,15 +1,13 @@
-use self::l2::BinanceSpotBookUpdater;
 use super::{Binance, ExchangeServer};
-use crate::{
-    exchange::{ExchangeId, StreamSelector},
-    subscription::book::OrderBooksL2,
-    transformer::book::MultiBookTransformer,
-    ExchangeWsStream,
+use crate::exchange::binance::spot::l2::{
+    BinanceSpotOrderBooksL2SnapshotFetcher, BinanceSpotOrderBooksL2Transformer,
 };
-use barter_integration::model::instrument::Instrument;
+use crate::exchange::{ExchangeId, StreamSelector};
+use crate::instrument::InstrumentData;
+use crate::subscription::book::OrderBooksL2;
+use crate::ExchangeWsStream;
 
-/// Level 2 OrderBook types (top of book) and spot
-/// [`OrderBookUpdater`](crate::transformer::book::OrderBookUpdater) implementation.
+/// Level 2 OrderBook types.
 pub mod l2;
 
 /// [`BinanceSpot`] WebSocket server base url.
@@ -32,8 +30,10 @@ impl ExchangeServer for BinanceServerSpot {
     }
 }
 
-impl StreamSelector<Instrument, OrderBooksL2> for BinanceSpot {
-    type Stream = ExchangeWsStream<
-        MultiBookTransformer<Self, Instrument, OrderBooksL2, BinanceSpotBookUpdater>,
-    >;
+impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for BinanceSpot
+where
+    Instrument: InstrumentData,
+{
+    type SnapFetcher = BinanceSpotOrderBooksL2SnapshotFetcher;
+    type Stream = ExchangeWsStream<BinanceSpotOrderBooksL2Transformer<Instrument::Key>>;
 }

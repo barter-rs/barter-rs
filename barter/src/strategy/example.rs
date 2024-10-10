@@ -44,7 +44,7 @@ impl SignalGenerator for RSIStrategy {
             instrument: market.instrument.clone(),
             market_meta: MarketMeta {
                 close: candle_close,
-                time: market.exchange_time,
+                time: market.time_exchange,
             },
             signals,
         })

@@ -11,7 +11,7 @@ use crate::{
     subscriber::{validator::WebSocketSubValidator, WebSocketSubscriber},
     subscription::{trade::PublicTrades, Map},
     transformer::stateless::StatelessTransformer,
-    ExchangeWsStream,
+    ExchangeWsStream, NoInitialSnapshots,
 };
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
 use serde::de::{Error, Unexpected};
@@ -71,7 +71,7 @@ impl Connector for Bitmex {
         )]
     }
 
-    fn expected_responses<InstrumentId>(_: &Map<InstrumentId>) -> usize {
+    fn expected_responses<InstrumentKey>(_: &Map<InstrumentKey>) -> usize {
         1
     }
 }
@@ -80,8 +80,9 @@ impl<Instrument> StreamSelector<Instrument, PublicTrades> for Bitmex
 where
     Instrument: InstrumentData,
 {
+    type SnapFetcher = NoInitialSnapshots;
     type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Id, PublicTrades, BitmexTrade>>;
+        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BitmexTrade>>;
 }
 
 impl<'de> serde::Deserialize<'de> for Bitmex {

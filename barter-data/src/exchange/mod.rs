@@ -3,7 +3,7 @@ use crate::{
     instrument::InstrumentData,
     subscriber::{validator::SubscriptionValidator, Subscriber},
     subscription::{Map, SubKind, SubscriptionKind},
-    MarketStream,
+    MarketStream, SnapshotFetcher,
 };
 use barter_integration::{
     error::SocketError, model::instrument::kind::InstrumentKind, protocol::websocket::WsMessage,
@@ -61,6 +61,7 @@ where
     Instrument: InstrumentData,
     Kind: SubscriptionKind,
 {
+    type SnapFetcher: SnapshotFetcher<Self, Kind>;
     type Stream: MarketStream<Self, Instrument, Kind>;
 }
 
@@ -129,7 +130,7 @@ where
     /// Number of [`Subscription`](subscription::Subscription) responses expected from the
     /// exchange server in responses to the requests send. Used to validate all
     /// [`Subscription`](subscription::Subscription)s were accepted.
-    fn expected_responses<InstrumentId>(map: &Map<InstrumentId>) -> usize {
+    fn expected_responses<InstrumentKey>(map: &Map<InstrumentKey>) -> usize {
         map.0.len()
     }
 
@@ -170,8 +171,8 @@ pub struct PingInterval {
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 #[serde(rename = "exchange", rename_all = "snake_case")]
 pub enum ExchangeId {
-    BinanceFuturesUsd,
     BinanceSpot,
+    BinanceFuturesUsd,
     Bitfinex,
     Bitmex,
     BybitSpot,

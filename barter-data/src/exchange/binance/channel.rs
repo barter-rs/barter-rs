@@ -30,7 +30,7 @@ impl BinanceChannel {
     /// See discord: <https://discord.com/channels/910237311332151317/923160222711812126/975712874582388757>
     pub const TRADES: Self = Self("@trade");
 
-    /// [`Binance`] real-time OrderBook Level1 (top of book) channel name.
+    /// [`Binance`] real-time OrderBook Level1 (top of books) channel name.
     ///
     /// See docs:<https://binance-docs.github.io/apidocs/spot/en/#individual-symbol-book-ticker-streams>
     /// See docs:<https://binance-docs.github.io/apidocs/futures/en/#individual-symbol-book-ticker-streams>

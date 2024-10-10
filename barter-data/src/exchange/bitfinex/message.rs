@@ -57,11 +57,11 @@ impl Identifier<Option<SubscriptionId>> for BitfinexMessage {
     }
 }
 
-impl<InstrumentId> From<(ExchangeId, InstrumentId, BitfinexMessage)>
-    for MarketIter<InstrumentId, PublicTrade>
+impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BitfinexMessage)>
+    for MarketIter<InstrumentKey, PublicTrade>
 {
     fn from(
-        (exchange_id, instrument, message): (ExchangeId, InstrumentId, BitfinexMessage),
+        (exchange_id, instrument, message): (ExchangeId, InstrumentKey, BitfinexMessage),
     ) -> Self {
         match message.payload {
             BitfinexPayload::Heartbeat => Self(vec![]),

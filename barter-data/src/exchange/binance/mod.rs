@@ -8,7 +8,7 @@ use crate::{
     subscriber::{validator::WebSocketSubValidator, WebSocketSubscriber},
     subscription::{book::OrderBooksL1, trade::PublicTrades, Map},
     transformer::stateless::StatelessTransformer,
-    ExchangeWsStream,
+    ExchangeWsStream, NoInitialSnapshots,
 };
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
 use std::{fmt::Debug, marker::PhantomData};
@@ -93,7 +93,7 @@ where
         )]
     }
 
-    fn expected_responses<InstrumentId>(_: &Map<InstrumentId>) -> usize {
+    fn expected_responses<InstrumentKey>(_: &Map<InstrumentKey>) -> usize {
         1
     }
 }
@@ -103,8 +103,9 @@ where
     Instrument: InstrumentData,
     Server: ExchangeServer + Debug + Send + Sync,
 {
+    type SnapFetcher = NoInitialSnapshots;
     type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Id, PublicTrades, BinanceTrade>>;
+        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BinanceTrade>>;
 }
 
 impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL1> for Binance<Server>
@@ -112,8 +113,9 @@ where
     Instrument: InstrumentData,
     Server: ExchangeServer + Debug + Send + Sync,
 {
+    type SnapFetcher = NoInitialSnapshots;
     type Stream = ExchangeWsStream<
-        StatelessTransformer<Self, Instrument::Id, OrderBooksL1, BinanceOrderBookL1>,
+        StatelessTransformer<Self, Instrument::Key, OrderBooksL1, BinanceOrderBookL1>,
     >;
 }
 

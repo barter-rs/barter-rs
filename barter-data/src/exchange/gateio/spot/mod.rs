@@ -5,7 +5,7 @@ use crate::{
     instrument::InstrumentData,
     subscription::trade::PublicTrades,
     transformer::stateless::StatelessTransformer,
-    ExchangeWsStream,
+    ExchangeWsStream, NoInitialSnapshots,
 };
 use barter_macro::{DeExchange, SerExchange};
 
@@ -38,6 +38,8 @@ impl<Instrument> StreamSelector<Instrument, PublicTrades> for GateioSpot
 where
     Instrument: InstrumentData,
 {
-    type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Id, PublicTrades, GateioSpotTrade>>;
+    type SnapFetcher = NoInitialSnapshots;
+    type Stream = ExchangeWsStream<
+        StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioSpotTrade>,
+    >;
 }

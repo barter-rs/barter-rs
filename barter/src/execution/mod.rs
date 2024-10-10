@@ -16,7 +16,7 @@ pub trait ExecutionClient {
     fn generate_fill(&self, order: &OrderEvent) -> Result<FillEvent, ExecutionError>;
 }
 
-/// Fills are journals of work done by an Execution handler. These are sent back to the portfolio
+/// Fills are journals of work done by an Execution handler. These are sent back to the portfolio,
 /// so it can apply updates.
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct FillEvent {
@@ -49,7 +49,7 @@ impl FillEvent {
 pub struct Fees {
     /// Fee taken by the exchange/broker (eg/ commission).
     pub exchange: FeeAmount,
-    /// Order book slippage modelled as a fee.
+    /// OrderBook slippage modelled as a fee.
     pub slippage: FeeAmount,
     /// Fee incurred by any required network transactions (eg/ GAS).
     pub network: FeeAmount,

@@ -81,15 +81,15 @@ impl Identifier<Option<SubscriptionId>> for BinanceLiquidation {
     }
 }
 
-impl<InstrumentId> From<(ExchangeId, InstrumentId, BinanceLiquidation)>
-    for MarketIter<InstrumentId, Liquidation>
+impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceLiquidation)>
+    for MarketIter<InstrumentKey, Liquidation>
 {
     fn from(
-        (exchange_id, instrument, liquidation): (ExchangeId, InstrumentId, BinanceLiquidation),
+        (exchange_id, instrument, liquidation): (ExchangeId, InstrumentKey, BinanceLiquidation),
     ) -> Self {
         Self(vec![Ok(MarketEvent {
-            exchange_time: liquidation.order.time,
-            received_time: Utc::now(),
+            time_exchange: liquidation.order.time,
+            time_received: Utc::now(),
             exchange: Exchange::from(exchange_id),
             instrument,
             kind: Liquidation {

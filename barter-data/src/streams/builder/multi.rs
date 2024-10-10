@@ -1,8 +1,6 @@
 use super::{ExchangeChannel, StreamBuilder, Streams};
-use crate::{
-    error::DataError, event::MarketEvent, exchange::ExchangeId, subscription::SubscriptionKind,
-};
-use barter_integration::model::instrument::Instrument;
+use crate::streams::consumer::MarketStreamResult;
+use crate::{error::DataError, exchange::ExchangeId, subscription::SubscriptionKind};
 use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 
 /// Communicative type alias representing the [`Future`] result of a [`StreamBuilder::init`] call
@@ -45,9 +43,10 @@ impl<Output> MultiStreamBuilder<Output> {
     /// Note that the created [`Future`] is not awaited until the [`MultiStreamBuilder::init`]
     /// method is invoked.
     #[allow(clippy::should_implement_trait)]
-    pub fn add<Kind>(mut self, builder: StreamBuilder<Kind>) -> Self
+    pub fn add<InstrumentKey, Kind>(mut self, builder: StreamBuilder<InstrumentKey, Kind>) -> Self
     where
-        Output: From<MarketEvent<Instrument, Kind::Event>> + Send + 'static,
+        Output: From<MarketStreamResult<InstrumentKey, Kind::Event>> + Send + 'static,
+        InstrumentKey: Debug + Send + 'static,
         Kind: SubscriptionKind + 'static,
         Kind::Event: Send,
     {
@@ -72,12 +71,12 @@ impl<Output> MultiStreamBuilder<Output> {
                 .into_iter()
                 .for_each(|(exchange, mut exchange_rx)| {
                     // Remove exchange_tx<Output> from HashMap that's associated with this tuple:
-                    // (ExchangeId, exchange_rx<MarketEvent<SubscriptionKind::Event>>)
+                    // (ExchangeId, exchange_rx<MarketStreamResult<InstrumentKey, SubscriptionKind::Event>>)
                     let exchange_tx = exchange_txs
                         .remove(&exchange)
                         .expect("all exchange_txs should be present here");
 
-                    // Task to receive MarketEvent<SubscriptionKind::Event> and send Outputs via exchange_tx
+                    // Task to receive MarketStreamResult<SubscriptionKind::Event> and send Outputs via exchange_tx
                     tokio::spawn(async move {
                         while let Some(event) = exchange_rx.recv().await {
                             let _ = exchange_tx.send(Output::from(event));

@@ -1,12 +1,19 @@
 use super::{super::channel::BinanceChannel, BinanceLevel};
-use crate::{
-    exchange::subscription::ExchangeSub,
-    subscription::book::{OrderBook, OrderBookSide},
-    Identifier,
-};
-use barter_integration::model::{Side, SubscriptionId};
-use chrono::Utc;
+use crate::books::OrderBook;
+use crate::event::MarketEvent;
+use crate::exchange::ExchangeId;
+use crate::subscription::book::OrderBookEvent;
+use crate::{exchange::subscription::ExchangeSub, Identifier};
+use barter_integration::model::{Exchange, SubscriptionId};
+use chrono::{DateTime, Utc};
+use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Constructor)]
+pub struct BinanceOrderBookL2Meta<InstrumentKey, Sequencer> {
+    pub key: InstrumentKey,
+    pub sequencer: Sequencer,
+}
 
 /// [`Binance`](super::super::Binance) OrderBook Level2 snapshot HTTP message.
 ///
@@ -47,23 +54,45 @@ use serde::{Deserialize, Serialize};
 pub struct BinanceOrderBookL2Snapshot {
     #[serde(rename = "lastUpdateId")]
     pub last_update_id: u64,
+    #[serde(default, rename = "E", with = "chrono::serde::ts_milliseconds_option")]
+    pub time_exchange: Option<DateTime<Utc>>,
+    #[serde(default, rename = "T", with = "chrono::serde::ts_milliseconds_option")]
+    pub time_engine: Option<DateTime<Utc>>,
     pub bids: Vec<BinanceLevel>,
     pub asks: Vec<BinanceLevel>,
 }
 
-impl From<BinanceOrderBookL2Snapshot> for OrderBook {
-    fn from(snapshot: BinanceOrderBookL2Snapshot) -> Self {
+impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceOrderBookL2Snapshot)>
+    for MarketEvent<InstrumentKey, OrderBookEvent>
+{
+    fn from(
+        (exchange, instrument, snapshot): (ExchangeId, InstrumentKey, BinanceOrderBookL2Snapshot),
+    ) -> Self {
+        let time_received = Utc::now();
         Self {
-            last_update_time: Utc::now(),
-            bids: OrderBookSide::new(Side::Buy, snapshot.bids),
-            asks: OrderBookSide::new(Side::Sell, snapshot.asks),
+            time_exchange: snapshot.time_exchange.unwrap_or(time_received),
+            time_received,
+            exchange: Exchange::from(exchange),
+            instrument,
+            kind: OrderBookEvent::from(snapshot),
         }
+    }
+}
+
+impl From<BinanceOrderBookL2Snapshot> for OrderBookEvent {
+    fn from(snapshot: BinanceOrderBookL2Snapshot) -> Self {
+        Self::Snapshot(OrderBook::new(
+            snapshot.last_update_id,
+            snapshot.time_engine,
+            snapshot.bids,
+            snapshot.asks,
+        ))
     }
 }
 
 /// Deserialize a
 /// [`BinanceSpotOrderBookL2Delta`](super::super::spot::l2::BinanceSpotOrderBookL2Delta) or
-/// [`BinanceFuturesOrderBookL2Delta`](super::super::futures::l2::BinanceFuturesOrderBookL2Delta)
+/// [`BinanceFuturesOrderBookL2Delta`](super::super::futures::l2::BinanceFuturesOrderBookL2Update)
 /// "s" field (eg/ "BTCUSDT") as the associated [`SubscriptionId`]
 ///
 /// eg/ "@depth@100ms|BTCUSDT"
@@ -81,6 +110,7 @@ mod tests {
 
     mod de {
         use super::*;
+        use rust_decimal_macros::dec;
 
         #[test]
         fn test_binance_order_book_l2_snapshot() {
@@ -111,13 +141,15 @@ mod tests {
                     "#,
                     expected: BinanceOrderBookL2Snapshot {
                         last_update_id: 1027024,
+                        time_exchange: Default::default(),
+                        time_engine: Default::default(),
                         bids: vec![BinanceLevel {
-                            price: 4.0,
-                            amount: 431.0,
+                            price: dec!(4.00000000),
+                            amount: dec!(431.00000000),
                         }],
                         asks: vec![BinanceLevel {
-                            price: 4.00000200,
-                            amount: 12.0,
+                            price: dec!(4.00000200),
+                            amount: dec!(12.00000000),
                         }],
                     },
                 },
@@ -144,13 +176,17 @@ mod tests {
                     "#,
                     expected: BinanceOrderBookL2Snapshot {
                         last_update_id: 1027024,
+                        time_exchange: Some(
+                            DateTime::from_timestamp_millis(1589436922972).unwrap(),
+                        ),
+                        time_engine: Some(DateTime::from_timestamp_millis(1589436922959).unwrap()),
                         bids: vec![BinanceLevel {
-                            price: 4.0,
-                            amount: 431.0,
+                            price: dec!(4.0),
+                            amount: dec!(431.0),
                         }],
                         asks: vec![BinanceLevel {
-                            price: 4.00000200,
-                            amount: 12.0,
+                            price: dec!(4.00000200),
+                            amount: dec!(12.0),
                         }],
                     },
                 },

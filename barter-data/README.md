@@ -83,7 +83,7 @@ use barter_data::{
         },
         okx::Okx,
     },
-    streams::Streams,
+    streams::{Streams, reconnect::stream::ReconnectingStream},
     subscription::trade::PublicTrades,
 };
 use barter_integration::model::instrument::kind::{
@@ -91,7 +91,6 @@ use barter_integration::model::instrument::kind::{
 };
 use chrono::{TimeZone, Utc};
 use futures::StreamExt;
-use tracing::info;
 
 #[tokio::main]
 async fn main() {
@@ -142,14 +141,14 @@ async fn main() {
         .await
         .unwrap();
 
-    // Join all exchange PublicTrades streams into a single tokio_stream::StreamMap
-    // Notes:
-    //  - Use `streams.select(ExchangeId)` to interact with the individual exchange streams!
-    //  - Use `streams.join()` to join all exchange streams into a single mpsc::UnboundedReceiver!
-    let mut joined_stream = streams.join_map().await;
+    // Select and merge every exchange Stream using futures_util::stream::select_all
+    // Note: use `Streams.select(ExchangeId)` to interact with individual exchange streams!
+    let mut joined_stream = streams
+        .select_all()
+        .with_error_handler(|error| println!(format!("MarketStream generated error: {error:?}")));
 
-    while let Some((exchange, trade)) = joined_stream.next().await {
-        info!("Exchange: {exchange}, MarketEvent<PublicTrade>: {trade:?}");
+    while let Some(event) = joined_stream.next().await {
+        println!("{event:?}");
     }
 }
 ```
