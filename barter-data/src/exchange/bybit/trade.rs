@@ -49,18 +49,18 @@ pub struct BybitTradeInner {
     pub id: String,
 }
 
-impl<InstrumentId: Clone> From<(ExchangeId, InstrumentId, BybitTrade)>
-    for MarketIter<InstrumentId, PublicTrade>
+impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, BybitTrade)>
+    for MarketIter<InstrumentKey, PublicTrade>
 {
-    fn from((exchange_id, instrument, trades): (ExchangeId, InstrumentId, BybitTrade)) -> Self {
+    fn from((exchange_id, instrument, trades): (ExchangeId, InstrumentKey, BybitTrade)) -> Self {
         Self(
             trades
                 .data
                 .into_iter()
                 .map(|trade| {
                     Ok(MarketEvent {
-                        exchange_time: trade.time,
-                        received_time: Utc::now(),
+                        time_exchange: trade.time,
+                        time_received: Utc::now(),
                         exchange: Exchange::from(exchange_id),
                         instrument: instrument.clone(),
                         kind: PublicTrade {

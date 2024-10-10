@@ -1,6 +1,6 @@
 [package]
 name = "barter"
-version = "0.8.15"
+version = "0.8.16"
 authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
 edition = "2021"
 license = "MIT"
@@ -12,10 +12,9 @@ keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 # Barter Ecosystem
-barter-data = { path = "../barter-data", version = "0.8.1"}
+barter-data = { path = "../barter-data", version = "0.9.0" }
 barter-integration = { path = "../barter-integration", version = "0.7.3" }
 
 # Logging
@@ -33,6 +32,9 @@ thiserror = { workspace = true }
 # SerDe
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+
+# Data Structures
+rust_decimal = { workspace = true }
 
 # Persistence
 redis = "0.25.4"

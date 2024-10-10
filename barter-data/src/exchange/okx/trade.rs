@@ -91,17 +91,17 @@ pub struct OkxTrade {
     pub time: DateTime<Utc>,
 }
 
-impl<InstrumentId: Clone> From<(ExchangeId, InstrumentId, OkxTrades)>
-    for MarketIter<InstrumentId, PublicTrade>
+impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, OkxTrades)>
+    for MarketIter<InstrumentKey, PublicTrade>
 {
-    fn from((exchange_id, instrument, trades): (ExchangeId, InstrumentId, OkxTrades)) -> Self {
+    fn from((exchange_id, instrument, trades): (ExchangeId, InstrumentKey, OkxTrades)) -> Self {
         trades
             .data
             .into_iter()
             .map(|trade| {
                 Ok(MarketEvent {
-                    exchange_time: trade.time,
-                    received_time: Utc::now(),
+                    time_exchange: trade.time,
+                    time_received: Utc::now(),
                     exchange: Exchange::from(exchange_id),
                     instrument: instrument.clone(),
                     kind: PublicTrade {

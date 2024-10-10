@@ -92,10 +92,10 @@ impl Identifier<Option<SubscriptionId>> for BybitMessage {
     }
 }
 
-impl<InstrumentId: Clone> From<(ExchangeId, InstrumentId, BybitMessage)>
-    for MarketIter<InstrumentId, PublicTrade>
+impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, BybitMessage)>
+    for MarketIter<InstrumentKey, PublicTrade>
 {
-    fn from((exchange_id, instrument, message): (ExchangeId, InstrumentId, BybitMessage)) -> Self {
+    fn from((exchange_id, instrument, message): (ExchangeId, InstrumentKey, BybitMessage)) -> Self {
         match message {
             BybitMessage::Response(_) => Self(vec![]),
             BybitMessage::Trade(trade) => Self::from((exchange_id, instrument, trade)),

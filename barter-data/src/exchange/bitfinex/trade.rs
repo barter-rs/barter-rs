@@ -31,7 +31,7 @@ use serde::Serialize;
 ///
 /// ## Notes:
 /// - [`Bitfinex`](super::Bitfinex) trades subscriptions results in receiving tag="te" & tag="tu"
-/// trades, both of which are identical.
+///   trades, both of which are identical.
 /// - "te" trades arrive marginally faster.
 /// - Therefore, tag="tu" trades are filtered out and considered only as additional Heartbeats.
 ///
@@ -45,13 +45,13 @@ pub struct BitfinexTrade {
     pub amount: f64,
 }
 
-impl<InstrumentId> From<(ExchangeId, InstrumentId, BitfinexTrade)>
-    for MarketIter<InstrumentId, PublicTrade>
+impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BitfinexTrade)>
+    for MarketIter<InstrumentKey, PublicTrade>
 {
-    fn from((exchange_id, instrument, trade): (ExchangeId, InstrumentId, BitfinexTrade)) -> Self {
+    fn from((exchange_id, instrument, trade): (ExchangeId, InstrumentKey, BitfinexTrade)) -> Self {
         Self(vec![Ok(MarketEvent {
-            exchange_time: trade.time,
-            received_time: Utc::now(),
+            time_exchange: trade.time,
+            time_received: Utc::now(),
             exchange: Exchange::from(exchange_id),
             instrument,
             kind: PublicTrade {

@@ -1,12 +1,12 @@
+use barter_data::streams::consumer::MarketStreamResult;
+use barter_data::streams::reconnect::stream::ReconnectingStream;
 use barter_data::{
-    event::{DataKind, MarketEvent},
-    exchange::ExchangeId,
-    streams::builder::dynamic::DynamicStreams,
+    event::DataKind, exchange::ExchangeId, streams::builder::dynamic::DynamicStreams,
     subscription::SubKind,
 };
 use barter_integration::model::instrument::{kind::InstrumentKind, Instrument};
 use futures::StreamExt;
-use tracing::info;
+use tracing::{info, warn};
 
 #[rustfmt::skip]
 #[tokio::main]
@@ -25,7 +25,7 @@ async fn main() {
     // - If the "subscription batch" contains more-than-one ExchangeId and/or SubKind, the batch
     //   will be further split under the hood for compile-time reasons.
 
-    // Initialise MarketEvent streams for various ExchangeIds and SubscriptionKinds
+    // Initialise market reconnect::Event streams for various ExchangeIds and SubscriptionKinds
     let streams = DynamicStreams::init([
         // Batch notes:
         // Since batch contains 1 ExchangeId and 1 SubscriptionKind, so only 1 (1x1) WebSockets
@@ -58,14 +58,15 @@ async fn main() {
         ],
     ]).await.unwrap();
 
-    // Select all streams, mapping each SubscriptionKind `MarketEvent<T>` into a unified
-    // `Output` (eg/ `MarketEvent<Instrument, DataKind>`), where MarketEvent<T>: Into<Output>
+    // Select all streams, mapping each SubscriptionKind `MarketStreamResult<T>` into a unified
+    // `Output` (eg/ `MarketStreamResult<Instrument, DataKind>`), where MarketStreamResult<T>: Into<Output>
     // Notes on other DynamicStreams methods:
     //  - Use `streams.select_trades(ExchangeId)` to return a stream of trades from a given exchange.
     //  - Use `streams.select_<T>(ExchangeId)` to return a stream of T from a given exchange.
     //  - Use `streams.select_all_trades(ExchangeId)` to return a stream of trades from all exchanges
     let mut merged = streams
-        .select_all::<MarketEvent<Instrument, DataKind>>();
+        .select_all::<MarketStreamResult<Instrument, DataKind>>()
+        .with_error_handler(|error| warn!(?error, "MarketStream generated error"));
 
     while let Some(event) = merged.next().await {
         info!("{event:?}");

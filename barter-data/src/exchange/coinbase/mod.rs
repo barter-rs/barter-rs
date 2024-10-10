@@ -8,7 +8,7 @@ use crate::{
     subscriber::{validator::WebSocketSubValidator, WebSocketSubscriber},
     subscription::trade::PublicTrades,
     transformer::stateless::StatelessTransformer,
-    ExchangeWsStream,
+    ExchangeWsStream, NoInitialSnapshots,
 };
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
 use barter_macro::{DeExchange, SerExchange};
@@ -76,6 +76,7 @@ impl<Instrument> StreamSelector<Instrument, PublicTrades> for Coinbase
 where
     Instrument: InstrumentData,
 {
+    type SnapFetcher = NoInitialSnapshots;
     type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Id, PublicTrades, CoinbaseTrade>>;
+        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, CoinbaseTrade>>;
 }

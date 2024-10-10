@@ -12,13 +12,9 @@ use barter_integration::{
     Validator,
 };
 use derive_more::Display;
+use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
-use std::{
-    borrow::Borrow,
-    collections::HashMap,
-    fmt::{Debug, Display, Formatter},
-    hash::Hash,
-};
+use std::{borrow::Borrow, fmt::Debug, hash::Hash};
 
 /// OrderBook [`SubscriptionKind`]s and the associated Barter output data models.
 pub mod book;
@@ -32,12 +28,13 @@ pub mod liquidation;
 /// Public trade [`SubscriptionKind`] and the associated Barter output data model.
 pub mod trade;
 
-/// Defines the type of a [`Subscription`], and the output [`Self::Event`] that it yields.
+/// Defines kind of a [`Subscription`], and the output [`Self::Event`] that it yields.
 pub trait SubscriptionKind
 where
     Self: Debug + Clone,
 {
     type Event: Debug;
+    fn as_str(&self) -> &'static str;
 }
 
 /// Barter [`Subscription`] used to subscribe to a [`SubscriptionKind`] for a particular exchange
@@ -63,13 +60,13 @@ pub enum SubKind {
     Candles,
 }
 
-impl<Exchange, Instrument, Kind> Display for Subscription<Exchange, Instrument, Kind>
+impl<Exchange, Instrument, Kind> std::fmt::Display for Subscription<Exchange, Instrument, Kind>
 where
     Exchange: Display,
     Instrument: Display,
     Kind: Display,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}_{}{}", self.exchange, self.kind, self.instrument)
     }
 }
@@ -86,14 +83,14 @@ where
     }
 }
 
-impl<InstrumentId, Exchange, S, Kind> From<(InstrumentId, Exchange, S, S, InstrumentKind, Kind)>
-    for Subscription<Exchange, KeyedInstrument<InstrumentId>, Kind>
+impl<InstrumentKey, Exchange, S, Kind> From<(InstrumentKey, Exchange, S, S, InstrumentKind, Kind)>
+    for Subscription<Exchange, KeyedInstrument<InstrumentKey>, Kind>
 where
     S: Into<Symbol>,
 {
     fn from(
         (instrument_id, exchange, base, quote, instrument_kind, kind): (
-            InstrumentId,
+            InstrumentKey,
             Exchange,
             S,
             S,
@@ -131,9 +128,10 @@ impl<Instrument, Exchange, Kind> Subscription<Exchange, Instrument, Kind> {
     }
 }
 
-impl<Exchange, Kind> Validator for &Subscription<Exchange, Instrument, Kind>
+impl<Exchange, Instrument, Kind> Validator for Subscription<Exchange, Instrument, Kind>
 where
     Exchange: Connector,
+    Instrument: InstrumentData,
 {
     fn validate(self) -> Result<Self, SocketError>
     where
@@ -143,12 +141,12 @@ where
         let exchange = Exchange::ID;
 
         // Validate the Exchange supports the Subscription InstrumentKind
-        if exchange.supports_instrument_kind(self.instrument.kind) {
+        if exchange.supports_instrument_kind(self.instrument.kind()) {
             Ok(self)
         } else {
             Err(SocketError::Unsupported {
                 entity: exchange.as_str(),
-                item: self.instrument.kind.to_string(),
+                item: self.instrument.kind().to_string(),
             })
         }
     }
@@ -177,12 +175,12 @@ where
 /// Metadata generated from a collection of Barter [`Subscription`]s, including the exchange
 /// specific subscription payloads that are sent to the exchange.
 #[derive(Clone, Eq, PartialEq, Debug)]
-pub struct SubscriptionMeta<InstrumentId> {
+pub struct SubscriptionMeta<InstrumentKey> {
     /// `HashMap` containing the mapping between a [`SubscriptionId`] and
     /// it's associated Barter [`Instrument`].
-    pub instrument_map: Map<InstrumentId>,
+    pub instrument_map: Map<InstrumentKey>,
     /// Collection of [`WsMessage`]s containing exchange specific subscription payloads to be sent.
-    pub subscriptions: Vec<WsMessage>,
+    pub ws_subscriptions: Vec<WsMessage>,
 }
 
 /// New type`HashMap` that maps a [`SubscriptionId`] to some associated type `T`.
@@ -190,19 +188,19 @@ pub struct SubscriptionMeta<InstrumentId> {
 /// Used by [`ExchangeTransformer`](crate::transformer::ExchangeTransformer)s to identify the
 /// Barter [`Instrument`] associated with incoming exchange messages.
 #[derive(Clone, Eq, PartialEq, Debug, Deserialize, Serialize)]
-pub struct Map<T>(pub HashMap<SubscriptionId, T>);
+pub struct Map<T>(pub FnvHashMap<SubscriptionId, T>);
 
 impl<T> FromIterator<(SubscriptionId, T)> for Map<T> {
     fn from_iter<Iter>(iter: Iter) -> Self
     where
         Iter: IntoIterator<Item = (SubscriptionId, T)>,
     {
-        Self(iter.into_iter().collect::<HashMap<SubscriptionId, T>>())
+        Self(iter.into_iter().collect::<FnvHashMap<SubscriptionId, T>>())
     }
 }
 
 impl<T> Map<T> {
-    /// Find the `InstrumentId` associated with the provided [`SubscriptionId`].
+    /// Find the `InstrumentKey` associated with the provided [`SubscriptionId`].
     pub fn find<SubId>(&self, id: &SubId) -> Result<&T, SocketError>
     where
         SubscriptionId: Borrow<SubId>,
@@ -357,7 +355,7 @@ mod tests {
 
             for (index, test) in tests.into_iter().enumerate() {
                 let actual = test.input.validate();
-                match (actual, &test.expected) {
+                match (actual, test.expected) {
                     (Ok(actual), Ok(expected)) => {
                         assert_eq!(actual, expected, "TC{} failed", index)
                     }
@@ -418,7 +416,7 @@ mod tests {
 
             for (index, test) in tests.into_iter().enumerate() {
                 let actual = test.input.validate();
-                match (actual, &test.expected) {
+                match (actual, test.expected) {
                     (Ok(actual), Ok(expected)) => {
                         assert_eq!(actual, expected, "TC{} failed", index)
                     }
@@ -440,8 +438,8 @@ mod tests {
 
         #[test]
         fn test_find_instrument() {
-            // Initialise SubscriptionId-InstrumentId HashMap
-            let ids = Map(HashMap::from_iter([(
+            // Initialise SubscriptionId-InstrumentKey HashMap
+            let ids = Map(FnvHashMap::from_iter([(
                 SubscriptionId::from("present"),
                 Instrument::from(("base", "quote", InstrumentKind::Spot)),
             )]));

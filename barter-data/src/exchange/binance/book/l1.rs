@@ -1,14 +1,16 @@
+use crate::books::Level;
 use crate::{
     event::{MarketEvent, MarketIter},
     exchange::{binance::channel::BinanceChannel, subscription::ExchangeSub, ExchangeId},
-    subscription::book::{Level, OrderBookL1},
+    subscription::book::OrderBookL1,
     Identifier,
 };
 use barter_integration::model::{Exchange, SubscriptionId};
 use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-/// [`Binance`](super::super::Binance) real-time OrderBook Level1 (top of book) message.
+/// [`Binance`](super::super::Binance) real-time OrderBook Level1 (top of books) message.
 ///
 /// ### Raw Payload Examples
 /// #### BinanceSpot OrderBookL1
@@ -46,14 +48,14 @@ pub struct BinanceOrderBookL1 {
         default = "Utc::now"
     )]
     pub time: DateTime<Utc>,
-    #[serde(alias = "b", deserialize_with = "barter_integration::de::de_str")]
-    pub best_bid_price: f64,
-    #[serde(alias = "B", deserialize_with = "barter_integration::de::de_str")]
-    pub best_bid_amount: f64,
-    #[serde(alias = "a", deserialize_with = "barter_integration::de::de_str")]
-    pub best_ask_price: f64,
-    #[serde(alias = "A", deserialize_with = "barter_integration::de::de_str")]
-    pub best_ask_amount: f64,
+    #[serde(alias = "b", with = "rust_decimal::serde::str")]
+    pub best_bid_price: Decimal,
+    #[serde(alias = "B", with = "rust_decimal::serde::str")]
+    pub best_bid_amount: Decimal,
+    #[serde(alias = "a", with = "rust_decimal::serde::str")]
+    pub best_ask_price: Decimal,
+    #[serde(alias = "A", with = "rust_decimal::serde::str")]
+    pub best_ask_amount: Decimal,
 }
 
 impl Identifier<Option<SubscriptionId>> for BinanceOrderBookL1 {
@@ -62,15 +64,15 @@ impl Identifier<Option<SubscriptionId>> for BinanceOrderBookL1 {
     }
 }
 
-impl<InstrumentId> From<(ExchangeId, InstrumentId, BinanceOrderBookL1)>
-    for MarketIter<InstrumentId, OrderBookL1>
+impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceOrderBookL1)>
+    for MarketIter<InstrumentKey, OrderBookL1>
 {
     fn from(
-        (exchange_id, instrument, book): (ExchangeId, InstrumentId, BinanceOrderBookL1),
+        (exchange_id, instrument, book): (ExchangeId, InstrumentKey, BinanceOrderBookL1),
     ) -> Self {
         Self(vec![Ok(MarketEvent {
-            exchange_time: book.time,
-            received_time: Utc::now(),
+            time_exchange: book.time,
+            time_received: Utc::now(),
             exchange: Exchange::from(exchange_id),
             instrument,
             kind: OrderBookL1 {
@@ -99,6 +101,7 @@ mod tests {
 
     mod de {
         use super::*;
+        use rust_decimal_macros::dec;
 
         #[test]
         fn test_binance_order_book_l1() {
@@ -125,10 +128,10 @@ mod tests {
                     expected: BinanceOrderBookL1 {
                         subscription_id: SubscriptionId::from("@bookTicker|ETHUSDT"),
                         time,
-                        best_bid_price: 1215.27000000,
-                        best_bid_amount: 32.49110000,
-                        best_ask_price: 1215.28000000,
-                        best_ask_amount: 13.93900000,
+                        best_bid_price: dec!(1215.27000000),
+                        best_bid_amount: dec!(32.49110000),
+                        best_ask_price: dec!(1215.28000000),
+                        best_ask_amount: dec!(13.93900000),
                     },
                 },
                 TestCase {
@@ -148,10 +151,10 @@ mod tests {
                     expected: BinanceOrderBookL1 {
                         subscription_id: SubscriptionId::from("@bookTicker|BTCUSDT"),
                         time,
-                        best_bid_price: 16858.90,
-                        best_bid_amount: 13.692,
-                        best_ask_price: 16859.00,
-                        best_ask_amount: 30.219,
+                        best_bid_price: dec!(16858.90),
+                        best_bid_amount: dec!(13.692),
+                        best_ask_price: dec!(16859.00),
+                        best_ask_amount: dec!(30.219),
                     },
                 },
             ];

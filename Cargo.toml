@@ -17,6 +17,7 @@ tracing-subscriber = { version = "0.3.16" }
 tokio = { version = "1.38.0" }
 tokio-stream = { version = "0.1.15" }
 futures = { version = "0.3.30" }
+futures-util = { version = "0.3.31" }
 async-trait = { version = "0.1.57" }
 pin-project = { version = "1.1.5" }
 
@@ -50,9 +51,10 @@ base64 = { version = "0.22.0" }
 # Misc
 uuid = { version = "1.9.1", features = ["v4", "serde"]}
 chrono = { version = "0.4.38", features = ["serde"]}
-derive_more = { version = "0.99.17" }
+derive_more = { version = "1.0.0", features = ["constructor", "display", "from"] }
 itertools = { version = "0.13.0" }
 rust_decimal = { version = "1.29.1" }
 rust_decimal_macros = { version = "1.29.1" }
 bytes = { version = "1.5.0" }
+fnv = "1.0.7"
 

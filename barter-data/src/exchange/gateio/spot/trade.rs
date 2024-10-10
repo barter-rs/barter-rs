@@ -53,13 +53,15 @@ impl Identifier<Option<SubscriptionId>> for GateioSpotTrade {
     }
 }
 
-impl<InstrumentId> From<(ExchangeId, InstrumentId, GateioSpotTrade)>
-    for MarketIter<InstrumentId, PublicTrade>
+impl<InstrumentKey> From<(ExchangeId, InstrumentKey, GateioSpotTrade)>
+    for MarketIter<InstrumentKey, PublicTrade>
 {
-    fn from((exchange_id, instrument, trade): (ExchangeId, InstrumentId, GateioSpotTrade)) -> Self {
+    fn from(
+        (exchange_id, instrument, trade): (ExchangeId, InstrumentKey, GateioSpotTrade),
+    ) -> Self {
         Self(vec![Ok(MarketEvent {
-            exchange_time: trade.data.time,
-            received_time: Utc::now(),
+            time_exchange: trade.data.time,
+            time_received: Utc::now(),
             exchange: Exchange::from(exchange_id),
             instrument,
             kind: PublicTrade {

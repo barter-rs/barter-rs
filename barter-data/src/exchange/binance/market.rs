@@ -46,7 +46,7 @@ impl AsRef<str> for BinanceMarket {
     }
 }
 
-fn binance_market(base: &Symbol, quote: &Symbol) -> BinanceMarket {
+pub(in crate::exchange::binance) fn binance_market(base: &Symbol, quote: &Symbol) -> BinanceMarket {
     // Notes:
     // - Must be lowercase when subscribing (transformed to lowercase by Binance fn requests).
     // - Must be uppercase since Binance sends message with uppercase MARKET (eg/ BTCUSDT).
