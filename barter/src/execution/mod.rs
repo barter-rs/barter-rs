@@ -49,7 +49,7 @@ impl FillEvent {
 pub struct Fees {
     /// Fee taken by the exchange/broker (eg/ commission).
     pub exchange: FeeAmount,
-    /// Order book slippage modelled as a fee.
+    /// Order books slippage modelled as a fee.
     pub slippage: FeeAmount,
     /// Fee incurred by any required network transactions (eg/ GAS).
     pub network: FeeAmount,

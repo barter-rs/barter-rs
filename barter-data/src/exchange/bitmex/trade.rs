@@ -59,8 +59,8 @@ impl<InstrumentId: Clone> From<(ExchangeId, InstrumentId, BitmexTrade)>
                 .into_iter()
                 .map(|trade| {
                     Ok(MarketEvent {
-                        exchange_time: trade.timestamp,
-                        received_time: Utc::now(),
+                        time_exchange: trade.timestamp,
+                        time_received: Utc::now(),
                         exchange: Exchange::from(exchange_id),
                         instrument: instrument.clone(),
                         kind: PublicTrade {

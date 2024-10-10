@@ -6,6 +6,7 @@ use crate::{
 use barter_data::event::{DataKind, MarketEvent};
 use barter_integration::model::{instrument::Instrument, Exchange, Side};
 use chrono::{DateTime, Utc};
+use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use uuid::Uuid;
@@ -151,12 +152,11 @@ impl PositionUpdater for Position {
         let close = match &market.kind {
             DataKind::Trade(trade) => trade.price,
             DataKind::Candle(candle) => candle.close,
-            DataKind::OrderBookL1(book_l1) => book_l1.volume_weighed_mid_price(),
-            DataKind::OrderBook(book) => book.volume_weighed_mid_price()?,
-            DataKind::Liquidation(_) => return None,
+            DataKind::OrderBookL1(book_l1) => book_l1.volume_weighed_mid_price().to_f64()?,
+            DataKind::OrderBook(_) | DataKind::Liquidation(_) => return None,
         };
 
-        self.meta.update_time = market.exchange_time;
+        self.meta.update_time = market.time_exchange;
 
         self.current_symbol_price = close;
 

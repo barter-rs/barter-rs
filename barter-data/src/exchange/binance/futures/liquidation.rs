@@ -88,8 +88,8 @@ impl<InstrumentId> From<(ExchangeId, InstrumentId, BinanceLiquidation)>
         (exchange_id, instrument, liquidation): (ExchangeId, InstrumentId, BinanceLiquidation),
     ) -> Self {
         Self(vec![Ok(MarketEvent {
-            exchange_time: liquidation.order.time,
-            received_time: Utc::now(),
+            time_exchange: liquidation.order.time,
+            time_received: Utc::now(),
             exchange: Exchange::from(exchange_id),
             instrument,
             kind: Liquidation {

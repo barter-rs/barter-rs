@@ -1,7 +1,7 @@
 use crate::{
     error::DataError,
     subscription::{
-        book::{OrderBook, OrderBookL1},
+        book::{OrderBookL1},
         candle::Candle,
         liquidation::Liquidation,
         trade::PublicTrade,
@@ -10,6 +10,7 @@ use crate::{
 use barter_integration::model::{instrument::Instrument, Exchange};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use crate::subscription::book::OrderBookEvent;
 
 /// Convenient new type containing a collection of [`MarketEvent<T>`](MarketEvent)s.
 #[derive(Debug)]
@@ -38,8 +39,8 @@ impl<InstrumentId, T> FromIterator<Result<MarketEvent<InstrumentId, T>, DataErro
 /// - [`MarketEvent<DataKind>`](DataKind)
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Deserialize, Serialize)]
 pub struct MarketEvent<InstrumentId = Instrument, T = DataKind> {
-    pub exchange_time: DateTime<Utc>,
-    pub received_time: DateTime<Utc>,
+    pub time_exchange: DateTime<Utc>,
+    pub time_received: DateTime<Utc>,
     pub exchange: Exchange,
     pub instrument: InstrumentId,
     pub kind: T,
@@ -56,11 +57,11 @@ pub struct MarketEvent<InstrumentId = Instrument, T = DataKind> {
 ///   [`Subscription`](crate::subscription::Subscription)s directly, it is only used to
 ///   make ergonomic [`Streams`](crate::streams::Streams) containing many
 ///   [`MarketEvent<T>`](MarketEvent) kinds.
-#[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
+#[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
 pub enum DataKind {
     Trade(PublicTrade),
     OrderBookL1(OrderBookL1),
-    OrderBook(OrderBook),
+    OrderBook(OrderBookEvent),
     Candle(Candle),
     Liquidation(Liquidation),
 }
@@ -70,8 +71,8 @@ impl<InstrumentId> From<MarketEvent<InstrumentId, PublicTrade>>
 {
     fn from(event: MarketEvent<InstrumentId, PublicTrade>) -> Self {
         Self {
-            exchange_time: event.exchange_time,
-            received_time: event.received_time,
+            time_exchange: event.time_exchange,
+            time_received: event.time_received,
             exchange: event.exchange,
             instrument: event.instrument,
             kind: DataKind::Trade(event.kind),
@@ -84,8 +85,8 @@ impl<InstrumentId> From<MarketEvent<InstrumentId, OrderBookL1>>
 {
     fn from(event: MarketEvent<InstrumentId, OrderBookL1>) -> Self {
         Self {
-            exchange_time: event.exchange_time,
-            received_time: event.received_time,
+            time_exchange: event.time_exchange,
+            time_received: event.time_received,
             exchange: event.exchange,
             instrument: event.instrument,
             kind: DataKind::OrderBookL1(event.kind),
@@ -93,13 +94,13 @@ impl<InstrumentId> From<MarketEvent<InstrumentId, OrderBookL1>>
     }
 }
 
-impl<InstrumentId> From<MarketEvent<InstrumentId, OrderBook>>
+impl<InstrumentId> From<MarketEvent<InstrumentId, OrderBookEvent>>
     for MarketEvent<InstrumentId, DataKind>
 {
-    fn from(event: MarketEvent<InstrumentId, OrderBook>) -> Self {
+    fn from(event: MarketEvent<InstrumentId, OrderBookEvent>) -> Self {
         Self {
-            exchange_time: event.exchange_time,
-            received_time: event.received_time,
+            time_exchange: event.time_exchange,
+            time_received: event.time_received,
             exchange: event.exchange,
             instrument: event.instrument,
             kind: DataKind::OrderBook(event.kind),
@@ -110,8 +111,8 @@ impl<InstrumentId> From<MarketEvent<InstrumentId, OrderBook>>
 impl<InstrumentId> From<MarketEvent<InstrumentId, Candle>> for MarketEvent<InstrumentId, DataKind> {
     fn from(event: MarketEvent<InstrumentId, Candle>) -> Self {
         Self {
-            exchange_time: event.exchange_time,
-            received_time: event.received_time,
+            time_exchange: event.time_exchange,
+            time_received: event.time_received,
             exchange: event.exchange,
             instrument: event.instrument,
             kind: DataKind::Candle(event.kind),
@@ -124,8 +125,8 @@ impl<InstrumentId> From<MarketEvent<InstrumentId, Liquidation>>
 {
     fn from(event: MarketEvent<InstrumentId, Liquidation>) -> Self {
         Self {
-            exchange_time: event.exchange_time,
-            received_time: event.received_time,
+            time_exchange: event.time_exchange,
+            time_received: event.time_received,
             exchange: event.exchange,
             instrument: event.instrument,
             kind: DataKind::Liquidation(event.kind),

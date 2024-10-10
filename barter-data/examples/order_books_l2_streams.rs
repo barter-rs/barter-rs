@@ -1,8 +1,7 @@
-use barter_data::{
-    exchange::{binance::spot::BinanceSpot, ExchangeId},
-    streams::Streams,
-    subscription::book::OrderBooksL2,
-};
+use barter_data::exchange::binance::spot::BinanceSpot;
+use barter_data::exchange::ExchangeId;
+use barter_data::streams::Streams;
+use barter_data::subscription::book::OrderBooksL2;
 use barter_integration::model::instrument::kind::InstrumentKind;
 use tracing::info;
 
@@ -45,8 +44,8 @@ async fn main() {
         .select(ExchangeId::BinanceSpot)
         .unwrap();
 
-    while let Some(order_book_l2) = binance_stream.recv().await {
-        info!("MarketEvent<OrderBook>: {order_book_l2:?}");
+    while let Some(l2_update) = binance_stream.recv().await {
+        info!("MarketEvent<OrderBookEvent>: {l2_update:?}");
     }
 }
 

@@ -6,10 +6,7 @@ use barter_data::{
         okx::Okx,
     },
     streams::Streams,
-    subscription::{
-        book::{OrderBooksL1, OrderBooksL2},
-        trade::PublicTrades,
-    },
+    subscription::{book::OrderBooksL1, trade::PublicTrades},
 };
 use barter_integration::model::instrument::{kind::InstrumentKind, Instrument};
 use tokio_stream::StreamExt;
@@ -57,14 +54,14 @@ async fn main() {
         )
 
         // Add OrderBooksL2 Stream for various exchanges
-        .add(Streams::<OrderBooksL2>::builder()
-            .subscribe([
-                (BinanceSpot::default(), "btc", "usdt", InstrumentKind::Spot, OrderBooksL2),
-            ])
-            .subscribe([
-                (BinanceFuturesUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, OrderBooksL2),
-            ])
-        )
+        // .add(Streams::<OrderBooksL2>::builder()
+        //     .subscribe([
+        //         (BinanceSpot::default(), "btc", "usdt", InstrumentKind::Spot, OrderBooksL2),
+        //     ])
+        //     .subscribe([
+        //         (BinanceFuturesUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, OrderBooksL2),
+        //     ])
+        // )
         .init()
         .await
         .unwrap();

@@ -1,15 +1,16 @@
-use self::{l2::BinanceFuturesBookUpdater, liquidation::BinanceLiquidation};
+use self::liquidation::BinanceLiquidation;
 use super::{Binance, ExchangeServer};
+use crate::exchange::binance::spot::l2::BinanceSpotOrderBookL2Update;
+use crate::subscription::book::OrderBooksL2;
 use crate::{
     exchange::{ExchangeId, StreamSelector},
     instrument::InstrumentData,
-    subscription::{book::OrderBooksL2, liquidation::Liquidations},
-    transformer::{book::MultiBookTransformer, stateless::StatelessTransformer},
+    subscription::liquidation::Liquidations,
+    transformer::stateless::StatelessTransformer,
     ExchangeWsStream,
 };
-use barter_integration::model::instrument::Instrument;
 
-/// Level 2 OrderBook types (top of book) and perpetual
+/// Level 2 OrderBook types (top of books) and perpetual
 /// [`OrderBookUpdater`](crate::transformer::book::OrderBookUpdater) implementation.
 pub mod l2;
 
@@ -36,9 +37,12 @@ impl ExchangeServer for BinanceServerFuturesUsd {
     }
 }
 
-impl StreamSelector<Instrument, OrderBooksL2> for BinanceFuturesUsd {
+impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for BinanceFuturesUsd
+where
+    Instrument: InstrumentData,
+{
     type Stream = ExchangeWsStream<
-        MultiBookTransformer<Self, Instrument, OrderBooksL2, BinanceFuturesBookUpdater>,
+        StatelessTransformer<Self, Instrument::Id, OrderBooksL2, BinanceSpotOrderBookL2Update>,
     >;
 }
 

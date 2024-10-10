@@ -53,8 +53,8 @@ impl<InstrumentId> From<(ExchangeId, InstrumentId, CoinbaseTrade)>
 {
     fn from((exchange_id, instrument, trade): (ExchangeId, InstrumentId, CoinbaseTrade)) -> Self {
         Self(vec![Ok(MarketEvent {
-            exchange_time: trade.time,
-            received_time: Utc::now(),
+            time_exchange: trade.time,
+            time_received: Utc::now(),
             exchange: Exchange::from(exchange_id),
             instrument,
             kind: PublicTrade {
@@ -81,7 +81,7 @@ where
 mod tests {
     use super::*;
     use barter_integration::error::SocketError;
-    use chrono::NaiveDateTime;
+    use chrono::{NaiveDateTime, TimeZone};
     use serde::de::Error;
     use std::str::FromStr;
 
@@ -117,10 +117,9 @@ mod tests {
                     price: 400.23,
                     amount: 5.23512,
                     side: Side::Sell,
-                    time: DateTime::from_utc(
-                        NaiveDateTime::from_str("2014-11-07T08:19:27.028459").unwrap(),
-                        Utc,
-                    ),
+                    time: NaiveDateTime::from_str("2014-11-07T08:19:27.028459")
+                        .unwrap()
+                        .and_utc(),
                 }),
             },
         ];

@@ -129,6 +129,7 @@ pub mod subscription;
 /// [`InstrumentData`] trait for instrument describing data.
 pub mod instrument;
 
+mod books;
 /// Generic [`ExchangeTransformer`] implementations used by [`MarketStream`]s to translate exchange
 /// specific types to normalised Barter types.
 ///

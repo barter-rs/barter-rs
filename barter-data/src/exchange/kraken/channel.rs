@@ -18,7 +18,7 @@ impl KrakenChannel {
     /// See docs: <https://docs.kraken.com/websockets/#message-subscribe>
     pub const TRADES: Self = Self("trade");
 
-    /// [`Kraken`] real-time OrderBook Level1 (top of book) channel name.
+    /// [`Kraken`] real-time OrderBook Level1 (top of books) channel name.
     ///
     /// See docs: <https://docs.kraken.com/websockets/#message-subscribe>
     pub const ORDER_BOOK_L1: Self = Self("spread");

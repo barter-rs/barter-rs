@@ -82,8 +82,8 @@ impl<InstrumentId: Clone> From<(ExchangeId, InstrumentId, GateioFuturesTrades)>
             .into_iter()
             .map(|trade| {
                 Ok(MarketEvent {
-                    exchange_time: trade.time,
-                    received_time: Utc::now(),
+                    time_exchange: trade.time,
+                    time_received: Utc::now(),
                     exchange: Exchange::from(exchange_id),
                     instrument: instrument.clone(),
                     kind: PublicTrade {

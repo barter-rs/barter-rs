@@ -13,11 +13,11 @@
 //! `ExecutionClient` instance.
 //! **It is:**
 //! * **Easy**: ExecutionClient trait provides a unified and simple language for interacting with
-//! exchanges.
+//!   exchanges.
 //! * **Normalised**: Allow your strategy to communicate with every real or simulated exchange
-//! using the same interface.
+//!   using the same interface.
 //! * **Extensible**: Barter-Execution is highly extensible, making it easy to contribute by adding
-//! new exchange integrations!
+//!   new exchange integrations!
 //!
 //! See `README.md` for more information and examples.
 

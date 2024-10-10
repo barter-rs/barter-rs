@@ -15,7 +15,7 @@ use barter_macro::{DeExchange, SerExchange};
 use serde_json::json;
 use url::Url;
 
-/// Order book types for [`Kraken`]
+/// Order books types for [`Kraken`]
 pub mod book;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)

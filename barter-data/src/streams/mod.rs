@@ -4,12 +4,11 @@ use std::collections::HashMap;
 use tokio::sync::mpsc;
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamMap};
 
-/// Defines the [`StreamBuilder`](builder::StreamBuilder) and
-/// [`MultiStreamBuilder`](builder::multi::MultiStreamBuilder) APIs for ergonomically initialising
+/// Defines the [`StreamBuilder`] and [`MultiStreamBuilder`] APIs for ergonomically initialising
 /// [`MarketStream`](super::MarketStream) [`Streams`].
 pub mod builder;
 
-/// Central consumer loop functionality used by the [`StreamBuilder`](builder::StreamBuilder) to
+/// Central consumer loop functionality used by the [`StreamBuilder`] to
 /// to drive a re-connecting [`MarketStream`](super::MarketStream).
 pub mod consumer;
 

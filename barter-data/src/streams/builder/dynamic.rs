@@ -21,7 +21,7 @@ use crate::{
     instrument::InstrumentData,
     streams::{builder::ExchangeChannel, consumer::consume},
     subscription::{
-        book::{OrderBook, OrderBookL1, OrderBooksL1},
+        book::{OrderBookL1, OrderBooksL1},
         liquidation::{Liquidation, Liquidations},
         trade::{PublicTrade, PublicTrades},
         SubKind, Subscription,
@@ -37,12 +37,13 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use vecmap::VecMap;
+use crate::subscription::book::OrderBookEvent;
 
 #[derive(Debug)]
 pub struct DynamicStreams<InstrumentId> {
     pub trades: VecMap<ExchangeId, UnboundedReceiverStream<MarketEvent<InstrumentId, PublicTrade>>>,
     pub l1s: VecMap<ExchangeId, UnboundedReceiverStream<MarketEvent<InstrumentId, OrderBookL1>>>,
-    pub l2s: VecMap<ExchangeId, UnboundedReceiverStream<MarketEvent<InstrumentId, OrderBook>>>,
+    pub l2s: VecMap<ExchangeId, UnboundedReceiverStream<MarketEvent<InstrumentId, OrderBookEvent>>>,
     pub liquidations:
         VecMap<ExchangeId, UnboundedReceiverStream<MarketEvent<InstrumentId, Liquidation>>>,
 }
@@ -411,7 +412,7 @@ impl<InstrumentId> DynamicStreams<InstrumentId> {
     pub fn select_l2s(
         &mut self,
         exchange: ExchangeId,
-    ) -> Option<UnboundedReceiverStream<MarketEvent<InstrumentId, OrderBook>>> {
+    ) -> Option<UnboundedReceiverStream<MarketEvent<InstrumentId, OrderBookEvent>>> {
         self.l2s.remove(&exchange)
     }
 
@@ -419,7 +420,7 @@ impl<InstrumentId> DynamicStreams<InstrumentId> {
     /// [`SelectAll`](futures_util::stream::select_all).
     pub fn select_all_l2s(
         &mut self,
-    ) -> SelectAll<UnboundedReceiverStream<MarketEvent<InstrumentId, OrderBook>>> {
+    ) -> SelectAll<UnboundedReceiverStream<MarketEvent<InstrumentId, OrderBookEvent>>> {
         select_all(std::mem::take(&mut self.l2s).into_values())
     }
 
@@ -452,7 +453,7 @@ impl<InstrumentId> DynamicStreams<InstrumentId> {
         Output: 'static,
         MarketEvent<InstrumentId, PublicTrade>: Into<Output>,
         MarketEvent<InstrumentId, OrderBookL1>: Into<Output>,
-        MarketEvent<InstrumentId, OrderBook>: Into<Output>,
+        MarketEvent<InstrumentId, OrderBookEvent>: Into<Output>,
         MarketEvent<InstrumentId, Liquidation>: Into<Output>,
     {
         let Self {
@@ -515,7 +516,7 @@ where
 struct Channels<InstrumentId> {
     trades: HashMap<ExchangeId, ExchangeChannel<MarketEvent<InstrumentId, PublicTrade>>>,
     l1s: HashMap<ExchangeId, ExchangeChannel<MarketEvent<InstrumentId, OrderBookL1>>>,
-    l2s: HashMap<ExchangeId, ExchangeChannel<MarketEvent<InstrumentId, OrderBook>>>,
+    l2s: HashMap<ExchangeId, ExchangeChannel<MarketEvent<InstrumentId, OrderBookEvent>>>,
     liquidations: HashMap<ExchangeId, ExchangeChannel<MarketEvent<InstrumentId, Liquidation>>>,
 }
 

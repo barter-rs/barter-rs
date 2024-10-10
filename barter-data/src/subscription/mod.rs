@@ -13,12 +13,7 @@ use barter_integration::{
 };
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
-use std::{
-    borrow::Borrow,
-    collections::HashMap,
-    fmt::{Debug, Display, Formatter},
-    hash::Hash,
-};
+use std::{borrow::Borrow, collections::HashMap, fmt::Debug, hash::Hash};
 
 /// OrderBook [`SubscriptionKind`]s and the associated Barter output data models.
 pub mod book;
@@ -63,13 +58,13 @@ pub enum SubKind {
     Candles,
 }
 
-impl<Exchange, Instrument, Kind> Display for Subscription<Exchange, Instrument, Kind>
+impl<Exchange, Instrument, Kind> std::fmt::Display for Subscription<Exchange, Instrument, Kind>
 where
     Exchange: Display,
     Instrument: Display,
     Kind: Display,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}_{}{}", self.exchange, self.kind, self.instrument)
     }
 }

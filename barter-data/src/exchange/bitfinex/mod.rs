@@ -44,7 +44,7 @@ pub mod channel;
 /// into an exchange [`Connector`] specific market used for generating [`Connector::requests`].
 pub mod market;
 
-/// [`BitfinexMessage`](message::BitfinexMessage) type for [`Bitfinex`].
+/// [`BitfinexMessage`] type for [`Bitfinex`].
 pub mod message;
 
 /// [`Subscription`](crate::subscription::Subscription) response types and response
@@ -54,7 +54,7 @@ pub mod subscription;
 /// Public trade types for [`Bitfinex`].
 pub mod trade;
 
-/// Custom [`SubscriptionValidator`](crate::subscriber::validator::SubscriptionValidator)
+/// Custom [`SubscriptionValidator`](validator::SubscriptionValidator)
 /// implementation for [`Bitfinex`].
 pub mod validator;
 

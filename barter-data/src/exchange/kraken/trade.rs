@@ -51,7 +51,7 @@ impl Identifier<Option<SubscriptionId>> for KrakenTradesInner {
 fn custom_kraken_trade_id(trade: &KrakenTrade) -> String {
     format!(
         "{}_{}_{}_{}",
-        trade.time.timestamp_nanos(),
+        trade.time.timestamp_micros(),
         trade.side,
         trade.price,
         trade.amount
@@ -68,8 +68,8 @@ impl<InstrumentId: Clone> From<(ExchangeId, InstrumentId, KrakenTrades)>
                 .into_iter()
                 .map(|trade| {
                     Ok(MarketEvent {
-                        exchange_time: trade.time,
-                        received_time: Utc::now(),
+                        time_exchange: trade.time,
+                        time_received: Utc::now(),
                         exchange: Exchange::from(exchange_id),
                         instrument: instrument.clone(),
                         kind: PublicTrade {

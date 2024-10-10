@@ -127,8 +127,8 @@ fn load_json_market_event_candles() -> Vec<MarketEvent<Instrument, DataKind>> {
     candles
         .into_iter()
         .map(|candle| MarketEvent {
-            exchange_time: candle.close_time,
-            received_time: Utc::now(),
+            time_exchange: candle.close_time,
+            time_received: Utc::now(),
             exchange: Exchange::from("binance"),
             instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
             kind: DataKind::Candle(candle),

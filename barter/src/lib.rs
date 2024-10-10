@@ -6,7 +6,7 @@
 //! * **Fast**: Barter provides a multi-threaded trading Engine framework built in high-performance Rust (in-rust-we-trust).
 //! * **Easy**: Barter provides a modularised data architecture that focuses on simplicity.
 //! * **Customisable**: A set of traits define how every Barter component communicates, providing a highly extensible
-//! framework for trading.
+//!   framework for trading.
 //!
 //! See [`Readme`].
 //!
@@ -18,22 +18,22 @@
 //! it provides several de-coupled components that interact via a set of traits:
 
 //! * **Data**: Continuer & MarketGenerator traits govern the generation of a MarketEvents data feed that acts as the system
-//! heartbeat. For example, a LiveCandleHandler implementation is provided utilising [`Barter-Data`]'s WebSocket functionality to
-//! provide a live market Candle data feed to the system.
+//!   heartbeat. For example, a LiveCandleHandler implementation is provided utilising [`Barter-Data`]'s WebSocket functionality to
+//!   provide a live market Candle data feed to the system.
 //! * **Strategy**: The SignalGenerator trait governs potential generation of SignalEvents after analysing incoming
-//! MarketEvents. SignalEvents are advisory signals sent to the Portfolio for analysis.
+//!   MarketEvents. SignalEvents are advisory signals sent to the Portfolio for analysis.
 //! * **Portfolio**: MarketUpdater, OrderGenerator, and FillUpdater govern global state Portfolio implementations. A
-//! Portfolio may generate OrderEvents after receiving advisory SignalEvents from a Strategy. The Portfolio's state
-//! updates after receiving MarketEvents and FillEvents.
+//!   Portfolio may generate OrderEvents after receiving advisory SignalEvents from a Strategy. The Portfolio's state
+//!   updates after receiving MarketEvents and FillEvents.
 //! * **Execution**: The FillGenerator trait governs the generation of FillEvents after receiving OrderEvents from the
-//! Portfolio. For example, a SimulatedExecution handler implementation is provided for simulating any exchange execution
-//! behaviour required in dry-trading or backtesting runs.
+//!   Portfolio. For example, a SimulatedExecution handler implementation is provided for simulating any exchange execution
+//!   behaviour required in dry-trading or backtesting runs.
 //! * **Statistic**: Provides metrics such as Sharpe Ratio, Calmar Ratio, and Max Drawdown to analyse trading session
-//! performance. One-pass dispersion algorithms analyse each closed Position and efficiently calculates a trading summary.
+//!   performance. One-pass dispersion algorithms analyse each closed Position and efficiently calculates a trading summary.
 //! * **Trader**: Capable of trading a single market pair using a customisable selection of it's own Data, Strategy &
-//! Execution instances, as well as shared access to a global Portfolio.
+//!   Execution instances, as well as shared access to a global Portfolio.
 //! * **Engine**: Multi-threaded trading Engine capable of trading with an arbitrary number of Trader market pairs. Each
-//! contained Trader instance operates on its own thread.
+//!   contained Trader instance operates on its own thread.
 //!
 //! [`Barter`]: https://github.com/barter-rs/barter-rs
 //! [`Barter-Data`]: https://crates.io/crates/barter-data
@@ -267,8 +267,8 @@ pub mod test_util {
     /// Build a [`MarketEvent`] of [`DataKind::PublicTrade`](DataKind) with the provided [`Side`].
     pub fn market_event_trade(side: Side) -> MarketEvent<Instrument, DataKind> {
         MarketEvent {
-            exchange_time: Utc::now(),
-            received_time: Utc::now(),
+            time_exchange: Utc::now(),
+            time_received: Utc::now(),
             exchange: Exchange::from(ExchangeId::BinanceSpot),
             instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
             kind: DataKind::Trade(PublicTrade {
@@ -284,8 +284,8 @@ pub mod test_util {
     pub fn market_event_candle() -> MarketEvent<Instrument, DataKind> {
         let now = Utc::now();
         MarketEvent {
-            exchange_time: now,
-            received_time: now.add(chrono::Duration::milliseconds(200)),
+            time_exchange: now,
+            time_received: now.add(chrono::Duration::milliseconds(200)),
             exchange: Exchange::from(ExchangeId::BinanceSpot),
             instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
             kind: DataKind::Candle(Candle {

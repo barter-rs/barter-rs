@@ -58,8 +58,8 @@ impl<InstrumentId> From<(ExchangeId, InstrumentId, GateioSpotTrade)>
 {
     fn from((exchange_id, instrument, trade): (ExchangeId, InstrumentId, GateioSpotTrade)) -> Self {
         Self(vec![Ok(MarketEvent {
-            exchange_time: trade.data.time,
-            received_time: Utc::now(),
+            time_exchange: trade.data.time,
+            time_received: Utc::now(),
             exchange: Exchange::from(exchange_id),
             instrument,
             kind: PublicTrade {

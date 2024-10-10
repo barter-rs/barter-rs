@@ -34,6 +34,9 @@ thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 
+# Data Structures
+rust_decimal = { workspace = true }
+
 # Persistence
 redis = "0.25.4"
 
