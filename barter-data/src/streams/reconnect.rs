@@ -1,4 +1,3 @@
-use barter_integration::model::Exchange;
 use derive_more::{Constructor, From};
 use futures::Stream;
 use futures_util::StreamExt;

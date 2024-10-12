@@ -15,6 +15,7 @@ pub mod consumer;
 /// Defines a [`ReconnectingStream`] and associated logic for generating an auto reconnecting
 /// `Stream`.
 pub mod reconnect;
+mod manager;
 
 /// Ergonomic collection of exchange [`MarketEvent<T>`](crate::event::MarketEvent) receivers.
 #[derive(Debug)]

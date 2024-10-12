@@ -18,7 +18,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
 /// Default [`ReconnectionBackoffPolicy`] for a [`reconnecting`](`ReconnectingStream`) [`MarketStream`].
-pub const DEFAULT_MARKET_STREAM_RECONNECTION_POLICY: ReconnectionBackoffPolicy =
+pub const STREAM_RECONNECTION_POLICY: ReconnectionBackoffPolicy =
     ReconnectionBackoffPolicy {
         backoff_ms_initial: 125,
         backoff_multiplier: 2,
@@ -35,9 +35,9 @@ pub type MarketStreamEvent<InstrumentKey, Kind> =
 ///
 /// The provided [`ReconnectionBackoffPolicy`] dictates how the exponential backoff scales
 /// between reconnections.
-pub async fn init_reconnecting_market_stream<Exchange, Instrument, Kind>(
-    subscriptions: Vec<Subscription<Exchange, Instrument, Kind>>,
+pub async fn init_market_stream<Exchange, Instrument, Kind>(
     policy: ReconnectionBackoffPolicy,
+    subscriptions: Vec<Subscription<Exchange, Instrument, Kind>>,
 ) -> Result<impl Stream<Item = MarketStreamEvent<Instrument::Key, Kind::Event>>, DataError>
 where
     Exchange: StreamSelector<Instrument, Kind>,

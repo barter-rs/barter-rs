@@ -2,6 +2,7 @@ use super::SubscriptionKind;
 use crate::books::{mid_price, volume_weighted_mid_price, Level, OrderBook};
 use barter_macro::{DeSubKind, SerSubKind};
 use chrono::{DateTime, Utc};
+use derive_more::Display;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -10,7 +11,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Level 1 refers to the best non-aggregated bid and ask [`Level`] on each side of the
 /// [`OrderBook`].
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, DeSubKind, SerSubKind)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, DeSubKind, SerSubKind, Display)]
 pub struct OrderBooksL1;
 
 impl SubscriptionKind for OrderBooksL1 {

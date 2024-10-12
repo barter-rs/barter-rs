@@ -1,11 +1,12 @@
 use super::SubscriptionKind;
 use barter_integration::model::Side;
 use chrono::{DateTime, Utc};
+use derive_more::Display;
 use serde::{Deserialize, Serialize};
 
 /// Barter [`Subscription`](super::Subscription) [`SubscriptionKind`] that yields [`Liquidation`]
 /// [`MarketEvent<T>`](crate::event::MarketEvent) events.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize, Display)]
 pub struct Liquidations;
 
 impl SubscriptionKind for Liquidations {

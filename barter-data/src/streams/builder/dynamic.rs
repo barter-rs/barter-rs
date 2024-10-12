@@ -496,21 +496,30 @@ where
 {
     batches
         .into_iter()
-        .map(|batch| {
-            // Validate Subscriptions
-            let mut batch = batch
-                .into_iter()
-                .map(Sub::into)
-                .map(Validator::validate)
-                .collect::<Result<Vec<_>, SocketError>>()?;
-
-            // Remove duplicate Subscriptions
-            batch.sort();
-            batch.dedup();
-
-            Ok(batch)
-        })
+        .map(validate_subscriptions::<SubIter, Sub, Instrument>)
         .collect()
+}
+
+pub fn validate_subscriptions<SubIter, Sub, Instrument>(
+    batch: SubIter,
+) -> Result<Vec<Subscription<ExchangeId, Instrument, SubKind>>, DataError>
+where
+    SubIter: IntoIterator<Item = Sub>,
+    Sub: Into<Subscription<ExchangeId, Instrument, SubKind>>,
+    Instrument: InstrumentData + Ord,
+{
+    // Validate Subscriptions
+    let mut batch = batch
+        .into_iter()
+        .map(Sub::into)
+        .map(Validator::validate)
+        .collect::<Result<Vec<_>, SocketError>>()?;
+
+    // Remove duplicate Subscriptions
+    batch.sort();
+    batch.dedup();
+
+    Ok(batch)
 }
 
 struct Channels<InstrumentId> {
