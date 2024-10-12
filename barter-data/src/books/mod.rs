@@ -1,21 +1,19 @@
-use std::cmp::Ordering;
 use chrono::{DateTime, Utc};
 use derive_more::Display;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use tracing::warn;
-use crate::subscription::book::{OrderBookEvent};
 
 /// Todo:
-pub mod map;
-/// Todo:
 pub mod manager;
+/// Todo:
+pub mod map;
 
 // Todo:
 //  - Update existing StreamBuilders to eg/ remove l2 & l3 feeds.
 //  - Update examples with new paradigm, ie/ removing l2 in it's old format
 //  - OrderBookEvent impl PositionUpdater for Position is ignoring OrderBook
-
 
 /// Normalised Barter [`OrderBook`] snapshot.
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
@@ -305,8 +303,8 @@ mod tests {
 
     mod order_book_l1 {
         use super::*;
-        use rust_decimal_macros::dec;
         use crate::subscription::book::OrderBookL1;
+        use rust_decimal_macros::dec;
 
         #[test]
         fn test_mid_price() {

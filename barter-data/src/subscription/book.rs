@@ -1,9 +1,9 @@
 use super::SubscriptionKind;
+use crate::books::{mid_price, volume_weighted_mid_price, Level, OrderBook};
 use barter_macro::{DeSubKind, SerSubKind};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use crate::books::{mid_price, volume_weighted_mid_price, Level, OrderBook};
 
 /// Barter [`Subscription`](super::Subscription) [`SubscriptionKind`] that yields level 1 [`OrderBook`]
 /// [`MarketEvent<T>`](MarketEvent) events.
@@ -70,5 +70,3 @@ pub enum OrderBookEvent {
     Snapshot(OrderBook),
     Update(OrderBook),
 }
-
-

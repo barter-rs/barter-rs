@@ -1,8 +1,9 @@
 use super::super::KrakenMessage;
+use crate::books::Level;
 use crate::{
     event::{MarketEvent, MarketIter},
     exchange::{kraken::channel::KrakenChannel, subscription::ExchangeSub, ExchangeId},
-    subscription::book::{OrderBookL1},
+    subscription::book::OrderBookL1,
     Identifier,
 };
 use barter_integration::{
@@ -12,7 +13,6 @@ use barter_integration::{
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use crate::books::Level;
 
 /// Terse type alias for an [`Kraken`](super::super::Kraken) real-time OrderBook Level1
 /// (top of books) WebSocket message.

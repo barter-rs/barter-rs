@@ -1,10 +1,10 @@
 use super::{super::channel::BinanceChannel, BinanceLevel};
+use crate::books::OrderBook;
 use crate::subscription::book::OrderBookEvent;
 use crate::{exchange::subscription::ExchangeSub, Identifier};
 use barter_integration::model::SubscriptionId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use crate::books::OrderBook;
 
 /// [`Binance`](super::super::Binance) OrderBook Level2 snapshot HTTP message.
 ///

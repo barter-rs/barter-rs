@@ -9,6 +9,7 @@ use crate::{
     Identifier,
 };
 use async_trait::async_trait;
+use barter_integration::protocol::websocket::WsMessage;
 use barter_integration::{
     error::SocketError,
     protocol::websocket::{connect, WebSocket},
@@ -32,7 +33,7 @@ pub trait Subscriber {
 
     async fn subscribe<Exchange, Instrument, Kind>(
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> Result<(WebSocket, Map<Instrument::Id>), SocketError>
+    ) -> Result<(WebSocket, Map<Instrument::Id>, Vec<WsMessage>), SocketError>
     where
         Exchange: Connector + Send + Sync,
         Kind: SubscriptionKind + Send + Sync,
@@ -51,7 +52,7 @@ impl Subscriber for WebSocketSubscriber {
 
     async fn subscribe<Exchange, Instrument, Kind>(
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> Result<(WebSocket, Map<Instrument::Id>), SocketError>
+    ) -> Result<(WebSocket, Map<Instrument::Id>, Vec<WsMessage>), SocketError>
     where
         Exchange: Connector + Send + Sync,
         Kind: SubscriptionKind + Send + Sync,
@@ -81,13 +82,14 @@ impl Subscriber for WebSocketSubscriber {
         }
 
         // Validate Subscription responses
-        let map = Exchange::SubValidator::validate::<Exchange, Instrument, Kind>(
-            instrument_map,
-            &mut websocket,
-        )
+        let (map, buffered_market_events) = Exchange::SubValidator::validate::<
+            Exchange,
+            Instrument,
+            Kind,
+        >(instrument_map, &mut websocket)
         .await?;
 
         info!(%exchange, "subscribed to WebSocket");
-        Ok((websocket, map))
+        Ok((websocket, map, buffered_market_events))
     }
 }

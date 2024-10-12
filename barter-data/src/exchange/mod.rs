@@ -61,6 +61,7 @@ where
     Instrument: InstrumentData,
     Kind: SubscriptionKind,
 {
+    // type Snapshot;
     type Stream: MarketStream<Self, Instrument, Kind>;
 }
 
@@ -129,7 +130,7 @@ where
     /// Number of [`Subscription`](subscription::Subscription) responses expected from the
     /// exchange server in responses to the requests send. Used to validate all
     /// [`Subscription`](subscription::Subscription)s were accepted.
-    fn expected_responses<InstrumentId>(map: &Map<InstrumentId>) -> usize {
+    fn expected_responses<InstrumentKey>(map: &Map<InstrumentKey>) -> usize {
         map.0.len()
     }
 

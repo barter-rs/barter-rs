@@ -94,13 +94,15 @@ use crate::{
     transformer::ExchangeTransformer,
 };
 use async_trait::async_trait;
+use barter_integration::protocol::StreamParser;
 use barter_integration::{
     protocol::websocket::{WebSocketParser, WsMessage, WsSink, WsStream},
-    ExchangeStream,
+    ExchangeStream, Transformer,
 };
 use futures::{SinkExt, Stream, StreamExt};
+use std::collections::VecDeque;
 use tokio::sync::mpsc;
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 /// All [`Error`](std::error::Error)s generated in Barter-Data.
 pub mod error;
@@ -151,6 +153,21 @@ pub trait Identifier<T> {
     fn id(&self) -> T;
 }
 
+// pub trait MarketStreamNew<Exchange, Instrument, Kind>
+// where
+//     Self: Stream<Item = Result<MarketEvent<Instrument::Id, Kind::Event>, DataError>>,
+//     Exchange: Connector,
+//     Instrument: InstrumentData,
+//     Kind: SubscriptionKind,
+// {
+//     async fn init<Snapshot>(
+//         subscriptions: &[Subscription<Exchange, Instrument, Kind>]
+//     ) -> Result<(Snapshot, Self), DataError>
+//     {
+//
+//     }
+// }
+
 /// [`Stream`] that yields [`Market<Kind>`](MarketEvent) events. The type of [`Market<Kind>`](MarketEvent)
 /// depends on the provided [`SubscriptionKind`] of the passed [`Subscription`]s.
 #[async_trait]
@@ -190,7 +207,8 @@ where
             Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
     {
         // Connect & subscribe
-        let (websocket, map) = Exchange::Subscriber::subscribe(subscriptions).await?;
+        let (websocket, map, buffered_events) =
+            Exchange::Subscriber::subscribe(subscriptions).await?;
 
         // Split WebSocket into WsStream & WsSink components
         let (ws_sink, ws_stream) = websocket.split();
@@ -213,10 +231,38 @@ where
         }
 
         // Construct Transformer associated with this Exchange and SubscriptionKind
-        let transformer = Transformer::new(ws_sink_tx, map).await?;
+        let mut transformer = Transformer::new(ws_sink_tx, map).await?;
 
-        Ok(ExchangeWsStream::new(ws_stream, transformer))
+        // Process any buffered active subscription events received during Subscription validation
+        let processed =
+            process_buffered_events::<WebSocketParser, _>(&mut transformer, buffered_events);
+
+        Ok(ExchangeWsStream::new(ws_stream, transformer, processed))
     }
+}
+
+pub fn process_buffered_events<Protocol, StreamTransformer>(
+    transformer: &mut StreamTransformer,
+    events: Vec<Protocol::Message>,
+) -> VecDeque<Result<StreamTransformer::Output, StreamTransformer::Error>>
+where
+    Protocol: StreamParser,
+    StreamTransformer: Transformer,
+{
+    events
+        .into_iter()
+        .filter_map(|event| {
+            Protocol::parse::<StreamTransformer::Input>(Ok(event))?
+                .inspect_err(|error| {
+                    warn!(
+                        ?error,
+                        "failed to parse message buffered during Subscription validation"
+                    )
+                })
+                .ok()
+        })
+        .flat_map(|parsed| transformer.transform(parsed))
+        .collect()
 }
 
 /// Transmit [`WsMessage`]s sent from the [`ExchangeTransformer`] to the exchange via

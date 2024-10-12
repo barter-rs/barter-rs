@@ -1,8 +1,8 @@
+use crate::books::OrderBook;
 use fnv::FnvHashMap;
 use parking_lot::RwLock;
 use std::hash::Hash;
 use std::sync::Arc;
-use crate::books::OrderBook;
 
 /// Todo: this is what a user would put in EngineState, where the book is managed elsewhere by
 ///       an OrderBook manager

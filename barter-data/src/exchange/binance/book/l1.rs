@@ -1,14 +1,14 @@
+use crate::books::Level;
 use crate::{
     event::{MarketEvent, MarketIter},
     exchange::{binance::channel::BinanceChannel, subscription::ExchangeSub, ExchangeId},
-    subscription::book::{OrderBookL1},
+    subscription::book::OrderBookL1,
     Identifier,
 };
 use barter_integration::model::{Exchange, SubscriptionId};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use crate::books::Level;
 
 /// [`Binance`](super::super::Binance) real-time OrderBook Level1 (top of books) message.
 ///

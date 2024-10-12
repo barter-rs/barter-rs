@@ -1,12 +1,12 @@
 use super::super::book::BinanceLevel;
+use crate::books::OrderBook;
 use crate::event::{MarketEvent, MarketIter};
 use crate::exchange::ExchangeId;
-use crate::subscription::book::{OrderBookEvent};
+use crate::subscription::book::OrderBookEvent;
 use crate::Identifier;
 use barter_integration::model::{Exchange, SubscriptionId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use crate::books::OrderBook;
 
 /// [`BinanceSpot`](super::BinanceSpot) HTTP OrderBook L2 snapshot url.
 ///

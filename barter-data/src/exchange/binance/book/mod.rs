@@ -1,6 +1,6 @@
+use crate::books::Level;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use crate::books::Level;
 
 /// Level 1 OrderBook types (top of books).
 pub mod l1;

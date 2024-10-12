@@ -4,6 +4,7 @@ use crate::{
     subscription::{Map, SubscriptionKind},
 };
 use async_trait::async_trait;
+use barter_integration::protocol::websocket::WsMessage;
 use barter_integration::{
     error::SocketError,
     protocol::{
@@ -25,7 +26,7 @@ pub trait SubscriptionValidator {
     async fn validate<Exchange, Instrument, Kind>(
         instrument_map: Map<Instrument::Id>,
         websocket: &mut WebSocket,
-    ) -> Result<Map<Instrument::Id>, SocketError>
+    ) -> Result<(Map<Instrument::Id>, Vec<WsMessage>), SocketError>
     where
         Exchange: Connector + Send,
         Instrument: InstrumentData,
@@ -43,7 +44,7 @@ impl SubscriptionValidator for WebSocketSubValidator {
     async fn validate<Exchange, Instrument, Kind>(
         instrument_map: Map<Instrument::Id>,
         websocket: &mut WebSocket,
-    ) -> Result<Map<Instrument::Id>, SocketError>
+    ) -> Result<(Map<Instrument::Id>, Vec<WsMessage>), SocketError>
     where
         Exchange: Connector + Send,
         Instrument: InstrumentData,
@@ -56,11 +57,14 @@ impl SubscriptionValidator for WebSocketSubValidator {
         // Parameter to keep track of successful Subscription outcomes
         let mut success_responses = 0usize;
 
+        // Buffer any active Subscription market events that are received during validation
+        let mut buff_active_subscription_events = Vec::new();
+
         loop {
             // Break if all Subscriptions were a success
             if success_responses == expected_responses {
                 debug!(exchange = %Exchange::ID, "validated exchange WebSocket subscriptions");
-                break Ok(instrument_map);
+                break Ok((instrument_map, buff_active_subscription_events));
             }
 
             tokio::select! {
@@ -94,16 +98,10 @@ impl SubscriptionValidator for WebSocketSubValidator {
                             // Subscription failure
                             Err(err) => break Err(err)
                         }
-                        Some(Err(SocketError::Deserialise { error, payload })) if success_responses >= 1 => {
-                            // Already active subscription payloads, so skip to next SubResponse
-                            debug!(
-                                exchange = %Exchange::ID,
-                                ?error,
-                                %success_responses,
-                                %expected_responses,
-                                %payload,
-                                "failed to deserialise non SubResponse payload"
-                            );
+                        Some(Err(SocketError::Deserialise { error: _, payload })) if success_responses >= 1 => {
+                            // Most likely already active subscription payload, so add to market
+                            // event buffer for post validation processing
+                            buff_active_subscription_events.push(WsMessage::Text(payload));
                             continue
                         }
                         Some(Err(SocketError::Terminated(close_frame))) => {

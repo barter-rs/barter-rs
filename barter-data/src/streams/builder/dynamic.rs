@@ -1,3 +1,4 @@
+use crate::subscription::book::OrderBookEvent;
 use crate::{
     error::DataError,
     event::MarketEvent,
@@ -37,7 +38,6 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use vecmap::VecMap;
-use crate::subscription::book::OrderBookEvent;
 
 #[derive(Debug)]
 pub struct DynamicStreams<InstrumentId> {

@@ -142,11 +142,15 @@ where
     InnerStream: Stream,
     StreamTransformer: Transformer,
 {
-    pub fn new(stream: InnerStream, transformer: StreamTransformer) -> Self {
+    pub fn new(
+        stream: InnerStream,
+        transformer: StreamTransformer,
+        buffer: VecDeque<Result<StreamTransformer::Output, StreamTransformer::Error>>,
+    ) -> Self {
         Self {
             stream,
             transformer,
-            buffer: VecDeque::with_capacity(6),
+            buffer,
             protocol_marker: PhantomData,
         }
     }
