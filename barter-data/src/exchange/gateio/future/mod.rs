@@ -34,7 +34,7 @@ where
     Instrument: InstrumentData,
 {
     type Stream = ExchangeWsStream<
-        StatelessTransformer<Self, Instrument::Id, PublicTrades, GateioFuturesTrades>,
+        StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
     >;
 }
 
@@ -63,6 +63,6 @@ where
     Instrument: InstrumentData,
 {
     type Stream = ExchangeWsStream<
-        StatelessTransformer<Self, Instrument::Id, PublicTrades, GateioFuturesTrades>,
+        StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
     >;
 }

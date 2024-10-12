@@ -1,8 +1,10 @@
 use super::{super::channel::BinanceChannel, BinanceLevel};
 use crate::books::OrderBook;
+use crate::event::MarketEvent;
+use crate::exchange::ExchangeId;
 use crate::subscription::book::OrderBookEvent;
 use crate::{exchange::subscription::ExchangeSub, Identifier};
-use barter_integration::model::SubscriptionId;
+use barter_integration::model::{Exchange, SubscriptionId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -51,6 +53,23 @@ pub struct BinanceOrderBookL2Snapshot {
     pub time_engine: Option<DateTime<Utc>>,
     pub bids: Vec<BinanceLevel>,
     pub asks: Vec<BinanceLevel>,
+}
+
+impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceOrderBookL2Snapshot)>
+    for MarketEvent<InstrumentKey, OrderBookEvent>
+{
+    fn from(
+        (exchange, instrument, snapshot): (ExchangeId, InstrumentKey, BinanceOrderBookL2Snapshot),
+    ) -> Self {
+        let time_received = Utc::now();
+        Self {
+            time_exchange: snapshot.time_exchange.unwrap_or(time_received),
+            time_received,
+            exchange: Exchange::from(exchange),
+            instrument,
+            kind: OrderBookEvent::from(snapshot),
+        }
+    }
 }
 
 impl From<BinanceOrderBookL2Snapshot> for OrderBookEvent {

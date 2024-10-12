@@ -40,9 +40,9 @@ impl SubscriptionValidator for BitfinexWebSocketSubValidator {
     type Parser = WebSocketParser;
 
     async fn validate<Exchange, Instrument, Kind>(
-        mut instrument_map: Map<Instrument::Id>,
+        mut instrument_map: Map<Instrument::Key>,
         websocket: &mut WebSocket,
-    ) -> Result<(Map<Instrument::Id>, Vec<WsMessage>), SocketError>
+    ) -> Result<(Map<Instrument::Key>, Vec<WsMessage>), SocketError>
     where
         Exchange: Connector + Send,
         Instrument: InstrumentData,

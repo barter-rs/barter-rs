@@ -1,10 +1,11 @@
+use barter_data::streams::reconnect::stream::ReconnectingStream;
 use barter_data::{
-    exchange::{binance::futures::BinanceFuturesUsd, ExchangeId},
-    streams::Streams,
+    exchange::binance::futures::BinanceFuturesUsd, streams::Streams,
     subscription::trade::PublicTrades,
 };
 use barter_integration::model::instrument::kind::InstrumentKind;
-use tracing::info;
+use futures_util::StreamExt;
+use tracing::{info, warn};
 
 #[rustfmt::skip]
 #[tokio::main]
@@ -14,7 +15,7 @@ async fn main() {
 
     // Initialise PublicTrades Streams for BinanceFuturesUsd only
     // '--> each call to StreamBuilder::subscribe() creates a separate WebSocket connection
-    let mut streams = Streams::<PublicTrades>::builder()
+    let streams = Streams::<PublicTrades>::builder()
 
         // Separate WebSocket connection for BTC_USDT stream since it's very high volume
         .subscribe([
@@ -37,16 +38,14 @@ async fn main() {
         .await
         .unwrap();
 
-    // Select the ExchangeId::BinanceFuturesUsd stream
-    // Notes:
-    //  - Use `streams.select(ExchangeId)` to interact with the individual exchange streams!
-    //  - Use `streams.join()` to join all exchange streams into a single mpsc::UnboundedReceiver!
-    let mut binance_stream = streams
-        .select(ExchangeId::BinanceFuturesUsd)
-        .unwrap();
+    // Select and merge every exchange Stream using futures_util::stream::select_all
+    // Note: use `Streams.select(ExchangeId)` to interact with individual exchange streams!
+    let mut joined_stream = streams
+        .select_all()
+        .with_error_handler(|error| warn!(?error, "MarketStream generated error"));
 
-    while let Some(trade) = binance_stream.recv().await {
-        info!("MarketEvent<PublicTrade>: {trade:?}");
+    while let Some(event) = joined_stream.next().await {
+        info!("{event:?}");
     }
 }
 

@@ -2,6 +2,7 @@ use super::SubscriptionKind;
 use crate::books::{mid_price, volume_weighted_mid_price, Level, OrderBook};
 use barter_macro::{DeSubKind, SerSubKind};
 use chrono::{DateTime, Utc};
+use derive_more::Display;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -10,11 +11,27 @@ use serde::{Deserialize, Serialize};
 ///
 /// Level 1 refers to the best non-aggregated bid and ask [`Level`] on each side of the
 /// [`OrderBook`].
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, DeSubKind, SerSubKind)]
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Debug,
+    Default,
+    DeSubKind,
+    SerSubKind,
+    Display,
+)]
 pub struct OrderBooksL1;
 
 impl SubscriptionKind for OrderBooksL1 {
     type Event = OrderBookL1;
+    fn as_str(&self) -> &'static str {
+        "order_books_l1"
+    }
 }
 
 /// Normalised Barter [`OrderBookL1`] snapshot containing the latest best bid and ask.
@@ -46,11 +63,27 @@ impl OrderBookL1 {
 /// [`MarketEvent<T>`](MarketEvent) events.
 ///
 /// Level 2 refers to the [`OrderBook`] aggregated by price.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, DeSubKind, SerSubKind)]
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Debug,
+    Default,
+    DeSubKind,
+    SerSubKind,
+    Display,
+)]
 pub struct OrderBooksL2;
 
 impl SubscriptionKind for OrderBooksL2 {
     type Event = OrderBookEvent;
+    fn as_str(&self) -> &'static str {
+        "order_books_l2"
+    }
 }
 
 /// Barter [`Subscription`](super::Subscription) [`SubscriptionKind`] that yields level 3 [`OrderBook`]
@@ -58,11 +91,28 @@ impl SubscriptionKind for OrderBooksL2 {
 ///
 /// Level 3 refers to the non-aggregated [`OrderBook`]. This is a direct replication of the exchange
 /// [`OrderBook`].
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, DeSubKind, SerSubKind)]
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Debug,
+    Default,
+    DeSubKind,
+    SerSubKind,
+    Display,
+)]
 pub struct OrderBooksL3;
 
 impl SubscriptionKind for OrderBooksL3 {
     type Event = OrderBookEvent;
+
+    fn as_str(&self) -> &'static str {
+        "order_books_l2"
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]

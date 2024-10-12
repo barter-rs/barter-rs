@@ -81,7 +81,7 @@ where
     Instrument: InstrumentData,
 {
     type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Id, PublicTrades, BitmexTrade>>;
+        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BitmexTrade>>;
 }
 
 impl<'de> serde::Deserialize<'de> for Bitmex {

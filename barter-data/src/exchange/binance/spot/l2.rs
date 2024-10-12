@@ -1,19 +1,118 @@
 use super::super::book::BinanceLevel;
 use crate::books::OrderBook;
+use crate::error::DataError;
 use crate::event::{MarketEvent, MarketIter};
-use crate::exchange::ExchangeId;
-use crate::subscription::book::OrderBookEvent;
+use crate::exchange::binance::book::l2::BinanceOrderBookL2Snapshot;
+use crate::exchange::binance::market::BinanceMarket;
+use crate::exchange::binance::spot::BinanceSpot;
+use crate::exchange::{Connector, ExchangeId};
+use crate::instrument::InstrumentData;
+use crate::subscription::book::{OrderBookEvent, OrderBooksL2};
+use crate::subscription::{Map, Subscription};
+use crate::transformer::ExchangeTransformer;
 use crate::Identifier;
+use async_trait::async_trait;
+use barter_integration::error::SocketError;
 use barter_integration::model::{Exchange, SubscriptionId};
+use barter_integration::protocol::websocket::WsMessage;
+use barter_integration::Transformer;
 use chrono::{DateTime, Utc};
+use futures_util::future::try_join_all;
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::UnboundedSender;
 
-/// [`BinanceSpot`](super::BinanceSpot) HTTP OrderBook L2 snapshot url.
+/// [`BinanceSpot`] HTTP OrderBook L2 snapshot url.
 ///
 /// See docs: <https://binance-docs.github.io/apidocs/spot/en/#order-book>
 pub const HTTP_BOOK_L2_SNAPSHOT_URL_BINANCE_SPOT: &str = "https://api.binance.com/api/v3/depth";
 
-/// [`BinanceSpot`](super::BinanceSpot) OrderBook Level2 deltas WebSocket message.
+/// Todo: rust docs & do I want to add exchange specific sequence validation?
+#[derive(Debug)]
+pub struct BinanceSpotOrderBooksL2Transformer<InstrumentKey> {
+    instrument_map: Map<InstrumentKey>,
+}
+
+#[async_trait]
+impl<InstrumentKey> ExchangeTransformer<BinanceSpot, InstrumentKey, OrderBooksL2>
+    for BinanceSpotOrderBooksL2Transformer<InstrumentKey>
+where
+    InstrumentKey: Clone + Send,
+{
+    async fn init(
+        _: UnboundedSender<WsMessage>,
+        instrument_map: Map<InstrumentKey>,
+    ) -> Result<Self, DataError> {
+        Ok(Self { instrument_map })
+    }
+
+    async fn fetch_snapshots<Instrument>(
+        subscriptions: &[Subscription<BinanceSpot, Instrument, OrderBooksL2>],
+    ) -> Result<Vec<MarketEvent<InstrumentKey, OrderBookEvent>>, DataError>
+    where
+        Instrument: InstrumentData<Key = InstrumentKey>,
+        Subscription<BinanceSpot, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
+    {
+        let l2_snapshot_futures = subscriptions.iter().map(|sub| {
+            // Construct initial OrderBook snapshot GET url
+            let market = sub.id();
+            let snapshot_url = format!(
+                "{}?symbol={}&limit=100",
+                HTTP_BOOK_L2_SNAPSHOT_URL_BINANCE_SPOT, market.0,
+            );
+
+            async move {
+                // Fetch initial OrderBook snapshot via HTTP
+                let snapshot = reqwest::get(snapshot_url)
+                    .await
+                    .map_err(SocketError::Http)?
+                    .json::<BinanceOrderBookL2Snapshot>()
+                    .await
+                    .map_err(SocketError::Http)?;
+
+                Ok(MarketEvent::from((
+                    ExchangeId::BinanceSpot,
+                    sub.instrument.key().clone(),
+                    snapshot,
+                )))
+            }
+        });
+
+        try_join_all(l2_snapshot_futures).await
+    }
+}
+
+impl<InstrumentKey> Transformer for BinanceSpotOrderBooksL2Transformer<InstrumentKey>
+where
+    InstrumentKey: Clone,
+{
+    type Error = DataError;
+    type Input = BinanceSpotOrderBookL2Update;
+    type Output = MarketEvent<InstrumentKey, OrderBookEvent>;
+    type OutputIter = Vec<Result<Self::Output, Self::Error>>;
+
+    fn transform(&mut self, input: Self::Input) -> Self::OutputIter {
+        // Determine if the message has an identifiable SubscriptionId
+        let subscription_id = match input.id() {
+            Some(subscription_id) => subscription_id,
+            None => return vec![],
+        };
+
+        // Find Instrument associated with Input and transform
+        match self.instrument_map.find(&subscription_id) {
+            Ok(instrument) => {
+                MarketIter::<InstrumentKey, OrderBookEvent>::from((
+                    BinanceSpot::ID,
+                    instrument.clone(),
+                    input,
+                ))
+                .0
+            }
+            Err(unidentifiable) => vec![Err(DataError::Socket(unidentifiable))],
+        }
+    }
+}
+
+/// [`BinanceSpot`] OrderBook Level2 deltas WebSocket message.
 ///
 /// ### Raw Payload Examples
 /// See docs: <https://binance-docs.github.io/apidocs/spot/en/#partial-book-depth-streams>
@@ -59,11 +158,15 @@ impl Identifier<Option<SubscriptionId>> for BinanceSpotOrderBookL2Update {
     }
 }
 
-impl<InstrumentId> From<(ExchangeId, InstrumentId, BinanceSpotOrderBookL2Update)>
-    for MarketIter<InstrumentId, OrderBookEvent>
+impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceSpotOrderBookL2Update)>
+    for MarketIter<InstrumentKey, OrderBookEvent>
 {
     fn from(
-        (exchange_id, instrument, update): (ExchangeId, InstrumentId, BinanceSpotOrderBookL2Update),
+        (exchange_id, instrument, update): (
+            ExchangeId,
+            InstrumentKey,
+            BinanceSpotOrderBookL2Update,
+        ),
     ) -> Self {
         Self(vec![Ok(MarketEvent {
             time_exchange: update.time_exchange,

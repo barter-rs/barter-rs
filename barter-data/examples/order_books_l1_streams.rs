@@ -1,10 +1,12 @@
+use barter_data::streams::reconnect::stream::ReconnectingStream;
 use barter_data::{
     exchange::{binance::spot::BinanceSpot, ExchangeId},
     streams::Streams,
     subscription::book::OrderBooksL1,
 };
 use barter_integration::model::instrument::kind::InstrumentKind;
-use tracing::info;
+use tokio_stream::StreamExt;
+use tracing::{info, warn};
 
 #[rustfmt::skip]
 #[tokio::main]
@@ -38,15 +40,14 @@ async fn main() {
         .unwrap();
 
     // Select the ExchangeId::BinanceSpot stream
-    // Notes:
-    //  - Use `streams.select(ExchangeId)` to interact with the individual exchange streams!
-    //  - Use `streams.join()` to join all exchange streams into a single mpsc::UnboundedReceiver!
+    // Note: use `Streams.select(ExchangeId)` to interact with individual exchange streams!
     let mut binance_stream = streams
         .select(ExchangeId::BinanceSpot)
-        .unwrap();
+        .unwrap()
+        .with_error_handler(|error| warn!(?error, "MarketStream generated error"));
 
-    while let Some(order_book_l1) = binance_stream.recv().await {
-        info!("MarketEvent<OrderBookL1>: {order_book_l1:?}");
+    while let Some(event) = binance_stream.next().await {
+        info!("{event:?}");
     }
 }
 

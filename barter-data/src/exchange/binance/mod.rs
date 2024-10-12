@@ -104,7 +104,7 @@ where
     Server: ExchangeServer + Debug + Send + Sync,
 {
     type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Id, PublicTrades, BinanceTrade>>;
+        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BinanceTrade>>;
 }
 
 impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL1> for Binance<Server>
@@ -113,7 +113,7 @@ where
     Server: ExchangeServer + Debug + Send + Sync,
 {
     type Stream = ExchangeWsStream<
-        StatelessTransformer<Self, Instrument::Id, OrderBooksL1, BinanceOrderBookL1>,
+        StatelessTransformer<Self, Instrument::Key, OrderBooksL1, BinanceOrderBookL1>,
     >;
 }
 

@@ -17,6 +17,7 @@ tracing-subscriber = { version = "0.3.16" }
 tokio = { version = "1.38.0" }
 tokio-stream = { version = "0.1.15" }
 futures = { version = "0.3.30" }
+futures-util = { version = "0.3.31" }
 async-trait = { version = "0.1.57" }
 pin-project = { version = "1.1.5" }
 

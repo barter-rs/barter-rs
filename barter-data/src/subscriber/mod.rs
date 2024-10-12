@@ -33,7 +33,7 @@ pub trait Subscriber {
 
     async fn subscribe<Exchange, Instrument, Kind>(
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> Result<(WebSocket, Map<Instrument::Id>, Vec<WsMessage>), SocketError>
+    ) -> Result<(WebSocket, Map<Instrument::Key>, Vec<WsMessage>), SocketError>
     where
         Exchange: Connector + Send + Sync,
         Kind: SubscriptionKind + Send + Sync,
@@ -52,7 +52,7 @@ impl Subscriber for WebSocketSubscriber {
 
     async fn subscribe<Exchange, Instrument, Kind>(
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> Result<(WebSocket, Map<Instrument::Id>, Vec<WsMessage>), SocketError>
+    ) -> Result<(WebSocket, Map<Instrument::Key>, Vec<WsMessage>), SocketError>
     where
         Exchange: Connector + Send + Sync,
         Kind: SubscriptionKind + Send + Sync,

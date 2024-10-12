@@ -61,7 +61,6 @@ where
     Instrument: InstrumentData,
     Kind: SubscriptionKind,
 {
-    // type Snapshot;
     type Stream: MarketStream<Self, Instrument, Kind>;
 }
 
@@ -171,8 +170,8 @@ pub struct PingInterval {
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 #[serde(rename = "exchange", rename_all = "snake_case")]
 pub enum ExchangeId {
-    BinanceFuturesUsd,
     BinanceSpot,
+    BinanceFuturesUsd,
     Bitfinex,
     Bitmex,
     BybitSpot,

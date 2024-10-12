@@ -1,9 +1,8 @@
 use super::{Binance, ExchangeServer};
-use crate::exchange::binance::spot::l2::BinanceSpotOrderBookL2Update;
+use crate::exchange::binance::spot::l2::BinanceSpotOrderBooksL2Transformer;
 use crate::exchange::{ExchangeId, StreamSelector};
 use crate::instrument::InstrumentData;
 use crate::subscription::book::OrderBooksL2;
-use crate::transformer::stateless::StatelessTransformer;
 use crate::ExchangeWsStream;
 
 /// Level 2 OrderBook types (top of books) and spot
@@ -34,7 +33,5 @@ impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for BinanceSpot
 where
     Instrument: InstrumentData,
 {
-    type Stream = ExchangeWsStream<
-        StatelessTransformer<Self, Instrument::Id, OrderBooksL2, BinanceSpotOrderBookL2Update>,
-    >;
+    type Stream = ExchangeWsStream<BinanceSpotOrderBooksL2Transformer<Instrument::Key>>;
 }

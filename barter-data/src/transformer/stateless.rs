@@ -32,7 +32,7 @@ where
     Input: Identifier<Option<SubscriptionId>> + for<'de> Deserialize<'de>,
     MarketIter<InstrumentKey, Kind::Event>: From<(ExchangeId, InstrumentKey, Input)>,
 {
-    async fn new(
+    async fn init(
         _: mpsc::UnboundedSender<WsMessage>,
         instrument_map: Map<InstrumentKey>,
     ) -> Result<Self, DataError> {

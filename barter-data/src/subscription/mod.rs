@@ -27,12 +27,13 @@ pub mod liquidation;
 /// Public trade [`SubscriptionKind`] and the associated Barter output data model.
 pub mod trade;
 
-/// Defines the type of a [`Subscription`], and the output [`Self::Event`] that it yields.
+/// Defines kind of a [`Subscription`], and the output [`Self::Event`] that it yields.
 pub trait SubscriptionKind
 where
-    Self: Debug + Clone,
+    Self: Debug + Clone + Default,
 {
     type Event: Debug;
+    fn as_str(&self) -> &'static str;
 }
 
 /// Barter [`Subscription`] used to subscribe to a [`SubscriptionKind`] for a particular exchange
@@ -126,9 +127,10 @@ impl<Instrument, Exchange, Kind> Subscription<Exchange, Instrument, Kind> {
     }
 }
 
-impl<Exchange, Kind> Validator for &Subscription<Exchange, Instrument, Kind>
+impl<Exchange, Instrument, Kind> Validator for Subscription<Exchange, Instrument, Kind>
 where
     Exchange: Connector,
+    Instrument: InstrumentData,
 {
     fn validate(self) -> Result<Self, SocketError>
     where
@@ -138,12 +140,12 @@ where
         let exchange = Exchange::ID;
 
         // Validate the Exchange supports the Subscription InstrumentKind
-        if exchange.supports_instrument_kind(self.instrument.kind) {
+        if exchange.supports_instrument_kind(self.instrument.kind()) {
             Ok(self)
         } else {
             Err(SocketError::Unsupported {
                 entity: exchange.as_str(),
-                item: self.instrument.kind.to_string(),
+                item: self.instrument.kind().to_string(),
             })
         }
     }

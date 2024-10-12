@@ -1,3 +1,4 @@
+use crate::streams::consumer::MarketStreamEvent;
 use crate::subscription::book::OrderBookEvent;
 use crate::{
     error::DataError,
@@ -7,6 +8,7 @@ use crate::{
 };
 use barter_integration::model::{instrument::Instrument, Exchange};
 use chrono::{DateTime, Utc};
+use derive_more::From;
 use serde::{Deserialize, Serialize};
 
 /// Convenient new type containing a collection of [`MarketEvent<T>`](MarketEvent)s.
@@ -43,6 +45,21 @@ pub struct MarketEvent<InstrumentId = Instrument, T = DataKind> {
     pub kind: T,
 }
 
+impl<InstrumentKey, T> MarketEvent<InstrumentKey, T> {
+    pub fn map_kind<F, O>(self, op: F) -> MarketEvent<InstrumentKey, O>
+    where
+        F: FnOnce(T) -> O,
+    {
+        MarketEvent {
+            time_exchange: self.time_exchange,
+            time_received: self.time_received,
+            exchange: self.exchange,
+            instrument: self.instrument,
+            kind: op(self.kind),
+        }
+    }
+}
+
 /// Available kinds of normalised Barter [`MarketEvent<T>`](MarketEvent).
 ///
 /// ### Notes
@@ -54,7 +71,7 @@ pub struct MarketEvent<InstrumentId = Instrument, T = DataKind> {
 ///   [`Subscription`](crate::subscription::Subscription)s directly, it is only used to
 ///   make ergonomic [`Streams`](crate::streams::Streams) containing many
 ///   [`MarketEvent<T>`](MarketEvent) kinds.
-#[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
+#[derive(Clone, PartialEq, Debug, Deserialize, Serialize, From)]
 pub enum DataKind {
     Trade(PublicTrade),
     OrderBookL1(OrderBookL1),
@@ -63,70 +80,82 @@ pub enum DataKind {
     Liquidation(Liquidation),
 }
 
-impl<InstrumentId> From<MarketEvent<InstrumentId, PublicTrade>>
-    for MarketEvent<InstrumentId, DataKind>
+impl<InstrumentKey> From<MarketStreamEvent<InstrumentKey, PublicTrade>>
+    for MarketStreamEvent<InstrumentKey, DataKind>
 {
-    fn from(event: MarketEvent<InstrumentId, PublicTrade>) -> Self {
-        Self {
-            time_exchange: event.time_exchange,
-            time_received: event.time_received,
-            exchange: event.exchange,
-            instrument: event.instrument,
-            kind: DataKind::Trade(event.kind),
-        }
+    fn from(value: MarketStreamEvent<InstrumentKey, PublicTrade>) -> Self {
+        value.map_ok(MarketEvent::from)
     }
 }
 
-impl<InstrumentId> From<MarketEvent<InstrumentId, OrderBookL1>>
-    for MarketEvent<InstrumentId, DataKind>
+impl<InstrumentKey> From<MarketEvent<InstrumentKey, PublicTrade>>
+    for MarketEvent<InstrumentKey, DataKind>
 {
-    fn from(event: MarketEvent<InstrumentId, OrderBookL1>) -> Self {
-        Self {
-            time_exchange: event.time_exchange,
-            time_received: event.time_received,
-            exchange: event.exchange,
-            instrument: event.instrument,
-            kind: DataKind::OrderBookL1(event.kind),
-        }
+    fn from(value: MarketEvent<InstrumentKey, PublicTrade>) -> Self {
+        value.map_kind(PublicTrade::into)
     }
 }
 
-impl<InstrumentId> From<MarketEvent<InstrumentId, OrderBookEvent>>
-    for MarketEvent<InstrumentId, DataKind>
+impl<InstrumentKey> From<MarketStreamEvent<InstrumentKey, OrderBookL1>>
+    for MarketStreamEvent<InstrumentKey, DataKind>
 {
-    fn from(event: MarketEvent<InstrumentId, OrderBookEvent>) -> Self {
-        Self {
-            time_exchange: event.time_exchange,
-            time_received: event.time_received,
-            exchange: event.exchange,
-            instrument: event.instrument,
-            kind: DataKind::OrderBook(event.kind),
-        }
+    fn from(value: MarketStreamEvent<InstrumentKey, OrderBookL1>) -> Self {
+        value.map_ok(MarketEvent::from)
     }
 }
 
-impl<InstrumentId> From<MarketEvent<InstrumentId, Candle>> for MarketEvent<InstrumentId, DataKind> {
-    fn from(event: MarketEvent<InstrumentId, Candle>) -> Self {
-        Self {
-            time_exchange: event.time_exchange,
-            time_received: event.time_received,
-            exchange: event.exchange,
-            instrument: event.instrument,
-            kind: DataKind::Candle(event.kind),
-        }
+impl<InstrumentKey> From<MarketEvent<InstrumentKey, OrderBookL1>>
+    for MarketEvent<InstrumentKey, DataKind>
+{
+    fn from(value: MarketEvent<InstrumentKey, OrderBookL1>) -> Self {
+        value.map_kind(OrderBookL1::into)
     }
 }
 
-impl<InstrumentId> From<MarketEvent<InstrumentId, Liquidation>>
-    for MarketEvent<InstrumentId, DataKind>
+impl<InstrumentKey> From<MarketStreamEvent<InstrumentKey, OrderBookEvent>>
+    for MarketStreamEvent<InstrumentKey, DataKind>
 {
-    fn from(event: MarketEvent<InstrumentId, Liquidation>) -> Self {
-        Self {
-            time_exchange: event.time_exchange,
-            time_received: event.time_received,
-            exchange: event.exchange,
-            instrument: event.instrument,
-            kind: DataKind::Liquidation(event.kind),
-        }
+    fn from(value: MarketStreamEvent<InstrumentKey, OrderBookEvent>) -> Self {
+        value.map_ok(MarketEvent::from)
+    }
+}
+
+impl<InstrumentKey> From<MarketEvent<InstrumentKey, OrderBookEvent>>
+    for MarketEvent<InstrumentKey, DataKind>
+{
+    fn from(value: MarketEvent<InstrumentKey, OrderBookEvent>) -> Self {
+        value.map_kind(OrderBookEvent::into)
+    }
+}
+
+impl<InstrumentKey> From<MarketStreamEvent<InstrumentKey, Candle>>
+    for MarketStreamEvent<InstrumentKey, DataKind>
+{
+    fn from(value: MarketStreamEvent<InstrumentKey, Candle>) -> Self {
+        value.map_ok(MarketEvent::from)
+    }
+}
+
+impl<InstrumentKey> From<MarketEvent<InstrumentKey, Candle>>
+    for MarketEvent<InstrumentKey, DataKind>
+{
+    fn from(value: MarketEvent<InstrumentKey, Candle>) -> Self {
+        value.map_kind(Candle::into)
+    }
+}
+
+impl<InstrumentKey> From<MarketStreamEvent<InstrumentKey, Liquidation>>
+    for MarketStreamEvent<InstrumentKey, DataKind>
+{
+    fn from(value: MarketStreamEvent<InstrumentKey, Liquidation>) -> Self {
+        value.map_ok(MarketEvent::from)
+    }
+}
+
+impl<InstrumentKey> From<MarketEvent<InstrumentKey, Liquidation>>
+    for MarketEvent<InstrumentKey, DataKind>
+{
+    fn from(value: MarketEvent<InstrumentKey, Liquidation>) -> Self {
+        value.map_kind(Liquidation::into)
     }
 }
