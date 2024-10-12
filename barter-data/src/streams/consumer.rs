@@ -37,7 +37,6 @@ pub type MarketStreamEvent<InstrumentKey, Kind> =
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct StreamKey<Kind> {
     pub exchange: Exchange,
-    pub instrument: InstrumentKind,
     pub kind: Kind,
 }
 
