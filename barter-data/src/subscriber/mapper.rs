@@ -13,7 +13,7 @@ use std::collections::HashMap;
 pub trait SubscriptionMapper {
     fn map<Exchange, Instrument, Kind>(
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> SubscriptionMeta<Instrument::Id>
+    ) -> SubscriptionMeta<Instrument::Key>
     where
         Exchange: Connector,
         Instrument: InstrumentData,
@@ -30,7 +30,7 @@ pub struct WebSocketSubMapper;
 impl SubscriptionMapper for WebSocketSubMapper {
     fn map<Exchange, Instrument, Kind>(
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> SubscriptionMeta<Instrument::Id>
+    ) -> SubscriptionMeta<Instrument::Key>
     where
         Exchange: Connector,
         Kind: SubscriptionKind,
@@ -55,7 +55,7 @@ impl SubscriptionMapper for WebSocketSubMapper {
                 // Use ExchangeSub SubscriptionId as the link to this Barter Subscription
                 instrument_map
                     .0
-                    .insert(subscription_id, subscription.instrument.id().clone());
+                    .insert(subscription_id, subscription.instrument.key().clone());
 
                 exchange_sub
             })

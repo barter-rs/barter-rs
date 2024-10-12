@@ -19,8 +19,8 @@ pub trait InstrumentData
 where
     Self: Clone + Debug + Send + Sync,
 {
-    type Id: Debug + Clone + Send + Sync;
-    fn id(&self) -> &Self::Id;
+    type Key: Debug + Clone + Send + Sync;
+    fn key(&self) -> &Self::Key;
     fn kind(&self) -> InstrumentKind;
 }
 
@@ -36,9 +36,9 @@ impl<Id> InstrumentData for KeyedInstrument<Id>
 where
     Id: Debug + Clone + Send + Sync,
 {
-    type Id = Id;
+    type Key = Id;
 
-    fn id(&self) -> &Self::Id {
+    fn key(&self) -> &Self::Key {
         &self.id
     }
 
@@ -54,9 +54,9 @@ impl<Id> AsRef<Instrument> for KeyedInstrument<Id> {
 }
 
 impl InstrumentData for Instrument {
-    type Id = Self;
+    type Key = Self;
 
-    fn id(&self) -> &Self::Id {
+    fn key(&self) -> &Self::Key {
         self
     }
 
@@ -73,9 +73,9 @@ pub struct MarketInstrumentData {
 }
 
 impl InstrumentData for MarketInstrumentData {
-    type Id = InstrumentId;
+    type Key = InstrumentId;
 
-    fn id(&self) -> &Self::Id {
+    fn key(&self) -> &Self::Key {
         &self.id
     }
 

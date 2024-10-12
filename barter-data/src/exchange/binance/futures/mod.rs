@@ -42,7 +42,7 @@ where
     Instrument: InstrumentData,
 {
     type Stream = ExchangeWsStream<
-        StatelessTransformer<Self, Instrument::Id, OrderBooksL2, BinanceSpotOrderBookL2Update>,
+        StatelessTransformer<Self, Instrument::Key, OrderBooksL2, BinanceSpotOrderBookL2Update>,
     >;
 }
 
@@ -51,6 +51,6 @@ where
     Instrument: InstrumentData,
 {
     type Stream = ExchangeWsStream<
-        StatelessTransformer<Self, Instrument::Id, Liquidations, BinanceLiquidation>,
+        StatelessTransformer<Self, Instrument::Key, Liquidations, BinanceLiquidation>,
     >;
 }

@@ -113,7 +113,7 @@ where
     Server: ExchangeServer + Debug + Send + Sync,
 {
     type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Id, PublicTrades, BybitMessage>>;
+        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BybitMessage>>;
 }
 
 impl<'de, Server> serde::Deserialize<'de> for Bybit<Server>

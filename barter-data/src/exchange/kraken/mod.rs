@@ -85,7 +85,7 @@ where
     Instrument: InstrumentData,
 {
     type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Id, PublicTrades, KrakenTrades>>;
+        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, KrakenTrades>>;
 }
 
 impl<Instrument> StreamSelector<Instrument, OrderBooksL1> for Kraken
@@ -93,6 +93,6 @@ where
     Instrument: InstrumentData,
 {
     type Stream = ExchangeWsStream<
-        StatelessTransformer<Self, Instrument::Id, OrderBooksL1, KrakenOrderBookL1>,
+        StatelessTransformer<Self, Instrument::Key, OrderBooksL1, KrakenOrderBookL1>,
     >;
 }

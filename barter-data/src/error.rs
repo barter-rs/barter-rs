@@ -5,6 +5,9 @@ use thiserror::Error;
 /// All errors generated in `barter-data`.
 #[derive(Debug, Error)]
 pub enum DataError {
+    #[error("failed to initialise reconnecting MarketStream due to empty subscriptions")]
+    SubscriptionsEmpty,
+
     #[error("SocketError: {0}")]
     Socket(#[from] SocketError),
 

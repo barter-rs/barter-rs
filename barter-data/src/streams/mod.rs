@@ -9,8 +9,12 @@ use tokio_stream::{wrappers::UnboundedReceiverStream, StreamMap};
 pub mod builder;
 
 /// Central consumer loop functionality used by the [`StreamBuilder`] to
-/// to drive a re-connecting [`MarketStream`](super::MarketStream).
+/// drive a re-connecting [`MarketStream`](super::MarketStream).
 pub mod consumer;
+
+/// Defines a [`ReconnectingStream`] and associated logic for generating an auto reconnecting
+/// `Stream`.
+pub mod reconnect;
 
 /// Ergonomic collection of exchange [`MarketEvent<T>`](crate::event::MarketEvent) receivers.
 #[derive(Debug)]

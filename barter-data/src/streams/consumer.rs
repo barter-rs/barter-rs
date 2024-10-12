@@ -1,3 +1,8 @@
+use crate::exchange::ExchangeId;
+use crate::streams::reconnect;
+use crate::streams::reconnect::{
+    init_reconnecting_stream, ReconnectingStream, ReconnectionBackoffPolicy,
+};
 use crate::{
     error::DataError,
     event::MarketEvent,
@@ -6,10 +11,75 @@ use crate::{
     subscription::{Subscription, SubscriptionKind},
     Identifier, MarketStream,
 };
-use futures::StreamExt;
+use futures::{Stream, StreamExt};
+use std::fmt::Display;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
+
+/// Default [`ReconnectionBackoffPolicy`] for a [`reconnecting`](`ReconnectingStream`) [`MarketStream`].
+pub const DEFAULT_MARKET_STREAM_RECONNECTION_POLICY: ReconnectionBackoffPolicy =
+    ReconnectionBackoffPolicy {
+        backoff_ms_initial: 125,
+        backoff_multiplier: 2,
+        backoff_ms_max: 60000,
+    };
+
+/// Convenient type alias for a [`MarketEvent`] consumed via a
+/// [`reconnecting`](`ReconnectingStream`) [`MarketStream`].
+pub type MarketStreamEvent<InstrumentKey, Kind> =
+    reconnect::Event<ExchangeId, Result<MarketEvent<InstrumentKey, Kind>, DataError>>;
+
+/// Initialises a [`reconnecting`](`ReconnectingStream`) [`MarketStream`] using a collection of
+/// [`Subscription`]s.
+///
+/// The provided [`ReconnectionBackoffPolicy`] dictates how the exponential backoff scales
+/// between reconnections.
+pub async fn init_reconnecting_market_stream<Exchange, Instrument, Kind>(
+    subscriptions: Vec<Subscription<Exchange, Instrument, Kind>>,
+    policy: ReconnectionBackoffPolicy,
+) -> Result<impl Stream<Item = MarketStreamEvent<Instrument::Key, Kind::Event>>, DataError>
+where
+    Exchange: StreamSelector<Instrument, Kind>,
+    Instrument: InstrumentData,
+    Kind: SubscriptionKind + Display,
+    Subscription<Exchange, Instrument, Kind>:
+        Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
+{
+    // Determine ExchangeId associated with these Subscriptions
+    let exchange = Exchange::ID;
+
+    // Construct a MarketStream name for us in logging
+    let stream_name = subscriptions
+        .first()
+        .map(|sub| {
+            format!(
+                "MarketStream({}_{}_{})",
+                exchange,
+                sub.instrument.kind(),
+                sub.kind
+            )
+        })
+        .ok_or(DataError::SubscriptionsEmpty)?;
+
+    info!(
+        %exchange,
+        ?subscriptions,
+        ?policy,
+        %stream_name,
+        "MarketStream with auto reconnect running"
+    );
+
+    let init_stream = move || {
+        let subscriptions = subscriptions.clone();
+        async move { Exchange::Stream::init(&subscriptions).await }
+    };
+
+    Ok(init_reconnecting_stream(init_stream)
+        .await?
+        .with_reconnect_backoff(policy, stream_name)
+        .with_reconnection_events(exchange))
+}
 
 /// Initial duration that the [`consume`] function should wait after disconnecting before attempting
 /// to re-initialise a [`MarketStream`]. This duration will increase exponentially as a result
@@ -23,7 +93,7 @@ pub const STARTING_RECONNECT_BACKOFF_MS: u64 = 125;
 /// mechanism with an exponential backoff policy is utilised to ensure maximum up-time.
 pub async fn consume<Exchange, Instrument, Kind>(
     subscriptions: Vec<Subscription<Exchange, Instrument, Kind>>,
-    exchange_tx: mpsc::UnboundedSender<MarketEvent<Instrument::Id, Kind::Event>>,
+    exchange_tx: mpsc::UnboundedSender<MarketEvent<Instrument::Key, Kind::Event>>,
 ) -> Result<(), DataError>
 where
     Exchange: StreamSelector<Instrument, Kind>,

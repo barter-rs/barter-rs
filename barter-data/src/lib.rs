@@ -3,8 +3,8 @@
 #![allow(clippy::pedantic, clippy::type_complexity)]
 #![warn(
     missing_debug_implementations,
-    missing_copy_implementations,
-    rust_2018_idioms
+    rust_2018_idioms,
+    rust_2024_compatibility
 )]
 
 //! # Barter-Data
@@ -173,7 +173,7 @@ pub trait Identifier<T> {
 #[async_trait]
 pub trait MarketStream<Exchange, Instrument, Kind>
 where
-    Self: Stream<Item = Result<MarketEvent<Instrument::Id, Kind::Event>, DataError>>
+    Self: Stream<Item = Result<MarketEvent<Instrument::Key, Kind::Event>, DataError>>
         + Send
         + Sized
         + Unpin,
@@ -196,7 +196,7 @@ where
     Exchange: Connector + Send + Sync,
     Instrument: InstrumentData,
     Kind: SubscriptionKind + Send + Sync,
-    Transformer: ExchangeTransformer<Exchange, Instrument::Id, Kind> + Send,
+    Transformer: ExchangeTransformer<Exchange, Instrument::Key, Kind> + Send,
     Kind::Event: Send,
 {
     async fn init(

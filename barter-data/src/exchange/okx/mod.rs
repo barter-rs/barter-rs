@@ -83,5 +83,5 @@ where
     Instrument: InstrumentData,
 {
     type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Id, PublicTrades, OkxTrades>>;
+        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, OkxTrades>>;
 }

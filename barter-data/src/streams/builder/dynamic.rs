@@ -65,7 +65,7 @@ impl<InstrumentId> DynamicStreams<InstrumentId> {
         SubBatchIter: IntoIterator<Item = SubIter>,
         SubIter: IntoIterator<Item = Sub>,
         Sub: Into<Subscription<ExchangeId, Instrument, SubKind>>,
-        Instrument: InstrumentData<Id = InstrumentId> + Ord + 'static,
+        Instrument: InstrumentData<Key = InstrumentId> + Ord + 'static,
         InstrumentId: Clone + Send,
         Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
         Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
@@ -91,7 +91,7 @@ impl<InstrumentId> DynamicStreams<InstrumentId> {
         // Validate & dedup Subscription batches
         let batches = validate_batches(subscription_batches)?;
 
-        let mut channels = Channels::<Instrument::Id>::default();
+        let mut channels = Channels::<Instrument::Key>::default();
 
         for mut batch in batches {
             batch.sort_unstable_by_key(|sub| (sub.exchange, sub.kind));

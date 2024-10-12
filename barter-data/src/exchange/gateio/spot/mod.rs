@@ -38,6 +38,7 @@ impl<Instrument> StreamSelector<Instrument, PublicTrades> for GateioSpot
 where
     Instrument: InstrumentData,
 {
-    type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Id, PublicTrades, GateioSpotTrade>>;
+    type Stream = ExchangeWsStream<
+        StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioSpotTrade>,
+    >;
 }

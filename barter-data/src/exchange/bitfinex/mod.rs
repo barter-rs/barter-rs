@@ -104,6 +104,7 @@ impl<Instrument> StreamSelector<Instrument, PublicTrades> for Bitfinex
 where
     Instrument: InstrumentData,
 {
-    type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Id, PublicTrades, BitfinexMessage>>;
+    type Stream = ExchangeWsStream<
+        StatelessTransformer<Self, Instrument::Key, PublicTrades, BitfinexMessage>,
+    >;
 }
