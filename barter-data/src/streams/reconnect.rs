@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::future::Future;
 use std::{convert, future};
+use std::sync::Arc;
 use tracing::{info, warn};
+use crate::streams::consumer::StreamKey;
 
 /// [`ReconnectingStream`] `Event` that communicates either `Stream::Item`, or that the inner
 /// `Stream` is currently reconnecting.
@@ -24,29 +26,31 @@ where
 {
     /// Add an exponential backoff policy to an initialised [`ReconnectingStream`] using the
     /// provided [`ReconnectionBackoffPolicy`].
-    fn with_reconnect_backoff<St, InitError>(
+    fn with_reconnect_backoff<St, InitError, Kind>(
         self,
         policy: ReconnectionBackoffPolicy,
-        stream_name: String,
+        stream_key: StreamKey<Kind>,
     ) -> impl Stream<Item = St>
     where
         Self: Stream<Item = Result<St, InitError>>,
         St: Stream,
         InitError: Debug,
+        Kind: Debug,
     {
+        let stream_key = Arc::new(stream_key);
         self.enumerate()
             .scan(
                 ReconnectionState::from(policy),
                 move |state, (attempt, result)| match result {
                     Ok(stream) => {
-                        info!(attempt, stream_name, "successfully initialised Stream");
+                        info!(attempt, ?stream_key, "successfully initialised Stream");
                         state.reset_backoff();
                         futures::future::Either::Left(future::ready(Some(Ok(stream))))
                     }
                     Err(error) => {
                         warn!(
                             attempt,
-                            stream_name,
+                            ?stream_key,
                             ?error,
                             "failed to re-initialise Stream"
                         );

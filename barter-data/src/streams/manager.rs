@@ -1,10 +1,10 @@
 use std::fmt::Display;
+use std::hash::Hash;
+use fnv::FnvHashMap;
 use futures::Stream;
 use futures_util::future::try_join_all;
 use futures_util::StreamExt;
 use itertools::Itertools;
-use tokio_stream::StreamMap;
-use vecmap::VecMap;
 use barter_integration::error::SocketError;
 use barter_integration::model::Exchange;
 use barter_integration::model::instrument::kind::InstrumentKind;
@@ -42,86 +42,132 @@ use crate::exchange::okx::market::OkxMarket;
 use crate::exchange::okx::Okx;
 use crate::Identifier;
 use crate::instrument::InstrumentData;
-use crate::streams::consumer::{init_market_stream, STREAM_RECONNECTION_POLICY};
-use crate::subscription::{SubKind, Subscription, SubscriptionKind};
+use crate::streams::consumer::{init_market_stream, MarketStreamEvent, StreamKey, STREAM_RECONNECTION_POLICY};
+use crate::subscription::{Subscription, SubscriptionKind};
+use crate::subscription::book::{OrderBookEvent, OrderBooksL1, OrderBooksL2};
+use crate::subscription::liquidation::{Liquidation, Liquidations};
+use crate::subscription::trade::{PublicTrade, PublicTrades};
 
 // Todo: dynamic WebSocket manager
-pub struct MarketDataManager<StTrades> {
-    pub subscriber: MarketDataSubscriber,
-
-
-    pub trades: StreamMap<MarketStreamKey, StTrades>,
+pub struct MarketStreamManager<StTrades, StL1s, StL2s, StLiqs> {
+    pub trades: FnvHashMap<StreamKey<PublicTrades>, StTrades>,
+    pub l1s: FnvHashMap<StreamKey<OrderBooksL1>, StL1s>,
+    pub l2s: FnvHashMap<StreamKey<OrderBooksL2>, StL2s>,
+    pub liquidations: FnvHashMap<StreamKey<Liquidations>, StLiqs>,
 }
 
-// pub struct Streams {
-//     pub trades: VecMap<ExchangeId, StTrades>,
-//     pub l1s: VecMap<ExchangeId, StTrades>,
-//     pub l2s: VecMap<ExchangeId, StTrades>,
-//     pub liquidations: VecMap<ExchangeId, StTrades>,
-// }
-
-
-pub struct MarketDataSubscriber;
-
-impl MarketDataSubscriber {
-
-    pub async fn subscribe_trades<SubIter, Sub, Instrument, Kind>(
+impl<StTrades, StL1s, StL2s, StLiqs> MarketStreamManager<StTrades, StL1s, StL2s, StLiqs> {
+    pub fn remove_trade_stream<InstrumentKey>(
         &mut self,
-        subscriptions: SubIter,
-    ) -> Result<VecMap<ExchangeId, impl Stream>, DataError>
+        key: &StreamKey<PublicTrades>
+    ) -> Option<StTrades>
     where
-        SubIter: IntoIterator<Item = Sub>,
-        Sub: Into<Subscription<ExchangeId, Instrument, Kind>>,
-        Instrument: InstrumentData + Ord + 'static,
-        Kind: SubscriptionKind + Ord + Display + Send + 'static,
-        Kind::Event: Send,
-        Subscription<ExchangeId, Instrument, Kind>: Validator + Ord,
-        BinanceSpot: StreamSelector<Instrument, Kind>,
-        BinanceFuturesUsd: StreamSelector<Instrument, Kind>,
-        Bitfinex: StreamSelector<Instrument, Kind>,
-        Bitmex: StreamSelector<Instrument, Kind>,
-        BybitSpot: StreamSelector<Instrument, Kind>,
-        BybitPerpetualsUsd: StreamSelector<Instrument, Kind>,
-        Coinbase: StreamSelector<Instrument, Kind>,
-        GateioSpot: StreamSelector<Instrument, Kind>,
-        GateioFuturesUsd: StreamSelector<Instrument, Kind>,
-        GateioFuturesBtc: StreamSelector<Instrument, Kind>,
-        GateioPerpetualsUsd: StreamSelector<Instrument, Kind>,
-        GateioPerpetualsBtc: StreamSelector<Instrument, Kind>,
-        GateioOptions: StreamSelector<Instrument, Kind>,
-        Kraken: StreamSelector<Instrument, Kind>,
-        Okx: StreamSelector<Instrument, Kind>,
-        Subscription<BinanceSpot, Instrument, Kind>: Identifier<BinanceChannel> + Identifier<BinanceMarket>,
-        Subscription<BinanceFuturesUsd, Instrument, Kind>: Identifier<BinanceChannel> + Identifier<BinanceMarket>,
-        Subscription<Bitfinex, Instrument, Kind>: Identifier<BitfinexChannel> + Identifier<BitfinexMarket>,
-        Subscription<Bitmex, Instrument, Kind>: Identifier<BitmexChannel> + Identifier<BitmexMarket>,
-        Subscription<BybitSpot, Instrument, Kind>: Identifier<BybitChannel> + Identifier<BybitMarket>,
-        Subscription<BybitPerpetualsUsd, Instrument, Kind>: Identifier<BybitChannel> + Identifier<BybitMarket>,
-        Subscription<Coinbase, Instrument, Kind>: Identifier<CoinbaseChannel> + Identifier<CoinbaseMarket>,
-        Subscription<GateioSpot, Instrument, Kind>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-        Subscription<GateioFuturesUsd, Instrument, Kind>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-        Subscription<GateioFuturesBtc, Instrument, Kind>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-        Subscription<GateioPerpetualsUsd, Instrument, Kind>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-        Subscription<GateioPerpetualsBtc, Instrument, Kind>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-        Subscription<GateioOptions, Instrument, Kind>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-        Subscription<Kraken, Instrument, Kind>: Identifier<KrakenChannel> + Identifier<KrakenMarket>,
-        Subscription<Okx, Instrument, Kind>: Identifier<OkxChannel> + Identifier<OkxMarket>,
+        StTrades: Stream<Item = MarketStreamEvent<InstrumentKey, PublicTrade>>
     {
-        // Validate & dedup Subscriptions
-        let mut subscriptions = validate_subscriptions::<SubIter, Sub, Instrument, Kind>(subscriptions)?;
+        self.trades.remove(key)
+    }
 
-        // Group Subscriptions by (ExchangeId, SubKind)
-        subscriptions.sort_unstable_by_key(|sub| sub.exchange);
-        let subs_by_exchange_by_sub_kind = subscriptions
-            .into_iter()
-            .chunk_by(|sub| sub.exchange);
+    pub fn select_l1s<InstrumentKey>(
+        &mut self,
+        key: &StreamKey<OrderBooksL1>
+    ) -> Option<StL1s>
+    where
+        StL1s: Stream<Item = MarketStreamEvent<InstrumentKey, PublicTrade>>
+    {
+        self.l1s.remove(key)
+    }
 
-        let futures = subs_by_exchange_by_sub_kind
-            .into_iter()
-            .map(|(exchange, subs)| async move {
+    pub fn select_l2s<InstrumentKey>(
+        &mut self,
+        key: &StreamKey<OrderBooksL2>
+    ) -> Option<StL2s>
+    where
+        StL2s: Stream<Item = MarketStreamEvent<InstrumentKey, OrderBookEvent>>
+    {
+        self.l2s.remove(key)
+    }
+
+    pub fn select_liquidations<InstrumentKey>(
+        &mut self,
+        key: &StreamKey<Liquidations>
+    ) -> Option<StLiqs>
+    where
+        StLiqs: Stream<Item = MarketStreamEvent<InstrumentKey, Liquidation>>
+    {
+        self.liquidations.remove(key)
+    }
+}
+
+pub async fn subscribe<SubIter, Sub, Instrument, Kind>(
+    subscriptions: SubIter,
+) -> Result<FnvHashMap<StreamKey<Kind>, impl Stream>, DataError>
+where
+    SubIter: IntoIterator<Item = Sub>,
+    Sub: Into<Subscription<ExchangeId, Instrument, Kind>>,
+    Instrument: InstrumentData + Ord + 'static,
+    Kind: SubscriptionKind + Ord + Hash + Display + Send + Sync + 'static,
+    Kind::Event: Send,
+    Subscription<ExchangeId, Instrument, Kind>: Validator + Ord,
+    BinanceSpot: StreamSelector<Instrument, Kind>,
+    BinanceFuturesUsd: StreamSelector<Instrument, Kind>,
+    Bitfinex: StreamSelector<Instrument, Kind>,
+    Bitmex: StreamSelector<Instrument, Kind>,
+    BybitSpot: StreamSelector<Instrument, Kind>,
+    BybitPerpetualsUsd: StreamSelector<Instrument, Kind>,
+    Coinbase: StreamSelector<Instrument, Kind>,
+    GateioSpot: StreamSelector<Instrument, Kind>,
+    GateioFuturesUsd: StreamSelector<Instrument, Kind>,
+    GateioFuturesBtc: StreamSelector<Instrument, Kind>,
+    GateioPerpetualsUsd: StreamSelector<Instrument, Kind>,
+    GateioPerpetualsBtc: StreamSelector<Instrument, Kind>,
+    GateioOptions: StreamSelector<Instrument, Kind>,
+    Kraken: StreamSelector<Instrument, Kind>,
+    Okx: StreamSelector<Instrument, Kind>,
+    Subscription<BinanceSpot, Instrument, Kind>: Identifier<BinanceChannel> + Identifier<BinanceMarket>,
+    Subscription<BinanceFuturesUsd, Instrument, Kind>: Identifier<BinanceChannel> + Identifier<BinanceMarket>,
+    Subscription<Bitfinex, Instrument, Kind>: Identifier<BitfinexChannel> + Identifier<BitfinexMarket>,
+    Subscription<Bitmex, Instrument, Kind>: Identifier<BitmexChannel> + Identifier<BitmexMarket>,
+    Subscription<BybitSpot, Instrument, Kind>: Identifier<BybitChannel> + Identifier<BybitMarket>,
+    Subscription<BybitPerpetualsUsd, Instrument, Kind>: Identifier<BybitChannel> + Identifier<BybitMarket>,
+    Subscription<Coinbase, Instrument, Kind>: Identifier<CoinbaseChannel> + Identifier<CoinbaseMarket>,
+    Subscription<GateioSpot, Instrument, Kind>: Identifier<GateioChannel> + Identifier<GateioMarket>,
+    Subscription<GateioFuturesUsd, Instrument, Kind>: Identifier<GateioChannel> + Identifier<GateioMarket>,
+    Subscription<GateioFuturesBtc, Instrument, Kind>: Identifier<GateioChannel> + Identifier<GateioMarket>,
+    Subscription<GateioPerpetualsUsd, Instrument, Kind>: Identifier<GateioChannel> + Identifier<GateioMarket>,
+    Subscription<GateioPerpetualsBtc, Instrument, Kind>: Identifier<GateioChannel> + Identifier<GateioMarket>,
+    Subscription<GateioOptions, Instrument, Kind>: Identifier<GateioChannel> + Identifier<GateioMarket>,
+    Subscription<Kraken, Instrument, Kind>: Identifier<KrakenChannel> + Identifier<KrakenMarket>,
+    Subscription<Okx, Instrument, Kind>: Identifier<OkxChannel> + Identifier<OkxMarket>,
+{
+    // Validate & dedup Subscriptions
+    let mut subscriptions = validate_subscriptions::<SubIter, Sub, Instrument, Kind>(subscriptions)?;
+
+    // Use first Subscription to determine InstrumentKind & SubKind for StreamKey creation
+    let (instrument_kind, sub_kind) = subscriptions
+        .first()
+        .map(|sub| (sub.instrument.kind(), sub.kind.clone()))
+        .ok_or(DataError::SubscriptionsEmpty)?;
+
+    // Group Subscriptions by (ExchangeId, SubKind)
+    subscriptions.sort_unstable_by_key(|sub| sub.exchange);
+    let subs_by_exchange_by_sub_kind = subscriptions
+        .into_iter()
+        .chunk_by(|sub| sub.exchange);
+
+    let futures = subs_by_exchange_by_sub_kind
+        .into_iter()
+        .map(|(exchange, subs)| {
+            let stream_key = StreamKey {
+                exchange: Exchange::from(exchange),
+                instrument: instrument_kind.clone(),
+                kind: sub_kind.clone(),
+            };
+
+            async move {
                 let stream_result = match exchange {
                     ExchangeId::BinanceSpot => {
                         init_market_stream(
+                            stream_key.clone(),
                             STREAM_RECONNECTION_POLICY,
                             subs.into_iter()
                                 .map(|sub| {
@@ -136,6 +182,7 @@ impl MarketDataSubscriber {
                     }
                     ExchangeId::BinanceFuturesUsd => {
                         init_market_stream(
+                            stream_key.clone(),
                             STREAM_RECONNECTION_POLICY,
                             subs.into_iter()
                                 .map(|sub| Subscription::<_, Instrument, _>::new(
@@ -148,6 +195,7 @@ impl MarketDataSubscriber {
                     }
                     ExchangeId::Bitfinex => {
                         init_market_stream(
+                            stream_key.clone(),
                             STREAM_RECONNECTION_POLICY,
                             subs.into_iter()
                                 .map(|sub| {
@@ -158,6 +206,7 @@ impl MarketDataSubscriber {
                     }
                     ExchangeId::Bitmex => {
                         init_market_stream(
+                            stream_key.clone(),
                             STREAM_RECONNECTION_POLICY,
                             subs.into_iter()
                                 .map(|sub| {
@@ -168,6 +217,7 @@ impl MarketDataSubscriber {
                     }
                     ExchangeId::BybitSpot => {
                         init_market_stream(
+                            stream_key.clone(),
                             STREAM_RECONNECTION_POLICY,
                             subs.into_iter()
                                 .map(|sub| {
@@ -182,6 +232,7 @@ impl MarketDataSubscriber {
                     }
                     ExchangeId::BybitPerpetualsUsd => {
                         init_market_stream(
+                            stream_key.clone(),
                             STREAM_RECONNECTION_POLICY,
                             subs.into_iter()
                                 .map(|sub| {
@@ -196,6 +247,7 @@ impl MarketDataSubscriber {
                     }
                     ExchangeId::Coinbase => {
                         init_market_stream(
+                            stream_key.clone(),
                             STREAM_RECONNECTION_POLICY,
                             subs.into_iter()
                                 .map(|sub| {
@@ -206,6 +258,7 @@ impl MarketDataSubscriber {
                     }
                     ExchangeId::GateioSpot => {
                         init_market_stream(
+                            stream_key.clone(),
                             STREAM_RECONNECTION_POLICY,
                             subs.into_iter()
                                 .map(|sub| {
@@ -220,6 +273,7 @@ impl MarketDataSubscriber {
                     }
                     ExchangeId::GateioFuturesUsd => {
                         init_market_stream(
+                            stream_key.clone(),
                             STREAM_RECONNECTION_POLICY,
                             subs.into_iter()
                                 .map(|sub| {
@@ -234,6 +288,7 @@ impl MarketDataSubscriber {
                     }
                     ExchangeId::GateioFuturesBtc => {
                         init_market_stream(
+                            stream_key.clone(),
                             STREAM_RECONNECTION_POLICY,
                             subs.into_iter()
                                 .map(|sub| {
@@ -248,6 +303,7 @@ impl MarketDataSubscriber {
                     }
                     ExchangeId::GateioPerpetualsBtc => {
                         init_market_stream(
+                            stream_key.clone(),
                             STREAM_RECONNECTION_POLICY,
                             subs.into_iter()
                                 .map(|sub| {
@@ -262,6 +318,7 @@ impl MarketDataSubscriber {
                     }
                     ExchangeId::GateioPerpetualsUsd => {
                         init_market_stream(
+                            stream_key.clone(),
                             STREAM_RECONNECTION_POLICY,
                             subs.into_iter()
                                 .map(|sub| {
@@ -276,6 +333,7 @@ impl MarketDataSubscriber {
                     }
                     ExchangeId::GateioOptions => {
                         init_market_stream(
+                            stream_key.clone(),
                             STREAM_RECONNECTION_POLICY,
                             subs.into_iter()
                                 .map(|sub| {
@@ -290,6 +348,7 @@ impl MarketDataSubscriber {
                     }
                     ExchangeId::Kraken => {
                         init_market_stream(
+                            stream_key.clone(),
                             STREAM_RECONNECTION_POLICY,
                             subs.into_iter()
                                 .map(|sub| {
@@ -300,6 +359,7 @@ impl MarketDataSubscriber {
                     }
                     ExchangeId::Okx => {
                         init_market_stream(
+                            stream_key.clone(),
                             STREAM_RECONNECTION_POLICY,
                             subs.into_iter()
                                 .map(|sub| {
@@ -310,323 +370,15 @@ impl MarketDataSubscriber {
                     }
                 };
 
-                stream_result.map(|stream| (exchange, stream))
-            });
+                stream_result.map(|stream| (stream_key, stream))
+            }
+        });
 
-        Ok(try_join_all(futures)
-            .await?
-            .into_iter()
-            .collect()
-        )
-    }
-
-
-    // pub async fn subscribe<SubIter, Sub, Instrument>(
-    //     &mut self,
-    //     subscriptions: SubIter
-    // ) -> Result<Vec<impl Stream>, DataError>
-    // where
-    //     SubIter: IntoIterator<Item = Sub>,
-    //     Sub: Into<Subscription<ExchangeId, Instrument, SubKind>>,
-    //     Instrument: InstrumentData + Ord + 'static,
-    //     Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
-    //     Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
-    //     Subscription<BinanceSpot, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
-    //     Subscription<BinanceFuturesUsd, Instrument, PublicTrades>: Identifier<BinanceMarket>,
-    //     Subscription<BinanceFuturesUsd, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
-    //     Subscription<BinanceFuturesUsd, Instrument, Liquidations>: Identifier<BinanceMarket>,
-    //     Subscription<Bitfinex, Instrument, PublicTrades>: Identifier<BitfinexMarket>,
-    //     Subscription<Bitmex, Instrument, PublicTrades>: Identifier<BitmexMarket>,
-    //     Subscription<BybitSpot, Instrument, PublicTrades>: Identifier<BybitMarket>,
-    //     Subscription<BybitPerpetualsUsd, Instrument, PublicTrades>: Identifier<BybitMarket>,
-    //     Subscription<Coinbase, Instrument, PublicTrades>: Identifier<CoinbaseMarket>,
-    //     Subscription<GateioSpot, Instrument, PublicTrades>: Identifier<GateioMarket>,
-    //     Subscription<GateioFuturesUsd, Instrument, PublicTrades>: Identifier<GateioMarket>,
-    //     Subscription<GateioFuturesBtc, Instrument, PublicTrades>: Identifier<GateioMarket>,
-    //     Subscription<GateioPerpetualsUsd, Instrument, PublicTrades>: Identifier<GateioMarket>,
-    //     Subscription<GateioPerpetualsBtc, Instrument, PublicTrades>: Identifier<GateioMarket>,
-    //     Subscription<GateioOptions, Instrument, PublicTrades>: Identifier<GateioMarket>,
-    //     Subscription<Kraken, Instrument, PublicTrades>: Identifier<KrakenMarket>,
-    //     Subscription<Kraken, Instrument, OrderBooksL1>: Identifier<KrakenMarket>,
-    //     Subscription<Okx, Instrument, PublicTrades>: Identifier<OkxMarket>,
-    // {
-    //     // Validate & dedup Subscriptions
-    //     let mut subscriptions = validate_subscriptions::<SubIter, Sub, Instrument>(subscriptions)?;
-    //
-    //     // Group Subscriptions by (ExchangeId, SubKind)
-    //     subscriptions.sort_unstable_by_key(|sub| (sub.exchange, sub.kind));
-    //     let subs_by_exchange_by_sub_kind = subscriptions
-    //         .into_iter()
-    //         .chunk_by(|sub| (sub.exchange, sub.kind));
-    //
-    //     let futures = subs_by_exchange_by_sub_kind
-    //         .into_iter()
-    //         .map(|((exchange, sub_kind), subs)| async move {
-    //             match (exchange, sub_kind) {
-    //                 (ExchangeId::BinanceSpot, SubKind::PublicTrades) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(
-    //                                     BinanceSpot::default(),
-    //                                     sub.instrument,
-    //                                     PublicTrades
-    //                                 )
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::BinanceSpot, SubKind::OrderBooksL1) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(
-    //                                     BinanceSpot::default(),
-    //                                     sub.instrument,
-    //                                     OrderBooksL1
-    //                                 )
-    //                             })
-    //                             .collect()
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::BinanceFuturesUsd, SubKind::PublicTrades) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| Subscription::new(
-    //                                 BinanceFuturesUsd::default(),
-    //                                 sub.instrument,
-    //                                 PublicTrades,
-    //                             ))
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::BinanceFuturesUsd, SubKind::OrderBooksL1) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::<_, Instrument, _>::new(
-    //                                     BinanceFuturesUsd::default(),
-    //                                     sub.instrument,
-    //                                     OrderBooksL1,
-    //                                 )
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::BinanceFuturesUsd, SubKind::Liquidations) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::<_, Instrument, _>::new(
-    //                                     BinanceFuturesUsd::default(),
-    //                                     sub.instrument,
-    //                                     Liquidations,
-    //                                 )
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::Bitfinex, SubKind::PublicTrades) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(Bitfinex, sub.instrument, PublicTrades)
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::Bitmex, SubKind::PublicTrades) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(Bitmex, sub.instrument, PublicTrades)
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::BybitSpot, SubKind::PublicTrades) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(
-    //                                     BybitSpot::default(),
-    //                                     sub.instrument,
-    //                                     PublicTrades,
-    //                                 )
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::BybitPerpetualsUsd, SubKind::PublicTrades) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(
-    //                                     BybitPerpetualsUsd::default(),
-    //                                     sub.instrument,
-    //                                     PublicTrades,
-    //                                 )
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::Coinbase, SubKind::PublicTrades) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(Coinbase, sub.instrument, PublicTrades)
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::GateioSpot, SubKind::PublicTrades) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(
-    //                                     GateioSpot::default(),
-    //                                     sub.instrument,
-    //                                     PublicTrades,
-    //                                 )
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::GateioFuturesUsd, SubKind::PublicTrades) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(
-    //                                     GateioFuturesUsd::default(),
-    //                                     sub.instrument,
-    //                                     PublicTrades,
-    //                                 )
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::GateioFuturesBtc, SubKind::PublicTrades) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(
-    //                                     GateioFuturesBtc::default(),
-    //                                     sub.instrument,
-    //                                     PublicTrades,
-    //                                 )
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::GateioPerpetualsUsd, SubKind::PublicTrades) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(
-    //                                     GateioPerpetualsUsd::default(),
-    //                                     sub.instrument,
-    //                                     PublicTrades,
-    //                                 )
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::GateioPerpetualsBtc, SubKind::PublicTrades) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(
-    //                                     GateioPerpetualsBtc::default(),
-    //                                     sub.instrument,
-    //                                     PublicTrades,
-    //                                 )
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::GateioOptions, SubKind::PublicTrades) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(
-    //                                     GateioOptions::default(),
-    //                                     sub.instrument,
-    //                                     PublicTrades,
-    //                                 )
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::Kraken, SubKind::PublicTrades) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(Kraken, sub.instrument, PublicTrades)
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::Kraken, SubKind::OrderBooksL1) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(Kraken, sub.instrument, OrderBooksL1)
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (ExchangeId::Okx, SubKind::PublicTrades) => {
-    //                     init_market_stream(
-    //                         STREAM_RECONNECTION_POLICY,
-    //                         subs.into_iter()
-    //                             .map(|sub| {
-    //                                 Subscription::new(Okx, sub.instrument, PublicTrades)
-    //                             })
-    //                             .collect(),
-    //                     ).await.map(StreamExt::boxed)
-    //                 }
-    //                 (exchange, sub_kind) => {
-    //                     return Err(DataError::Unsupported { exchange, sub_kind })
-    //                 }
-    //             }
-    //         });
-    //
-    //     let result = try_join_all(futures).await;
-    //     result
-    // }
-}
-
-pub struct Connections {
-    pub streams: VecMap<MarketStreamKey, ConnectionState>
-}
-
-pub struct ConnectionState {
-
-}
-
-pub struct MarketStreamKey {
-    pub id: u8,
-    pub exchange: Exchange,
-    pub kind_instrument: InstrumentKind,
-    pub kind_subscription: SubKind,
+    Ok(try_join_all(futures)
+        .await?
+        .into_iter()
+        .collect()
+    )
 }
 
 pub fn validate_subscriptions<SubIter, Sub, Instrument, Kind>(
