@@ -3,11 +3,9 @@ use crate::books::OrderBook;
 use crate::event::MarketEvent;
 use crate::subscription::book::OrderBookEvent;
 use barter_integration::model::Exchange;
-use fnv::FnvHashMap;
 use futures::{Stream, StreamExt};
 use parking_lot::RwLock;
 use std::fmt::Debug;
-use std::future::Future;
 use std::sync::Arc;
 use tracing::warn;
 
@@ -36,12 +34,6 @@ pub struct SingleBookManager<FnSnapshot> {
     pub book: Arc<RwLock<OrderBook>>,
 }
 
-pub async fn fetch_snapshot<FnSnapshot, FnSnapshotFut>(snapshot_init: FnSnapshot)
-where
-    FnSnapshot: Fn() -> FnSnapshotFut,
-    FnSnapshotFut: Future<Output = Result<(), ()>>,
-{
-}
 
 pub async fn manage_order_books<BookMap, St, InstrumentKey>(books: BookMap, mut stream: St)
 where

@@ -153,21 +153,6 @@ pub trait Identifier<T> {
     fn id(&self) -> T;
 }
 
-// pub trait MarketStreamNew<Exchange, Instrument, Kind>
-// where
-//     Self: Stream<Item = Result<MarketEvent<Instrument::Id, Kind::Event>, DataError>>,
-//     Exchange: Connector,
-//     Instrument: InstrumentData,
-//     Kind: SubscriptionKind,
-// {
-//     async fn init<Snapshot>(
-//         subscriptions: &[Subscription<Exchange, Instrument, Kind>]
-//     ) -> Result<(Snapshot, Self), DataError>
-//     {
-//
-//     }
-// }
-
 /// [`Stream`] that yields [`Market<Kind>`](MarketEvent) events. The type of [`Market<Kind>`](MarketEvent)
 /// depends on the provided [`SubscriptionKind`] of the passed [`Subscription`]s.
 #[async_trait]
@@ -230,12 +215,16 @@ where
             ));
         }
 
-        // Construct Transformer associated with this Exchange and SubscriptionKind
-        let mut transformer = Transformer::new(ws_sink_tx, map).await?;
+        // Initialise Transformer associated with this Exchange and SubscriptionKind
+        let mut transformer = Transformer::init(ws_sink_tx, map).await?;
 
         // Process any buffered active subscription events received during Subscription validation
-        let processed =
+        let mut processed =
             process_buffered_events::<WebSocketParser, _>(&mut transformer, buffered_events);
+
+        // Extend buffered events with any initial snapshot events
+        let snapshots = Transformer::fetch_snapshots(subscriptions).await?;
+        processed.extend(snapshots.into_iter().map(Ok));
 
         Ok(ExchangeWsStream::new(ws_stream, transformer, processed))
     }

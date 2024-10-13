@@ -18,7 +18,6 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 use barter_integration::model::Exchange;
-use barter_integration::model::instrument::kind::InstrumentKind;
 
 /// Default [`ReconnectionBackoffPolicy`] for a [`reconnecting`](`ReconnectingStream`) [`MarketStream`].
 pub const STREAM_RECONNECTION_POLICY: ReconnectionBackoffPolicy =

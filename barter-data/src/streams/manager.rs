@@ -7,7 +7,6 @@ use futures_util::StreamExt;
 use itertools::Itertools;
 use barter_integration::error::SocketError;
 use barter_integration::model::Exchange;
-use barter_integration::model::instrument::kind::InstrumentKind;
 use barter_integration::Validator;
 use crate::error::DataError;
 use crate::exchange::binance::futures::BinanceFuturesUsd;

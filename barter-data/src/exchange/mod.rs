@@ -61,7 +61,6 @@ where
     Instrument: InstrumentData,
     Kind: SubscriptionKind,
 {
-    // type Snapshot;
     type Stream: MarketStream<Self, Instrument, Kind>;
 }
 
