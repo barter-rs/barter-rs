@@ -126,6 +126,7 @@ impl<Instrument, Exchange, Kind> Subscription<Exchange, Instrument, Kind> {
     }
 }
 
+
 impl<Exchange, Kind> Validator for &Subscription<Exchange, Instrument, Kind>
 where
     Exchange: Connector,

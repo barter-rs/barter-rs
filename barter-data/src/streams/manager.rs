@@ -48,7 +48,7 @@ use crate::subscription::book::{OrderBookEvent, OrderBooksL1, OrderBooksL2};
 use crate::subscription::liquidation::{Liquidation, Liquidations};
 use crate::subscription::trade::{PublicTrade, PublicTrades};
 
-// Todo: dynamic WebSocket manager
+
 pub struct MarketStreamManager<StTrades, StL1s, StL2s, StLiqs> {
     pub trades: FnvHashMap<StreamKey<PublicTrades>, StTrades>,
     pub l1s: FnvHashMap<StreamKey<OrderBooksL1>, StL1s>,
@@ -65,81 +65,109 @@ impl<StTrades, StL1s, StL2s, StLiqs> MarketStreamManager<StTrades, StL1s, StL2s,
     //     SubIter: IntoIterator<Item = Sub>,
     //     Sub: Into<Subscription<ExchangeId, Instrument, SubKind>>,
     //     Instrument: InstrumentData + Ord + 'static,
+    //     Subscription<ExchangeId, Instrument, PublicTrades>: Validator + Ord,
+    //     Subscription<ExchangeId, Instrument, OrderBooksL1>: Validator + Ord,
+    //     Subscription<ExchangeId, Instrument, OrderBooksL2>: Validator + Ord,
+    //     Subscription<ExchangeId, Instrument, Liquidations>: Validator + Ord,
+    //
+    //     Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
+    //     Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
+    //     Subscription<BinanceSpot, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
+    //     Subscription<BinanceFuturesUsd, Instrument, PublicTrades>: Identifier<BinanceMarket>,
+    //     Subscription<BinanceFuturesUsd, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
+    //     Subscription<BinanceFuturesUsd, Instrument, Liquidations>: Identifier<BinanceMarket>,
+    //     Subscription<Bitfinex, Instrument, PublicTrades>: Identifier<BitfinexMarket>,
+    //     Subscription<Bitmex, Instrument, PublicTrades>: Identifier<BitmexMarket>,
+    //     Subscription<BybitSpot, Instrument, PublicTrades>: Identifier<BybitMarket>,
+    //     Subscription<BybitPerpetualsUsd, Instrument, PublicTrades>: Identifier<BybitMarket>,
+    //     Subscription<Coinbase, Instrument, PublicTrades>: Identifier<CoinbaseMarket>,
+    //     Subscription<GateioSpot, Instrument, PublicTrades>: Identifier<GateioMarket>,
+    //     Subscription<GateioFuturesUsd, Instrument, PublicTrades>: Identifier<GateioMarket>,
+    //     Subscription<GateioFuturesBtc, Instrument, PublicTrades>: Identifier<GateioMarket>,
+    //     Subscription<GateioPerpetualsUsd, Instrument, PublicTrades>: Identifier<GateioMarket>,
+    //     Subscription<GateioPerpetualsBtc, Instrument, PublicTrades>: Identifier<GateioMarket>,
+    //     Subscription<GateioOptions, Instrument, PublicTrades>: Identifier<GateioMarket>,
+    //     Subscription<Kraken, Instrument, PublicTrades>: Identifier<KrakenMarket>,
+    //     Subscription<Kraken, Instrument, OrderBooksL1>: Identifier<KrakenMarket>,
+    //     Subscription<Okx, Instrument, PublicTrades>: Identifier<OkxMarket>,
     // {
-    //     // Validate & dedup Subscription batches
-    //     let batches = validate_batches(subscription_batches)?;
-    //
-    //     let futures = batches
+    //     let futures = subscription_batches
     //         .into_iter()
-    //         .map(|mut batch| {
-    //             batch.sort_unstable_by_key(|sub| sub.kind);
-    //             let by_kind = batch.into_iter().chunk_by(|sub| sub.kind);
+    //         .map(|batch| {
+    //             let mut batch = batch
+    //                 .into_iter()
+    //                 .map(Sub::into)
+    //                 .collect::<Vec<_>>();
     //
-    //             by_kind
+    //             // Split batches Subscriptions by SubKind
+    //             batch.sort_unstable_by_key(|sub| sub.kind);
+    //             let batch_chunked_by_kind = batch.into_iter().chunk_by(|sub| sub.kind);
+    //
+    //             // Todo: maybe I should also be chunking by exchange and make "fn subscribe" be per
+    //             //    exchange?
+    //
+    //             let futures = batch_chunked_by_kind
     //                 .into_iter()
     //                 .map(|(kind, subs)| async move {
     //                     match kind {
     //                         SubKind::PublicTrades => {
-    //                             subscribe::<_, _, _, PublicTrades>(subs
-    //                                 .into_iter()
-    //                                 .map(|Subscription { exchange, instrument, kind }| Subscription {
-    //                                     exchange,
-    //                                     instrument,
-    //                                     kind: PublicTrades,
-    //                                 }))
+    //                             let x = subscribe_trades(subs.into_iter()
+    //                                 .map(|sub| Subscription::new(
+    //                                     sub.exchange,
+    //                                     sub.instrument,
+    //                                     PublicTrades
+    //                                 )))
+    //                                 .await
+    //
+    //                             // subscribe::<_, _, _, PublicTrades>(
+    //                             //     subs.into_iter()
+    //                             //         .map(|sub| Subscription::new(
+    //                             //             sub.exchange,
+    //                             //             sub.instrument,
+    //                             //             PublicTrades
+    //                             //         ))
+    //                             // )
     //                         }
-    //                         SubKind::OrderBooksL1 => {
-    //                             subscribe::<_, _, _, OrderBooksL1>(subs
-    //                                 .into_iter()
-    //                                 .map(|Subscription { exchange, instrument, kind }| Subscription {
-    //                                     exchange,
-    //                                     instrument,
-    //                                     kind: OrderBooksL1,
-    //                                 }))
-    //                         }
-    //                         SubKind::OrderBooksL2 => {
-    //                             subscribe::<_, _, _, OrderBooksL2>(subs
-    //                                 .into_iter()
-    //                                 .map(|Subscription { exchange, instrument, kind }| Subscription {
-    //                                     exchange,
-    //                                     instrument,
-    //                                     kind: OrderBooksL2,
-    //                                 }))
-    //                         }
-    //                         SubKind::Liquidations => {
-    //                             subscribe::<_, _, _, Liquidations>(subs
-    //                                 .into_iter()
-    //                                 .map(|Subscription { exchange, instrument, kind }| Subscription {
-    //                                     exchange,
-    //                                     instrument,
-    //                                     kind: Liquidations,
-    //                                 }))
-    //                         }
-    //                         unsupported => {
-    //                             panic!("")
-    //                         }
+    //                         // SubKind::OrderBooksL1 => {
+    //                         //     subscribe::<_, _, _, OrderBooksL1>(
+    //                         //         subs.into_iter()
+    //                         //             .map(|sub| Subscription::new(
+    //                         //                 sub.exchange,
+    //                         //                 sub.instrument,
+    //                         //                 PublicTrades
+    //                         //             ))
+    //                         //     )
+    //                         // }
+    //                         // SubKind::OrderBooksL2 => {
+    //                         //     subscribe::<_, _, _, OrderBooksL2>(
+    //                         //         subs.into_iter()
+    //                         //             .map(|sub| Subscription::new(
+    //                         //                 sub.exchange,
+    //                         //                 sub.instrument,
+    //                         //                 PublicTrades
+    //                         //             ))
+    //                         //     )
+    //                         // }
+    //                         // SubKind::Liquidations => {
+    //                         //     subscribe::<_, _, _, Liquidations>(
+    //                         //         subs.into_iter()
+    //                         //             .map(|sub| Subscription::new(
+    //                         //                 sub.exchange,
+    //                         //                 sub.instrument,
+    //                         //                 PublicTrades
+    //                         //             ))
+    //                         //     )
+    //                         // }
+    //                         _ => panic!("")
     //                     }
-    //                 })
-    //         })
-    //         .flatten();
+    //                 });
     //
-    //     let x = try_join_all(futures).await?;
-    //
-    //     for i in x {
-    //
-    //     }
-    //
-    //
+    //             let x = try_join_all(futures).await
+    //         });
     // }
 
 
-    // pub fn subscribe_trades<SubIter, Sub, Instrument>(
-    //     &mut self,
-    //     subscriptions: SubIter,
-    // ) -> StreamKey<PublicTrades>
-    // {
-    //
-    // }
+    // pub fn subscribe_trades<SubIter, Sub, Instrument>
 
     pub fn select_trades<InstrumentKey>(
         &mut self,
@@ -182,53 +210,32 @@ impl<StTrades, StL1s, StL2s, StLiqs> MarketStreamManager<StTrades, StL1s, StL2s,
     }
 }
 
-// pub async fn subscribe_trades<SubIter, Sub, Instrument>(
-//     subscriptions: SubIter,
-// ) -> Result<FnvHashMap<StreamKey<PublicTrades>, impl Stream>, DataError>
-// where
-//     SubIter: IntoIterator<Item = Sub>,
-//     Sub: Into<Subscription<ExchangeId, Instrument, PublicTrades>>,
-//     Instrument: InstrumentData + Ord + 'static,
-//     Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceChannel> + Identifier<BinanceMarket>,
-//     Subscription<BinanceFuturesUsd, Instrument, PublicTrades>: Identifier<BinanceChannel> + Identifier<BinanceMarket>,
-//     Subscription<Bitfinex, Instrument, PublicTrades>: Identifier<BitfinexChannel> + Identifier<BitfinexMarket>,
-//     Subscription<Bitmex, Instrument, PublicTrades>: Identifier<BitmexChannel> + Identifier<BitmexMarket>,
-//     Subscription<BybitSpot, Instrument, PublicTrades>: Identifier<BybitChannel> + Identifier<BybitMarket>,
-//     Subscription<BybitPerpetualsUsd, Instrument, PublicTrades>: Identifier<BybitChannel> + Identifier<BybitMarket>,
-//     Subscription<Coinbase, Instrument, PublicTrades>: Identifier<CoinbaseChannel> + Identifier<CoinbaseMarket>,
-//     Subscription<GateioSpot, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-//     Subscription<GateioFuturesUsd, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-//     Subscription<GateioFuturesBtc, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-//     Subscription<GateioPerpetualsUsd, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-//     Subscription<GateioPerpetualsBtc, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-//     Subscription<GateioOptions, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-//     Subscription<Kraken, Instrument, PublicTrades>: Identifier<KrakenChannel> + Identifier<KrakenMarket>,
-//     Subscription<Okx, Instrument, PublicTrades>: Identifier<OkxChannel> + Identifier<OkxMarket>,
-// {
-//     // Validate & dedup Subscriptions
-//     let mut subscriptions = validate_subscriptions::<SubIter, Sub, Instrument, PublicTrades>(subscriptions)?;
-//
-//     // Group Subscriptions by ExchangeId
-//     subscriptions.sort_unstable_by_key(|sub| sub.exchange);
-//     let subs_by_exchange = subscriptions
-//         .into_iter()
-//         .chunk_by(|sub| sub.exchange);
-//
-//     let futures = subs_by_exchange
-//         .into_iter()
-//         .map(|(exchange, subs)| {
-//             let stream_key = StreamKey {
-//                 exchange: Exchange::from(exchange),
-//                 kind: PublicTrades,
-//             };
-//
-//             async move {
-//
-//             }
-//         })
-//
-//
-// }
+pub async fn subscribe_trades<SubIter, Sub, Instrument>(
+    subscriptions: SubIter,
+) -> Result<FnvHashMap<StreamKey<PublicTrades>, impl Stream>, DataError>
+where
+    SubIter: IntoIterator<Item = Sub>,
+    Sub: Into<Subscription<ExchangeId, Instrument, PublicTrades>>,
+    Instrument: InstrumentData + Ord + 'static,
+    Subscription<ExchangeId, Instrument, PublicTrades>: Validator + Ord,
+    Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceChannel> + Identifier<BinanceMarket>,
+    Subscription<BinanceFuturesUsd, Instrument, PublicTrades>: Identifier<BinanceChannel> + Identifier<BinanceMarket>,
+    Subscription<Bitfinex, Instrument, PublicTrades>: Identifier<BitfinexChannel> + Identifier<BitfinexMarket>,
+    Subscription<Bitmex, Instrument, PublicTrades>: Identifier<BitmexChannel> + Identifier<BitmexMarket>,
+    Subscription<BybitSpot, Instrument, PublicTrades>: Identifier<BybitChannel> + Identifier<BybitMarket>,
+    Subscription<BybitPerpetualsUsd, Instrument, PublicTrades>: Identifier<BybitChannel> + Identifier<BybitMarket>,
+    Subscription<Coinbase, Instrument, PublicTrades>: Identifier<CoinbaseChannel> + Identifier<CoinbaseMarket>,
+    Subscription<GateioSpot, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
+    Subscription<GateioFuturesUsd, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
+    Subscription<GateioFuturesBtc, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
+    Subscription<GateioPerpetualsUsd, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
+    Subscription<GateioPerpetualsBtc, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
+    Subscription<GateioOptions, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
+    Subscription<Kraken, Instrument, PublicTrades>: Identifier<KrakenChannel> + Identifier<KrakenMarket>,
+    Subscription<Okx, Instrument, PublicTrades>: Identifier<OkxChannel> + Identifier<OkxMarket>,
+{
+    subscribe::<_, _, _, PublicTrades>(subscriptions).await
+}
 
 pub async fn subscribe<SubIter, Sub, Instrument, Kind>(
     subscriptions: SubIter,
@@ -280,7 +287,7 @@ where
         .map(|sub| sub.kind.clone())
         .ok_or(DataError::SubscriptionsEmpty)?;
 
-    // Group Subscriptions by (ExchangeId, SubKind)
+    // Group Subscriptions by ExchangeId
     subscriptions.sort_unstable_by_key(|sub| sub.exchange);
     let subs_by_exchange_by_sub_kind = subscriptions
         .into_iter()

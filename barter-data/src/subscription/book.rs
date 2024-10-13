@@ -47,7 +47,7 @@ impl OrderBookL1 {
 /// [`MarketEvent<T>`](MarketEvent) events.
 ///
 /// Level 2 refers to the [`OrderBook`] aggregated by price.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, DeSubKind, SerSubKind)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, DeSubKind, SerSubKind, Display)]
 pub struct OrderBooksL2;
 
 impl SubscriptionKind for OrderBooksL2 {
@@ -59,7 +59,7 @@ impl SubscriptionKind for OrderBooksL2 {
 ///
 /// Level 3 refers to the non-aggregated [`OrderBook`]. This is a direct replication of the exchange
 /// [`OrderBook`].
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, DeSubKind, SerSubKind)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, DeSubKind, SerSubKind, Display)]
 pub struct OrderBooksL3;
 
 impl SubscriptionKind for OrderBooksL3 {
