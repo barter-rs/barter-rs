@@ -1,6 +1,5 @@
 use self::liquidation::BinanceLiquidation;
 use super::{Binance, ExchangeServer};
-use crate::exchange::binance::spot::l2::BinanceSpotOrderBookL2Update;
 use crate::subscription::book::OrderBooksL2;
 use crate::{
     exchange::{ExchangeId, StreamSelector},
@@ -9,6 +8,7 @@ use crate::{
     transformer::stateless::StatelessTransformer,
     ExchangeWsStream,
 };
+use crate::exchange::binance::futures::l2::BinanceFuturesUsdOrderBooksL2Transformer;
 
 /// Level 2 OrderBook types (top of books) and perpetual
 /// [`OrderBookUpdater`](crate::transformer::book::OrderBookUpdater) implementation.
@@ -41,9 +41,7 @@ impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for BinanceFuturesUsd
 where
     Instrument: InstrumentData,
 {
-    type Stream = ExchangeWsStream<
-        StatelessTransformer<Self, Instrument::Key, OrderBooksL2, BinanceSpotOrderBookL2Update>,
-    >;
+    type Stream = ExchangeWsStream<BinanceFuturesUsdOrderBooksL2Transformer<Instrument::Key>>;
 }
 
 impl<Instrument> StreamSelector<Instrument, Liquidations> for BinanceFuturesUsd

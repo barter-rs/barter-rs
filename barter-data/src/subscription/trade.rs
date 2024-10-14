@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// Barter [`Subscription`](super::Subscription) [`SubscriptionKind`] that yields [`PublicTrade`]
 /// [`MarketEvent<T>`](crate::event::MarketEvent) events.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, DeSubKind, SerSubKind, Display)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, DeSubKind, SerSubKind, Display)]
 pub struct PublicTrades;
 
 impl SubscriptionKind for PublicTrades {

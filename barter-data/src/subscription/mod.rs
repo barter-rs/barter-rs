@@ -14,6 +14,7 @@ use barter_integration::{
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use std::{borrow::Borrow, collections::HashMap, fmt::Debug, hash::Hash};
+use crate::subscription::trade::PublicTrades;
 
 /// OrderBook [`SubscriptionKind`]s and the associated Barter output data models.
 pub mod book;
@@ -30,7 +31,7 @@ pub mod trade;
 /// Defines the type of a [`Subscription`], and the output [`Self::Event`] that it yields.
 pub trait SubscriptionKind
 where
-    Self: Debug + Clone,
+    Self: Debug + Display + Clone + Default,
 {
     type Event: Debug;
 }
@@ -126,7 +127,7 @@ impl<Instrument, Exchange, Kind> Subscription<Exchange, Instrument, Kind> {
     }
 }
 
-
+// Todo: clean up imps of Validator & validate_subscriptions for subscription once done
 impl<Exchange, Kind> Validator for &Subscription<Exchange, Instrument, Kind>
 where
     Exchange: Connector,
@@ -145,6 +146,52 @@ where
             Err(SocketError::Unsupported {
                 entity: exchange.as_str(),
                 item: self.instrument.kind.to_string(),
+            })
+        }
+    }
+}
+
+// Todo: clean up imps of Validator & validate_subscriptions for subscription once done
+impl<Exchange, Instrument, Kind> Validator for Subscription<Exchange, Instrument, Kind>
+where
+    Exchange: Connector,
+    Instrument: InstrumentData,
+{
+    fn validate(self) -> Result<Self, SocketError>
+    where
+        Self: Sized
+    {
+        // Determine ExchangeId associated with this Subscription
+        let exchange = Exchange::ID;
+
+        // Validate the Exchange supports the Subscription InstrumentKind
+        if exchange.supports_instrument_kind(self.instrument.kind()) {
+            Ok(self)
+        } else {
+            Err(SocketError::Unsupported {
+                entity: exchange.as_str(),
+                item: self.instrument.kind().to_string(),
+            })
+        }
+    }
+}
+
+// Todo: clean up imps of Validator & validate_subscriptions for subscription once done
+impl<Instrument> Validator for Subscription<ExchangeId, Instrument, PublicTrades>
+where
+    Instrument: InstrumentData,
+{
+    fn validate(self) -> Result<Self, SocketError>
+    where
+        Self: Sized
+    {
+        // Validate the Exchange supports the Subscription InstrumentKind
+        if self.exchange.supports_instrument_kind(self.instrument.kind()) {
+            Ok(self)
+        } else {
+            Err(SocketError::Unsupported {
+                entity: self.exchange.as_str(),
+                item: self.instrument.kind().to_string(),
             })
         }
     }

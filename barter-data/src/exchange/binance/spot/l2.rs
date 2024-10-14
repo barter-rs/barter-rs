@@ -21,11 +21,13 @@ use crate::instrument::InstrumentData;
 use crate::subscription::{Map, Subscription};
 use crate::transformer::ExchangeTransformer;
 
-/// [`BinanceSpot`](super::BinanceSpot) HTTP OrderBook L2 snapshot url.
+/// [`BinanceSpot`] HTTP OrderBook L2 snapshot url.
 ///
 /// See docs: <https://binance-docs.github.io/apidocs/spot/en/#order-book>
 pub const HTTP_BOOK_L2_SNAPSHOT_URL_BINANCE_SPOT: &str = "https://api.binance.com/api/v3/depth";
 
+/// Todo: rust docs & do I want to add exchange specific sequence validation?
+#[derive(Debug)]
 pub struct BinanceSpotOrderBooksL2Transformer<InstrumentKey> {
     instrument_map: Map<InstrumentKey>,
 }
@@ -52,7 +54,6 @@ where
             .map(|sub| {
                 // Construct initial OrderBook snapshot GET url
                 let market = sub.id();
-
                 let snapshot_url = format!(
                     "{}?symbol={}&limit=100",
                     HTTP_BOOK_L2_SNAPSHOT_URL_BINANCE_SPOT,

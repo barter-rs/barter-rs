@@ -1,32 +1,29 @@
-use std::fmt::Display;
-use std::hash::Hash;
 use fnv::FnvHashMap;
 use futures::Stream;
 use futures_util::future::try_join_all;
-use futures_util::StreamExt;
+use futures_util::{FutureExt, StreamExt};
 use itertools::Itertools;
 use barter_integration::error::SocketError;
-use barter_integration::model::Exchange;
 use barter_integration::Validator;
 use crate::error::DataError;
-use crate::exchange::binance::futures::BinanceFuturesUsd;
+use crate::exchange::binance::channel::BinanceChannel;
 use crate::exchange::binance::market::BinanceMarket;
 use crate::exchange::binance::spot::BinanceSpot;
+use crate::exchange::{ExchangeId, StreamSelector};
+use crate::exchange::binance::futures::BinanceFuturesUsd;
 use crate::exchange::bitfinex::Bitfinex;
+use crate::exchange::bitfinex::channel::BitfinexChannel;
 use crate::exchange::bitfinex::market::BitfinexMarket;
 use crate::exchange::bitmex::Bitmex;
+use crate::exchange::bitmex::channel::BitmexChannel;
 use crate::exchange::bitmex::market::BitmexMarket;
+use crate::exchange::bybit::channel::BybitChannel;
 use crate::exchange::bybit::futures::BybitPerpetualsUsd;
 use crate::exchange::bybit::market::BybitMarket;
 use crate::exchange::bybit::spot::BybitSpot;
+use crate::exchange::coinbase::channel::CoinbaseChannel;
 use crate::exchange::coinbase::Coinbase;
 use crate::exchange::coinbase::market::CoinbaseMarket;
-use crate::exchange::{ExchangeId, StreamSelector};
-use crate::exchange::binance::channel::BinanceChannel;
-use crate::exchange::bitfinex::channel::BitfinexChannel;
-use crate::exchange::bitmex::channel::BitmexChannel;
-use crate::exchange::bybit::channel::BybitChannel;
-use crate::exchange::coinbase::channel::CoinbaseChannel;
 use crate::exchange::gateio::channel::GateioChannel;
 use crate::exchange::gateio::future::{GateioFuturesBtc, GateioFuturesUsd};
 use crate::exchange::gateio::market::GateioMarket;
@@ -41,136 +38,26 @@ use crate::exchange::okx::market::OkxMarket;
 use crate::exchange::okx::Okx;
 use crate::Identifier;
 use crate::instrument::InstrumentData;
-use crate::streams::consumer::{init_market_stream, MarketStreamEvent, StreamKey, STREAM_RECONNECTION_POLICY};
-use crate::subscription::{SubKind, Subscription, SubscriptionKind};
-use crate::subscription::book::{OrderBookEvent, OrderBooksL1, OrderBooksL2};
-use crate::subscription::liquidation::{Liquidation, Liquidations};
-use crate::subscription::trade::{PublicTrade, PublicTrades};
-
+use crate::streams::consumer::{init_market_stream, MarketStreamEvent, STREAM_RECONNECTION_POLICY};
+use crate::subscription::{Subscription, SubscriptionKind};
+use crate::subscription::book::{OrderBookEvent};
+use crate::subscription::liquidation::{Liquidation};
+use crate::subscription::trade::{PublicTrade};
 
 pub struct MarketStreamManager<StTrades, StL1s, StL2s, StLiqs> {
-    pub trades: FnvHashMap<StreamKey<PublicTrades>, StTrades>,
-    pub l1s: FnvHashMap<StreamKey<OrderBooksL1>, StL1s>,
-    pub l2s: FnvHashMap<StreamKey<OrderBooksL2>, StL2s>,
-    pub liquidations: FnvHashMap<StreamKey<Liquidations>, StLiqs>,
+    pub trades: FnvHashMap<ExchangeId, StTrades>,
+    pub l1s: FnvHashMap<ExchangeId, StL1s>,
+    pub l2s: FnvHashMap<ExchangeId, StL2s>,
+    pub liquidations: FnvHashMap<ExchangeId, StLiqs>,
 }
 
+// Todo: could limit MarketStreamBuilder to a single Kind at a time... or even a single ws at a time
+//  '--> using enums is very useful though maybe just enum for ExchangeId?
+
 impl<StTrades, StL1s, StL2s, StLiqs> MarketStreamManager<StTrades, StL1s, StL2s, StLiqs> {
-    // pub async fn init<SubBatchIter, SubIter, Sub, Instrument>(
-    //     subscription_batches: SubBatchIter,
-    // ) -> Result<Self, DataError>
-    // where
-    //     SubBatchIter: IntoIterator<Item = SubIter>,
-    //     SubIter: IntoIterator<Item = Sub>,
-    //     Sub: Into<Subscription<ExchangeId, Instrument, SubKind>>,
-    //     Instrument: InstrumentData + Ord + 'static,
-    //     Subscription<ExchangeId, Instrument, PublicTrades>: Validator + Ord,
-    //     Subscription<ExchangeId, Instrument, OrderBooksL1>: Validator + Ord,
-    //     Subscription<ExchangeId, Instrument, OrderBooksL2>: Validator + Ord,
-    //     Subscription<ExchangeId, Instrument, Liquidations>: Validator + Ord,
-    //
-    //     Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
-    //     Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
-    //     Subscription<BinanceSpot, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
-    //     Subscription<BinanceFuturesUsd, Instrument, PublicTrades>: Identifier<BinanceMarket>,
-    //     Subscription<BinanceFuturesUsd, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
-    //     Subscription<BinanceFuturesUsd, Instrument, Liquidations>: Identifier<BinanceMarket>,
-    //     Subscription<Bitfinex, Instrument, PublicTrades>: Identifier<BitfinexMarket>,
-    //     Subscription<Bitmex, Instrument, PublicTrades>: Identifier<BitmexMarket>,
-    //     Subscription<BybitSpot, Instrument, PublicTrades>: Identifier<BybitMarket>,
-    //     Subscription<BybitPerpetualsUsd, Instrument, PublicTrades>: Identifier<BybitMarket>,
-    //     Subscription<Coinbase, Instrument, PublicTrades>: Identifier<CoinbaseMarket>,
-    //     Subscription<GateioSpot, Instrument, PublicTrades>: Identifier<GateioMarket>,
-    //     Subscription<GateioFuturesUsd, Instrument, PublicTrades>: Identifier<GateioMarket>,
-    //     Subscription<GateioFuturesBtc, Instrument, PublicTrades>: Identifier<GateioMarket>,
-    //     Subscription<GateioPerpetualsUsd, Instrument, PublicTrades>: Identifier<GateioMarket>,
-    //     Subscription<GateioPerpetualsBtc, Instrument, PublicTrades>: Identifier<GateioMarket>,
-    //     Subscription<GateioOptions, Instrument, PublicTrades>: Identifier<GateioMarket>,
-    //     Subscription<Kraken, Instrument, PublicTrades>: Identifier<KrakenMarket>,
-    //     Subscription<Kraken, Instrument, OrderBooksL1>: Identifier<KrakenMarket>,
-    //     Subscription<Okx, Instrument, PublicTrades>: Identifier<OkxMarket>,
-    // {
-    //     let futures = subscription_batches
-    //         .into_iter()
-    //         .map(|batch| {
-    //             let mut batch = batch
-    //                 .into_iter()
-    //                 .map(Sub::into)
-    //                 .collect::<Vec<_>>();
-    //
-    //             // Split batches Subscriptions by SubKind
-    //             batch.sort_unstable_by_key(|sub| sub.kind);
-    //             let batch_chunked_by_kind = batch.into_iter().chunk_by(|sub| sub.kind);
-    //
-    //             // Todo: maybe I should also be chunking by exchange and make "fn subscribe" be per
-    //             //    exchange?
-    //
-    //             let futures = batch_chunked_by_kind
-    //                 .into_iter()
-    //                 .map(|(kind, subs)| async move {
-    //                     match kind {
-    //                         SubKind::PublicTrades => {
-    //                             let x = subscribe_trades(subs.into_iter()
-    //                                 .map(|sub| Subscription::new(
-    //                                     sub.exchange,
-    //                                     sub.instrument,
-    //                                     PublicTrades
-    //                                 )))
-    //                                 .await
-    //
-    //                             // subscribe::<_, _, _, PublicTrades>(
-    //                             //     subs.into_iter()
-    //                             //         .map(|sub| Subscription::new(
-    //                             //             sub.exchange,
-    //                             //             sub.instrument,
-    //                             //             PublicTrades
-    //                             //         ))
-    //                             // )
-    //                         }
-    //                         // SubKind::OrderBooksL1 => {
-    //                         //     subscribe::<_, _, _, OrderBooksL1>(
-    //                         //         subs.into_iter()
-    //                         //             .map(|sub| Subscription::new(
-    //                         //                 sub.exchange,
-    //                         //                 sub.instrument,
-    //                         //                 PublicTrades
-    //                         //             ))
-    //                         //     )
-    //                         // }
-    //                         // SubKind::OrderBooksL2 => {
-    //                         //     subscribe::<_, _, _, OrderBooksL2>(
-    //                         //         subs.into_iter()
-    //                         //             .map(|sub| Subscription::new(
-    //                         //                 sub.exchange,
-    //                         //                 sub.instrument,
-    //                         //                 PublicTrades
-    //                         //             ))
-    //                         //     )
-    //                         // }
-    //                         // SubKind::Liquidations => {
-    //                         //     subscribe::<_, _, _, Liquidations>(
-    //                         //         subs.into_iter()
-    //                         //             .map(|sub| Subscription::new(
-    //                         //                 sub.exchange,
-    //                         //                 sub.instrument,
-    //                         //                 PublicTrades
-    //                         //             ))
-    //                         //     )
-    //                         // }
-    //                         _ => panic!("")
-    //                     }
-    //                 });
-    //
-    //             let x = try_join_all(futures).await
-    //         });
-    // }
-
-
-    // pub fn subscribe_trades<SubIter, Sub, Instrument>
-
     pub fn select_trades<InstrumentKey>(
         &mut self,
-        key: &StreamKey<PublicTrades>
+        key: &ExchangeId
     ) -> Option<StTrades>
     where
         StTrades: Stream<Item = MarketStreamEvent<InstrumentKey, PublicTrade>>
@@ -180,7 +67,7 @@ impl<StTrades, StL1s, StL2s, StLiqs> MarketStreamManager<StTrades, StL1s, StL2s,
 
     pub fn select_l1s<InstrumentKey>(
         &mut self,
-        key: &StreamKey<OrderBooksL1>
+        key: &ExchangeId
     ) -> Option<StL1s>
     where
         StL1s: Stream<Item = MarketStreamEvent<InstrumentKey, PublicTrade>>
@@ -190,7 +77,7 @@ impl<StTrades, StL1s, StL2s, StLiqs> MarketStreamManager<StTrades, StL1s, StL2s,
 
     pub fn select_l2s<InstrumentKey>(
         &mut self,
-        key: &StreamKey<OrderBooksL2>
+        key: &ExchangeId
     ) -> Option<StL2s>
     where
         StL2s: Stream<Item = MarketStreamEvent<InstrumentKey, OrderBookEvent>>
@@ -200,7 +87,7 @@ impl<StTrades, StL1s, StL2s, StLiqs> MarketStreamManager<StTrades, StL1s, StL2s,
 
     pub fn select_liquidations<InstrumentKey>(
         &mut self,
-        key: &StreamKey<Liquidations>
+        key: &ExchangeId
     ) -> Option<StLiqs>
     where
         StLiqs: Stream<Item = MarketStreamEvent<InstrumentKey, Liquidation>>
@@ -209,43 +96,16 @@ impl<StTrades, StL1s, StL2s, StLiqs> MarketStreamManager<StTrades, StL1s, StL2s,
     }
 }
 
-pub async fn subscribe_trades<SubIter, Sub, Instrument>(
-    subscriptions: SubIter,
-) -> Result<FnvHashMap<StreamKey<PublicTrades>, impl Stream>, DataError>
-where
-    SubIter: IntoIterator<Item = Sub>,
-    Sub: Into<Subscription<ExchangeId, Instrument, PublicTrades>>,
-    Instrument: InstrumentData + Ord + 'static,
-    Subscription<ExchangeId, Instrument, PublicTrades>: Validator + Ord,
-    Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceChannel> + Identifier<BinanceMarket>,
-    Subscription<BinanceFuturesUsd, Instrument, PublicTrades>: Identifier<BinanceChannel> + Identifier<BinanceMarket>,
-    Subscription<Bitfinex, Instrument, PublicTrades>: Identifier<BitfinexChannel> + Identifier<BitfinexMarket>,
-    Subscription<Bitmex, Instrument, PublicTrades>: Identifier<BitmexChannel> + Identifier<BitmexMarket>,
-    Subscription<BybitSpot, Instrument, PublicTrades>: Identifier<BybitChannel> + Identifier<BybitMarket>,
-    Subscription<BybitPerpetualsUsd, Instrument, PublicTrades>: Identifier<BybitChannel> + Identifier<BybitMarket>,
-    Subscription<Coinbase, Instrument, PublicTrades>: Identifier<CoinbaseChannel> + Identifier<CoinbaseMarket>,
-    Subscription<GateioSpot, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-    Subscription<GateioFuturesUsd, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-    Subscription<GateioFuturesBtc, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-    Subscription<GateioPerpetualsUsd, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-    Subscription<GateioPerpetualsBtc, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-    Subscription<GateioOptions, Instrument, PublicTrades>: Identifier<GateioChannel> + Identifier<GateioMarket>,
-    Subscription<Kraken, Instrument, PublicTrades>: Identifier<KrakenChannel> + Identifier<KrakenMarket>,
-    Subscription<Okx, Instrument, PublicTrades>: Identifier<OkxChannel> + Identifier<OkxMarket>,
-{
-    subscribe::<_, _, _, PublicTrades>(subscriptions).await
-}
-
 pub async fn subscribe<SubIter, Sub, Instrument, Kind>(
     subscriptions: SubIter,
-) -> Result<FnvHashMap<StreamKey<Kind>, impl Stream>, DataError>
+) -> Result<FnvHashMap<ExchangeId, impl Stream>, DataError>
 where
     SubIter: IntoIterator<Item = Sub>,
     Sub: Into<Subscription<ExchangeId, Instrument, Kind>>,
     Instrument: InstrumentData + Ord + 'static,
-    Kind: SubscriptionKind + Ord + Hash + Display + Send + Sync + 'static,
+    Kind: SubscriptionKind + Clone + Ord + Send + 'static,
     Kind::Event: Send,
-    Subscription<ExchangeId, Instrument, Kind>: Validator + Ord,
+    Subscription<ExchangeId, Instrument, Kind>: Validator,
     BinanceSpot: StreamSelector<Instrument, Kind>,
     BinanceFuturesUsd: StreamSelector<Instrument, Kind>,
     Bitfinex: StreamSelector<Instrument, Kind>,
@@ -278,281 +138,35 @@ where
     Subscription<Okx, Instrument, Kind>: Identifier<OkxChannel> + Identifier<OkxMarket>,
 {
     // Validate & dedup Subscriptions
-    let mut subscriptions = validate_subscriptions::<SubIter, Sub, Instrument, Kind>(subscriptions)?;
+    let mut subscriptions = validate_subscriptions(subscriptions)?;
 
-    // Use first Subscription to determine InstrumentKind & SubKind for StreamKey creation
-    let sub_kind = subscriptions
-        .first()
-        .map(|sub| sub.kind.clone())
-        .ok_or(DataError::SubscriptionsEmpty)?;
-
-    // Group Subscriptions by ExchangeId
+    // Chunk by ExchangeId
     subscriptions.sort_unstable_by_key(|sub| sub.exchange);
-    let subs_by_exchange_by_sub_kind = subscriptions
+
+    let by_exchange = subscriptions
         .into_iter()
         .chunk_by(|sub| sub.exchange);
 
-    let futures = subs_by_exchange_by_sub_kind
+    let futures = by_exchange
         .into_iter()
-        .map(|(exchange, subs)| {
-            let stream_key = StreamKey {
-                exchange: Exchange::from(exchange),
-                kind: sub_kind.clone(),
-            };
-
-            async move {
-                let stream_result = match exchange {
-                    ExchangeId::BinanceSpot => {
-                        init_market_stream(
-                            stream_key.clone(),
-                            STREAM_RECONNECTION_POLICY,
-                            subs.into_iter()
-                                .map(|sub| {
-                                    Subscription::new(
-                                        BinanceSpot::default(),
-                                        sub.instrument,
-                                        sub.kind
-                                    )
-                                })
-                                .collect(),
-                        ).await.map(StreamExt::boxed)
-                    }
-                    ExchangeId::BinanceFuturesUsd => {
-                        init_market_stream(
-                            stream_key.clone(),
-                            STREAM_RECONNECTION_POLICY,
-                            subs.into_iter()
-                                .map(|sub| Subscription::<_, Instrument, _>::new(
-                                    BinanceFuturesUsd::default(),
-                                    sub.instrument,
-                                    sub.kind,
-                                ))
-                                .collect(),
-                        ).await.map(StreamExt::boxed)
-                    }
-                    ExchangeId::Bitfinex => {
-                        init_market_stream(
-                            stream_key.clone(),
-                            STREAM_RECONNECTION_POLICY,
-                            subs.into_iter()
-                                .map(|sub| {
-                                    Subscription::new(Bitfinex, sub.instrument, sub.kind)
-                                })
-                                .collect(),
-                        ).await.map(StreamExt::boxed)
-                    }
-                    ExchangeId::Bitmex => {
-                        init_market_stream(
-                            stream_key.clone(),
-                            STREAM_RECONNECTION_POLICY,
-                            subs.into_iter()
-                                .map(|sub| {
-                                    Subscription::new(Bitmex, sub.instrument, sub.kind)
-                                })
-                                .collect(),
-                        ).await.map(StreamExt::boxed)
-                    }
-                    ExchangeId::BybitSpot => {
-                        init_market_stream(
-                            stream_key.clone(),
-                            STREAM_RECONNECTION_POLICY,
-                            subs.into_iter()
-                                .map(|sub| {
-                                    Subscription::new(
-                                        BybitSpot::default(),
-                                        sub.instrument,
-                                        sub.kind,
-                                    )
-                                })
-                                .collect(),
-                        ).await.map(StreamExt::boxed)
-                    }
-                    ExchangeId::BybitPerpetualsUsd => {
-                        init_market_stream(
-                            stream_key.clone(),
-                            STREAM_RECONNECTION_POLICY,
-                            subs.into_iter()
-                                .map(|sub| {
-                                    Subscription::new(
-                                        BybitPerpetualsUsd::default(),
-                                        sub.instrument,
-                                        sub.kind,
-                                    )
-                                })
-                                .collect(),
-                        ).await.map(StreamExt::boxed)
-                    }
-                    ExchangeId::Coinbase => {
-                        init_market_stream(
-                            stream_key.clone(),
-                            STREAM_RECONNECTION_POLICY,
-                            subs.into_iter()
-                                .map(|sub| {
-                                    Subscription::new(Coinbase, sub.instrument, sub.kind)
-                                })
-                                .collect(),
-                        ).await.map(StreamExt::boxed)
-                    }
-                    ExchangeId::GateioSpot => {
-                        init_market_stream(
-                            stream_key.clone(),
-                            STREAM_RECONNECTION_POLICY,
-                            subs.into_iter()
-                                .map(|sub| {
-                                    Subscription::new(
-                                        GateioSpot::default(),
-                                        sub.instrument,
-                                        sub.kind,
-                                    )
-                                })
-                                .collect(),
-                        ).await.map(StreamExt::boxed)
-                    }
-                    ExchangeId::GateioFuturesUsd => {
-                        init_market_stream(
-                            stream_key.clone(),
-                            STREAM_RECONNECTION_POLICY,
-                            subs.into_iter()
-                                .map(|sub| {
-                                    Subscription::new(
-                                        GateioFuturesUsd::default(),
-                                        sub.instrument,
-                                        sub.kind,
-                                    )
-                                })
-                                .collect(),
-                        ).await.map(StreamExt::boxed)
-                    }
-                    ExchangeId::GateioFuturesBtc => {
-                        init_market_stream(
-                            stream_key.clone(),
-                            STREAM_RECONNECTION_POLICY,
-                            subs.into_iter()
-                                .map(|sub| {
-                                    Subscription::new(
-                                        GateioFuturesBtc::default(),
-                                        sub.instrument,
-                                        sub.kind,
-                                    )
-                                })
-                                .collect(),
-                        ).await.map(StreamExt::boxed)
-                    }
-                    ExchangeId::GateioPerpetualsBtc => {
-                        init_market_stream(
-                            stream_key.clone(),
-                            STREAM_RECONNECTION_POLICY,
-                            subs.into_iter()
-                                .map(|sub| {
-                                    Subscription::new(
-                                        GateioPerpetualsUsd::default(),
-                                        sub.instrument,
-                                        sub.kind,
-                                    )
-                                })
-                                .collect(),
-                        ).await.map(StreamExt::boxed)
-                    }
-                    ExchangeId::GateioPerpetualsUsd => {
-                        init_market_stream(
-                            stream_key.clone(),
-                            STREAM_RECONNECTION_POLICY,
-                            subs.into_iter()
-                                .map(|sub| {
-                                    Subscription::new(
-                                        GateioPerpetualsBtc::default(),
-                                        sub.instrument,
-                                        sub.kind,
-                                    )
-                                })
-                                .collect(),
-                        ).await.map(StreamExt::boxed)
-                    }
-                    ExchangeId::GateioOptions => {
-                        init_market_stream(
-                            stream_key.clone(),
-                            STREAM_RECONNECTION_POLICY,
-                            subs.into_iter()
-                                .map(|sub| {
-                                    Subscription::new(
-                                        GateioOptions::default(),
-                                        sub.instrument,
-                                        sub.kind,
-                                    )
-                                })
-                                .collect(),
-                        ).await.map(StreamExt::boxed)
-                    }
-                    ExchangeId::Kraken => {
-                        init_market_stream(
-                            stream_key.clone(),
-                            STREAM_RECONNECTION_POLICY,
-                            subs.into_iter()
-                                .map(|sub| {
-                                    Subscription::new(Kraken, sub.instrument, sub.kind)
-                                })
-                                .collect(),
-                        ).await.map(StreamExt::boxed)
-                    }
-                    ExchangeId::Okx => {
-                        init_market_stream(
-                            stream_key.clone(),
-                            STREAM_RECONNECTION_POLICY,
-                            subs.into_iter()
-                                .map(|sub| {
-                                    Subscription::new(Okx, sub.instrument, sub.kind)
-                                })
-                                .collect(),
-                        ).await.map(StreamExt::boxed)
-                    }
-                };
-
-                stream_result.map(|stream| (stream_key, stream))
-            }
+        .map(|(exchange, subs)| async move {
+            crate::match_exchange!(exchange; Exchange => {
+                init_market_stream::<Exchange, Instrument, Kind>(
+                    STREAM_RECONNECTION_POLICY,
+                    subs.into_iter()
+                        .map(|sub| Subscription::new(
+                            Exchange::default(),
+                            sub.instrument,
+                            sub.kind
+                        ))
+                        .collect()
+                ).await.map(|stream| (exchange, stream.boxed()))
+            })
         });
 
-    Ok(try_join_all(futures)
-        .await?
-        .into_iter()
-        .collect()
-    )
-}
-
-fn validate_batches<SubBatchIter, SubIter, Sub, Instrument>(
-    batches: SubBatchIter,
-) -> Result<Vec<Vec<Subscription<ExchangeId, Instrument, SubKind>>>, DataError>
-where
-    SubBatchIter: IntoIterator<Item = SubIter>,
-    SubIter: IntoIterator<Item = Sub>,
-    Sub: Into<Subscription<ExchangeId, Instrument, SubKind>>,
-    Instrument: InstrumentData + Ord,
-{
-    batches
-        .into_iter()
-        .map(validate_subscriptions_sub_kind::<SubIter, Sub, Instrument>)
-        .collect()
-}
-
-fn validate_subscriptions_sub_kind<SubIter, Sub, Instrument>(
-    batch: SubIter,
-) -> Result<Vec<Subscription<ExchangeId, Instrument, SubKind>>, DataError>
-where
-    SubIter: IntoIterator<Item = Sub>,
-    Sub: Into<Subscription<ExchangeId, Instrument, SubKind>>,
-    Instrument: InstrumentData + Ord,
-{
-    // Validate Subscriptions
-    let mut batch = batch
-        .into_iter()
-        .map(Sub::into)
-        .map(Validator::validate)
-        .collect::<Result<Vec<_>, SocketError>>()?;
-
-    // Remove duplicate Subscriptions
-    batch.sort();
-    batch.dedup();
-
-    Ok(batch)
+    try_join_all(futures)
+        .await
+        .map(|streams| streams.into_iter().collect())
 }
 
 pub fn validate_subscriptions<SubIter, Sub, Instrument, Kind>(
@@ -577,4 +191,212 @@ where
     batch.dedup();
 
     Ok(batch)
+}
+
+
+
+#[macro_export]
+macro_rules! match_exchange {
+    ($exchange_variant:expr; $exchange_ty:ident => $block:block) => {
+        match ($exchange_variant) {
+            ExchangeId::BinanceSpot => {
+                type $exchange_ty = crate::exchange::binance::spot::BinanceSpot;
+                $block
+            },
+            ExchangeId::BinanceFuturesUsd => {
+                type $exchange_ty = crate::exchange::binance::futures::BinanceFuturesUsd;
+                $block
+            },
+            ExchangeId::Bitfinex => {
+                type $exchange_ty = crate::exchange::bitfinex::Bitfinex;
+                $block
+            },
+            ExchangeId::Bitmex => {
+                type $exchange_ty = crate::exchange::bitmex::Bitmex;
+                $block
+            },
+            ExchangeId::BybitSpot => {
+                type $exchange_ty = crate::exchange::bybit::spot::BybitSpot;
+                $block
+            },
+            ExchangeId::BybitPerpetualsUsd => {
+                type $exchange_ty = crate::exchange::bybit::futures::BybitPerpetualsUsd;
+                $block
+            },
+            ExchangeId::Coinbase => {
+                type $exchange_ty = crate::exchange::coinbase::Coinbase;
+                $block
+            },
+            ExchangeId::GateioSpot => {
+                type $exchange_ty = crate::exchange::gateio::spot::GateioSpot;
+                $block
+            },
+            ExchangeId::GateioFuturesUsd => {
+                type $exchange_ty = crate::exchange::gateio::future::GateioFuturesUsd;
+                $block
+            },
+            ExchangeId::GateioFuturesBtc => {
+                type $exchange_ty = crate::exchange::gateio::future::GateioFuturesBtc;
+                $block
+            },
+            ExchangeId::GateioPerpetualsBtc => {
+                type $exchange_ty = crate::exchange::gateio::perpetual::GateioPerpetualsBtc;
+                $block
+            },
+            ExchangeId::GateioPerpetualsUsd => {
+                type $exchange_ty = crate::exchange::gateio::perpetual::GateioPerpetualsUsd;
+                $block
+            },
+            ExchangeId::GateioOptions => {
+                type $exchange_ty = crate::exchange::gateio::option::GateioOptions;
+                $block
+            },
+            ExchangeId::Kraken => {
+                type $exchange_ty = crate::exchange::kraken::Kraken;
+                $block
+            },
+            ExchangeId::Okx => {
+                type $exchange_ty = crate::exchange::okx::Okx;
+                $block
+            },
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! match_sub_kind {
+    ($sub_kind_variant:expr; $sub_kind_ty:ident => $block:block) => {{
+        match $sub_kind_variant {
+            SubKind::PublicTrades => {
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            SubKind::OrderBooksL1 => {
+                type $sub_kind_ty = crate::subscription::book::OrderBooksL1;
+                $block
+            },
+            SubKind::OrderBooksL2 => {
+                type $sub_kind_ty = crate::subscription::book::OrderBooksL2;
+                $block
+            },
+            SubKind::OrderBooksL3 => {
+                type $sub_kind_ty = crate::subscription::book::OrderBooksL3;
+                $block
+            },
+            SubKind::Liquidations => {
+                type $sub_kind_ty = crate::subscription::liquidation::Liquidations;
+                $block
+            },
+            SubKind::Candles => {
+                type $sub_kind_ty = crate::subscription::candle::Candles;
+                $block
+            }
+        }
+    }};
+}
+
+#[macro_export]
+macro_rules! match_exchange_sub_kind {
+    ($exchange_variant:expr; $sub_kind_variant:expr; $exchange_ty:ident; $sub_kind_ty:ident => $block:block) => {{
+        match ($exchange_variant, $sub_kind_variant) {
+            (ExchangeId::BinanceSpot, SubKind::PublicTrades) => {
+                type $exchange_ty = crate::exchange::binance::spot::BinanceSpot;
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            (ExchangeId::BinanceSpot, SubKind::OrderBooksL1) => {
+                type $exchange_ty = crate::exchange::binance::spot::BinanceSpot;
+                type $sub_kind_ty = crate::subscription::book::OrderBooksL1;
+                $block
+            },
+            (ExchangeId::BinanceFuturesUsd, SubKind::PublicTrades) => {
+                type $exchange_ty = crate::exchange::binance::futures::BinanceFuturesUsd;
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            (ExchangeId::BinanceFuturesUsd, SubKind::OrderBooksL1) => {
+                type $exchange_ty = crate::exchange::binance::futures::BinanceFuturesUsd;
+                type $sub_kind_ty = crate::subscription::book::OrderBooksL1;
+                $block
+            },
+            (ExchangeId::BinanceFuturesUsd, SubKind::Liquidations) => {
+                type $exchange_ty = crate::exchange::binance::futures::BinanceFuturesUsd;
+                type $sub_kind_ty = crate::subscription::liquidation::Liquidations;
+                $block
+            },
+            (ExchangeId::Bitfinex, SubKind::PublicTrades) => {
+                type $exchange_ty = crate::exchange::bitfinex::Bitfinex;
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            (ExchangeId::Bitmex, SubKind::PublicTrades) => {
+                type $exchange_ty = crate::exchange::bitmex::Bitmex;
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            (ExchangeId::BybitSpot, SubKind::PublicTrades) => {
+                type $exchange_ty = crate::exchange::bybit::spot::BybitSpot;
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            (ExchangeId::BybitPerpetualsUsd, SubKind::PublicTrades) => {
+                type $exchange_ty = crate::exchange::bybit::futures::BybitPerpetualsUsd;
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            (ExchangeId::Coinbase, SubKind::PublicTrades) => {
+                type $exchange_ty = crate::exchange::coinbase::Coinbase;
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            (ExchangeId::GateioSpot, SubKind::PublicTrades) => {
+                type $exchange_ty = crate::exchange::gateio::spot::GateioSpot;
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            (ExchangeId::GateioFuturesUsd, SubKind::PublicTrades) => {
+                type $exchange_ty = crate::exchange::gateio::future::GateioFuturesUsd;
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            (ExchangeId::GateioFuturesBtc, SubKind::PublicTrades) => {
+                type $exchange_ty = crate::exchange::gateio::future::GateioFuturesBtc;
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            (ExchangeId::GateioPerpetualsBtc, SubKind::PublicTrades) => {
+                type $exchange_ty = crate::exchange::gateio::perpetual::GateioPerpetualsBtc;
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            (ExchangeId::GateioPerpetualsUsd, SubKind::PublicTrades) => {
+                type $exchange_ty = crate::exchange::gateio::perpetual::GateioPerpetualsUsd;
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            (ExchangeId::GateioOptions, SubKind::PublicTrades) => {
+                type $exchange_ty = crate::exchange::gateio::option::GateioOptions;
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            (ExchangeId::Kraken, SubKind::PublicTrades) => {
+                type $exchange_ty = crate::exchange::kraken::Kraken;
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            (ExchangeId::Kraken, SubKind::OrderBooksL1) => {
+                type $exchange_ty = crate::exchange::kraken::Kraken;
+                type $sub_kind_ty = crate::subscription::book::OrderBooksL1;
+                $block
+            },
+            (ExchangeId::Okx, SubKind::PublicTrades) => {
+                type $exchange_ty = crate::exchange::bitfinex::Bitfinex;
+                type $sub_kind_ty = crate::subscription::trade::PublicTrades;
+                $block
+            },
+            _ => {
+                panic!("unsupported ExchangeId, SubKind combination");
+            }
+        }
+    }};
 }

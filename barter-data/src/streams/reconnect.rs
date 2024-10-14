@@ -26,31 +26,33 @@ where
 {
     /// Add an exponential backoff policy to an initialised [`ReconnectingStream`] using the
     /// provided [`ReconnectionBackoffPolicy`].
-    fn with_reconnect_backoff<St, InitError, Kind>(
+    fn with_reconnect_backoff<St, InitError>(
         self,
         policy: ReconnectionBackoffPolicy,
-        stream_key: StreamKey<Kind>,
+        // stream_key: StreamKey<Kind>,
     ) -> impl Stream<Item = St>
     where
         Self: Stream<Item = Result<St, InitError>>,
         St: Stream,
         InitError: Debug,
-        Kind: Debug,
+        // Kind: Debug,
     {
-        let stream_key = Arc::new(stream_key);
+        // let stream_key = Arc::new(stream_key);
         self.enumerate()
             .scan(
                 ReconnectionState::from(policy),
                 move |state, (attempt, result)| match result {
                     Ok(stream) => {
-                        info!(attempt, ?stream_key, "successfully initialised Stream");
+                        info!(attempt,
+                            // ?stream_key,
+                            "successfully initialised Stream");
                         state.reset_backoff();
                         futures::future::Either::Left(future::ready(Some(Ok(stream))))
                     }
                     Err(error) => {
                         warn!(
                             attempt,
-                            ?stream_key,
+                            // ?stream_key,
                             ?error,
                             "failed to re-initialise Stream"
                         );

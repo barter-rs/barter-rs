@@ -45,7 +45,7 @@ pub struct StreamKey<Kind> {
 /// The provided [`ReconnectionBackoffPolicy`] dictates how the exponential backoff scales
 /// between reconnections.
 pub async fn init_market_stream<Exchange, Instrument, Kind>(
-    stream_key: StreamKey<Kind>,
+    // stream_key: StreamKey<Kind>,
     policy: ReconnectionBackoffPolicy,
     subscriptions: Vec<Subscription<Exchange, Instrument, Kind>>,
 ) -> Result<impl Stream<Item = MarketStreamEvent<Instrument::Key, Kind::Event>>, DataError>
@@ -63,7 +63,7 @@ where
         %exchange,
         ?subscriptions,
         ?policy,
-        ?stream_key,
+        // ?stream_key,
         "MarketStream with auto reconnect running"
     );
 
@@ -72,7 +72,7 @@ where
             async move { Exchange::Stream::init(&subscriptions).await }
         })
         .await?
-        .with_reconnect_backoff(policy, stream_key)
+        .with_reconnect_backoff(policy)//, stream_key)
         .with_reconnection_events(exchange))
 }
 
