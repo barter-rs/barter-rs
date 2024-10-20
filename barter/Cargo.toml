@@ -15,7 +15,7 @@ categories = ["accessibility", "simulation"]
 [dependencies]
 # Barter Ecosystem
 barter-data = { path = "../barter-data", version = "0.9.0" }
-barter-integration = { path = "../barter-integration", version = "0.7.3" }
+barter-integration = { path = "../barter-integration", version = "0.7.4" }
 
 # Logging
 tracing = { workspace = true }

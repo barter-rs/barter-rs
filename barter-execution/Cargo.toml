@@ -1,6 +1,6 @@
 [package]
 name = "barter-execution"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 authors = ["Just A Stream <93921983+just-a-stream@users.noreply.github.com>"]
 license = "MIT"
@@ -14,7 +14,7 @@ categories = ["accessibility", "simulation"]
 
 [dependencies]
 # Barter Ecosystem
-barter-integration = { path = "../barter-integration", version = "0.7.3" }
+barter-integration = { path = "../barter-integration", version = "0.7.4" }
 barter-data = { path = "../barter-data", version = "0.9.0" }
 
 # Logging
