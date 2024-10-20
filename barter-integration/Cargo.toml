@@ -1,6 +1,6 @@
 [package]
 name = "barter-integration"
-version = "0.7.3"
+version = "0.7.4"
 authors = ["JustAStream"]
 edition = "2021"
 license = "MIT"

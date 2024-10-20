@@ -17,7 +17,7 @@ rust_decimal_macros = { workspace = true }
 
 [dependencies]
 # Barter Ecosystem
-barter-integration = { path = "../barter-integration", version = "0.7.3" }
+barter-integration = { path = "../barter-integration", version = "0.7.4" }
 barter-macro =  { path = "../barter-macro", version = "0.1.1" }
 
 # Logging
