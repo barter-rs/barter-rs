@@ -21,7 +21,8 @@ pub fn de_exchange_derive(input: TokenStream) -> TokenStream {
                 D: serde::de::Deserializer<'de>
             {
                 let input = <String as serde::Deserialize>::deserialize(deserializer)?;
-                let expected = #exchange::ID.as_str();
+                let exchange = #exchange::ID;
+                let expected = exchange.as_str();
 
                 if input.as_str() == expected {
                     Ok(Self::default())
@@ -53,8 +54,7 @@ pub fn ser_exchange_derive(input: TokenStream) -> TokenStream {
             where
                 S: serde::ser::Serializer,
             {
-                let exchange_id = #exchange::ID.as_str();
-                serializer.serialize_str(exchange_id)
+                serializer.serialize_str(#exchange::ID.as_str())
             }
         }
     };

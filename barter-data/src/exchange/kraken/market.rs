@@ -6,13 +6,14 @@ use crate::{
 };
 use barter_integration::model::instrument::{symbol::Symbol, Instrument};
 use serde::{Deserialize, Serialize};
+use smol_str::{format_smolstr, SmolStr, StrExt};
 
 /// Type that defines how to translate a Barter [`Subscription`] into a
 /// [`Kraken`] market that can be subscribed to.
 ///
 /// See docs: <https://docs.kraken.com/websockets/#message-subscribe>
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub struct KrakenMarket(pub String);
+pub struct KrakenMarket(pub SmolStr);
 
 impl<Kind> Identifier<KrakenMarket> for Subscription<Kraken, Instrument, Kind> {
     fn id(&self) -> KrakenMarket {
@@ -39,5 +40,5 @@ impl AsRef<str> for KrakenMarket {
 }
 
 fn kraken_market(base: &Symbol, quote: &Symbol) -> KrakenMarket {
-    KrakenMarket(format!("{base}/{quote}").to_uppercase())
+    KrakenMarket(format_smolstr!("{base}/{quote}").to_lowercase_smolstr())
 }

@@ -136,7 +136,7 @@ where
         // Construct mutable OrderEvent that can be modified by Allocation & Risk management
         let mut order = OrderEvent {
             time: Utc::now(),
-            exchange: signal.exchange.clone(),
+            exchange: signal.exchange,
             instrument: signal.instrument.clone(),
             market_meta: signal.market_meta,
             decision: *signal_decision,
@@ -223,7 +223,7 @@ where
                 balance.total += position.realised_profit_loss;
 
                 // Update statistics for exited Position market
-                let market_id = MarketId::new(&fill.exchange, &fill.instrument);
+                let market_id = MarketId::new(fill.exchange, &fill.instrument);
 
                 let mut stats = self.repository.get_statistics(&market_id)?;
                 stats.update(&position);
@@ -550,6 +550,7 @@ pub fn parse_signal_decisions<'a>(
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use smol_str::SmolStr;
 
     use crate::{
         execution::Fees,
@@ -562,20 +563,21 @@ pub mod tests {
         test_util::{fill_event, market_event_trade, position, signal},
     };
     use barter_integration::model::{
+        exchange::ExchangeId,
         instrument::{kind::InstrumentKind, Instrument},
-        Exchange, Side,
+        Side,
     };
 
     #[derive(Default)]
     struct MockRepository<Statistic> {
         set_open_position: Option<fn(position: Position) -> Result<(), RepositoryError>>,
         get_open_position:
-            Option<fn(position_id: &String) -> Result<Option<Position>, RepositoryError>>,
+            Option<fn(position_id: &SmolStr) -> Result<Option<Position>, RepositoryError>>,
         get_open_positions: Option<
             fn(engine_id: Uuid, markets: Vec<&Market>) -> Result<Vec<Position>, RepositoryError>,
         >,
         remove_position:
-            Option<fn(engine_id: &String) -> Result<Option<Position>, RepositoryError>>,
+            Option<fn(position_id: &SmolStr) -> Result<Option<Position>, RepositoryError>>,
         set_exited_position:
             Option<fn(engine_id: Uuid, position: Position) -> Result<(), RepositoryError>>,
         get_exited_positions: Option<fn(engine_id: Uuid) -> Result<Vec<Position>, RepositoryError>>,
@@ -609,7 +611,7 @@ pub mod tests {
 
         fn get_open_position(
             &mut self,
-            position_id: &String,
+            position_id: &SmolStr,
         ) -> Result<Option<Position>, RepositoryError> {
             self.get_open_position.unwrap()(position_id)
         }
@@ -624,7 +626,7 @@ pub mod tests {
 
         fn remove_position(
             &mut self,
-            position_id: &String,
+            position_id: &SmolStr,
         ) -> Result<Option<Position>, RepositoryError> {
             self.remove_position.unwrap()(position_id)
         }
@@ -720,7 +722,7 @@ pub mod tests {
     fn new_signal_force_exit() -> SignalForceExit {
         SignalForceExit {
             time: Utc::now(),
-            exchange: Exchange::from("binance"),
+            exchange: ExchangeId::BinanceSpot,
             instrument: Instrument::from(("eth", "usdt", InstrumentKind::Spot)),
         }
     }

@@ -4,11 +4,12 @@ use crate::{
         trade::Trade,
         AccountEvent, AccountEventKind,
     },
-    ExecutionError, ExecutionId, Open, Order,
+    ExecutionError, Open, Order,
 };
 use barter_integration::model::{
+    exchange::ExchangeId,
     instrument::{symbol::Symbol, Instrument},
-    Exchange, Side,
+    Side,
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -85,7 +86,7 @@ impl ClientBalances {
 
         AccountEvent {
             received_time: Utc::now(),
-            exchange: Exchange::from(ExecutionId::Simulated),
+            exchange: ExchangeId::Simulated,
             kind: AccountEventKind::Balance(updated_balance),
         }
     }
@@ -170,7 +171,7 @@ impl ClientBalances {
 
         AccountEvent {
             received_time: Utc::now(),
-            exchange: Exchange::from(ExecutionId::Simulated),
+            exchange: ExchangeId::Simulated,
             kind: AccountEventKind::Balances(vec![
                 SymbolBalance::new(base.clone(), base_balance),
                 SymbolBalance::new(quote.clone(), quote_balance),

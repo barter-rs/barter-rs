@@ -1,9 +1,9 @@
 use barter_data::{
-    exchange::{binance::spot::BinanceSpot, ExchangeId},
+    exchange::binance::spot::BinanceSpot,
     streams::{reconnect::stream::ReconnectingStream, Streams},
     subscription::book::OrderBooksL1,
 };
-use barter_integration::model::instrument::kind::InstrumentKind;
+use barter_integration::model::{exchange::ExchangeId, instrument::kind::InstrumentKind};
 use tokio_stream::StreamExt;
 use tracing::{info, warn};
 

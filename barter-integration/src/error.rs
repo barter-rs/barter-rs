@@ -39,7 +39,7 @@ pub enum SocketError {
     Terminated(String),
 
     #[error("{entity} does not support: {item}")]
-    Unsupported { entity: &'static str, item: String },
+    Unsupported { entity: String, item: String },
 
     #[error("WebSocket error: {0}")]
     WebSocket(#[from] tokio_tungstenite::tungstenite::Error),

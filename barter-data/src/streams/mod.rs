@@ -1,5 +1,6 @@
 use self::builder::{multi::MultiStreamBuilder, StreamBuilder};
-use crate::{exchange::ExchangeId, subscription::SubscriptionKind};
+use crate::subscription::SubscriptionKind;
+use barter_integration::model::exchange::ExchangeId;
 use fnv::FnvHashMap;
 use futures::Stream;
 use futures_util::stream::select_all;
@@ -41,7 +42,7 @@ impl<T> Streams<T> {
     }
 
     /// Remove an exchange [`mpsc::UnboundedReceiver`] from the [`Streams`] `HashMap`.
-    pub fn select(&mut self, exchange: ExchangeId) -> Option<impl Stream<Item = T>> {
+    pub fn select(&mut self, exchange: ExchangeId) -> Option<impl Stream<Item = T> + '_> {
         self.streams
             .remove(&exchange)
             .map(UnboundedReceiverStream::new)

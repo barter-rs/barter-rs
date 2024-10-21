@@ -30,9 +30,7 @@ use crate::{
     },
 };
 use async_trait::async_trait;
-use barter_integration::model::Exchange;
-use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
+use barter_integration::model::exchange::ExchangeId;
 use tokio::sync::mpsc;
 
 /// Errors generated during live, dry, or simulated execution.
@@ -53,7 +51,7 @@ pub mod simulated;
 /// implementation.
 #[async_trait]
 pub trait ExecutionClient {
-    const CLIENT: ExecutionId;
+    const CLIENT: ExchangeId;
     type Config;
 
     /// Initialise a new [`ExecutionClient`] with the provided [`Self::Config`] and
@@ -86,35 +84,6 @@ pub trait ExecutionClient {
     async fn cancel_orders_all(&self) -> Result<Vec<Order<Cancelled>>, ExecutionError>;
 }
 
-/// Unique identifier for an [`ExecutionClient`] implementation.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-#[serde(rename = "execution", rename_all = "snake_case")]
-pub enum ExecutionId {
-    Simulated,
-    Ftx,
-}
-
-impl From<ExecutionId> for Exchange {
-    fn from(execution_id: ExecutionId) -> Self {
-        Exchange::from(execution_id.as_str())
-    }
-}
-
-impl Display for ExecutionId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
-}
-
-impl ExecutionId {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            ExecutionId::Simulated => "simulated",
-            ExecutionId::Ftx => "ftx",
-        }
-    }
-}
-
 /// Utilities for generating common data structures required for testing.
 pub mod test_util {
     use crate::{
@@ -127,8 +96,9 @@ pub mod test_util {
     };
     use barter_data::subscription::trade::PublicTrade;
     use barter_integration::model::{
+        exchange::ExchangeId,
         instrument::{kind::InstrumentKind, Instrument},
-        Exchange, Side,
+        Side,
     };
 
     pub fn client_orders(
@@ -151,7 +121,7 @@ pub mod test_util {
         filled: f64,
     ) -> Order<Open> {
         Order {
-            exchange: Exchange::from("exchange"),
+            exchange: ExchangeId::Other,
             instrument: Instrument::from(("base", "quote", InstrumentKind::Perpetual)),
             cid,
             side,

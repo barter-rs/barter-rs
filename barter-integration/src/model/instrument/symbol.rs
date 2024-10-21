@@ -1,17 +1,12 @@
 use serde::{Deserialize, Deserializer, Serialize};
+use smol_str::{SmolStr, StrExt};
 use std::fmt::{Debug, Display, Formatter};
 
 /// Barter new type representing a currency symbol `String` identifier.
 ///
 /// eg/ "btc", "eth", "usdt", etc
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
-pub struct Symbol(String);
-
-impl Debug for Symbol {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+pub struct Symbol(SmolStr);
 
 impl Display for Symbol {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -36,7 +31,7 @@ impl<'de> Deserialize<'de> for Symbol {
 
 impl<S> From<S> for Symbol
 where
-    S: Into<String>,
+    S: Into<SmolStr>,
 {
     fn from(input: S) -> Self {
         Symbol::new(input)
@@ -47,8 +42,8 @@ impl Symbol {
     /// Construct a new [`Symbol`] new type using the provided `Into<Symbol>` value.
     pub fn new<S>(input: S) -> Self
     where
-        S: Into<String>,
+        S: Into<SmolStr>,
     {
-        Self(input.into().to_lowercase())
+        Self(input.into().to_lowercase_smolstr())
     }
 }

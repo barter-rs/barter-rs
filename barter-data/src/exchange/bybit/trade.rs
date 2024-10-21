@@ -3,7 +3,7 @@ use crate::{
     exchange::{bybit::message::BybitPayload, ExchangeId},
     subscription::trade::PublicTrade,
 };
-use barter_integration::model::{Exchange, Side};
+use barter_integration::model::Side;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -52,7 +52,7 @@ pub struct BybitTradeInner {
 impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, BybitTrade)>
     for MarketIter<InstrumentKey, PublicTrade>
 {
-    fn from((exchange_id, instrument, trades): (ExchangeId, InstrumentKey, BybitTrade)) -> Self {
+    fn from((exchange, instrument, trades): (ExchangeId, InstrumentKey, BybitTrade)) -> Self {
         Self(
             trades
                 .data
@@ -61,7 +61,7 @@ impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, BybitTrade)>
                     Ok(MarketEvent {
                         time_exchange: trade.time,
                         time_received: Utc::now(),
-                        exchange: Exchange::from(exchange_id),
+                        exchange,
                         instrument: instrument.clone(),
                         kind: PublicTrade {
                             id: trade.id,
@@ -85,6 +85,7 @@ mod tests {
         use barter_integration::{
             de::datetime_utc_from_epoch_duration, error::SocketError, model::SubscriptionId,
         };
+        use smol_str::ToSmolStr;
         use std::time::Duration;
 
         #[test]
@@ -160,7 +161,7 @@ mod tests {
                         }
                     "#,
                     expected: Err(SocketError::Unsupported {
-                        entity: "",
+                        entity: "".to_string(),
                         item: "".to_string(),
                     }),
                 },
@@ -223,7 +224,7 @@ mod tests {
                         }
                     "#,
                     expected: Ok(BybitTrade {
-                        subscription_id: SubscriptionId("publicTrade|BTCUSDT".to_string()),
+                        subscription_id: SubscriptionId("publicTrade|BTCUSDT".to_smolstr()),
                         r#type: "snapshot".to_string(),
                         time: datetime_utc_from_epoch_duration(Duration::from_millis(
                             1672304486868,
@@ -271,7 +272,7 @@ mod tests {
                         }
                     "#,
                     expected: Err(SocketError::Unsupported {
-                        entity: "",
+                        entity: "".to_string(),
                         item: "".to_string(),
                     }),
                 },
@@ -307,7 +308,7 @@ mod tests {
                         }
                     "#,
                     expected: Err(SocketError::Unsupported {
-                        entity: "",
+                        entity: "".to_string(),
                         item: "".to_string(),
                     }),
                 },

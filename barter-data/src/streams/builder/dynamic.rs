@@ -15,7 +15,6 @@ use crate::{
         },
         kraken::{market::KrakenMarket, Kraken},
         okx::{market::OkxMarket, Okx},
-        ExchangeId,
     },
     instrument::InstrumentData,
     streams::{
@@ -30,7 +29,7 @@ use crate::{
     },
     Identifier,
 };
-use barter_integration::{error::SocketError, Validator};
+use barter_integration::{error::SocketError, model::exchange::ExchangeId, Validator};
 use fnv::FnvHashMap;
 use futures::{
     stream::{select_all, SelectAll},

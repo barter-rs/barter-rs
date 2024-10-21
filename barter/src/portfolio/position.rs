@@ -4,10 +4,11 @@ use crate::{
     strategy::Decision,
 };
 use barter_data::event::{DataKind, MarketEvent};
-use barter_integration::model::{instrument::Instrument, Exchange, Side};
+use barter_integration::model::{exchange::ExchangeId, instrument::Instrument, Side};
 use chrono::{DateTime, Utc};
 use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
+use smol_str::{format_smolstr, SmolStr};
 use std::convert::TryFrom;
 use uuid::Uuid;
 
@@ -32,15 +33,15 @@ pub trait PositionExiter {
 }
 
 /// Communicates a String represents a unique [`Position`] identifier.
-pub type PositionId = String;
+pub type PositionId = SmolStr;
 
 /// Returns a unique identifier for a [`Position`] given an engine_id, [`Exchange`] & [`Instrument`].
 pub fn determine_position_id(
     engine_id: Uuid,
-    exchange: &Exchange,
+    exchange: &ExchangeId,
     instrument: &Instrument,
 ) -> PositionId {
-    format!("{}_{}_{}_position", engine_id, exchange, instrument)
+    format_smolstr!("{}_{}_{}_position", engine_id, exchange, instrument)
 }
 
 /// Data encapsulating the state of an ongoing or closed [`Position`].
@@ -53,7 +54,7 @@ pub struct Position {
     pub meta: PositionMeta,
 
     /// [`Exchange`] associated with this [`Position`].
-    pub exchange: Exchange,
+    pub exchange: ExchangeId,
 
     /// [`Instrument`] associated with this [`Position`].
     pub instrument: Instrument,
@@ -125,7 +126,7 @@ impl PositionEnterer for Position {
 
         Ok(Position {
             position_id: determine_position_id(engine_id, &fill.exchange, &fill.instrument),
-            exchange: fill.exchange.clone(),
+            exchange: fill.exchange,
             instrument: fill.instrument.clone(),
             meta: metadata,
             side: Position::parse_entry_side(fill)?,
@@ -265,7 +266,7 @@ impl Position {
 #[derive(Debug, Default)]
 pub struct PositionBuilder {
     pub position_id: Option<PositionId>,
-    pub exchange: Option<Exchange>,
+    pub exchange: Option<ExchangeId>,
     pub instrument: Option<Instrument>,
     pub meta: Option<PositionMeta>,
     pub side: Option<Side>,
@@ -296,7 +297,7 @@ impl PositionBuilder {
         }
     }
 
-    pub fn exchange(self, value: Exchange) -> Self {
+    pub fn exchange(self, value: ExchangeId) -> Self {
         Self {
             exchange: Some(value),
             ..self
@@ -499,7 +500,7 @@ impl Default for PositionMeta {
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct PositionUpdate {
     /// Unique identifier for a [`Position`], generated from an exchange, symbol, and enter_time.
-    pub position_id: String,
+    pub position_id: SmolStr,
     /// Event timestamp of the last event to trigger a [`Position`] update.
     pub update_time: DateTime<Utc>,
     /// Symbol current close price.
@@ -526,7 +527,7 @@ impl From<&mut Position> for PositionUpdate {
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct PositionExit {
     /// Unique identifier for a [`Position`], generated from an exchange, symbol, and enter_time.
-    pub position_id: String,
+    pub position_id: SmolStr,
 
     /// [`FillEvent`] timestamp that triggered the exiting of this [`Position`].
     pub exit_time: DateTime<Utc>,

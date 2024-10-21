@@ -27,7 +27,7 @@ impl ExecutionClient for SimulatedExecution {
 
         Ok(FillEvent {
             time: Utc::now(),
-            exchange: order.exchange.clone(),
+            exchange: order.exchange,
             instrument: order.instrument.clone(),
             market_meta: order.market_meta,
             decision: order.decision,

@@ -10,6 +10,7 @@ use crate::{
     statistic::summary::PositionSummariser,
 };
 use barter_integration::model::{Market, MarketId};
+use smol_str::SmolStr;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -59,7 +60,7 @@ impl<Statistic: PositionSummariser> PositionHandler for InMemoryRepository<Stati
 
     fn remove_position(
         &mut self,
-        position_id: &String,
+        position_id: &SmolStr,
     ) -> Result<Option<Position>, RepositoryError> {
         Ok(self.open_positions.remove(position_id))
     }

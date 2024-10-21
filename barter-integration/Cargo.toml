@@ -33,6 +33,10 @@ futures = { workspace = true }
 async-trait = { workspace = true }
 pin-project = { workspace = true }
 
+# Data Structures
+rust_decimal = { workspace = true }
+smol_str = { workspace = true, features = ["serde"]}
+
 # Protocol
 tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
 reqwest = { workspace = true, features = ["json"] }
@@ -47,4 +51,4 @@ base64 = { workspace = true }
 # Misc
 chrono = { workspace = true, features = ["serde"] }
 bytes = { workspace = true }
-rust_decimal = { workspace = true }
+derive_more = { workspace = true, features = ["display"] }

@@ -1,26 +1,30 @@
-use crate::model::instrument::{kind::InstrumentKind, symbol::Symbol, Instrument};
-use serde::{Deserialize, Deserializer, Serialize};
-use std::{
-    borrow::Cow,
-    fmt::{Debug, Display, Formatter},
+use crate::model::{
+    exchange::ExchangeId,
+    instrument::{kind::InstrumentKind, symbol::Symbol, Instrument},
 };
+use serde::{Deserialize, Serialize};
+use smol_str::{format_smolstr, SmolStr, StrExt};
+use std::fmt::{Debug, Display, Formatter};
 
 /// [`Instrument`] related data structures.
 ///
 /// eg/ `Instrument`, `InstrumentKind`, `OptionContract`, `Symbol`, etc.
 pub mod instrument;
 
+/// Defines a global [`ExchangeId`] enum covering all exchanges.
+pub mod exchange;
+
 /// Represents a unique combination of an [`Exchange`] & an [`Instrument`].
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub struct Market<InstrumentId = Instrument> {
-    pub exchange: Exchange,
+pub struct Market<InstrumentKey = Instrument> {
+    pub exchange: ExchangeId,
     #[serde(flatten)]
-    pub instrument: InstrumentId,
+    pub instrument: InstrumentKey,
 }
 
 impl<E, I, InstrumentId> From<(E, I)> for Market<InstrumentId>
 where
-    E: Into<Exchange>,
+    E: Into<ExchangeId>,
     I: Into<InstrumentId>,
 {
     fn from((exchange, instrument): (E, I)) -> Self {
@@ -30,7 +34,7 @@ where
 
 impl<E, S> From<(E, S, S, InstrumentKind)> for Market<Instrument>
 where
-    E: Into<Exchange>,
+    E: Into<ExchangeId>,
     S: Into<Symbol>,
 {
     fn from((exchange, base, quote, instrument_kind): (E, S, S, InstrumentKind)) -> Self {
@@ -42,7 +46,7 @@ impl<InstrumentId> Market<InstrumentId> {
     /// Constructs a new [`Market`] using the provided [`Exchange`] & [`Instrument`].
     pub fn new<E, I>(exchange: E, instrument: I) -> Self
     where
-        E: Into<Exchange>,
+        E: Into<ExchangeId>,
         I: Into<InstrumentId>,
     {
         Self {
@@ -58,7 +62,7 @@ impl<InstrumentId> Market<InstrumentId> {
 /// eg/ binance_(btc_spot, future_perpetual)
 /// eg/ ftx_btc_usdt_future_perpetual
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
-pub struct MarketId(pub String);
+pub struct MarketId(pub SmolStr);
 
 impl Debug for MarketId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -73,55 +77,31 @@ impl Display for MarketId {
 }
 
 impl<'de> Deserialize<'de> for MarketId {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        String::deserialize(deserializer).map(MarketId)
+    fn deserialize<D: serde::de::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        SmolStr::deserialize(deserializer).map(MarketId)
     }
 }
 
 impl<InstrumentId: Display> From<&Market<InstrumentId>> for MarketId {
     fn from(value: &Market<InstrumentId>) -> Self {
-        Self(format!("{}_{}", value.exchange, value.instrument).to_lowercase())
+        Self(format_smolstr!("{}_{}", value.exchange, value.instrument).to_lowercase_smolstr())
     }
 }
 
 impl MarketId {
     /// Construct a unique `String` [`MarketId`] identifier for a [`Market`], where a [`Market`]
     /// represents an [`Instrument`] being traded on an [`Exchange`].
-    pub fn new(exchange: &Exchange, instrument: &Instrument) -> Self {
+    pub fn new(exchange: ExchangeId, instrument: &Instrument) -> Self {
         Self(
-            format!(
+            format_smolstr!(
                 "{}_{}_{}_{}",
-                exchange, instrument.base, instrument.quote, instrument.kind
+                exchange,
+                instrument.base,
+                instrument.quote,
+                instrument.kind
             )
-            .to_lowercase(),
+            .to_lowercase_smolstr(),
         )
-    }
-}
-
-/// Barter representation of an [`Exchange`]'s name.
-///
-/// eg/ Exchange("binance_spot"), Exchange("bitfinex"), Exchange("gateio_spot"), etc.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
-pub struct Exchange(Cow<'static, str>);
-
-impl<E> From<E> for Exchange
-where
-    E: Into<Cow<'static, str>>,
-{
-    fn from(exchange: E) -> Self {
-        Exchange(exchange.into())
-    }
-}
-
-impl Debug for Exchange {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl Display for Exchange {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
     }
 }
 
@@ -136,14 +116,8 @@ impl Display for Exchange {
 ///
 /// eg/ [`SubscriptionId`] of an `FtxTrade` is "{BASE}/{QUOTE}" (ie/ market).
 /// eg/ [`SubscriptionId`] of a `BinanceTrade` is "{base}{symbol}@trade" (ie/ channel).
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
-pub struct SubscriptionId(pub String);
-
-impl Debug for SubscriptionId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub struct SubscriptionId(pub SmolStr);
 
 impl Display for SubscriptionId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -159,7 +133,7 @@ impl AsRef<str> for SubscriptionId {
 
 impl<S> From<S> for SubscriptionId
 where
-    S: Into<String>,
+    S: Into<SmolStr>,
 {
     fn from(input: S) -> Self {
         Self(input.into())
@@ -204,17 +178,17 @@ mod tests {
         let cases = vec![
             TestCase {
                 // TC0: Valid Binance btc_usd Spot Market
-                input: r##"{ "exchange": "binance", "base": "btc", "quote": "usd", "instrument_kind": "spot" }"##,
+                input: r##"{ "exchange": "binance_spot", "base": "btc", "quote": "usd", "instrument_kind": "spot" }"##,
                 expected: Ok(Market {
-                    exchange: Exchange::from("binance"),
+                    exchange: ExchangeId::BinanceSpot,
                     instrument: Instrument::from(("btc", "usd", InstrumentKind::Spot)),
                 }),
             },
             TestCase {
                 // TC1: Valid Ftx btc_usd FuturePerpetual Market
-                input: r##"{ "exchange": "ftx_old", "base": "btc", "quote": "usd", "instrument_kind": "perpetual" }"##,
+                input: r##"{ "exchange": "other", "base": "btc", "quote": "usd", "instrument_kind": "perpetual" }"##,
                 expected: Ok(Market {
-                    exchange: Exchange::from("ftx_old"),
+                    exchange: ExchangeId::Other,
                     instrument: Instrument::from(("btc", "usd", InstrumentKind::Perpetual)),
                 }),
             },

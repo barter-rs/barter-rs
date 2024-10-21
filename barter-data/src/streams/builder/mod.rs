@@ -1,7 +1,7 @@
 use super::Streams;
 use crate::{
     error::DataError,
-    exchange::{ExchangeId, StreamSelector},
+    exchange::StreamSelector,
     instrument::InstrumentData,
     streams::{
         consumer::{init_market_stream, MarketStreamResult, STREAM_RECONNECTION_POLICY},
@@ -10,7 +10,7 @@ use crate::{
     subscription::{Subscription, SubscriptionKind},
     Identifier,
 };
-use barter_integration::Validator;
+use barter_integration::{model::exchange::ExchangeId, Validator};
 use futures_util::StreamExt;
 use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 use tokio::sync::mpsc;

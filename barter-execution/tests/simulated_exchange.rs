@@ -18,6 +18,7 @@ use barter_integration::model::{
     instrument::{kind::InstrumentKind, symbol::Symbol, Instrument},
     Side,
 };
+use smol_str::ToSmolStr;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
@@ -482,8 +483,8 @@ async fn test_7_send_market_event_that_exact_full_matches_order(
             ..
         }) => {
             let expected = Trade {
-                id: TradeId(1.to_string()),
-                order_id: OrderId(3.to_string()),
+                id: TradeId(1.to_smolstr()),
+                order_id: OrderId(3.to_smolstr()),
                 instrument: Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
                 side: Side::Buy,
                 price: 200.0,
@@ -715,8 +716,8 @@ async fn test_10_send_market_event_that_full_and_partial_matches_orders(
             ..
         }) => {
             let expected = Trade {
-                id: TradeId(2.to_string()),
-                order_id: OrderId(4.to_string()),
+                id: TradeId(2.to_smolstr()),
+                order_id: OrderId(4.to_smolstr()),
                 instrument: Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
                 side: Side::Sell,
                 price: 500.0,
@@ -772,8 +773,8 @@ async fn test_10_send_market_event_that_full_and_partial_matches_orders(
             ..
         }) => {
             let expected = Trade {
-                id: TradeId(3.to_string()),
-                order_id: OrderId(5.to_string()),
+                id: TradeId(3.to_smolstr()),
+                order_id: OrderId(5.to_smolstr()),
                 instrument: Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
                 side: Side::Sell,
                 price: 1000.0,
