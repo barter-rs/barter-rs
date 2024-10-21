@@ -14,10 +14,11 @@ use barter_execution::{
     simulated::{execution::SimulatedExecution, SimulatedEvent},
     ExecutionClient,
 };
-use barter_integration::model::{
-    instrument::{kind::InstrumentKind, symbol::Symbol, Instrument},
-    Side,
+use barter_instrument::{
+    asset::symbol::Symbol,
+    instrument::{kind::InstrumentKind, Instrument},
 };
+use barter_integration::Side;
 use smol_str::ToSmolStr;
 use tokio::sync::mpsc;
 use uuid::Uuid;

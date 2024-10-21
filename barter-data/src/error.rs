@@ -1,8 +1,6 @@
 use crate::subscription::SubKind;
-use barter_integration::{
-    error::SocketError,
-    model::{exchange::ExchangeId, SubscriptionId},
-};
+use barter_instrument::exchange::ExchangeId;
+use barter_integration::{error::SocketError, subscription::SubscriptionId};
 use thiserror::Error;
 
 /// All errors generated in `barter-data`.

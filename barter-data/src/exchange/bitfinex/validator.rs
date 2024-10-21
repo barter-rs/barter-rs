@@ -8,11 +8,11 @@ use crate::{
 use async_trait::async_trait;
 use barter_integration::{
     error::SocketError,
-    model::SubscriptionId,
     protocol::{
         websocket::{WebSocket, WebSocketParser, WsMessage},
         StreamParser,
     },
+    subscription::SubscriptionId,
     Validator,
 };
 use futures::StreamExt;

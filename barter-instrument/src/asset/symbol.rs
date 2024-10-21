@@ -1,6 +1,6 @@
 use serde::{Deserialize, Deserializer, Serialize};
 use smol_str::{SmolStr, StrExt};
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Display, Formatter};
 
 /// Barter new type representing a currency symbol `String` identifier.
 ///

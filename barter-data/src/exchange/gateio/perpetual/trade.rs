@@ -1,11 +1,12 @@
 use super::super::message::GateioMessage;
 use crate::{
     event::{MarketEvent, MarketIter},
-    exchange::{ExchangeId, ExchangeSub},
+    exchange::ExchangeSub,
     subscription::trade::PublicTrade,
     Identifier,
 };
-use barter_integration::model::{Side, SubscriptionId};
+use barter_instrument::exchange::ExchangeId;
+use barter_integration::{subscription::SubscriptionId, Side};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

@@ -2,15 +2,13 @@ use crate::{
     exchange::Connector,
     instrument::{InstrumentData, KeyedInstrument},
 };
+use barter_instrument::{
+    asset::symbol::Symbol,
+    exchange::ExchangeId,
+    instrument::{kind::InstrumentKind, Instrument},
+};
 use barter_integration::{
-    error::SocketError,
-    model::{
-        exchange::ExchangeId,
-        instrument::{kind::InstrumentKind, symbol::Symbol, Instrument},
-        SubscriptionId,
-    },
-    protocol::websocket::WsMessage,
-    Validator,
+    error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId, Validator,
 };
 use derive_more::Display;
 use fnv::FnvHashMap;
@@ -158,7 +156,7 @@ pub fn exchange_supports_instrument_kind(
     exchange: ExchangeId,
     instrument_kind: InstrumentKind,
 ) -> bool {
-    use ExchangeId::*;
+    use barter_instrument::exchange::ExchangeId::*;
     use InstrumentKind::*;
 
     match (exchange, instrument_kind) {
@@ -219,7 +217,7 @@ pub fn exchange_supports_instrument_kind_sub_kind(
     instrument_kind: InstrumentKind,
     sub_kind: SubKind,
 ) -> bool {
-    use ExchangeId::*;
+    use barter_instrument::exchange::ExchangeId::*;
     use InstrumentKind::*;
     use SubKind::*;
 
@@ -305,7 +303,7 @@ mod tests {
             exchange::{coinbase::Coinbase, okx::Okx},
             subscription::trade::PublicTrades,
         };
-        use barter_integration::model::instrument::kind::InstrumentKind;
+        use barter_instrument::instrument::Instrument;
 
         mod de {
             use super::*;
@@ -317,6 +315,7 @@ mod tests {
                 },
                 subscription::{book::OrderBooksL2, trade::PublicTrades},
             };
+            use barter_instrument::instrument::Instrument;
 
             #[test]
             fn test_subscription_okx_spot_public_trades() {
@@ -506,7 +505,7 @@ mod tests {
 
     mod instrument_map {
         use super::*;
-        use barter_integration::model::instrument::{kind::InstrumentKind, Instrument};
+        use barter_instrument::instrument::Instrument;
 
         #[test]
         fn test_find_instrument() {

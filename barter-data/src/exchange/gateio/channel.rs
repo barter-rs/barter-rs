@@ -3,7 +3,7 @@ use crate::{
     subscription::{trade::PublicTrades, Subscription},
     Identifier,
 };
-use barter_integration::model::instrument::kind::InstrumentKind;
+use barter_instrument::instrument::kind::InstrumentKind;
 use serde::Serialize;
 
 /// Type that defines how to translate a Barter [`Subscription`] into a

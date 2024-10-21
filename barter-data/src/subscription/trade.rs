@@ -1,5 +1,5 @@
 use super::SubscriptionKind;
-use barter_integration::model::Side;
+use barter_integration::Side;
 use barter_macro::{DeSubKind, SerSubKind};
 use derive_more::Display;
 use serde::{Deserialize, Serialize};

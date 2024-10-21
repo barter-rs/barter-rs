@@ -3,7 +3,7 @@ use barter_data::{
     streams::{reconnect::stream::ReconnectingStream, Streams},
     subscription::trade::PublicTrades,
 };
-use barter_integration::model::instrument::kind::InstrumentKind;
+use barter_instrument::instrument::kind::InstrumentKind;
 use futures_util::StreamExt;
 use tracing::{info, warn};
 

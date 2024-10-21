@@ -20,10 +20,10 @@ use barter_data::{
     event::{DataKind, MarketEvent},
     subscription::candle::Candle,
 };
-use barter_integration::model::{
+use barter_instrument::{
     exchange::ExchangeId,
     instrument::{kind::InstrumentKind, Instrument},
-    Market,
+    market::Market,
 };
 use chrono::Utc;
 use parking_lot::Mutex;

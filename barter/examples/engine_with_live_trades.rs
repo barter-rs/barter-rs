@@ -22,10 +22,10 @@ use barter_data::{
     streams::{consumer::MarketStreamEvent, reconnect::stream::ReconnectingStream, Streams},
     subscription::trade::PublicTrades,
 };
-use barter_integration::model::{
+use barter_instrument::{
     exchange::ExchangeId,
     instrument::{kind::InstrumentKind, Instrument},
-    Market,
+    market::Market,
 };
 use futures::Stream;
 use parking_lot::Mutex;

@@ -4,7 +4,7 @@ use crate::{
     subscription::Subscription,
     Identifier,
 };
-use barter_integration::model::instrument::{symbol::Symbol, Instrument};
+use barter_instrument::{asset::symbol::Symbol, instrument::Instrument};
 use serde::{Deserialize, Serialize};
 use smol_str::{format_smolstr, SmolStr, StrExt};
 

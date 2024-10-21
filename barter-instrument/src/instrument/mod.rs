@@ -1,9 +1,8 @@
-use crate::model::instrument::{kind::InstrumentKind, symbol::Symbol};
+use crate::{asset::symbol::Symbol, instrument::kind::InstrumentKind};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
 pub mod kind;
-pub mod symbol;
 
 /// Barter representation of an `Instrument`. Used to uniquely identify a `base_quote` pair, and it's
 /// associated instrument type.
@@ -53,9 +52,13 @@ impl Instrument {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::model::instrument::kind::{
-        FutureContract, InstrumentKind, OptionContract, OptionExercise, OptionKind,
+    use crate::instrument::{
+        kind::{
+            future::FutureContract,
+            option::{OptionContract, OptionExercise, OptionKind},
+            InstrumentKind,
+        },
+        Instrument,
     };
     use chrono::{TimeZone, Utc};
     use rust_decimal_macros::dec;

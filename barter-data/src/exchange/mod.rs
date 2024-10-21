@@ -5,9 +5,8 @@ use crate::{
     subscription::{Map, SubscriptionKind},
     MarketStream, SnapshotFetcher,
 };
-use barter_integration::{
-    error::SocketError, model::exchange::ExchangeId, protocol::websocket::WsMessage, Validator,
-};
+use barter_instrument::exchange::ExchangeId;
+use barter_integration::{error::SocketError, protocol::websocket::WsMessage, Validator};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, time::Duration};
 use url::Url;

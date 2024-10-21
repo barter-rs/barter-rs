@@ -3,7 +3,7 @@ use crate::portfolio::{
     repository::error::RepositoryError,
     Balance,
 };
-use barter_integration::model::{Market, MarketId};
+use barter_instrument::market::{Market, MarketId};
 use uuid::Uuid;
 
 /// Barter repository module specific errors.

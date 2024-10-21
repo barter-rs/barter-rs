@@ -1,9 +1,10 @@
 use crate::{
     event::{MarketEvent, MarketIter},
-    exchange::{bybit::message::BybitPayload, ExchangeId},
+    exchange::bybit::message::BybitPayload,
     subscription::trade::PublicTrade,
 };
-use barter_integration::model::Side;
+use barter_instrument::exchange::ExchangeId;
+use barter_integration::Side;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -83,7 +84,7 @@ mod tests {
     mod de {
         use super::*;
         use barter_integration::{
-            de::datetime_utc_from_epoch_duration, error::SocketError, model::SubscriptionId,
+            de::datetime_utc_from_epoch_duration, error::SocketError, subscription::SubscriptionId,
         };
         use smol_str::ToSmolStr;
         use std::time::Duration;

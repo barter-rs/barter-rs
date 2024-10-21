@@ -1,6 +1,6 @@
 use crate::data::MarketMeta;
 use barter_data::event::{DataKind, MarketEvent};
-use barter_integration::model::{exchange::ExchangeId, instrument::Instrument, Market};
+use barter_instrument::{exchange::ExchangeId, instrument::Instrument, market::Market};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

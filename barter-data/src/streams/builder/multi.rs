@@ -2,7 +2,7 @@ use super::{ExchangeChannel, StreamBuilder, Streams};
 use crate::{
     error::DataError, streams::consumer::MarketStreamResult, subscription::SubscriptionKind,
 };
-use barter_integration::model::exchange::ExchangeId;
+use barter_instrument::exchange::ExchangeId;
 use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 
 /// Communicative type alias representing the [`Future`] result of a [`StreamBuilder::init`] call

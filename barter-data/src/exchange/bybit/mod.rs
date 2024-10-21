@@ -5,7 +5,7 @@ use crate::{
             subscription::BybitResponse,
         },
         subscription::ExchangeSub,
-        Connector, ExchangeId, ExchangeServer, PingInterval, StreamSelector,
+        Connector, ExchangeServer, PingInterval, StreamSelector,
     },
     instrument::InstrumentData,
     subscriber::{validator::WebSocketSubValidator, WebSocketSubscriber},
@@ -13,6 +13,7 @@ use crate::{
     transformer::stateless::StatelessTransformer,
     ExchangeWsStream, NoInitialSnapshots,
 };
+use barter_instrument::exchange::ExchangeId;
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
 use serde::de::{Error, Unexpected};
 use std::{fmt::Debug, marker::PhantomData, time::Duration};

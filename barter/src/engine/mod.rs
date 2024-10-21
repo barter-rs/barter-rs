@@ -12,7 +12,10 @@ use crate::{
     strategy::SignalGenerator,
 };
 use barter_data::event::{DataKind, MarketEvent};
-use barter_integration::model::{instrument::Instrument, Market, MarketId};
+use barter_instrument::{
+    instrument::Instrument,
+    market::{Market, MarketId},
+};
 use parking_lot::Mutex;
 use prettytable::Table;
 use serde::Serialize;
@@ -26,7 +29,7 @@ use uuid::Uuid;
 pub mod error;
 
 /// Contains the trading event loop for a Trader capable of trading a single market pair. A Trader
-/// has it's own Data handler, Strategy & Execution handler, as well as shared access to a global
+/// has its own Data handler, Strategy & Execution handler, as well as shared access to a global
 /// Portfolio instance.
 pub mod trader;
 

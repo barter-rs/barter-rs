@@ -45,7 +45,7 @@
 //!
 //!
 //! use barter::{data::{Feed, historical, MarketGenerator}, test_util};
-//! use barter_integration::model::Side;
+//! use barter_integration::Side;
 //!
 //! let mut data = historical::MarketFeed::new([test_util::market_event_trade(Side::Buy)].into_iter());
 //!
@@ -64,7 +64,7 @@
 //!     strategy::{SignalGenerator, example::{Config as StrategyConfig, RSIStrategy}},
 //!     test_util,
 //! };
-//! use barter_integration::model::Side;
+//! use barter_integration::Side;
 //!
 //! let config = StrategyConfig {
 //!     rsi_period: 14,
@@ -94,10 +94,11 @@
 //!     event::Event,
 //!     test_util,
 //! };
-//! use barter_integration::model::{Market, instrument::kind::InstrumentKind};
 //! use std::marker::PhantomData;
 //! use uuid::Uuid;
-//! use barter_integration::model::exchange::ExchangeId;
+//! use barter_instrument::exchange::ExchangeId;
+//! use barter_instrument::instrument::kind::InstrumentKind;
+//! use barter_instrument::market::Market;
 //!
 //! let components = PortfolioLego {
 //!     engine_id: Uuid::new_v4(),
@@ -257,11 +258,11 @@ pub mod test_util {
         event::{DataKind, MarketEvent},
         subscription::{candle::Candle, trade::PublicTrade},
     };
-    use barter_integration::model::{
+    use barter_instrument::{
         exchange::ExchangeId,
         instrument::{kind::InstrumentKind, Instrument},
-        Side,
     };
+    use barter_integration::Side;
     use chrono::Utc;
     use smol_str::ToSmolStr;
     use std::ops::Add;

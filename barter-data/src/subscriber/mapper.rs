@@ -4,7 +4,7 @@ use crate::{
     subscription::{Map, Subscription, SubscriptionKind, SubscriptionMeta},
     Identifier,
 };
-use barter_integration::model::SubscriptionId;
+use barter_integration::subscription::SubscriptionId;
 use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 

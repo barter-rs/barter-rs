@@ -1,8 +1,6 @@
-use std::borrow::Cow;
-
+use barter_instrument::asset::symbol::Symbol;
 use barter_integration::{
     error::SocketError,
-    model::instrument::symbol::Symbol,
     protocol::http::{
         private::{encoder::HexEncoder, RequestSigner, Signer},
         rest::{client::RestClient, RestRequest},
@@ -13,6 +11,7 @@ use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use reqwest::{RequestBuilder, StatusCode};
 use serde::Deserialize;
+use std::borrow::Cow;
 use thiserror::Error;
 
 struct FtxSigner {

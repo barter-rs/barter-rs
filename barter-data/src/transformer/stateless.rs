@@ -7,10 +7,9 @@ use crate::{
     Identifier,
 };
 use async_trait::async_trait;
+use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
-    model::{exchange::ExchangeId, SubscriptionId},
-    protocol::websocket::WsMessage,
-    Transformer,
+    protocol::websocket::WsMessage, subscription::SubscriptionId, Transformer,
 };
 use serde::Deserialize;
 use std::marker::PhantomData;

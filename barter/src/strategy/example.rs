@@ -1,7 +1,7 @@
 use super::{Decision, Signal, SignalGenerator, SignalStrength};
 use crate::data::MarketMeta;
 use barter_data::event::{DataKind, MarketEvent};
-use barter_integration::model::instrument::Instrument;
+use barter_instrument::instrument::Instrument;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

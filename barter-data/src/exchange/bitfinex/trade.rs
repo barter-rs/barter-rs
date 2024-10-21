@@ -1,11 +1,11 @@
 use crate::{
     event::{MarketEvent, MarketIter},
-    exchange::ExchangeId,
     subscription::trade::PublicTrade,
 };
+use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
     de::{datetime_utc_from_epoch_duration, extract_next},
-    model::Side,
+    Side,
 };
 use chrono::{DateTime, Utc};
 use serde::Serialize;

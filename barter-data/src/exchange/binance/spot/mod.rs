@@ -4,12 +4,13 @@ use crate::{
         binance::spot::l2::{
             BinanceSpotOrderBooksL2SnapshotFetcher, BinanceSpotOrderBooksL2Transformer,
         },
-        ExchangeId, StreamSelector,
+        StreamSelector,
     },
     instrument::InstrumentData,
     subscription::book::OrderBooksL2,
     ExchangeWsStream,
 };
+use barter_instrument::exchange::ExchangeId;
 
 /// Level 2 OrderBook types.
 pub mod l2;

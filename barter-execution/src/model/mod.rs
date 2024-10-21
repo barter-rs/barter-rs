@@ -3,7 +3,7 @@ use self::{
     order::{Cancelled, Open, Order},
     trade::Trade,
 };
-use barter_integration::model::exchange::ExchangeId;
+use barter_instrument::exchange::ExchangeId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt::Formatter;

@@ -1,4 +1,4 @@
-use crate::model::SubscriptionId;
+use crate::subscription::SubscriptionId;
 use reqwest::Error;
 use thiserror::Error;
 

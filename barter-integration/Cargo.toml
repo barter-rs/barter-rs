@@ -13,6 +13,7 @@ categories = ["accessibility", "simulation"]
 
 [dev-dependencies]
 rust_decimal_macros = { workspace = true }
+barter-instrument = { path = "../barter-instrument", version = "0.1.0" }
 
 [dependencies]
 # Logging

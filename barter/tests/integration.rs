@@ -17,9 +17,8 @@ use barter::{
     strategy::example::{Config as StrategyConfig, RSIStrategy},
     test_util::market_event_trade,
 };
-use barter_integration::model::{
-    exchange::ExchangeId, instrument::kind::InstrumentKind, Market, Side,
-};
+use barter_instrument::{exchange::ExchangeId, instrument::kind::InstrumentKind, market::Market};
+use barter_integration::Side;
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::mpsc;

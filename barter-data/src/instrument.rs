@@ -1,4 +1,4 @@
-use barter_integration::model::instrument::{kind::InstrumentKind, Instrument};
+use barter_instrument::instrument::{kind::InstrumentKind, Instrument};
 use derive_more::{Constructor, Display};
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;

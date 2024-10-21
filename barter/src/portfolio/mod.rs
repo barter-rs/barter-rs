@@ -6,7 +6,7 @@ use crate::{
     strategy::{Decision, Signal, SignalForceExit},
 };
 use barter_data::event::{DataKind, MarketEvent};
-use barter_integration::model::{exchange::ExchangeId, instrument::Instrument};
+use barter_instrument::{exchange::ExchangeId, instrument::Instrument};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

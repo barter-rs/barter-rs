@@ -1,13 +1,14 @@
 use crate::{
     exchange::{
         gateio::{perpetual::trade::GateioFuturesTrades, Gateio},
-        ExchangeId, ExchangeServer, StreamSelector,
+        ExchangeServer, StreamSelector,
     },
     instrument::InstrumentData,
     subscription::trade::PublicTrades,
     transformer::stateless::StatelessTransformer,
     ExchangeWsStream, NoInitialSnapshots,
 };
+use barter_instrument::exchange::ExchangeId;
 
 /// [`GateioFuturesUsd`] WebSocket server base url.
 ///

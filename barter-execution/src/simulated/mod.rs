@@ -1,6 +1,6 @@
 use crate::{Cancelled, ExecutionError, Open, Order, RequestCancel, RequestOpen, SymbolBalance};
 use barter_data::subscription::trade::PublicTrade;
-use barter_integration::model::instrument::Instrument;
+use barter_instrument::instrument::Instrument;
 use tokio::sync::oneshot;
 
 /// Simulated Exchange using public trade `Streams` to model available market liquidity. Liquidity
