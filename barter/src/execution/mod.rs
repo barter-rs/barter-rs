@@ -1,5 +1,5 @@
 use crate::{data::MarketMeta, portfolio::OrderEvent, strategy::Decision};
-use barter_integration::model::{instrument::Instrument, Exchange};
+use barter_integration::model::{exchange::ExchangeId, instrument::Instrument};
 use chrono::{DateTime, Utc};
 use error::ExecutionError;
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,7 @@ pub trait ExecutionClient {
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct FillEvent {
     pub time: DateTime<Utc>,
-    pub exchange: Exchange,
+    pub exchange: ExchangeId,
     pub instrument: Instrument,
     /// Metadata propagated from source MarketEvent
     pub market_meta: MarketMeta,
@@ -69,7 +69,7 @@ pub type FeeAmount = f64;
 #[derive(Debug, Default)]
 pub struct FillEventBuilder {
     pub time: Option<DateTime<Utc>>,
-    pub exchange: Option<Exchange>,
+    pub exchange: Option<ExchangeId>,
     pub instrument: Option<Instrument>,
     pub market_meta: Option<MarketMeta>,
     pub decision: Option<Decision>,
@@ -90,7 +90,7 @@ impl FillEventBuilder {
         }
     }
 
-    pub fn exchange(self, value: Exchange) -> Self {
+    pub fn exchange(self, value: ExchangeId) -> Self {
         Self {
             exchange: Some(value),
             ..self

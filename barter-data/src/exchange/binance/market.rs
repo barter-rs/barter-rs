@@ -6,6 +6,7 @@ use crate::{
 };
 use barter_integration::model::instrument::{symbol::Symbol, Instrument};
 use serde::{Deserialize, Serialize};
+use smol_str::{format_smolstr, SmolStr, StrExt};
 
 /// Type that defines how to translate a Barter [`Subscription`] into a [`Binance`]
 /// market that can be subscribed to.
@@ -13,7 +14,7 @@ use serde::{Deserialize, Serialize};
 /// See docs: <https://binance-docs.github.io/apidocs/spot/en/#websocket-market-streams>
 /// See docs: <https://binance-docs.github.io/apidocs/futures/en/#websocket-market-streams>
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub struct BinanceMarket(pub String);
+pub struct BinanceMarket(pub SmolStr);
 
 impl<Server, Kind> Identifier<BinanceMarket> for Subscription<Binance<Server>, Instrument, Kind> {
     fn id(&self) -> BinanceMarket {
@@ -50,5 +51,5 @@ pub(in crate::exchange::binance) fn binance_market(base: &Symbol, quote: &Symbol
     // Notes:
     // - Must be lowercase when subscribing (transformed to lowercase by Binance fn requests).
     // - Must be uppercase since Binance sends message with uppercase MARKET (eg/ BTCUSDT).
-    BinanceMarket(format!("{base}{quote}").to_uppercase())
+    BinanceMarket(format_smolstr!("{base}{quote}").to_uppercase_smolstr())
 }

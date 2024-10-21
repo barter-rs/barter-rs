@@ -7,7 +7,7 @@ use crate::{
 };
 use barter_integration::{
     de::{datetime_utc_from_epoch_duration, extract_next},
-    model::{Exchange, Side, SubscriptionId},
+    model::{Side, SubscriptionId},
 };
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -61,7 +61,7 @@ fn custom_kraken_trade_id(trade: &KrakenTrade) -> String {
 impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, KrakenTrades)>
     for MarketIter<InstrumentKey, PublicTrade>
 {
-    fn from((exchange_id, instrument, trades): (ExchangeId, InstrumentKey, KrakenTrades)) -> Self {
+    fn from((exchange, instrument, trades): (ExchangeId, InstrumentKey, KrakenTrades)) -> Self {
         match trades {
             KrakenTrades::Data(trades) => trades
                 .trades
@@ -70,7 +70,7 @@ impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, KrakenTrades)>
                     Ok(MarketEvent {
                         time_exchange: trade.time,
                         time_received: Utc::now(),
-                        exchange: Exchange::from(exchange_id),
+                        exchange,
                         instrument: instrument.clone(),
                         kind: PublicTrade {
                             id: custom_kraken_trade_id(&trade),

@@ -40,7 +40,7 @@ impl SignalGenerator for RSIStrategy {
 
         Some(Signal {
             time: Utc::now(),
-            exchange: market.exchange.clone(),
+            exchange: market.exchange,
             instrument: market.instrument.clone(),
             market_meta: MarketMeta {
                 close: candle_close,

@@ -89,7 +89,7 @@
 use crate::{
     error::DataError,
     event::MarketEvent,
-    exchange::{Connector, ExchangeId, PingInterval},
+    exchange::{Connector, PingInterval},
     instrument::InstrumentData,
     subscriber::{Subscribed, Subscriber},
     subscription::{Subscription, SubscriptionKind},
@@ -98,6 +98,7 @@ use crate::{
 use async_trait::async_trait;
 use barter_integration::{
     error::SocketError,
+    model::exchange::ExchangeId,
     protocol::{
         websocket::{WebSocketParser, WsMessage, WsSink, WsStream},
         StreamParser,

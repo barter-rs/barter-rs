@@ -5,6 +5,7 @@ pub mod trading;
 
 use crate::portfolio::position::Position;
 use prettytable::{Cell, Row, Table};
+use smol_str::SmolStr;
 
 pub trait Initialiser {
     type Config: Copy;
@@ -57,7 +58,7 @@ pub trait TableBuilder {
 
 pub fn combine<Iter, T>(builders: Iter) -> Table
 where
-    Iter: IntoIterator<Item = (String, T)>,
+    Iter: IntoIterator<Item = (SmolStr, T)>,
     T: TableBuilder,
 {
     builders

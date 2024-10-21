@@ -3,7 +3,7 @@ use crate::{
     exchange::{bitmex::message::BitmexMessage, ExchangeId},
     subscription::trade::PublicTrade,
 };
-use barter_integration::model::{Exchange, Side};
+use barter_integration::model::Side;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -52,7 +52,7 @@ pub struct BitmexTradeInner {
 impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, BitmexTrade)>
     for MarketIter<InstrumentKey, PublicTrade>
 {
-    fn from((exchange_id, instrument, trades): (ExchangeId, InstrumentKey, BitmexTrade)) -> Self {
+    fn from((exchange, instrument, trades): (ExchangeId, InstrumentKey, BitmexTrade)) -> Self {
         Self(
             trades
                 .data
@@ -61,7 +61,7 @@ impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, BitmexTrade)>
                     Ok(MarketEvent {
                         time_exchange: trade.timestamp,
                         time_received: Utc::now(),
-                        exchange: Exchange::from(exchange_id),
+                        exchange,
                         instrument: instrument.clone(),
                         kind: PublicTrade {
                             id: trade.id,

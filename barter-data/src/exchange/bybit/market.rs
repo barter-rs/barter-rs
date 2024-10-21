@@ -6,13 +6,14 @@ use crate::{
 };
 use barter_integration::model::instrument::{symbol::Symbol, Instrument};
 use serde::{Deserialize, Serialize};
+use smol_str::{format_smolstr, SmolStr, StrExt};
 
 /// Type that defines how to translate a Barter [`Subscription`] into a [`Bybit`]
 /// market that can be subscribed to.
 ///
 /// See docs: <https://bybit-exchange.github.io/docs/v5/ws/connect>
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub struct BybitMarket(pub String);
+pub struct BybitMarket(pub SmolStr);
 
 impl<Server, Kind> Identifier<BybitMarket> for Subscription<Bybit<Server>, Instrument, Kind> {
     fn id(&self) -> BybitMarket {
@@ -43,5 +44,5 @@ impl AsRef<str> for BybitMarket {
 fn bybit_market(base: &Symbol, quote: &Symbol) -> BybitMarket {
     // Notes:
     // - Must be uppercase since Bybit sends message with uppercase MARKET (eg/ BTCUSDT).
-    BybitMarket(format!("{base}{quote}").to_uppercase())
+    BybitMarket(format_smolstr!("{base}{quote}").to_uppercase_smolstr())
 }

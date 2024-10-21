@@ -16,6 +16,7 @@ use barter_integration::model::{instrument::Instrument, Market, MarketId};
 use parking_lot::Mutex;
 use prettytable::Table;
 use serde::Serialize;
+use smol_str::ToSmolStr;
 use std::{collections::HashMap, fmt::Debug, sync::Arc, thread};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info, warn};
@@ -351,7 +352,7 @@ where
 
         // Combine Total & Per-Market Statistics Into Table
         crate::statistic::summary::combine(
-            stats_per_market.chain([("Total".to_owned(), self.statistics_summary)]),
+            stats_per_market.chain([("Total".to_smolstr(), self.statistics_summary)]),
         )
     }
 }

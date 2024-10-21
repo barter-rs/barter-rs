@@ -67,16 +67,18 @@ where
         FnIsTerminal: Fn(&E) -> bool + Copy,
     {
         self.map(move |stream| {
-            tokio_stream::StreamExt::map_while(stream, move |result| match result {
-                Ok(item) => Some(Ok(item)),
-                Err(error) if is_terminal(&error) => {
-                    error!(
-                        ?stream_key,
-                        "MarketStream encountered terminal error that requires reconnecting"
-                    );
-                    None
+            tokio_stream::StreamExt::map_while(stream, {
+                move |result| match result {
+                    Ok(item) => Some(Ok(item)),
+                    Err(error) if is_terminal(&error) => {
+                        error!(
+                            ?stream_key,
+                            "MarketStream encountered terminal error that requires reconnecting"
+                        );
+                        None
+                    }
+                    Err(error) => Some(Err(error)),
                 }
-                Err(error) => Some(Err(error)),
             })
         })
     }

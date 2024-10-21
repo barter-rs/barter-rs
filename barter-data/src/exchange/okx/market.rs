@@ -13,13 +13,14 @@ use chrono::{
     DateTime, Utc,
 };
 use serde::{Deserialize, Serialize};
+use smol_str::{format_smolstr, SmolStr, StrExt};
 
 /// Type that defines how to translate a Barter [`Subscription`] into a
 /// [`Okx`] market that can be subscribed to.
 ///
 /// See docs: <https://www.okx.com/docs-v5/en/#websocket-api-public-channel>
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub struct OkxMarket(pub String);
+pub struct OkxMarket(pub SmolStr);
 
 impl<Kind> Identifier<OkxMarket> for Subscription<Okx, Instrument, Kind> {
     fn id(&self) -> OkxMarket {
@@ -50,10 +51,11 @@ fn okx_market(instrument: &Instrument) -> OkxMarket {
     let Instrument { base, quote, kind } = instrument;
 
     OkxMarket(match kind {
-        Spot => format!("{base}-{quote}").to_uppercase(),
-        Future(future) => format!("{base}-{quote}-{}", format_expiry(future.expiry)).to_uppercase(),
-        Perpetual => format!("{base}-{quote}-SWAP").to_uppercase(),
-        Option(option) => format!(
+        Spot => format_smolstr!("{base}-{quote}").to_uppercase_smolstr(),
+        Future(future) => format_smolstr!("{base}-{quote}-{}", format_expiry(future.expiry))
+            .to_uppercase_smolstr(),
+        Perpetual => format_smolstr!("{base}-{quote}-SWAP").to_uppercase_smolstr(),
+        Option(option) => format_smolstr!(
             "{base}-{quote}-{}-{}-{}",
             format_expiry(option.expiry),
             option.strike,
@@ -62,7 +64,7 @@ fn okx_market(instrument: &Instrument) -> OkxMarket {
                 OptionKind::Put => "P",
             },
         )
-        .to_uppercase(),
+        .to_uppercase_smolstr(),
     })
 }
 

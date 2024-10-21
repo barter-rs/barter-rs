@@ -5,6 +5,7 @@ use crate::{
 use barter_data::subscription::trade::PublicTrade;
 use barter_integration::model::{instrument::Instrument, Side};
 use serde::{Deserialize, Serialize};
+use smol_str::ToSmolStr;
 use std::{cmp::Ordering, collections::HashMap};
 
 /// [`ClientAccount`](super::ClientAccount) [`Orders`] for each [`Instrument`].
@@ -60,7 +61,7 @@ impl ClientOrders {
 
     /// Generate a unique [`OrderId`].
     pub fn order_id(&self) -> OrderId {
-        OrderId(self.request_counter.to_string())
+        OrderId(self.request_counter.to_smolstr())
     }
 }
 
@@ -226,7 +227,7 @@ impl Orders {
     /// Use the `trade_counter` value to generate a unique [`TradeId`] for this [`Instrument`]
     /// market.
     pub fn trade_id(&self) -> TradeId {
-        TradeId(self.trade_counter.to_string())
+        TradeId(self.trade_counter.to_smolstr())
     }
 
     /// Simulates [`Side::Sell`] trades by using the [`PublicTrade`] liquidity to match on open
@@ -458,7 +459,7 @@ mod tests {
                     vec![],
                 ),
                 expected_trades: vec![trade(
-                    TradeId(1.to_string()),
+                    TradeId(1.to_smolstr()),
                     Side::Buy,
                     200.0,
                     1.0,
@@ -480,14 +481,14 @@ mod tests {
                 expected_orders: client_orders(2, vec![], vec![]),
                 expected_trades: vec![
                     trade(
-                        TradeId(1.to_string()),
+                        TradeId(1.to_smolstr()),
                         Side::Buy,
                         200.0,
                         1.0,
                         SymbolFees::new("base", 0.1 * 1.0),
                     ),
                     trade(
-                        TradeId(2.to_string()),
+                        TradeId(2.to_smolstr()),
                         Side::Buy,
                         100.0,
                         1.0,
@@ -514,14 +515,14 @@ mod tests {
                 ),
                 expected_trades: vec![
                     trade(
-                        TradeId(1.to_string()),
+                        TradeId(1.to_smolstr()),
                         Side::Buy,
                         200.0,
                         1.0,
                         SymbolFees::new("base", 0.1 * 1.0),
                     ),
                     trade(
-                        TradeId(2.to_string()),
+                        TradeId(2.to_smolstr()),
                         Side::Buy,
                         100.0,
                         0.5,
@@ -595,7 +596,7 @@ mod tests {
                     vec![order_open(cid, Side::Sell, 200.0, 1.0, 0.0)],
                 ),
                 expected_trades: vec![trade(
-                    TradeId(1.to_string()),
+                    TradeId(1.to_smolstr()),
                     Side::Sell,
                     100.0,
                     1.0,
@@ -617,14 +618,14 @@ mod tests {
                 expected_orders: client_orders(2, vec![], vec![]),
                 expected_trades: vec![
                     trade(
-                        TradeId(1.to_string()),
+                        TradeId(1.to_smolstr()),
                         Side::Sell,
                         100.0,
                         1.0,
                         SymbolFees::new("quote", 0.1 * 100.0 * 1.0),
                     ),
                     trade(
-                        TradeId(2.to_string()),
+                        TradeId(2.to_smolstr()),
                         Side::Sell,
                         200.0,
                         1.0,
@@ -651,14 +652,14 @@ mod tests {
                 ),
                 expected_trades: vec![
                     trade(
-                        TradeId(1.to_string()),
+                        TradeId(1.to_smolstr()),
                         Side::Sell,
                         100.0,
                         1.0,
                         SymbolFees::new("quote", 0.1 * 100.0 * 1.0),
                     ),
                     trade(
-                        TradeId(2.to_string()),
+                        TradeId(2.to_smolstr()),
                         Side::Sell,
                         200.0,
                         0.5,

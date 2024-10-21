@@ -1,6 +1,7 @@
 use crate::{exchange::bitmex::trade::BitmexTrade, Identifier};
 use barter_integration::model::SubscriptionId;
 use serde::{Deserialize, Serialize};
+use smol_str::format_smolstr;
 
 /// ### Raw Payload Examples
 /// See docs: <https://www.bitmex.com/app/wsAPI#Response-Format>
@@ -36,7 +37,7 @@ impl Identifier<Option<SubscriptionId>> for BitmexTrade {
     fn id(&self) -> Option<SubscriptionId> {
         self.data
             .first()
-            .map(|trade| SubscriptionId(format!("{}|{}", self.table, trade.symbol)))
+            .map(|trade| SubscriptionId(format_smolstr!("{}|{}", self.table, trade.symbol)))
             .or(None)
     }
 }

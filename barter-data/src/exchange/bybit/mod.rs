@@ -126,12 +126,14 @@ where
         D: serde::de::Deserializer<'de>,
     {
         let input = <&str as serde::Deserialize>::deserialize(deserializer)?;
-        let expected = Self::ID.as_str();
 
         if input == Self::ID.as_str() {
             Ok(Self::default())
         } else {
-            Err(Error::invalid_value(Unexpected::Str(input), &expected))
+            Err(Error::invalid_value(
+                Unexpected::Str(input),
+                &Self::ID.as_str(),
+            ))
         }
     }
 }
@@ -144,7 +146,6 @@ where
     where
         S: serde::ser::Serializer,
     {
-        let exchange_id = Self::ID.as_str();
-        serializer.serialize_str(exchange_id)
+        serializer.serialize_str(Self::ID.as_str())
     }
 }

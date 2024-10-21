@@ -21,10 +21,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use barter_integration::{
-    error::SocketError,
-    model::{Exchange, SubscriptionId},
-    protocol::websocket::WsMessage,
-    Transformer,
+    error::SocketError, model::SubscriptionId, protocol::websocket::WsMessage, Transformer,
 };
 use chrono::{DateTime, Utc};
 use futures_util::future::try_join_all;
@@ -341,7 +338,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceSpotOrderBookL2Updat
         Self(vec![Ok(MarketEvent {
             time_exchange: update.time_exchange,
             time_received: Utc::now(),
-            exchange: Exchange::from(exchange_id),
+            exchange: exchange_id,
             instrument,
             kind: OrderBookEvent::Update(OrderBook::new(
                 update.last_update_id,

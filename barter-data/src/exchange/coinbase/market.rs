@@ -6,13 +6,14 @@ use crate::{
 };
 use barter_integration::model::instrument::{symbol::Symbol, Instrument};
 use serde::{Deserialize, Serialize};
+use smol_str::{format_smolstr, SmolStr, StrExt};
 
 /// Type that defines how to translate a Barter [`Subscription`] into a
-/// [`Coinbase`](super::Coinbase) market that can be subscribed to.
+/// [`Coinbase`] market that can be subscribed to.
 ///
 /// See docs: <https://docs.cloud.coinbase.com/exchange/docs/websocket-overview#subscribe>
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub struct CoinbaseMarket(pub String);
+pub struct CoinbaseMarket(pub SmolStr);
 
 impl<Kind> Identifier<CoinbaseMarket> for Subscription<Coinbase, Instrument, Kind> {
     fn id(&self) -> CoinbaseMarket {
@@ -39,5 +40,5 @@ impl AsRef<str> for CoinbaseMarket {
 }
 
 fn coinbase_market(base: &Symbol, quote: &Symbol) -> CoinbaseMarket {
-    CoinbaseMarket(format!("{base}-{quote}").to_uppercase())
+    CoinbaseMarket(format_smolstr!("{base}-{quote}").to_uppercase_smolstr())
 }

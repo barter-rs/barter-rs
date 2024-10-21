@@ -28,6 +28,10 @@ futures = { workspace = true }
 async-trait = { workspace = true }
 pin-project = { workspace = true }
 
+# Data Structures
+parking_lot = { workspace = true }
+smol_str = { workspace = true }
+
 # Error
 thiserror = { workspace = true }
 
@@ -37,9 +41,6 @@ serde_json = { workspace = true }
 
 # Protocol
 reqwest = { workspace = true, features = ["rustls-tls", "json"] }
-
-# Data Structures
-parking_lot = { workspace = true }
 
 # Misc
 uuid = { workspace = true, features = ["v4", "serde"]}

@@ -1,7 +1,7 @@
 use crate::{
     error::DataError,
     event::MarketEvent,
-    exchange::{ExchangeId, StreamSelector},
+    exchange::StreamSelector,
     instrument::InstrumentData,
     streams::{
         reconnect,
@@ -12,6 +12,7 @@ use crate::{
     subscription::{Subscription, SubscriptionKind},
     Identifier, MarketStream,
 };
+use barter_integration::model::exchange::ExchangeId;
 use futures::Stream;
 use serde::{Deserialize, Serialize};
 use tracing::info;

@@ -1,8 +1,8 @@
 use super::{ExchangeChannel, StreamBuilder, Streams};
 use crate::{
-    error::DataError, exchange::ExchangeId, streams::consumer::MarketStreamResult,
-    subscription::SubscriptionKind,
+    error::DataError, streams::consumer::MarketStreamResult, subscription::SubscriptionKind,
 };
+use barter_integration::model::exchange::ExchangeId;
 use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 
 /// Communicative type alias representing the [`Future`] result of a [`StreamBuilder::init`] call
@@ -56,7 +56,7 @@ impl<Output> MultiStreamBuilder<Output> {
         let mut exchange_txs = HashMap::with_capacity(builder.channels.len());
 
         // Iterate over each StreamBuilder exchange present
-        for exchange in builder.channels.keys().copied() {
+        for exchange in builder.channels.keys().cloned() {
             // Insert ExchangeChannel<Output> Entry to Self for each exchange
             let exchange_tx = self.channels.entry(exchange).or_default().tx.clone();
 

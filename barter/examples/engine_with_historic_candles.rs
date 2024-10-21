@@ -21,8 +21,9 @@ use barter_data::{
     subscription::candle::Candle,
 };
 use barter_integration::model::{
+    exchange::ExchangeId,
     instrument::{kind::InstrumentKind, Instrument},
-    Exchange, Market,
+    Market,
 };
 use chrono::Utc;
 use parking_lot::Mutex;
@@ -45,7 +46,10 @@ async fn main() {
     let engine_id = Uuid::new_v4();
 
     // Create the Market(s) to be traded on (1-to-1 relationship with a Trader)
-    let market = Market::new("binance", ("btc", "usdt", InstrumentKind::Spot));
+    let market = Market::new(
+        ExchangeId::BinanceSpot,
+        ("btc", "usdt", InstrumentKind::Spot),
+    );
 
     // Build global shared-state MetaPortfolio (1-to-1 relationship with an Engine)
     let portfolio = Arc::new(Mutex::new(
@@ -129,7 +133,7 @@ fn load_json_market_event_candles() -> Vec<MarketEvent<Instrument, DataKind>> {
         .map(|candle| MarketEvent {
             time_exchange: candle.close_time,
             time_received: Utc::now(),
-            exchange: Exchange::from("binance"),
+            exchange: ExchangeId::BinanceSpot,
             instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
             kind: DataKind::Candle(candle),
         })

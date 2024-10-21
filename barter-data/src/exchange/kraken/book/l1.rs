@@ -6,10 +6,7 @@ use crate::{
     subscription::book::OrderBookL1,
     Identifier,
 };
-use barter_integration::{
-    de::extract_next,
-    model::{Exchange, SubscriptionId},
-};
+use barter_integration::{de::extract_next, model::SubscriptionId};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -65,7 +62,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, KrakenOrderBookL1)>
             KrakenOrderBookL1::Data(book) => Self(vec![Ok(MarketEvent {
                 time_exchange: book.spread.time,
                 time_received: Utc::now(),
-                exchange: Exchange::from(exchange_id),
+                exchange: exchange_id,
                 instrument,
                 kind: OrderBookL1 {
                     last_update_time: book.spread.time,

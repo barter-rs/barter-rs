@@ -11,11 +11,11 @@ use barter_execution::{
         },
         SimulatedEvent,
     },
-    ExecutionId,
 };
 use barter_integration::model::{
+    exchange::ExchangeId,
     instrument::{kind::InstrumentKind, symbol::Symbol, Instrument},
-    Exchange, Side,
+    Side,
 };
 use std::{collections::HashMap, time::Duration};
 use tokio::sync::mpsc;
@@ -82,7 +82,7 @@ where
     I: Into<Instrument>,
 {
     Order {
-        exchange: Exchange::from(ExecutionId::Simulated),
+        exchange: ExchangeId::Simulated,
         instrument: instrument.into(),
         cid,
         side,
@@ -108,7 +108,7 @@ where
     I: Into<Instrument>,
 {
     Order {
-        exchange: Exchange::from(ExecutionId::Simulated),
+        exchange: ExchangeId::Simulated,
         instrument: instrument.into(),
         cid,
         side,
@@ -133,7 +133,7 @@ where
     Id: Into<OrderId>,
 {
     Order {
-        exchange: Exchange::from(ExecutionId::Simulated),
+        exchange: ExchangeId::Simulated,
         instrument: instrument.into(),
         cid,
         side,
@@ -153,7 +153,7 @@ where
     Id: Into<OrderId>,
 {
     Order {
-        exchange: Exchange::from(ExecutionId::Simulated),
+        exchange: ExchangeId::Simulated,
         instrument: instrument.into(),
         cid,
         side,
