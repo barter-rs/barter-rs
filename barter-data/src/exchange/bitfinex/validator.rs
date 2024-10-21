@@ -6,12 +6,11 @@ use crate::{
     Identifier,
 };
 use async_trait::async_trait;
-use barter_integration::protocol::websocket::WsMessage;
 use barter_integration::{
     error::SocketError,
     model::SubscriptionId,
     protocol::{
-        websocket::{WebSocket, WebSocketParser},
+        websocket::{WebSocket, WebSocketParser, WsMessage},
         StreamParser,
     },
     Validator,

@@ -3,11 +3,10 @@ use crate::{
     subscription::{Map, SubscriptionKind},
 };
 use async_trait::async_trait;
-use barter_integration::protocol::websocket::WsMessage;
 use barter_integration::{
     error::SocketError,
     protocol::{
-        websocket::{WebSocket, WebSocketParser},
+        websocket::{WebSocket, WebSocketParser, WsMessage},
         StreamParser,
     },
     Validator,

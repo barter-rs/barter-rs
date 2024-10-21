@@ -1,11 +1,15 @@
 use super::{Binance, ExchangeServer};
-use crate::exchange::binance::spot::l2::{
-    BinanceSpotOrderBooksL2SnapshotFetcher, BinanceSpotOrderBooksL2Transformer,
+use crate::{
+    exchange::{
+        binance::spot::l2::{
+            BinanceSpotOrderBooksL2SnapshotFetcher, BinanceSpotOrderBooksL2Transformer,
+        },
+        ExchangeId, StreamSelector,
+    },
+    instrument::InstrumentData,
+    subscription::book::OrderBooksL2,
+    ExchangeWsStream,
 };
-use crate::exchange::{ExchangeId, StreamSelector};
-use crate::instrument::InstrumentData;
-use crate::subscription::book::OrderBooksL2;
-use crate::ExchangeWsStream;
 
 /// Level 2 OrderBook types.
 pub mod l2;

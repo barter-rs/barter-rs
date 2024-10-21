@@ -1,9 +1,11 @@
-use crate::streams::consumer::MarketStreamResult;
-use crate::subscription::book::OrderBookEvent;
 use crate::{
     error::DataError,
+    streams::consumer::MarketStreamResult,
     subscription::{
-        book::OrderBookL1, candle::Candle, liquidation::Liquidation, trade::PublicTrade,
+        book::{OrderBookEvent, OrderBookL1},
+        candle::Candle,
+        liquidation::Liquidation,
+        trade::PublicTrade,
     },
 };
 use barter_integration::model::{instrument::Instrument, Exchange};

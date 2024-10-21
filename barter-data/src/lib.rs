@@ -86,26 +86,26 @@
 //! }
 //! ```
 
-use crate::subscriber::Subscribed;
 use crate::{
     error::DataError,
     event::MarketEvent,
     exchange::{Connector, ExchangeId, PingInterval},
     instrument::InstrumentData,
-    subscriber::Subscriber,
+    subscriber::{Subscribed, Subscriber},
     subscription::{Subscription, SubscriptionKind},
     transformer::ExchangeTransformer,
 };
 use async_trait::async_trait;
-use barter_integration::error::SocketError;
-use barter_integration::protocol::StreamParser;
 use barter_integration::{
-    protocol::websocket::{WebSocketParser, WsMessage, WsSink, WsStream},
+    error::SocketError,
+    protocol::{
+        websocket::{WebSocketParser, WsMessage, WsSink, WsStream},
+        StreamParser,
+    },
     ExchangeStream, Transformer,
 };
 use futures::{SinkExt, Stream, StreamExt};
-use std::collections::VecDeque;
-use std::future::Future;
+use std::{collections::VecDeque, future::Future};
 use tokio::sync::mpsc;
 use tracing::{debug, error, warn};
 

@@ -1,13 +1,14 @@
 use self::liquidation::BinanceLiquidation;
 use super::{Binance, ExchangeServer};
-use crate::exchange::binance::futures::l2::{
-    BinanceFuturesUsdOrderBooksL2SnapshotFetcher, BinanceFuturesUsdOrderBooksL2Transformer,
-};
-use crate::subscription::book::OrderBooksL2;
 use crate::{
-    exchange::{ExchangeId, StreamSelector},
+    exchange::{
+        binance::futures::l2::{
+            BinanceFuturesUsdOrderBooksL2SnapshotFetcher, BinanceFuturesUsdOrderBooksL2Transformer,
+        },
+        ExchangeId, StreamSelector,
+    },
     instrument::InstrumentData,
-    subscription::liquidation::Liquidations,
+    subscription::{book::OrderBooksL2, liquidation::Liquidations},
     transformer::stateless::StatelessTransformer,
     ExchangeWsStream, NoInitialSnapshots,
 };

@@ -1,9 +1,9 @@
-use barter_data::books::manager::init_multi_order_book_l2_manager;
-use barter_data::books::map::OrderBookMap;
-use barter_data::exchange::binance::spot::BinanceSpot;
-use barter_data::subscription::book::OrderBooksL2;
-use barter_integration::model::instrument::kind::InstrumentKind;
-use barter_integration::model::instrument::Instrument;
+use barter_data::{
+    books::{manager::init_multi_order_book_l2_manager, map::OrderBookMap},
+    exchange::binance::spot::BinanceSpot,
+    subscription::book::OrderBooksL2,
+};
+use barter_integration::model::instrument::{kind::InstrumentKind, Instrument};
 use std::time::Duration;
 use tracing::info;
 

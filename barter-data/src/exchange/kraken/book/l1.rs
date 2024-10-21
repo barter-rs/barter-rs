@@ -1,6 +1,6 @@
 use super::super::KrakenMessage;
-use crate::books::Level;
 use crate::{
+    books::Level,
     event::{MarketEvent, MarketIter},
     exchange::{kraken::channel::KrakenChannel, subscription::ExchangeSub, ExchangeId},
     subscription::book::OrderBookL1,

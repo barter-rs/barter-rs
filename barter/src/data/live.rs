@@ -1,10 +1,13 @@
 use super::{Feed, MarketGenerator};
-use barter_data::event::{DataKind, MarketEvent};
-use barter_data::streams::consumer::MarketStreamEvent;
-use barter_data::streams::reconnect;
+use barter_data::{
+    event::{DataKind, MarketEvent},
+    streams::{consumer::MarketStreamEvent, reconnect},
+};
 use barter_integration::model::instrument::Instrument;
-use futures::executor::{block_on_stream, BlockingStream};
-use futures::Stream;
+use futures::{
+    executor::{block_on_stream, BlockingStream},
+    Stream,
+};
 use tokio::sync::mpsc;
 
 /// Live [`Feed`] of market events.

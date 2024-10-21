@@ -2,8 +2,7 @@ use crate::books::OrderBook;
 use derive_more::Constructor;
 use fnv::FnvHashMap;
 use parking_lot::RwLock;
-use std::hash::Hash;
-use std::sync::Arc;
+use std::{hash::Hash, sync::Arc};
 
 /// Collection of shared-state Instrument [`OrderBook`]s. Manage the local books using
 /// the [`super::manager`] module, and then clone the map for viewing the up to

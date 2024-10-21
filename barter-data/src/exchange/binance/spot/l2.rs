@@ -1,21 +1,31 @@
 use super::super::book::BinanceLevel;
-use crate::books::OrderBook;
-use crate::error::DataError;
-use crate::event::{MarketEvent, MarketIter};
-use crate::exchange::binance::book::l2::{BinanceOrderBookL2Meta, BinanceOrderBookL2Snapshot};
-use crate::exchange::binance::market::BinanceMarket;
-use crate::exchange::binance::spot::BinanceSpot;
-use crate::exchange::{Connector, ExchangeId};
-use crate::instrument::InstrumentData;
-use crate::subscription::book::{OrderBookEvent, OrderBooksL2};
-use crate::subscription::{Map, Subscription};
-use crate::transformer::ExchangeTransformer;
-use crate::{Identifier, SnapshotFetcher};
+use crate::{
+    books::OrderBook,
+    error::DataError,
+    event::{MarketEvent, MarketIter},
+    exchange::{
+        binance::{
+            book::l2::{BinanceOrderBookL2Meta, BinanceOrderBookL2Snapshot},
+            market::BinanceMarket,
+            spot::BinanceSpot,
+        },
+        Connector, ExchangeId,
+    },
+    instrument::InstrumentData,
+    subscription::{
+        book::{OrderBookEvent, OrderBooksL2},
+        Map, Subscription,
+    },
+    transformer::ExchangeTransformer,
+    Identifier, SnapshotFetcher,
+};
 use async_trait::async_trait;
-use barter_integration::error::SocketError;
-use barter_integration::model::{Exchange, SubscriptionId};
-use barter_integration::protocol::websocket::WsMessage;
-use barter_integration::Transformer;
+use barter_integration::{
+    error::SocketError,
+    model::{Exchange, SubscriptionId},
+    protocol::websocket::WsMessage,
+    Transformer,
+};
 use chrono::{DateTime, Utc};
 use futures_util::future::try_join_all;
 use serde::{Deserialize, Serialize};

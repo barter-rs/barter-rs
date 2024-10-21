@@ -1,9 +1,11 @@
 use super::{super::channel::BinanceChannel, BinanceLevel};
-use crate::books::OrderBook;
-use crate::event::MarketEvent;
-use crate::exchange::ExchangeId;
-use crate::subscription::book::OrderBookEvent;
-use crate::{exchange::subscription::ExchangeSub, Identifier};
+use crate::{
+    books::OrderBook,
+    event::MarketEvent,
+    exchange::{subscription::ExchangeSub, ExchangeId},
+    subscription::book::OrderBookEvent,
+    Identifier,
+};
 use barter_integration::model::{Exchange, SubscriptionId};
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;

@@ -1,6 +1,8 @@
 use super::{ExchangeChannel, StreamBuilder, Streams};
-use crate::streams::consumer::MarketStreamResult;
-use crate::{error::DataError, exchange::ExchangeId, subscription::SubscriptionKind};
+use crate::{
+    error::DataError, exchange::ExchangeId, streams::consumer::MarketStreamResult,
+    subscription::SubscriptionKind,
+};
 use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 
 /// Communicative type alias representing the [`Future`] result of a [`StreamBuilder::init`] call

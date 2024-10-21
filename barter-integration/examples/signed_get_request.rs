@@ -28,7 +28,10 @@ struct FtxSignConfig<'a> {
 }
 
 impl Signer for FtxSigner {
-    type Config<'a> = FtxSignConfig<'a> where Self: 'a;
+    type Config<'a>
+        = FtxSignConfig<'a>
+    where
+        Self: 'a;
 
     fn config<'a, Request>(
         &'a self,
