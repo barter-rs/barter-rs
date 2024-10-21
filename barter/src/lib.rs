@@ -240,7 +240,7 @@
 /// several key metrics such as Sharpe Ratio, Calmar Ratio, and Max Drawdown.
 // pub mod statistic;
 
-/// Multi-threaded trading Engine capable of trading with an arbitrary number market pairs. Contains
+/// Multithreaded trading Engine capable of trading with an arbitrary number market pairs. Contains
 /// a Trader for each Market pair that consists of it's own Data, Strategy &
 /// Execution components, as well as shared access to a global Portfolio.
 // pub mod engine;

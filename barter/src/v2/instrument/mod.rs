@@ -1,17 +1,51 @@
-use crate::v2::instrument::asset::AssetId;
-use barter_integration::model::{exchange::ExchangeId, instrument::kind::InstrumentKind};
+use crate::v2::instrument::asset::{AssetId};
+use barter_integration::model::{exchange::ExchangeId};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use chrono::{DateTime, Utc};
+use smol_str::SmolStr;
+use barter_integration::model::instrument::kind::{FutureContract, OptionContract};
 
 pub mod asset;
+pub mod map;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
-pub struct Instrument<InstrumentKey> {
-    pub id: InstrumentKey,
+pub struct KeyedInstrument<Key, Data> {
+    pub key: Key,
+    pub instrument: Data
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
+pub struct Instrument {
     pub exchange: ExchangeId,
-    pub name_exchange: String,
+    pub name_internal: SmolStr,
+    pub name_exchange: SmolStr,
     pub kind: InstrumentKind,
     pub spec: InstrumentSpec,
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
+pub enum InstrumentKind<AssetKey = AssetId> {
+    Spot {
+        base_asset_id: AssetKey,
+    },
+    Perpetual {
+        base_asset_id: AssetKey,
+        quote_asset_id: AssetKey,
+        settlement_asset_id: AssetKey,
+    },
+    Future {
+        base_asset_id: AssetKey,
+        quote_asset_id: AssetKey,
+        settlement_asset_id: AssetKey,
+        contract: FutureContract,
+    },
+    Option {
+        base_asset_id: AssetKey,
+        quote_asset_id: AssetKey,
+        settlement_asset_id: AssetKey,
+        contract: OptionContract,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]

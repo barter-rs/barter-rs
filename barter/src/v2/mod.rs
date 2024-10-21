@@ -43,8 +43,6 @@ pub mod trade;
 //  - Find suitable place & usage of trait EngineClock.
 //   '--> Just Auditor? in EngineState, or perhaps just Engine?
 //  - Change all state update implementations to add new Entries without key clone if they have not been seen
-//  - Change OrderBook flow so DefaultMarketState actually has a RwLock<OrderBook>
-//    '--> upgrade to latest thinking on the topic, too
 
 // Todo: Nice To Have:
 //  - Utility for AssetKey, InstrumentKey lookups, as well as constructing Instruments contracts, etc

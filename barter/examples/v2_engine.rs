@@ -84,7 +84,7 @@ async fn main() {
             .map(|instrument| InstrumentState {
                 market: MarketState::default(),
                 orders: Orders::default(),
-                position: Position::new_flat(instrument.id, "default"),
+                position: Position::new_flat(instrument.key, "default"),
                 instrument,
             })
             .collect(),
@@ -209,7 +209,7 @@ fn init_channels() -> (
 fn instruments() -> Vec<Instrument<InstrumentId>> {
     vec![
         Instrument {
-            id: InstrumentId(1),
+            key: InstrumentId(1),
             exchange: ExchangeId::BinanceSpot,
             name_exchange: "BTCUSDT".to_string(),
             kind: InstrumentKind::Spot,
@@ -227,7 +227,7 @@ fn instruments() -> Vec<Instrument<InstrumentId>> {
             },
         },
         Instrument {
-            id: InstrumentId(2),
+            key: InstrumentId(2),
             exchange: ExchangeId::BinanceSpot,
             name_exchange: "ETHUSDT".to_string(),
             kind: InstrumentKind::Spot,
@@ -245,7 +245,7 @@ fn instruments() -> Vec<Instrument<InstrumentId>> {
             },
         },
         Instrument {
-            id: InstrumentId(3),
+            key: InstrumentId(3),
             exchange: ExchangeId::BinanceSpot,
             name_exchange: "SOLUSDT".to_string(),
             kind: InstrumentKind::Spot,
@@ -274,7 +274,7 @@ async fn init_market_link(
         [Subscription::<ExchangeId, MarketInstrumentData>::new(
             instrument.exchange,
             MarketInstrumentData {
-                id: instrument.id,
+                id: instrument.key,
                 name_exchange: instrument.name_exchange.clone(),
                 kind: instrument.kind,
             },

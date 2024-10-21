@@ -4,10 +4,11 @@ use crate::v2::{
     instrument::Instrument,
 };
 use futures::Stream;
+use crate::v2::instrument::KeyedInstrument;
 
 pub async fn init<AssetKey, InstrumentKey>(
     _execution_rx: impl Stream<Item = ExecutionRequest<InstrumentKey>>,
-    _instruments: &[Instrument<InstrumentKey>],
+    _instruments: &[KeyedInstrument<InstrumentKey, Instrument>],
 ) -> Result<impl Stream<Item = AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>, EngineError>
 {
     Ok(futures::stream::iter([]))

@@ -23,6 +23,7 @@ use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
 use tracing::warn;
+use crate::v2::instrument::KeyedInstrument;
 
 pub mod market_data;
 pub mod order;
@@ -35,7 +36,7 @@ pub struct Instruments<InstrumentKey: Eq + Hash, MarketState>(
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct InstrumentState<InstrumentKey, MarketState> {
-    pub instrument: Instrument<InstrumentKey>,
+    pub instrument: KeyedInstrument<InstrumentKey, Instrument>,
     pub market: MarketState,
     pub orders: Orders<InstrumentKey>,
     pub position: Position<InstrumentKey>,
@@ -224,7 +225,7 @@ where
     ) -> Self {
         Instruments(
             iter.into_iter()
-                .map(|state| (state.instrument.id.clone(), state))
+                .map(|state| (state.instrument.key.clone(), state))
                 .collect(),
         )
     }
