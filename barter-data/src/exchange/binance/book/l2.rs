@@ -6,7 +6,7 @@ use crate::{
     subscription::book::OrderBookEvent,
     Identifier,
 };
-use barter_integration::model::{Exchange, SubscriptionId};
+use barter_integration::model::SubscriptionId;
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
@@ -74,7 +74,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceOrderBookL2Snapshot)
         Self {
             time_exchange: snapshot.time_exchange.unwrap_or(time_received),
             time_received,
-            exchange: Exchange::from(exchange),
+            exchange,
             instrument,
             kind: OrderBookEvent::from(snapshot),
         }

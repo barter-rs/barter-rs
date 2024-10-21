@@ -2,18 +2,14 @@ use self::subscription::ExchangeSub;
 use crate::{
     instrument::InstrumentData,
     subscriber::{validator::SubscriptionValidator, Subscriber},
-    subscription::{Map, SubKind, SubscriptionKind},
+    subscription::{Map, SubscriptionKind},
     MarketStream, SnapshotFetcher,
 };
 use barter_integration::{
-    error::SocketError, model::instrument::kind::InstrumentKind, protocol::websocket::WsMessage,
-    Validator,
+    error::SocketError, model::exchange::ExchangeId, protocol::websocket::WsMessage, Validator,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{
-    fmt::{Debug, Display},
-    time::Duration,
-};
+use std::{fmt::Debug, time::Duration};
 use url::Url;
 
 /// `BinanceSpot` & `BinanceFuturesUsd` [`Connector`] and [`StreamSelector`] implementations.
@@ -160,125 +156,4 @@ pub trait ExchangeServer: Default + Debug + Clone + Send {
 pub struct PingInterval {
     pub interval: tokio::time::Interval,
     pub ping: fn() -> WsMessage,
-}
-
-/// Unique identifier an exchange server [`Connector`].
-///
-/// ### Notes
-/// An exchange may server different [`InstrumentKind`]
-/// market data on distinct servers (eg/ Binance, Gateio). Such exchanges have multiple [`Self`]
-/// variants, and often utilise the [`ExchangeServer`] trait.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-#[serde(rename = "exchange", rename_all = "snake_case")]
-pub enum ExchangeId {
-    BinanceSpot,
-    BinanceFuturesUsd,
-    Bitfinex,
-    Bitmex,
-    BybitSpot,
-    BybitPerpetualsUsd,
-    Coinbase,
-    GateioSpot,
-    GateioFuturesUsd,
-    GateioFuturesBtc,
-    GateioPerpetualsBtc,
-    GateioPerpetualsUsd,
-    GateioOptions,
-    Kraken,
-    Okx,
-}
-
-impl From<ExchangeId> for barter_integration::model::Exchange {
-    fn from(exchange_id: ExchangeId) -> Self {
-        barter_integration::model::Exchange::from(exchange_id.as_str())
-    }
-}
-
-impl Display for ExchangeId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
-}
-
-impl ExchangeId {
-    /// Return the &str representation of this [`ExchangeId`]
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            ExchangeId::BinanceSpot => "binance_spot",
-            ExchangeId::BinanceFuturesUsd => "binance_futures_usd",
-            ExchangeId::Bitfinex => "bitfinex",
-            ExchangeId::Bitmex => "bitmex",
-            ExchangeId::BybitSpot => "bybit_spot",
-            ExchangeId::BybitPerpetualsUsd => "bybit_perpetuals_usd",
-            ExchangeId::Coinbase => "coinbase",
-            ExchangeId::GateioSpot => "gateio_spot",
-            ExchangeId::GateioFuturesUsd => "gateio_futures_usd",
-            ExchangeId::GateioFuturesBtc => "gateio_futures_btc",
-            ExchangeId::GateioPerpetualsUsd => "gateio_perpetuals_usd",
-            ExchangeId::GateioPerpetualsBtc => "gateio_perpetuals_btc",
-            ExchangeId::GateioOptions => "gateio_options",
-            ExchangeId::Kraken => "kraken",
-            ExchangeId::Okx => "okx",
-        }
-    }
-
-    pub fn supports(&self, instrument_kind: InstrumentKind, sub_kind: SubKind) -> bool {
-        use crate::subscription::SubKind::*;
-        use ExchangeId::*;
-        use InstrumentKind::*;
-
-        match (self, instrument_kind, sub_kind) {
-            (BinanceSpot, Spot, PublicTrades | OrderBooksL1) => true,
-            (BinanceFuturesUsd, Perpetual, PublicTrades | OrderBooksL1 | Liquidations) => true,
-            (Bitfinex, Spot, PublicTrades) => true,
-            (Bitmex, Perpetual, PublicTrades) => true,
-            (BybitSpot, Spot, PublicTrades) => true,
-            (BybitPerpetualsUsd, Perpetual, PublicTrades) => true,
-            (Coinbase, Spot, PublicTrades) => true,
-            (GateioSpot, Spot, PublicTrades) => true,
-            (GateioFuturesUsd, Future(_), PublicTrades) => true,
-            (GateioFuturesBtc, Future(_), PublicTrades) => true,
-            (GateioPerpetualsUsd, Perpetual, PublicTrades) => true,
-            (GateioPerpetualsBtc, Perpetual, PublicTrades) => true,
-            (GateioOptions, Option(_), PublicTrades) => true,
-            (Kraken, Spot, PublicTrades | OrderBooksL1) => true,
-            (Okx, Spot | Future(_) | Perpetual | Option(_), PublicTrades) => true,
-
-            (_, _, _) => false,
-        }
-    }
-
-    /// Determines whether the [`Connector`] associated with this [`ExchangeId`] supports the
-    /// ingestion of market data for the provided [`InstrumentKind`].
-    #[allow(clippy::match_like_matches_macro)]
-    pub fn supports_instrument_kind(&self, instrument_kind: InstrumentKind) -> bool {
-        use ExchangeId::*;
-        use InstrumentKind::*;
-
-        match (self, instrument_kind) {
-            // Spot
-            (
-                BinanceFuturesUsd | Bitmex | BybitPerpetualsUsd | GateioPerpetualsUsd
-                | GateioPerpetualsBtc,
-                Spot,
-            ) => false,
-            (_, Spot) => true,
-
-            // Future
-            (GateioFuturesUsd | GateioFuturesBtc | Okx, Future(_)) => true,
-            (_, Future(_)) => false,
-
-            // Future Perpetual Swaps
-            (
-                BinanceFuturesUsd | Bitmex | Okx | BybitPerpetualsUsd | GateioPerpetualsUsd
-                | GateioPerpetualsBtc,
-                Perpetual,
-            ) => true,
-            (_, Perpetual) => false,
-
-            // Option
-            (GateioOptions | Okx, Option(_)) => true,
-            (_, Option(_)) => false,
-        }
-    }
 }

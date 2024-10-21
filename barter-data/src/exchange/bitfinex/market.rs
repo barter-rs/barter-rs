@@ -6,13 +6,14 @@ use crate::{
 };
 use barter_integration::model::instrument::{symbol::Symbol, Instrument};
 use serde::{Deserialize, Serialize};
+use smol_str::{format_smolstr, SmolStr, ToSmolStr};
 
 /// Type that defines how to translate a Barter [`Subscription`] into a
 /// [`Bitfinex`] market that can be subscribed to.
 ///
 /// See docs: <https://docs.bitfinex.com/docs/ws-public>
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub struct BitfinexMarket(pub String);
+pub struct BitfinexMarket(pub SmolStr);
 
 impl<Kind> Identifier<BitfinexMarket> for Subscription<Bitfinex, Instrument, Kind> {
     fn id(&self) -> BitfinexMarket {
@@ -28,7 +29,7 @@ impl<Kind> Identifier<BitfinexMarket> for Subscription<Bitfinex, KeyedInstrument
 
 impl<Kind> Identifier<BitfinexMarket> for Subscription<Bitfinex, MarketInstrumentData, Kind> {
     fn id(&self) -> BitfinexMarket {
-        BitfinexMarket(self.instrument.name_exchange.clone())
+        BitfinexMarket(self.instrument.name_exchange.to_smolstr())
     }
 }
 
@@ -39,7 +40,7 @@ impl AsRef<str> for BitfinexMarket {
 }
 
 fn bitfinex_market(base: &Symbol, quote: &Symbol) -> BitfinexMarket {
-    BitfinexMarket(format!(
+    BitfinexMarket(format_smolstr!(
         "t{}{}",
         base.to_string().to_uppercase(),
         quote.to_string().to_uppercase()

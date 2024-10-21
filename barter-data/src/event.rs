@@ -8,7 +8,7 @@ use crate::{
         trade::PublicTrade,
     },
 };
-use barter_integration::model::{instrument::Instrument, Exchange};
+use barter_integration::model::{exchange::ExchangeId, instrument::Instrument};
 use chrono::{DateTime, Utc};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
@@ -42,7 +42,7 @@ impl<InstrumentKey, T> FromIterator<Result<MarketEvent<InstrumentKey, T>, DataEr
 pub struct MarketEvent<InstrumentKey = Instrument, T = DataKind> {
     pub time_exchange: DateTime<Utc>,
     pub time_received: DateTime<Utc>,
-    pub exchange: Exchange,
+    pub exchange: ExchangeId,
     pub instrument: InstrumentKey,
     pub kind: T,
 }

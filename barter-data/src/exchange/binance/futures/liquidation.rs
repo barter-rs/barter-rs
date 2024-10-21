@@ -5,7 +5,7 @@ use crate::{
     subscription::liquidation::Liquidation,
     Identifier,
 };
-use barter_integration::model::{Exchange, Side, SubscriptionId};
+use barter_integration::model::{Side, SubscriptionId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -90,7 +90,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceLiquidation)>
         Self(vec![Ok(MarketEvent {
             time_exchange: liquidation.order.time,
             time_received: Utc::now(),
-            exchange: Exchange::from(exchange_id),
+            exchange: exchange_id,
             instrument,
             kind: Liquidation {
                 side: liquidation.order.side,

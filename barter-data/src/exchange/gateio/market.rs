@@ -13,13 +13,14 @@ use chrono::{
     DateTime, Utc,
 };
 use serde::{Deserialize, Serialize};
+use smol_str::{format_smolstr, SmolStr, StrExt};
 
 /// Type that defines how to translate a Barter [`Subscription`] into a
-/// [`Gateio`](super::Gateio) market that can be subscribed to.
+/// [`Gateio`] market that can be subscribed to.
 ///
 /// See docs: <https://www.okx.com/docs-v5/en/#websocket-api-public-channel>
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub struct GateioMarket(pub String);
+pub struct GateioMarket(pub SmolStr);
 
 impl<Server, Kind> Identifier<GateioMarket> for Subscription<Gateio<Server>, Instrument, Kind> {
     fn id(&self) -> GateioMarket {
@@ -55,11 +56,11 @@ fn gateio_market(instrument: &Instrument) -> GateioMarket {
 
     GateioMarket(
         match kind {
-            Spot | Perpetual => format!("{base}_{quote}"),
+            Spot | Perpetual => format_smolstr!("{base}_{quote}"),
             Future(future) => {
-                format!("{base}_{quote}_QUARTERLY_{}", format_expiry(future.expiry))
+                format_smolstr!("{base}_{quote}_QUARTERLY_{}", format_expiry(future.expiry))
             }
-            Option(option) => format!(
+            Option(option) => format_smolstr!(
                 "{base}_{quote}-{}-{}-{}",
                 format_expiry(option.expiry),
                 option.strike,
@@ -69,7 +70,7 @@ fn gateio_market(instrument: &Instrument) -> GateioMarket {
                 },
             ),
         }
-        .to_uppercase(),
+        .to_uppercase_smolstr(),
     )
 }
 

@@ -17,6 +17,7 @@ use barter_integration::{
 };
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
+use smol_str::ToSmolStr;
 use tracing::debug;
 
 /// [`Bitfinex`](super::Bitfinex) specific [`SubscriptionValidator`].
@@ -103,7 +104,7 @@ impl SubscriptionValidator for BitfinexWebSocketSubValidator {
                                 // Replace SubscriptionId with SubscriptionId(channel_id)
                                 if let Some(subscription) = instrument_map.0.remove(&subscription_id) {
                                     success_responses += 1;
-                                    instrument_map.0.insert(SubscriptionId(channel_id.0.to_string()), subscription);
+                                    instrument_map.0.insert(SubscriptionId(channel_id.0.to_smolstr()), subscription);
 
                                     debug!(
                                         exchange = %Exchange::ID,

@@ -3,7 +3,7 @@ use self::{
     order::{Cancelled, Open, Order},
     trade::Trade,
 };
-use barter_integration::model::Exchange;
+use barter_integration::model::exchange::ExchangeId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt::Formatter;
@@ -18,7 +18,7 @@ pub mod trade;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct AccountEvent {
     pub received_time: DateTime<Utc>,
-    pub exchange: Exchange,
+    pub exchange: ExchangeId,
     pub kind: AccountEventKind,
 }
 

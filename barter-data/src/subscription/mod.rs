@@ -1,10 +1,11 @@
 use crate::{
-    exchange::{Connector, ExchangeId},
+    exchange::Connector,
     instrument::{InstrumentData, KeyedInstrument},
 };
 use barter_integration::{
     error::SocketError,
     model::{
+        exchange::ExchangeId,
         instrument::{kind::InstrumentKind, symbol::Symbol, Instrument},
         SubscriptionId,
     },
@@ -14,6 +15,7 @@ use barter_integration::{
 use derive_more::Display;
 use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
+use smol_str::ToSmolStr;
 use std::{borrow::Borrow, fmt::Debug, hash::Hash};
 
 /// OrderBook [`SubscriptionKind`]s and the associated Barter output data models.
@@ -137,18 +139,52 @@ where
     where
         Self: Sized,
     {
-        // Determine ExchangeId associated with this Subscription
-        let exchange = Exchange::ID;
-
         // Validate the Exchange supports the Subscription InstrumentKind
-        if exchange.supports_instrument_kind(self.instrument.kind()) {
+        if exchange_supports_instrument_kind(Exchange::ID, self.instrument.kind()) {
             Ok(self)
         } else {
             Err(SocketError::Unsupported {
-                entity: exchange.as_str(),
+                entity: Exchange::ID.to_string(),
                 item: self.instrument.kind().to_string(),
             })
         }
+    }
+}
+
+/// Determines whether the [`Connector`] associated with this [`ExchangeId`] supports the
+/// ingestion of market data for the provided [`InstrumentKind`].
+#[allow(clippy::match_like_matches_macro)]
+pub fn exchange_supports_instrument_kind(
+    exchange: ExchangeId,
+    instrument_kind: InstrumentKind,
+) -> bool {
+    use ExchangeId::*;
+    use InstrumentKind::*;
+
+    match (exchange, instrument_kind) {
+        // Spot
+        (
+            BinanceFuturesUsd | Bitmex | BybitPerpetualsUsd | GateioPerpetualsUsd
+            | GateioPerpetualsBtc,
+            Spot,
+        ) => false,
+        (_, Spot) => true,
+
+        // Future
+        (GateioFuturesUsd | GateioFuturesBtc | Okx, Future(_)) => true,
+        (_, Future(_)) => false,
+
+        // Perpetual
+        (
+            BinanceFuturesUsd | Bitmex | Okx | BybitPerpetualsUsd | GateioPerpetualsUsd
+            | GateioPerpetualsBtc,
+            Perpetual,
+        ) => true,
+        (_, Perpetual) => false,
+
+        // Option
+        (GateioOptions | Okx, Option(_)) => true,
+        (_, Option(_)) => false,
     }
 }
 
@@ -161,14 +197,50 @@ where
         Self: Sized,
     {
         // Validate the Exchange supports the Subscription InstrumentKind
-        if self.exchange.supports(self.instrument.kind(), self.kind) {
+        if exchange_supports_instrument_kind_sub_kind(
+            &self.exchange,
+            self.instrument.kind(),
+            self.kind,
+        ) {
             Ok(self)
         } else {
             Err(SocketError::Unsupported {
-                entity: self.exchange.as_str(),
+                entity: self.exchange.to_string(),
                 item: self.instrument.kind().to_string(),
             })
         }
+    }
+}
+
+/// Determines whether the [`Connector`] associated with this [`ExchangeId`] supports the
+/// ingestion of market data for the provided [`InstrumentKind`] and [`SubKind`] combination.
+pub fn exchange_supports_instrument_kind_sub_kind(
+    exchange_id: &ExchangeId,
+    instrument_kind: InstrumentKind,
+    sub_kind: SubKind,
+) -> bool {
+    use ExchangeId::*;
+    use InstrumentKind::*;
+    use SubKind::*;
+
+    match (exchange_id, instrument_kind, sub_kind) {
+        (BinanceSpot, Spot, PublicTrades | OrderBooksL1) => true,
+        (BinanceFuturesUsd, Perpetual, PublicTrades | OrderBooksL1 | Liquidations) => true,
+        (Bitfinex, Spot, PublicTrades) => true,
+        (Bitmex, Perpetual, PublicTrades) => true,
+        (BybitSpot, Spot, PublicTrades) => true,
+        (BybitPerpetualsUsd, Perpetual, PublicTrades) => true,
+        (Coinbase, Spot, PublicTrades) => true,
+        (GateioSpot, Spot, PublicTrades) => true,
+        (GateioFuturesUsd, Future(_), PublicTrades) => true,
+        (GateioFuturesBtc, Future(_), PublicTrades) => true,
+        (GateioPerpetualsUsd, Perpetual, PublicTrades) => true,
+        (GateioPerpetualsBtc, Perpetual, PublicTrades) => true,
+        (GateioOptions, Option(_), PublicTrades) => true,
+        (Kraken, Spot, PublicTrades | OrderBooksL1) => true,
+        (Okx, Spot | Future(_) | Perpetual | Option(_), PublicTrades) => true,
+
+        (_, _, _) => false,
     }
 }
 
@@ -208,7 +280,7 @@ impl<T> Map<T> {
     {
         self.0
             .get(id)
-            .ok_or_else(|| SocketError::Unidentifiable(SubscriptionId(id.as_ref().to_string())))
+            .ok_or_else(|| SocketError::Unidentifiable(SubscriptionId(id.as_ref().to_smolstr())))
     }
 
     /// Find the mutable reference to `T` associated with the provided [`SubscriptionId`].
@@ -219,7 +291,7 @@ impl<T> Map<T> {
     {
         self.0
             .get_mut(id)
-            .ok_or_else(|| SocketError::Unidentifiable(SubscriptionId(id.as_ref().to_string())))
+            .ok_or_else(|| SocketError::Unidentifiable(SubscriptionId(id.as_ref().to_smolstr())))
     }
 }
 
@@ -347,7 +419,7 @@ mod tests {
                         PublicTrades,
                     )),
                     expected: Err(SocketError::Unsupported {
-                        entity: "",
+                        entity: "".to_string(),
                         item: "".to_string(),
                     }),
                 },

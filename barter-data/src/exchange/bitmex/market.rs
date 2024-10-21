@@ -6,13 +6,14 @@ use crate::{
 };
 use barter_integration::model::instrument::{symbol::Symbol, Instrument};
 use serde::{Deserialize, Serialize};
+use smol_str::{format_smolstr, SmolStr, StrExt};
 
 /// Type that defines how to translate a Barter [`Subscription`] into a [`Bitmex`]
 /// market that can be subscribed to.
 ///
 /// See docs: <https://www.bitmex.com/app/wsAPI>
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub struct BitmexMarket(pub String);
+pub struct BitmexMarket(pub SmolStr);
 
 impl<Kind> Identifier<BitmexMarket> for Subscription<Bitmex, Instrument, Kind> {
     fn id(&self) -> BitmexMarket {
@@ -41,5 +42,5 @@ impl AsRef<str> for BitmexMarket {
 fn bitmex_market(base: &Symbol, quote: &Symbol) -> BitmexMarket {
     // Notes:
     // - Must be uppercase since Bitmex sends message with uppercase MARKET (eg/ XBTUSD).
-    BitmexMarket(format!("{base}{quote}").to_uppercase())
+    BitmexMarket(format_smolstr!("{base}{quote}").to_uppercase_smolstr())
 }

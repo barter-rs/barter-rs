@@ -23,6 +23,7 @@ use barter_data::{
     subscription::trade::PublicTrades,
 };
 use barter_integration::model::{
+    exchange::ExchangeId,
     instrument::{kind::InstrumentKind, Instrument},
     Market,
 };
@@ -49,7 +50,10 @@ async fn main() {
     let engine_id = Uuid::new_v4();
 
     // Create the Market(s) to be traded on (1-to-1 relationship with a Trader)
-    let market = Market::new("binance", ("btc", "usdt", InstrumentKind::Spot));
+    let market = Market::new(
+        ExchangeId::BinanceSpot,
+        ("btc", "usdt", InstrumentKind::Spot),
+    );
 
     // Build global shared-state MetaPortfolio (1-to-1 relationship with an Engine)
     let portfolio = Arc::new(Mutex::new(

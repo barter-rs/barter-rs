@@ -1,10 +1,10 @@
 use crate::{
     model::order::{Cancelled, Open, Order},
     simulated::SimulatedEvent,
-    AccountEvent, ExecutionClient, ExecutionError, ExecutionId, RequestCancel, RequestOpen,
-    SymbolBalance,
+    AccountEvent, ExecutionClient, ExecutionError, RequestCancel, RequestOpen, SymbolBalance,
 };
 use async_trait::async_trait;
+use barter_integration::model::exchange::ExchangeId;
 use tokio::sync::{mpsc, oneshot};
 
 /// Simulated [`ExecutionClient`] implementation that integrates with the Barter
@@ -16,7 +16,7 @@ pub struct SimulatedExecution {
 
 #[async_trait]
 impl ExecutionClient for SimulatedExecution {
-    const CLIENT: ExecutionId = ExecutionId::Simulated;
+    const CLIENT: ExchangeId = ExchangeId::Simulated;
     type Config = mpsc::UnboundedSender<SimulatedEvent>;
 
     async fn init(request_tx: Self::Config, _: mpsc::UnboundedSender<AccountEvent>) -> Self {

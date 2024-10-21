@@ -13,6 +13,7 @@ use crate::{
 use barter_integration::model::{Market, MarketId};
 use redis::{Commands, Connection, ErrorKind};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use smol_str::SmolStr;
 use std::{
     fmt::{Debug, Formatter},
     marker::PhantomData,
@@ -44,7 +45,7 @@ where
         let position_string = serde_json::to_string(&position)?;
 
         self.conn
-            .set(position.position_id, position_string)
+            .set(position.position_id.as_str(), position_string)
             .map_err(|_| RepositoryError::WriteError)
     }
 
@@ -54,7 +55,7 @@ where
     ) -> Result<Option<Position>, RepositoryError> {
         let position_value: String = self
             .conn
-            .get(position_id)
+            .get(position_id.as_str())
             .map_err(|_| RepositoryError::ReadError)?;
 
         Ok(Some(serde_json::from_str::<Position>(&position_value)?))
@@ -79,12 +80,12 @@ where
 
     fn remove_position(
         &mut self,
-        position_id: &String,
+        position_id: &SmolStr,
     ) -> Result<Option<Position>, RepositoryError> {
         let position = self.get_open_position(position_id)?;
 
         self.conn
-            .del(position_id)
+            .del(position_id.as_str())
             .map_err(|_| RepositoryError::DeleteError)?;
 
         Ok(position)
@@ -149,14 +150,14 @@ where
         statistic: Statistic,
     ) -> Result<(), RepositoryError> {
         self.conn
-            .set(market_id.0, serde_json::to_string(&statistic)?)
+            .set(market_id.0.as_str(), serde_json::to_string(&statistic)?)
             .map_err(|_| RepositoryError::WriteError)
     }
 
     fn get_statistics(&mut self, market_id: &MarketId) -> Result<Statistic, RepositoryError> {
         let statistics: String = self
             .conn
-            .get(&market_id.0)
+            .get(market_id.0.as_str())
             .map_err(|_| RepositoryError::ReadError)?;
 
         serde_json::from_str(&statistics).map_err(RepositoryError::JsonSerDeError)

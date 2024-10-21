@@ -35,6 +35,7 @@ serde_json = { workspace = true }
 
 # Data Structures
 rust_decimal = { workspace = true }
+smol_str = { workspace = true }
 
 # Persistence
 redis = "0.25.4"

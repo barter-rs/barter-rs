@@ -1,6 +1,6 @@
 use crate::data::MarketMeta;
 use barter_data::event::{DataKind, MarketEvent};
-use barter_integration::model::{instrument::Instrument, Exchange, Market};
+use barter_integration::model::{exchange::ExchangeId, instrument::Instrument, Market};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -19,7 +19,7 @@ pub trait SignalGenerator {
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
 pub struct Signal {
     pub time: DateTime<Utc>,
-    pub exchange: Exchange,
+    pub exchange: ExchangeId,
     pub instrument: Instrument,
     pub signals: HashMap<Decision, SignalStrength>,
     /// Metadata propagated from the [`MarketEvent`] that yielded this [`Signal`].
@@ -72,7 +72,7 @@ pub struct SignalStrength(pub f64);
 #[derive(Clone, Eq, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct SignalForceExit {
     pub time: DateTime<Utc>,
-    pub exchange: Exchange,
+    pub exchange: ExchangeId,
     pub instrument: Instrument,
 }
 
@@ -92,7 +92,7 @@ impl SignalForceExit {
     /// Constructs a new [`Self`] using the configuration provided.
     pub fn new<E, I>(exchange: E, instrument: I) -> Self
     where
-        E: Into<Exchange>,
+        E: Into<ExchangeId>,
         I: Into<Instrument>,
     {
         Self {

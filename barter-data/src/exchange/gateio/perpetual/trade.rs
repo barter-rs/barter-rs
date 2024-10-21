@@ -5,7 +5,7 @@ use crate::{
     subscription::trade::PublicTrade,
     Identifier,
 };
-use barter_integration::model::{Exchange, Side, SubscriptionId};
+use barter_integration::model::{Side, SubscriptionId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -75,7 +75,7 @@ impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, GateioFuturesTrades)
     for MarketIter<InstrumentKey, PublicTrade>
 {
     fn from(
-        (exchange_id, instrument, trades): (ExchangeId, InstrumentKey, GateioFuturesTrades),
+        (exchange, instrument, trades): (ExchangeId, InstrumentKey, GateioFuturesTrades),
     ) -> Self {
         trades
             .data
@@ -84,7 +84,7 @@ impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, GateioFuturesTrades)
                 Ok(MarketEvent {
                     time_exchange: trade.time,
                     time_received: Utc::now(),
-                    exchange: Exchange::from(exchange_id),
+                    exchange,
                     instrument: instrument.clone(),
                     kind: PublicTrade {
                         id: trade.id.to_string(),

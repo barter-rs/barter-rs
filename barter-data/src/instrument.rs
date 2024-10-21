@@ -1,6 +1,7 @@
 use barter_integration::model::instrument::{kind::InstrumentKind, Instrument};
 use derive_more::{Constructor, Display};
 use serde::{Deserialize, Serialize};
+use smol_str::SmolStr;
 use std::fmt::Debug;
 
 /// Concise unique identifier for an instrument. Used to key
@@ -68,7 +69,7 @@ impl InstrumentData for Instrument {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct MarketInstrumentData {
     pub id: InstrumentId,
-    pub name_exchange: String,
+    pub name_exchange: SmolStr,
     pub kind: InstrumentKind,
 }
 

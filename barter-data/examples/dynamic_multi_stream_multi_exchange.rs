@@ -1,13 +1,15 @@
 use barter_data::{
     event::DataKind,
-    exchange::ExchangeId,
     streams::{
         builder::dynamic::DynamicStreams, consumer::MarketStreamResult,
         reconnect::stream::ReconnectingStream,
     },
     subscription::SubKind,
 };
-use barter_integration::model::instrument::{kind::InstrumentKind, Instrument};
+use barter_integration::model::{
+    exchange::ExchangeId,
+    instrument::{kind::InstrumentKind, Instrument},
+};
 use futures::StreamExt;
 use tracing::{info, warn};
 
