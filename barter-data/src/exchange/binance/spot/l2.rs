@@ -9,7 +9,7 @@ use crate::{
             market::BinanceMarket,
             spot::BinanceSpot,
         },
-        Connector, ExchangeId,
+        Connector,
     },
     instrument::InstrumentData,
     subscription::{
@@ -20,8 +20,9 @@ use crate::{
     Identifier, SnapshotFetcher,
 };
 use async_trait::async_trait;
+use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
-    error::SocketError, model::SubscriptionId, protocol::websocket::WsMessage, Transformer,
+    error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId, Transformer,
 };
 use chrono::{DateTime, Utc};
 use futures_util::future::try_join_all;

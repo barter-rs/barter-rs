@@ -1,5 +1,5 @@
 use super::{Bybit, ExchangeServer};
-use crate::exchange::ExchangeId;
+use barter_instrument::exchange::ExchangeId;
 
 /// [`BybitPerpetualsUsd`] WebSocket server base url.
 ///

@@ -17,7 +17,11 @@ use crate::{
     strategy::{Decision, Signal, SignalForceExit, SignalStrength},
 };
 use barter_data::event::{DataKind, MarketEvent};
-use barter_integration::model::{instrument::Instrument, Market, MarketId, Side};
+use barter_instrument::{
+    instrument::Instrument,
+    market::{Market, MarketId},
+};
+use barter_integration::Side;
 use chrono::Utc;
 use serde::Serialize;
 use std::{collections::HashMap, marker::PhantomData};
@@ -550,8 +554,6 @@ pub fn parse_signal_decisions<'a>(
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use smol_str::SmolStr;
-
     use crate::{
         execution::Fees,
         portfolio::{
@@ -562,11 +564,11 @@ pub mod tests {
         strategy::SignalForceExit,
         test_util::{fill_event, market_event_trade, position, signal},
     };
-    use barter_integration::model::{
+    use barter_instrument::{
         exchange::ExchangeId,
         instrument::{kind::InstrumentKind, Instrument},
-        Side,
     };
+    use smol_str::SmolStr;
 
     #[derive(Default)]
     struct MockRepository<Statistic> {

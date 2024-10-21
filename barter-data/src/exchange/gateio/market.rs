@@ -4,10 +4,7 @@ use crate::{
     subscription::Subscription,
     Identifier,
 };
-use barter_integration::model::instrument::{
-    kind::{InstrumentKind, OptionKind},
-    Instrument,
-};
+use barter_instrument::instrument::{kind::option::OptionKind, Instrument};
 use chrono::{
     format::{DelayedFormat, StrftimeItems},
     DateTime, Utc,
@@ -51,7 +48,7 @@ impl AsRef<str> for GateioMarket {
 }
 
 fn gateio_market(instrument: &Instrument) -> GateioMarket {
-    use InstrumentKind::*;
+    use barter_instrument::instrument::{kind::InstrumentKind::*, Instrument};
     let Instrument { base, quote, kind } = instrument;
 
     GateioMarket(

@@ -8,7 +8,7 @@ use crate::{
         trade::PublicTrade,
     },
 };
-use barter_integration::model::{exchange::ExchangeId, instrument::Instrument};
+use barter_instrument::{exchange::ExchangeId, instrument::Instrument};
 use chrono::{DateTime, Utc};
 use derive_more::From;
 use serde::{Deserialize, Serialize};

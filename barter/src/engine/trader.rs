@@ -7,7 +7,7 @@ use crate::{
     strategy::{SignalForceExit, SignalGenerator},
 };
 use barter_data::event::{DataKind, MarketEvent};
-use barter_integration::model::{instrument::Instrument, Market};
+use barter_instrument::{instrument::Instrument, market::Market};
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, sync::Arc};

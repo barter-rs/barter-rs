@@ -1,8 +1,9 @@
 use self::{channel::GateioChannel, market::GateioMarket, subscription::GateioSubResponse};
 use crate::{
-    exchange::{subscription::ExchangeSub, Connector, ExchangeId, ExchangeServer},
+    exchange::{subscription::ExchangeSub, Connector, ExchangeServer},
     subscriber::{validator::WebSocketSubValidator, WebSocketSubscriber},
 };
+use barter_instrument::exchange::ExchangeId;
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
 use serde_json::json;
 use std::{fmt::Debug, marker::PhantomData};

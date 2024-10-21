@@ -10,7 +10,8 @@ use crate::{
     subscription::{Subscription, SubscriptionKind},
     Identifier,
 };
-use barter_integration::{model::exchange::ExchangeId, Validator};
+use barter_instrument::exchange::ExchangeId;
+use barter_integration::Validator;
 use futures_util::StreamExt;
 use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 use tokio::sync::mpsc;

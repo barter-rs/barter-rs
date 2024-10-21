@@ -38,7 +38,7 @@
 //!     streams::{Streams, reconnect::stream::ReconnectingStream},
 //!     subscription::trade::PublicTrades,
 //! };
-//! use barter_integration::model::instrument::kind::InstrumentKind;
+//! use barter_instrument::instrument::kind::InstrumentKind;
 //! use futures::StreamExt;
 //! use tracing::warn;
 //!
@@ -96,9 +96,9 @@ use crate::{
     transformer::ExchangeTransformer,
 };
 use async_trait::async_trait;
+use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
     error::SocketError,
-    model::exchange::ExchangeId,
     protocol::{
         websocket::{WebSocketParser, WsMessage, WsSink, WsStream},
         StreamParser,

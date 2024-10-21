@@ -3,7 +3,8 @@ use crate::{
     ExecutionError, Open, Order, OrderId, RequestOpen,
 };
 use barter_data::subscription::trade::PublicTrade;
-use barter_integration::model::{instrument::Instrument, Side};
+use barter_instrument::instrument::Instrument;
+use barter_integration::Side;
 use serde::{Deserialize, Serialize};
 use smol_str::ToSmolStr;
 use std::{cmp::Ordering, collections::HashMap};
@@ -338,7 +339,7 @@ mod tests {
         simulated::exchange::account::order::Orders,
         test_util::{client_orders, order_open, public_trade, trade},
     };
-    use barter_integration::model::Side;
+    use barter_integration::Side;
     use uuid::Uuid;
 
     #[test]

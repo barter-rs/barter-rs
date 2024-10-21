@@ -5,7 +5,7 @@ use crate::{
         summary::{data::DataSummary, Initialiser, PositionSummariser, TableBuilder},
     },
 };
-use barter_integration::model::Side;
+use barter_integration::Side;
 use chrono::{DateTime, Duration, Utc};
 use prettytable::Row;
 use serde::{Deserialize, Serialize};

@@ -6,11 +6,8 @@ use crate::{
     },
     ExecutionError, Open, Order,
 };
-use barter_integration::model::{
-    exchange::ExchangeId,
-    instrument::{symbol::Symbol, Instrument},
-    Side,
-};
+use barter_instrument::{asset::symbol::Symbol, exchange::ExchangeId, instrument::Instrument};
+use barter_integration::Side;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

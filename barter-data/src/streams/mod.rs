@@ -1,6 +1,6 @@
 use self::builder::{multi::MultiStreamBuilder, StreamBuilder};
 use crate::subscription::SubscriptionKind;
-use barter_integration::model::exchange::ExchangeId;
+use barter_instrument::exchange::ExchangeId;
 use fnv::FnvHashMap;
 use futures::Stream;
 use futures_util::stream::select_all;

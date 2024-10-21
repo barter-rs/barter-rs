@@ -21,20 +21,14 @@
 use crate::{error::SocketError, protocol::StreamParser};
 use futures::Stream;
 use pin_project::pin_project;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::VecDeque,
-    fmt::Debug,
+    fmt::{Debug, Display, Formatter},
     marker::PhantomData,
     pin::Pin,
     task::{Context, Poll},
 };
-
-/// Foundational data structures that define the building blocks used by the rest of the `Barter`
-/// ecosystem.
-///
-/// eg/ `Market`, `Exchange`, `Instrument`, `Symbol`, etc.
-pub mod model;
 
 /// All [`Error`](std::error::Error)s generated in Barter-Integration.
 pub mod error;
@@ -48,6 +42,11 @@ pub mod metric;
 
 /// Utilities to assist deserialisation.
 pub mod de;
+
+/// Defines a [`SubscriptionId`](subscription::SubscriptionId) new type representing a unique
+/// `SmolStr` identifier for a data stream (market data, account data) that has been
+/// subscribed to.
+pub mod subscription;
 
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.
@@ -153,5 +152,27 @@ where
             buffer,
             protocol_marker: PhantomData,
         }
+    }
+}
+
+/// [`Side`] of a trade or position - Buy or Sell.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+pub enum Side {
+    #[serde(alias = "buy", alias = "BUY", alias = "b")]
+    Buy,
+    #[serde(alias = "sell", alias = "SELL", alias = "s")]
+    Sell,
+}
+
+impl Display for Side {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Side::Buy => "buy",
+                Side::Sell => "sell",
+            }
+        )
     }
 }

@@ -1,5 +1,5 @@
 use crate::{exchange::bitmex::trade::BitmexTrade, Identifier};
-use barter_integration::model::SubscriptionId;
+use barter_integration::subscription::SubscriptionId;
 use serde::{Deserialize, Serialize};
 use smol_str::format_smolstr;
 

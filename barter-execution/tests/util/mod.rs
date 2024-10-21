@@ -12,11 +12,12 @@ use barter_execution::{
         SimulatedEvent,
     },
 };
-use barter_integration::model::{
+use barter_instrument::{
+    asset::symbol::Symbol,
     exchange::ExchangeId,
-    instrument::{kind::InstrumentKind, symbol::Symbol, Instrument},
-    Side,
+    instrument::{kind::InstrumentKind, Instrument},
 };
+use barter_integration::Side;
 use std::{collections::HashMap, time::Duration};
 use tokio::sync::mpsc;
 

@@ -30,7 +30,7 @@ use crate::{
     },
 };
 use async_trait::async_trait;
-use barter_integration::model::exchange::ExchangeId;
+use barter_instrument::exchange::ExchangeId;
 use tokio::sync::mpsc;
 
 /// Errors generated during live, dry, or simulated execution.
@@ -95,11 +95,11 @@ pub mod test_util {
         Open, Order, OrderId,
     };
     use barter_data::subscription::trade::PublicTrade;
-    use barter_integration::model::{
+    use barter_instrument::{
         exchange::ExchangeId,
         instrument::{kind::InstrumentKind, Instrument},
-        Side,
     };
+    use barter_integration::Side;
 
     pub fn client_orders(
         trade_number: u64,
