@@ -16,11 +16,10 @@ use barter::{
     },
     strategy::example::{Config as StrategyConfig, RSIStrategy},
 };
-use barter_data::event::MarketEvent;
-use barter_data::streams::consumer::MarketStreamEvent;
-use barter_data::streams::reconnect::stream::ReconnectingStream;
 use barter_data::{
-    event::DataKind, exchange::binance::spot::BinanceSpot, streams::Streams,
+    event::{DataKind, MarketEvent},
+    exchange::binance::spot::BinanceSpot,
+    streams::{consumer::MarketStreamEvent, reconnect::stream::ReconnectingStream, Streams},
     subscription::trade::PublicTrades,
 };
 use barter_integration::model::{

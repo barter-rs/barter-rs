@@ -1,10 +1,9 @@
-use barter_data::streams::reconnect::stream::ReconnectingStream;
 use barter_data::{
     exchange::{
         binance::{futures::BinanceFuturesUsd, spot::BinanceSpot},
         kraken::Kraken,
     },
-    streams::Streams,
+    streams::{reconnect::stream::ReconnectingStream, Streams},
     subscription::book::OrderBooksL1,
 };
 use barter_integration::model::instrument::kind::InstrumentKind;

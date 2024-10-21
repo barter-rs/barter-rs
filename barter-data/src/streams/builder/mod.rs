@@ -1,12 +1,12 @@
 use super::Streams;
-use crate::instrument::InstrumentData;
-use crate::streams::consumer::{
-    init_market_stream, MarketStreamResult, STREAM_RECONNECTION_POLICY,
-};
-use crate::streams::reconnect::stream::ReconnectingStream;
 use crate::{
     error::DataError,
     exchange::{ExchangeId, StreamSelector},
+    instrument::InstrumentData,
+    streams::{
+        consumer::{init_market_stream, MarketStreamResult, STREAM_RECONNECTION_POLICY},
+        reconnect::stream::ReconnectingStream,
+    },
     subscription::{Subscription, SubscriptionKind},
     Identifier,
 };

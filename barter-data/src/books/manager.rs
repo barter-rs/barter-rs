@@ -1,21 +1,23 @@
-use crate::books::map::{OrderBookMap, OrderBookMapMulti};
-use crate::books::OrderBook;
-use crate::error::DataError;
-use crate::exchange::StreamSelector;
-use crate::instrument::InstrumentData;
-use crate::streams::consumer::MarketStreamEvent;
-use crate::streams::reconnect::stream::ReconnectingStream;
-use crate::streams::Streams;
-use crate::subscription::book::{OrderBookEvent, OrderBooksL2};
-use crate::subscription::Subscription;
-use crate::Identifier;
+use crate::{
+    books::{
+        map::{OrderBookMap, OrderBookMapMulti},
+        OrderBook,
+    },
+    error::DataError,
+    exchange::StreamSelector,
+    instrument::InstrumentData,
+    streams::{consumer::MarketStreamEvent, reconnect::stream::ReconnectingStream, Streams},
+    subscription::{
+        book::{OrderBookEvent, OrderBooksL2},
+        Subscription,
+    },
+    Identifier,
+};
 use fnv::FnvHashMap;
 use futures::Stream;
 use futures_util::StreamExt;
 use parking_lot::RwLock;
-use std::fmt::Debug;
-use std::hash::Hash;
-use std::sync::Arc;
+use std::{fmt::Debug, hash::Hash, sync::Arc};
 use tracing::warn;
 
 /// Maintains a set of local L2 [`OrderBook`]s by applying streamed [`OrderBookEvent`]s to the

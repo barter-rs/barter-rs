@@ -1,6 +1,6 @@
-use barter_data::streams::reconnect::stream::ReconnectingStream;
 use barter_data::{
-    exchange::binance::futures::BinanceFuturesUsd, streams::Streams,
+    exchange::binance::futures::BinanceFuturesUsd,
+    streams::{reconnect::stream::ReconnectingStream, Streams},
     subscription::trade::PublicTrades,
 };
 use barter_integration::model::instrument::kind::InstrumentKind;

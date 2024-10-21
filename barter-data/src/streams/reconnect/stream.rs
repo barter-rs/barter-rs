@@ -1,14 +1,10 @@
-use crate::streams::consumer::StreamKey;
-use crate::streams::reconnect::Event;
+use crate::streams::{consumer::StreamKey, reconnect::Event};
 use derive_more::{Constructor, From};
 use futures::Stream;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
-use std::future::Future;
-use std::{convert, future};
-use tokio::sync::mpsc;
-use tokio::task::JoinHandle;
+use std::{convert, fmt::Debug, future, future::Future};
+use tokio::{sync::mpsc, task::JoinHandle};
 use tracing::{error, info, warn};
 
 /// Utilities for handling a continually reconnecting [`Stream`] initialised via the

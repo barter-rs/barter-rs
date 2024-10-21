@@ -1,8 +1,3 @@
-use crate::streams::consumer::{
-    init_market_stream, MarketStreamResult, STREAM_RECONNECTION_POLICY,
-};
-use crate::streams::reconnect::stream::ReconnectingStream;
-use crate::subscription::book::OrderBookEvent;
 use crate::{
     error::DataError,
     exchange::{
@@ -23,8 +18,12 @@ use crate::{
         ExchangeId,
     },
     instrument::InstrumentData,
+    streams::{
+        consumer::{init_market_stream, MarketStreamResult, STREAM_RECONNECTION_POLICY},
+        reconnect::stream::ReconnectingStream,
+    },
     subscription::{
-        book::{OrderBookL1, OrderBooksL1},
+        book::{OrderBookEvent, OrderBookL1, OrderBooksL1},
         liquidation::{Liquidation, Liquidations},
         trade::{PublicTrade, PublicTrades},
         SubKind, Subscription,
@@ -37,8 +36,7 @@ use futures::{
     stream::{select_all, SelectAll},
     Stream,
 };
-use futures_util::future::try_join_all;
-use futures_util::StreamExt;
+use futures_util::{future::try_join_all, StreamExt};
 use itertools::Itertools;
 use std::sync::Arc;
 use tokio::sync::mpsc;

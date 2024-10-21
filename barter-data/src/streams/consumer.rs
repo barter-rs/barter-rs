@@ -1,12 +1,14 @@
-use crate::exchange::ExchangeId;
-use crate::streams::reconnect;
-use crate::streams::reconnect::stream::ReconnectingStream;
-use crate::streams::reconnect::stream::{init_reconnecting_stream, ReconnectionBackoffPolicy};
 use crate::{
     error::DataError,
     event::MarketEvent,
-    exchange::StreamSelector,
+    exchange::{ExchangeId, StreamSelector},
     instrument::InstrumentData,
+    streams::{
+        reconnect,
+        reconnect::stream::{
+            init_reconnecting_stream, ReconnectingStream, ReconnectionBackoffPolicy,
+        },
+    },
     subscription::{Subscription, SubscriptionKind},
     Identifier, MarketStream,
 };

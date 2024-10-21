@@ -6,8 +6,7 @@ use barter_integration::{
 use futures::{SinkExt, StreamExt};
 use serde::{de, Deserialize};
 use serde_json::json;
-use std::collections::VecDeque;
-use std::str::FromStr;
+use std::{collections::VecDeque, str::FromStr};
 use tokio_tungstenite::connect_async;
 use tracing::debug;
 

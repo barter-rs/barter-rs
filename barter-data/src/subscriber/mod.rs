@@ -9,10 +9,9 @@ use crate::{
     Identifier,
 };
 use async_trait::async_trait;
-use barter_integration::protocol::websocket::WsMessage;
 use barter_integration::{
     error::SocketError,
-    protocol::websocket::{connect, WebSocket},
+    protocol::websocket::{connect, WebSocket, WsMessage},
 };
 use futures::SinkExt;
 use serde::{Deserialize, Serialize};

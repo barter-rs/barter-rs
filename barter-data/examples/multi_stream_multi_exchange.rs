@@ -1,6 +1,3 @@
-use barter_data::streams::consumer::MarketStreamResult;
-use barter_data::streams::reconnect::stream::ReconnectingStream;
-use barter_data::subscription::book::OrderBooksL2;
 use barter_data::{
     event::DataKind,
     exchange::{
@@ -8,8 +5,11 @@ use barter_data::{
         kraken::Kraken,
         okx::Okx,
     },
-    streams::Streams,
-    subscription::{book::OrderBooksL1, trade::PublicTrades},
+    streams::{consumer::MarketStreamResult, reconnect::stream::ReconnectingStream, Streams},
+    subscription::{
+        book::{OrderBooksL1, OrderBooksL2},
+        trade::PublicTrades,
+    },
 };
 use barter_integration::model::instrument::{kind::InstrumentKind, Instrument};
 use tokio_stream::StreamExt;

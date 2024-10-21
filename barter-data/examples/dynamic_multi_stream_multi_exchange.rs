@@ -1,7 +1,10 @@
-use barter_data::streams::consumer::MarketStreamResult;
-use barter_data::streams::reconnect::stream::ReconnectingStream;
 use barter_data::{
-    event::DataKind, exchange::ExchangeId, streams::builder::dynamic::DynamicStreams,
+    event::DataKind,
+    exchange::ExchangeId,
+    streams::{
+        builder::dynamic::DynamicStreams, consumer::MarketStreamResult,
+        reconnect::stream::ReconnectingStream,
+    },
     subscription::SubKind,
 };
 use barter_integration::model::instrument::{kind::InstrumentKind, Instrument};

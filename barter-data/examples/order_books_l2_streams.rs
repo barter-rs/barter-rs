@@ -1,8 +1,8 @@
-use barter_data::exchange::binance::spot::BinanceSpot;
-use barter_data::exchange::ExchangeId;
-use barter_data::streams::reconnect::stream::ReconnectingStream;
-use barter_data::streams::Streams;
-use barter_data::subscription::book::OrderBooksL2;
+use barter_data::{
+    exchange::{binance::spot::BinanceSpot, ExchangeId},
+    streams::{reconnect::stream::ReconnectingStream, Streams},
+    subscription::book::OrderBooksL2,
+};
 use barter_integration::model::instrument::kind::InstrumentKind;
 use futures_util::StreamExt;
 use tracing::{info, warn};

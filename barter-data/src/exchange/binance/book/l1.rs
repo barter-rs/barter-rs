@@ -1,5 +1,5 @@
-use crate::books::Level;
 use crate::{
+    books::Level,
     event::{MarketEvent, MarketIter},
     exchange::{binance::channel::BinanceChannel, subscription::ExchangeSub, ExchangeId},
     subscription::book::OrderBookL1,

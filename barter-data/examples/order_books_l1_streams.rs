@@ -1,7 +1,6 @@
-use barter_data::streams::reconnect::stream::ReconnectingStream;
 use barter_data::{
     exchange::{binance::spot::BinanceSpot, ExchangeId},
-    streams::Streams,
+    streams::{reconnect::stream::ReconnectingStream, Streams},
     subscription::book::OrderBooksL1,
 };
 use barter_integration::model::instrument::kind::InstrumentKind;
