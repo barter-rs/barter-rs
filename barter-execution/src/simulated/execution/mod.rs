@@ -4,7 +4,7 @@ use crate::{
     AccountEvent, ExecutionClient, ExecutionError, RequestCancel, RequestOpen, SymbolBalance,
 };
 use async_trait::async_trait;
-use barter_integration::model::exchange::ExchangeId;
+use barter_instrument::exchange::ExchangeId;
 use tokio::sync::{mpsc, oneshot};
 
 /// Simulated [`ExecutionClient`] implementation that integrates with the Barter

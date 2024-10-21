@@ -3,7 +3,7 @@ use barter_data::{
     exchange::binance::spot::BinanceSpot,
     subscription::book::OrderBooksL2,
 };
-use barter_integration::model::instrument::{kind::InstrumentKind, Instrument};
+use barter_instrument::instrument::{kind::InstrumentKind, Instrument};
 use std::time::Duration;
 use tracing::info;
 

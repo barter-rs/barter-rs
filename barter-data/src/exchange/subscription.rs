@@ -1,5 +1,5 @@
 use crate::{subscription::Subscription, Identifier};
-use barter_integration::model::SubscriptionId;
+use barter_integration::subscription::SubscriptionId;
 use serde::Deserialize;
 
 /// Defines an exchange specific market and channel combination used by an exchange

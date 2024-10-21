@@ -14,8 +14,10 @@ use barter_data::{
     streams::{reconnect::stream::ReconnectingStream, Streams},
     subscription::trade::PublicTrades,
 };
-use barter_integration::model::instrument::kind::{
-    FutureContract, InstrumentKind, OptionContract, OptionExercise, OptionKind,
+use barter_instrument::instrument::kind::{
+    future::FutureContract,
+    option::{OptionContract, OptionExercise, OptionKind},
+    InstrumentKind,
 };
 use chrono::{TimeZone, Utc};
 use futures::StreamExt;

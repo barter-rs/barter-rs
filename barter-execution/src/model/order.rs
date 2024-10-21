@@ -1,9 +1,6 @@
 use super::ClientOrderId;
-use barter_integration::model::{
-    exchange::ExchangeId,
-    instrument::{symbol::Symbol, Instrument},
-    Side,
-};
+use barter_instrument::{asset::symbol::Symbol, exchange::ExchangeId, instrument::Instrument};
+use barter_integration::Side;
 use serde::{Deserialize, Serialize};
 use smol_str::{SmolStr, ToSmolStr};
 use std::{

@@ -2,11 +2,12 @@ use super::super::KrakenMessage;
 use crate::{
     books::Level,
     event::{MarketEvent, MarketIter},
-    exchange::{kraken::channel::KrakenChannel, subscription::ExchangeSub, ExchangeId},
+    exchange::{kraken::channel::KrakenChannel, subscription::ExchangeSub},
     subscription::book::OrderBookL1,
     Identifier,
 };
-use barter_integration::{de::extract_next, model::SubscriptionId};
+use barter_instrument::exchange::ExchangeId;
+use barter_integration::{de::extract_next, subscription::SubscriptionId};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -136,7 +137,7 @@ mod tests {
     mod de {
         use super::*;
         use barter_integration::{
-            de::datetime_utc_from_epoch_duration, error::SocketError, model::SubscriptionId,
+            de::datetime_utc_from_epoch_duration, error::SocketError, subscription::SubscriptionId,
         };
         use rust_decimal_macros::dec;
 

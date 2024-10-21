@@ -1,5 +1,5 @@
 use crate::Identifier;
-use barter_integration::model::SubscriptionId;
+use barter_integration::subscription::SubscriptionId;
 use serde::{Deserialize, Serialize};
 
 /// [`Kraken`](super::Kraken) message variants that can be received over

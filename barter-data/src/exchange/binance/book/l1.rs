@@ -1,11 +1,12 @@
 use crate::{
     books::Level,
     event::{MarketEvent, MarketIter},
-    exchange::{binance::channel::BinanceChannel, subscription::ExchangeSub, ExchangeId},
+    exchange::{binance::channel::BinanceChannel, subscription::ExchangeSub},
     subscription::book::OrderBookL1,
     Identifier,
 };
-use barter_integration::model::SubscriptionId;
+use barter_instrument::exchange::ExchangeId;
+use barter_integration::subscription::SubscriptionId;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};

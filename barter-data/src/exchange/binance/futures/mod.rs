@@ -5,13 +5,14 @@ use crate::{
         binance::futures::l2::{
             BinanceFuturesUsdOrderBooksL2SnapshotFetcher, BinanceFuturesUsdOrderBooksL2Transformer,
         },
-        ExchangeId, StreamSelector,
+        StreamSelector,
     },
     instrument::InstrumentData,
     subscription::{book::OrderBooksL2, liquidation::Liquidations},
     transformer::stateless::StatelessTransformer,
     ExchangeWsStream, NoInitialSnapshots,
 };
+use barter_instrument::exchange::ExchangeId;
 
 /// Level 2 OrderBook types.
 pub mod l2;

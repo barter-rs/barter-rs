@@ -10,7 +10,7 @@ use crate::{
     },
     statistic::summary::PositionSummariser,
 };
-use barter_integration::model::{Market, MarketId};
+use barter_instrument::market::{Market, MarketId};
 use redis::{Commands, Connection, ErrorKind};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use smol_str::SmolStr;

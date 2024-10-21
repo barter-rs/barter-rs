@@ -3,7 +3,7 @@ use barter_data::{
     event::{DataKind, MarketEvent},
     streams::{consumer::MarketStreamEvent, reconnect},
 };
-use barter_integration::model::instrument::Instrument;
+use barter_instrument::instrument::Instrument;
 use futures::{
     executor::{block_on_stream, BlockingStream},
     Stream,

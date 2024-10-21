@@ -24,13 +24,14 @@ use self::{
     subscription::BitfinexPlatformEvent, validator::BitfinexWebSocketSubValidator,
 };
 use crate::{
-    exchange::{Connector, ExchangeId, ExchangeSub, StreamSelector},
+    exchange::{Connector, ExchangeSub, StreamSelector},
     instrument::InstrumentData,
     subscriber::WebSocketSubscriber,
     subscription::trade::PublicTrades,
     transformer::stateless::StatelessTransformer,
     ExchangeWsStream, NoInitialSnapshots,
 };
+use barter_instrument::exchange::ExchangeId;
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
 use barter_macro::{DeExchange, SerExchange};
 use serde_json::json;

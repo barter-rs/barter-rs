@@ -29,7 +29,8 @@ use crate::{
     },
     Identifier,
 };
-use barter_integration::{error::SocketError, model::exchange::ExchangeId, Validator};
+use barter_instrument::exchange::ExchangeId;
+use barter_integration::{error::SocketError, Validator};
 use fnv::FnvHashMap;
 use futures::{
     stream::{select_all, SelectAll},

@@ -12,7 +12,7 @@ use crate::{
     subscription::{Subscription, SubscriptionKind},
     Identifier, MarketStream,
 };
-use barter_integration::model::exchange::ExchangeId;
+use barter_instrument::exchange::ExchangeId;
 use futures::Stream;
 use serde::{Deserialize, Serialize};
 use tracing::info;

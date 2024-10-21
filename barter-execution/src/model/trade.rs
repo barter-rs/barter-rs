@@ -1,8 +1,6 @@
 use super::order::OrderId;
-use barter_integration::model::{
-    instrument::{symbol::Symbol, Instrument},
-    Side,
-};
+use barter_instrument::{asset::symbol::Symbol, instrument::Instrument};
+use barter_integration::Side;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 

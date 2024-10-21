@@ -4,7 +4,8 @@ use crate::{
     strategy::Decision,
 };
 use barter_data::event::{DataKind, MarketEvent};
-use barter_integration::model::{exchange::ExchangeId, instrument::Instrument, Side};
+use barter_instrument::{exchange::ExchangeId, instrument::Instrument};
+use barter_integration::Side;
 use chrono::{DateTime, Utc};
 use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
@@ -575,7 +576,7 @@ impl TryFrom<&mut Position> for PositionExit {
 mod tests {
     use super::*;
     use crate::test_util::{fill_event, market_event_trade, position};
-    use barter_integration::model::Side;
+    use barter_integration::Side;
 
     #[test]
     fn enter_new_position_with_long_decision_provided() {

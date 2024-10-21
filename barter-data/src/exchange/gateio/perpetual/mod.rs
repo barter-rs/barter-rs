@@ -1,12 +1,13 @@
 use self::trade::GateioFuturesTrades;
 use super::Gateio;
 use crate::{
-    exchange::{ExchangeId, ExchangeServer, StreamSelector},
+    exchange::{ExchangeServer, StreamSelector},
     instrument::InstrumentData,
     subscription::trade::PublicTrades,
     transformer::stateless::StatelessTransformer,
     ExchangeWsStream, NoInitialSnapshots,
 };
+use barter_instrument::exchange::ExchangeId;
 
 /// Public trades types.
 pub mod trade;

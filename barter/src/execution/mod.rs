@@ -1,5 +1,5 @@
 use crate::{data::MarketMeta, portfolio::OrderEvent, strategy::Decision};
-use barter_integration::model::{exchange::ExchangeId, instrument::Instrument};
+use barter_instrument::{exchange::ExchangeId, instrument::Instrument};
 use chrono::{DateTime, Utc};
 use error::ExecutionError;
 use serde::{Deserialize, Serialize};

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// ### Notes
 /// An exchange may have a distinct server for different
-/// [`InstrumentKinds`](super::instrument::kind::InstrumentKind).
+/// [`InstrumentKinds`](InstrumentKind).
 ///
 /// For example, BinanceSpot and BinanceFuturesUsd have distinct APIs, and are therefore
 /// represented as unique variants.

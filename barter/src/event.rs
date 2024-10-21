@@ -7,7 +7,7 @@ use crate::{
     strategy::{Signal, SignalForceExit},
 };
 use barter_data::event::{DataKind, MarketEvent};
-use barter_integration::model::instrument::Instrument;
+use barter_instrument::instrument::Instrument;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tokio::sync::mpsc;

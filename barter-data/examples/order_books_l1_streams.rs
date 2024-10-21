@@ -3,7 +3,7 @@ use barter_data::{
     streams::{reconnect::stream::ReconnectingStream, Streams},
     subscription::book::OrderBooksL1,
 };
-use barter_integration::model::{exchange::ExchangeId, instrument::kind::InstrumentKind};
+use barter_instrument::{exchange::ExchangeId, instrument::kind::InstrumentKind};
 use tokio_stream::StreamExt;
 use tracing::{info, warn};
 

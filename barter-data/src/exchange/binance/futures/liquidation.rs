@@ -1,11 +1,11 @@
 use super::super::BinanceChannel;
 use crate::{
     event::{MarketEvent, MarketIter},
-    exchange::ExchangeId,
     subscription::liquidation::Liquidation,
     Identifier,
 };
-use barter_integration::model::{Side, SubscriptionId};
+use barter_instrument::exchange::ExchangeId;
+use barter_integration::{subscription::SubscriptionId, Side};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

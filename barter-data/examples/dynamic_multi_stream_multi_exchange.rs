@@ -6,7 +6,7 @@ use barter_data::{
     },
     subscription::SubKind,
 };
-use barter_integration::model::{
+use barter_instrument::{
     exchange::ExchangeId,
     instrument::{kind::InstrumentKind, Instrument},
 };

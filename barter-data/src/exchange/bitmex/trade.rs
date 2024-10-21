@@ -1,9 +1,10 @@
 use crate::{
     event::{MarketEvent, MarketIter},
-    exchange::{bitmex::message::BitmexMessage, ExchangeId},
+    exchange::bitmex::message::BitmexMessage,
     subscription::trade::PublicTrade,
 };
-use barter_integration::model::Side;
+use barter_instrument::exchange::ExchangeId;
+use barter_integration::Side;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
