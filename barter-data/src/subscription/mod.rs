@@ -1,11 +1,9 @@
-use crate::{
-    exchange::Connector,
-    instrument::{InstrumentData, KeyedInstrument},
-};
+use crate::{exchange::Connector, instrument::InstrumentData};
 use barter_instrument::{
     asset::symbol::Symbol,
     exchange::ExchangeId,
     instrument::{kind::InstrumentKind, Instrument},
+    Keyed,
 };
 use barter_integration::{
     error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId, Validator,
@@ -84,7 +82,7 @@ where
 }
 
 impl<InstrumentKey, Exchange, S, Kind> From<(InstrumentKey, Exchange, S, S, InstrumentKind, Kind)>
-    for Subscription<Exchange, KeyedInstrument<InstrumentKey>, Kind>
+    for Subscription<Exchange, Keyed<InstrumentKey, Instrument>, Kind>
 where
     S: Into<Symbol>,
 {
@@ -98,7 +96,7 @@ where
             Kind,
         ),
     ) -> Self {
-        let instrument = KeyedInstrument::new(instrument_id, (base, quote, instrument_kind).into());
+        let instrument = Keyed::new(instrument_id, (base, quote, instrument_kind).into());
 
         Self::new(exchange, instrument, kind)
     }

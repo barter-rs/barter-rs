@@ -1,8 +1,23 @@
 use crate::{asset::symbol::Symbol, instrument::kind::InstrumentKind};
+use derive_more::Display;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
+use std::fmt::Formatter;
 
 pub mod kind;
+pub mod spec;
+
+/// Unique identifier for an [`Instrument`] traded on an exchange.
+///
+/// Used to key data events in a memory efficient way.
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display,
+)]
+pub struct InstrumentId(pub u64);
+
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display,
+)]
+pub struct InstrumentIndex(usize);
 
 /// Barter representation of an `Instrument`. Used to uniquely identify a `base_quote` pair, and it's
 /// associated instrument type.

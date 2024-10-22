@@ -1,10 +1,8 @@
 use crate::{
-    exchange::bitmex::Bitmex,
-    instrument::{KeyedInstrument, MarketInstrumentData},
-    subscription::Subscription,
+    exchange::bitmex::Bitmex, instrument::MarketInstrumentData, subscription::Subscription,
     Identifier,
 };
-use barter_instrument::{asset::symbol::Symbol, instrument::Instrument};
+use barter_instrument::{asset::symbol::Symbol, instrument::Instrument, Keyed};
 use serde::{Deserialize, Serialize};
 use smol_str::{format_smolstr, SmolStr, StrExt};
 
@@ -21,9 +19,11 @@ impl<Kind> Identifier<BitmexMarket> for Subscription<Bitmex, Instrument, Kind> {
     }
 }
 
-impl<Kind> Identifier<BitmexMarket> for Subscription<Bitmex, KeyedInstrument, Kind> {
+impl<InstrumentKey, Kind> Identifier<BitmexMarket>
+    for Subscription<Bitmex, Keyed<InstrumentKey, Instrument>, Kind>
+{
     fn id(&self) -> BitmexMarket {
-        bitmex_market(&self.instrument.data.base, &self.instrument.data.quote)
+        bitmex_market(&self.instrument.value.base, &self.instrument.value.quote)
     }
 }
 

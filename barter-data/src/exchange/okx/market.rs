@@ -1,10 +1,9 @@
 use super::Okx;
-use crate::{
-    instrument::{KeyedInstrument, MarketInstrumentData},
-    subscription::Subscription,
-    Identifier,
+use crate::{instrument::MarketInstrumentData, subscription::Subscription, Identifier};
+use barter_instrument::{
+    instrument::{kind::option::OptionKind, Instrument},
+    Keyed,
 };
-use barter_instrument::instrument::{kind::option::OptionKind, Instrument};
 use chrono::{
     format::{DelayedFormat, StrftimeItems},
     DateTime, Utc,
@@ -25,9 +24,11 @@ impl<Kind> Identifier<OkxMarket> for Subscription<Okx, Instrument, Kind> {
     }
 }
 
-impl<Kind> Identifier<OkxMarket> for Subscription<Okx, KeyedInstrument, Kind> {
+impl<InstrumentKey, Kind> Identifier<OkxMarket>
+    for Subscription<Okx, Keyed<InstrumentKey, Instrument>, Kind>
+{
     fn id(&self) -> OkxMarket {
-        okx_market(&self.instrument.data)
+        okx_market(&self.instrument.value)
     }
 }
 
