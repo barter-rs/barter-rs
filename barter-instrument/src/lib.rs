@@ -1,24 +1,31 @@
+use derive_more::Constructor;
+use serde::{Deserialize, Serialize};
+
 /// Defines a global [`ExchangeId`] enum covering all exchanges.
 pub mod exchange;
 
-pub mod asset;
-/// [`Instrument`] related data structures.
+/// [`Asset`](asset::Asset) related data structures.
 ///
-/// eg/ `Instrument`, `InstrumentKind`, `OptionContract`, `Symbol`, etc.
+/// eg/ `AssetKind`, `Symbol`, etc.
+pub mod asset;
+
+/// [`Instrument`](instrument::Instrument) related data structures.
+///
+/// eg/ `InstrumentKind`, `OptionContract``, etc.
 pub mod instrument;
+
 pub mod market;
 
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
+pub struct Keyed<Key, Value> {
+    pub key: Key,
+    pub value: Value,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+impl<Key, Value> AsRef<Value> for Keyed<Key, Value> {
+    fn as_ref(&self) -> &Value {
+        &self.value
     }
 }

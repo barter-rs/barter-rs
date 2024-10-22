@@ -1,10 +1,9 @@
 use super::Gateio;
-use crate::{
-    instrument::{KeyedInstrument, MarketInstrumentData},
-    subscription::Subscription,
-    Identifier,
+use crate::{instrument::MarketInstrumentData, subscription::Subscription, Identifier};
+use barter_instrument::{
+    instrument::{kind::option::OptionKind, Instrument},
+    Keyed,
 };
-use barter_instrument::instrument::{kind::option::OptionKind, Instrument};
 use chrono::{
     format::{DelayedFormat, StrftimeItems},
     DateTime, Utc,
@@ -25,11 +24,11 @@ impl<Server, Kind> Identifier<GateioMarket> for Subscription<Gateio<Server>, Ins
     }
 }
 
-impl<Server, Kind> Identifier<GateioMarket>
-    for Subscription<Gateio<Server>, KeyedInstrument, Kind>
+impl<Server, InstrumentKey, Kind> Identifier<GateioMarket>
+    for Subscription<Gateio<Server>, Keyed<InstrumentKey, Instrument>, Kind>
 {
     fn id(&self) -> GateioMarket {
-        gateio_market(&self.instrument.data)
+        gateio_market(&self.instrument.value)
     }
 }
 

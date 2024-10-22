@@ -1,10 +1,6 @@
 use super::Bitfinex;
-use crate::{
-    instrument::{KeyedInstrument, MarketInstrumentData},
-    subscription::Subscription,
-    Identifier,
-};
-use barter_instrument::{asset::symbol::Symbol, instrument::Instrument};
+use crate::{instrument::MarketInstrumentData, subscription::Subscription, Identifier};
+use barter_instrument::{asset::symbol::Symbol, instrument::Instrument, Keyed};
 use serde::{Deserialize, Serialize};
 use smol_str::{format_smolstr, SmolStr, ToSmolStr};
 
@@ -21,9 +17,11 @@ impl<Kind> Identifier<BitfinexMarket> for Subscription<Bitfinex, Instrument, Kin
     }
 }
 
-impl<Kind> Identifier<BitfinexMarket> for Subscription<Bitfinex, KeyedInstrument, Kind> {
+impl<InstrumentKey, Kind> Identifier<BitfinexMarket>
+    for Subscription<Bitfinex, Keyed<InstrumentKey, Instrument>, Kind>
+{
     fn id(&self) -> BitfinexMarket {
-        bitfinex_market(&self.instrument.data.base, &self.instrument.data.quote)
+        bitfinex_market(&self.instrument.value.base, &self.instrument.value.quote)
     }
 }
 

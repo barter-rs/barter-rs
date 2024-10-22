@@ -1,10 +1,8 @@
 use crate::{
-    exchange::bybit::Bybit,
-    instrument::{KeyedInstrument, MarketInstrumentData},
-    subscription::Subscription,
+    exchange::bybit::Bybit, instrument::MarketInstrumentData, subscription::Subscription,
     Identifier,
 };
-use barter_instrument::{asset::symbol::Symbol, instrument::Instrument};
+use barter_instrument::{asset::symbol::Symbol, instrument::Instrument, Keyed};
 use serde::{Deserialize, Serialize};
 use smol_str::{format_smolstr, SmolStr, StrExt};
 
@@ -21,9 +19,11 @@ impl<Server, Kind> Identifier<BybitMarket> for Subscription<Bybit<Server>, Instr
     }
 }
 
-impl<Server, Kind> Identifier<BybitMarket> for Subscription<Bybit<Server>, KeyedInstrument, Kind> {
+impl<Server, InstrumentKey, Kind> Identifier<BybitMarket>
+    for Subscription<Bybit<Server>, Keyed<InstrumentKey, Instrument>, Kind>
+{
     fn id(&self) -> BybitMarket {
-        bybit_market(&self.instrument.data.base, &self.instrument.data.quote)
+        bybit_market(&self.instrument.value.base, &self.instrument.value.quote)
     }
 }
 
