@@ -1,15 +1,10 @@
-use barter_instrument::instrument::{kind::InstrumentKind, Instrument};
-use derive_more::{Constructor, Display};
+use barter_instrument::{
+    instrument::{kind::InstrumentKind, Instrument, InstrumentId},
+    Keyed,
+};
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 use std::fmt::Debug;
-
-/// Concise unique identifier for an instrument. Used to key
-/// [MarketEvents](crate::event::MarketEvent) in a memory efficient way.
-#[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display,
-)]
-pub struct InstrumentId(pub u64);
 
 /// Instrument related data that defines an associated unique `Id`.
 ///
@@ -25,32 +20,18 @@ where
     fn kind(&self) -> InstrumentKind;
 }
 
-#[derive(
-    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
-)]
-pub struct KeyedInstrument<Key = InstrumentId> {
-    pub key: Key,
-    pub data: Instrument,
-}
-
-impl<Key> InstrumentData for KeyedInstrument<Key>
+impl<InstrumentKey> InstrumentData for Keyed<InstrumentKey, Instrument>
 where
-    Key: Debug + Clone + Eq + Send + Sync,
+    InstrumentKey: Debug + Clone + Eq + Send + Sync,
 {
-    type Key = Key;
+    type Key = InstrumentKey;
 
     fn key(&self) -> &Self::Key {
         &self.key
     }
 
     fn kind(&self) -> InstrumentKind {
-        self.data.kind
-    }
-}
-
-impl<Key> AsRef<Instrument> for KeyedInstrument<Key> {
-    fn as_ref(&self) -> &Instrument {
-        &self.data
+        self.value.kind
     }
 }
 
