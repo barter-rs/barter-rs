@@ -1,9 +1,8 @@
 use crate::v2::{
-    engine::{state::EngineState, Processor},
+    engine_new::state::{EngineState, Updater},
     execution::{AccountEvent, AccountEventKind},
     order::{Order, RequestCancel, RequestOpen},
     risk::{RiskApproved, RiskManager, RiskRefused},
-    strategy::default::DefaultStrategyState,
 };
 use barter_data::event::MarketEvent;
 
@@ -13,22 +12,14 @@ use barter_data::event::MarketEvent;
 #[derive(Debug, Clone)]
 pub struct DefaultRiskManager;
 
-impl<InstrumentState, BalanceState, AssetKey, InstrumentKey>
-    RiskManager<InstrumentState, BalanceState, AssetKey, InstrumentKey> for DefaultRiskManager
+impl<MarketState, StrategyState, InstrumentKey>
+    RiskManager<MarketState, StrategyState, InstrumentKey> for DefaultRiskManager
 {
     type State = DefaultRiskManagerState;
-    type StrategyState = DefaultStrategyState;
 
     fn check(
         &self,
-        _: &EngineState<
-            InstrumentState,
-            BalanceState,
-            Self::StrategyState,
-            Self::State,
-            AssetKey,
-            InstrumentKey,
-        >,
+        _: &EngineState<MarketState, StrategyState, Self::State>,
         cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
         opens: impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
     ) -> (
@@ -49,18 +40,51 @@ impl<InstrumentState, BalanceState, AssetKey, InstrumentKey>
 #[derive(Debug, Clone)]
 pub struct DefaultRiskManagerState;
 
-impl<AssetKey, InstrumentKey> Processor<&AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
+impl<AssetKey, InstrumentKey> Updater<AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
     for DefaultRiskManagerState
 {
     type Output = ();
-    fn process(
+    fn update(
         &mut self,
         _: &AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>,
     ) -> Self::Output {
     }
 }
 
-impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey>> for DefaultRiskManagerState {
+impl<InstrumentKey, Kind> Updater<MarketEvent<InstrumentKey, Kind>> for DefaultRiskManagerState {
     type Output = ();
-    fn process(&mut self, _: &MarketEvent<InstrumentKey>) -> Self::Output {}
+    fn update(&mut self, _: &MarketEvent<InstrumentKey, Kind>) -> Self::Output {}
 }
+
+// impl<InstrumentState, BalanceState, AssetKey, InstrumentKey>
+//     RiskManager<InstrumentState, BalanceState, AssetKey, InstrumentKey> for DefaultRiskManager
+// {
+//     type State = DefaultRiskManagerState;
+//     type StrategyState = DefaultStrategyState;
+//
+//     fn check(
+//         &self,
+//         _: &EngineState<
+//             InstrumentState,
+//             BalanceState,
+//             Self::StrategyState,
+//             Self::State,
+//             AssetKey,
+//             InstrumentKey,
+//         >,
+//         cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
+//         opens: impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
+//     ) -> (
+//         impl IntoIterator<Item = RiskApproved<Order<InstrumentKey, RequestCancel>>>,
+//         impl IntoIterator<Item = RiskApproved<Order<InstrumentKey, RequestOpen>>>,
+//         impl IntoIterator<Item = RiskRefused<Order<InstrumentKey, RequestCancel>>>,
+//         impl IntoIterator<Item = RiskRefused<Order<InstrumentKey, RequestOpen>>>,
+//     ) {
+//         (
+//             cancels.into_iter().map(RiskApproved::new),
+//             opens.into_iter().map(RiskApproved::new),
+//             std::iter::empty(),
+//             std::iter::empty(),
+//         )
+//     }
+// }

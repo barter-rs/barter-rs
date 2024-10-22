@@ -19,6 +19,12 @@ pub struct InstrumentId(pub u64);
 )]
 pub struct InstrumentIndex(usize);
 
+impl InstrumentIndex {
+    pub fn index(&self) -> usize {
+        self.0
+    }
+}
+
 /// Barter representation of an `Instrument`. Used to uniquely identify a `base_quote` pair, and it's
 /// associated instrument type.
 ///

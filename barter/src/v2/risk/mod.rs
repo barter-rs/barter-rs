@@ -1,5 +1,5 @@
 use crate::v2::{
-    engine::state::EngineState,
+    engine_new::state::EngineState,
     order::{Order, RequestCancel, RequestOpen},
 };
 use derive_more::{Constructor, Display, From};
@@ -10,20 +10,13 @@ use std::fmt::Debug;
 /// *EXAMPLE IMPLEMENTATION ONLY, PLEASE DO NOT USE FOR ANYTHING OTHER THAN TESTING PURPOSES.*
 pub mod default;
 
-pub trait RiskManager<InstrumentState, BalanceState, AssetKey, InstrumentKey> {
+// Todo: EngineState is currently hard-coded to InstrumentIndex & InstrumentId
+pub trait RiskManager<MarketState, StrategyState, InstrumentKey> {
     type State;
-    type StrategyState;
 
     fn check(
         &self,
-        engine_state: &EngineState<
-            InstrumentState,
-            BalanceState,
-            Self::StrategyState,
-            Self::State,
-            AssetKey,
-            InstrumentKey,
-        >,
+        engine_state: &EngineState<MarketState, StrategyState, Self::State>,
         cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
         opens: impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
     ) -> (
@@ -69,3 +62,27 @@ impl<T, Reason> RiskRefused<T, Reason> {
         self.item
     }
 }
+
+// pub trait RiskManager<InstrumentState, BalanceState, AssetKey, InstrumentKey> {
+//     type State;
+//     type StrategyState;
+//
+//     fn check(
+//         &self,
+//         engine_state: &EngineState<
+//             InstrumentState,
+//             BalanceState,
+//             Self::StrategyState,
+//             Self::State,
+//             AssetKey,
+//             InstrumentKey,
+//         >,
+//         cancels: impl IntoIterator<Item = Order<InstrumentKey, RequestCancel>>,
+//         opens: impl IntoIterator<Item = Order<InstrumentKey, RequestOpen>>,
+//     ) -> (
+//         impl IntoIterator<Item = RiskApproved<Order<InstrumentKey, RequestCancel>>>,
+//         impl IntoIterator<Item = RiskApproved<Order<InstrumentKey, RequestOpen>>>,
+//         impl IntoIterator<Item = RiskRefused<Order<InstrumentKey, RequestCancel>>>,
+//         impl IntoIterator<Item = RiskRefused<Order<InstrumentKey, RequestOpen>>>,
+//     );
+// }

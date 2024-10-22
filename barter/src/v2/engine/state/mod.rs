@@ -125,14 +125,14 @@ where
             }
             AccountEventKind::BalanceSnapshot(balance) => {
                 self.balances
-                    .update_from_balance(exchange, balance.as_ref());
+                    .update_from_balance(exchange, balance);
             }
             AccountEventKind::OrderSnapshot(order) => {
-                self.instruments.update_from_order(order.as_ref());
+                self.instruments.update_from_snapshot(order);
             }
             AccountEventKind::PositionSnapshot(position) => {
                 self.instruments
-                    .update_from_position_snapshot(position.as_ref());
+                    .update_from_position_snapshot(position);
             }
             AccountEventKind::OrderOpened(response) => {
                 self.instruments.update_from_open(response);

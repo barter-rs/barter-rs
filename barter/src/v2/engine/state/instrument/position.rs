@@ -8,7 +8,7 @@ use std::{fmt::Debug, hash::Hash};
 use tracing::warn;
 
 pub trait PositionManager<AssetKey, InstrumentKey> {
-    fn update_from_position_snapshot(&mut self, snapshot: Snapshot<&Position<InstrumentKey>>);
+    fn update_from_position_snapshot(&mut self, snapshot: &Snapshot<Position<InstrumentKey>>);
     fn position(&self, instrument: &InstrumentKey) -> Option<&Position<InstrumentKey>>;
     fn positions_by_portfolio<'a>(
         &'a self,
@@ -24,7 +24,7 @@ impl<AssetKey, InstrumentKey, MarketState> PositionManager<AssetKey, InstrumentK
 where
     InstrumentKey: Debug + Clone + Eq + Hash,
 {
-    fn update_from_position_snapshot(&mut self, snapshot: Snapshot<&Position<InstrumentKey>>) {
+    fn update_from_position_snapshot(&mut self, snapshot: &Snapshot<Position<InstrumentKey>>) {
         let Some(state) = self.state_mut(&snapshot.0.instrument) else {
             warn!(
                 instrument_id = ?snapshot.0.instrument,

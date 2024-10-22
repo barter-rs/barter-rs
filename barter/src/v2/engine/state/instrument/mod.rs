@@ -56,7 +56,7 @@ where
 
                 // Note: this wipes all open & cancel in-flight requests
                 let _ = std::mem::replace(
-                    &mut state.orders.inner,
+                    &mut state.orders.0,
                     snapshot
                         .orders
                         .iter()
@@ -126,7 +126,7 @@ impl<AssetKey, InstrumentKey, MarketState> OrderManager<InstrumentKey>
 where
     InstrumentKey: Debug + Clone + PartialEq + Eq + Hash,
 {
-    fn update_from_order(&mut self, snapshot: Snapshot<&Order<InstrumentKey, ExchangeOrderState>>) {
+    fn update_from_snapshot(&mut self, snapshot: &Snapshot<Order<InstrumentKey, ExchangeOrderState>>) {
         let Some(state) = self.state_mut(&snapshot.0.instrument) else {
             warn!(
                 instrument_id = ?snapshot.0.instrument,
@@ -136,7 +136,7 @@ where
             return;
         };
 
-        state.orders.update_from_order(snapshot);
+        state.orders.update_from_snapshot(snapshot);
     }
 
     fn orders<'a>(&'a self) -> impl Iterator<Item = &'a Order<InstrumentKey, InternalOrderState>>

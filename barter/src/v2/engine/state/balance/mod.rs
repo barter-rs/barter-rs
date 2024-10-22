@@ -19,7 +19,7 @@ where
     fn update_from_balance(
         &mut self,
         exchange: &ExchangeId,
-        snapshot: Snapshot<&AssetBalance<AssetKey>>,
+        snapshot: &Snapshot<AssetBalance<AssetKey>>,
     );
 
     fn balance(&self, exchange: &ExchangeId, asset: &AssetKey) -> Option<&Balance>;
@@ -69,7 +69,7 @@ where
     fn update_from_balance(
         &mut self,
         exchange: &ExchangeId,
-        snapshot: Snapshot<&AssetBalance<AssetKey>>,
+        snapshot: &Snapshot<AssetBalance<AssetKey>>,
     ) {
         let Some(exchange_balances) = self.0.get_mut(exchange) else {
             warn!(

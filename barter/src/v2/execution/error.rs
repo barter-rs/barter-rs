@@ -13,7 +13,7 @@ pub enum ExecutionError {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
 pub enum ConnectivityError {
     #[error("todo")]
-    Disconnected,
+    Reconnecting,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]

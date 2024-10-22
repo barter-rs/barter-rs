@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod error;
 pub mod link;
-mod map;
+pub mod map;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, From)]
 pub enum ExecutionRequest<InstrumentKey> {

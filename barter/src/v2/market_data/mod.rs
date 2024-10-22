@@ -1,4 +1,4 @@
-use crate::v2::engine::error::EngineError;
+use crate::v2::engine_new::error::EngineError;
 use barter_data::event::MarketEvent;
 use futures::Stream;
 

@@ -31,7 +31,7 @@ pub struct AssetFees<AssetKey> {
 impl<AssetKey, InstrumentKey> Display for Trade<AssetKey, InstrumentKey>
 where
     AssetKey: Display,
-    InstrumentKey: Display
+    InstrumentKey: Display,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(

@@ -17,23 +17,18 @@ pub trait OrderManager<InstrumentKey>
 where
     Self: UpdateFromSnapshot<Vec<Order<InstrumentKey, Open>>>,
 {
-    fn update_from_order(&mut self, snapshot: Snapshot<&Order<InstrumentKey, ExchangeOrderState>>);
     fn orders<'a>(&'a self) -> impl Iterator<Item = &'a Order<InstrumentKey, InternalOrderState>>
     where
         InstrumentKey: 'a;
     fn record_in_flight_cancel(&mut self, request: &Order<InstrumentKey, RequestCancel>);
     fn record_in_flight_open(&mut self, request: &Order<InstrumentKey, RequestOpen>);
-    fn update_from_cancel(
-        &mut self,
-        response: &Order<InstrumentKey, Result<Cancelled, ExecutionError>>,
-    );
     fn update_from_open(&mut self, response: &Order<InstrumentKey, Result<Open, ExecutionError>>);
+    fn update_from_cancel(&mut self, response: &Order<InstrumentKey, Result<Cancelled, ExecutionError>>);
+    fn update_from_snapshot(&mut self, snapshot: &Snapshot<Order<InstrumentKey, ExchangeOrderState>>);
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct Orders<InstrumentKey> {
-    pub inner: FnvHashMap<ClientOrderId, Order<InstrumentKey, InternalOrderState>>,
-}
+pub struct Orders<InstrumentKey>(pub FnvHashMap<ClientOrderId, Order<InstrumentKey, InternalOrderState>>);
 
 impl<InstrumentKey> UpdateFromSnapshot<Vec<Order<InstrumentKey, Open>>> for Orders<InstrumentKey>
 where
@@ -48,7 +43,7 @@ impl<InstrumentKey> OrderManager<InstrumentKey> for Orders<InstrumentKey>
 where
     InstrumentKey: Debug + Clone + Eq + Hash,
 {
-    fn update_from_order(&mut self, snapshot: Snapshot<&Order<InstrumentKey, ExchangeOrderState>>) {
+    fn update_from_snapshot(&mut self, snapshot: &Snapshot<Order<InstrumentKey, ExchangeOrderState>>) {
         todo!()
     }
 
@@ -56,11 +51,11 @@ where
     where
         InstrumentKey: 'a,
     {
-        self.inner.values()
+        self.0.values()
     }
 
     fn record_in_flight_cancel(&mut self, request: &Order<InstrumentKey, RequestCancel>) {
-        if let Some(duplicate_cid_order) = self.inner.insert(request.cid, Order::from(request)) {
+        if let Some(duplicate_cid_order) = self.0.insert(request.cid, Order::from(request)) {
             error!(
                 cid = %duplicate_cid_order.cid,
                 event = ?duplicate_cid_order,
@@ -70,7 +65,7 @@ where
     }
 
     fn record_in_flight_open(&mut self, request: &Order<InstrumentKey, RequestOpen>) {
-        if let Some(duplicate_cid_order) = self.inner.insert(request.cid, Order::from(request)) {
+        if let Some(duplicate_cid_order) = self.0.insert(request.cid, Order::from(request)) {
             error!(
                 cid = %duplicate_cid_order.cid,
                 event = ?duplicate_cid_order,
@@ -83,7 +78,7 @@ where
         &mut self,
         response: &Order<InstrumentKey, Result<Cancelled, ExecutionError>>,
     ) {
-        match (self.inner.entry(response.cid), &response.state) {
+        match (self.0.entry(response.cid), &response.state) {
             (Entry::Occupied(order), Ok(_new_cancel)) => match &order.get().state {
                 InternalOrderState::OpenInFlight(_) => {
                     warn!(
@@ -147,7 +142,7 @@ where
     }
 
     fn update_from_open(&mut self, response: &Order<InstrumentKey, Result<Open, ExecutionError>>) {
-        match (self.inner.entry(response.cid), &response.state) {
+        match (self.0.entry(response.cid), &response.state) {
             (Entry::Occupied(mut order), Ok(new_open)) => match &order.get().state {
                 InternalOrderState::OpenInFlight(_) => {
                     debug!(
@@ -355,9 +350,7 @@ where
 
 impl<InstrumentKey> Default for Orders<InstrumentKey> {
     fn default() -> Self {
-        Self {
-            inner: Default::default(),
-        }
+        Self(Default::default())
     }
 }
 
@@ -395,9 +388,7 @@ mod tests {
     }
 
     fn orders(orders: impl IntoIterator<Item = Order<u64, InternalOrderState>>) -> Orders<u64> {
-        Orders {
-            inner: orders.into_iter().map(|order| (order.cid, order)).collect(),
-        }
+        Orders(orders.into_iter().map(|order| (order.cid, order)).collect())
     }
 
     fn open_in_flight(cid: ClientOrderId) -> Order<u64, InternalOrderState> {
@@ -507,32 +498,22 @@ mod tests {
                 // TC0: Insert unseen InFlight
                 state: Orders::default(),
                 input: vec![specific_request_open(cid_1)],
-                expected: Orders {
-                    inner: specific_request_opens([specific_request_open(cid_1)]),
-                },
+                expected: Orders(specific_request_opens([specific_request_open(cid_1)])),
             },
             TestCase {
                 // TC1: Insert InFlight that is already tracked
-                state: Orders {
-                    inner: specific_request_opens([specific_request_open(cid_1)]),
-                },
+                state: Orders(specific_request_opens([specific_request_open(cid_1)])),
                 input: vec![specific_request_open(cid_1)],
-                expected: Orders {
-                    inner: specific_request_opens([specific_request_open(cid_1)]),
-                },
+                expected: Orders(specific_request_opens([specific_request_open(cid_1)]))
             },
             TestCase {
                 // TC2: Insert one untracked InFlight, and one already tracked
-                state: Orders {
-                    inner: specific_request_opens([specific_request_open(cid_1)]),
-                },
+                state: Orders(specific_request_opens([specific_request_open(cid_1)])),
                 input: vec![specific_request_open(cid_1), specific_request_open(cid_2)],
-                expected: Orders {
-                    inner: specific_request_opens([
+                expected: Orders(specific_request_opens([
                         specific_request_open(cid_1),
                         specific_request_open(cid_2),
-                    ]),
-                },
+                    ])),
             },
         ];
 

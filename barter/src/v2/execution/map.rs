@@ -1,9 +1,7 @@
-use fnv::{FnvHashMap};
-use smol_str::SmolStr;
-use barter_instrument::asset::AssetIndex;
-use barter_instrument::instrument::InstrumentIndex;
-use barter_instrument::Keyed;
 use crate::FnvIndexMap;
+use barter_instrument::{asset::AssetIndex, instrument::InstrumentIndex, Keyed};
+use fnv::FnvHashMap;
+use smol_str::SmolStr;
 
 pub type InstrumentNameExchange = SmolStr;
 pub type AssetNameExchange = SmolStr;
