@@ -10,14 +10,10 @@
 // use barter_instrument::Keyed;
 // use futures::Stream;
 //
-// pub async fn init<InstrumentKey, AssetKey>(
-//     _execution_rx: impl Stream<Item = ExecutionRequest<InstrumentKey>>,
-// <<<<<<< Updated upstream
-//     _instruments: &[Keyed<InstrumentKey, Instrument<AssetKey>>],
-// =======
-//     _instruments: &[Keyed<InstrumentKey, Instrument>],
-// >>>>>>> Stashed changes
-// ) -> Result<impl Stream<Item = AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>, EngineError>
-// {
-//     Ok(futures::stream::iter([]))
-// }
+pub async fn init<InstrumentKey, AssetKey>(
+    _execution_rx: impl Stream<Item = ExecutionRequest<InstrumentKey>>,
+    _instruments: &[Keyed<InstrumentKey, Instrument<AssetKey>>],
+) -> Result<impl Stream<Item = AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>, EngineError>
+{
+    Ok(futures::stream::iter([]))
+}

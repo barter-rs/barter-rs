@@ -21,7 +21,7 @@ pub enum EngineError {
 
     #[error("todo")]
     AssetIndexInvalid,
-    
+
     #[error("todo")]
     InstrumentIndexInvalid,
 

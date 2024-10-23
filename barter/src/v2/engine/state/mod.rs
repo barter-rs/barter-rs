@@ -1,193 +1,49 @@
-use crate::v2::{
-    engine::{
-        state::{balance::BalanceManager, instrument::order::OrderManager},
-        Processor,
-    },
-    execution::{AccountEvent, AccountEventKind, InstrumentAccountSnapshot},
-};
-use barter_data::event::MarketEvent;
-use derive_more::Constructor;
-use instrument::position::PositionManager;
-use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, marker::PhantomData};
-use tracing::{debug, info, warn};
-
-pub mod balance;
+pub mod asset;
 pub mod instrument;
+mod order_manager;
+pub mod processor;
+pub mod trading;
+mod connectivity;
 
-pub trait UpdateFromKeyedSnapshot<Snapshot> {
-    type Key;
-    fn update_from_keyed_snapshot(&mut self, key: &Self::Key, snapshot: &Snapshot);
+use crate::v2::{
+    engine::state::{asset::AssetStates, instrument::InstrumentStates, trading::TradingState},
+    execution::{error::ConnectivityError, AccountSnapshot},
+};
+use barter_instrument::{asset::AssetIndex, exchange::ExchangeId, instrument::InstrumentIndex};
+use vecmap::VecMap;
+use crate::v2::engine::state::connectivity::ConnectivityState;
+use crate::v2::engine::state::order_manager::OrderManager;
+// Todo:
+//  - Consider introducing AssetKey, InstrumentKey, to State, with two impls for Id vs Index,
+//    that way I can go hard-core on the Indexes, but it's opt in at a high level
+//  - Maybe introduce State machine for dealing with connectivity VecMap issue...
+//    '--> could only check if a new Account/Market event updates to Connected if we are in
+//         State=Unhealthy, that way we are only doing expensive lookup in that case
+//  - Need to make some Key decisions about "what is a manager", and "what is an Updater"
+
+pub trait Updater<Event> {
+    type Output;
+    fn update(&mut self, event: &Event) -> Self::Output;
 }
 
-pub trait UpdateFromSnapshot<Snapshot> {
-    fn update_from_snapshot(&mut self, snapshot: &Snapshot);
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct EngineState<
-    InstrumentState,
-    BalanceState,
-    StrategyState,
-    RiskState,
-    AssetKey,
-    InstrumentKey,
-> {
+#[derive(Debug)]
+pub struct EngineState<Market, Strategy, Risk> {
+    pub connectivity: VecMap<ExchangeId, ConnectivityState>,
     pub trading: TradingState,
-    pub instruments: InstrumentState,
-    pub balances: BalanceState,
-    pub strategy: StrategyState,
-    pub risk: RiskState,
-    pub phantom: PhantomData<(AssetKey, InstrumentKey)>,
+    pub instruments: InstrumentStates<Market>,
+    pub assets: AssetStates,
+    pub strategy: Strategy,
+    pub risk: Risk,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
-pub enum TradingState {
-    Enabled,
-    Disabled,
-}
+impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
+    pub fn order_manager(&self) -> &impl OrderManager<InstrumentIndex> {
+        &self.instruments
+    }
 
-impl<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey>
-    Processor<TradingState>
-    for EngineState<
-        InstrumentState,
-        BalanceState,
-        StrategyState,
-        RiskState,
-        AssetKey,
-        InstrumentKey,
-    >
-{
-    type Output = ();
-
-    fn process(&mut self, event: TradingState) -> Self::Output {
-        let next = match (self.trading, event) {
-            (TradingState::Enabled, TradingState::Disabled) => {
-                info!("Engine disabled trading");
-                TradingState::Disabled
-            }
-            (TradingState::Disabled, TradingState::Enabled) => {
-                info!("Engine enabled trading");
-                TradingState::Enabled
-            }
-            (TradingState::Enabled, TradingState::Enabled) => {
-                info!("Engine enabled trading, although it was already enabled");
-                TradingState::Enabled
-            }
-            (TradingState::Disabled, TradingState::Disabled) => {
-                info!("Engine disabled trading, although it was already disabled");
-                TradingState::Disabled
-            }
-        };
-
-        self.trading = next;
+    pub fn order_manager_mut(&mut self) -> &mut impl OrderManager<InstrumentIndex> {
+        &mut self.instruments
     }
 }
 
-impl<InstrumentState, BalanceState, StrategyState, RiskState, AssetKey, InstrumentKey>
-    Processor<&AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>
-    for EngineState<
-        InstrumentState,
-        BalanceState,
-        StrategyState,
-        RiskState,
-        AssetKey,
-        InstrumentKey,
-    >
-where
-    InstrumentState: UpdateFromSnapshot<Vec<InstrumentAccountSnapshot<InstrumentKey>>>
-        + OrderManager<InstrumentKey>
-        + PositionManager<AssetKey, InstrumentKey>,
-    BalanceState: BalanceManager<AssetKey>,
-    StrategyState: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>,
-    RiskState: for<'a> Processor<&'a AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>>,
-    AssetKey: Debug + Clone,
-    InstrumentKey: Debug + Clone,
-{
-    type Output = ();
 
-    fn process(
-        &mut self,
-        event: &AccountEvent<AccountEventKind<AssetKey, InstrumentKey>>,
-    ) -> Self::Output {
-        info!(
-            account = ?event,
-            "updating InstrumentState, BalanceState, RiskState, StrategyState from AccountEvent"
-        );
-
-        // Update InstrumentState & BalanceState
-        let AccountEvent { exchange, kind } = event;
-        match kind {
-            AccountEventKind::Snapshot(snapshot) => {
-                self.balances
-                    .update_from_keyed_snapshot(exchange, &snapshot.balances);
-                self.instruments.update_from_snapshot(&snapshot.instruments);
-            }
-            AccountEventKind::BalanceSnapshot(balance) => {
-                self.balances
-                    .update_from_balance(exchange, balance);
-            }
-            AccountEventKind::OrderSnapshot(order) => {
-                self.instruments.update_from_snapshot(order);
-            }
-            AccountEventKind::PositionSnapshot(position) => {
-                self.instruments
-                    .update_from_position_snapshot(position);
-            }
-            AccountEventKind::OrderOpened(response) => {
-                self.instruments.update_from_open(response);
-            }
-            AccountEventKind::OrderCancelled(response) => {
-                self.instruments.update_from_cancel(response);
-            }
-            AccountEventKind::Trade(trade) => {
-                self.instruments.update_from_trade(trade);
-            }
-            AccountEventKind::ConnectivityError(error) => {
-                warn!(%error, "Engine aware of Account ConnectivityError");
-            }
-        }
-
-        // Update any user provided Strategy & Risk State
-        self.strategy.process(event);
-        self.risk.process(event);
-    }
-}
-
-impl<
-        InstrumentState,
-        BalanceState,
-        StrategyState,
-        RiskState,
-        AssetKey,
-        InstrumentKey,
-        MarketDataKind,
-    > Processor<&MarketEvent<InstrumentKey, MarketDataKind>>
-    for EngineState<
-        InstrumentState,
-        BalanceState,
-        StrategyState,
-        RiskState,
-        AssetKey,
-        InstrumentKey,
-    >
-where
-    InstrumentState: for<'a> Processor<&'a MarketEvent<InstrumentKey, MarketDataKind>>,
-    StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentKey, MarketDataKind>>,
-    RiskState: for<'a> Processor<&'a MarketEvent<InstrumentKey, MarketDataKind>>,
-    InstrumentKey: Debug + Clone,
-    MarketDataKind: Debug,
-{
-    type Output = ();
-
-    fn process(&mut self, event: &MarketEvent<InstrumentKey, MarketDataKind>) -> Self::Output {
-        debug!(
-            market = ?event,
-            "updating InstrumentState, BalanceState, RiskState, StrategyState from MarketEvent"
-        );
-
-        self.instruments.process(event);
-        self.strategy.process(event);
-        self.risk.process(event);
-    }
-}

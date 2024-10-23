@@ -5,6 +5,7 @@ use crate::v2::{
 use barter_instrument::asset::{Asset, AssetId, AssetIndex, ExchangeAssetKey};
 use indexmap::IndexMap;
 
+#[derive(Debug)]
 pub struct AssetStates(pub IndexMap<ExchangeAssetKey<AssetId>, AssetState>);
 
 impl AssetStates {
@@ -35,6 +36,7 @@ impl AssetStates {
     }
 }
 
+#[derive(Debug)]
 pub struct AssetState {
     pub asset: Asset,
     pub balance: Balance,

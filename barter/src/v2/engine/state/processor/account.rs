@@ -1,5 +1,5 @@
 use crate::v2::{
-    engine_new::state::{order_manager::OrderManager, EngineState, Updater},
+    engine::state::{order_manager::OrderManager, EngineState, Updater},
     execution::{AccountEvent, AccountEventKind},
     Snapshot,
 };
@@ -18,9 +18,7 @@ where
         &mut self,
         event: &AccountEvent<AccountEventKind<AssetIndex, InstrumentIndex>>,
     ) -> Self::Output {
-        info!(account = ?event, "updating State from AccountEvent");
-
-        // Update InstrumentState & BalanceState
+        info!(account = ?event, "EngineState updating from AccountEvent");
         let AccountEvent { exchange, kind } = event;
         match kind {
             AccountEventKind::Snapshot(snapshot) => {
@@ -47,7 +45,7 @@ where
                 self.instruments.update_from_trade(trade);
             }
             AccountEventKind::ConnectivityError(error) => {
-                warn!(%error, %exchange, "Engine State aware of Account ConnectivityError");
+                warn!(%error, %exchange, "EngineState aware of Account ConnectivityError");
             }
         }
 

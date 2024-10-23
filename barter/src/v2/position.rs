@@ -1,22 +1,10 @@
 use barter_integration::Side;
-use derive_more::{Constructor, Display, From};
+use derive_more::{Constructor};
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display, From,
-)]
-pub struct PortfolioId<Id = String>(pub Id);
-
-impl From<&str> for PortfolioId<String> {
-    fn from(value: &str) -> Self {
-        Self(value.to_string())
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
-pub struct Position<InstrumentKey, PortfolioKey = PortfolioId<String>> {
+pub struct Position<InstrumentKey> {
     pub instrument: InstrumentKey,
-    pub portfolio: PortfolioKey,
     pub side: Side,
     pub quantity: f64,
     pub price_average: f64,
@@ -24,14 +12,10 @@ pub struct Position<InstrumentKey, PortfolioKey = PortfolioId<String>> {
     pub pnl_realised: f64,
 }
 
-impl<InstrumentKey, PortfolioKey> Position<InstrumentKey, PortfolioKey> {
-    pub fn new_flat<PKey>(instrument: InstrumentKey, portfolio: PKey) -> Self
-    where
-        PKey: Into<PortfolioKey>,
-    {
+impl<InstrumentKey> Position<InstrumentKey> {
+    pub fn new_flat<PKey>(instrument: InstrumentKey) -> Self {
         Self {
             instrument,
-            portfolio: portfolio.into(),
             side: Side::Buy,
             quantity: 0.0,
             price_average: 0.0,

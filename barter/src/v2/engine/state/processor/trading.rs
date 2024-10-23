@@ -1,4 +1,4 @@
-use crate::v2::engine_new::state::{trading::TradingState, EngineState, Updater};
+use crate::v2::engine::state::{trading::TradingState, EngineState, Updater};
 use tracing::info;
 
 impl<Market, Strategy, Risk> Updater<TradingState> for EngineState<Market, Strategy, Risk> {
@@ -7,19 +7,19 @@ impl<Market, Strategy, Risk> Updater<TradingState> for EngineState<Market, Strat
     fn update(&mut self, event: &TradingState) -> Self::Output {
         let next = match (self.trading, event) {
             (TradingState::Enabled, TradingState::Disabled) => {
-                info!("Engine disabled trading");
+                info!("EngineState setting TradingState::Disabled");
                 TradingState::Disabled
             }
             (TradingState::Disabled, TradingState::Enabled) => {
-                info!("Engine enabled trading");
+                info!("EngineState setting TradingState::Enabled");
                 TradingState::Enabled
             }
             (TradingState::Enabled, TradingState::Enabled) => {
-                info!("Engine enabled trading, although it was already enabled");
+                info!("EngineState set TradingState::Enabled, although it was already enabled");
                 TradingState::Enabled
             }
             (TradingState::Disabled, TradingState::Disabled) => {
-                info!("Engine disabled trading, although it was already disabled");
+                info!("EngineState set TradingState::Disabled, although it was already disabled");
                 TradingState::Disabled
             }
         };
