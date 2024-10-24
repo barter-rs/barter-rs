@@ -9,6 +9,8 @@ use crate::v2::{
 use barter_instrument::exchange::ExchangeId;
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
+use barter_instrument::asset::ExchangeAsset;
+use crate::v2::balance::{Balance};
 
 pub mod error;
 pub mod link;
@@ -28,6 +30,38 @@ pub struct AccountEvent<Kind> {
     pub kind: Kind,
 }
 
+pub struct AccountAssetEvent<AssetKey> {
+    asset: ExchangeAsset<AssetKey>,
+    balance: Balance
+}
+
+
+// pub enum AccountEvent<AssetKey, InstrumentKey> {
+//     Snapshot(AccountSnapshot<AssetKey, InstrumentKey>),
+//     Balance(Snapshot<BalanceEvent<AssetKey>>),
+//     Instrument(InstrumentEvent<AssetKey, InstrumentKey>),
+//     ConnectivityError
+// }
+// 
+// pub struct BalanceEvent<AssetKey> {
+//     asset: ExchangeAsset<AssetKey>,
+//     balance: Balance,
+// }
+// 
+// pub struct InstrumentEvent<AssetKey, InstrumentKey> {
+//     instrument: InstrumentKey,
+//     kind: InstrumentEventKind<AssetKey, InstrumentKey>
+// }
+// 
+// 
+// pub enum InstrumentEventKind<AssetKey, InstrumentKey> {
+//     PositionSnapshot(Snapshot<Position<InstrumentKey>>),
+//     OrderSnapshot(Snapshot<Order<InstrumentKey, ExchangeOrderState>>),
+//     OrderOpened(Order<InstrumentKey, Result<Open, ExecutionError>>),
+//     OrderCancelled(Order<InstrumentKey, Result<Cancelled, ExecutionError>>),
+//     Trade(Trade<AssetKey, InstrumentKey>),
+// }
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
 pub enum AccountEventKind<AssetKey, InstrumentKey> {
     /// Full [`AccountSnapshot`] - replaces all existing state.
@@ -35,10 +69,12 @@ pub enum AccountEventKind<AssetKey, InstrumentKey> {
 
     /// Single [`AssetBalance`] snapshot - replaces existing balance state.
     BalanceSnapshot(Snapshot<AssetBalance<AssetKey>>),
-    /// Single [`Order<InstrumentKey, Open>`] snapshot - replaces existing order state.
-    OrderSnapshot(Snapshot<Order<InstrumentKey, ExchangeOrderState>>),
+
     /// Single [`Position`] snapshot - replaces existing position state.
     PositionSnapshot(Snapshot<Position<InstrumentKey>>),
+    
+    /// Single [`Order<InstrumentKey, Open>`] snapshot - replaces existing order state.
+    OrderSnapshot(Snapshot<Order<InstrumentKey, ExchangeOrderState>>),
 
     /// Response to an [`Order<InstrumentKey, RequestOpen>`].
     OrderOpened(Order<InstrumentKey, Result<Open, ExecutionError>>),

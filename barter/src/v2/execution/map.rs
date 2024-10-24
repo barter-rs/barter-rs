@@ -7,14 +7,34 @@ pub type InstrumentNameExchange = SmolStr;
 pub type AssetNameExchange = SmolStr;
 
 #[derive(Debug)]
-pub struct ExecutionInstrumentMap<InstrumentData, AssetData> {
-    pub instruments: FnvIndexMap<InstrumentIndex, Keyed<InstrumentNameExchange, InstrumentData>>,
-    pub instrument_names: FnvHashMap<InstrumentNameExchange, InstrumentIndex>,
-    pub assets: FnvIndexMap<AssetIndex, Keyed<AssetNameExchange, AssetData>>,
+pub struct ExecutionInstrumentMap {
+    pub assets: FnvIndexMap<AssetIndex, AssetNameExchange>,
+    pub instruments: FnvIndexMap<InstrumentIndex, InstrumentNameExchange>,
     pub asset_names: FnvHashMap<AssetNameExchange, AssetIndex>,
+    pub instrument_names: FnvHashMap<InstrumentNameExchange, InstrumentIndex>,
 }
 
-// #[derive(Debug, Clone, Default, Deserialize, Serialize, From)]
-// pub struct Instruments<InstrumentKey: Eq + Hash, MarketState>(
-//     pub FnvIndexMap<InstrumentKey, InstrumentState<InstrumentKey, MarketState>>,
-// );
+impl ExecutionInstrumentMap {
+    pub fn new(
+        assets: FnvIndexMap<AssetIndex, AssetNameExchange>,
+        instruments: FnvIndexMap<InstrumentIndex, InstrumentNameExchange>
+    ) -> Self
+    {
+        Self {
+            asset_names: assets
+                .iter()
+                .map(|(key, value)| (
+                    value.clone(), *key
+                ))
+                .collect(),
+            instrument_names: instruments
+                .iter()
+                .map(|(key, value)| (
+                    value.clone(), *key
+                ))
+                .collect(),
+            assets,
+            instruments,
+        }
+    }
+}

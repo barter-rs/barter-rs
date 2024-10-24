@@ -1,8 +1,10 @@
 use barter_integration::Side;
 use chrono::{DateTime, Utc};
 use derive_more::{Constructor, Display, From};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use barter_instrument::exchange::ExchangeId;
 
 #[derive(
     Debug,
@@ -42,6 +44,7 @@ pub struct OrderId<T = String>(pub T);
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
 pub struct Order<InstrumentKey, State> {
+    pub exchange: ExchangeId,
     pub instrument: InstrumentKey,
     pub cid: ClientOrderId,
     pub side: Side,
@@ -84,8 +87,8 @@ pub enum ExchangeOrderState {
 pub struct RequestOpen {
     pub kind: OrderKind,
     pub time_in_force: TimeInForce,
-    pub price: f64,
-    pub quantity: f64,
+    pub price: Decimal,
+    pub quantity: Decimal,
 }
 
 #[derive(
@@ -119,13 +122,13 @@ pub struct OpenInFlight;
 pub struct Open {
     pub id: OrderId,
     pub time_update: DateTime<Utc>,
-    pub price: f64,
-    pub quantity: f64,
-    pub filled_quantity: f64,
+    pub price: Decimal,
+    pub quantity: Decimal,
+    pub filled_quantity: Decimal,
 }
 
 impl Open {
-    pub fn quantity_remaining(&self) -> f64 {
+    pub fn quantity_remaining(&self) -> Decimal {
         self.quantity - self.filled_quantity
     }
 }
@@ -156,6 +159,7 @@ where
 {
     fn from(value: &Order<InstrumentKey, RequestOpen>) -> Self {
         let Order {
+            exchange,
             instrument,
             cid,
             side,
@@ -163,6 +167,7 @@ where
         } = value;
 
         Self {
+            exchange: *exchange,
             instrument: instrument.clone(),
             cid: *cid,
             side: *side,
@@ -178,6 +183,7 @@ where
 {
     fn from(value: &Order<InstrumentKey, RequestCancel>) -> Self {
         let Order {
+            exchange,
             instrument,
             cid,
             side,
@@ -185,6 +191,7 @@ where
         } = value;
 
         Self {
+            exchange: *exchange,
             instrument: instrument.clone(),
             cid: *cid,
             side: *side,
@@ -198,6 +205,7 @@ where
 impl<InstrumentKey> From<Order<InstrumentKey, Open>> for Order<InstrumentKey, InternalOrderState> {
     fn from(value: Order<InstrumentKey, Open>) -> Self {
         let Order {
+            exchange,
             instrument,
             cid,
             side,
@@ -205,6 +213,7 @@ impl<InstrumentKey> From<Order<InstrumentKey, Open>> for Order<InstrumentKey, In
         } = value;
 
         Self {
+            exchange,
             instrument,
             cid,
             side,

@@ -1,5 +1,5 @@
 use crate::{asset::symbol::Symbol, instrument::kind::InstrumentKind};
-use derive_more::Display;
+use derive_more::{Constructor, Display};
 use serde::{Deserialize, Serialize};
 use std::fmt::Formatter;
 
@@ -15,7 +15,18 @@ pub mod spec;
 pub struct InstrumentId(pub u64);
 
 #[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display,
+    Debug,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Deserialize,
+    Serialize,
+    Display,
+    Constructor,
 )]
 pub struct InstrumentIndex(usize);
 

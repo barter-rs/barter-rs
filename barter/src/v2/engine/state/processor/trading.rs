@@ -1,7 +1,8 @@
 use crate::v2::engine::state::{trading::TradingState, EngineState, Updater};
 use tracing::info;
 
-impl<Market, Strategy, Risk> Updater<TradingState> for EngineState<Market, Strategy, Risk> {
+impl<AssetKey, InstrumentKey, Market, Strategy, Risk> Updater<TradingState> 
+for EngineState<AssetKey, InstrumentKey, Market, Strategy, Risk> {
     type Output = ();
 
     fn update(&mut self, event: &TradingState) -> Self::Output {

@@ -1,15 +1,16 @@
 use barter_integration::Side;
 use derive_more::{Constructor};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
 pub struct Position<InstrumentKey> {
     pub instrument: InstrumentKey,
     pub side: Side,
-    pub quantity: f64,
-    pub price_average: f64,
-    pub pnl_unrealised: f64,
-    pub pnl_realised: f64,
+    pub quantity_net: Decimal,
+    pub price_average: Decimal,
+    pub pnl_unrealised: Decimal,
+    pub pnl_realised: Decimal,
 }
 
 impl<InstrumentKey> Position<InstrumentKey> {
@@ -17,10 +18,10 @@ impl<InstrumentKey> Position<InstrumentKey> {
         Self {
             instrument,
             side: Side::Buy,
-            quantity: 0.0,
-            price_average: 0.0,
-            pnl_unrealised: 0.0,
-            pnl_realised: 0.0,
+            quantity_net: Decimal::ZERO,
+            price_average: Decimal::ZERO,
+            pnl_unrealised: Decimal::ZERO,
+            pnl_realised: Decimal::ZERO,
         }
     }
 }

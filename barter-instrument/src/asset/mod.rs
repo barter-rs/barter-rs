@@ -1,5 +1,5 @@
 use crate::{asset::symbol::Symbol, exchange::ExchangeId};
-use derive_more::Display;
+use derive_more::{Constructor, Display};
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 
@@ -12,7 +12,18 @@ pub mod symbol;
 pub struct AssetId(pub u64);
 
 #[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display,
+    Debug,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Deserialize,
+    Serialize,
+    Display,
+    Constructor,
 )]
 pub struct AssetIndex(usize);
 
@@ -22,10 +33,12 @@ impl AssetIndex {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
-pub struct ExchangeAssetKey<AssetKey> {
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
+pub struct ExchangeAsset<Asset> {
     pub exchange: ExchangeId,
-    pub asset: AssetKey,
+    pub asset: Asset,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]

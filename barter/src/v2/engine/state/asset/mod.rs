@@ -1,14 +1,28 @@
-use crate::v2::{
-    balance::{AssetBalance, Balance},
-    Snapshot,
-};
-use barter_instrument::asset::{Asset, AssetId, AssetIndex, ExchangeAssetKey};
+use std::hash::Hash;
+use barter_instrument::asset::{AssetIndex, ExchangeAsset};
 use indexmap::IndexMap;
+use crate::v2::engine::state::asset::state::AssetState;
+
+pub mod state;
 
 #[derive(Debug)]
-pub struct AssetStates(pub IndexMap<ExchangeAssetKey<AssetId>, AssetState>);
+pub struct AssetStates<AssetKey>(pub IndexMap<ExchangeAsset<AssetKey>, AssetState>);
 
-impl AssetStates {
+impl<AssetKey> AssetStates<AssetKey> {
+    pub fn state(&self, asset: &ExchangeAsset<AssetKey>) -> Option<&AssetState>
+    where
+        AssetKey: Eq + Hash,
+    {
+        self.0.get(asset)
+    }
+
+    pub fn state_mut(&mut self, asset: &ExchangeAsset<AssetKey>) -> Option<&mut AssetState>
+    where
+        AssetKey: Eq + Hash,
+    {
+        self.0.get_mut(asset)
+    }
+
     pub fn state_by_index(&self, asset: AssetIndex) -> &AssetState {
         self.0
             .get_index(asset.index())
@@ -22,22 +36,5 @@ impl AssetStates {
             .map(|(_key, state)| state)
             .unwrap_or_else(|| panic!("AssetIndex: {asset} not present in assets"))
     }
-
-    pub fn update_from_balance(&mut self, balance: Snapshot<&AssetBalance<AssetIndex>>) {
-        let Snapshot(balance) = balance;
-        self.state_by_index_mut(balance.asset).balance = balance.balance
-    }
-
-    pub fn update_from_balances(&mut self, balances: Snapshot<&Vec<AssetBalance<AssetIndex>>>) {
-        let Snapshot(balances) = balances;
-        for balance in balances {
-            self.update_from_balance(Snapshot(balance));
-        }
-    }
 }
 
-#[derive(Debug)]
-pub struct AssetState {
-    pub asset: Asset,
-    pub balance: Balance,
-}

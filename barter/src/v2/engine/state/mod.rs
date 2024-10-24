@@ -3,47 +3,48 @@ pub mod instrument;
 mod order_manager;
 pub mod processor;
 pub mod trading;
-mod connectivity;
+pub mod connectivity;
 
-use crate::v2::{
-    engine::state::{asset::AssetStates, instrument::InstrumentStates, trading::TradingState},
-    execution::{error::ConnectivityError, AccountSnapshot},
-};
-use barter_instrument::{asset::AssetIndex, exchange::ExchangeId, instrument::InstrumentIndex};
+use crate::v2::{engine::state::{asset::AssetStates, instrument::InstrumentStates, trading::TradingState}, Snapshot};
+use barter_instrument::{exchange::ExchangeId, instrument::InstrumentIndex};
 use vecmap::VecMap;
+use barter_instrument::asset::AssetIndex;
 use crate::v2::engine::state::connectivity::ConnectivityState;
 use crate::v2::engine::state::order_manager::OrderManager;
+use crate::v2::execution::AccountSnapshot;
 // Todo:
-//  - Consider introducing AssetKey, InstrumentKey, to State, with two impls for Id vs Index,
-//    that way I can go hard-core on the Indexes, but it's opt in at a high level
 //  - Maybe introduce State machine for dealing with connectivity VecMap issue...
 //    '--> could only check if a new Account/Market event updates to Connected if we are in
 //         State=Unhealthy, that way we are only doing expensive lookup in that case
 //  - Need to make some Key decisions about "what is a manager", and "what is an Updater"
+
+// Todo: Consider splitting AccountEvents into AccountInstrumentEvents, AccountAssetEvent, Other
+//       '--> ideally I can flip UPdate<AccountEvent> upside down to not duplicate logic
+//       '--> issue becomes more impl Updater for user Strategy & Risk :(
 
 pub trait Updater<Event> {
     type Output;
     fn update(&mut self, event: &Event) -> Self::Output;
 }
 
+pub trait StateManager<Key> {
+    type State;
+    fn state(&self, key: &Key) -> Option<&Self::State>;
+    fn state_mut(&mut self, key: &Key) -> Option<&mut Self::State>;
+}
+
 #[derive(Debug)]
-pub struct EngineState<Market, Strategy, Risk> {
+pub struct EngineState<AssetKey, InstrumentKey, Market, Strategy, Risk> {
     pub connectivity: VecMap<ExchangeId, ConnectivityState>,
     pub trading: TradingState,
-    pub instruments: InstrumentStates<Market>,
-    pub assets: AssetStates,
+    pub assets: AssetStates<AssetKey>,
+    pub instruments: InstrumentStates<AssetKey, InstrumentKey, Market>,
     pub strategy: Strategy,
     pub risk: Risk,
 }
 
-impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
-    pub fn order_manager(&self) -> &impl OrderManager<InstrumentIndex> {
-        &self.instruments
-    }
+impl<Market, Strategy, Risk> EngineState<AssetIndex, InstrumentIndex, Market, Strategy, Risk> {
 
-    pub fn order_manager_mut(&mut self) -> &mut impl OrderManager<InstrumentIndex> {
-        &mut self.instruments
-    }
 }
 
 
