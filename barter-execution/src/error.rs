@@ -1,5 +1,5 @@
 use crate::model::{order::OrderKind, ClientOrderId};
-use barter_instrument::asset::symbol::Symbol;
+use barter_instrument::asset::name::AssetNameInternal;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -11,8 +11,8 @@ pub enum ExecutionError {
     #[error("SimulatedExchange error: {0}")]
     Simulated(String),
 
-    #[error("Balance for symbol {0} insufficient to open order")]
-    InsufficientBalance(Symbol),
+    #[error("Balance for asset {0} insufficient to open order")]
+    InsufficientBalance(AssetNameInternal),
 
     #[error("failed to find Order with ClientOrderId: {0}")]
     OrderNotFound(ClientOrderId),

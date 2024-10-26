@@ -1,5 +1,5 @@
 use self::{
-    balance::SymbolBalance,
+    balance::AssetBalance,
     order::{Cancelled, Open, Order},
     trade::Trade,
 };
@@ -31,11 +31,11 @@ pub enum AccountEventKind {
     OrdersCancelled(Vec<Order<Cancelled>>),
 
     // WebSocket Only
-    Balance(SymbolBalance),
+    Balance(AssetBalance),
     Trade(Trade),
 
     // HTTP & WebSocket
-    Balances(Vec<SymbolBalance>),
+    Balances(Vec<AssetBalance>),
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]

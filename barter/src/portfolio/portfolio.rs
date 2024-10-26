@@ -96,7 +96,7 @@ where
         let position_id =
             determine_position_id(self.engine_id, &market.exchange, &market.instrument);
 
-        // Update Position if Portfolio has an open Position for that Symbol-Exchange combination
+        // Update Position if Portfolio has an open Position for that Asset-Exchange combination
         if let Some(mut position) = self.repository.get_open_position(&position_id)? {
             // Derive PositionUpdate event that communicates the open Position's change in state
             if let Some(position_update) = position.update(market) {
@@ -182,7 +182,7 @@ where
             exchange: signal.exchange,
             instrument: signal.instrument,
             market_meta: MarketMeta {
-                close: position.current_symbol_price,
+                close: position.current_price,
                 time: position.meta.update_time,
             },
             decision: position.determine_exit_decision(),
@@ -213,7 +213,7 @@ where
 
         // Determine FillEvent context based on existence or absence of an open Position
         match self.repository.remove_position(&position_id)? {
-            // EXIT SCENARIO - FillEvent for Symbol-Exchange combination with open Position
+            // EXIT SCENARIO - FillEvent for Asset-Exchange combination with open Position
             Some(mut position) => {
                 // Exit Position (in place mutation), & add the PositionExit event to Vec<Event>
                 let position_exit = position.exit(balance, fill)?;
@@ -238,7 +238,7 @@ where
                     .set_exited_position(self.engine_id, position)?;
             }
 
-            // ENTRY SCENARIO - FillEvent for Symbol-Exchange with no Position
+            // ENTRY SCENARIO - FillEvent for Asset-Exchange with no Position
             None => {
                 // Enter new Position, & add the PositionNew event to Vec<Event>
                 let position = Position::enter(self.engine_id, fill)?;
@@ -597,7 +597,7 @@ pub mod tests {
             self.position = Some(
                 Position::builder()
                     .side(position.side.clone())
-                    .current_symbol_price(position.current_symbol_price)
+                    .current_price(position.current_price)
                     .current_value_gross(position.current_value_gross)
                     .enter_fees_total(position.enter_fees_total)
                     .enter_value_gross(position.enter_value_gross)
@@ -739,7 +739,7 @@ pub mod tests {
                 input_position.side = Side::Buy;
                 input_position.quantity = 1.0;
                 input_position.enter_fees_total = 3.0;
-                input_position.current_symbol_price = 100.0;
+                input_position.current_price = 100.0;
                 input_position.current_value_gross = 100.0;
                 input_position.unrealised_profit_loss = -3.0; // -3.0 from entry fees
                 input_position
@@ -752,7 +752,7 @@ pub mod tests {
         let mut input_market = market_event_trade(Side::Buy);
 
         match input_market.kind {
-            // candle.close +100.0 on input_position.current_symbol_price
+            // candle.close +100.0 on input_position.current_price
             DataKind::Candle(ref mut candle) => candle.close = 200.0,
             DataKind::Trade(ref mut trade) => trade.price = 200.0,
             _ => todo!(),
@@ -764,7 +764,7 @@ pub mod tests {
             .unwrap();
         let updated_position = portfolio.repository.position.unwrap();
 
-        assert_eq!(updated_position.current_symbol_price.unwrap(), 200.0);
+        assert_eq!(updated_position.current_price.unwrap(), 200.0);
         assert_eq!(updated_position.current_value_gross.unwrap(), 200.0);
 
         // Unreal PnL Long = current_value_gross - enter_value_gross - enter_fees_total*2
@@ -788,7 +788,7 @@ pub mod tests {
                 input_position.side = Side::Buy;
                 input_position.quantity = 1.0;
                 input_position.enter_fees_total = 3.0;
-                input_position.current_symbol_price = 100.0;
+                input_position.current_price = 100.0;
                 input_position.current_value_gross = 100.0;
                 input_position.unrealised_profit_loss = -3.0; // -3.0 from entry fees
                 input_position
@@ -800,7 +800,7 @@ pub mod tests {
         // Input MarketEvent
         let mut input_market = market_event_trade(Side::Buy);
         match input_market.kind {
-            // -50.0 on input_position.current_symbol_price
+            // -50.0 on input_position.current_price
             DataKind::Candle(ref mut candle) => candle.close = 50.0,
             DataKind::Trade(ref mut trade) => trade.price = 50.0,
             _ => todo!(),
@@ -812,7 +812,7 @@ pub mod tests {
             .unwrap();
         let updated_position = portfolio.repository.position.unwrap();
 
-        assert_eq!(updated_position.current_symbol_price.unwrap(), 50.0);
+        assert_eq!(updated_position.current_price.unwrap(), 50.0);
         assert_eq!(updated_position.current_value_gross.unwrap(), 50.0);
         // Unreal PnL Long = current_value_gross - enter_value_gross - enter_fees_total*2
         assert_eq!(
@@ -832,7 +832,7 @@ pub mod tests {
                 input_position.side = Side::Sell;
                 input_position.quantity = -1.0;
                 input_position.enter_fees_total = 3.0;
-                input_position.current_symbol_price = 100.0;
+                input_position.current_price = 100.0;
                 input_position.current_value_gross = 100.0;
                 input_position.unrealised_profit_loss = -3.0; // -3.0 from entry fees
                 input_position
@@ -845,7 +845,7 @@ pub mod tests {
         let mut input_market = market_event_trade(Side::Buy);
 
         match input_market.kind {
-            // -50.0 on input_position.current_symbol_price
+            // -50.0 on input_position.current_price
             DataKind::Candle(ref mut candle) => candle.close = 50.0,
             DataKind::Trade(ref mut trade) => trade.price = 50.0,
             _ => todo!(),
@@ -857,7 +857,7 @@ pub mod tests {
             .unwrap();
         let updated_position = portfolio.repository.position.unwrap();
 
-        assert_eq!(updated_position.current_symbol_price.unwrap(), 50.0);
+        assert_eq!(updated_position.current_price.unwrap(), 50.0);
         assert_eq!(updated_position.current_value_gross.unwrap(), 50.0);
         // Unreal PnL Short = enter_value_gross - current_value_gross - enter_fees_total*2
         assert_eq!(
@@ -877,7 +877,7 @@ pub mod tests {
                 input_position.side = Side::Sell;
                 input_position.quantity = -1.0;
                 input_position.enter_fees_total = 3.0;
-                input_position.current_symbol_price = 100.0;
+                input_position.current_price = 100.0;
                 input_position.current_value_gross = 100.0;
                 input_position.unrealised_profit_loss = -3.0; // -3.0 from entry fees
                 input_position
@@ -890,7 +890,7 @@ pub mod tests {
         let mut input_market = market_event_trade(Side::Buy);
 
         match input_market.kind {
-            // +100.0 on input_position.current_symbol_price
+            // +100.0 on input_position.current_price
             DataKind::Candle(ref mut candle) => candle.close = 200.0,
             DataKind::Trade(ref mut trade) => trade.price = 200.0,
             _ => todo!(),
@@ -902,7 +902,7 @@ pub mod tests {
             .unwrap();
         let updated_position = portfolio.repository.position.unwrap();
 
-        assert_eq!(updated_position.current_symbol_price.unwrap(), 200.0);
+        assert_eq!(updated_position.current_price.unwrap(), 200.0);
         assert_eq!(updated_position.current_value_gross.unwrap(), 200.0);
         // Unreal PnL Short = enter_value_gross - current_value_gross - enter_fees_total*2
         assert_eq!(

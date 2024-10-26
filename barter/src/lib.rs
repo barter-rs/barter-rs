@@ -204,6 +204,8 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::module_inception)]
 
+#[macro_use]
+extern crate prettytable;
 /// Defines a MarketEvent, and provides the Continuer and MarketGenerator traits for
 /// handling the generation of them. Contains implementations such as the (tick-by_tick)
 /// LiveTradeHandler, and HistoricalCandleHandler that generates a market feed and acts as the
@@ -243,9 +245,6 @@ pub mod statistic;
 /// a Trader for each Market pair that consists of it's own Data, Strategy &
 /// Execution components, as well as shared access to a global Portfolio.
 pub mod engine;
-
-#[macro_use]
-extern crate prettytable;
 
 pub mod test_util {
     use crate::{
@@ -358,7 +357,7 @@ pub mod test_util {
             exit_fees_total: 0.0,
             exit_avg_price_gross: 0.0,
             exit_value_gross: 0.0,
-            current_symbol_price: 100.0,
+            current_price: 100.0,
             current_value_gross: 100.0,
             unrealised_profit_loss: 0.0,
             realised_profit_loss: 0.0,

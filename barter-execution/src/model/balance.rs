@@ -1,21 +1,22 @@
-use barter_instrument::asset::symbol::Symbol;
+use barter_instrument::asset::name::AssetNameInternal;
 use serde::{Deserialize, Serialize};
 
-/// [`Balance`] associated with a [`Symbol`].
+/// [`Balance`] associated with a [`AssetNameInternal`].
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
-pub struct SymbolBalance {
-    pub symbol: Symbol,
+pub struct AssetBalance {
+    pub asset: AssetNameInternal,
     pub balance: Balance,
 }
 
-impl SymbolBalance {
-    /// Construct a new [`SymbolBalance`] from a [`Symbol`] and it's associated [`Balance`].
-    pub fn new<S>(symbol: S, balance: Balance) -> Self
+impl AssetBalance {
+    /// Construct a new [`AssetBalance`] from an [`AssetNameInternal`] and it's associated
+    /// [`Balance`].
+    pub fn new<S>(asset: S, balance: Balance) -> Self
     where
-        S: Into<Symbol>,
+        S: Into<AssetNameInternal>,
     {
         Self {
-            symbol: symbol.into(),
+            asset: asset.into(),
             balance,
         }
     }

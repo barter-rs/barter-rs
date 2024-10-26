@@ -7,8 +7,6 @@ use smol_str::SmolStr;
 /// (not unique across exchanges).
 pub mod name;
 
-pub mod symbol;
-
 /// Unique identifier for an [`Asset`].
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display,

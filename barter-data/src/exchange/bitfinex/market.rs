@@ -1,6 +1,6 @@
 use super::Bitfinex;
 use crate::{instrument::MarketInstrumentData, subscription::Subscription, Identifier};
-use barter_instrument::{asset::symbol::Symbol, instrument::Instrument, Keyed};
+use barter_instrument::{asset::name::AssetNameInternal, instrument::Instrument, Keyed};
 use serde::{Deserialize, Serialize};
 use smol_str::{format_smolstr, SmolStr, ToSmolStr};
 
@@ -37,7 +37,7 @@ impl AsRef<str> for BitfinexMarket {
     }
 }
 
-fn bitfinex_market(base: &Symbol, quote: &Symbol) -> BitfinexMarket {
+fn bitfinex_market(base: &AssetNameInternal, quote: &AssetNameInternal) -> BitfinexMarket {
     BitfinexMarket(format_smolstr!(
         "t{}{}",
         base.to_string().to_uppercase(),

@@ -1,5 +1,5 @@
 use crate::{
-    model::trade::{SymbolFees, Trade, TradeId},
+    model::trade::{AssetFees, Trade, TradeId},
     ExecutionError, Open, Order, OrderId, RequestOpen,
 };
 use barter_data::subscription::trade::PublicTrade;
@@ -320,11 +320,11 @@ impl OrderFill {
     }
 }
 
-/// Calculate the [`SymbolFees`] of a [`Order<Open>`] match (trade).
-pub fn calculate_fees(order: &Order<Open>, trade_quantity: f64, fees_percent: f64) -> SymbolFees {
+/// Calculate the [`AssetFees`] of a [`Order<Open>`] match (trade).
+pub fn calculate_fees(order: &Order<Open>, trade_quantity: f64, fees_percent: f64) -> AssetFees {
     match order.side {
-        Side::Buy => SymbolFees::new(order.instrument.base.clone(), fees_percent * trade_quantity),
-        Side::Sell => SymbolFees::new(
+        Side::Buy => AssetFees::new(order.instrument.base.clone(), fees_percent * trade_quantity),
+        Side::Sell => AssetFees::new(
             order.instrument.quote.clone(),
             fees_percent * order.state.price * trade_quantity,
         ),
@@ -464,7 +464,7 @@ mod tests {
                     Side::Buy,
                     200.0,
                     1.0,
-                    SymbolFees::new("base", 0.1 * 1.0),
+                    AssetFees::new("base", 0.1 * 1.0),
                 )],
             },
             TestCase {
@@ -486,14 +486,14 @@ mod tests {
                         Side::Buy,
                         200.0,
                         1.0,
-                        SymbolFees::new("base", 0.1 * 1.0),
+                        AssetFees::new("base", 0.1 * 1.0),
                     ),
                     trade(
                         TradeId(2.to_smolstr()),
                         Side::Buy,
                         100.0,
                         1.0,
-                        SymbolFees::new("base", 0.1 * 1.0),
+                        AssetFees::new("base", 0.1 * 1.0),
                     ),
                 ],
             },
@@ -520,14 +520,14 @@ mod tests {
                         Side::Buy,
                         200.0,
                         1.0,
-                        SymbolFees::new("base", 0.1 * 1.0),
+                        AssetFees::new("base", 0.1 * 1.0),
                     ),
                     trade(
                         TradeId(2.to_smolstr()),
                         Side::Buy,
                         100.0,
                         0.5,
-                        SymbolFees::new("base", 0.1 * 0.5),
+                        AssetFees::new("base", 0.1 * 0.5),
                     ),
                 ],
             },
@@ -601,7 +601,7 @@ mod tests {
                     Side::Sell,
                     100.0,
                     1.0,
-                    SymbolFees::new("quote", 0.1 * 100.0 * 1.0),
+                    AssetFees::new("quote", 0.1 * 100.0 * 1.0),
                 )],
             },
             TestCase {
@@ -623,14 +623,14 @@ mod tests {
                         Side::Sell,
                         100.0,
                         1.0,
-                        SymbolFees::new("quote", 0.1 * 100.0 * 1.0),
+                        AssetFees::new("quote", 0.1 * 100.0 * 1.0),
                     ),
                     trade(
                         TradeId(2.to_smolstr()),
                         Side::Sell,
                         200.0,
                         1.0,
-                        SymbolFees::new("quote", 0.1 * 200.0 * 1.0),
+                        AssetFees::new("quote", 0.1 * 200.0 * 1.0),
                     ),
                 ],
             },
@@ -657,14 +657,14 @@ mod tests {
                         Side::Sell,
                         100.0,
                         1.0,
-                        SymbolFees::new("quote", 0.1 * 100.0 * 1.0),
+                        AssetFees::new("quote", 0.1 * 100.0 * 1.0),
                     ),
                     trade(
                         TradeId(2.to_smolstr()),
                         Side::Sell,
                         200.0,
                         0.5,
-                        SymbolFees::new("quote", 0.1 * 200.0 * 0.5),
+                        AssetFees::new("quote", 0.1 * 200.0 * 0.5),
                     ),
                 ],
             },
@@ -804,7 +804,7 @@ mod tests {
             order: Order<Open>,
             trade_quantity: f64,
             fees_percent: f64,
-            expected: SymbolFees,
+            expected: AssetFees,
         }
 
         let cid = ClientOrderId(Uuid::new_v4());
@@ -815,14 +815,14 @@ mod tests {
                 order: order_open(cid, Side::Buy, 100.0, 10.0, 0.0),
                 trade_quantity: 10.0,
                 fees_percent: 0.1,
-                expected: SymbolFees::new("base", 0.1 * 10.0),
+                expected: AssetFees::new("base", 0.1 * 10.0),
             },
             TestCase {
                 // TC1: 50% trade fees from matched Side::Sell order
                 order: order_open(cid, Side::Sell, 100.0, 10.0, 0.0),
                 trade_quantity: 10.0,
                 fees_percent: 0.5,
-                expected: SymbolFees::new("quote", 0.5 * 100.0 * 10.0),
+                expected: AssetFees::new("quote", 0.5 * 100.0 * 10.0),
             },
         ];
 

@@ -1,5 +1,5 @@
 use crate::{
-    asset::symbol::Symbol,
+    asset::name::AssetNameInternal,
     exchange::ExchangeId,
     instrument::{kind::InstrumentKind, Instrument},
 };
@@ -28,7 +28,7 @@ where
 impl<E, S> From<(E, S, S, InstrumentKind)> for Market<Instrument>
 where
     E: Into<ExchangeId>,
-    S: Into<Symbol>,
+    S: Into<AssetNameInternal>,
 {
     fn from((exchange, base, quote, instrument_kind): (E, S, S, InstrumentKind)) -> Self {
         Self::new(exchange, (base, quote, instrument_kind))
