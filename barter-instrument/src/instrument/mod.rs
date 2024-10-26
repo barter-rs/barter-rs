@@ -4,6 +4,11 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Formatter;
 
 pub mod kind;
+
+/// Defines the Barter [`AssetNameInternal`], used as a `SmolStr` identifier for an [`Asset`]
+/// (not unique across exchanges).
+pub mod name;
+
 pub mod spec;
 
 /// Unique identifier for an [`Instrument`] traded on an exchange.
