@@ -1,6 +1,6 @@
 use super::Kraken;
 use crate::{instrument::MarketInstrumentData, subscription::Subscription, Identifier};
-use barter_instrument::{asset::symbol::Symbol, instrument::Instrument, Keyed};
+use barter_instrument::{asset::name::AssetNameInternal, instrument::Instrument, Keyed};
 use serde::{Deserialize, Serialize};
 use smol_str::{format_smolstr, SmolStr, StrExt};
 
@@ -37,6 +37,6 @@ impl AsRef<str> for KrakenMarket {
     }
 }
 
-fn kraken_market(base: &Symbol, quote: &Symbol) -> KrakenMarket {
+fn kraken_market(base: &AssetNameInternal, quote: &AssetNameInternal) -> KrakenMarket {
     KrakenMarket(format_smolstr!("{base}/{quote}").to_lowercase_smolstr())
 }

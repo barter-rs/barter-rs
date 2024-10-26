@@ -67,7 +67,7 @@ pub struct Position {
     /// - Side::Sell considered synonymous with Short.
     pub side: Side,
 
-    /// +ve or -ve quantity of symbol contracts opened.
+    /// +ve or -ve quantity of instrument contracts opened.
     pub quantity: f64,
 
     /// All fees types incurred from entering a [`Position`], and their associated [`FeeAmount`].
@@ -94,10 +94,10 @@ pub struct Position {
     /// abs(Quantity) * exit_avg_price_gross.
     pub exit_value_gross: f64,
 
-    /// Symbol current close price.
-    pub current_symbol_price: f64,
+    /// Instrument current close price.
+    pub current_price: f64,
 
-    /// abs(Quantity) * current_symbol_price.
+    /// abs(Quantity) * current_price.
     pub current_value_gross: f64,
 
     /// Unrealised P&L whilst the [`Position`] is open.
@@ -140,7 +140,7 @@ impl PositionEnterer for Position {
             exit_fees_total: 0.0,
             exit_avg_price_gross: 0.0,
             exit_value_gross: 0.0,
-            current_symbol_price: enter_avg_price_gross,
+            current_price: enter_avg_price_gross,
             current_value_gross: fill.fill_value_gross,
             unrealised_profit_loss,
             realised_profit_loss: 0.0,
@@ -160,7 +160,7 @@ impl PositionUpdater for Position {
 
         self.meta.update_time = market.time_exchange;
 
-        self.current_symbol_price = close;
+        self.current_price = close;
 
         // Market value gross
         self.current_value_gross = close * self.quantity.abs();
@@ -280,7 +280,7 @@ pub struct PositionBuilder {
     pub exit_fees_total: Option<FeeAmount>,
     pub exit_avg_price_gross: Option<f64>,
     pub exit_value_gross: Option<f64>,
-    pub current_symbol_price: Option<f64>,
+    pub current_price: Option<f64>,
     pub current_value_gross: Option<f64>,
     pub unrealised_profit_loss: Option<f64>,
     pub realised_profit_loss: Option<f64>,
@@ -389,9 +389,9 @@ impl PositionBuilder {
         }
     }
 
-    pub fn current_symbol_price(self, value: f64) -> Self {
+    pub fn current_price(self, value: f64) -> Self {
         Self {
-            current_symbol_price: Some(value),
+            current_price: Some(value),
             ..self
         }
     }
@@ -457,9 +457,9 @@ impl PositionBuilder {
             exit_value_gross: self
                 .exit_value_gross
                 .ok_or(PortfolioError::BuilderIncomplete("exit_value_gross"))?,
-            current_symbol_price: self
-                .current_symbol_price
-                .ok_or(PortfolioError::BuilderIncomplete("current_symbol_price"))?,
+            current_price: self
+                .current_price
+                .ok_or(PortfolioError::BuilderIncomplete("current_price"))?,
             current_value_gross: self
                 .current_value_gross
                 .ok_or(PortfolioError::BuilderIncomplete("current_value_gross"))?,
@@ -500,13 +500,13 @@ impl Default for PositionMeta {
 /// [`Position`] update event. Occurs as a result of receiving new [`MarketEvent`] data.
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct PositionUpdate {
-    /// Unique identifier for a [`Position`], generated from an exchange, symbol, and enter_time.
+    /// Unique identifier for a [`Position`], generated from an exchange, instrument, and enter_time.
     pub position_id: SmolStr,
     /// Event timestamp of the last event to trigger a [`Position`] update.
     pub update_time: DateTime<Utc>,
-    /// Symbol current close price.
-    pub current_symbol_price: f64,
-    /// abs(Quantity) * current_symbol_price.
+    /// Instrument current close price.
+    pub current_price: f64,
+    /// abs(Quantity) * current_price.
     pub current_value_gross: f64,
     /// Unrealised P&L whilst the [`Position`] is open.
     pub unrealised_profit_loss: f64,
@@ -517,7 +517,7 @@ impl From<&mut Position> for PositionUpdate {
         Self {
             position_id: updated_position.position_id.clone(),
             update_time: updated_position.meta.update_time,
-            current_symbol_price: updated_position.current_symbol_price,
+            current_price: updated_position.current_price,
             current_value_gross: updated_position.current_value_gross,
             unrealised_profit_loss: updated_position.unrealised_profit_loss,
         }
@@ -527,7 +527,7 @@ impl From<&mut Position> for PositionUpdate {
 /// [`Position`] exit event. Occurs as a result of a [`FillEvent`] that exits a [`Position`].
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct PositionExit {
-    /// Unique identifier for a [`Position`], generated from an exchange, symbol, and enter_time.
+    /// Unique identifier for a [`Position`], generated from an exchange, instrument, and enter_time.
     pub position_id: SmolStr,
 
     /// [`FillEvent`] timestamp that triggered the exiting of this [`Position`].
@@ -607,7 +607,7 @@ mod tests {
         assert_eq!(position.exit_avg_price_gross, 0.0);
         assert_eq!(position.exit_value_gross, 0.0);
         assert_eq!(
-            position.current_symbol_price,
+            position.current_price,
             (input_fill.fill_value_gross / input_fill.quantity.abs())
         );
         assert_eq!(position.current_value_gross, input_fill.fill_value_gross);
@@ -644,7 +644,7 @@ mod tests {
         assert_eq!(position.exit_avg_price_gross, 0.0);
         assert_eq!(position.exit_value_gross, 0.0);
         assert_eq!(
-            position.current_symbol_price,
+            position.current_price,
             (input_fill.fill_value_gross / input_fill.quantity.abs())
         );
         assert_eq!(position.current_value_gross, input_fill.fill_value_gross);
@@ -753,14 +753,14 @@ mod tests {
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
-        position.current_symbol_price = 100.0;
+        position.current_price = 100.0;
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
         // Input MarketEvent
         let mut input_market = market_event_trade(Side::Buy);
         match input_market.kind {
-            // +100.0 higher than current_symbol_price
+            // +100.0 higher than current_price
             DataKind::Candle(ref mut candle) => candle.close = 200.0,
             DataKind::Trade(ref mut trade) => trade.price = 200.0,
             _ => todo!(),
@@ -785,7 +785,7 @@ mod tests {
             DataKind::Candle(candle) => candle.close,
             _ => todo!(),
         };
-        assert_eq!(position.current_symbol_price, close);
+        assert_eq!(position.current_price, close);
         assert_eq!(
             position.current_value_gross,
             close * position.quantity.abs()
@@ -809,7 +809,7 @@ mod tests {
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
-        position.current_symbol_price = 100.0;
+        position.current_price = 100.0;
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
@@ -817,7 +817,7 @@ mod tests {
         let mut input_market = market_event_trade(Side::Sell);
 
         match input_market.kind {
-            // -50.0 lower than current_symbol_price
+            // -50.0 lower than current_price
             DataKind::Candle(ref mut candle) => candle.close = 50.0,
             DataKind::Trade(ref mut trade) => trade.price = 50.0,
             _ => todo!(),
@@ -842,7 +842,7 @@ mod tests {
             DataKind::Candle(candle) => candle.close,
             _ => todo!(),
         };
-        assert_eq!(position.current_symbol_price, close);
+        assert_eq!(position.current_price, close);
         assert_eq!(
             position.current_value_gross,
             close * position.quantity.abs()
@@ -866,7 +866,7 @@ mod tests {
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
-        position.current_symbol_price = 100.0;
+        position.current_price = 100.0;
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
@@ -874,7 +874,7 @@ mod tests {
         let mut input_market = market_event_trade(Side::Buy);
 
         match input_market.kind {
-            // -50.0 lower than current_symbol_price
+            // -50.0 lower than current_price
             DataKind::Candle(ref mut candle) => candle.close = 50.0,
             DataKind::Trade(ref mut trade) => trade.price = 50.0,
             _ => todo!(),
@@ -899,7 +899,7 @@ mod tests {
             DataKind::Candle(candle) => candle.close,
             _ => todo!(),
         };
-        assert_eq!(position.current_symbol_price, close);
+        assert_eq!(position.current_price, close);
         assert_eq!(
             position.current_value_gross,
             close * position.quantity.abs()
@@ -923,7 +923,7 @@ mod tests {
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
-        position.current_symbol_price = 100.0;
+        position.current_price = 100.0;
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
@@ -931,7 +931,7 @@ mod tests {
         let mut input_market = market_event_trade(Side::Sell);
 
         match input_market.kind {
-            // +100.0 higher than current_symbol_price
+            // +100.0 higher than current_price
             DataKind::Candle(ref mut candle) => candle.close = 200.0,
             DataKind::Trade(ref mut trade) => trade.price = 200.0,
             _ => todo!(),
@@ -956,7 +956,7 @@ mod tests {
             DataKind::Candle(candle) => candle.close,
             _ => todo!(),
         };
-        assert_eq!(position.current_symbol_price, close);
+        assert_eq!(position.current_price, close);
         assert_eq!(
             position.current_value_gross,
             close * position.quantity.abs()
@@ -980,7 +980,7 @@ mod tests {
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
-        position.current_symbol_price = 100.0;
+        position.current_price = 100.0;
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
@@ -1051,7 +1051,7 @@ mod tests {
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
-        position.current_symbol_price = 100.0;
+        position.current_price = 100.0;
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
@@ -1122,7 +1122,7 @@ mod tests {
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
-        position.current_symbol_price = 100.0;
+        position.current_price = 100.0;
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
@@ -1193,7 +1193,7 @@ mod tests {
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
-        position.current_symbol_price = 100.0;
+        position.current_price = 100.0;
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
@@ -1264,7 +1264,7 @@ mod tests {
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
-        position.current_symbol_price = 100.0;
+        position.current_price = 100.0;
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
@@ -1310,7 +1310,7 @@ mod tests {
         };
         position.enter_avg_price_gross = 100.0;
         position.enter_value_gross = 100.0;
-        position.current_symbol_price = 100.0;
+        position.current_price = 100.0;
         position.current_value_gross = 100.0;
         position.unrealised_profit_loss = position.enter_fees_total * -2.0;
 
@@ -1571,16 +1571,13 @@ mod tests {
     #[test]
     fn position_update_from_position() {
         let mut input_position = position();
-        input_position.current_symbol_price = 100.0;
+        input_position.current_price = 100.0;
         input_position.current_value_gross = 200.0;
         input_position.unrealised_profit_loss = 150.0;
 
         let actual_update = PositionUpdate::from(&mut input_position);
 
-        assert_eq!(
-            actual_update.current_symbol_price,
-            input_position.current_symbol_price
-        );
+        assert_eq!(actual_update.current_price, input_position.current_price);
         assert_eq!(
             actual_update.current_value_gross,
             input_position.current_value_gross

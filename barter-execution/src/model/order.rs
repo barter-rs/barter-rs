@@ -1,5 +1,7 @@
 use super::ClientOrderId;
-use barter_instrument::{asset::symbol::Symbol, exchange::ExchangeId, instrument::Instrument};
+use barter_instrument::{
+    asset::name::AssetNameInternal, exchange::ExchangeId, instrument::Instrument,
+};
 use barter_integration::Side;
 use serde::{Deserialize, Serialize};
 use smol_str::{SmolStr, ToSmolStr};
@@ -51,7 +53,7 @@ pub struct RequestOpen {
 }
 
 impl Order<RequestOpen> {
-    pub fn required_available_balance(&self) -> (&Symbol, f64) {
+    pub fn required_available_balance(&self) -> (&AssetNameInternal, f64) {
         match self.side {
             Side::Buy => (
                 &self.instrument.quote,

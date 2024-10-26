@@ -1,7 +1,7 @@
 use self::{balance::ClientBalances, order::ClientOrders};
 use crate::{
     model::{
-        balance::{Balance, SymbolBalance},
+        balance::{AssetBalance, Balance},
         order::OrderKind,
         AccountEvent, AccountEventKind,
     },
@@ -15,8 +15,7 @@ use std::{fmt::Debug, time::Duration};
 use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
 
-/// [`ClientAccount`] [`Balance`] for each [`Symbol`](barter_integration::model::Symbol) and
-/// associated balance management logic.
+/// [`ClientAccount`] [`Balance`] for each asset and associated balance management logic.
 pub mod balance;
 
 /// [`ClientAccount`] [`ClientOrders`] management & matching logic.
@@ -47,10 +46,10 @@ impl ClientAccount {
         respond_with_latency(self.latency, response_tx, Ok(self.orders.fetch_all()));
     }
 
-    /// Send the [`Balance`] for every [`Symbol`](barter_integration::model::Symbol) to the client.
+    /// Send the [`Balance`] for every asset to the client.
     pub fn fetch_balances(
         &self,
-        response_tx: oneshot::Sender<Result<Vec<SymbolBalance>, ExecutionError>>,
+        response_tx: oneshot::Sender<Result<Vec<AssetBalance>, ExecutionError>>,
     ) {
         respond_with_latency(self.latency, response_tx, Ok(self.balances.fetch_all()));
     }
@@ -78,11 +77,11 @@ impl ClientAccount {
         Self::check_order_kind_support(request.state.kind)?;
 
         // Calculate required available balance to open order
-        let (symbol, required_balance) = request.required_available_balance();
+        let (asset, required_balance) = request.required_available_balance();
 
         // Check available balance is sufficient
         self.balances
-            .has_sufficient_available_balance(symbol, required_balance)?;
+            .has_sufficient_available_balance(asset, required_balance)?;
 
         // Build Open<Order>
         let open = self.orders.build_order_open(request);
@@ -373,13 +372,13 @@ impl ClientAccountBuilder {
                 .ok_or_else(|| ExecutionError::BuilderIncomplete("instruments".to_string()))?,
         };
 
-        // Validate each Instrument base & quote Symbol has an associated Balance
+        // Validate each Instrument base & quote asset has an associated Balance
         client_account
             .orders
             .all
             .keys()
             .flat_map(|instrument| [&instrument.base, &instrument.quote])
-            .map(|symbol| client_account.balances.balance(symbol))
+            .map(|asset| client_account.balances.balance(asset))
             .collect::<Result<Vec<&Balance>, ExecutionError>>()?;
 
         Ok(client_account)

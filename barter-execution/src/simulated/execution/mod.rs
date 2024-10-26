@@ -1,7 +1,7 @@
 use crate::{
     model::order::{Cancelled, Open, Order},
     simulated::SimulatedEvent,
-    AccountEvent, ExecutionClient, ExecutionError, RequestCancel, RequestOpen, SymbolBalance,
+    AccountEvent, AssetBalance, ExecutionClient, ExecutionError, RequestCancel, RequestOpen,
 };
 use async_trait::async_trait;
 use barter_instrument::exchange::ExchangeId;
@@ -38,7 +38,7 @@ impl ExecutionClient for SimulatedExecution {
             .expect("SimulatedExchange is offline - failed to receive FetchOrdersOpen response")
     }
 
-    async fn fetch_balances(&self) -> Result<Vec<SymbolBalance>, ExecutionError> {
+    async fn fetch_balances(&self) -> Result<Vec<AssetBalance>, ExecutionError> {
         // Oneshot channel to communicate with the SimulatedExchange
         let (response_tx, response_rx) = oneshot::channel();
 

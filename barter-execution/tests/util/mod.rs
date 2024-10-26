@@ -13,7 +13,7 @@ use barter_execution::{
     },
 };
 use barter_instrument::{
-    asset::symbol::Symbol,
+    asset::name::AssetNameInternal,
     exchange::ExchangeId,
     instrument::{kind::InstrumentKind, Instrument},
 };
@@ -28,7 +28,7 @@ pub(super) async fn run_default_exchange(
     // Define SimulatedExchange available Instruments
     let instruments = instruments();
 
-    // Create initial ClientAccount balances (Symbols must all be included in the Instruments)
+    // Create initial ClientAccount balances (assets must all be included in the Instruments)
     let balances = initial_balances();
 
     // Build SimulatedExchange & run on it's own Tokio task
@@ -63,11 +63,14 @@ pub(super) fn instruments() -> Vec<Instrument> {
     vec![Instrument::from(("btc", "usdt", InstrumentKind::Perpetual))]
 }
 
-// Initial SimulatedExchange ClientAccount balances for each Symbol
+// Initial SimulatedExchange ClientAccount balances for each asset
 pub(super) fn initial_balances() -> ClientBalances {
     ClientBalances(HashMap::from([
-        (Symbol::from("btc"), Balance::new(10.0, 10.0)),
-        (Symbol::from("usdt"), Balance::new(10_000.0, 10_000.0)),
+        (AssetNameInternal::from("btc"), Balance::new(10.0, 10.0)),
+        (
+            AssetNameInternal::from("usdt"),
+            Balance::new(10_000.0, 10_000.0),
+        ),
     ]))
 }
 

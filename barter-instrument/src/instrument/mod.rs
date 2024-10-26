@@ -1,4 +1,4 @@
-use crate::{asset::symbol::Symbol, instrument::kind::InstrumentKind};
+use crate::{asset::name::AssetNameInternal, instrument::kind::InstrumentKind};
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use std::fmt::Formatter;
@@ -31,8 +31,8 @@ pub struct InstrumentIndex(usize);
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub struct Instrument {
-    pub base: Symbol,
-    pub quote: Symbol,
+    pub base: AssetNameInternal,
+    pub quote: AssetNameInternal,
     #[serde(rename = "instrument_kind")]
     pub kind: InstrumentKind,
 }
@@ -45,7 +45,7 @@ impl Display for Instrument {
 
 impl<S> From<(S, S, InstrumentKind)> for Instrument
 where
-    S: Into<Symbol>,
+    S: Into<AssetNameInternal>,
 {
     fn from((base, quote, kind): (S, S, InstrumentKind)) -> Self {
         Self {
@@ -60,7 +60,7 @@ impl Instrument {
     /// Constructs a new [`Instrument`] using the provided configuration.
     pub fn new<S>(base: S, quote: S, kind: InstrumentKind) -> Self
     where
-        S: Into<Symbol>,
+        S: Into<AssetNameInternal>,
     {
         Self {
             base: base.into(),

@@ -1,6 +1,6 @@
 use super::Binance;
 use crate::{instrument::MarketInstrumentData, subscription::Subscription, Identifier};
-use barter_instrument::{asset::symbol::Symbol, instrument::Instrument, Keyed};
+use barter_instrument::{asset::name::AssetNameInternal, instrument::Instrument, Keyed};
 use serde::{Deserialize, Serialize};
 use smol_str::{format_smolstr, SmolStr, StrExt};
 
@@ -43,7 +43,10 @@ impl AsRef<str> for BinanceMarket {
     }
 }
 
-pub(in crate::exchange::binance) fn binance_market(base: &Symbol, quote: &Symbol) -> BinanceMarket {
+pub(in crate::exchange::binance) fn binance_market(
+    base: &AssetNameInternal,
+    quote: &AssetNameInternal,
+) -> BinanceMarket {
     // Notes:
     // - Must be lowercase when subscribing (transformed to lowercase by Binance fn requests).
     // - Must be uppercase since Binance sends message with uppercase MARKET (eg/ BTCUSDT).

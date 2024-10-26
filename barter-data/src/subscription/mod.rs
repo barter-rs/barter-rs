@@ -1,6 +1,6 @@
 use crate::{exchange::Connector, instrument::InstrumentData};
 use barter_instrument::{
-    asset::symbol::Symbol,
+    asset::name::AssetNameInternal,
     exchange::ExchangeId,
     instrument::{kind::InstrumentKind, Instrument},
     Keyed,
@@ -72,7 +72,7 @@ where
 impl<Exchange, S, Kind> From<(Exchange, S, S, InstrumentKind, Kind)>
     for Subscription<Exchange, Instrument, Kind>
 where
-    S: Into<Symbol>,
+    S: Into<AssetNameInternal>,
 {
     fn from(
         (exchange, base, quote, instrument_kind, kind): (Exchange, S, S, InstrumentKind, Kind),
@@ -84,7 +84,7 @@ where
 impl<InstrumentKey, Exchange, S, Kind> From<(InstrumentKey, Exchange, S, S, InstrumentKind, Kind)>
     for Subscription<Exchange, Keyed<InstrumentKey, Instrument>, Kind>
 where
-    S: Into<Symbol>,
+    S: Into<AssetNameInternal>,
 {
     fn from(
         (instrument_id, exchange, base, quote, instrument_kind, kind): (
