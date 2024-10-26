@@ -6,16 +6,16 @@ use barter_data::subscription::trade::PublicTrade;
 use barter_execution::{
     error::ExecutionError,
     model::{
-        balance::{Balance, SymbolBalance},
+        balance::{AssetBalance, Balance},
         order::OrderId,
-        trade::{SymbolFees, Trade, TradeId},
+        trade::{AssetFees, Trade, TradeId},
         AccountEvent, AccountEventKind, ClientOrderId,
     },
     simulated::{execution::SimulatedExecution, SimulatedEvent},
     ExecutionClient,
 };
 use barter_instrument::{
-    asset::symbol::Symbol,
+    asset::name::AssetNameInternal,
     instrument::{kind::InstrumentKind, Instrument},
 };
 use barter_integration::Side;
@@ -152,7 +152,7 @@ async fn test_2_fetch_balances_and_check_same_as_initial(client: &SimulatedExecu
     assert_eq!(actual_balances.len(), initial_balances.len());
 
     for actual in actual_balances {
-        let expected = initial_balances.get(&actual.symbol).unwrap();
+        let expected = initial_balances.get(&actual.asset).unwrap();
         assert_eq!(actual.balance, *expected);
     }
 }
@@ -193,7 +193,7 @@ async fn test_3_open_limit_buy_order(
             ..
         }) => {
             // Expected usdt Balance.available = 10_000 - (100.0 * 1.0)
-            let expected = SymbolBalance::new("usdt", Balance::new(10_000.0, 9_900.0));
+            let expected = AssetBalance::new("usdt", Balance::new(10_000.0, 9_900.0));
             assert_eq!(usdt_balance, expected);
         }
         other => {
@@ -296,7 +296,7 @@ async fn test_5_cancel_buy_order(
             ..
         }) => {
             // Expected usdt Balance.available = 9_900 + (100.0 * 1.0)
-            let expected = SymbolBalance::new("usdt", Balance::new(10_000.0, 10_000.0));
+            let expected = AssetBalance::new("usdt", Balance::new(10_000.0, 10_000.0));
             assert_eq!(usdt_balance, expected);
         }
         other => {
@@ -370,7 +370,7 @@ async fn test_6_open_2x_limit_buy_orders(
             ..
         }) => {
             // Expected usdt Balance.available = 10_000 - (100.0 * 1.0)
-            let expected = SymbolBalance::new("usdt", Balance::new(10_000.0, 9_900.0));
+            let expected = AssetBalance::new("usdt", Balance::new(10_000.0, 9_900.0));
             assert_eq!(usdt_balance, expected);
         }
         other => {
@@ -399,7 +399,7 @@ async fn test_6_open_2x_limit_buy_orders(
             ..
         }) => {
             // Expected usdt Balance.available = 9_900 - (200.0 * 1.0)
-            let expected = SymbolBalance::new("usdt", Balance::new(10_000.0, 9_700.0));
+            let expected = AssetBalance::new("usdt", Balance::new(10_000.0, 9_700.0));
             assert_eq!(usdt_balance, expected);
         }
         other => {
@@ -457,19 +457,19 @@ async fn test_7_send_market_event_that_exact_full_matches_order(
             kind: AccountEventKind::Balances(balances),
             ..
         }) => {
-            // Base & Quote SymbolBalances should be updated
+            // Base & Quote AssetBalances should be updated
             assert_eq!(balances.len(), 2);
 
             // Base Balance first: expected btc { total: 10.0 + 1.0 - fees, available: 10.0 + 1.0 - fees }
             let btc_fees = 1.0 * fees_50_percent();
-            let expected_btc = SymbolBalance::new(
+            let expected_btc = AssetBalance::new(
                 "btc",
                 Balance::new(10.0 + 1.0 - btc_fees, 10.0 + 1.0 - btc_fees),
             );
             assert_eq!(balances[0], expected_btc);
 
             // Quote Balance second: expected usdt Balance { total: 10_000 - 200, available: 9_700 }
-            let expected_usdt = SymbolBalance::new("usdt", Balance::new(9_800.0, 9_700.0));
+            let expected_usdt = AssetBalance::new("usdt", Balance::new(9_800.0, 9_700.0));
             assert_eq!(balances[1], expected_usdt);
         }
         other => {
@@ -490,7 +490,7 @@ async fn test_7_send_market_event_that_exact_full_matches_order(
                 side: Side::Buy,
                 price: 200.0,
                 quantity: 1.0,
-                fees: SymbolFees::new("btc", 1.0 * fees_50_percent()),
+                fees: AssetFees::new("btc", 1.0 * fees_50_percent()),
             };
             assert_eq!(trade, expected);
         }
@@ -586,7 +586,7 @@ async fn test_9_open_2x_limit_sell_orders(
             ..
         }) => {
             // Expected btc Balance.available = 10.5 - 1.0
-            let expected = SymbolBalance::new("btc", Balance::new(10.5, 10.5 - 1.0));
+            let expected = AssetBalance::new("btc", Balance::new(10.5, 10.5 - 1.0));
             assert_eq!(btc_balance, expected);
         }
         other => {
@@ -621,7 +621,7 @@ async fn test_9_open_2x_limit_sell_orders(
             ..
         }) => {
             // Expected btc Balance.available = 9.5 - 1.0
-            let expected = SymbolBalance::new("btc", Balance::new(10.5, 9.5 - 1.0));
+            let expected = AssetBalance::new("btc", Balance::new(10.5, 9.5 - 1.0));
             assert_eq!(btc_balance, expected);
         }
         other => {
@@ -690,17 +690,17 @@ async fn test_10_send_market_event_that_full_and_partial_matches_orders(
             kind: AccountEventKind::Balances(balances),
             ..
         }) => {
-            // Base & Quote SymbolBalances should be updated
+            // Base & Quote AssetBalances should be updated
             assert_eq!(balances.len(), 2);
 
             // Base Balance first: expected btc Balance { total: 10.5 - 1.0, available: 8.5 }
-            let expected_btc = SymbolBalance::new("btc", Balance::new(10.5 - 1.0, 8.5));
+            let expected_btc = AssetBalance::new("btc", Balance::new(10.5 - 1.0, 8.5));
             assert_eq!(balances[0], expected_btc);
 
             // Quote Balance second:
             // Expected usdt increase = (500 * 1.0) - (500 * 1.0 * 0.5) = 500 - 250 = 250
             // expected usdt Balance { total: 9_800 + 250, available: 9_700 + 250 }
-            let expected_usdt = SymbolBalance::new("usdt", Balance::new(10_050.0, 9_950.0));
+            let expected_usdt = AssetBalance::new("usdt", Balance::new(10_050.0, 9_950.0));
             assert_eq!(balances[1], expected_usdt);
         }
         other => {
@@ -723,7 +723,7 @@ async fn test_10_send_market_event_that_full_and_partial_matches_orders(
                 side: Side::Sell,
                 price: 500.0,
                 quantity: 1.0,
-                fees: SymbolFees::new("usdt", first_full_fill_fees),
+                fees: AssetFees::new("usdt", first_full_fill_fees),
             };
             assert_eq!(trade, expected);
         }
@@ -744,20 +744,20 @@ async fn test_10_send_market_event_that_full_and_partial_matches_orders(
             kind: AccountEventKind::Balances(balances),
             ..
         }) => {
-            // Base & Quote SymbolBalances should be updated
+            // Base & Quote AssetBalances should be updated
             assert_eq!(balances.len(), 2);
 
             // btc { total: 9.0, available: 8.5 } 0.5 left in partially filled trade
 
             // Base Balance first: expected btc Balance { total: 9.5 - 0.5, available: 8.5 }
-            let expected_btc = SymbolBalance::new("btc", Balance::new(9.5 - 0.5, 8.5));
+            let expected_btc = AssetBalance::new("btc", Balance::new(9.5 - 0.5, 8.5));
             assert_eq!(balances[0], expected_btc);
 
             // Quote Balance second:
             // Expected usdt increase = (1000 * 0.5) - (1000 * 0.5 * 0.5) = 500 - 250 = 250
             // expected usdt Balance { total: 10_050 + 250, available: 9_950 + 250 }
             let expected_usdt =
-                SymbolBalance::new("usdt", Balance::new(10_050.0 + 250.0, 9_950.0 + 250.0));
+                AssetBalance::new("usdt", Balance::new(10_050.0 + 250.0, 9_950.0 + 250.0));
             assert_eq!(balances[1], expected_usdt);
         }
         other => {
@@ -780,7 +780,7 @@ async fn test_10_send_market_event_that_full_and_partial_matches_orders(
                 side: Side::Sell,
                 price: 1000.0,
                 quantity: 0.5,
-                fees: SymbolFees::new("usdt", second_partial_fill_fees),
+                fees: AssetFees::new("usdt", second_partial_fill_fees),
             };
             assert_eq!(trade, expected);
         }
@@ -859,20 +859,19 @@ async fn test_11_cancel_all_orders(
             kind: AccountEventKind::Balances(balances),
             ..
         }) => {
-            // SymbolBalances for Bid order quote, & ask order base should be updated
+            // AssetBalances for Bid order quote, & ask order base should be updated
             assert_eq!(balances.len(), 2);
 
             // Bids are cancelled first, so balance is updated first
             // test_6_order_cid_1, Side::Buy, price=100.0, quantity=1.0
             // Therefore, usdt Balance { total: 10_300, available: 10_200 + (100 * 1)
-            let expected_usdt =
-                SymbolBalance::new("usdt", Balance::new(10_300.0, 10_200.0 + 100.0));
+            let expected_usdt = AssetBalance::new("usdt", Balance::new(10_300.0, 10_200.0 + 100.0));
             assert_eq!(balances[0], expected_usdt);
 
             // Asks are cancelled second, so balance is updated first
             // test_9_order_cid_2, Side::Sell, price=1000.0, quantity=1.0, filled=0.5
             // Therefore, btc Balance { total: 9.0, available: 8.5 + 0.5 }
-            let expected_btc = SymbolBalance::new("btc", Balance::new(9.0, 8.5 + 0.5));
+            let expected_btc = AssetBalance::new("btc", Balance::new(9.0, 8.5 + 0.5));
             assert_eq!(balances[1], expected_btc);
         }
         other => {
@@ -927,7 +926,9 @@ async fn test_13_fail_to_open_one_of_two_limits_with_insufficient_funds(
         ])
         .await;
 
-    let expected_order_new_1 = Err(ExecutionError::InsufficientBalance(Symbol::from("usdt")));
+    let expected_order_new_1 = Err(ExecutionError::InsufficientBalance(
+        AssetNameInternal::from("usdt"),
+    ));
     let expected_order_new_2 = open_order(
         Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
         test_13_ids_2.cid,
@@ -951,7 +952,7 @@ async fn test_13_fail_to_open_one_of_two_limits_with_insufficient_funds(
             ..
         }) => {
             // Expected btc Balance.available = 9.0 - 1.0
-            let expected = SymbolBalance::new("btc", Balance::new(9.0, 9.0 - 1.0));
+            let expected = AssetBalance::new("btc", Balance::new(9.0, 9.0 - 1.0));
             assert_eq!(btc_balance, expected);
         }
         other => {

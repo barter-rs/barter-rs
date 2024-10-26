@@ -1,4 +1,4 @@
-use barter_instrument::asset::symbol::Symbol;
+use barter_instrument::asset::name::AssetNameInternal;
 use barter_integration::{
     error::SocketError,
     protocol::http::{
@@ -128,7 +128,7 @@ struct FetchBalancesResponse {
 #[allow(dead_code)]
 struct FtxBalance {
     #[serde(rename = "coin")]
-    symbol: Symbol,
+    symbol: AssetNameInternal,
     total: f64,
 }
 

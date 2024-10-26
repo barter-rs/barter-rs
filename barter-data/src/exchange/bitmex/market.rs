@@ -2,7 +2,7 @@ use crate::{
     exchange::bitmex::Bitmex, instrument::MarketInstrumentData, subscription::Subscription,
     Identifier,
 };
-use barter_instrument::{asset::symbol::Symbol, instrument::Instrument, Keyed};
+use barter_instrument::{asset::name::AssetNameInternal, instrument::Instrument, Keyed};
 use serde::{Deserialize, Serialize};
 use smol_str::{format_smolstr, SmolStr, StrExt};
 
@@ -39,7 +39,7 @@ impl AsRef<str> for BitmexMarket {
     }
 }
 
-fn bitmex_market(base: &Symbol, quote: &Symbol) -> BitmexMarket {
+fn bitmex_market(base: &AssetNameInternal, quote: &AssetNameInternal) -> BitmexMarket {
     // Notes:
     // - Must be uppercase since Bitmex sends message with uppercase MARKET (eg/ XBTUSD).
     BitmexMarket(format_smolstr!("{base}{quote}").to_uppercase_smolstr())

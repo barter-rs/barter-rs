@@ -17,7 +17,7 @@ pub trait OrderAllocator {
 }
 
 /// Default allocation manager that implements [`OrderAllocator`]. Order size is calculated by
-/// using the default_order_value, symbol close value, and [`SignalStrength`].
+/// using the default_order_value, instrument close value, and [`SignalStrength`].
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
 pub struct DefaultAllocator {
     pub default_order_value: f64,

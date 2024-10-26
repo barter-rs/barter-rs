@@ -1,6 +1,6 @@
 use super::Coinbase;
 use crate::{instrument::MarketInstrumentData, subscription::Subscription, Identifier};
-use barter_instrument::{asset::symbol::Symbol, instrument::Instrument, Keyed};
+use barter_instrument::{asset::name::AssetNameInternal, instrument::Instrument, Keyed};
 use serde::{Deserialize, Serialize};
 use smol_str::{format_smolstr, SmolStr, StrExt};
 
@@ -37,6 +37,6 @@ impl AsRef<str> for CoinbaseMarket {
     }
 }
 
-fn coinbase_market(base: &Symbol, quote: &Symbol) -> CoinbaseMarket {
+fn coinbase_market(base: &AssetNameInternal, quote: &AssetNameInternal) -> CoinbaseMarket {
     CoinbaseMarket(format_smolstr!("{base}-{quote}").to_uppercase_smolstr())
 }

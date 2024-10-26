@@ -6,7 +6,7 @@ pub mod exchange;
 
 /// [`Asset`](asset::Asset) related data structures.
 ///
-/// eg/ `AssetKind`, `Symbol`, etc.
+/// eg/ `AssetKind`, `AssetNameInternal`, etc.
 pub mod asset;
 
 /// [`Instrument`](instrument::Instrument) related data structures.

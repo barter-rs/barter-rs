@@ -38,9 +38,7 @@ pub type BitmexTrade = BitmexMessage<BitmexTradeInner>;
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct BitmexTradeInner {
     pub timestamp: DateTime<Utc>,
-
     pub symbol: String,
-
     pub side: Side,
     #[serde(rename = "size")]
     pub amount: f64,

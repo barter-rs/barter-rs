@@ -2,7 +2,7 @@ use crate::{
     exchange::bybit::Bybit, instrument::MarketInstrumentData, subscription::Subscription,
     Identifier,
 };
-use barter_instrument::{asset::symbol::Symbol, instrument::Instrument, Keyed};
+use barter_instrument::{asset::name::AssetNameInternal, instrument::Instrument, Keyed};
 use serde::{Deserialize, Serialize};
 use smol_str::{format_smolstr, SmolStr, StrExt};
 
@@ -41,7 +41,7 @@ impl AsRef<str> for BybitMarket {
     }
 }
 
-fn bybit_market(base: &Symbol, quote: &Symbol) -> BybitMarket {
+fn bybit_market(base: &AssetNameInternal, quote: &AssetNameInternal) -> BybitMarket {
     // Notes:
     // - Must be uppercase since Bybit sends message with uppercase MARKET (eg/ BTCUSDT).
     BybitMarket(format_smolstr!("{base}{quote}").to_uppercase_smolstr())
