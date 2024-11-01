@@ -8,7 +8,7 @@ use barter_data::{
 };
 use barter_instrument::{
     exchange::ExchangeId,
-    instrument::{kind::InstrumentKind, Instrument},
+    instrument::market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
 };
 use futures::StreamExt;
 use tracing::{info, warn};
@@ -20,7 +20,7 @@ async fn main() {
     init_logging();
 
     use ExchangeId::*;
-    use InstrumentKind::*;
+    use MarketDataInstrumentKind::*;
     use SubKind::*;
 
     // Notes:
@@ -64,13 +64,13 @@ async fn main() {
     ]).await.unwrap();
 
     // Select all streams, mapping each SubscriptionKind `MarketStreamResult<T>` into a unified
-    // `Output` (eg/ `MarketStreamResult<Instrument, DataKind>`), where MarketStreamResult<T>: Into<Output>
+    // `Output` (eg/ `MarketStreamResult<_, DataKind>`), where MarketStreamResult<T>: Into<Output>
     // Notes on other DynamicStreams methods:
     //  - Use `streams.select_trades(ExchangeId)` to return a stream of trades from a given exchange.
     //  - Use `streams.select_<T>(ExchangeId)` to return a stream of T from a given exchange.
     //  - Use `streams.select_all_trades(ExchangeId)` to return a stream of trades from all exchanges
     let mut merged = streams
-        .select_all::<MarketStreamResult<Instrument, DataKind>>()
+        .select_all::<MarketStreamResult<MarketDataInstrument, DataKind>>()
         .with_error_handler(|error| warn!(?error, "MarketStream generated error"));
 
     while let Some(event) = merged.next().await {

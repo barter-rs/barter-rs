@@ -6,7 +6,7 @@ use crate::{
     strategy::{Decision, Signal, SignalForceExit},
 };
 use barter_data::event::{DataKind, MarketEvent};
-use barter_instrument::{exchange::ExchangeId, instrument::Instrument};
+use barter_instrument::{exchange::ExchangeId, instrument::market_data::MarketDataInstrument};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -39,7 +39,7 @@ pub trait MarketUpdater {
     /// changes.
     fn update_from_market(
         &mut self,
-        market: &MarketEvent<Instrument, DataKind>,
+        market: &MarketEvent<MarketDataInstrument, DataKind>,
     ) -> Result<Option<PositionUpdate>, PortfolioError>;
 }
 
@@ -70,7 +70,7 @@ pub trait FillUpdater {
 pub struct OrderEvent {
     pub time: DateTime<Utc>,
     pub exchange: ExchangeId,
-    pub instrument: Instrument,
+    pub instrument: MarketDataInstrument,
     /// Metadata propagated from source MarketEvent
     pub market_meta: MarketMeta,
     /// LONG, CloseLong, SHORT or CloseShort
@@ -110,7 +110,7 @@ impl Default for OrderType {
 pub struct OrderEventBuilder {
     pub time: Option<DateTime<Utc>>,
     pub exchange: Option<ExchangeId>,
-    pub instrument: Option<Instrument>,
+    pub instrument: Option<MarketDataInstrument>,
     pub market_meta: Option<MarketMeta>,
     pub decision: Option<Decision>,
     pub quantity: Option<f64>,
@@ -136,7 +136,7 @@ impl OrderEventBuilder {
         }
     }
 
-    pub fn instrument(self, value: Instrument) -> Self {
+    pub fn instrument(self, value: MarketDataInstrument) -> Self {
         Self {
             instrument: Some(value),
             ..self

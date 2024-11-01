@@ -6,7 +6,7 @@ use barter_data::{
     streams::{reconnect::stream::ReconnectingStream, Streams},
     subscription::book::OrderBooksL1,
 };
-use barter_instrument::instrument::kind::InstrumentKind;
+use barter_instrument::instrument::market_data::kind::MarketDataInstrumentKind;
 use futures::StreamExt;
 use tracing::{info, warn};
 
@@ -20,18 +20,18 @@ async fn main() {
     // '--> each call to StreamBuilder::subscribe() initialises a separate WebSocket connection
     let streams = Streams::<OrderBooksL1>::builder()
         .subscribe([
-            (BinanceSpot::default(), "btc", "usdt", InstrumentKind::Spot, OrderBooksL1),
-            (BinanceSpot::default(), "eth", "usd", InstrumentKind::Spot, OrderBooksL1),
+            (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL1),
+            (BinanceSpot::default(), "eth", "usd", MarketDataInstrumentKind::Spot, OrderBooksL1),
         ])
         .subscribe([
-            (BinanceFuturesUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, OrderBooksL1),
-            (BinanceFuturesUsd::default(), "eth", "usd", InstrumentKind::Perpetual, OrderBooksL1),
+            (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, OrderBooksL1),
+            (BinanceFuturesUsd::default(), "eth", "usd", MarketDataInstrumentKind::Perpetual, OrderBooksL1),
         ])
         .subscribe([
-            (Kraken, "xbt", "usd", InstrumentKind::Spot, OrderBooksL1),
-            (Kraken, "ada", "usd", InstrumentKind::Spot, OrderBooksL1),
-            (Kraken, "matic", "usd", InstrumentKind::Spot, OrderBooksL1),
-            (Kraken, "dot", "usd", InstrumentKind::Spot, OrderBooksL1),
+            (Kraken, "xbt", "usd", MarketDataInstrumentKind::Spot, OrderBooksL1),
+            (Kraken, "ada", "usd", MarketDataInstrumentKind::Spot, OrderBooksL1),
+            (Kraken, "matic", "usd", MarketDataInstrumentKind::Spot, OrderBooksL1),
+            (Kraken, "dot", "usd", MarketDataInstrumentKind::Spot, OrderBooksL1),
         ])
         .init()
         .await

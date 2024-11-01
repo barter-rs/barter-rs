@@ -1,5 +1,8 @@
 use barter_instrument::{
-    instrument::{kind::InstrumentKind, Instrument, InstrumentId},
+    instrument::{
+        market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
+        InstrumentId,
+    },
     Keyed,
 };
 use serde::{Deserialize, Serialize};
@@ -17,10 +20,10 @@ where
 {
     type Key: Debug + Clone + Eq + Send + Sync;
     fn key(&self) -> &Self::Key;
-    fn kind(&self) -> InstrumentKind;
+    fn kind(&self) -> &MarketDataInstrumentKind;
 }
 
-impl<InstrumentKey> InstrumentData for Keyed<InstrumentKey, Instrument>
+impl<InstrumentKey> InstrumentData for Keyed<InstrumentKey, MarketDataInstrument>
 where
     InstrumentKey: Debug + Clone + Eq + Send + Sync,
 {
@@ -30,20 +33,20 @@ where
         &self.key
     }
 
-    fn kind(&self) -> InstrumentKind {
-        self.value.kind
+    fn kind(&self) -> &MarketDataInstrumentKind {
+        &self.value.kind
     }
 }
 
-impl InstrumentData for Instrument {
+impl InstrumentData for MarketDataInstrument {
     type Key = Self;
 
     fn key(&self) -> &Self::Key {
         self
     }
 
-    fn kind(&self) -> InstrumentKind {
-        self.kind
+    fn kind(&self) -> &MarketDataInstrumentKind {
+        &self.kind
     }
 }
 
@@ -51,7 +54,7 @@ impl InstrumentData for Instrument {
 pub struct MarketInstrumentData {
     pub id: InstrumentId,
     pub name_exchange: SmolStr,
-    pub kind: InstrumentKind,
+    pub kind: MarketDataInstrumentKind,
 }
 
 impl InstrumentData for MarketInstrumentData {
@@ -61,7 +64,7 @@ impl InstrumentData for MarketInstrumentData {
         &self.id
     }
 
-    fn kind(&self) -> InstrumentKind {
-        self.kind
+    fn kind(&self) -> &MarketDataInstrumentKind {
+        &self.kind
     }
 }

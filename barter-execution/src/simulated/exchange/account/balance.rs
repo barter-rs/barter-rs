@@ -7,7 +7,8 @@ use crate::{
     ExecutionError, Open, Order,
 };
 use barter_instrument::{
-    asset::name::AssetNameInternal, exchange::ExchangeId, instrument::Instrument,
+    asset::name::AssetNameInternal, exchange::ExchangeId,
+    instrument::market_data::MarketDataInstrument,
 };
 use barter_integration::Side;
 use chrono::Utc;
@@ -127,7 +128,7 @@ impl ClientBalances {
     /// A [`Side::Sell`] match causes the [`AssetNameInternal`] [`Balance`] of the base to decrease by the
     /// `trade_quantity`, and the quote to increase by the `trade_quantity * price`.
     pub fn update_from_trade(&mut self, trade: &Trade) -> AccountEvent {
-        let Instrument { base, quote, .. } = &trade.instrument;
+        let MarketDataInstrument { base, quote, .. } = &trade.instrument;
 
         // Calculate the base & quote Balance deltas
         let (base_delta, quote_delta) = match trade.side {

@@ -3,7 +3,7 @@ use barter_data::{
     streams::{reconnect::stream::ReconnectingStream, Streams},
     subscription::trade::PublicTrades,
 };
-use barter_instrument::instrument::kind::InstrumentKind;
+use barter_instrument::instrument::market_data::kind::MarketDataInstrumentKind;
 use futures_util::StreamExt;
 use tracing::{info, warn};
 
@@ -19,20 +19,20 @@ async fn main() {
 
         // Separate WebSocket connection for BTC_USDT stream since it's very high volume
         .subscribe([
-            (BinanceFuturesUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
+            (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
         ])
 
         // Separate WebSocket connection for ETH_USDT stream since it's very high volume
         .subscribe([
-            (BinanceFuturesUsd::default(), "eth", "usdt", InstrumentKind::Perpetual, PublicTrades),
+            (BinanceFuturesUsd::default(), "eth", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
         ])
 
         // Lower volume Instruments can share a WebSocket connection
         .subscribe([
-            (BinanceFuturesUsd::default(), "xrp", "usdt", InstrumentKind::Perpetual, PublicTrades),
-            (BinanceFuturesUsd::default(), "sol", "usdt", InstrumentKind::Perpetual, PublicTrades),
-            (BinanceFuturesUsd::default(), "avax", "usdt", InstrumentKind::Perpetual, PublicTrades),
-            (BinanceFuturesUsd::default(), "ltc", "usdt", InstrumentKind::Perpetual, PublicTrades),
+            (BinanceFuturesUsd::default(), "xrp", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
+            (BinanceFuturesUsd::default(), "sol", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
+            (BinanceFuturesUsd::default(), "avax", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
+            (BinanceFuturesUsd::default(), "ltc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
         ])
         .init()
         .await

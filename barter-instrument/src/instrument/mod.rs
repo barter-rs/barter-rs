@@ -1,7 +1,17 @@
-use crate::{asset::name::AssetNameInternal, instrument::kind::InstrumentKind};
+use crate::{
+    asset::Asset,
+    exchange::ExchangeId,
+    instrument::{
+        kind::InstrumentKind,
+        market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
+        name::InstrumentNameInternal,
+        spec::{InstrumentSpec, InstrumentSpecQuantity, OrderQuantityUnits},
+    },
+    Underlying,
+};
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
-use std::fmt::Formatter;
+use smol_str::SmolStr;
 
 pub mod kind;
 
@@ -9,9 +19,17 @@ pub mod kind;
 /// (not unique across exchanges).
 pub mod name;
 
+/// Defines the [`InstrumentSpec`], including specifications for an [`Instrument`]s
+/// price, quantity and notional value.
+///
+/// eg/ `InstrumentSpecPrice.tick_size`, `OrderQuantityUnits`, etc.  
 pub mod spec;
 
-/// Unique identifier for an [`Instrument`] traded on an exchange.
+/// Defines a simplified [`MarketDataInstrument`], with only the necessary data to subscribe to
+/// market data feeds.  
+pub mod market_data;
+
+/// Unique identifier for an `Instrument` traded on an exchange.
 ///
 /// Used to key data events in a memory efficient way.
 #[derive(
@@ -24,165 +42,127 @@ pub struct InstrumentId(pub u64);
 )]
 pub struct InstrumentIndex(usize);
 
-/// Barter representation of an `Instrument`. Used to uniquely identify a `base_quote` pair, and it's
-/// associated instrument type.
-///
-/// eg/ Instrument { base: "btc", quote: "usdt", kind: Spot }
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub struct Instrument {
-    pub base: AssetNameInternal,
-    pub quote: AssetNameInternal,
-    #[serde(rename = "instrument_kind")]
-    pub kind: InstrumentKind,
+/// Comprehensive Instrument model, containing all the data required to subscribe to market data
+/// and generate correct orders.
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub struct Instrument<AssetKey> {
+    pub exchange: ExchangeId,
+    pub name_internal: InstrumentNameInternal,
+    pub name_exchange: SmolStr,
+    pub underlying: Underlying<AssetKey>,
+    #[serde(alias = "instrument_kind")]
+    pub kind: InstrumentKind<AssetKey>,
+    pub spec: InstrumentSpec<AssetKey>,
 }
 
-impl Display for Instrument {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}_{}, {})", self.base, self.quote, self.kind)
-    }
-}
-
-impl<S> From<(S, S, InstrumentKind)> for Instrument
-where
-    S: Into<AssetNameInternal>,
-{
-    fn from((base, quote, kind): (S, S, InstrumentKind)) -> Self {
-        Self {
-            base: base.into(),
-            quote: quote.into(),
-            kind,
-        }
-    }
-}
-
-impl Instrument {
-    /// Constructs a new [`Instrument`] using the provided configuration.
-    pub fn new<S>(base: S, quote: S, kind: InstrumentKind) -> Self
+impl<AssetKey> Instrument<AssetKey> {
+    /// Construct a new [`Self`] with the provided data, assuming the [`InstrumentNameInternal`]
+    /// can be created via the [`InstrumentNameInternal::new_from_exchange`] constructor.
+    pub fn new<NameExchange>(
+        exchange: ExchangeId,
+        name_exchange: NameExchange,
+        underlying: Underlying<AssetKey>,
+        kind: InstrumentKind<AssetKey>,
+        spec: InstrumentSpec<AssetKey>,
+    ) -> Self
     where
-        S: Into<AssetNameInternal>,
+        NameExchange: Into<SmolStr>,
     {
+        let name_exchange = name_exchange.into();
+        let name_internal =
+            InstrumentNameInternal::new_from_exchange(exchange, name_exchange.clone());
+
         Self {
-            base: base.into(),
-            quote: quote.into(),
+            exchange,
+            name_internal,
+            name_exchange,
+            underlying,
             kind,
+            spec,
         }
+    }
+
+    /// Map this Instruments `AssetKey` to a new key, using the provided lookup closure.
+    pub fn map_asset_key<FnFindAsset, NewAssetKey, Error>(
+        self,
+        find_asset: FnFindAsset,
+    ) -> Result<Instrument<NewAssetKey>, Error>
+    where
+        FnFindAsset: Fn(&AssetKey) -> Result<NewAssetKey, Error>,
+    {
+        let Instrument {
+            exchange,
+            name_internal,
+            name_exchange,
+            underlying: Underlying { base, quote },
+            kind,
+            spec:
+                InstrumentSpec {
+                    price,
+                    quantity:
+                        InstrumentSpecQuantity {
+                            unit,
+                            min,
+                            increment,
+                        },
+                    notional,
+                },
+        } = self;
+
+        let base_index = find_asset(&base)?;
+        let quote_index = find_asset(&quote)?;
+
+        let kind = match kind {
+            InstrumentKind::Spot => InstrumentKind::Spot,
+            InstrumentKind::Perpetual { settlement_asset } => InstrumentKind::Perpetual {
+                settlement_asset: find_asset(&settlement_asset)?,
+            },
+            InstrumentKind::Future {
+                settlement_asset,
+                contract,
+            } => InstrumentKind::Future {
+                settlement_asset: find_asset(&settlement_asset)?,
+                contract,
+            },
+            InstrumentKind::Option {
+                settlement_asset,
+                contract,
+            } => InstrumentKind::Option {
+                settlement_asset: find_asset(&settlement_asset)?,
+                contract,
+            },
+        };
+        let unit = match unit {
+            OrderQuantityUnits::Asset(asset) => OrderQuantityUnits::Asset(find_asset(&asset)?),
+            OrderQuantityUnits::Contract => OrderQuantityUnits::Contract,
+            OrderQuantityUnits::Quote => OrderQuantityUnits::Quote,
+        };
+
+        Ok(Instrument {
+            exchange,
+            name_internal,
+            name_exchange,
+            underlying: Underlying::new(base_index, quote_index),
+            kind,
+            spec: InstrumentSpec {
+                price,
+                quantity: InstrumentSpecQuantity {
+                    unit,
+                    min,
+                    increment,
+                },
+                notional,
+            },
+        })
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::instrument::{
-        kind::{
-            future::FutureContract,
-            option::{OptionContract, OptionExercise, OptionKind},
-            InstrumentKind,
-        },
-        Instrument,
-    };
-    use chrono::{TimeZone, Utc};
-    use rust_decimal_macros::dec;
-
-    #[test]
-    fn test_de_instrument() {
-        struct TestCase {
-            input: &'static str,
-            expected: Result<Instrument, serde_json::Error>,
-        }
-
-        let cases = vec![
-            TestCase {
-                // TC0: Valid Spot
-                input: r#"{"base": "btc", "quote": "usd", "instrument_kind": "spot" }"#,
-                expected: Ok(Instrument::from(("btc", "usd", InstrumentKind::Spot))),
-            },
-            TestCase {
-                // TC1: Valid Future
-                input: r#"{
-                    "base": "btc",
-                    "quote": "usd",
-                    "instrument_kind": {"future": {"expiry": 1703980800000}}
-                }"#,
-                expected: Ok(Instrument::new(
-                    "btc",
-                    "usd",
-                    InstrumentKind::Future(FutureContract {
-                        expiry: Utc.timestamp_millis_opt(1703980800000).unwrap(),
-                    }),
-                )),
-            },
-            TestCase {
-                // TC2: Valid FuturePerpetual
-                input: r#"{"base": "btc", "quote": "usd", "instrument_kind": "perpetual" }"#,
-                expected: Ok(Instrument::from(("btc", "usd", InstrumentKind::Perpetual))),
-            },
-            TestCase {
-                // TC3: Valid Option Call American
-                input: r#"{
-                    "base": "btc",
-                    "quote": "usd",
-                    "instrument_kind": {
-                        "option": {
-                            "kind": "CALL",
-                            "exercise": "American",
-                            "expiry": 1703980800000,
-                            "strike": 50000
-                        }
-                    }
-                }"#,
-                expected: Ok(Instrument::from((
-                    "btc",
-                    "usd",
-                    InstrumentKind::Option(OptionContract {
-                        kind: OptionKind::Call,
-                        exercise: OptionExercise::American,
-                        expiry: Utc.timestamp_millis_opt(1703980800000).unwrap(),
-                        strike: dec!(50000),
-                    }),
-                ))),
-            },
-            TestCase {
-                // TC4: Valid Option Put Bermudan
-                input: r#"{
-                    "base": "btc",
-                    "quote": "usd",
-                    "instrument_kind": {
-                        "option": {
-                            "kind": "Put",
-                            "exercise": "BERMUDAN",
-                            "expiry": 1703980800000,
-                            "strike": 50000
-                        }
-                    }
-                }"#,
-                expected: Ok(Instrument::from((
-                    "btc",
-                    "usd",
-                    InstrumentKind::Option(OptionContract {
-                        kind: OptionKind::Put,
-                        exercise: OptionExercise::Bermudan,
-                        expiry: Utc.timestamp_millis_opt(1703980800000).unwrap(),
-                        strike: dec!(50000.0),
-                    }),
-                ))),
-            },
-        ];
-
-        for (index, test) in cases.into_iter().enumerate() {
-            let actual = serde_json::from_str::<Instrument>(test.input);
-
-            match (actual, test.expected) {
-                (Ok(actual), Ok(expected)) => {
-                    assert_eq!(actual, expected, "TC{} failed", index)
-                }
-                (Err(_), Err(_)) => {
-                    // Test passed
-                }
-                (actual, expected) => {
-                    // Test failed
-                    panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
-                }
-            }
+impl From<&Instrument<Asset>> for MarketDataInstrument {
+    fn from(value: &Instrument<Asset>) -> Self {
+        Self {
+            base: value.underlying.base.name_internal.clone(),
+            quote: value.underlying.quote.name_internal.clone(),
+            kind: MarketDataInstrumentKind::from(&value.kind),
         }
     }
 }
