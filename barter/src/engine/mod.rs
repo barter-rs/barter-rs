@@ -13,7 +13,7 @@ use crate::{
 };
 use barter_data::event::{DataKind, MarketEvent};
 use barter_instrument::{
-    instrument::Instrument,
+    instrument::market_data::MarketDataInstrument,
     market::{Market, MarketId},
 };
 use parking_lot::Mutex;
@@ -58,7 +58,7 @@ where
     EventTx: MessageTransmitter<Event> + Send,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
-    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send,
+    Data: MarketGenerator<MarketEvent<MarketDataInstrument, DataKind>> + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -98,7 +98,7 @@ where
         + FillUpdater
         + Send
         + 'static,
-    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send + 'static,
+    Data: MarketGenerator<MarketEvent<MarketDataInstrument, DataKind>> + Send + 'static,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -132,7 +132,7 @@ where
         + FillUpdater
         + Send
         + 'static,
-    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send,
+    Data: MarketGenerator<MarketEvent<MarketDataInstrument, DataKind>> + Send,
     Strategy: SignalGenerator + Send + 'static,
     Execution: ExecutionClient + Send + 'static,
 {
@@ -367,7 +367,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater + Send,
-    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send,
+    Data: MarketGenerator<MarketEvent<MarketDataInstrument, DataKind>> + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -390,7 +390,7 @@ where
         + OrderGenerator
         + FillUpdater
         + Send,
-    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send,
+    Data: MarketGenerator<MarketEvent<MarketDataInstrument, DataKind>> + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {

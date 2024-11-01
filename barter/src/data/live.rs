@@ -3,7 +3,7 @@ use barter_data::{
     event::{DataKind, MarketEvent},
     streams::{consumer::MarketStreamEvent, reconnect},
 };
-use barter_instrument::instrument::Instrument;
+use barter_instrument::instrument::market_data::MarketDataInstrument;
 use futures::{
     executor::{block_on_stream, BlockingStream},
     Stream,
@@ -52,7 +52,7 @@ pub struct ReconnectingMarketFeed<St: Stream + Unpin> {
 
 impl<St> MarketGenerator<MarketEvent> for ReconnectingMarketFeed<St>
 where
-    St: Stream<Item = MarketStreamEvent<Instrument, DataKind>> + Unpin,
+    St: Stream<Item = MarketStreamEvent<MarketDataInstrument, DataKind>> + Unpin,
 {
     fn next(&mut self) -> Feed<MarketEvent> {
         self.market_stream

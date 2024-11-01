@@ -4,7 +4,7 @@ use crate::{
     strategy::Decision,
 };
 use barter_data::event::{DataKind, MarketEvent};
-use barter_instrument::{exchange::ExchangeId, instrument::Instrument};
+use barter_instrument::{exchange::ExchangeId, instrument::market_data::MarketDataInstrument};
 use barter_integration::Side;
 use chrono::{DateTime, Utc};
 use rust_decimal::prelude::ToPrimitive;
@@ -23,7 +23,10 @@ pub trait PositionEnterer {
 pub trait PositionUpdater {
     /// Updates an open [`Position`] using the latest input [`MarketEvent`], returning a
     /// [`PositionUpdate`] that communicates the open [`Position`]'s change in state.
-    fn update(&mut self, market: &MarketEvent<Instrument, DataKind>) -> Option<PositionUpdate>;
+    fn update(
+        &mut self,
+        market: &MarketEvent<MarketDataInstrument, DataKind>,
+    ) -> Option<PositionUpdate>;
 }
 
 /// Exits an open [`Position`].
@@ -36,11 +39,11 @@ pub trait PositionExiter {
 /// Communicates a String represents a unique [`Position`] identifier.
 pub type PositionId = SmolStr;
 
-/// Returns a unique identifier for a [`Position`] given an engine_id, [`Exchange`] & [`Instrument`].
+/// Returns a unique identifier for a [`Position`] given an engine_id, [`Exchange`] & [`MarketDataInstrument`].
 pub fn determine_position_id(
     engine_id: Uuid,
     exchange: &ExchangeId,
-    instrument: &Instrument,
+    instrument: &MarketDataInstrument,
 ) -> PositionId {
     format_smolstr!("{}_{}_{}_position", engine_id, exchange, instrument)
 }
@@ -48,7 +51,7 @@ pub fn determine_position_id(
 /// Data encapsulating the state of an ongoing or closed [`Position`].
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct Position {
-    /// Unique identifier for a [`Position`] generated from an engine_id, [`Exchange`] & [`Instrument`].
+    /// Unique identifier for a [`Position`] generated from an engine_id, [`Exchange`] & [`MarketDataInstrument`].
     pub position_id: PositionId,
 
     /// Metadata detailing trace UUIDs, timestamps & equity associated with entering, updating & exiting.
@@ -57,8 +60,8 @@ pub struct Position {
     /// [`Exchange`] associated with this [`Position`].
     pub exchange: ExchangeId,
 
-    /// [`Instrument`] associated with this [`Position`].
-    pub instrument: Instrument,
+    /// [`MarketDataInstrument`] associated with this [`Position`].
+    pub instrument: MarketDataInstrument,
 
     /// Buy or Sell.
     ///
@@ -149,7 +152,10 @@ impl PositionEnterer for Position {
 }
 
 impl PositionUpdater for Position {
-    fn update(&mut self, market: &MarketEvent<Instrument, DataKind>) -> Option<PositionUpdate> {
+    fn update(
+        &mut self,
+        market: &MarketEvent<MarketDataInstrument, DataKind>,
+    ) -> Option<PositionUpdate> {
         // Determine close from MarketEvent
         let close = match &market.kind {
             DataKind::Trade(trade) => trade.price,
@@ -268,7 +274,7 @@ impl Position {
 pub struct PositionBuilder {
     pub position_id: Option<PositionId>,
     pub exchange: Option<ExchangeId>,
-    pub instrument: Option<Instrument>,
+    pub instrument: Option<MarketDataInstrument>,
     pub meta: Option<PositionMeta>,
     pub side: Option<Side>,
     pub quantity: Option<f64>,
@@ -305,7 +311,7 @@ impl PositionBuilder {
         }
     }
 
-    pub fn instrument(self, value: Instrument) -> Self {
+    pub fn instrument(self, value: MarketDataInstrument) -> Self {
         Self {
             instrument: Some(value),
             ..self

@@ -24,7 +24,7 @@ use barter_data::{
 };
 use barter_instrument::{
     exchange::ExchangeId,
-    instrument::{kind::InstrumentKind, Instrument},
+    instrument::market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
     market::Market,
 };
 use futures::Stream;
@@ -52,7 +52,7 @@ async fn main() {
     // Create the Market(s) to be traded on (1-to-1 relationship with a Trader)
     let market = Market::new(
         ExchangeId::BinanceSpot,
-        ("btc", "usdt", InstrumentKind::Spot),
+        ("btc", "usdt", MarketDataInstrumentKind::Spot),
     );
 
     // Build global shared-state MetaPortfolio (1-to-1 relationship with an Engine)
@@ -127,8 +127,8 @@ async fn main() {
     let _ = tokio::time::timeout(ENGINE_RUN_TIMEOUT, engine.run()).await;
 }
 
-async fn stream_market_event_trades() -> impl Stream<Item = MarketStreamEvent<Instrument, DataKind>>
-{
+async fn stream_market_event_trades(
+) -> impl Stream<Item = MarketStreamEvent<MarketDataInstrument, DataKind>> {
     // Initialise PublicTrades Streams for BinanceSpot
     // '--> each call to StreamBuilder::subscribe() creates a separate WebSocket connection
     let streams = Streams::<PublicTrades>::builder()
@@ -137,7 +137,7 @@ async fn stream_market_event_trades() -> impl Stream<Item = MarketStreamEvent<In
             BinanceSpot::default(),
             "btc",
             "usdt",
-            InstrumentKind::Spot,
+            MarketDataInstrumentKind::Spot,
             PublicTrades,
         )])
         // Separate WebSocket connection for ETH_USDT stream since it's very high volume
@@ -145,7 +145,7 @@ async fn stream_market_event_trades() -> impl Stream<Item = MarketStreamEvent<In
             BinanceSpot::default(),
             "eth",
             "usdt",
-            InstrumentKind::Spot,
+            MarketDataInstrumentKind::Spot,
             PublicTrades,
         )])
         .init()

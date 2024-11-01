@@ -1,6 +1,8 @@
 use super::Binance;
 use crate::{instrument::MarketInstrumentData, subscription::Subscription, Identifier};
-use barter_instrument::{asset::name::AssetNameInternal, instrument::Instrument, Keyed};
+use barter_instrument::{
+    asset::name::AssetNameInternal, instrument::market_data::MarketDataInstrument, Keyed,
+};
 use serde::{Deserialize, Serialize};
 use smol_str::{format_smolstr, SmolStr, StrExt};
 
@@ -12,14 +14,16 @@ use smol_str::{format_smolstr, SmolStr, StrExt};
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub struct BinanceMarket(pub SmolStr);
 
-impl<Server, Kind> Identifier<BinanceMarket> for Subscription<Binance<Server>, Instrument, Kind> {
+impl<Server, Kind> Identifier<BinanceMarket>
+    for Subscription<Binance<Server>, MarketDataInstrument, Kind>
+{
     fn id(&self) -> BinanceMarket {
         binance_market(&self.instrument.base, &self.instrument.quote)
     }
 }
 
 impl<Server, InstrumentKey, Kind> Identifier<BinanceMarket>
-    for Subscription<Binance<Server>, Keyed<InstrumentKey, Instrument>, Kind>
+    for Subscription<Binance<Server>, Keyed<InstrumentKey, MarketDataInstrument>, Kind>
 {
     fn id(&self) -> BinanceMarket {
         binance_market(

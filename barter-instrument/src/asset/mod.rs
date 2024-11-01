@@ -88,3 +88,9 @@ pub enum AssetKind {
     Crypto,
     Fiat,
 }
+
+impl From<Asset> for AssetNameInternal {
+    fn from(value: Asset) -> Self {
+        value.name_internal
+    }
+}

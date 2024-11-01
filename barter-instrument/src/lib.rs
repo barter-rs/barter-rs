@@ -9,7 +9,7 @@ pub mod exchange;
 /// eg/ `AssetKind`, `AssetNameInternal`, etc.
 pub mod asset;
 
-/// [`Instrument`](instrument::Instrument) related data structures.
+/// [`Instrument`](market_data::MarketDataInstrument) related data structures.
 ///
 /// eg/ `InstrumentKind`, `OptionContract``, etc.
 pub mod instrument;
@@ -27,5 +27,23 @@ pub struct Keyed<Key, Value> {
 impl<Key, Value> AsRef<Value> for Keyed<Key, Value> {
     fn as_ref(&self) -> &Value {
         &self.value
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub struct Underlying<AssetKey> {
+    pub base: AssetKey,
+    pub quote: AssetKey,
+}
+
+impl<AssetKey> Underlying<AssetKey> {
+    pub fn new<A>(base: A, quote: A) -> Self
+    where
+        A: Into<AssetKey>,
+    {
+        Self {
+            base: base.into(),
+            quote: quote.into(),
+        }
     }
 }

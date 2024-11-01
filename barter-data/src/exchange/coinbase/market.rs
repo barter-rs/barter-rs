@@ -1,6 +1,8 @@
 use super::Coinbase;
 use crate::{instrument::MarketInstrumentData, subscription::Subscription, Identifier};
-use barter_instrument::{asset::name::AssetNameInternal, instrument::Instrument, Keyed};
+use barter_instrument::{
+    asset::name::AssetNameInternal, instrument::market_data::MarketDataInstrument, Keyed,
+};
 use serde::{Deserialize, Serialize};
 use smol_str::{format_smolstr, SmolStr, StrExt};
 
@@ -11,14 +13,14 @@ use smol_str::{format_smolstr, SmolStr, StrExt};
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub struct CoinbaseMarket(pub SmolStr);
 
-impl<Kind> Identifier<CoinbaseMarket> for Subscription<Coinbase, Instrument, Kind> {
+impl<Kind> Identifier<CoinbaseMarket> for Subscription<Coinbase, MarketDataInstrument, Kind> {
     fn id(&self) -> CoinbaseMarket {
         coinbase_market(&self.instrument.base, &self.instrument.quote)
     }
 }
 
 impl<InstrumentKey, Kind> Identifier<CoinbaseMarket>
-    for Subscription<Coinbase, Keyed<InstrumentKey, Instrument>, Kind>
+    for Subscription<Coinbase, Keyed<InstrumentKey, MarketDataInstrument>, Kind>
 {
     fn id(&self) -> CoinbaseMarket {
         coinbase_market(&self.instrument.value.base, &self.instrument.value.quote)

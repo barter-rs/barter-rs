@@ -1,7 +1,10 @@
 use super::Gateio;
 use crate::{instrument::MarketInstrumentData, subscription::Subscription, Identifier};
 use barter_instrument::{
-    instrument::{kind::option::OptionKind, Instrument},
+    instrument::{
+        kind::option::OptionKind,
+        market_data::{kind::MarketDataInstrumentKind::*, MarketDataInstrument},
+    },
     Keyed,
 };
 use chrono::{
@@ -18,14 +21,16 @@ use smol_str::{format_smolstr, SmolStr, StrExt};
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub struct GateioMarket(pub SmolStr);
 
-impl<Server, Kind> Identifier<GateioMarket> for Subscription<Gateio<Server>, Instrument, Kind> {
+impl<Server, Kind> Identifier<GateioMarket>
+    for Subscription<Gateio<Server>, MarketDataInstrument, Kind>
+{
     fn id(&self) -> GateioMarket {
         gateio_market(&self.instrument)
     }
 }
 
 impl<Server, InstrumentKey, Kind> Identifier<GateioMarket>
-    for Subscription<Gateio<Server>, Keyed<InstrumentKey, Instrument>, Kind>
+    for Subscription<Gateio<Server>, Keyed<InstrumentKey, MarketDataInstrument>, Kind>
 {
     fn id(&self) -> GateioMarket {
         gateio_market(&self.instrument.value)
@@ -46,9 +51,8 @@ impl AsRef<str> for GateioMarket {
     }
 }
 
-fn gateio_market(instrument: &Instrument) -> GateioMarket {
-    use barter_instrument::instrument::{kind::InstrumentKind::*, Instrument};
-    let Instrument { base, quote, kind } = instrument;
+fn gateio_market(instrument: &MarketDataInstrument) -> GateioMarket {
+    let MarketDataInstrument { base, quote, kind } = instrument;
 
     GateioMarket(
         match kind {

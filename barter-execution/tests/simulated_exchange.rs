@@ -16,7 +16,7 @@ use barter_execution::{
 };
 use barter_instrument::{
     asset::name::AssetNameInternal,
-    instrument::{kind::InstrumentKind, Instrument},
+    instrument::market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
 };
 use barter_integration::Side;
 use smol_str::ToSmolStr;
@@ -165,7 +165,7 @@ async fn test_3_open_limit_buy_order(
 ) {
     let new_orders = client
         .open_orders(vec![order_request_limit(
-            Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+            MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
             test_3_ids.cid,
             Side::Buy,
             100.0,
@@ -174,7 +174,7 @@ async fn test_3_open_limit_buy_order(
         .await;
 
     let expected_new_order = open_order(
-        Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+        MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
         test_3_ids.cid,
         test_3_ids.id,
         Side::Buy,
@@ -231,7 +231,7 @@ fn test_4_send_market_event_that_does_not_match_any_open_order(
 ) {
     event_simulated_tx
         .send(SimulatedEvent::MarketTrade((
-            Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+            MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
             PublicTrade {
                 id: "test_4".to_string(),
                 side: Side::Sell,
@@ -258,7 +258,7 @@ async fn test_5_cancel_buy_order(
 ) {
     let cancelled = client
         .cancel_orders(vec![order_cancel_request(
-            Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+            MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
             test_3_ids.cid,
             Side::Buy,
             test_3_ids.id.clone(),
@@ -266,7 +266,7 @@ async fn test_5_cancel_buy_order(
         .await;
 
     let expected_cancelled = order_cancelled(
-        Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+        MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
         test_3_ids.cid,
         Side::Buy,
         test_3_ids.id,
@@ -323,14 +323,14 @@ async fn test_6_open_2x_limit_buy_orders(
     let opened_orders = client
         .open_orders(vec![
             order_request_limit(
-                Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+                MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
                 test_6_ids_1.cid,
                 Side::Buy,
                 100.0,
                 1.0,
             ),
             order_request_limit(
-                Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+                MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
                 test_6_ids_2.cid,
                 Side::Buy,
                 200.0,
@@ -340,7 +340,7 @@ async fn test_6_open_2x_limit_buy_orders(
         .await;
 
     let expected_order_new_1 = open_order(
-        Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+        MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
         test_6_ids_1.cid,
         test_6_ids_1.id.clone(),
         Side::Buy,
@@ -350,7 +350,7 @@ async fn test_6_open_2x_limit_buy_orders(
     );
 
     let expected_order_new_2 = open_order(
-        Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+        MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
         test_6_ids_2.cid,
         test_6_ids_2.id,
         Side::Buy,
@@ -439,7 +439,7 @@ async fn test_7_send_market_event_that_exact_full_matches_order(
     // Send matching MarketEvent
     event_simulated_tx
         .send(SimulatedEvent::MarketTrade((
-            Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+            MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
             PublicTrade {
                 id: "test_7".to_string(),
                 side: Side::Sell,
@@ -486,7 +486,11 @@ async fn test_7_send_market_event_that_exact_full_matches_order(
             let expected = Trade {
                 id: TradeId(1.to_smolstr()),
                 order_id: OrderId(3.to_smolstr()),
-                instrument: Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+                instrument: MarketDataInstrument::from((
+                    "btc",
+                    "usdt",
+                    MarketDataInstrumentKind::Perpetual,
+                )),
                 side: Side::Buy,
                 price: 200.0,
                 quantity: 1.0,
@@ -518,7 +522,7 @@ async fn test_8_fetch_open_orders_and_check_test_6_order_cid_1_only(
     assert_eq!(
         open_orders[0].clone(),
         open_order(
-            Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+            MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
             test_6_ids_1.cid,
             test_6_ids_1.id,
             Side::Buy,
@@ -539,14 +543,14 @@ async fn test_9_open_2x_limit_sell_orders(
     let opened_orders = client
         .open_orders(vec![
             order_request_limit(
-                Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+                MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
                 test_9_ids_1.cid,
                 Side::Sell,
                 500.0,
                 1.0,
             ),
             order_request_limit(
-                Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+                MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
                 test_9_ids_2.cid,
                 Side::Sell,
                 1000.0,
@@ -556,7 +560,7 @@ async fn test_9_open_2x_limit_sell_orders(
         .await;
 
     let expected_order_new_1 = open_order(
-        Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+        MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
         test_9_ids_1.cid,
         test_9_ids_1.id,
         Side::Sell,
@@ -566,7 +570,7 @@ async fn test_9_open_2x_limit_sell_orders(
     );
 
     let expected_order_new_2 = open_order(
-        Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+        MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
         test_9_ids_2.cid,
         test_9_ids_2.id,
         Side::Sell,
@@ -670,7 +674,7 @@ async fn test_10_send_market_event_that_full_and_partial_matches_orders(
     // Send MarketEvent that fully matches one order and partially matches another
     event_simulated_tx
         .send(SimulatedEvent::MarketTrade((
-            Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+            MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
             PublicTrade {
                 id: "test_10".to_string(),
                 side: Side::Buy,
@@ -719,7 +723,11 @@ async fn test_10_send_market_event_that_full_and_partial_matches_orders(
             let expected = Trade {
                 id: TradeId(2.to_smolstr()),
                 order_id: OrderId(4.to_smolstr()),
-                instrument: Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+                instrument: MarketDataInstrument::from((
+                    "btc",
+                    "usdt",
+                    MarketDataInstrumentKind::Perpetual,
+                )),
                 side: Side::Sell,
                 price: 500.0,
                 quantity: 1.0,
@@ -776,7 +784,11 @@ async fn test_10_send_market_event_that_full_and_partial_matches_orders(
             let expected = Trade {
                 id: TradeId(3.to_smolstr()),
                 order_id: OrderId(5.to_smolstr()),
-                instrument: Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+                instrument: MarketDataInstrument::from((
+                    "btc",
+                    "usdt",
+                    MarketDataInstrumentKind::Perpetual,
+                )),
                 side: Side::Sell,
                 price: 1000.0,
                 quantity: 0.5,
@@ -817,14 +829,14 @@ async fn test_11_cancel_all_orders(
     let expected_cancelled = vec![
         order_cancelled(
             // Bids are cancelled first
-            Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+            MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
             test_6_ids_1.cid,
             Side::Buy,
             test_6_ids_1.id,
         ),
         order_cancelled(
             // Asks are cancelled second
-            Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+            MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
             test_9_ids_2.cid,
             Side::Sell,
             test_9_ids_2.id,
@@ -910,14 +922,14 @@ async fn test_13_fail_to_open_one_of_two_limits_with_insufficient_funds(
     let opened_orders = client
         .open_orders(vec![
             order_request_limit(
-                Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+                MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
                 test_13_ids_1.cid,
                 Side::Buy,
                 1_000_000_000.0,
                 1.0,
             ),
             order_request_limit(
-                Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+                MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
                 test_13_ids_2.cid,
                 Side::Sell,
                 1000.0,
@@ -930,7 +942,7 @@ async fn test_13_fail_to_open_one_of_two_limits_with_insufficient_funds(
         AssetNameInternal::from("usdt"),
     ));
     let expected_order_new_2 = open_order(
-        Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+        MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
         test_13_ids_2.cid,
         test_13_ids_2.id,
         Side::Sell,
@@ -997,7 +1009,7 @@ async fn test_14_fail_to_cancel_limit_with_order_not_found(client: &SimulatedExe
     let cid = ClientOrderId(Uuid::new_v4());
     let cancelled = client
         .cancel_orders(vec![order_cancel_request(
-            Instrument::from(("btc", "usdt", InstrumentKind::Perpetual)),
+            MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Perpetual)),
             cid,
             Side::Buy,
             OrderId::from("order will not be found"),

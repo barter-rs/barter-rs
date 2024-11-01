@@ -10,7 +10,9 @@ use barter_data::{
         trade::PublicTrades,
     },
 };
-use barter_instrument::instrument::{kind::InstrumentKind, Instrument};
+use barter_instrument::instrument::market_data::{
+    kind::MarketDataInstrumentKind, MarketDataInstrument,
+};
 use tokio_stream::StreamExt;
 use tracing::{info, warn};
 
@@ -26,39 +28,39 @@ async fn main() {
     //   Subscriptions passed.
 
     // Initialise MarketEvent<DataKind> Streams for various exchanges
-    let streams: Streams<MarketStreamResult<Instrument, DataKind>> = Streams::builder_multi()
+    let streams: Streams<MarketStreamResult<MarketDataInstrument, DataKind>> = Streams::builder_multi()
 
         // Add PublicTrades Streams for various exchanges
         .add(Streams::<PublicTrades>::builder()
             .subscribe([
-                (BinanceSpot::default(), "btc", "usdt", InstrumentKind::Spot, PublicTrades),
+                (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
             ])
             .subscribe([
-                (BinanceFuturesUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
+                (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
             ])
             .subscribe([
-                (Okx, "btc", "usdt", InstrumentKind::Spot, PublicTrades),
-                (Okx, "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
+                (Okx, "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
+                (Okx, "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
             ])
         )
 
         // Add OrderBooksL1 Stream for various exchanges
         .add(Streams::<OrderBooksL1>::builder()
             .subscribe([
-                (BinanceSpot::default(), "btc", "usdt", InstrumentKind::Spot, OrderBooksL1),
+                (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL1),
             ])
             .subscribe([
-                (BinanceFuturesUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, OrderBooksL1),
+                (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, OrderBooksL1),
             ])
         )
 
         // Add OrderBooksL2 Stream for various exchanges
         .add(Streams::<OrderBooksL2>::builder()
             .subscribe([
-                (BinanceSpot::default(), "btc", "usdt", InstrumentKind::Spot, OrderBooksL2),
+                (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
             ])
             .subscribe([
-                (BinanceFuturesUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, OrderBooksL2),
+                (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, OrderBooksL2),
             ])
         )
         .init()

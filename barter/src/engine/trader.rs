@@ -7,7 +7,7 @@ use crate::{
     strategy::{SignalForceExit, SignalGenerator},
 };
 use barter_data::event::{DataKind, MarketEvent};
-use barter_instrument::{instrument::Instrument, market::Market};
+use barter_instrument::{instrument::market_data::MarketDataInstrument, market::Market};
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, sync::Arc};
@@ -22,7 +22,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: MarketGenerator<MarketEvent<Instrument, DataKind>>,
+    Data: MarketGenerator<MarketEvent<MarketDataInstrument, DataKind>>,
     Strategy: SignalGenerator,
     Execution: ExecutionClient,
 {
@@ -58,7 +58,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send,
+    Data: MarketGenerator<MarketEvent<MarketDataInstrument, DataKind>> + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -92,7 +92,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send,
+    Data: MarketGenerator<MarketEvent<MarketDataInstrument, DataKind>> + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
@@ -269,7 +269,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: MarketGenerator<MarketEvent<Instrument, DataKind>>,
+    Data: MarketGenerator<MarketEvent<MarketDataInstrument, DataKind>>,
     Strategy: SignalGenerator,
     Execution: ExecutionClient,
 {
@@ -290,7 +290,7 @@ where
     EventTx: MessageTransmitter<Event>,
     Statistic: Serialize + Send,
     Portfolio: MarketUpdater + OrderGenerator + FillUpdater,
-    Data: MarketGenerator<MarketEvent<Instrument, DataKind>> + Send,
+    Data: MarketGenerator<MarketEvent<MarketDataInstrument, DataKind>> + Send,
     Strategy: SignalGenerator + Send,
     Execution: ExecutionClient + Send,
 {
