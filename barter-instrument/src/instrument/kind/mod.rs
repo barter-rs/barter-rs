@@ -1,47 +1,80 @@
-use crate::instrument::kind::{future::FutureContract, option::OptionContract};
+use crate::instrument::{
+    kind::{future::FutureContract, option::OptionContract},
+    market_data::kind::MarketDataInstrumentKind,
+};
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
 
 pub mod future;
 pub mod option;
-pub mod perpetual;
-pub mod spot;
 
-/// Defines the type of [`Instrument`](Instrument) which is being traded on a
-/// given `base_quote` market.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum InstrumentKind {
+pub enum InstrumentKind<AssetKey> {
     Spot,
-    Future(FutureContract),
-    Perpetual,
-    Option(OptionContract),
+    Perpetual {
+        settlement_asset: AssetKey,
+    },
+    Future {
+        settlement_asset: AssetKey,
+        contract: FutureContract,
+    },
+    Option {
+        settlement_asset: AssetKey,
+        contract: OptionContract,
+    },
 }
 
-impl Default for InstrumentKind {
-    fn default() -> Self {
-        Self::Spot
+impl<AssetKey> InstrumentKind<AssetKey> {
+    pub fn settlement_asset(&self) -> Option<&AssetKey> {
+        match self {
+            InstrumentKind::Spot => None,
+            InstrumentKind::Perpetual { settlement_asset } => Some(settlement_asset),
+            InstrumentKind::Future {
+                settlement_asset,
+                contract: _,
+            } => Some(settlement_asset),
+            InstrumentKind::Option {
+                settlement_asset,
+                contract: _,
+            } => Some(settlement_asset),
+        }
+    }
+
+    pub fn eq_market_data_instrument_kind(&self, other: &MarketDataInstrumentKind) -> bool {
+        match (self, other) {
+            (Self::Spot, MarketDataInstrumentKind::Spot) => true,
+            (Self::Perpetual { .. }, MarketDataInstrumentKind::Perpetual) => true,
+            (Self::Future { contract, .. }, MarketDataInstrumentKind::Future(other_contract)) => {
+                contract == other_contract
+            }
+            (Self::Option { contract, .. }, MarketDataInstrumentKind::Option(other_contract)) => {
+                contract == other_contract
+            }
+            _ => false,
+        }
     }
 }
 
-impl Display for InstrumentKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                InstrumentKind::Spot => "spot".to_string(),
-                InstrumentKind::Future(future) =>
-                    format!("future_{}-UTC", future.expiry.date_naive()),
-                InstrumentKind::Perpetual => "perpetual".to_string(),
-                InstrumentKind::Option(option) => format!(
-                    "option_{}_{}_{}-UTC_{}",
-                    option.kind,
-                    option.exercise,
-                    option.expiry.date_naive(),
-                    option.strike,
-                ),
+impl<AssetKey> From<InstrumentKind<AssetKey>> for MarketDataInstrumentKind {
+    fn from(value: InstrumentKind<AssetKey>) -> Self {
+        match value {
+            InstrumentKind::Spot => MarketDataInstrumentKind::Spot,
+            InstrumentKind::Perpetual { .. } => MarketDataInstrumentKind::Perpetual,
+            InstrumentKind::Future { contract, .. } => MarketDataInstrumentKind::Future(contract),
+            InstrumentKind::Option { contract, .. } => MarketDataInstrumentKind::Option(contract),
+        }
+    }
+}
+
+impl<AssetKey> From<&InstrumentKind<AssetKey>> for MarketDataInstrumentKind {
+    fn from(value: &InstrumentKind<AssetKey>) -> Self {
+        match value {
+            InstrumentKind::Spot => MarketDataInstrumentKind::Spot,
+            InstrumentKind::Perpetual { .. } => MarketDataInstrumentKind::Perpetual,
+            InstrumentKind::Future { contract, .. } => MarketDataInstrumentKind::Future(*contract),
+            InstrumentKind::Option { contract, .. } => {
+                MarketDataInstrumentKind::Option(contract.clone())
             }
-        )
+        }
     }
 }

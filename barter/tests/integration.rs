@@ -17,7 +17,9 @@ use barter::{
     strategy::example::{Config as StrategyConfig, RSIStrategy},
     test_util::market_event_trade,
 };
-use barter_instrument::{exchange::ExchangeId, instrument::kind::InstrumentKind, market::Market};
+use barter_instrument::{
+    exchange::ExchangeId, instrument::market_data::kind::MarketDataInstrumentKind, market::Market,
+};
 use barter_integration::Side;
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc, time::Duration};
@@ -39,7 +41,7 @@ async fn engine_with_historic_data_stops_after_candles_finished() {
     // Create the Market(s) to be traded on (1-to-1 relationship with a Trader)
     let market = Market::new(
         ExchangeId::BinanceSpot,
-        ("btc", "usdt", InstrumentKind::Spot),
+        ("btc", "usdt", MarketDataInstrumentKind::Spot),
     );
 
     // Build global shared-state MetaPortfolio (1-to-1 relationship with an Engine)

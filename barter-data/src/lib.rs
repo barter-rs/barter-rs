@@ -38,7 +38,7 @@
 //!     streams::{Streams, reconnect::stream::ReconnectingStream},
 //!     subscription::trade::PublicTrades,
 //! };
-//! use barter_instrument::instrument::kind::InstrumentKind;
+//! use barter_instrument::instrument::market_data::kind::MarketDataInstrumentKind;
 //! use futures::StreamExt;
 //! use tracing::warn;
 //!
@@ -49,26 +49,26 @@
 //!
 //!     let streams = Streams::<PublicTrades>::builder()
 //!         .subscribe([
-//!             (BinanceSpot::default(), "btc", "usdt", InstrumentKind::Spot, PublicTrades),
-//!             (BinanceSpot::default(), "eth", "usdt", InstrumentKind::Spot, PublicTrades),
+//!             (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
+//!             (BinanceSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!         ])
 //!         .subscribe([
-//!             (BinanceFuturesUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
-//!             (BinanceFuturesUsd::default(), "eth", "usdt", InstrumentKind::Perpetual, PublicTrades),
+//!             (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
+//!             (BinanceFuturesUsd::default(), "eth", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
 //!         ])
 //!         .subscribe([
-//!             (Coinbase, "btc", "usd", InstrumentKind::Spot, PublicTrades),
-//!             (Coinbase, "eth", "usd", InstrumentKind::Spot, PublicTrades),
+//!             (Coinbase, "btc", "usd", MarketDataInstrumentKind::Spot, PublicTrades),
+//!             (Coinbase, "eth", "usd", MarketDataInstrumentKind::Spot, PublicTrades),
 //!         ])
 //!         .subscribe([
-//!             (GateioSpot::default(), "btc", "usdt", InstrumentKind::Spot, PublicTrades),
-//!             (GateioSpot::default(), "eth", "usdt", InstrumentKind::Spot, PublicTrades),
+//!             (GateioSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
+//!             (GateioSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!         ])
 //!         .subscribe([
-//!             (Okx, "btc", "usdt", InstrumentKind::Spot, PublicTrades),
-//!             (Okx, "eth", "usdt", InstrumentKind::Spot, PublicTrades),
-//!             (Okx, "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
-//!             (Okx, "eth", "usdt", InstrumentKind::Perpetual, PublicTrades),
+//!             (Okx, "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
+//!             (Okx, "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
+//!             (Okx, "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
+//!             (Okx, "eth", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
 //!        ])
 //!         .init()
 //!         .await

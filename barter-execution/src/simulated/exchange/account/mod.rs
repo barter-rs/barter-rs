@@ -8,7 +8,7 @@ use crate::{
     Cancelled, ExecutionError, Open, Order, RequestCancel, RequestOpen,
 };
 use barter_data::subscription::trade::PublicTrade;
-use barter_instrument::{exchange::ExchangeId, instrument::Instrument};
+use barter_instrument::{exchange::ExchangeId, instrument::market_data::MarketDataInstrument};
 use barter_integration::Side;
 use chrono::Utc;
 use std::{fmt::Debug, time::Duration};
@@ -38,7 +38,7 @@ impl ClientAccount {
         ClientAccountBuilder::new()
     }
 
-    /// Send every [`Order<Open>`] for every [`Instrument`] to the client.
+    /// Send every [`Order<Open>`] for every [`MarketDataInstrument`] to the client.
     pub fn fetch_orders_open(
         &self,
         response_tx: oneshot::Sender<Result<Vec<Order<Open>>, ExecutionError>>,
@@ -239,9 +239,9 @@ impl ClientAccount {
     }
 
     /// Determine if the incoming [`PublicTrade`] liquidity matches any [`ClientOrders`] relating
-    /// to the [`Instrument`]. If there are matches, trades are simulated by client orders being
+    /// to the [`MarketDataInstrument`]. If there are matches, trades are simulated by client orders being
     /// taken.
-    pub fn match_orders(&mut self, instrument: Instrument, trade: PublicTrade) {
+    pub fn match_orders(&mut self, instrument: MarketDataInstrument, trade: PublicTrade) {
         // Client fees
         let fees_percent = self.fees_percent;
 
@@ -305,7 +305,7 @@ pub struct ClientAccountBuilder {
     latency: Option<Duration>,
     fees_percent: Option<f64>,
     event_account_tx: Option<mpsc::UnboundedSender<AccountEvent>>,
-    instruments: Option<Vec<Instrument>>,
+    instruments: Option<Vec<MarketDataInstrument>>,
     balances: Option<ClientBalances>,
 }
 
@@ -337,7 +337,7 @@ impl ClientAccountBuilder {
         }
     }
 
-    pub fn instruments(self, value: Vec<Instrument>) -> Self {
+    pub fn instruments(self, value: Vec<MarketDataInstrument>) -> Self {
         Self {
             instruments: Some(value),
             ..self

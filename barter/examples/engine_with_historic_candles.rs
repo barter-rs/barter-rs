@@ -22,7 +22,7 @@ use barter_data::{
 };
 use barter_instrument::{
     exchange::ExchangeId,
-    instrument::{kind::InstrumentKind, Instrument},
+    instrument::market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
     market::Market,
 };
 use chrono::Utc;
@@ -48,7 +48,7 @@ async fn main() {
     // Create the Market(s) to be traded on (1-to-1 relationship with a Trader)
     let market = Market::new(
         ExchangeId::BinanceSpot,
-        ("btc", "usdt", InstrumentKind::Spot),
+        ("btc", "usdt", MarketDataInstrumentKind::Spot),
     );
 
     // Build global shared-state MetaPortfolio (1-to-1 relationship with an Engine)
@@ -122,7 +122,7 @@ async fn main() {
     engine.run().await;
 }
 
-fn load_json_market_event_candles() -> Vec<MarketEvent<Instrument, DataKind>> {
+fn load_json_market_event_candles() -> Vec<MarketEvent<MarketDataInstrument, DataKind>> {
     let candles = fs::read_to_string(DATA_HISTORIC_CANDLES_1H).expect("failed to read file");
 
     let candles =
@@ -134,7 +134,7 @@ fn load_json_market_event_candles() -> Vec<MarketEvent<Instrument, DataKind>> {
             time_exchange: candle.close_time,
             time_received: Utc::now(),
             exchange: ExchangeId::BinanceSpot,
-            instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
+            instrument: MarketDataInstrument::from(("btc", "usdt", MarketDataInstrumentKind::Spot)),
             kind: DataKind::Candle(candle),
         })
         .collect()

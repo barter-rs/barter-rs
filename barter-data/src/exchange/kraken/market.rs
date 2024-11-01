@@ -1,6 +1,8 @@
 use super::Kraken;
 use crate::{instrument::MarketInstrumentData, subscription::Subscription, Identifier};
-use barter_instrument::{asset::name::AssetNameInternal, instrument::Instrument, Keyed};
+use barter_instrument::{
+    asset::name::AssetNameInternal, instrument::market_data::MarketDataInstrument, Keyed,
+};
 use serde::{Deserialize, Serialize};
 use smol_str::{format_smolstr, SmolStr, StrExt};
 
@@ -11,14 +13,14 @@ use smol_str::{format_smolstr, SmolStr, StrExt};
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub struct KrakenMarket(pub SmolStr);
 
-impl<Kind> Identifier<KrakenMarket> for Subscription<Kraken, Instrument, Kind> {
+impl<Kind> Identifier<KrakenMarket> for Subscription<Kraken, MarketDataInstrument, Kind> {
     fn id(&self) -> KrakenMarket {
         kraken_market(&self.instrument.base, &self.instrument.quote)
     }
 }
 
 impl<InstrumentKey, Kind> Identifier<KrakenMarket>
-    for Subscription<Kraken, Keyed<InstrumentKey, Instrument>, Kind>
+    for Subscription<Kraken, Keyed<InstrumentKey, MarketDataInstrument>, Kind>
 {
     fn id(&self) -> KrakenMarket {
         kraken_market(&self.instrument.value.base, &self.instrument.value.quote)

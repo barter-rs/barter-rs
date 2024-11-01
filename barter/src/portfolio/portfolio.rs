@@ -18,7 +18,7 @@ use crate::{
 };
 use barter_data::event::{DataKind, MarketEvent};
 use barter_instrument::{
-    instrument::Instrument,
+    instrument::market_data::MarketDataInstrument,
     market::{Market, MarketId},
 };
 use barter_integration::Side;
@@ -90,7 +90,7 @@ where
 {
     fn update_from_market(
         &mut self,
-        market: &MarketEvent<Instrument, DataKind>,
+        market: &MarketEvent<MarketDataInstrument, DataKind>,
     ) -> Result<Option<PositionUpdate>, PortfolioError> {
         // Determine the position_id associated to the input MarketEvent
         let position_id =
@@ -566,7 +566,7 @@ pub mod tests {
     };
     use barter_instrument::{
         exchange::ExchangeId,
-        instrument::{kind::InstrumentKind, Instrument},
+        instrument::market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
     };
     use smol_str::SmolStr;
 
@@ -725,7 +725,7 @@ pub mod tests {
         SignalForceExit {
             time: Utc::now(),
             exchange: ExchangeId::BinanceSpot,
-            instrument: Instrument::from(("eth", "usdt", InstrumentKind::Spot)),
+            instrument: MarketDataInstrument::from(("eth", "usdt", MarketDataInstrumentKind::Spot)),
         }
     }
 

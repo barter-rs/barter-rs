@@ -1,15 +1,15 @@
 use crate::{
     asset::name::AssetNameInternal,
     exchange::ExchangeId,
-    instrument::{kind::InstrumentKind, Instrument},
+    instrument::market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
 };
 use serde::{Deserialize, Serialize};
 use smol_str::{format_smolstr, SmolStr, StrExt};
 use std::fmt::{Debug, Display, Formatter};
 
-/// Represents a unique combination of an [`Exchange`] & an [`Instrument`].
+/// Represents a unique combination of an [`Exchange`] & an [`MarketDataInstrument`].
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub struct Market<InstrumentKey = Instrument> {
+pub struct Market<InstrumentKey = MarketDataInstrument> {
     pub exchange: ExchangeId,
     #[serde(flatten)]
     pub instrument: InstrumentKey,
@@ -25,18 +25,18 @@ where
     }
 }
 
-impl<E, S> From<(E, S, S, InstrumentKind)> for Market<Instrument>
+impl<E, S> From<(E, S, S, MarketDataInstrumentKind)> for Market<MarketDataInstrument>
 where
     E: Into<ExchangeId>,
     S: Into<AssetNameInternal>,
 {
-    fn from((exchange, base, quote, instrument_kind): (E, S, S, InstrumentKind)) -> Self {
+    fn from((exchange, base, quote, instrument_kind): (E, S, S, MarketDataInstrumentKind)) -> Self {
         Self::new(exchange, (base, quote, instrument_kind))
     }
 }
 
 impl<InstrumentId> Market<InstrumentId> {
-    /// Constructs a new [`Market`] using the provided [`Exchange`] & [`Instrument`].
+    /// Constructs a new [`Market`] using the provided [`Exchange`] & [`MarketDataInstrument`].
     pub fn new<E, I>(exchange: E, instrument: I) -> Self
     where
         E: Into<ExchangeId>,
@@ -50,7 +50,7 @@ impl<InstrumentId> Market<InstrumentId> {
 }
 
 /// Barter new type representing a unique `String` identifier for a [`Market`], where a [`Market`]
-/// represents an [`Instrument`] being traded on an [`Exchange`].
+/// represents an [`MarketDataInstrument`] being traded on an [`Exchange`].
 ///
 /// eg/ binance_(btc_spot, future_perpetual)
 /// eg/ ftx_btc_usdt_future_perpetual
@@ -83,8 +83,8 @@ impl<InstrumentId: Display> From<&Market<InstrumentId>> for MarketId {
 
 impl MarketId {
     /// Construct a unique `String` [`MarketId`] identifier for a [`Market`], where a [`Market`]
-    /// represents an [`Instrument`] being traded on an [`Exchange`].
-    pub fn new(exchange: ExchangeId, instrument: &Instrument) -> Self {
+    /// represents an [`MarketDataInstrument`] being traded on an [`Exchange`].
+    pub fn new(exchange: ExchangeId, instrument: &MarketDataInstrument) -> Self {
         Self(
             format_smolstr!(
                 "{}_{}_{}_{}",
@@ -116,7 +116,11 @@ mod tests {
                 input: r##"{ "exchange": "binance_spot", "base": "btc", "quote": "usd", "instrument_kind": "spot" }"##,
                 expected: Ok(Market {
                     exchange: ExchangeId::BinanceSpot,
-                    instrument: Instrument::from(("btc", "usd", InstrumentKind::Spot)),
+                    instrument: MarketDataInstrument::from((
+                        "btc",
+                        "usd",
+                        MarketDataInstrumentKind::Spot,
+                    )),
                 }),
             },
             TestCase {
@@ -124,7 +128,11 @@ mod tests {
                 input: r##"{ "exchange": "other", "base": "btc", "quote": "usd", "instrument_kind": "perpetual" }"##,
                 expected: Ok(Market {
                     exchange: ExchangeId::Other,
-                    instrument: Instrument::from(("btc", "usd", InstrumentKind::Perpetual)),
+                    instrument: MarketDataInstrument::from((
+                        "btc",
+                        "usd",
+                        MarketDataInstrumentKind::Perpetual,
+                    )),
                 }),
             },
             TestCase {

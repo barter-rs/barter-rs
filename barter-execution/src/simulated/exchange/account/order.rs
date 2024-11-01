@@ -3,22 +3,22 @@ use crate::{
     ExecutionError, Open, Order, OrderId, RequestOpen,
 };
 use barter_data::subscription::trade::PublicTrade;
-use barter_instrument::instrument::Instrument;
+use barter_instrument::instrument::market_data::MarketDataInstrument;
 use barter_integration::Side;
 use serde::{Deserialize, Serialize};
 use smol_str::ToSmolStr;
 use std::{cmp::Ordering, collections::HashMap};
 
-/// [`ClientAccount`](super::ClientAccount) [`Orders`] for each [`Instrument`].
+/// [`ClientAccount`](super::ClientAccount) [`Orders`] for each [`MarketDataInstrument`].
 #[derive(Clone, Eq, PartialEq, Debug, Default, Deserialize, Serialize)]
 pub struct ClientOrders {
     pub request_counter: u64,
-    pub all: HashMap<Instrument, Orders>,
+    pub all: HashMap<MarketDataInstrument, Orders>,
 }
 
 impl ClientOrders {
-    /// Construct a new [`ClientOrders`] from the provided selection of [`Instrument`]s.
-    pub fn new(instruments: Vec<Instrument>) -> Self {
+    /// Construct a new [`ClientOrders`] from the provided selection of [`MarketDataInstrument`]s.
+    pub fn new(instruments: Vec<MarketDataInstrument>) -> Self {
         Self {
             request_counter: 0,
             all: instruments
@@ -28,8 +28,11 @@ impl ClientOrders {
         }
     }
 
-    /// Return a mutable reference to the client [`Orders`] of the specified [`Instrument`].
-    pub fn orders_mut(&mut self, instrument: &Instrument) -> Result<&mut Orders, ExecutionError> {
+    /// Return a mutable reference to the client [`Orders`] of the specified [`MarketDataInstrument`].
+    pub fn orders_mut(
+        &mut self,
+        instrument: &MarketDataInstrument,
+    ) -> Result<&mut Orders, ExecutionError> {
         self.all.get_mut(instrument).ok_or_else(|| {
             ExecutionError::Simulated(format!(
                 "SimulatedExchange is not configured for Instrument: {instrument}"
@@ -37,7 +40,7 @@ impl ClientOrders {
         })
     }
 
-    /// Fetch the bid and ask [`Order<Open>`]s for every [`Instrument`].
+    /// Fetch the bid and ask [`Order<Open>`]s for every [`MarketDataInstrument`].
     pub fn fetch_all(&self) -> Vec<Order<Open>> {
         self.all
             .values()
@@ -66,7 +69,7 @@ impl ClientOrders {
     }
 }
 
-/// Client [`Orders`] for an [`Instrument`]. Simulates client orders in an real
+/// Client [`Orders`] for an [`MarketDataInstrument`]. Simulates client orders in an real
 /// multi-participant OrderBook.
 #[derive(Clone, Eq, PartialEq, Debug, Default, Deserialize, Serialize)]
 pub struct Orders {
@@ -203,7 +206,7 @@ impl Orders {
         trades
     }
 
-    /// Generate a client [`Trade`] with a unique [`TradeId`] for this [`Instrument`] market.
+    /// Generate a client [`Trade`] with a unique [`TradeId`] for this [`MarketDataInstrument`] market.
     pub fn generate_trade(
         &self,
         order: Order<Open>,
@@ -225,7 +228,7 @@ impl Orders {
         }
     }
 
-    /// Use the `trade_counter` value to generate a unique [`TradeId`] for this [`Instrument`]
+    /// Use the `trade_counter` value to generate a unique [`TradeId`] for this [`MarketDataInstrument`]
     /// market.
     pub fn trade_id(&self) -> TradeId {
         TradeId(self.trade_counter.to_smolstr())

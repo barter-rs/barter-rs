@@ -3,7 +3,9 @@ use barter_data::{
     exchange::binance::spot::BinanceSpot,
     subscription::book::OrderBooksL2,
 };
-use barter_instrument::instrument::{kind::InstrumentKind, Instrument};
+use barter_instrument::instrument::market_data::{
+    kind::MarketDataInstrumentKind, MarketDataInstrument,
+};
 use std::time::Duration;
 use tracing::info;
 
@@ -17,20 +19,20 @@ async fn main() {
     let book_manager = init_multi_order_book_l2_manager([
         // Separate WebSocket connection for BTC_USDT stream since it's very high volume
         vec![
-            (BinanceSpot::default(), "btc", "usdt", InstrumentKind::Spot, OrderBooksL2)
+            (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2)
         ],
 
         // Separate WebSocket connection for ETH_USDT stream since it's very high volume
         vec![
-            (BinanceSpot::default(), "eth", "usdt", InstrumentKind::Spot, OrderBooksL2)
+            (BinanceSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2)
         ],
 
         // Lower volume Instruments can share a WebSocket connection
         vec![
-            (BinanceSpot::default(), "xrp", "usdt", InstrumentKind::Spot, OrderBooksL2),
-            (BinanceSpot::default(), "sol", "usdt", InstrumentKind::Spot, OrderBooksL2),
-            (BinanceSpot::default(), "avax", "usdt", InstrumentKind::Spot, OrderBooksL2),
-            (BinanceSpot::default(), "ltc", "usdt", InstrumentKind::Spot, OrderBooksL2),
+            (BinanceSpot::default(), "xrp", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
+            (BinanceSpot::default(), "sol", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
+            (BinanceSpot::default(), "avax", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
+            (BinanceSpot::default(), "ltc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
         ]
     ]).await.unwrap();
 
@@ -42,7 +44,7 @@ async fn main() {
 
     // Current OrderBook snapshots can now be accessed via the OrderBookMap
     // For example:
-    let instrument_key = Instrument::new("btc", "usdt", InstrumentKind::Spot);
+    let instrument_key = MarketDataInstrument::new("btc", "usdt", MarketDataInstrumentKind::Spot);
     tokio::time::sleep(Duration::from_secs(2)).await;
     info!(%instrument_key, snapshot = ?books.find(&instrument_key).unwrap().read());
     tokio::time::sleep(Duration::from_secs(2)).await;

@@ -1,6 +1,6 @@
 use crate::{AssetBalance, Cancelled, ExecutionError, Open, Order, RequestCancel, RequestOpen};
 use barter_data::subscription::trade::PublicTrade;
-use barter_instrument::instrument::Instrument;
+use barter_instrument::instrument::market_data::MarketDataInstrument;
 use tokio::sync::oneshot;
 
 /// Simulated Exchange using public trade `Streams` to model available market liquidity. Liquidity
@@ -34,5 +34,5 @@ pub enum SimulatedEvent {
         ),
     ),
     CancelOrdersAll(oneshot::Sender<Result<Vec<Order<Cancelled>>, ExecutionError>>),
-    MarketTrade((Instrument, PublicTrade)),
+    MarketTrade((MarketDataInstrument, PublicTrade)),
 }

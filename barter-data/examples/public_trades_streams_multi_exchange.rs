@@ -14,10 +14,12 @@ use barter_data::{
     streams::{reconnect::stream::ReconnectingStream, Streams},
     subscription::trade::PublicTrades,
 };
-use barter_instrument::instrument::kind::{
-    future::FutureContract,
-    option::{OptionContract, OptionExercise, OptionKind},
-    InstrumentKind,
+use barter_instrument::instrument::{
+    kind::{
+        future::FutureContract,
+        option::{OptionContract, OptionExercise, OptionKind},
+    },
+    market_data::kind::MarketDataInstrumentKind,
 };
 use chrono::{TimeZone, Utc};
 use futures::StreamExt;
@@ -33,54 +35,54 @@ async fn main() {
     // '--> each call to StreamBuilder::subscribe() creates a separate WebSocket connection
     let streams = Streams::<PublicTrades>::builder()
         .subscribe([
-            (BinanceSpot::default(), "btc", "usdt", InstrumentKind::Spot, PublicTrades),
-            (BinanceSpot::default(), "eth", "usdt", InstrumentKind::Spot, PublicTrades),
+            (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
+            (BinanceSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
         ])
 
         .subscribe([
-            (BinanceFuturesUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
-            (BinanceFuturesUsd::default(), "eth", "usdt", InstrumentKind::Perpetual, PublicTrades),
+            (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
+            (BinanceFuturesUsd::default(), "eth", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
         ])
 
         .subscribe([
-            (Coinbase, "btc", "usd", InstrumentKind::Spot, PublicTrades),
-            (Coinbase, "eth", "usd", InstrumentKind::Spot, PublicTrades),
+            (Coinbase, "btc", "usd", MarketDataInstrumentKind::Spot, PublicTrades),
+            (Coinbase, "eth", "usd", MarketDataInstrumentKind::Spot, PublicTrades),
         ])
 
         .subscribe([
-            (GateioSpot::default(), "btc", "usdt", InstrumentKind::Spot, PublicTrades),
+            (GateioSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
         ])
 
         .subscribe([
-            (GateioPerpetualsUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
+            (GateioPerpetualsUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
         ])
 
         .subscribe([
-            (GateioPerpetualsBtc::default(), "btc", "usd", InstrumentKind::Perpetual, PublicTrades),
+            (GateioPerpetualsBtc::default(), "btc", "usd", MarketDataInstrumentKind::Perpetual, PublicTrades),
         ])
 
         .subscribe([
-            (GateioOptions::default(), "btc", "usdt", InstrumentKind::Option(put_contract()), PublicTrades),
+            (GateioOptions::default(), "btc", "usdt", MarketDataInstrumentKind::Option(put_contract()), PublicTrades),
         ])
 
         .subscribe([
-            (Okx, "btc", "usdt", InstrumentKind::Spot, PublicTrades),
-            (Okx, "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
-            (Okx, "btc", "usd", InstrumentKind::Future(future_contract()), PublicTrades),
-            (Okx, "btc", "usd", InstrumentKind::Option(call_contract()), PublicTrades),
+            (Okx, "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
+            (Okx, "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
+            (Okx, "btc", "usd", MarketDataInstrumentKind::Future(future_contract()), PublicTrades),
+            (Okx, "btc", "usd", MarketDataInstrumentKind::Option(call_contract()), PublicTrades),
         ])
 
         .subscribe([
-            (BybitSpot::default(), "btc", "usdt", InstrumentKind::Spot, PublicTrades),
-            (BybitSpot::default(), "eth", "usdt", InstrumentKind::Spot, PublicTrades),
+            (BybitSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
+            (BybitSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
         ])
 
         .subscribe([
-            (BybitPerpetualsUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
+            (BybitPerpetualsUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
         ])
 
         .subscribe([
-            (Bitmex, "xbt", "usd", InstrumentKind::Perpetual, PublicTrades)
+            (Bitmex, "xbt", "usd", MarketDataInstrumentKind::Perpetual, PublicTrades)
         ])
 
         .init()

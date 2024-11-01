@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
 /// Configuration of an [`InstrumentKind::Option`] contract.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub struct OptionContract {
     pub kind: OptionKind,
     pub exercise: OptionExercise,
@@ -14,7 +14,7 @@ pub struct OptionContract {
 }
 
 /// [`OptionContract`] kind - Put or Call.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Deserialize, Serialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OptionKind {
     #[serde(alias = "CALL", alias = "Call")]
@@ -37,7 +37,7 @@ impl Display for OptionKind {
 }
 
 /// [`OptionContract`] exercise style.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Deserialize, Serialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OptionExercise {
     #[serde(alias = "AMERICAN", alias = "American")]

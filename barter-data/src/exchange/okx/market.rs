@@ -1,7 +1,10 @@
 use super::Okx;
 use crate::{instrument::MarketInstrumentData, subscription::Subscription, Identifier};
 use barter_instrument::{
-    instrument::{kind::option::OptionKind, Instrument},
+    instrument::{
+        kind::option::OptionKind,
+        market_data::{kind::MarketDataInstrumentKind::*, MarketDataInstrument},
+    },
     Keyed,
 };
 use chrono::{
@@ -18,14 +21,14 @@ use smol_str::{format_smolstr, SmolStr, StrExt};
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub struct OkxMarket(pub SmolStr);
 
-impl<Kind> Identifier<OkxMarket> for Subscription<Okx, Instrument, Kind> {
+impl<Kind> Identifier<OkxMarket> for Subscription<Okx, MarketDataInstrument, Kind> {
     fn id(&self) -> OkxMarket {
         okx_market(&self.instrument)
     }
 }
 
 impl<InstrumentKey, Kind> Identifier<OkxMarket>
-    for Subscription<Okx, Keyed<InstrumentKey, Instrument>, Kind>
+    for Subscription<Okx, Keyed<InstrumentKey, MarketDataInstrument>, Kind>
 {
     fn id(&self) -> OkxMarket {
         okx_market(&self.instrument.value)
@@ -44,9 +47,8 @@ impl AsRef<str> for OkxMarket {
     }
 }
 
-fn okx_market(instrument: &Instrument) -> OkxMarket {
-    use barter_instrument::instrument::{kind::InstrumentKind::*, Instrument};
-    let Instrument { base, quote, kind } = instrument;
+fn okx_market(instrument: &MarketDataInstrument) -> OkxMarket {
+    let MarketDataInstrument { base, quote, kind } = instrument;
 
     OkxMarket(match kind {
         Spot => format_smolstr!("{base}-{quote}").to_uppercase_smolstr(),
