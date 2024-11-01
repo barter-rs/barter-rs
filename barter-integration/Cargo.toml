@@ -30,6 +30,7 @@ thiserror = { workspace = true }
 
 # Async
 tokio = { workspace = true, features = ["net", "sync", "macros", "rt-multi-thread"] }
+tokio-stream = { workspace = true }
 futures = { workspace = true }
 async-trait = { workspace = true }
 pin-project = { workspace = true }
@@ -52,4 +53,4 @@ base64 = { workspace = true }
 # Misc
 chrono = { workspace = true, features = ["serde"] }
 bytes = { workspace = true }
-derive_more = { workspace = true, features = ["display"] }
+derive_more = { workspace = true, features = ["display", "constructor"] }

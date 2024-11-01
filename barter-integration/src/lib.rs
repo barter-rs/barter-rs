@@ -48,6 +48,12 @@ pub mod de;
 /// subscribed to.
 pub mod subscription;
 
+/// Defines a trait [`Tx`](channel::Tx) abstraction over different channel kinds, as well as
+/// other channel utilities.
+///
+/// eg/ `UnboundedTx`, `ChannelTxDroppable`, etc.
+pub mod channel;
+
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.
 pub trait Validator {
