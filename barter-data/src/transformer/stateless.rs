@@ -78,7 +78,7 @@ where
                 ))
                 .0
             }
-            Err(unidentifiable) => vec![Err(DataError::Socket(unidentifiable))],
+            Err(unidentifiable) => vec![Err(DataError::from(unidentifiable))],
         }
     }
 }

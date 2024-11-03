@@ -1,10 +1,10 @@
 use crate::streams::{consumer::StreamKey, reconnect::Event};
+use barter_integration::channel::Tx;
 use derive_more::{Constructor, From};
 use futures::Stream;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::{convert, fmt::Debug, future, future::Future};
-use tokio::{sync::mpsc, task::JoinHandle};
 use tracing::{error, info, warn};
 
 /// Utilities for handling a continually reconnecting [`Stream`] initialised via the
@@ -127,19 +127,19 @@ where
         })
     }
 
-    /// Spawn a task to forward items in [`Self`] to the provided channel transmitter.
-    fn forward_to<T>(mut self, tx: mpsc::UnboundedSender<T>) -> JoinHandle<()>
+    /// Future for forwarding items in [`Self`] to the provided channel [`Tx`].
+    fn forward_to<Transmitter>(mut self, tx: Transmitter) -> impl Future<Output = ()>
     where
-        Self: Stream<Item = T> + Send + Unpin + 'static,
-        T: Send + 'static,
+        Self: Stream + Unpin,
+        Transmitter: Tx<Item = Self::Item>,
     {
-        tokio::spawn(async move {
+        async move {
             while let Some(event) = self.next().await {
                 if tx.send(event).is_err() {
                     break;
                 }
             }
-        })
+        }
     }
 }
 
