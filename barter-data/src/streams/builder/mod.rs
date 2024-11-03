@@ -11,10 +11,12 @@ use crate::{
     Identifier,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::Validator;
+use barter_integration::{
+    channel::{mpsc_unbounded, UnboundedRx, UnboundedTx},
+    Validator,
+};
 use futures_util::StreamExt;
 use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
-use tokio::sync::mpsc;
 
 /// Defines the [`MultiStreamBuilder`](multi::MultiStreamBuilder) API for ergonomically
 /// initialising a common [`Streams<Output>`](Streams) from multiple
@@ -78,9 +80,9 @@ where
         Sub: Into<Subscription<Exchange, Instrument, Kind>>,
         Exchange: StreamSelector<Instrument, Kind> + Ord + Send + Sync + 'static,
         Instrument: InstrumentData<Key = InstrumentKey> + Ord + 'static,
-        Instrument::Key: Send + 'static,
+        Instrument::Key: Clone + Send + 'static,
         Kind: Ord + Send + Sync + 'static,
-        Kind::Event: Send,
+        Kind::Event: Clone + Send,
         Subscription<Exchange, Instrument, Kind>:
             Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
     {
@@ -104,10 +106,10 @@ where
             subscriptions.dedup();
 
             // Initialise a MarketEvent `ReconnectingStream`
-            init_market_stream(STREAM_RECONNECTION_POLICY, subscriptions)
-                .await?
-                .boxed()
-                .forward_to(exchange_tx);
+            let stream = init_market_stream(STREAM_RECONNECTION_POLICY, subscriptions).await?;
+
+            // Forward MarketEvents to ExchangeTx
+            tokio::spawn(stream.boxed().forward_to(exchange_tx));
 
             Ok(())
         }));
@@ -142,14 +144,14 @@ where
 /// [`MarketEvent<T>`](MarketEvent) channel.
 #[derive(Debug)]
 pub struct ExchangeChannel<T> {
-    tx: mpsc::UnboundedSender<T>,
-    rx: mpsc::UnboundedReceiver<T>,
+    tx: UnboundedTx<T>,
+    rx: UnboundedRx<T>,
 }
 
 impl<T> ExchangeChannel<T> {
     /// Construct a new [`Self`].
     pub fn new() -> Self {
-        let (tx, rx) = mpsc::unbounded_channel();
+        let (tx, rx) = mpsc_unbounded();
         Self { tx, rx }
     }
 }

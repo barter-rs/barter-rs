@@ -2,7 +2,6 @@ use derive_more::{Constructor, Display};
 use futures::Sink;
 use serde::{Deserialize, Serialize};
 use std::{
-    marker::PhantomData,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -18,38 +17,30 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct UnboundedTx<T, Error> {
+pub struct UnboundedTx<T> {
     pub tx: tokio::sync::mpsc::UnboundedSender<T>,
-    phantom: PhantomData<Error>,
 }
 
-impl<T, Error> UnboundedTx<T, Error> {
+impl<T> UnboundedTx<T> {
     pub fn new(tx: tokio::sync::mpsc::UnboundedSender<T>) -> Self {
-        Self {
-            tx,
-            phantom: PhantomData,
-        }
+        Self { tx }
     }
 }
 
-impl<T, Error> Tx for UnboundedTx<T, Error>
+impl<T> Tx for UnboundedTx<T>
 where
     T: Clone + Send,
-    Error: From<tokio::sync::mpsc::error::SendError<T>> + Clone + Send,
 {
     type Item = T;
-    type Error = Error;
+    type Error = tokio::sync::mpsc::error::SendError<T>;
 
     fn send(&self, item: Self::Item) -> Result<(), Self::Error> {
-        self.tx.send(item).map_err(Error::from)
+        self.tx.send(item)
     }
 }
 
-impl<T, Error> Sink<T> for UnboundedTx<T, Error>
-where
-    Error: From<tokio::sync::mpsc::error::SendError<T>>,
-{
-    type Error = Error;
+impl<T> Sink<T> for UnboundedTx<T> {
+    type Error = tokio::sync::mpsc::error::SendError<T>;
 
     fn poll_ready(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         // UnboundedTx is always ready
@@ -57,7 +48,7 @@ where
     }
 
     fn start_send(self: Pin<&mut Self>, item: T) -> Result<(), Self::Error> {
-        self.tx.send(item).map_err(Error::from)
+        self.tx.send(item)
     }
 
     fn poll_flush(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -134,7 +125,7 @@ where
         }
     }
 }
-pub fn mpsc_unbounded<T, Error>() -> (UnboundedTx<T, Error>, UnboundedRx<T>) {
+pub fn mpsc_unbounded<T>() -> (UnboundedTx<T>, UnboundedRx<T>) {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     (UnboundedTx::new(tx), UnboundedRx::new(rx))
 }
