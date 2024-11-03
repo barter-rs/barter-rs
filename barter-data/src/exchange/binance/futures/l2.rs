@@ -147,7 +147,7 @@ where
         // Find Instrument associated with Input and transform
         let instrument = match self.instrument_map.find_mut(&subscription_id) {
             Ok(instrument) => instrument,
-            Err(unidentifiable) => return vec![Err(DataError::Socket(unidentifiable))],
+            Err(unidentifiable) => return vec![Err(DataError::from(unidentifiable))],
         };
 
         // Drop any outdated updates & validate sequence for relevant updates

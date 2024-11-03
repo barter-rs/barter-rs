@@ -2,7 +2,7 @@ use barter_integration::error::SocketError;
 use thiserror::Error;
 
 /// All errors generated in the barter::data module.
-#[derive(Error, Debug)]
+#[derive(Debug, Error)]
 pub enum DataError {
     #[error("Invalid builder attributes provided")]
     BuilderAttributesInvalid,

@@ -1,8 +1,11 @@
 use super::{ExchangeChannel, StreamBuilder, Streams};
 use crate::{
-    error::DataError, streams::consumer::MarketStreamResult, subscription::SubscriptionKind,
+    error::DataError,
+    streams::{consumer::MarketStreamResult, reconnect::stream::ReconnectingStream},
+    subscription::SubscriptionKind,
 };
 use barter_instrument::exchange::ExchangeId;
+use futures_util::StreamExt;
 use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 
 /// Communicative type alias representing the [`Future`] result of a [`StreamBuilder::init`] call
@@ -47,7 +50,7 @@ impl<Output> MultiStreamBuilder<Output> {
     #[allow(clippy::should_implement_trait)]
     pub fn add<InstrumentKey, Kind>(mut self, builder: StreamBuilder<InstrumentKey, Kind>) -> Self
     where
-        Output: From<MarketStreamResult<InstrumentKey, Kind::Event>> + Send + 'static,
+        Output: From<MarketStreamResult<InstrumentKey, Kind::Event>> + Clone + Send + 'static,
         InstrumentKey: Debug + Send + 'static,
         Kind: SubscriptionKind + 'static,
         Kind::Event: Send,
@@ -71,7 +74,7 @@ impl<Output> MultiStreamBuilder<Output> {
                 .await?
                 .streams
                 .into_iter()
-                .for_each(|(exchange, mut exchange_rx)| {
+                .for_each(|(exchange, exchange_rx)| {
                     // Remove exchange_tx<Output> from HashMap that's associated with this tuple:
                     // (ExchangeId, exchange_rx<MarketStreamResult<InstrumentKey, SubscriptionKind::Event>>)
                     let exchange_tx = exchange_txs
@@ -79,11 +82,12 @@ impl<Output> MultiStreamBuilder<Output> {
                         .expect("all exchange_txs should be present here");
 
                     // Task to receive MarketStreamResult<SubscriptionKind::Event> and send Outputs via exchange_tx
-                    tokio::spawn(async move {
-                        while let Some(event) = exchange_rx.recv().await {
-                            let _ = exchange_tx.send(Output::from(event));
-                        }
-                    });
+                    tokio::spawn(
+                        exchange_rx
+                            .into_stream()
+                            .map(Output::from)
+                            .forward_to(exchange_tx),
+                    );
                 });
 
             Ok(())

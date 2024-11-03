@@ -1,11 +1,10 @@
 use self::builder::{multi::MultiStreamBuilder, StreamBuilder};
 use crate::subscription::SubscriptionKind;
 use barter_instrument::exchange::ExchangeId;
+use barter_integration::channel::UnboundedRx;
 use fnv::FnvHashMap;
 use futures::Stream;
 use futures_util::stream::select_all;
-use tokio::sync::mpsc;
-use tokio_stream::wrappers::UnboundedReceiverStream;
 
 /// Defines the [`StreamBuilder`] and [`MultiStreamBuilder`] APIs for ergonomically initialising
 /// [`MarketStream`](super::MarketStream) [`Streams`].
@@ -22,7 +21,7 @@ pub mod reconnect;
 /// Ergonomic collection of exchange [`MarketEvent<T>`](crate::event::MarketEvent) receivers.
 #[derive(Debug)]
 pub struct Streams<T> {
-    pub streams: FnvHashMap<ExchangeId, mpsc::UnboundedReceiver<T>>,
+    pub streams: FnvHashMap<ExchangeId, UnboundedRx<T>>,
 }
 
 impl<T> Streams<T> {
@@ -43,15 +42,12 @@ impl<T> Streams<T> {
 
     /// Remove an exchange [`mpsc::UnboundedReceiver`] from the [`Streams`] `HashMap`.
     pub fn select(&mut self, exchange: ExchangeId) -> Option<impl Stream<Item = T> + '_> {
-        self.streams
-            .remove(&exchange)
-            .map(UnboundedReceiverStream::new)
+        self.streams.remove(&exchange).map(UnboundedRx::into_stream)
     }
 
     /// Select and merge every exchange `Stream` using [`select_all`].
     pub fn select_all(self) -> impl Stream<Item = T> {
-        let all = self.streams.into_values().map(UnboundedReceiverStream::new);
-
+        let all = self.streams.into_values().map(UnboundedRx::into_stream);
         select_all(all)
     }
 }
