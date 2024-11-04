@@ -30,12 +30,19 @@ use barter_instrument::{
 use futures::Stream;
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc, time::Duration};
+use metrics::{counter, describe_counter};
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use tracing::warn;
 use uuid::Uuid;
+use barter_metrics::metrics::{ExchangeLabels, METRIC_ENGINE_EVENTS_TRADES};
+use barter_metrics::PrintRecorder;
 
-const ENGINE_RUN_TIMEOUT: Duration = Duration::from_secs(5);
+const ENGINE_RUN_TIMEOUT: Duration = Duration::from_secs(500);
+
+struct Foo {
+    name: &'static str,
+}
 
 #[tokio::main]
 async fn main() {
@@ -121,6 +128,9 @@ async fn main() {
         .build()
         .expect("failed to build engine");
 
+    metrics::set_global_recorder(PrintRecorder).unwrap();
+    describe_counter!(METRIC_ENGINE_EVENTS_TRADES.name(), METRIC_ENGINE_EVENTS_TRADES.description());
+
     // Run Engine trading & listen to Events it produces
     tokio::spawn(listen_to_engine_events(event_rx));
 
@@ -168,6 +178,16 @@ async fn listen_to_engine_events(mut event_rx: mpsc::UnboundedReceiver<Event>) {
             Event::Market(market) => {
                 // Market Event occurred in Engine
                 println!("{market:?}");
+                match market.kind {
+                    DataKind::Trade(_) => {
+                        let map = ExchangeLabels {
+                            exchange: market.exchange.to_string(),
+                        };
+
+                        counter!(METRIC_ENGINE_EVENTS_TRADES.name(), map).increment(1);
+                    }
+                    _ => {}
+                }
             }
             Event::Signal(signal) => {
                 // Signal Event occurred in Engine

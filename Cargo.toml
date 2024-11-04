@@ -5,11 +5,14 @@ members = [
     "barter-data",
     "barter-integration",
     "barter-execution",
-    "barter-macro"
-, "barter-instrument"]
+    "barter-macro",
+    "barter-instrument",
+    "barter-metrics"
+]
 
 [workspace.dependencies]
-# Logging
+# Observability
+metrics = { version = "0.24.0" }
 tracing = { version = "0.1.40" }
 tracing-subscriber = { version = "0.3.16" }
 
