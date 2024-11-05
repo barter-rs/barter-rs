@@ -11,9 +11,12 @@ use barter_instrument::{instrument::market_data::MarketDataInstrument, market::M
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, sync::Arc};
+use metrics::{counter, histogram};
 use tokio::sync::mpsc;
-use tracing::{debug, info, warn};
+use tokio::time::Instant;
+use tracing::{debug, info, span, warn, Level};
 use uuid::Uuid;
+use barter_metrics::metrics::{LABEL_EXCHANGE, METRIC_ENGINE_TRADER_EVENT_COUNT, METRIC_ENGINE_TRADER_SIGNAL_COUNT, METRIC_ENGINE_TRADER_SIGNAL_LATENCY};
 
 /// Lego components for constructing a [`Trader`] via the new() constructor method.
 #[derive(Debug)]
@@ -162,11 +165,30 @@ where
             // Handle Events in the event_q
             // '--> While loop will break when event_q is empty and requires another MarketEvent
             while let Some(event) = self.event_q.pop_front() {
+                counter!(METRIC_ENGINE_TRADER_EVENT_COUNT.name(),
+                    LABEL_EXCHANGE => self.market.exchange.to_string()).increment(1);
+
                 match event {
                     Event::Market(market) => {
-                        if let Some(signal) = self.strategy.generate_signal(&market) {
-                            self.event_tx.send(Event::Signal(signal.clone()));
-                            self.event_q.push_back(Event::Signal(signal));
+                        {
+                            let start = Instant::now();
+                            let opt_signal = self.strategy.generate_signal(&market);
+
+                            if let Some(signal) = opt_signal {
+                                // plugin metrics only if a signal is generated
+                                let delta = start.elapsed();
+                                histogram!(METRIC_ENGINE_TRADER_SIGNAL_LATENCY.name(),
+                                    LABEL_EXCHANGE => market.exchange.to_string(),
+                                ).record(delta);
+
+                                counter!(METRIC_ENGINE_TRADER_SIGNAL_COUNT.name(),
+                                    LABEL_EXCHANGE => market.exchange.to_string(),
+                                ).increment(1);
+
+                                // event generation for signal
+                                self.event_tx.send(Event::Signal(signal.clone()));
+                                self.event_q.push_back(Event::Signal(signal));
+                            }
                         }
 
                         if let Some(position_update) = self

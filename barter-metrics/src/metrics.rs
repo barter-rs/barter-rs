@@ -6,9 +6,19 @@ pub struct MetricMetadata {
     description: &'static str,
 }
 
-pub static METRIC_ENGINE_EVENTS_TRADES: MetricMetadata = MetricMetadata {
-    name: "engine.events.trades",
-    description: "Number of trades that occurred in the engine",
+pub static METRIC_ENGINE_TRADER_EVENT_COUNT: MetricMetadata = MetricMetadata {
+    name: "engine.trader.event",
+    description: "Number of events that occurred in the trader",
+};
+
+pub static METRIC_ENGINE_TRADER_SIGNAL_LATENCY: MetricMetadata = MetricMetadata {
+    name: "engine.trader.signal_latency",
+    description: "Latency of signals that occurred in the trader",
+};
+
+pub static METRIC_ENGINE_TRADER_SIGNAL_COUNT: MetricMetadata = MetricMetadata {
+    name: "engine.trader.signal",
+    description: "Number of signals that occurred in the trader",
 };
 
 impl MetricMetadata {
@@ -28,16 +38,3 @@ impl MetricMetadata {
 }
 
 pub static LABEL_EXCHANGE: &str = "exchange";
-
-pub struct ExchangeLabels {
-    pub exchange:  String,
-}
-
-impl IntoLabels for ExchangeLabels {
-    fn into_labels(self) -> Vec<Label> {
-        let mut labels = Vec::with_capacity(1);
-
-        labels.push(Label::new("LABEL_EXCHANGE", self.exchange));
-        labels
-    }
-}
