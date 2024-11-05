@@ -3,13 +3,10 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::Debug;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
-    connect_async,
     tungstenite::{
-        client::IntoClientRequest,
         error::ProtocolError,
         protocol::{frame::Frame, CloseFrame},
-    },
-    MaybeTlsStream,
+    }, MaybeTlsStream,
 };
 use tracing::debug;
 
@@ -132,18 +129,6 @@ pub fn process_frame<ExchangeMessage>(
     let frame = format!("{:?}", frame);
     debug!(payload = %frame, "received unexpected Frame WebSocket message");
     None
-}
-
-/// Connect asynchronously to a [`WebSocket`] server.
-pub async fn connect<R>(request: R) -> Result<WebSocket, SocketError>
-where
-    R: IntoClientRequest + Unpin + Debug,
-{
-    debug!(?request, "attempting to establish WebSocket connection");
-    connect_async(request)
-        .await
-        .map(|(websocket, _)| websocket)
-        .map_err(SocketError::WebSocket)
 }
 
 /// Determine whether a [`WsError`] indicates the [`WebSocket`] has disconnected.

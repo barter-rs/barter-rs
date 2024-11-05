@@ -11,10 +11,11 @@ use crate::{
 use async_trait::async_trait;
 use barter_integration::{
     error::SocketError,
-    protocol::websocket::{connect, WebSocket, WsMessage},
+    protocol::websocket::{WebSocket, WsMessage},
 };
 use futures::SinkExt;
 use serde::{Deserialize, Serialize};
+use tokio_tungstenite::{connect_async, tungstenite::client::IntoClientRequest};
 use std::fmt::Debug;
 use tracing::{debug, info};
 
@@ -26,7 +27,15 @@ pub mod mapper;
 /// validate actioned [`Subscription`]s were successful.
 pub mod validator;
 
-/// Defines how to connect to a socket and subscribe to market data streams.
+/// Defines how to connect to a socket
+#[async_trait]
+pub trait Connect {
+    async fn connect<R>(request: R) -> Result<WebSocket, SocketError>
+    where
+        R: IntoClientRequest + Send + Unpin + Debug;
+}
+
+/// Defines how to subscribe to market data streams.
 #[async_trait]
 pub trait Subscriber {
     type SubMapper: SubscriptionMapper;
@@ -54,6 +63,20 @@ pub struct Subscribed<InstrumentKey> {
 pub struct WebSocketSubscriber;
 
 #[async_trait]
+impl Connect for WebSocketSubscriber {
+    async fn connect<R>(request: R) -> Result<WebSocket, SocketError>
+    where
+        R: IntoClientRequest + Send + Unpin + Debug,
+    {
+        debug!(?request, "attempting to establish WebSocket connection");
+        connect_async(request)
+            .await
+            .map(|(websocket, _)| websocket)
+            .map_err(SocketError::WebSocket)
+    }
+}
+
+#[async_trait]
 impl Subscriber for WebSocketSubscriber {
     type SubMapper = WebSocketSubMapper;
 
@@ -73,7 +96,7 @@ impl Subscriber for WebSocketSubscriber {
         debug!(%exchange, %url, ?subscriptions, "subscribing to WebSocket");
 
         // Connect to exchange
-        let mut websocket = connect(url).await?;
+        let mut websocket = Self::connect(url).await?;
         debug!(%exchange, ?subscriptions, "connected to WebSocket");
 
         // Map &[Subscription<Exchange, Kind>] to SubscriptionMeta

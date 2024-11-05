@@ -81,6 +81,12 @@ where
         // Add optional Body
         if let Some(body) = request.body() {
             builder = builder.json(body);
+        } else {
+            // more modern http servers enforce empty body requests have a
+            // `content-length: 0` header
+            if Request::method() == reqwest::Method::POST {
+                builder = builder.header("content-length", 0);
+            }
         }
 
         // Use RequestBuilder (public or private strategy) to build reqwest::Request

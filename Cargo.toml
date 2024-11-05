@@ -11,7 +11,7 @@ members = [
 [workspace.dependencies]
 # Logging
 tracing = { version = "0.1.40" }
-tracing-subscriber = { version = "0.3.16" }
+tracing-subscriber = { version = "0.3.18" }
 
 # Async
 tokio = { version = "1.38.0" }
@@ -49,6 +49,8 @@ hmac = { version = "0.12.1" }
 sha2 = { version = "0.10.6" }
 hex = { version = "0.4.3" }
 base64 = { version = "0.22.0" }
+# not upgrading this version due to rustls::crypto::ring change/build error
+rustls = "0.22.3"
 
 # Misc
 uuid = { version = "1.9.1", features = ["v4", "serde"]}

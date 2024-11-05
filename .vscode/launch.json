@@ -1,0 +1,123 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "ibkr_tests",
+      "type": "lldb",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/barter-data",
+      "cargo": {
+        "args": ["build", "--example", "ibkr_tests"],
+        "filter": { "name": "ibkr_tests", "kind": "example" }
+      },
+      "args": [],
+      "console": "integratedTerminal",
+      // "internalConsoleOptions": "openOnSessionStart"
+      "env": {
+        "RUST_BACKTRACE": "full"
+      }
+    },
+    {
+      "name": "Debug unit tests in library 'barter'",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["test", "--no-run", "--lib", "--package=barter"],
+        "filter": {
+          "name": "barter",
+          "kind": "lib"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Debug example 'engine_with_live_trades'",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--example=engine_with_live_trades",
+          "--package=barter"
+        ],
+        "filter": {
+          "name": "engine_with_live_trades",
+          "kind": "example"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Debug unit tests in example 'engine_with_live_trades'",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--example=engine_with_live_trades",
+          "--package=barter"
+        ],
+        "filter": {
+          "name": "engine_with_live_trades",
+          "kind": "example"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Debug example 'engine_with_historic_candles'",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--example=engine_with_historic_candles",
+          "--package=barter"
+        ],
+        "filter": {
+          "name": "engine_with_historic_candles",
+          "kind": "example"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Debug unit tests in example 'engine_with_historic_candles'",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--example=engine_with_historic_candles",
+          "--package=barter"
+        ],
+        "filter": {
+          "name": "engine_with_historic_candles",
+          "kind": "example"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Debug integration test 'integration'",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["test", "--no-run", "--test=integration", "--package=barter"],
+        "filter": {
+          "name": "integration",
+          "kind": "test"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
