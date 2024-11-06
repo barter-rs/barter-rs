@@ -33,6 +33,6 @@ impl<Instrument> Identifier<IbkrChannel> for Subscription<Ibkr, Instrument, Orde
 
 impl AsRef<str> for IbkrChannel {
     fn as_ref(&self) -> &str {
-        self.slug
+        &self.sub_type
     }
 }

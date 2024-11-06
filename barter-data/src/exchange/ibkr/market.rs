@@ -25,6 +25,8 @@ pub struct IbkrMarket {
     pub fields: String,
 }
 
+// TODO: refactor like market.rs in other exchanges
+// ex: ibkr_market()
 impl<Kind> Identifier<IbkrMarket> for Subscription<Ibkr, MarketDataInstrument, Kind> {
     fn id(&self) -> IbkrMarket {
         use MarketDataInstrumentKind::*;

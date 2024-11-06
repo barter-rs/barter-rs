@@ -1,7 +1,7 @@
-use std::sync::Arc;
+use std::{sync::Arc, thread, time::Duration};
 
 use crate::{
-    exchange::ibkr::{IbkrRest, Connector, IbkrWebSocketRequest},
+    exchange::ibkr::{Connector, IbkrRest, IbkrWebSocketRequest},
     instrument::InstrumentData,
     subscriber::{
         mapper::{SubscriptionMapper, WebSocketSubMapper},
@@ -13,15 +13,14 @@ use crate::{
 };
 use async_trait::async_trait;
 use barter_integration::{
-    error::SocketError, protocol::{danger::NoCertificateVerification, websocket::WebSocket}
+    error::SocketError,
+    protocol::{danger::NoCertificateVerification, websocket::WebSocket},
 };
 use futures::SinkExt;
 use rustls::{ClientConfig, RootCertStore};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use tokio_tungstenite::{
-    connect_async_tls_with_config, tungstenite::client::IntoClientRequest,
-};
+use tokio_tungstenite::{connect_async_tls_with_config, tungstenite::client::IntoClientRequest};
 use tracing::{debug, info};
 
 /// [`Ibkr`] [`Subscriber`] for [`WebSocket`]s.
@@ -38,7 +37,7 @@ impl Connect for IbkrWebSocketSubscriber {
     where
         R: IntoClientRequest + Send + Unpin + Debug,
     {
-        debug!(?request, "attempting to establish WebSocket connection");
+        // debug!(?request, "attempting to establish WebSocket connection");
         let root_cert_store = RootCertStore::empty();
 
         let mut config = ClientConfig::builder()
@@ -94,6 +93,10 @@ impl Subscriber for IbkrWebSocketSubscriber {
             instrument_map,
             ws_subscriptions,
         } = Self::SubMapper::map::<Exchange, Instrument, Kind>(ws_subscriptions);
+
+        // dunno yet why this is needed... but it is.
+        let pause = Duration::from_millis(250);
+        thread::sleep(pause);
 
         // Send Subscriptions over WebSocket
         for subscription in ws_subscriptions {

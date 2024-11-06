@@ -54,16 +54,15 @@ impl SubscriptionValidator for IbkrWebSocketSubValidator {
         // Parameter to keep track of successful Subscription outcomes
         // '--> Ibkr sends system, status, and account as the first messages, so count them also
         let mut success_responses = 0usize;
-        let mut init_snapshots_received = 0usize;
 
         // Buffer any active Subscription market events that are received during validation
         let mut buff_active_subscription_events = Vec::new();
 
         loop {
-            debug!(exchange = %Exchange::ID, success_responses, init_snapshots_received, "validating exchange WebSocket subscriptions");
+            // debug!(exchange = %Exchange::ID, success_responses, init_snapshots_received, "validating exchange WebSocket subscriptions");
             // Break if all Subscriptions were a success
             if success_responses == expected_responses
-                && init_snapshots_received == expected_responses
+                // && init_snapshots_received == expected_responses
             {
                 debug!(exchange = %Exchange::ID, "validated exchange WebSocket subscriptions");
                 break Ok((instrument_map, buff_active_subscription_events));
@@ -79,12 +78,12 @@ impl SubscriptionValidator for IbkrWebSocketSubValidator {
                 // Parse incoming messages and determine subscription outcomes
                 message = websocket.next() => {
                     let response = match message {
-                        Some(response) => response,
+                        Some(r) => r,
                         None => break Err(SocketError::Subscribe("WebSocket stream terminated unexpectedly".to_string()))
                     };
 
                     match Self::Parser::parse::<IbkrPlatformEvent>(response) {
-                        Some(Ok(response)) => match response.validate() {
+                        Some(Ok(resp)) => match resp.validate() {
                             // Ibkr server system message
                             Ok(IbkrPlatformEvent::System(system)) => {
                                 if system.username.is_some() {
@@ -128,50 +127,29 @@ impl SubscriptionValidator for IbkrWebSocketSubValidator {
                             }
 
                             // Subscription success
-                            Ok(IbkrPlatformEvent::Subscribed(response)) => {
+                            Ok(IbkrPlatformEvent::Subscribed(subresp)) => {
                                 // Determine SubscriptionId associated with the success response
-                                let IbkrSubResponse { channel, market, channel_id } = &response;
+                                let IbkrSubResponse { channel, market, channel_id } = &subresp;
                                 let subscription_id = ExchangeSub::from((channel, market)).id();
 
-                                // // Replace SubscriptionId with SubscriptionId(channel_id)
-                                // if let Some(subscription) = instrument_map.0.remove(&subscription_id) {
+                                // Replace SubscriptionId with SubscriptionId(channel_id)
+                                if let Some(subscription) = instrument_map.0.remove(&subscription_id) {
+                                    success_responses += 1;
+                                    instrument_map.0.insert(SubscriptionId(channel_id.0.to_smolstr()), subscription);
 
-                                let removed = instrument_map.0.remove(&subscription_id);
-                                debug!(
-                                    exchange = %Exchange::ID,
-                                    %success_responses,
-                                    %expected_responses,
-                                    payload = ?response,
-                                    %channel,
-                                    %market,
-                                    ?channel_id,
-                                    %subscription_id,
-                                    // ?removed,
-                                    "received valid Ok subscription response",
-                                );
+                                    // debug!(
+                                    //     exchange = %Exchange::ID,
+                                    //     %success_responses,
+                                    //     %expected_responses,
+                                    //     payload = ?subresp,
+                                    //     ?subscription_id,
+                                    //     // ?instrument_map,
+                                    //     "received valid Ok subscription response",
+                                    // );
 
-                                match removed {
-                                    Some(subscription) => {
-                                        success_responses += 1;
-                                        instrument_map.0.insert(SubscriptionId(channel_id.0.to_smolstr()), subscription);
+                                    // init_snapshots_received += 1;
+                                    // buff_active_subscription_events.push(response.clone().unwrap());
 
-                                        debug!(
-                                            exchange = %Exchange::ID,
-                                            %success_responses,
-                                            %expected_responses,
-                                            payload = ?response,
-                                            "received valid Ok subscription response",
-                                        );
-                                    },
-                                    None => {
-                                        warn!(
-                                            exchange = %Exchange::ID,
-                                            %success_responses,
-                                            %expected_responses,
-                                            payload = ?response,
-                                            "received valid Ok subscription response, but no matching subscription found",
-                                        );
-                                    }
                                 }
                             }
 
@@ -184,7 +162,7 @@ impl SubscriptionValidator for IbkrWebSocketSubValidator {
                         Some(Err(SocketError::Deserialise { error: _, payload })) if success_responses >= 1 => {
                             // TODO: this is copy pasta, true?
                             // Already active Ibkr subscriptions will send initial snapshots
-                            init_snapshots_received += 1;
+                            warn!(?payload, "init_snapshots_received in Deserialise Error");
                             buff_active_subscription_events.push(WsMessage::Text(payload));
                             continue
                         }

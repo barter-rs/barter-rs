@@ -13,6 +13,7 @@ use barter_integration::{
 };
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 use tracing::debug;
 
 /// Defines how to validate that actioned market data
@@ -27,7 +28,7 @@ pub trait SubscriptionValidator {
     ) -> Result<(Map<InstrumentKey>, Vec<WsMessage>), SocketError>
     where
         Exchange: Connector + Send,
-        InstrumentKey: Send,
+        InstrumentKey: Send + Debug,
         Kind: SubscriptionKind + Send;
 }
 
