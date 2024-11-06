@@ -45,14 +45,16 @@ pub struct IbkrMarketDataL1 {
         deserialize_with = "barter_integration::de::de_u64_epoch_ms_as_datetime_utc"
     )]
     pub last_update_time: DateTime<Utc>,
-    #[serde(rename = "84", with = "rust_decimal::serde::str")]
-    pub best_bid_price: Decimal,
-    #[serde(rename = "88", with = "rust_decimal::serde::str")]
-    pub best_bid_size: Decimal,
-    #[serde(rename = "86", with = "rust_decimal::serde::str")]
-    pub best_ask_price: Decimal,
-    #[serde(rename = "85", with = "rust_decimal::serde::str")]
-    pub best_ask_size: Decimal,
+    #[serde(rename = "31", with = "rust_decimal::serde::str_option")]
+    pub last_price: Option<Decimal>,
+    #[serde(rename = "84", with = "rust_decimal::serde::str_option")]
+    pub best_bid_price: Option<Decimal>,
+    #[serde(rename = "88", with = "rust_decimal::serde::str_option")]
+    pub best_bid_size: Option<Decimal>,
+    #[serde(rename = "86", with = "rust_decimal::serde::str_option")]
+    pub best_ask_price: Option<Decimal>,
+    #[serde(rename = "85", with = "rust_decimal::serde::str_option")]
+    pub best_ask_size: Option<Decimal>,
 }
 
 impl Identifier<Option<SubscriptionId>> for IbkrMarketDataL1 {
@@ -72,8 +74,8 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, IbkrMarketDataL1)>
             instrument,
             kind: OrderBookL1 {
                 last_update_time: md.last_update_time,
-                best_bid: Level::new(md.best_bid_price, md.best_bid_size),
-                best_ask: Level::new(md.best_ask_price, md.best_ask_size),
+                best_bid: Level::new(md.best_bid_price.unwrap_or_default(), md.best_bid_size.unwrap_or_default()),
+                best_ask: Level::new(md.best_ask_price.unwrap_or_default(), md.best_ask_size.unwrap_or_default()),
             },
         })])
     }
@@ -109,6 +111,7 @@ mod tests {
                 "conid": 1234,
                 "_updated": 1630048897897,
                 "6119": "serverId",
+                "31": "100.99",
                 "84": "100.90",
                 "88": "1200",
                 "86": "101.90",
@@ -120,11 +123,12 @@ mod tests {
 
             let actual = serde_json::from_str::<IbkrMarketDataL1>(input);
             let expected: Result<IbkrMarketDataL1, SocketError> = Ok(IbkrMarketDataL1 {
-                subscription_id: SubscriptionId::from("smd+1234"),
-                best_bid_price: dec!(100.9),
-                best_bid_size: dec!(1200),
-                best_ask_price: dec!(101.9),
-                best_ask_size: dec!(1500),
+                subscription_id: SubscriptionId::from("md|1234"),
+                last_price: Some(dec!(100.99)),
+                best_bid_price: Some(dec!(100.9)),
+                best_bid_size: Some(dec!(1200)),
+                best_ask_price: Some(dec!(101.9)),
+                best_ask_size: Some(dec!(1500)),
                 last_update_time: datetime_utc_from_epoch_duration(Duration::from_millis(
                     1630048897897,
                 )),
