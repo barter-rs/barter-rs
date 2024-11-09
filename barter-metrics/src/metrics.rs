@@ -1,5 +1,4 @@
 use std::fmt::Write;
-use metrics_rs::{IntoLabels, Label};
 
 pub struct MetricMetadata {
     name: &'static str,
@@ -19,6 +18,26 @@ pub static METRIC_ENGINE_TRADER_SIGNAL_LATENCY: MetricMetadata = MetricMetadata 
 pub static METRIC_ENGINE_TRADER_SIGNAL_COUNT: MetricMetadata = MetricMetadata {
     name: "engine.trader.signal",
     description: "Number of signals that occurred in the trader",
+};
+
+pub static METRIC_ENGINE_TRADER_SIGNAL_FORCE_EXIT_COUNT: MetricMetadata = MetricMetadata {
+    name: "engine.trader.signal_force_exit",
+    description: "Number of signal force exit events that occurred in the trader",
+};
+
+pub static METRIC_ENGINE_TRADER_POSITION_UPDATE_COUNT: MetricMetadata = MetricMetadata {
+    name: "engine.trader.position_update",
+    description: "Number of position updates that occurred in the trader",
+};
+
+pub static METRIC_ENGINE_TRADER_NEW_ORDER_COUNT: MetricMetadata = MetricMetadata {
+    name: "engine.trader.new_order",
+    description: "Number of new orders that occurred in the trader",
+};
+
+pub static METRIC_ENGINE_TRADER_FILL_COUNT: MetricMetadata = MetricMetadata {
+    name: "engine.trader.fill",
+    description: "Number of fills that occurred in the trader",
 };
 
 impl MetricMetadata {

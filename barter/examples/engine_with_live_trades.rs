@@ -30,7 +30,6 @@ use barter_instrument::{
 use futures::Stream;
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc, time::Duration};
-use metrics::{counter, describe_counter, describe_histogram};
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use tracing::warn;
@@ -39,10 +38,6 @@ use barter_metrics::metrics::{METRIC_ENGINE_TRADER_SIGNAL_COUNT, METRIC_ENGINE_T
 use barter_metrics::PrintRecorder;
 
 const ENGINE_RUN_TIMEOUT: Duration = Duration::from_secs(500);
-
-struct Foo {
-    name: &'static str,
-}
 
 #[tokio::main]
 async fn main() {
@@ -129,9 +124,6 @@ async fn main() {
         .expect("failed to build engine");
 
     metrics::set_global_recorder(PrintRecorder).unwrap();
-    describe_histogram!(METRIC_ENGINE_TRADER_SIGNAL_LATENCY.name(), METRIC_ENGINE_TRADER_SIGNAL_LATENCY.description());
-    describe_counter!(METRIC_ENGINE_TRADER_SIGNAL_COUNT.name(), METRIC_ENGINE_TRADER_SIGNAL_COUNT.description());
-
     // Run Engine trading & listen to Events it produces
     tokio::spawn(listen_to_engine_events(event_rx));
 

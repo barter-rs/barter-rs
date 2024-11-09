@@ -16,7 +16,7 @@ use tokio::sync::mpsc;
 use tokio::time::Instant;
 use tracing::{debug, info, span, warn, Level};
 use uuid::Uuid;
-use barter_metrics::metrics::{LABEL_EXCHANGE, METRIC_ENGINE_TRADER_EVENT_COUNT, METRIC_ENGINE_TRADER_SIGNAL_COUNT, METRIC_ENGINE_TRADER_SIGNAL_LATENCY};
+use barter_metrics::metrics::{LABEL_EXCHANGE, METRIC_ENGINE_TRADER_EVENT_COUNT, METRIC_ENGINE_TRADER_FILL_COUNT, METRIC_ENGINE_TRADER_NEW_ORDER_COUNT, METRIC_ENGINE_TRADER_POSITION_UPDATE_COUNT, METRIC_ENGINE_TRADER_SIGNAL_COUNT, METRIC_ENGINE_TRADER_SIGNAL_FORCE_EXIT_COUNT, METRIC_ENGINE_TRADER_SIGNAL_LATENCY};
 
 /// Lego components for constructing a [`Trader`] via the new() constructor method.
 #[derive(Debug)]
@@ -197,11 +197,16 @@ where
                             .update_from_market(&market)
                             .expect("failed to update Portfolio from market")
                         {
+                            counter!(METRIC_ENGINE_TRADER_POSITION_UPDATE_COUNT.name(),
+                                LABEL_EXCHANGE => market.exchange.to_string()).increment(1);
                             self.event_tx.send(Event::PositionUpdate(position_update));
                         }
                     }
 
                     Event::Signal(signal) => {
+                        counter!(METRIC_ENGINE_TRADER_SIGNAL_COUNT.name(),
+                                LABEL_EXCHANGE => signal.exchange.to_string()).increment(1);
+
                         if let Some(order) = self
                             .portfolio
                             .lock()
@@ -214,6 +219,10 @@ where
                     }
 
                     Event::SignalForceExit(signal_force_exit) => {
+                        counter!(METRIC_ENGINE_TRADER_SIGNAL_FORCE_EXIT_COUNT.name(),
+                                LABEL_EXCHANGE => signal_force_exit.exchange.to_string())
+                            .increment(1);
+
                         if let Some(order) = self
                             .portfolio
                             .lock()
@@ -226,6 +235,10 @@ where
                     }
 
                     Event::OrderNew(order) => {
+                        counter!(METRIC_ENGINE_TRADER_NEW_ORDER_COUNT.name(),
+                                LABEL_EXCHANGE => order.exchange.to_string())
+                            .increment(1);
+
                         let fill = self
                             .execution
                             .generate_fill(&order)
@@ -236,6 +249,9 @@ where
                     }
 
                     Event::Fill(fill) => {
+                        counter!(METRIC_ENGINE_TRADER_FILL_COUNT.name(),
+                                LABEL_EXCHANGE => fill.exchange.to_string())
+                            .increment(1);
                         let fill_side_effect_events = self
                             .portfolio
                             .lock()
