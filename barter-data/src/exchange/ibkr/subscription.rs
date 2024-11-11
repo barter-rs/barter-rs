@@ -1,7 +1,7 @@
 // use super::{channel::IbkrChannel, market::IbkrMarket};
 use super::unsolicited::{
     account_updates::IbkrAccountResponse, authentication_status::IbkrAuthnStatusResponse,
-    system_connection::IbkrSystemResponse,
+    system_connection::IbkrSystemResponse, system_heartbeat::IbkrSystemHeartbeat,
 };
 use barter_integration::{error::SocketError, Validator};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -16,6 +16,7 @@ use serde_json::Value;
 #[serde(remote = "IbkrPlatformEvent")]
 pub enum IbkrPlatformEvent {
     System(IbkrSystemResponse),
+    SystemHeartbeat(IbkrSystemHeartbeat),
     Account(IbkrAccountResponse),
     AuthnStatus(IbkrAuthnStatusResponse),
     Subscribed(IbkrSubResponse),
@@ -80,6 +81,7 @@ impl Validator for IbkrPlatformEvent {
     {
         match &self {
             Self::System(_system) => Ok(self),
+            Self::SystemHeartbeat(_system_heartbeat) => Ok(self),
             Self::Account(_act) => Ok(self),
             Self::AuthnStatus(_sts) => Ok(self),
             Self::Subscribed(_sub_response) => Ok(self),
@@ -155,10 +157,9 @@ mod tests {
                         }
                     "#,
                     expected: Ok(IbkrPlatformEvent::System(IbkrSystemResponse {
-                        username: Some(String::from("some_username")),
-                        is_ft: Some(false),
-                        is_paper: Some(false),
-                        hb: None,
+                        username: String::from("some_username"),
+                        is_ft: false,
+                        is_paper: false,
                     })),
                 },
                 TestCase {
@@ -169,11 +170,8 @@ mod tests {
                             "hb":1729601500848
                         }
                     "#,
-                    expected: Ok(IbkrPlatformEvent::System(IbkrSystemResponse {
-                        username: None,
-                        is_ft: None,
-                        is_paper: None,
-                        hb: Some(1729601500848),
+                    expected: Ok(IbkrPlatformEvent::SystemHeartbeat(IbkrSystemHeartbeat {
+                        hb: 1729601500848,
                     })),
                 },
                 TestCase {

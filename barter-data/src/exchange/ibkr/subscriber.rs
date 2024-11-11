@@ -21,7 +21,7 @@ use rustls::{ClientConfig, RootCertStore};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tokio_tungstenite::{connect_async_tls_with_config, tungstenite::client::IntoClientRequest};
-use tracing::{debug, info};
+use tracing::info;
 
 /// [`Ibkr`] [`Subscriber`] for [`WebSocket`]s.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
@@ -95,12 +95,12 @@ impl Subscriber for IbkrWebSocketSubscriber {
         } = Self::SubMapper::map::<Exchange, Instrument, Kind>(ws_subscriptions);
 
         // dunno yet why this is needed... but it is.
-        let pause = Duration::from_millis(250);
+        let pause = Duration::from_millis(500);
         thread::sleep(pause);
 
         // Send Subscriptions over WebSocket
         for subscription in ws_subscriptions {
-            debug!(%exchange, payload = ?subscription, "sending exchange subscription");
+            info!(%exchange, payload = ?subscription, "sending exchange subscription");
             websocket.feed(subscription).await?;
         }
         websocket.flush().await?;

@@ -85,7 +85,7 @@ where
         serde_json::from_slice::<ExchangeMessage>(&payload).map_err(|error| {
             debug!(
                 ?error,
-                ?payload,
+                payload = String::from_utf8(payload.clone()).unwrap_or_else(|x| x.to_string()),
                 action = "returning Some(Err(err))",
                 "failed to deserialize WebSocket Message into domain specific Message"
             );
