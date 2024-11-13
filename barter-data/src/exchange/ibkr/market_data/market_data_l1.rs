@@ -47,13 +47,13 @@ pub struct IbkrMarketDataL1 {
     pub last_update_time: DateTime<Utc>,
     #[serde(rename = "31", with = "rust_decimal::serde::str_option")]
     pub last_price: Option<Decimal>,
-    #[serde(rename = "84", with = "rust_decimal::serde::str_option")]
+    #[serde(rename = "84", default, with = "rust_decimal::serde::str_option")]
     pub best_bid_price: Option<Decimal>,
-    #[serde(rename = "88", with = "rust_decimal::serde::str_option")]
+    #[serde(rename = "88", default, with = "rust_decimal::serde::str_option")]
     pub best_bid_size: Option<Decimal>,
-    #[serde(rename = "86", with = "rust_decimal::serde::str_option")]
+    #[serde(rename = "86", default, with = "rust_decimal::serde::str_option")]
     pub best_ask_price: Option<Decimal>,
-    #[serde(rename = "85", with = "rust_decimal::serde::str_option")]
+    #[serde(rename = "85", default, with = "rust_decimal::serde::str_option")]
     pub best_ask_size: Option<Decimal>,
 }
 
