@@ -1,24 +1,36 @@
 use crate::v2::{
-    engine::state::{asset::AssetStates, instrument::InstrumentStates},
+    engine::Processor,
+    execution::AccountEvent,
     order::{Order, RequestCancel, RequestOpen},
 };
+use barter_data::event::MarketEvent;
 use barter_integration::Unrecoverable;
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, hash::Hash};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
-/// Todo:
-/// *EXAMPLE IMPLEMENTATION ONLY, PLEASE DO NOT USE FOR ANYTHING OTHER THAN TESTING PURPOSES.*
-pub mod default;
-
-pub trait RiskManager<MarketState, ExchangeKey, AssetKey, InstrumentKey> {
-    type State: Clone + Send;
+pub trait RiskManager<ExchangeKey, InstrumentKey> {
+    type State;
 
     fn check(
         &self,
-        strategy_state: &Self::State,
-        asset_states: &AssetStates,
-        instrument_states: &InstrumentStates<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
+        state: &Self::State,
+        cancels: impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestCancel>>,
+        opens: impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestOpen>>,
+    ) -> (
+        impl IntoIterator<Item = RiskApproved<Order<ExchangeKey, InstrumentKey, RequestCancel>>>,
+        impl IntoIterator<Item = RiskApproved<Order<ExchangeKey, InstrumentKey, RequestOpen>>>,
+        impl IntoIterator<Item = RiskRefused<Order<ExchangeKey, InstrumentKey, RequestCancel>>>,
+        impl IntoIterator<Item = RiskRefused<Order<ExchangeKey, InstrumentKey, RequestOpen>>>,
+    );
+}
+
+pub trait RiskManagerNew<ExchangeKey, AssetKey, InstrumentKey> {
+    type State;
+
+    fn check(
+        &self,
+        state: &Self::State,
         cancels: impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestCancel>>,
         opens: impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestOpen>>,
     ) -> (
@@ -72,4 +84,60 @@ where
     fn is_unrecoverable(&self) -> bool {
         self.reason.is_unrecoverable()
     }
+}
+
+/// Example [`RiskManager`] implementation that approves all order requests.
+///
+/// *EXAMPLE IMPLEMENTATION ONLY, PLEASE DO NOT USE FOR ANYTHING OTHER THAN TESTING PURPOSES.*
+#[derive(Debug, Clone)]
+pub struct DefaultRiskManager<State> {
+    phantom: PhantomData<State>,
+}
+
+impl<State> Default for DefaultRiskManager<State> {
+    fn default() -> Self {
+        Self {
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<State, ExchangeKey, InstrumentKey> RiskManager<ExchangeKey, InstrumentKey>
+    for DefaultRiskManager<State>
+{
+    type State = State;
+
+    fn check(
+        &self,
+        _: &Self::State,
+        cancels: impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestCancel>>,
+        opens: impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestOpen>>,
+    ) -> (
+        impl IntoIterator<Item = RiskApproved<Order<ExchangeKey, InstrumentKey, RequestCancel>>>,
+        impl IntoIterator<Item = RiskApproved<Order<ExchangeKey, InstrumentKey, RequestOpen>>>,
+        impl IntoIterator<Item = RiskRefused<Order<ExchangeKey, InstrumentKey, RequestCancel>>>,
+        impl IntoIterator<Item = RiskRefused<Order<ExchangeKey, InstrumentKey, RequestOpen>>>,
+    ) {
+        (
+            cancels.into_iter().map(RiskApproved::new),
+            opens.into_iter().map(RiskApproved::new),
+            std::iter::empty(),
+            std::iter::empty(),
+        )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DefaultRiskManagerState;
+
+impl<ExchangeKey, AssetKey, InstrumentKey>
+    Processor<&AccountEvent<ExchangeKey, AssetKey, InstrumentKey>> for DefaultRiskManagerState
+{
+    type Output = ();
+    fn process(&mut self, _: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) -> Self::Output {}
+}
+
+impl<InstrumentKey, Kind> Processor<&MarketEvent<InstrumentKey, Kind>> for DefaultRiskManagerState {
+    type Output = ();
+    fn process(&mut self, _: &MarketEvent<InstrumentKey, Kind>) -> Self::Output {}
 }

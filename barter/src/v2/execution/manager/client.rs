@@ -77,7 +77,7 @@ pub struct MockExecution;
 pub struct MockExecutionConfig;
 
 impl ExecutionClient for MockExecution {
-    const EXCHANGE: ExchangeId = ExchangeId::Other;
+    const EXCHANGE: ExchangeId = ExchangeId::Mock;
     type Config = MockExecutionConfig; // Todo: AccountSnapshot
     type AccountStream = futures::stream::Empty<IndexedAccountEvent>;
 

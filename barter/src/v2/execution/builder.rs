@@ -52,7 +52,11 @@ impl<'a> ExecutionBuilder<'a> {
     }
 
     #[allow(clippy::should_implement_trait)]
-    pub fn add<Client>(mut self, config: Client::Config) -> Result<Self, BarterError>
+    pub fn add<Client>(
+        mut self,
+        config: Client::Config,
+        request_timeout: std::time::Duration,
+    ) -> Result<Self, BarterError>
     where
         Client: ExecutionClient + Send + Sync + 'static,
         Client::AccountStream: Send,
@@ -79,13 +83,17 @@ impl<'a> ExecutionBuilder<'a> {
             // Initialise ExecutionManager
             let (account_snapshot, manager, account_stream) = ExecutionManager::init(
                 execution_rx.into_stream(),
+                request_timeout,
                 Client::new(config),
                 execution_map,
                 STREAM_RECONNECTION_POLICY,
             )
             .await?;
 
-            merged_tx.send(account_snapshot).unwrap();
+            merged_tx
+                .send(account_snapshot)
+                .expect("AccountStreamEvent rx dropped before ExecutionBuilder::init");
+
             tokio::spawn(manager.run());
             tokio::spawn(account_stream.forward_to(merged_tx));
 

@@ -2,6 +2,8 @@ use barter_instrument::exchange::ExchangeId;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
+pub mod manager;
+
 #[derive(Debug, Clone, Eq, PartialEq, Default, Deserialize, Serialize)]
 pub struct ConnectivityStates(pub IndexMap<ExchangeId, ConnectivityState>);
 

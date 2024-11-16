@@ -1,5 +1,5 @@
 use crate::v2::{
-    engine::state::order_manager::Orders,
+    engine::state::order::Orders,
     execution::InstrumentAccountSnapshot,
     order::{Open, Order},
     position::Position,
@@ -12,6 +12,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+pub mod manager;
 pub mod market_data;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]

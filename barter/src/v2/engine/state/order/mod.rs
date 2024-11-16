@@ -1,4 +1,5 @@
 use crate::v2::{
+    engine::state::order::{in_flight_recorder::InFlightRequestRecorder, manager::OrderManager},
     execution::error::ExecutionError,
     order::{
         Cancelled, ClientOrderId, ExchangeOrderState, InternalOrderState, Open, Order,
@@ -12,45 +13,8 @@ use serde::{Deserialize, Serialize};
 use std::{collections::hash_map::Entry, fmt::Debug};
 use tracing::{debug, error, warn};
 
-pub trait OrderManager<ExchangeKey, InstrumentKey> {
-    fn orders<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = &'a Order<ExchangeKey, InstrumentKey, InternalOrderState>>
-    where
-        ExchangeKey: 'a,
-        InstrumentKey: 'a;
-    fn record_in_flight_cancel(
-        &mut self,
-        request: &Order<ExchangeKey, InstrumentKey, RequestCancel>,
-    );
-    fn record_in_flight_open(&mut self, request: &Order<ExchangeKey, InstrumentKey, RequestOpen>);
-    fn update_from_open<AssetKey>(
-        &mut self,
-        response: &Order<
-            ExchangeKey,
-            InstrumentKey,
-            Result<Open, ExecutionError<AssetKey, InstrumentKey>>,
-        >,
-    ) where
-        AssetKey: Debug;
-    fn update_from_cancel<AssetKey>(
-        &mut self,
-        response: &Order<
-            ExchangeKey,
-            InstrumentKey,
-            Result<Cancelled, ExecutionError<AssetKey, InstrumentKey>>,
-        >,
-    ) where
-        AssetKey: Debug;
-    fn update_from_order_snapshot(
-        &mut self,
-        snapshot: Snapshot<&Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>,
-    );
-    fn update_from_opens_snapshot(
-        &mut self,
-        snapshot: Snapshot<&Vec<Order<ExchangeKey, InstrumentKey, Open>>>,
-    );
-}
+pub mod in_flight_recorder;
+pub mod manager;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct Orders<ExchangeKey, InstrumentKey>(
@@ -77,29 +41,6 @@ where
         InstrumentKey: 'a,
     {
         self.0.values()
-    }
-
-    fn record_in_flight_cancel(
-        &mut self,
-        request: &Order<ExchangeKey, InstrumentKey, RequestCancel>,
-    ) {
-        if let Some(duplicate_cid_order) = self.0.insert(request.cid, Order::from(request)) {
-            error!(
-                cid = %duplicate_cid_order.cid,
-                event = ?duplicate_cid_order,
-                "OrderManager upserted Order CancelInFlight with duplicate ClientOrderId"
-            );
-        }
-    }
-
-    fn record_in_flight_open(&mut self, request: &Order<ExchangeKey, InstrumentKey, RequestOpen>) {
-        if let Some(duplicate_cid_order) = self.0.insert(request.cid, Order::from(request)) {
-            error!(
-                cid = %duplicate_cid_order.cid,
-                event = ?duplicate_cid_order,
-                "OrderManager upserted Order OpenInFlight with duplicate ClientOrderId"
-            );
-        }
     }
 
     fn update_from_open<AssetKey>(
@@ -301,6 +242,36 @@ where
         _snapshot: Snapshot<&Vec<Order<ExchangeKey, InstrumentKey, Open>>>,
     ) {
         todo!()
+    }
+}
+
+impl<ExchangeKey, InstrumentKey> InFlightRequestRecorder<ExchangeKey, InstrumentKey>
+    for Orders<ExchangeKey, InstrumentKey>
+where
+    ExchangeKey: Debug + Clone,
+    InstrumentKey: Debug + Clone,
+{
+    fn record_in_flight_cancel(
+        &mut self,
+        request: &Order<ExchangeKey, InstrumentKey, RequestCancel>,
+    ) {
+        if let Some(duplicate_cid_order) = self.0.insert(request.cid, Order::from(request)) {
+            error!(
+                cid = %duplicate_cid_order.cid,
+                event = ?duplicate_cid_order,
+                "OrderManager upserted Order CancelInFlight with duplicate ClientOrderId"
+            );
+        }
+    }
+
+    fn record_in_flight_open(&mut self, request: &Order<ExchangeKey, InstrumentKey, RequestOpen>) {
+        if let Some(duplicate_cid_order) = self.0.insert(request.cid, Order::from(request)) {
+            error!(
+                cid = %duplicate_cid_order.cid,
+                event = ?duplicate_cid_order,
+                "OrderManager upserted Order OpenInFlight with duplicate ClientOrderId"
+            );
+        }
     }
 }
 

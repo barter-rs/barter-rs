@@ -2,7 +2,11 @@ use barter::v2::{
     engine::{
         command::Command,
         run,
-        state::{instrument::market_data::DefaultMarketData, trading::TradingState, EngineState},
+        state::{
+            instrument::{manager::InstrumentFilter, market_data::DefaultMarketData},
+            trading::TradingState,
+            EngineState,
+        },
         Engine,
     },
     error::BarterError,
@@ -11,8 +15,8 @@ use barter::v2::{
         manager::client::{MockExecution, MockExecutionConfig},
     },
     instrument::IndexedInstruments,
-    risk::default::{DefaultRiskManager, DefaultRiskManagerState},
-    strategy::default::{DefaultStrategy, DefaultStrategyState},
+    risk::{DefaultRiskManager, DefaultRiskManagerState},
+    strategy::{DefaultStrategy, DefaultStrategyState},
     EngineEvent,
 };
 use barter_data::{
@@ -42,8 +46,9 @@ use barter_integration::channel::{mpsc_unbounded, ChannelTxDroppable, Tx};
 use chrono::Utc;
 use futures::Stream;
 use rust_decimal_macros::dec;
-use std::time::Duration;
 use tracing::{info, warn};
+
+const EXECUTION_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(1);
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -63,7 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialise ExecutionManager & forward Account Streams to Engine feed
     let (execution_txs, account_stream) = ExecutionBuilder::new(&instruments)
-        .add::<MockExecution>(MockExecutionConfig)?
+        .add::<MockExecution>(MockExecutionConfig, EXECUTION_REQUEST_TIMEOUT)?
         .init()
         .await?;
     tokio::spawn(account_stream.forward_to(feed_tx.clone()));
@@ -82,8 +87,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         || Utc::now(),
         state,
         execution_txs,
-        DefaultStrategy,
-        DefaultRiskManager,
+        DefaultStrategy::default(),
+        DefaultRiskManager::default(),
     );
 
     // Run synchronous Engine on blocking task
@@ -96,13 +101,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // Let the example run for 4 seconds..., then:
-    tokio::time::sleep(Duration::from_secs(4)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(4)).await;
     // 1. Disable Strategy order generation (still continues to update EngineState)
-    feed_tx.send(EngineEvent::TradingStateUpdate(TradingState::Disabled))?;
+    feed_tx.send(TradingState::Disabled)?;
     // 2. Cancel all open orders
-    feed_tx.send(Command::CancelAllOrders)?;
+    feed_tx.send(Command::CancelOrders(InstrumentFilter::None))?;
     // 3. Send orders to close current positions
-    feed_tx.send(Command::CloseAllPositions)?;
+    feed_tx.send(Command::ClosePositions(InstrumentFilter::None))?;
     // 4. Stop Engine run loop
     feed_tx.send(EngineEvent::Shutdown)?;
 

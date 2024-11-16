@@ -1,3 +1,4 @@
+use crate::collection::one_or_many::OneOrMany;
 use derive_more::From;
 use itertools::Either;
 use serde::{Deserialize, Serialize};
@@ -27,6 +28,38 @@ impl<T> NoneOneOrMany<T> {
         }
     }
 
+    pub fn extend(self, other: Self) -> Self {
+        use NoneOneOrMany::*;
+        match (self, other) {
+            (None, right) => right,
+            (left, None) => left,
+            (One(left), One(right)) => Many(vec![left, right]),
+            (One(left), Many(mut right)) => {
+                right.push(left);
+                Many(right)
+            }
+            (Many(mut left), One(right)) => {
+                left.push(right);
+                Many(left)
+            }
+            (Many(mut left), Many(right)) => {
+                left.extend(right);
+                Many(left)
+            }
+        }
+    }
+
+    pub fn contains(&self, item: &T) -> bool
+    where
+        T: PartialEq,
+    {
+        match self {
+            Self::None => false,
+            Self::One(value) => value == item,
+            Self::Many(values) => values.contains(item),
+        }
+    }
+
     pub fn len(&self) -> usize {
         match self {
             NoneOneOrMany::None => 0,
@@ -51,10 +84,11 @@ impl<T> NoneOneOrMany<T> {
         matches!(self, NoneOneOrMany::Many(_))
     }
 
-    pub fn into_option(self) -> Option<T> {
+    pub fn into_option(self) -> Option<OneOrMany<T>> {
         match self {
-            NoneOneOrMany::One(item) => Some(item),
-            _ => None,
+            NoneOneOrMany::None => None,
+            NoneOneOrMany::One(one) => Some(OneOrMany::One(one)),
+            NoneOneOrMany::Many(many) => Some(OneOrMany::Many(many)),
         }
     }
 
@@ -124,8 +158,12 @@ impl<T> From<Vec<T>> for NoneOneOrMany<T> {
 // Create NoneOneOrMany from an iterator
 impl<T> FromIterator<T> for NoneOneOrMany<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let vec: Vec<_> = iter.into_iter().collect();
-        vec.into()
+        let mut collection = iter.into_iter().collect::<Vec<_>>();
+        match collection.len() {
+            0 => Self::None,
+            1 => Self::One(collection.swap_remove(0)),
+            _ => Self::Many(collection),
+        }
     }
 }
 

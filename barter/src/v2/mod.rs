@@ -24,8 +24,6 @@ pub mod trade;
 //    (backward would require Vec<State> to be created on .next()) (add compression using file system)
 //  - All state update implementations
 //  - Add tests for all Managers
-//  - Engine functionality can be injected, on_shutdown, on_state_update_error, on_disconnect, etc.
-//    '--> currently we are not reacting to "disconnected"
 
 // Todo: Nice To Have:
 //  - Sequenced log stream that can enrich logs w/ additional context eg/ InstrumentName
@@ -48,7 +46,7 @@ pub enum EngineEvent<MarketKind, ExchangeKey, AssetKey, InstrumentKey> {
     TradingStateUpdate(TradingState),
     Account(AccountStreamEvent<ExchangeKey, AssetKey, InstrumentKey>),
     Market(MarketStreamEvent<InstrumentKey, MarketKind>),
-    Command(Command<ExchangeKey, InstrumentKey>),
+    Command(Command<ExchangeKey, AssetKey, InstrumentKey>),
 }
 
 impl<MarketKind, ExchangeKey, AssetKey, InstrumentKey>

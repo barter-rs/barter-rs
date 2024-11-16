@@ -1,11 +1,14 @@
 use crate::v2::{
     execution::{
-        error::{ExchangeApiError, ExchangeExecutionError, IndexedApiError, IndexedExecutionError},
+        error::{
+            ConnectivityError, ExchangeApiError, ExchangeExecutionError, IndexedApiError,
+            IndexedExecutionError,
+        },
         manager::client::ExecutionClient,
         map::ExecutionInstrumentMap,
         AccountEvent, AccountEventKind, ExecutionRequest,
     },
-    order::{Order, RequestCancel, RequestOpen},
+    order::{Cancelled, Open, Order, RequestCancel, RequestOpen},
 };
 use barter_data::streams::{
     consumer::StreamKey,
@@ -22,7 +25,16 @@ use barter_integration::{
     stream::merge::merge,
 };
 use derive_more::Constructor;
-use futures::{future::try_join, Stream, StreamExt};
+use futures::{
+    future::{try_join, Either},
+    stream::FuturesUnordered,
+    Stream, StreamExt,
+};
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tracing::info;
 
 pub mod client;
@@ -43,6 +55,7 @@ pub type ExecutionInitResult<Manager, AccountStream> = Result<
 #[derive(Debug, Constructor)]
 pub struct ExecutionManager<RequestStream, Client> {
     pub request_stream: RequestStream,
+    pub request_timeout: std::time::Duration,
     pub response_tx: UnboundedTx<AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>>,
     pub client: Client,
     pub instruments: ExecutionInstrumentMap,
@@ -55,6 +68,7 @@ where
 {
     pub async fn init(
         request_stream: RequestStream,
+        request_timeout: std::time::Duration,
         client: Client,
         instrument_map: ExecutionInstrumentMap,
         reconnect_policy: ReconnectionBackoffPolicy,
@@ -116,67 +130,151 @@ where
 
         Ok((
             AccountEvent::new(instrument_map.exchange, snapshot),
-            Self::new(request_stream, response_tx, client.clone(), instrument_map),
+            Self::new(
+                request_stream,
+                request_timeout,
+                response_tx,
+                client.clone(),
+                instrument_map,
+            ),
             account_stream,
         ))
     }
 
     pub async fn run(mut self) {
-        while let Some(request) = self.request_stream.next().await {
-            match request {
-                ExecutionRequest::Cancel(request) => {
-                    let response = self.cancel_order(request).await;
-                    if self.response_tx.send(response).is_err() {
+        let mut in_flight_cancels = FuturesUnordered::new();
+        let mut in_flight_opens = FuturesUnordered::new();
+
+        loop {
+            let next_cancel_response = if in_flight_cancels.is_empty() {
+                Either::Left(std::future::pending())
+            } else {
+                Either::Right(in_flight_cancels.select_next_some())
+            };
+
+            let next_open_response = if in_flight_opens.is_empty() {
+                Either::Left(std::future::pending())
+            } else {
+                Either::Right(in_flight_opens.select_next_some())
+            };
+
+            tokio::select! {
+                // Process Engine ExecutionRequests
+                request = self.request_stream.next() => match request {
+                    Some(ExecutionRequest::Cancel(request)) => {
+                        in_flight_cancels.push(RequestFuture::new(
+                            request.clone(),
+                            self.request_timeout,
+                            self.client.cancel_order(
+                                map_order_to_instrument_name_exchange(&self.instruments, request)
+                            )
+                        ))
+                    },
+                    Some(ExecutionRequest::Open(request)) => {
+                        in_flight_opens.push(RequestFuture::new(
+                            request.clone(),
+                            self.request_timeout,
+                            self.client.open_order(
+                                map_order_to_instrument_name_exchange(&self.instruments, request)
+                            )
+                        ))
+                    }
+                    None => {
+                        return
+                    },
+                },
+
+                // Process next ExecutionRequest::Cancel response
+                response_cancel = next_cancel_response => {
+                    let event = match response_cancel {
+                        Ok(response) => {
+                            AccountStreamEvent::Item(AccountEvent {
+                                exchange: self.instruments.exchange,
+                                kind: AccountEventKind::OrderCancelled(map_order_to_instrument_index(
+                                    &self.instruments,
+                                    response,
+                                )),
+                            })
+                        }
+                        Err(request) => {
+                            AccountStreamEvent::Item(AccountEvent {
+                                exchange: self.instruments.exchange,
+                                kind: AccountEventKind::OrderCancelled(map_order_request_cancel_to_timed_out(request))
+                            })
+                        }
+                    };
+
+                    if self.response_tx.send(event).is_err() {
+                        break;
+                    }
+                },
+
+                // Process next ExecutionRequest::Open response
+                response_open = next_open_response => {
+                    let event = match response_open {
+                        Ok(response) => {
+                            AccountStreamEvent::Item(AccountEvent {
+                                exchange: self.instruments.exchange,
+                                kind: AccountEventKind::OrderOpened(map_order_to_instrument_index(
+                                    &self.instruments,
+                                    response,
+                                )),
+                            })
+                        }
+                        Err(request) => {
+                             AccountStreamEvent::Item(AccountEvent {
+                                exchange: self.instruments.exchange,
+                                kind: AccountEventKind::OrderOpened(map_order_request_open_to_timed_out(request))
+                            })
+                        }
+                    };
+
+                    if self.response_tx.send(event).is_err() {
                         break;
                     }
                 }
-                ExecutionRequest::Open(request) => {
-                    let response = self.open_order(request).await;
-                    if self.response_tx.send(response).is_err() {
-                        break;
-                    }
-                }
+
             }
         }
     }
+}
+#[derive(Debug)]
+#[pin_project::pin_project]
+pub struct RequestFuture<Request, ResponseFut> {
+    request: Request,
+    #[pin]
+    response_future: tokio::time::Timeout<ResponseFut>,
+}
 
-    pub async fn cancel_order(
-        &self,
-        request: Order<ExchangeIndex, InstrumentIndex, RequestCancel>,
-    ) -> AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex> {
-        let request = map_order_to_instrument_name_exchange(&self.instruments, request);
+impl<Request, ResponseFut> Future for RequestFuture<Request, ResponseFut>
+where
+    Request: Clone,
+    ResponseFut: Future,
+{
+    type Output = Result<ResponseFut::Output, Request>;
 
-        let response = self.client.cancel_order(request).await;
-
-        AccountStreamEvent::Item(AccountEvent {
-            exchange: self.instruments.exchange,
-            kind: AccountEventKind::OrderCancelled(map_order_to_instrument_index(
-                &self.instruments,
-                response,
-            )),
-        })
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        this.response_future
+            .poll(cx)
+            .map(|result| result.map_err(|_| this.request.clone()))
     }
+}
 
-    pub async fn open_order(
-        &self,
-        request: Order<ExchangeIndex, InstrumentIndex, RequestOpen>,
-    ) -> AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex> {
-        let request = map_order_to_instrument_name_exchange(&self.instruments, request);
-
-        let response = self.client.open_order(request).await;
-
-        AccountStreamEvent::Item(AccountEvent {
-            exchange: self.instruments.exchange,
-            kind: AccountEventKind::OrderOpened(map_order_to_instrument_index(
-                &self.instruments,
-                response,
-            )),
-        })
+impl<Request, ResponseFut> RequestFuture<Request, ResponseFut>
+where
+    ResponseFut: Future,
+{
+    pub fn new(request: Request, timeout: std::time::Duration, future: ResponseFut) -> Self {
+        Self {
+            request,
+            response_future: tokio::time::timeout(timeout, future),
+        }
     }
 }
 
 // Todo: Do we need to map ExchangeKey?
-pub fn map_order_to_instrument_name_exchange<ExchangeKey, State>(
+fn map_order_to_instrument_name_exchange<ExchangeKey, State>(
     instruments: &ExecutionInstrumentMap,
     order: Order<ExchangeKey, InstrumentIndex, State>,
 ) -> Order<ExchangeKey, &InstrumentNameExchange, State> {
@@ -246,5 +344,49 @@ fn map_to_indexed_execution_error(
             ExchangeApiError::OrderAlreadyCancelled(cid) => IndexedApiError::OrderRejected(cid),
             ExchangeApiError::OrderAlreadyFullyFilled(cid) => IndexedApiError::OrderRejected(cid),
         }),
+    }
+}
+
+fn map_order_request_cancel_to_timed_out(
+    order: Order<ExchangeIndex, InstrumentIndex, RequestCancel>,
+) -> Order<ExchangeIndex, InstrumentIndex, Result<Cancelled, IndexedExecutionError>> {
+    let Order {
+        exchange,
+        instrument,
+        cid,
+        side,
+        state: _,
+    } = order;
+
+    Order {
+        exchange,
+        instrument,
+        cid,
+        side,
+        state: Err(IndexedExecutionError::Connectivity(
+            ConnectivityError::Timeout,
+        )),
+    }
+}
+
+fn map_order_request_open_to_timed_out(
+    order: Order<ExchangeIndex, InstrumentIndex, RequestOpen>,
+) -> Order<ExchangeIndex, InstrumentIndex, Result<Open, IndexedExecutionError>> {
+    let Order {
+        exchange,
+        instrument,
+        cid,
+        side,
+        state: _,
+    } = order;
+
+    Order {
+        exchange,
+        instrument,
+        cid,
+        side,
+        state: Err(IndexedExecutionError::Connectivity(
+            ConnectivityError::Timeout,
+        )),
     }
 }

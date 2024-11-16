@@ -1,3 +1,5 @@
+pub mod manager;
+
 use crate::v2::{
     balance::{AssetBalance, Balance},
     Snapshot,
