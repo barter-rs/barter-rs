@@ -12,11 +12,11 @@ use std::{fmt::Debug, hash::Hash};
 pub mod default;
 
 pub trait RiskManager<MarketState, ExchangeKey, AssetKey, InstrumentKey> {
-    type State: Clone + Send;
+    type State: Clone;
 
     fn check(
         &self,
-        strategy_state: &Self::State,
+        risk_state: &Self::State,
         asset_states: &AssetStates,
         instrument_states: &InstrumentStates<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
         cancels: impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestCancel>>,

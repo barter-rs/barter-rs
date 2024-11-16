@@ -48,7 +48,7 @@ pub enum EngineEvent<MarketKind, ExchangeKey, AssetKey, InstrumentKey> {
     TradingStateUpdate(TradingState),
     Account(AccountStreamEvent<ExchangeKey, AssetKey, InstrumentKey>),
     Market(MarketStreamEvent<InstrumentKey, MarketKind>),
-    Command(Command<ExchangeKey, InstrumentKey>),
+    Command(Command<ExchangeKey, AssetKey, InstrumentKey>),
 }
 
 impl<MarketKind, ExchangeKey, AssetKey, InstrumentKey>

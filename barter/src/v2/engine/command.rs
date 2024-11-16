@@ -1,14 +1,14 @@
-use crate::v2::{execution::ExecutionRequest, order::OrderId};
-use derive_more::From;
+use crate::v2::{
+    engine::state::instrument::manager::InstrumentFilter,
+    order::{Order, RequestCancel, RequestOpen},
+};
+use barter_integration::collection::one_or_many::OneOrMany;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, From)]
-pub enum Command<ExchangeKey, InstrumentKey> {
-    Execute(ExecutionRequest<ExchangeKey, InstrumentKey>),
-
-    ClosePosition(InstrumentKey),
-    CloseAllPositions,
-
-    CancelOrderById((InstrumentKey, OrderId)),
-    CancelAllOrders,
+#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
+pub enum Command<ExchangeKey, AssetKey, InstrumentKey> {
+    SendCancelRequests(OneOrMany<Order<ExchangeKey, InstrumentKey, RequestCancel>>),
+    SendOpenRequests(OneOrMany<Order<ExchangeKey, InstrumentKey, RequestOpen>>),
+    ClosePositions(InstrumentFilter<ExchangeKey, AssetKey, InstrumentKey>),
+    CancelOrders(InstrumentFilter<ExchangeKey, AssetKey, InstrumentKey>),
 }

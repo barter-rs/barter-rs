@@ -27,6 +27,17 @@ impl<T> NoneOneOrMany<T> {
         }
     }
 
+    pub fn contains(&self, item: &T) -> bool
+    where
+        T: PartialEq,
+    {
+        match self {
+            Self::None => false,
+            Self::One(value) => value == item,
+            Self::Many(values) => values.contains(item),
+        }
+    }
+
     pub fn len(&self) -> usize {
         match self {
             NoneOneOrMany::None => 0,

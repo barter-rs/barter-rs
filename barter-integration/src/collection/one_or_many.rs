@@ -23,6 +23,16 @@ impl<T> OneOrMany<T> {
         }
     }
 
+    pub fn contains(&self, item: &T) -> bool
+    where
+        T: PartialEq,
+    {
+        match self {
+            Self::One(value) => value == item,
+            Self::Many(values) => values.contains(item),
+        }
+    }
+
     #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         match self {

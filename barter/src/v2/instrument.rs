@@ -4,7 +4,7 @@ use crate::v2::{
         asset::{AssetState, AssetStates},
         connectivity::{ConnectivityState, ConnectivityStates},
         instrument::{InstrumentState, InstrumentStates},
-        order_manager::Orders,
+        order::Orders,
     },
     error::{BarterError, IndexError},
     execution::map::ExecutionInstrumentMap,

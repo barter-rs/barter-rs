@@ -22,6 +22,12 @@ use uuid::Uuid;
 )]
 pub struct ClientOrderId<T = Uuid>(pub T);
 
+impl Default for ClientOrderId {
+    fn default() -> Self {
+        Self(Uuid::new_v4())
+    }
+}
+
 #[derive(
     Debug,
     Copy,
@@ -95,6 +101,7 @@ pub struct RequestOpen {
 )]
 pub enum OrderKind {
     Limit,
+    Market,
 }
 
 #[derive(
