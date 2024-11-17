@@ -3,7 +3,10 @@ use crate::v2::{
         action::send_requests::SendRequestsOutput,
         error::UnrecoverableEngineError,
         execution_tx::ExecutionTxMap,
-        state::{order::in_flight_recorder::InFlightRequestRecorder, EngineState},
+        state::{
+            instrument::manager::InstrumentStateManager,
+            order::in_flight_recorder::InFlightRequestRecorder, EngineState,
+        },
         Engine,
     },
     order::{Order, RequestCancel, RequestOpen},
@@ -58,6 +61,8 @@ impl<MarketState, Strategy, Risk, ExecutionTxs, ExchangeKey, AssetKey, Instrumen
         Risk,
     >
 where
+    EngineState<MarketState, Strategy::State, Risk::State, ExchangeKey, AssetKey, InstrumentKey>:
+        InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey>,
     ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
     Strategy: AlgoStrategy<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
     Risk: RiskManager<MarketState, ExchangeKey, AssetKey, InstrumentKey>,

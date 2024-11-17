@@ -2,31 +2,26 @@ use crate::v2::{
     engine::{
         state::{
             asset::{manager::AssetStateManager, AssetState, AssetStates},
-            connectivity::{
-                manager::ConnectivityManager, Connection, ConnectivityState, ConnectivityStates,
-            },
-            instrument::{
-                manager::{InstrumentFilter, InstrumentStateManager},
-                InstrumentState, InstrumentStates,
-            },
-            order::manager::OrderManager,
+            connectivity::{manager::ConnectivityManager, ConnectivityState, ConnectivityStates},
+            instrument::{manager::InstrumentStateManager, InstrumentState, InstrumentStates},
+            order::{in_flight_recorder::InFlightRequestRecorder, manager::OrderManager},
             trading::TradingState,
         },
         Processor,
     },
-    execution::{manager::AccountStreamEvent, AccountEvent, AccountEventKind},
+    execution::{AccountEvent, AccountEventKind},
+    order::{Order, RequestCancel, RequestOpen},
     Snapshot,
 };
-use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
+use barter_data::event::MarketEvent;
 use barter_instrument::{
     asset::{name::AssetNameInternal, AssetIndex, ExchangeAsset},
     exchange::{ExchangeId, ExchangeIndex},
     instrument::{name::InstrumentNameInternal, InstrumentIndex},
 };
-use itertools::{Either, Itertools};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use tracing::{info, warn};
+use tracing::info;
 
 pub mod asset;
 pub mod connectivity;
@@ -57,10 +52,18 @@ pub struct EngineState<Market, Strategy, Risk, ExchangeKey, AssetKey, Instrument
     pub risk: Risk,
 }
 
+pub struct TradingStateUpdateAudit {
+    pub prev: TradingState,
+    pub current: TradingState,
+}
+
 impl<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
     EngineState<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
 {
-    pub fn update_from_trading_state_update(&mut self, event: &TradingState) {
+    pub fn update_from_trading_state_update(
+        &mut self,
+        event: &TradingState,
+    ) -> TradingStateUpdateAudit {
         let prev = self.trading;
         let next = match (self.trading, event) {
             (TradingState::Enabled, TradingState::Disabled) => {
@@ -83,10 +86,10 @@ impl<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
 
         self.trading = next;
 
-        // ProcessTradingStateAudit {
-        //     prev,
-        //     current: next,
-        // }
+        TradingStateUpdateAudit {
+            prev,
+            current: next,
+        }
     }
 
     pub fn update_from_account(
@@ -161,6 +164,30 @@ impl<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
         self.instrument_mut(&event.instrument).market.process(event);
         self.strategy.process(event);
         self.risk.process(event);
+    }
+}
+
+impl<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
+    InFlightRequestRecorder<ExchangeKey, InstrumentKey>
+    for EngineState<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
+where
+    Self: InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey>,
+    ExchangeKey: Debug + Clone,
+    InstrumentKey: Debug + Clone,
+{
+    fn record_in_flight_cancel(
+        &mut self,
+        request: &Order<ExchangeKey, InstrumentKey, RequestCancel>,
+    ) {
+        self.instrument_mut(&request.instrument)
+            .orders
+            .record_in_flight_cancel(request);
+    }
+
+    fn record_in_flight_open(&mut self, request: &Order<ExchangeKey, InstrumentKey, RequestOpen>) {
+        self.instrument_mut(&request.instrument)
+            .orders
+            .record_in_flight_open(request);
     }
 }
 

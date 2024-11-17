@@ -30,7 +30,7 @@ impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, 
         command: &Command<ExchangeKey, AssetKey, InstrumentKey>,
     ) -> ActionOutput<ExchangeKey, InstrumentKey>
     where
-        State: InstrumentStateManager<InstrumentKey>
+        State: InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey>
             + InFlightRequestRecorder<ExchangeKey, InstrumentKey>,
         ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
         Strategy: ClosePositionsStrategy<MarketState, ExchangeKey, AssetKey, InstrumentKey>,

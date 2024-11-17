@@ -2,7 +2,11 @@ use crate::v2::{
     engine::{
         action::send_requests::SendRequestsOutput,
         execution_tx::ExecutionTxMap,
-        state::{instrument::manager::InstrumentFilter, EngineState},
+        state::{
+            instrument::manager::{InstrumentFilter, InstrumentStateManager},
+            order::in_flight_recorder::InFlightRequestRecorder,
+            EngineState,
+        },
         Engine,
     },
     order::{RequestCancel, RequestOpen},
@@ -42,6 +46,8 @@ impl<MarketState, Strategy, Risk, ExecutionTxs, ExchangeKey, AssetKey, Instrumen
         Risk,
     >
 where
+    EngineState<MarketState, Strategy::State, Risk::State, ExchangeKey, AssetKey, InstrumentKey>:
+        InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey>,
     ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
     Strategy: ClosePositionsStrategy<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
     Risk: RiskManager<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
