@@ -3,6 +3,7 @@ use chrono::{DateTime, Utc};
 use derive_more::{Constructor, Display, From};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use smol_str::SmolStr;
 use uuid::Uuid;
 
 #[derive(
@@ -22,9 +23,9 @@ use uuid::Uuid;
 )]
 pub struct ClientOrderId<T = Uuid>(pub T);
 
-impl Default for ClientOrderId {
+impl Default for ClientOrderId<Uuid> {
     fn default() -> Self {
-        Self(Uuid::new_v4())
+        Self::new(Uuid::new_v4())
     }
 }
 
@@ -43,7 +44,7 @@ impl Default for ClientOrderId {
     From,
     Constructor,
 )]
-pub struct OrderId<T = String>(pub T);
+pub struct OrderId<T = SmolStr>(pub T);
 
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
@@ -68,7 +69,7 @@ impl InternalOrderState {
         match self {
             InternalOrderState::OpenInFlight(_) => None,
             InternalOrderState::Open(state) => Some(state.id.clone()),
-            InternalOrderState::CancelInFlight(state) => Some(state.id.clone()),
+            InternalOrderState::CancelInFlight(state) => state.id.clone(),
         }
     }
 
@@ -77,6 +78,38 @@ impl InternalOrderState {
             self,
             InternalOrderState::OpenInFlight(_) | InternalOrderState::Open(_)
         )
+    }
+}
+
+impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, InternalOrderState> {
+    pub fn as_request_cancel(&self) -> Option<Order<ExchangeKey, InstrumentKey, RequestCancel>>
+    where
+        ExchangeKey: Clone,
+        InstrumentKey: Clone,
+    {
+        let Order {
+            exchange,
+            instrument,
+            cid,
+            side,
+            state,
+        } = self;
+
+        let request_cancel = match state {
+            InternalOrderState::OpenInFlight(_) => RequestCancel { id: None },
+            InternalOrderState::Open(open) => RequestCancel {
+                id: Some(open.id.clone()),
+            },
+            _ => return None,
+        };
+
+        Some(Order {
+            exchange: exchange.clone(),
+            instrument: instrument.clone(),
+            cid: *cid,
+            side: *side,
+            state: request_cancel,
+        })
     }
 }
 
@@ -100,8 +133,8 @@ pub struct RequestOpen {
     Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display,
 )]
 pub enum OrderKind {
-    Limit,
     Market,
+    Limit,
 }
 
 #[derive(
@@ -118,7 +151,7 @@ pub enum TimeInForce {
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
 pub struct RequestCancel {
-    pub id: OrderId,
+    pub id: Option<OrderId>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
@@ -144,7 +177,7 @@ pub struct OpenRejectedReason(pub String);
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct CancelInFlight {
-    pub id: OrderId,
+    pub id: Option<OrderId>,
 }
 
 #[derive(

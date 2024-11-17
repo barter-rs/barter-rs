@@ -17,6 +17,15 @@ pub trait InstrumentStateManager<InstrumentKey> {
         &mut self,
         key: &InstrumentKey,
     ) -> &mut InstrumentState<Self::Market, Self::ExchangeKey, Self::AssetKey, InstrumentKey>;
+
+    fn instruments<'a>(
+        &'a self,
+        _filter: &'a InstrumentFilter<Self::ExchangeKey, Self::AssetKey, InstrumentKey>,
+    ) -> impl Iterator<
+        Item = &'a InstrumentState<Self::Market, Self::ExchangeKey, Self::AssetKey, InstrumentKey>,
+    > {
+        std::iter::empty()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]

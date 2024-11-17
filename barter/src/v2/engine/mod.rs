@@ -1,5 +1,6 @@
 use crate::v2::{
     engine::{
+        action::generate_algo_orders::GenerateAlgoOrders,
         audit::{Audit, AuditEvent, Auditor},
         execution_tx::ExecutionTxMap,
         state::{
@@ -10,13 +11,13 @@ use crate::v2::{
             EngineState,
         },
     },
-    execution::AccountEvent,
+    execution::{manager::AccountStreamEvent, AccountEvent},
     risk::RiskManager,
-    strategy::algo::AlgoStrategy,
+    strategy::{algo::AlgoStrategy, close_positions::ClosePositionsStrategy, Strategy},
     EngineEvent,
 };
 use audit::{request::ExecutionRequestAudit, shutdown::ShutdownAudit};
-use barter_data::event::MarketEvent;
+use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::channel::{ChannelTxDroppable, Tx};
 use chrono::{DateTime, Utc};
@@ -140,19 +141,20 @@ impl<ExecutionTxs, MarketState, Strategy, Risk, ExchangeKey, AssetKey, Instrumen
 where
     ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
     MarketState: MarketDataState<InstrumentKey>,
-    Strategy: AlgoStrategy<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
+    Strategy: AlgoStrategy<MarketState, ExchangeKey, AssetKey, InstrumentKey>
+        + ClosePositionsStrategy<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
     Strategy::State: for<'a> Processor<&'a AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>
         + for<'a> Processor<&'a MarketEvent<InstrumentKey, MarketState::EventKind>>,
     Risk: RiskManager<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
     Risk::State: for<'a> Processor<&'a AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>
         + for<'a> Processor<&'a MarketEvent<InstrumentKey, MarketState::EventKind>>,
-    ExchangeKey: Debug + Clone,
+    ExchangeKey: Debug + Clone + PartialEq,
     AssetKey: Debug,
-    InstrumentKey: Debug + Clone,
+    InstrumentKey: Debug + Clone + PartialEq,
     EngineState<MarketState, Strategy::State, Risk::State, ExchangeKey, AssetKey, InstrumentKey>:
         ConnectivityManager<ExchangeId>
             + AssetStateManager<AssetKey>
-            + InstrumentStateManager<InstrumentKey>,
+            + InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey, AssetKey = AssetKey>,
 {
     type Output = Audit<
         EngineState<
@@ -186,15 +188,15 @@ where
                 self.state.update_from_trading_state_update(trading_state);
             }
             EngineEvent::Account(account) => {
-                self.state.update_from_account(account);
+                self.update_from_account(account);
             }
             EngineEvent::Market(market) => {
-                self.state.update_from_market(market);
+                self.update_from_market(market);
             }
         };
 
         if let TradingState::Enabled = self.state.trading {
-            let output = self.trade();
+            let output = self.generate_algo_orders();
 
             if let Some(unrecoverable) = output.unrecoverable_errors() {
                 Audit::ShutdownWithOutput(ShutdownAudit::Error(event, unrecoverable), output)
@@ -204,6 +206,40 @@ where
         } else {
             Audit::Process(event)
         }
+    }
+}
+
+impl<MarketState, ExecutionTxs, StrategyT, Risk, ExchangeKey, AssetKey, InstrumentKey>
+    Engine<
+        EngineState<
+            MarketState,
+            StrategyT::State,
+            Risk::State,
+            ExchangeKey,
+            AssetKey,
+            InstrumentKey,
+        >,
+        ExecutionTxs,
+        StrategyT,
+        Risk,
+    >
+where
+    MarketState: MarketDataState<InstrumentKey>,
+    StrategyT: Strategy,
+    Risk: RiskManager<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
+{
+    pub fn update_from_account(
+        &mut self,
+        event: &AccountStreamEvent<ExchangeKey, AssetKey, InstrumentKey>,
+    ) {
+        todo!()
+    }
+
+    pub fn update_from_market(
+        &mut self,
+        event: &MarketStreamEvent<InstrumentKey, MarketState::EventKind>,
+    ) {
+        todo!()
     }
 }
 

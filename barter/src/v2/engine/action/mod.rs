@@ -1,18 +1,22 @@
 use crate::v2::{
     engine::{
         action::{
-            generate_algo_orders::GenerateAlgoOrdersOutput, send_requests::SendRequestsOutput,
+            cancel_orders::CancelOrders,
+            close_positions::{ClosePositions, ClosePositionsOutput},
+            generate_algo_orders::GenerateAlgoOrdersOutput,
+            send_requests::SendRequestsOutput,
         },
         command::Command,
         execution_tx::ExecutionTxMap,
         state::{
             instrument::manager::InstrumentStateManager,
-            order::in_flight_recorder::InFlightRequestRecorder,
+            order::in_flight_recorder::InFlightRequestRecorder, EngineState,
         },
         Engine,
     },
     order::{RequestCancel, RequestOpen},
-    strategy::close_positions::{ClosePositionsOutput, ClosePositionsStrategy},
+    risk::RiskManager,
+    strategy::close_positions::ClosePositionsStrategy,
 };
 use derive_more::From;
 use serde::{Deserialize, Serialize};
@@ -21,22 +25,35 @@ use std::fmt::Debug;
 pub mod cancel_orders;
 pub mod close_positions;
 pub mod generate_algo_orders;
-pub mod on_disconnect;
 pub mod send_requests;
 
-impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, Risk> {
-    pub fn action<MarketState, ExchangeKey, AssetKey, InstrumentKey>(
+impl<MarketState, Strategy, Risk, ExecutionTxs, ExchangeKey, AssetKey, InstrumentKey>
+    Engine<
+        EngineState<
+            MarketState,
+            Strategy::State,
+            Risk::State,
+            ExchangeKey,
+            AssetKey,
+            InstrumentKey,
+        >,
+        ExecutionTxs,
+        Strategy,
+        Risk,
+    >
+where
+    EngineState<MarketState, Strategy::State, Risk::State, ExchangeKey, AssetKey, InstrumentKey>:
+        InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey, AssetKey = AssetKey>,
+    Strategy: ClosePositionsStrategy<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
+    Risk: RiskManager<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
+    ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
+    ExchangeKey: Debug + Clone + PartialEq,
+    InstrumentKey: Debug + Clone + PartialEq,
+{
+    pub fn action(
         &mut self,
         command: &Command<ExchangeKey, AssetKey, InstrumentKey>,
-    ) -> ActionOutput<ExchangeKey, InstrumentKey>
-    where
-        State: InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey>
-            + InFlightRequestRecorder<ExchangeKey, InstrumentKey>,
-        ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
-        Strategy: ClosePositionsStrategy<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
-        ExchangeKey: Debug + Clone + PartialEq,
-        InstrumentKey: Debug + Clone + PartialEq,
-    {
+    ) -> ActionOutput<ExchangeKey, InstrumentKey> {
         match &command {
             Command::SendCancelRequests(requests) => {
                 let output = self.send_requests(requests.clone());
