@@ -23,6 +23,25 @@ impl<T> OneOrMany<T> {
         }
     }
 
+    pub fn extend(self, other: Self) -> Self {
+        use OneOrMany::*;
+        match (self, other) {
+            (One(left), One(right)) => Many(vec![left, right]),
+            (One(left), Many(mut right)) => {
+                right.push(left);
+                Many(right)
+            }
+            (Many(mut left), One(right)) => {
+                left.push(right);
+                Many(left)
+            }
+            (Many(mut left), Many(right)) => {
+                left.extend(right);
+                Many(left)
+            }
+        }
+    }
+
     pub fn contains(&self, item: &T) -> bool
     where
         T: PartialEq,
@@ -115,8 +134,11 @@ impl<T> From<Vec<T>> for OneOrMany<T> {
 // FromIterator implementation
 impl<T> FromIterator<T> for OneOrMany<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let vec: Vec<_> = iter.into_iter().collect();
-        vec.into()
+        let mut collection = iter.into_iter().collect::<Vec<_>>();
+        match collection.len() {
+            1 => Self::One(collection.swap_remove(0)),
+            _ => Self::Many(collection),
+        }
     }
 }
 

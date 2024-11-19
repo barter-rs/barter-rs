@@ -26,8 +26,8 @@ pub enum ConnectivityError {
     #[error("{0}")]
     Socket(String),
 
-    #[error("ExecutionRequest timed out: {0}")]
-    Timeout(String),
+    #[error("ExecutionRequest timed out")]
+    Timeout,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]

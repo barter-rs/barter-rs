@@ -1,70 +1,40 @@
 use crate::v2::{
     engine::{
-        action::send_requests::SendRequestsOutput,
+        action::send_requests::{SendCancelsAndOpensOutput, SendRequests},
         execution_tx::ExecutionTxMap,
         state::{
-            instrument::manager::{InstrumentFilter, InstrumentStateManager},
+            instrument::manager::InstrumentFilter,
             order::in_flight_recorder::InFlightRequestRecorder,
-            EngineState,
         },
         Engine,
     },
-    order::{RequestCancel, RequestOpen},
-    risk::RiskManager,
     strategy::close_positions::ClosePositionsStrategy,
 };
-use derive_more::Constructor;
-use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 pub trait ClosePositions<ExchangeKey, AssetKey, InstrumentKey> {
     fn close_positions(
         &mut self,
         filter: &InstrumentFilter<ExchangeKey, AssetKey, InstrumentKey>,
-    ) -> ClosePositionsOutput<ExchangeKey, InstrumentKey>;
+    ) -> SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey>;
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct ClosePositionsOutput<ExchangeKey, InstrumentKey> {
-    pub cancels: SendRequestsOutput<ExchangeKey, InstrumentKey, RequestCancel>,
-    pub opens: SendRequestsOutput<ExchangeKey, InstrumentKey, RequestOpen>,
-}
-
-impl<MarketState, Strategy, Risk, ExecutionTxs, ExchangeKey, AssetKey, InstrumentKey>
+impl<State, ExecutionTxs, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
     ClosePositions<ExchangeKey, AssetKey, InstrumentKey>
-    for Engine<
-        EngineState<
-            MarketState,
-            Strategy::State,
-            Risk::State,
-            ExchangeKey,
-            AssetKey,
-            InstrumentKey,
-        >,
-        ExecutionTxs,
-        Strategy,
-        Risk,
-    >
+    for Engine<State, ExecutionTxs, Strategy, Risk>
 where
-    EngineState<MarketState, Strategy::State, Risk::State, ExchangeKey, AssetKey, InstrumentKey>:
-        InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey>,
+    State: InFlightRequestRecorder<ExchangeKey, InstrumentKey>,
     ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
-    Strategy: ClosePositionsStrategy<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
-    Risk: RiskManager<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
+    Strategy: ClosePositionsStrategy<ExchangeKey, AssetKey, InstrumentKey, State = State>,
     ExchangeKey: Debug + Clone,
     InstrumentKey: Debug + Clone,
 {
     fn close_positions(
         &mut self,
         filter: &InstrumentFilter<ExchangeKey, AssetKey, InstrumentKey>,
-    ) -> ClosePositionsOutput<ExchangeKey, InstrumentKey> {
+    ) -> SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey> {
         // Generate orders
-        let (cancels, opens) = self.strategy.close_positions_requests(
-            &self.state.strategy,
-            &self.state.assets,
-            &self.state.instruments,
-            filter,
-        );
+        let (cancels, opens) = self.strategy.close_positions_requests(&self.state, filter);
 
         // Bypass risk checks...
 
@@ -76,6 +46,6 @@ where
         self.state.record_in_flight_cancels(&cancels.sent);
         self.state.record_in_flight_opens(&opens.sent);
 
-        ClosePositionsOutput::new(cancels, opens)
+        SendCancelsAndOpensOutput::new(cancels, opens)
     }
 }

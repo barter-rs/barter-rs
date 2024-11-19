@@ -49,7 +49,7 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
                     .values()
                     .filter(|state| instruments.contains(&state.position.instrument)),
             ),
-            InstrumentFilter::Underlying(_underlying) => {
+            InstrumentFilter::Underlyings(_underlying) => {
                 todo!()
             }
         }

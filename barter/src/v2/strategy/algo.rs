@@ -1,18 +1,10 @@
-use crate::v2::{
-    engine::state::{asset::AssetStates, instrument::InstrumentStates},
-    order::{Order, RequestCancel, RequestOpen},
-    strategy::Strategy,
-};
+use crate::v2::order::{Order, RequestCancel, RequestOpen};
 
-pub trait AlgoStrategy<MarketState, ExchangeKey, AssetKey, InstrumentKey>
-where
-    Self: Strategy,
-{
+pub trait AlgoStrategy<ExchangeKey, InstrumentKey> {
+    type State;
     fn generate_algo_orders(
         &self,
-        strategy_state: &Self::State,
-        asset_states: &AssetStates,
-        instrument_states: &InstrumentStates<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
+        state: &Self::State,
     ) -> (
         impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestCancel>>,
         impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestOpen>>,

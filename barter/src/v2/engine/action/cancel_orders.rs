@@ -1,6 +1,6 @@
 use crate::v2::{
     engine::{
-        action::send_requests::SendRequestsOutput,
+        action::send_requests::{SendRequests, SendRequestsOutput},
         execution_tx::ExecutionTxMap,
         state::{
             instrument::manager::{InstrumentFilter, InstrumentStateManager},
@@ -29,6 +29,7 @@ where
         + InFlightRequestRecorder<ExchangeKey, InstrumentKey>,
     ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
     ExchangeKey: Debug + Clone + PartialEq,
+    AssetKey: PartialEq,
     InstrumentKey: Debug + Clone + PartialEq,
 {
     type Output = SendRequestsOutput<ExchangeKey, InstrumentKey, RequestCancel>;
@@ -39,7 +40,7 @@ where
     ) -> Self::Output {
         let requests = self
             .state
-            .instruments(filter)
+            .instruments_filtered(filter)
             .flat_map(|state| state.orders.orders().filter_map(Order::as_request_cancel));
 
         // Bypass risk checks...

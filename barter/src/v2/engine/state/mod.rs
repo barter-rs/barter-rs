@@ -4,11 +4,10 @@ use crate::v2::{
             asset::{manager::AssetStateManager, AssetState, AssetStates},
             connectivity::{manager::ConnectivityManager, ConnectivityState, ConnectivityStates},
             instrument::{
-                manager::InstrumentStateManager, market_data::MarketDataState, InstrumentState,
-                InstrumentStates,
+                manager::InstrumentStateManager, market_data::MarketDataState, InstrumentStates,
             },
             order::{in_flight_recorder::InFlightRequestRecorder, manager::OrderManager},
-            trading::TradingState,
+            trading::{manager::TradingStateManager, TradingState},
         },
         Processor,
     },
@@ -20,11 +19,10 @@ use barter_data::event::MarketEvent;
 use barter_instrument::{
     asset::{name::AssetNameInternal, AssetIndex, ExchangeAsset},
     exchange::{ExchangeId, ExchangeIndex},
-    instrument::{name::InstrumentNameInternal, InstrumentIndex},
+    instrument::InstrumentIndex,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use tracing::info;
 
 pub mod asset;
 pub mod connectivity;
@@ -36,29 +34,24 @@ pub mod trading;
 //  - Maybe introduce State machine for dealing with connectivity VecMap issue...
 //    '--> could only check if a new Account/Market event updates to Connected if we are in
 //         State=Unhealthy, that way we are only doing expensive lookup in that case
-//  - Need to make some Key decisions about "what is a manager", and "what is an Updater"
-
-// Todo: Consider splitting AccountEvents into AccountInstrumentEvents, AccountAssetEvent, Other
-//       '--> ideally I can flip Update<AccountEvent> upside down to not duplicate logic
-//       '--> issue becomes more impl Updater for user Strategy & Risk :(
-
-pub trait EngineStateManager<ExchangeKey, AssetKey, InstrumentKey>
-where
-    Self: ConnectivityManager<ExchangeKey>
-        + AssetStateManager<AssetKey>
-        + InstrumentStateManager<InstrumentKey>
-        + InFlightRequestRecorder<ExchangeKey, InstrumentKey>,
-{
-    type Market: for<'a> Processor<&'a MarketEvent<InstrumentKey, Self::MarketEventKind>>;
-    type MarketEventKind;
-    type Risk: for<'a> Processor<&'a AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>
-        + for<'a> Processor<&'a MarketEvent<InstrumentKey, Self::MarketEventKind>>;
-    type Strategy: for<'a> Processor<&'a AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>
-        + for<'a> Processor<&'a MarketEvent<InstrumentKey, Self::MarketEventKind>>;
-}
 
 pub type IndexedEngineState<Market, Strategy, Risk> =
     EngineState<Market, Strategy, Risk, ExchangeIndex, AssetIndex, InstrumentIndex>;
+
+// Todo: Move other Manager impls to where they are defined
+pub trait StateManager<ExchangeKey, AssetKey, InstrumentKey>
+where
+    Self: TradingStateManager
+        + ConnectivityManager<ExchangeId>
+        + AssetStateManager<AssetKey>
+        + InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey, AssetKey = AssetKey>,
+{
+    type MarketState;
+    type MarketEventKind;
+
+    fn update_from_account(&mut self, event: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>);
+    fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey, Self::MarketEventKind>);
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct EngineState<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey> {
@@ -70,60 +63,32 @@ pub struct EngineState<Market, Strategy, Risk, ExchangeKey, AssetKey, Instrument
     pub risk: Risk,
 }
 
-pub struct TradingStateUpdateAudit {
-    pub prev: TradingState,
-    pub current: TradingState,
-}
-
 impl<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
-    EngineState<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
+    StateManager<ExchangeKey, AssetKey, InstrumentKey>
+    for EngineState<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
+where
+    Self: TradingStateManager
+        + ConnectivityManager<ExchangeId>
+        + AssetStateManager<AssetKey>
+        + InstrumentStateManager<
+            InstrumentKey,
+            ExchangeKey = ExchangeKey,
+            AssetKey = AssetKey,
+            Market = Market,
+        >,
+    Market: MarketDataState<InstrumentKey>,
+    Strategy: for<'a> Processor<&'a AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>
+        + for<'a> Processor<&'a MarketEvent<InstrumentKey, Market::EventKind>>,
+    Risk: for<'a> Processor<&'a AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>
+        + for<'a> Processor<&'a MarketEvent<InstrumentKey, Market::EventKind>>,
+    ExchangeKey: Debug + Clone,
+    AssetKey: Debug,
+    InstrumentKey: Debug + Clone,
 {
-    pub fn update_from_trading_state_update(
-        &mut self,
-        event: &TradingState,
-    ) -> TradingStateUpdateAudit {
-        let prev = self.trading;
-        let next = match (self.trading, event) {
-            (TradingState::Enabled, TradingState::Disabled) => {
-                info!("EngineState setting TradingState::Disabled");
-                TradingState::Disabled
-            }
-            (TradingState::Disabled, TradingState::Enabled) => {
-                info!("EngineState setting TradingState::Enabled");
-                TradingState::Enabled
-            }
-            (TradingState::Enabled, TradingState::Enabled) => {
-                info!("EngineState set TradingState::Enabled, although it was already enabled");
-                TradingState::Enabled
-            }
-            (TradingState::Disabled, TradingState::Disabled) => {
-                info!("EngineState set TradingState::Disabled, although it was already disabled");
-                TradingState::Disabled
-            }
-        };
+    type MarketState = Market;
+    type MarketEventKind = Market::EventKind;
 
-        self.trading = next;
-
-        TradingStateUpdateAudit {
-            prev,
-            current: next,
-        }
-    }
-
-    pub fn update_from_account(
-        &mut self,
-        event: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>,
-    ) where
-        Self: ConnectivityManager<ExchangeId>
-            + AssetStateManager<AssetKey>
-            + InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey, AssetKey = AssetKey>,
-        Market: Debug,
-        Strategy: for<'a> Processor<&'a AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>,
-        Risk: for<'a> Processor<&'a AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>,
-        ExchangeKey: Debug + Clone,
-        AssetKey: Debug,
-        InstrumentKey: Debug + Clone,
-    {
+    fn update_from_account(&mut self, event: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) {
         // Todo: set exchange ConnectivityState to healthy if unhealthy
 
         match &event.kind {
@@ -168,17 +133,10 @@ impl<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
         self.risk.process(event);
     }
 
-    pub fn update_from_market<MarketEventKind>(
-        &mut self,
-        event: &MarketEvent<InstrumentKey, MarketEventKind>,
-    ) where
-        Self: ConnectivityManager<ExchangeId>
-            + InstrumentStateManager<InstrumentKey, Market = Market>,
-        Market: for<'a> Processor<&'a MarketEvent<InstrumentKey, MarketEventKind>>,
-        Strategy: for<'a> Processor<&'a MarketEvent<InstrumentKey, MarketEventKind>>,
-        Risk: for<'a> Processor<&'a MarketEvent<InstrumentKey, MarketEventKind>>,
-    {
+    fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey, Self::MarketEventKind>) {
         // Todo: set exchange ConnectivityState to healthy if unhealthy
+
+        // Todo: uncomment once it works
         self.instrument_mut(&event.instrument).market.process(event);
         self.strategy.process(event);
         self.risk.process(event);
@@ -229,8 +187,8 @@ impl<Market, Strategy, Risk, AssetKey, InstrumentKey> ConnectivityManager<Exchan
     }
 }
 
-impl<Market, Strategy, Risk, AssetKey, InstrumentKey> ConnectivityManager<ExchangeId>
-    for EngineState<Market, Strategy, Risk, ExchangeId, AssetKey, InstrumentKey>
+impl<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey> ConnectivityManager<ExchangeId>
+    for EngineState<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
 {
     fn connectivity(&self, key: &ExchangeId) -> &ConnectivityState {
         self.connectivity
@@ -283,63 +241,5 @@ impl<Market, Strategy, Risk, ExchangeKey, InstrumentKey>
             .0
             .get_mut(key)
             .unwrap_or_else(|| panic!("AssetStates does not contain: {key:?}"))
-    }
-}
-
-impl<Market, Strategy, Risk, ExchangeKey, AssetKey> InstrumentStateManager<InstrumentIndex>
-    for EngineState<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentIndex>
-{
-    type ExchangeKey = ExchangeKey;
-    type AssetKey = AssetKey;
-    type Market = Market;
-
-    fn instrument(
-        &self,
-        key: &InstrumentIndex,
-    ) -> &InstrumentState<Market, ExchangeKey, AssetKey, InstrumentIndex> {
-        self.instruments
-            .0
-            .get_index(key.index())
-            .map(|(_key, state)| state)
-            .unwrap_or_else(|| panic!("InstrumentStates does not contain: {key}"))
-    }
-
-    fn instrument_mut(
-        &mut self,
-        key: &InstrumentIndex,
-    ) -> &mut InstrumentState<Market, ExchangeKey, AssetKey, InstrumentIndex> {
-        self.instruments
-            .0
-            .get_index_mut(key.index())
-            .map(|(_key, state)| state)
-            .unwrap_or_else(|| panic!("InstrumentStates does not contain: {key}"))
-    }
-}
-
-impl<Market, Strategy, Risk, ExchangeKey, AssetKey> InstrumentStateManager<InstrumentNameInternal>
-    for EngineState<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentNameInternal>
-{
-    type ExchangeKey = ExchangeKey;
-    type AssetKey = AssetKey;
-    type Market = Market;
-
-    fn instrument(
-        &self,
-        key: &InstrumentNameInternal,
-    ) -> &InstrumentState<Market, ExchangeKey, AssetKey, InstrumentNameInternal> {
-        self.instruments
-            .0
-            .get(key)
-            .unwrap_or_else(|| panic!("InstrumentStates does not contain: {key}"))
-    }
-
-    fn instrument_mut(
-        &mut self,
-        key: &InstrumentNameInternal,
-    ) -> &mut InstrumentState<Market, ExchangeKey, AssetKey, InstrumentNameInternal> {
-        self.instruments
-            .0
-            .get_mut(key)
-            .unwrap_or_else(|| panic!("InstrumentStates does not contain: {key}"))
     }
 }
