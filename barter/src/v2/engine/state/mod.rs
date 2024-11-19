@@ -3,7 +3,10 @@ use crate::v2::{
         state::{
             asset::{manager::AssetStateManager, AssetState, AssetStates},
             connectivity::{manager::ConnectivityManager, ConnectivityState, ConnectivityStates},
-            instrument::{manager::InstrumentStateManager, InstrumentState, InstrumentStates},
+            instrument::{
+                manager::InstrumentStateManager, market_data::MarketDataState, InstrumentState,
+                InstrumentStates,
+            },
             order::{in_flight_recorder::InFlightRequestRecorder, manager::OrderManager},
             trading::TradingState,
         },
@@ -38,6 +41,21 @@ pub mod trading;
 // Todo: Consider splitting AccountEvents into AccountInstrumentEvents, AccountAssetEvent, Other
 //       '--> ideally I can flip Update<AccountEvent> upside down to not duplicate logic
 //       '--> issue becomes more impl Updater for user Strategy & Risk :(
+
+pub trait EngineStateManager<ExchangeKey, AssetKey, InstrumentKey>
+where
+    Self: ConnectivityManager<ExchangeKey>
+        + AssetStateManager<AssetKey>
+        + InstrumentStateManager<InstrumentKey>
+        + InFlightRequestRecorder<ExchangeKey, InstrumentKey>,
+{
+    type Market: for<'a> Processor<&'a MarketEvent<InstrumentKey, Self::MarketEventKind>>;
+    type MarketEventKind;
+    type Risk: for<'a> Processor<&'a AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>
+        + for<'a> Processor<&'a MarketEvent<InstrumentKey, Self::MarketEventKind>>;
+    type Strategy: for<'a> Processor<&'a AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>
+        + for<'a> Processor<&'a MarketEvent<InstrumentKey, Self::MarketEventKind>>;
+}
 
 pub type IndexedEngineState<Market, Strategy, Risk> =
     EngineState<Market, Strategy, Risk, ExchangeIndex, AssetIndex, InstrumentIndex>;

@@ -1,27 +1,52 @@
 use crate::v2::{
     engine::{
-        action::generate_algo_orders::GenerateAlgoOrders,
+        action::{
+            generate_algo_orders::GenerateAlgoOrders, send_requests::SendRequestsOutput,
+            ActionOutput,
+        },
         audit::{Audit, AuditEvent, Auditor},
+        command::Command,
+        error::{EngineError, RecoverableEngineError, UnrecoverableEngineError},
         execution_tx::ExecutionTxMap,
         state::{
-            asset::manager::AssetStateManager,
-            connectivity::manager::ConnectivityManager,
-            instrument::{manager::InstrumentStateManager, market_data::MarketDataState},
+            asset::{manager::AssetStateManager, AssetState},
+            connectivity::{manager::ConnectivityManager, Connection, ConnectivityState},
+            instrument::{
+                manager::{InstrumentFilter, InstrumentStateManager},
+                market_data::MarketDataState,
+                InstrumentState,
+            },
             trading::TradingState,
-            EngineState,
+            EngineState, EngineStateManager, IndexedEngineState,
         },
     },
-    execution::{manager::AccountStreamEvent, AccountEvent},
-    risk::RiskManager,
-    strategy::{algo::AlgoStrategy, close_positions::ClosePositionsStrategy, Strategy},
+    execution::{manager::AccountStreamEvent, AccountEvent, ExecutionRequest},
+    order::Order,
+    risk::{RiskManager, RiskManagerNew},
+    strategy::{
+        algo::AlgoStrategy,
+        close_positions::{ClosePositionsStrategy, ClosePositionsStrategyNew},
+        on_disconnect::OnDisconnectStrategy,
+        Strategy,
+    },
     EngineEvent,
 };
 use audit::{request::ExecutionRequestAudit, shutdown::ShutdownAudit};
 use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
-use barter_instrument::exchange::ExchangeId;
-use barter_integration::channel::{ChannelTxDroppable, Tx};
+use barter_instrument::{
+    asset::AssetIndex,
+    exchange::{ExchangeId, ExchangeIndex},
+    instrument::InstrumentIndex,
+};
+use barter_integration::{
+    channel::{ChannelTxDroppable, Tx},
+    collection::none_one_or_many::NoneOneOrMany,
+    Unrecoverable,
+};
 use chrono::{DateTime, Utc};
+use itertools::Itertools;
 use std::fmt::Debug;
+use tracing::{error, warn};
 
 pub mod action;
 pub mod audit;
@@ -65,60 +90,230 @@ where
     shutdown_audit
 }
 
-pub struct Engine<State, ExecutionTxs, StrategyT, Risk> {
+pub type IndexedEngine<
+    MarketState,
+    ExecutionTxs,
+    StrategyT: Strategy,
+    Risk: RiskManager<MarketState, ExchangeIndex, AssetIndex, InstrumentIndex>,
+> = Engine<IndexedEngineState<MarketState, StrategyT::State, Risk>, ExecutionTxs, StrategyT, Risk>;
+
+// impl<MarketState, ExecutionTxs, StrategyT, Risk> ConnectivityManager<ExchangeIndex> for IndexedEngine<
+//     MarketState,
+//     ExecutionTxs,
+//     StrategyT,
+//     Risk
+// >
+// where
+//     StrategyT: Strategy,
+//     Risk: RiskManager<MarketState, ExchangeIndex, AssetIndex, InstrumentIndex>
+// {
+//     fn connectivity(&self, key: &ExchangeIndex) -> &ConnectivityState {
+//         self.state
+//             .connectivity
+//             .0
+//             .get_index(key.index())
+//             .map(|(_, state)| state)
+//             .unwrap()
+//     }
+//
+//     fn connectivity_mut(&mut self, key: &ExchangeIndex) -> &mut ConnectivityState {
+//
+//     }
+// }
+
+pub struct Engine<State, ExecutionTxs, Strategy, Risk> {
     pub sequence: u64,
     pub clock: fn() -> DateTime<Utc>,
     pub state: State,
     pub execution_txs: ExecutionTxs,
-    pub strategy: StrategyT,
+    pub strategy: Strategy,
     pub risk: Risk,
 }
 
-impl<State, ExecutionTxs, StrategyT, Risk> Engine<State, ExecutionTxs, StrategyT, Risk> {
-    pub fn new(
-        clock: fn() -> DateTime<Utc>,
-        state: State,
-        execution_txs: ExecutionTxs,
-        strategy: StrategyT,
-        risk: Risk,
-    ) -> Self {
-        Self {
-            sequence: 0,
-            clock,
-            state,
-            execution_txs,
-            strategy,
-            risk,
-        }
-    }
+// pub trait StateManagerNew<ExchangeKey, AssetKey, InstrumentKey> {
+//     type MarketState;
+//
+//     fn connectivity(&self, key: &ExchangeKey) -> &ConnectivityState;
+//     fn connectivity_mut(&mut self, key: &ExchangeKey) -> &mut ConnectivityState;
+//     fn asset(&self, key: &AssetKey) -> &AssetState;
+//     fn asset_mut(&mut self, key: &AssetKey) -> &mut AssetState;
+//     fn instrument(
+//         &self,
+//         key: &InstrumentKey,
+//     ) -> &InstrumentState<Self::MarketState, ExchangeKey, AssetKey, InstrumentKey>;
+//
+//     fn instrument_mut(
+//         &mut self,
+//         key: &InstrumentKey,
+//     ) -> &mut InstrumentState<Self::MarketState, ExchangeKey, AssetKey, InstrumentKey>;
+//
+//     fn instruments<'a>(
+//         &'a self,
+//         _filter: &'a InstrumentFilter<ExchangeKey, AssetKey, InstrumentKey>,
+//     ) -> impl Iterator<
+//         Item = &'a InstrumentState<Self::MarketState, ExchangeKey, AssetKey, InstrumentKey>,
+//     >
+//     where
+//         Self::MarketState: 'a,
+//         ExchangeKey: 'a,
+//         AssetKey: 'a,
+//         InstrumentKey: 'a;
+// }
 
-    pub fn sequence_fetch_add(&mut self) -> u64 {
-        let sequence = self.sequence;
-        self.sequence += 1;
-        sequence
+impl<State, ExecutionTxs, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
+    Processor<EngineEvent<State::MarketEventKind, ExchangeKey, AssetKey, InstrumentKey>>
+    for Engine<State, ExecutionTxs, Strategy, Risk>
+where
+    State: EngineStateManager<ExchangeKey, AssetKey, InstrumentKey>,
+    ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
+    // Strategy: AlgoStrategy<MarketState, ExchangeKey, AssetKey, InstrumentKey>
+{
+    type Output = Audit<
+        State,
+        EngineEvent<State::MarketEventKind, ExchangeKey, AssetKey, InstrumentKey>,
+        ExecutionRequestAudit<ExchangeKey, InstrumentKey>,
+    >;
+
+    fn process(
+        &mut self,
+        event: EngineEvent<State::MarketEventKind, ExchangeKey, AssetKey, InstrumentKey>,
+    ) -> Self::Output {
+        match &event {
+            EngineEvent::Shutdown => return Audit::Shutdown(ShutdownAudit::Commanded(event)),
+            EngineEvent::Command(command) => {
+                let output = self.action(command);
+
+                return if let Some(unrecoverable) = output.unrecoverable_errors() {
+                    Audit::ShutdownWithOutput(ShutdownAudit::Error(event, unrecoverable), output)
+                } else {
+                    Audit::ProcessWithOutput(event, output)
+                };
+            }
+            EngineEvent::TradingStateUpdate(trading_state) => {
+                self.state.update_from_trading_state_update(trading_state);
+            }
+            EngineEvent::Account(account) => {
+                self.update_from_account(account);
+            }
+            EngineEvent::Market(market) => {
+                self.update_from_market(market);
+            }
+        };
+
+        if let TradingState::Enabled = self.state.trading {
+            let output = self.generate_algo_orders();
+
+            if let Some(unrecoverable) = output.unrecoverable_errors() {
+                Audit::ShutdownWithOutput(ShutdownAudit::Error(event, unrecoverable), output)
+            } else {
+                Audit::ProcessWithOutput(event, output)
+            }
+        } else {
+            Audit::Process(event)
+        }
     }
 }
 
-impl<AuditKind, State, ExecutionTx, StrategyT, Risk> Auditor<AuditKind>
-    for Engine<State, ExecutionTx, StrategyT, Risk>
-where
-    AuditKind: From<State>,
-    State: Clone,
-{
-    type Snapshot = State;
-
-    fn snapshot(&self) -> Self::Snapshot {
-        self.state.clone()
+impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, Risk> {
+    pub fn action<ExchangeKey, AssetKey, InstrumentKey>(
+        &mut self,
+        command: &Command<ExchangeKey, AssetKey, InstrumentKey>,
+    ) -> ActionOutput<ExchangeKey, InstrumentKey>
+    where
+        State: EngineStateManager<ExchangeKey, AssetKey, InstrumentKey>,
+        ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
+        Strategy: ClosePositionsStrategyNew<ExchangeKey, AssetKey, InstrumentKey>,
+        Risk: RiskManagerNew<ExchangeKey, AssetKey, InstrumentKey>,
+        ExchangeKey: Debug + Clone,
+        InstrumentKey: Debug + Clone,
+    {
+        match &command {
+            Command::SendCancelRequests(requests) => {
+                let output = self.send_requests(requests.clone());
+                self.state.record_in_flight_cancels(&output.sent);
+                ActionOutput::CancelOrders(output)
+            }
+            Command::SendOpenRequests(requests) => {
+                let output = self.send_requests(requests.clone());
+                self.state.record_in_flight_opens(&output.sent);
+                ActionOutput::OpenOrders(output)
+            }
+            Command::ClosePositions(filter) => {
+                ActionOutput::ClosePositions(self.close_positions(filter))
+            }
+            Command::CancelOrders(filter) => ActionOutput::CancelOrders(self.cancel_orders(filter)),
+        }
     }
 
-    fn build_audit<Kind>(&mut self, kind: Kind) -> AuditEvent<AuditKind>
+    pub fn send_requests<ExchangeKey, InstrumentKey, Kind>(
+        &self,
+        requests: impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, Kind>>,
+    ) -> SendRequestsOutput<ExchangeKey, InstrumentKey, Kind>
     where
-        AuditKind: From<Kind>,
+        ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
+        ExchangeKey: Debug + Clone,
+        InstrumentKey: Debug + Clone,
+        Kind: Debug + Clone,
+        ExecutionRequest<ExchangeKey, InstrumentKey>: From<Order<ExchangeKey, InstrumentKey, Kind>>,
     {
-        AuditEvent {
-            id: self.sequence_fetch_add(),
-            time: (self.clock)(),
-            kind: AuditKind::from(kind),
+        // Send order requests
+        let (sent, errors): (Vec<_>, Vec<_>) = requests
+            .into_iter()
+            .map(|request| {
+                self.send_request(&request)
+                    .map_err(|error| (request.clone(), error))
+                    .map(|_| request)
+            })
+            .partition_result();
+
+        SendRequestsOutput::new(NoneOneOrMany::from(sent), NoneOneOrMany::from(errors))
+    }
+
+    pub fn send_request<ExchangeKey, InstrumentKey, Kind>(
+        &self,
+        request: &Order<ExchangeKey, InstrumentKey, Kind>,
+    ) -> Result<(), EngineError>
+    where
+        ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
+        ExchangeKey: Debug + Clone,
+        InstrumentKey: Debug + Clone,
+        Kind: Debug + Clone,
+        ExecutionRequest<ExchangeKey, InstrumentKey>: From<Order<ExchangeKey, InstrumentKey, Kind>>,
+    {
+        match self
+            .execution_txs
+            .find(&request.exchange)?
+            .send(ExecutionRequest::from(request.clone()))
+        {
+            Ok(()) => Ok(()),
+            Err(error) if error.is_unrecoverable() => {
+                error!(
+                    exchange = ?request.exchange,
+                    ?request,
+                    ?error,
+                    "failed to send ExecutionRequest due to terminated channel"
+                );
+                Err(EngineError::Unrecoverable(
+                    UnrecoverableEngineError::ExecutionChannelTerminated(format!(
+                        "{:?} execution channel terminated: {:?}",
+                        request.exchange, error
+                    )),
+                ))
+            }
+            Err(error) => {
+                error!(
+                    exchange = ?request.exchange,
+                    ?request,
+                    ?error,
+                    "failed to send ExecutionRequest due to unhealthy channel"
+                );
+                Err(EngineError::Recoverable(
+                    RecoverableEngineError::ExecutionChannelUnhealthy(format!(
+                        "{:?} execution channel unhealthy: {:?}",
+                        request.exchange, error
+                    )),
+                ))
+            }
         }
     }
 }
@@ -209,6 +404,11 @@ where
     }
 }
 
+impl<MarketState, ExecutionTxs, Strategy, Risk>
+    Engine<IndexedEngineState<MarketState, Strategy, Risk>, ExecutionTxs, Strategy, Risk>
+{
+}
+
 impl<MarketState, ExecutionTxs, StrategyT, Risk, ExchangeKey, AssetKey, InstrumentKey>
     Engine<
         EngineState<
@@ -225,21 +425,79 @@ impl<MarketState, ExecutionTxs, StrategyT, Risk, ExchangeKey, AssetKey, Instrume
     >
 where
     MarketState: MarketDataState<InstrumentKey>,
-    StrategyT: Strategy,
+    StrategyT: OnDisconnectStrategy,
     Risk: RiskManager<MarketState, ExchangeKey, AssetKey, InstrumentKey>,
+    EngineState<MarketState, StrategyT::State, Risk::State, ExchangeKey, AssetKey, InstrumentKey>:,
 {
     pub fn update_from_account(
         &mut self,
         event: &AccountStreamEvent<ExchangeKey, AssetKey, InstrumentKey>,
     ) {
-        todo!()
+        match event {
+            AccountStreamEvent::Reconnecting(exchange) => {
+                warn!(%exchange, "EngineState received AccountStream disconnected event");
+                self.state.connectivity_mut(exchange).account = Connection::Reconnecting;
+                let x = Strategy::on_disconnect(self, *exchange);
+            }
+            AccountStreamEvent::Item(event) => {
+                let x = self.state.process(event);
+            }
+        }
     }
 
     pub fn update_from_market(
         &mut self,
         event: &MarketStreamEvent<InstrumentKey, MarketState::EventKind>,
     ) {
-        todo!()
+    }
+}
+
+impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, Risk> {
+    pub fn new(
+        clock: fn() -> DateTime<Utc>,
+        state: State,
+        execution_txs: ExecutionTxs,
+        strategy: Strategy,
+        risk: Risk,
+    ) -> Self {
+        Self {
+            sequence: 0,
+            clock,
+            state,
+            execution_txs,
+            strategy,
+            risk,
+        }
+    }
+
+    pub fn sequence_fetch_add(&mut self) -> u64 {
+        let sequence = self.sequence;
+        self.sequence += 1;
+        sequence
+    }
+}
+
+impl<AuditKind, State, ExecutionTx, StrategyT, Risk> Auditor<AuditKind>
+    for Engine<State, ExecutionTx, StrategyT, Risk>
+where
+    AuditKind: From<State>,
+    State: Clone,
+{
+    type Snapshot = State;
+
+    fn snapshot(&self) -> Self::Snapshot {
+        self.state.clone()
+    }
+
+    fn build_audit<Kind>(&mut self, kind: Kind) -> AuditEvent<AuditKind>
+    where
+        AuditKind: From<Kind>,
+    {
+        AuditEvent {
+            id: self.sequence_fetch_add(),
+            time: (self.clock)(),
+            kind: AuditKind::from(kind),
+        }
     }
 }
 

@@ -29,6 +29,22 @@ pub trait RiskManager<MarketState, ExchangeKey, AssetKey, InstrumentKey> {
     );
 }
 
+pub trait RiskManagerNew<ExchangeKey, AssetKey, InstrumentKey> {
+    type State;
+
+    fn check(
+        &self,
+        state: &Self::State,
+        cancels: impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestCancel>>,
+        opens: impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestOpen>>,
+    ) -> (
+        impl IntoIterator<Item = RiskApproved<Order<ExchangeKey, InstrumentKey, RequestCancel>>>,
+        impl IntoIterator<Item = RiskApproved<Order<ExchangeKey, InstrumentKey, RequestOpen>>>,
+        impl IntoIterator<Item = RiskRefused<Order<ExchangeKey, InstrumentKey, RequestCancel>>>,
+        impl IntoIterator<Item = RiskRefused<Order<ExchangeKey, InstrumentKey, RequestOpen>>>,
+    );
+}
+
 #[derive(
     Debug,
     Clone,
