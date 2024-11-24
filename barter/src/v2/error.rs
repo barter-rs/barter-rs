@@ -1,4 +1,4 @@
-use crate::v2::execution::error::IndexedExecutionError;
+use crate::v2::execution::error::ExecutionError;
 use barter_data::error::DataError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -21,7 +21,7 @@ pub enum BarterError {
     MarketData(#[from] DataError),
 
     #[error("execution: {0}")]
-    Execution(#[from] IndexedExecutionError),
+    Execution(#[from] ExecutionError),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]

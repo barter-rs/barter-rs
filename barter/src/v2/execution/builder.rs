@@ -6,8 +6,11 @@ use crate::v2::{
     engine::execution_tx::MultiExchangeTxMap,
     error::BarterError,
     execution::{
-        error::IndexedExecutionError,
-        manager::{client::ExecutionClient, AccountStreamEvent, ExecutionManager},
+        error::ExecutionError,
+        manager::{
+            client::{ExecutionClient, MockExecution, MockExecutionConfig},
+            AccountEventIndexer, AccountStreamEvent, ExecutionManager,
+        },
         ExecutionRequest,
     },
     instrument::IndexedInstruments,
@@ -20,13 +23,12 @@ use barter_instrument::{
     exchange::{ExchangeId, ExchangeIndex},
     instrument::InstrumentIndex,
 };
-use barter_integration::channel::{mpsc_unbounded, Channel, Tx, UnboundedTx};
+use barter_integration::channel::{mpsc_unbounded, Channel, UnboundedTx};
 use fnv::FnvHashMap;
 use futures::Stream;
-use std::{future::Future, pin::Pin};
+use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
-pub type ExecutionInitFutures =
-    Vec<Pin<Box<dyn Future<Output = Result<(), IndexedExecutionError>>>>>;
+pub type ExecutionInitFutures = Vec<Pin<Box<dyn Future<Output = Result<(), ExecutionError>>>>>;
 
 pub struct ExecutionBuilder<'a> {
     merged_channel: Channel<AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>>,
@@ -51,29 +53,49 @@ impl<'a> ExecutionBuilder<'a> {
         }
     }
 
-    #[allow(clippy::should_implement_trait)]
-    pub fn add<Client>(
-        mut self,
+    pub fn add_mock(self, config: MockExecutionConfig) -> Result<Self, BarterError> {
+        const DUMMY_EXECUTION_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
+
+        self.add_execution::<MockExecution>(
+            config.mocked_exchange,
+            config,
+            DUMMY_EXECUTION_REQUEST_TIMEOUT,
+        )
+    }
+
+    pub fn add_live<Client>(
+        self,
         config: Client::Config,
-        request_timeout: std::time::Duration,
+        request_timeout: Duration,
     ) -> Result<Self, BarterError>
     where
         Client: ExecutionClient + Send + Sync + 'static,
         Client::AccountStream: Send,
     {
-        let exchange = Client::EXCHANGE;
+        self.add_execution::<Client>(Client::EXCHANGE, config, request_timeout)
+    }
 
-        let execution_map = self.instruments.execution_instrument_map(exchange)?;
+    fn add_execution<Client>(
+        mut self,
+        exchange: ExchangeId,
+        config: Client::Config,
+        request_timeout: Duration,
+    ) -> Result<Self, BarterError>
+    where
+        Client: ExecutionClient + Send + Sync + 'static,
+        Client::AccountStream: Send,
+    {
+        let instrument_map = self.instruments.execution_instrument_map(exchange)?;
 
         let (execution_tx, execution_rx) = mpsc_unbounded();
 
         if self
             .channels
-            .insert(Client::EXCHANGE, (execution_map.exchange, execution_tx))
+            .insert(exchange, (instrument_map.exchange.key, execution_tx))
             .is_some()
         {
             return Err(BarterError::ExecutionBuilder(format!(
-               "ExecutionBuilder does not support multiple ExecutionManagers. Duplicate: {exchange}"
+                "ExecutionBuilder does not support multiple mocked ExecutionManagers. Duplicate: {exchange}"
             )));
         }
 
@@ -81,18 +103,14 @@ impl<'a> ExecutionBuilder<'a> {
 
         self.futures.push(Box::pin(async move {
             // Initialise ExecutionManager
-            let (account_snapshot, manager, account_stream) = ExecutionManager::init(
+            let (manager, account_stream) = ExecutionManager::init(
                 execution_rx.into_stream(),
                 request_timeout,
-                Client::new(config),
-                execution_map,
+                Arc::new(Client::new(config)),
+                AccountEventIndexer::new(Arc::new(instrument_map)),
                 STREAM_RECONNECTION_POLICY,
             )
             .await?;
-
-            merged_tx
-                .send(account_snapshot)
-                .expect("AccountStreamEvent rx dropped before ExecutionBuilder::init");
 
             tokio::spawn(manager.run());
             tokio::spawn(account_stream.forward_to(merged_tx));

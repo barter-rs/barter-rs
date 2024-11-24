@@ -1,14 +1,21 @@
 use crate::v2::{
+    balance::AssetBalance,
+    error::{IndexError, KeyError},
     execution::{
         error::{
-            ConnectivityError, ExchangeApiError, ExchangeExecutionError, IndexedApiError,
-            IndexedExecutionError,
+            ConnectivityError, ExecutionError, IndexedApiError, IndexedClientError,
+            UnindexedApiError, UnindexedClientError,
         },
         manager::client::ExecutionClient,
         map::ExecutionInstrumentMap,
-        AccountEvent, AccountEventKind, ExecutionRequest,
+        AccountEvent, AccountEventKind, ExecutionRequest, IndexedAccountEvent,
+        IndexedAccountSnapshot, InstrumentAccountSnapshot, UnindexedAccountEvent,
+        UnindexedAccountSnapshot,
     },
-    order::{Cancelled, Open, Order, RequestCancel, RequestOpen},
+    order::{Cancelled, ExchangeOrderState, Open, Order, RequestCancel, RequestOpen},
+    position::Position,
+    trade::{AssetFees, Trade},
+    Snapshot,
 };
 use barter_data::streams::{
     consumer::StreamKey,
@@ -16,7 +23,7 @@ use barter_data::streams::{
     reconnect::stream::{init_reconnecting_stream, ReconnectingStream, ReconnectionBackoffPolicy},
 };
 use barter_instrument::{
-    asset::AssetIndex,
+    asset::{name::AssetNameExchange, AssetIndex},
     exchange::{ExchangeId, ExchangeIndex},
     instrument::{name::InstrumentNameExchange, InstrumentIndex},
 };
@@ -25,31 +32,25 @@ use barter_integration::{
     stream::merge::merge,
 };
 use derive_more::Constructor;
-use futures::{
-    future::{try_join, Either},
-    stream::FuturesUnordered,
-    Stream, StreamExt,
-};
+use futures::{future::Either, stream::FuturesUnordered, Stream, StreamExt};
+use pin_project::pin_project;
 use std::{
     future::Future,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
 };
-use tracing::info;
+use tracing::{error, info, warn};
 
 pub mod client;
 
 pub type AccountStreamEvent<ExchangeKey, AssetKey, InstrumentKey> =
     reconnect::Event<ExchangeId, AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>;
 
-pub type ExecutionInitResult<Manager, AccountStream> = Result<
-    (
-        AccountEvent<ExchangeIndex, AssetIndex, InstrumentIndex>,
-        Manager,
-        AccountStream,
-    ),
-    IndexedExecutionError,
->;
+pub type IndexedAccountStreamEvent = AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>;
+
+pub type ExecutionInitResult<Manager, AccountStream> =
+    Result<(Manager, AccountStream), ExecutionError>;
 
 /// Per exchange execution manager.
 #[derive(Debug, Constructor)]
@@ -57,88 +58,152 @@ pub struct ExecutionManager<RequestStream, Client> {
     pub request_stream: RequestStream,
     pub request_timeout: std::time::Duration,
     pub response_tx: UnboundedTx<AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>>,
-    pub client: Client,
-    pub instruments: ExecutionInstrumentMap,
+    pub client: Arc<Client>,
+    pub indexer: AccountEventIndexer,
 }
 
 impl<RequestStream, Client> ExecutionManager<RequestStream, Client>
 where
     RequestStream: Stream<Item = ExecutionRequest<ExchangeIndex, InstrumentIndex>> + Unpin,
-    Client: ExecutionClient,
+    Client: ExecutionClient + Send + Sync,
+    Client::AccountStream: Send,
 {
     pub async fn init(
         request_stream: RequestStream,
         request_timeout: std::time::Duration,
-        client: Client,
-        instrument_map: ExecutionInstrumentMap,
+        client: Arc<Client>,
+        indexer: AccountEventIndexer,
         reconnect_policy: ReconnectionBackoffPolicy,
-    ) -> ExecutionInitResult<
-        Self,
-        impl Stream<Item = AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>>,
-    > {
-        // Determine ExchangeId associated with this ExecutionClient
-        let exchange = Client::EXCHANGE;
-
-        // Determine StreamKey for use in logging
-        let stream_key = StreamKey::new_general("account_stream", exchange);
+    ) -> Result<(Self, impl Stream<Item = IndexedAccountStreamEvent> + Send), ExecutionError> {
+        // Determine StreamKey & ExchangeId for use in logging
+        let stream_key = Self::determine_account_stream_key(&indexer.map)?;
 
         info!(
-            %exchange,
+            exchange_index = %indexer.map.exchange.key,
+            exchange_id = %indexer.map.exchange.value,
             policy = ?reconnect_policy,
             ?stream_key,
             "AccountStream with auto reconnect initialising"
         );
 
-        // Future for fetching AccountSnapshot
-        let account_snapshot_future = client.account_snapshot(
-            instrument_map.assets.iter(),
-            instrument_map.instruments.iter(),
-        );
-
-        // Future for reconnecting AccountEvent Stream
-        let client_clone = client.clone();
-        let assets = instrument_map
-            .exchange_assets()
-            .cloned()
-            .collect::<Vec<_>>();
-        let instruments = instrument_map
-            .exchange_instruments()
-            .cloned()
-            .collect::<Vec<_>>();
-        let account_stream_future = init_reconnecting_stream(move || {
+        // Initialise reconnecting IndexedAccountStream (snapshot + updates)
+        let client_clone = Arc::clone(&client);
+        let indexer_clone = indexer.clone();
+        let account_stream = init_reconnecting_stream(move || {
             let client = client_clone.clone();
-            let assets = assets.clone();
-            let instruments = instruments.clone();
-            async move { client.account_stream(&assets, &instruments).await }
-        });
+            let indexer = indexer_clone.clone();
+            async move {
+                // Allocate AssetNameExchanges & InstrumentNameExchanges to avoid lifetime issues
+                let assets = indexer.map.exchange_assets().cloned().collect::<Vec<_>>();
+                let instruments = indexer
+                    .map
+                    .exchange_instruments()
+                    .cloned()
+                    .collect::<Vec<_>>();
 
-        // Await Futures
-        let (snapshot, stream) = try_join(account_snapshot_future, account_stream_future)
-            .await
-            .map_err(|error| map_to_indexed_execution_error(&instrument_map, error, None))?;
+                // Fetch AccountSnapshot & index
+                let snapshot =
+                    Self::fetch_indexed_account_snapshot(&client, &indexer, &assets, &instruments)
+                        .await?;
 
-        // Construct channel to communicate ExecutionRequest responses to Engine ie/ AccountEvents
+                // Initialise AccountStream & apply indexing
+                let updates =
+                    Self::init_indexed_account_stream(&client, indexer, &assets, &instruments)
+                        .await?;
+
+                Ok(futures::stream::once(std::future::ready(snapshot)).chain(updates))
+            }
+        })
+        .await?;
+
+        // Construct channel to communicate ExecutionRequest responses (ie/ AccountEvents) to Engine
         let (response_tx, response_rx) = mpsc_unbounded();
 
-        // Construct merged AccountEvent Stream
-        let account_stream = merge(
+        // Construct merged IndexedAccountStream (execution responses + account notifications)
+        let merged_account_stream = merge(
             response_rx.into_stream(),
-            stream
-                .with_reconnect_backoff(reconnect_policy, stream_key)
-                .with_reconnection_events(exchange),
+            account_stream
+                .with_reconnect_backoff::<_, ExecutionError>(reconnect_policy, stream_key)
+                .with_reconnection_events(indexer.map.exchange.value),
         );
 
         Ok((
-            AccountEvent::new(instrument_map.exchange, snapshot),
             Self::new(
                 request_stream,
                 request_timeout,
                 response_tx,
-                client.clone(),
-                instrument_map,
+                client,
+                indexer,
             ),
-            account_stream,
+            merged_account_stream,
         ))
+    }
+
+    fn determine_account_stream_key(
+        instrument_map: &Arc<ExecutionInstrumentMap>,
+    ) -> Result<StreamKey, ExecutionError> {
+        match (Client::EXCHANGE, instrument_map.exchange.value) {
+            (ExchangeId::Mock, instrument_exchange) => Ok(StreamKey::new_general(
+                "account_stream_mock",
+                instrument_exchange,
+            )),
+            (ExchangeId::Simulated, instrument_exchange) => Ok(StreamKey::new_general(
+                "account_stream_simulated",
+                instrument_exchange,
+            )),
+            (client, instrument_exchange) if client == instrument_exchange => {
+                Ok(StreamKey::new_general("account_stream", client))
+            }
+            (client, instrument_exchange) => Err(ExecutionError::Config(format!(
+                "ExecutionManager Client ExchangeId: {client} does not match \
+                    ExecutionInstrumentMap ExchangeId: {instrument_exchange}"
+            ))),
+        }
+    }
+
+    async fn fetch_indexed_account_snapshot(
+        client: &Arc<Client>,
+        indexer: &AccountEventIndexer,
+        assets: &[AssetNameExchange],
+        instruments: &[InstrumentNameExchange],
+    ) -> Result<IndexedAccountEvent, ExecutionError> {
+        match client.account_snapshot(assets, instruments).await {
+            Ok(snapshot) => {
+                let indexed_snapshot = indexer.snapshot(snapshot)?;
+                Ok(AccountEvent {
+                    exchange: indexer.map.exchange.key,
+                    kind: AccountEventKind::Snapshot(indexed_snapshot),
+                })
+            }
+            Err(error) => Err(ExecutionError::Client(indexer.client_error(error)?)),
+        }
+    }
+
+    async fn init_indexed_account_stream(
+        client: &Arc<Client>,
+        indexer: AccountEventIndexer,
+        assets: &[AssetNameExchange],
+        instruments: &[InstrumentNameExchange],
+    ) -> Result<impl Stream<Item = IndexedAccountEvent>, ExecutionError> {
+        let stream = match client.account_stream(assets, instruments).await {
+            Ok(stream) => stream,
+            Err(error) => return Err(ExecutionError::Client(indexer.client_error(error)?)),
+        };
+
+        Ok(
+            IndexedAccountStream::new(indexer, stream).filter_map(|result| {
+                std::future::ready(match result {
+                    Ok(indexed_event) => Some(indexed_event),
+                    Err(error) => {
+                        error!(
+                            ?error,
+                            "filtered IndexError produced by IndexedAccountStream"
+                        );
+                        None
+                    }
+                })
+            }),
+        )
     }
 
     pub async fn run(mut self) {
@@ -162,21 +227,39 @@ where
                 // Process Engine ExecutionRequests
                 request = self.request_stream.next() => match request {
                     Some(ExecutionRequest::Cancel(request)) => {
+                        // Todo: remove need for Cloning
+                        let request_clone = request.clone();
+
+                        // Panic since the system is set up incorrectly, so it's foolish to continue
+                        let request = self
+                            .indexer
+                            .order_request(request)
+                            .unwrap_or_else(|error| panic!(
+                                "ExecutionManager received cancel request for non-configured key: {error}"
+                            ));
+
                         in_flight_cancels.push(RequestFuture::new(
-                            request.clone(),
+                            request_clone,
                             self.request_timeout,
-                            self.client.cancel_order(
-                                map_order_to_instrument_name_exchange(&self.instruments, request)
-                            )
+                            self.client.cancel_order(request)
                         ))
                     },
                     Some(ExecutionRequest::Open(request)) => {
+                        // Todo: remove need for Cloning
+                        let request_clone = request.clone();
+
+                        // Panic since the system is set up incorrectly, so it's foolish to continue
+                        let request = self
+                            .indexer
+                            .order_request(request)
+                            .unwrap_or_else(|error| panic!(
+                                "ExecutionManager received open request for non-configured key: {error}"
+                            ));
+
                         in_flight_opens.push(RequestFuture::new(
-                            request.clone(),
+                            request_clone,
                             self.request_timeout,
-                            self.client.open_order(
-                                map_order_to_instrument_name_exchange(&self.instruments, request)
-                            )
+                            self.client.open_order(request)
                         ))
                     }
                     None => {
@@ -188,19 +271,20 @@ where
                 response_cancel = next_cancel_response => {
                     let event = match response_cancel {
                         Ok(response) => {
-                            AccountStreamEvent::Item(AccountEvent {
-                                exchange: self.instruments.exchange,
-                                kind: AccountEventKind::OrderCancelled(map_order_to_instrument_index(
-                                    &self.instruments,
-                                    response,
-                                )),
-                            })
+                            match self.process_cancel_response(response) {
+                                Ok(indexed_event) => indexed_event,
+                                Err(error) => {
+                                    warn!(
+                                        exchange = ?self.indexer.map.exchange,
+                                        ?error,
+                                        "ExecutionManager filtering cancel response due to unrecognised index"
+                                    );
+                                    continue
+                                }
+                            }
                         }
                         Err(request) => {
-                            AccountStreamEvent::Item(AccountEvent {
-                                exchange: self.instruments.exchange,
-                                kind: AccountEventKind::OrderCancelled(map_order_request_cancel_to_timed_out(request))
-                            })
+                            self.process_cancel_timeout(request)
                         }
                     };
 
@@ -213,19 +297,20 @@ where
                 response_open = next_open_response => {
                     let event = match response_open {
                         Ok(response) => {
-                            AccountStreamEvent::Item(AccountEvent {
-                                exchange: self.instruments.exchange,
-                                kind: AccountEventKind::OrderOpened(map_order_to_instrument_index(
-                                    &self.instruments,
-                                    response,
-                                )),
-                            })
+                            match self.process_open_response(response) {
+                                Ok(indexed_event) => indexed_event,
+                                Err(error) => {
+                                    warn!(
+                                        exchange = ?self.indexer.map.exchange,
+                                        ?error,
+                                        "ExecutionManager filtering open response due to unrecognised index"
+                                    );
+                                    continue
+                                }
+                            }
                         }
                         Err(request) => {
-                             AccountStreamEvent::Item(AccountEvent {
-                                exchange: self.instruments.exchange,
-                                kind: AccountEventKind::OrderOpened(map_order_request_open_to_timed_out(request))
-                            })
+                            self.process_open_timeout(request)
                         }
                     };
 
@@ -236,6 +321,78 @@ where
 
             }
         }
+    }
+
+    pub fn process_cancel_response(
+        &self,
+        order: Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedClientError>>,
+    ) -> Result<IndexedAccountStreamEvent, IndexError> {
+        let order = self.indexer.order_response(order)?;
+
+        Ok(IndexedAccountStreamEvent::Item(AccountEvent {
+            exchange: order.exchange,
+            kind: AccountEventKind::OrderCancelled(order),
+        }))
+    }
+
+    pub fn process_cancel_timeout(
+        &self,
+        order: Order<ExchangeIndex, InstrumentIndex, RequestCancel>,
+    ) -> IndexedAccountStreamEvent {
+        let Order {
+            exchange,
+            instrument,
+            cid,
+            side,
+            state: _,
+        } = order;
+
+        IndexedAccountStreamEvent::Item(AccountEvent {
+            exchange,
+            kind: AccountEventKind::OrderCancelled(Order {
+                exchange,
+                instrument,
+                cid,
+                side,
+                state: Err(IndexedClientError::Connectivity(ConnectivityError::Timeout)),
+            }),
+        })
+    }
+
+    pub fn process_open_response(
+        &self,
+        order: Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>>,
+    ) -> Result<IndexedAccountStreamEvent, IndexError> {
+        let order = self.indexer.order_response(order)?;
+
+        Ok(IndexedAccountStreamEvent::Item(AccountEvent {
+            exchange: order.exchange,
+            kind: AccountEventKind::OrderOpened(order),
+        }))
+    }
+
+    pub fn process_open_timeout(
+        &self,
+        order: Order<ExchangeIndex, InstrumentIndex, RequestOpen>,
+    ) -> IndexedAccountStreamEvent {
+        let Order {
+            exchange,
+            instrument,
+            cid,
+            side,
+            state: _,
+        } = order;
+
+        IndexedAccountStreamEvent::Item(AccountEvent {
+            exchange,
+            kind: AccountEventKind::OrderOpened(Order {
+                exchange,
+                instrument,
+                cid,
+                side,
+                state: Err(IndexedClientError::Connectivity(ConnectivityError::Timeout)),
+            }),
+        })
     }
 }
 #[derive(Debug)]
@@ -273,120 +430,320 @@ where
     }
 }
 
-// Todo: Do we need to map ExchangeKey?
-fn map_order_to_instrument_name_exchange<ExchangeKey, State>(
-    instruments: &ExecutionInstrumentMap,
-    order: Order<ExchangeKey, InstrumentIndex, State>,
-) -> Order<ExchangeKey, &InstrumentNameExchange, State> {
-    let Order {
-        exchange,
-        instrument,
-        cid,
-        side,
-        state,
-    } = order;
+pub type IndexedAccountStream<St> = IndexedStream<AccountEventIndexer, St>;
 
-    Order {
-        exchange,
-        instrument: instruments.find_instrument_name_exchange(instrument),
-        cid,
-        side,
-        state,
+#[derive(Debug, Constructor)]
+#[pin_project]
+pub struct IndexedStream<Indexer, Stream> {
+    pub indexer: Indexer,
+    #[pin]
+    pub stream: Stream,
+}
+
+pub trait Indexer {
+    type Unindexed;
+    type Indexed;
+    fn index(&self, item: Self::Unindexed) -> Result<Self::Indexed, IndexError>;
+}
+
+impl<Index, St> Stream for IndexedStream<Index, St>
+where
+    Index: Indexer<Unindexed = St::Item>,
+    St: Stream,
+{
+    type Item = Result<Index::Indexed, IndexError>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        match this.stream.poll_next(cx) {
+            Poll::Ready(Some(item)) => Poll::Ready(Some(this.indexer.index(item))),
+            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Pending => Poll::Pending,
+        }
     }
 }
 
-// Todo: Probably need to map ExchangeKey?
-fn map_order_to_instrument_index<ExchangeKey, State>(
-    instruments: &ExecutionInstrumentMap,
-    order: Order<ExchangeKey, InstrumentNameExchange, Result<State, ExchangeExecutionError>>,
-) -> Order<ExchangeKey, InstrumentIndex, Result<State, IndexedExecutionError>> {
-    let Order {
-        exchange,
-        instrument,
-        cid,
-        side,
-        state,
-    } = order;
+#[derive(Debug, Clone, Constructor)]
+pub struct AccountEventIndexer {
+    pub map: Arc<ExecutionInstrumentMap>,
+}
 
-    let instrument_index = instruments.find_instrument_index(&instrument);
+impl Indexer for AccountEventIndexer {
+    type Unindexed = UnindexedAccountEvent;
+    type Indexed = IndexedAccountEvent;
 
-    Order {
-        exchange,
-        instrument: instrument_index,
-        cid,
-        side,
-        state: state.map_err(|error| {
-            map_to_indexed_execution_error(instruments, error, Some(instrument_index))
-        }),
+    fn index(&self, item: Self::Unindexed) -> Result<Self::Indexed, IndexError> {
+        self.account_event(item)
     }
 }
 
-fn map_to_indexed_execution_error(
-    instruments: &ExecutionInstrumentMap,
-    error: ExchangeExecutionError,
-    instrument_index: Option<InstrumentIndex>,
-) -> IndexedExecutionError {
-    match error {
-        ExchangeExecutionError::Connectivity(error) => IndexedExecutionError::Connectivity(error),
-        ExchangeExecutionError::ApiError(error) => IndexedExecutionError::ApiError(match error {
-            ExchangeApiError::RateLimit => IndexedApiError::RateLimit,
-            ExchangeApiError::InstrumentInvalid(instrument, value) => {
-                IndexedApiError::InstrumentInvalid(
-                    instrument_index
-                        .unwrap_or_else(|| instruments.find_instrument_index(&instrument)),
-                    value,
-                )
+impl AccountEventIndexer {
+    pub fn account_event(
+        &self,
+        event: UnindexedAccountEvent,
+    ) -> Result<IndexedAccountEvent, IndexError> {
+        let UnindexedAccountEvent { exchange, kind } = event;
+
+        let exchange = self.map.find_exchange_index(exchange)?;
+
+        let kind = match kind {
+            AccountEventKind::Snapshot(snapshot) => {
+                AccountEventKind::Snapshot(self.snapshot(snapshot)?)
             }
-            ExchangeApiError::BalanceInsufficient(asset, value) => {
-                IndexedApiError::BalanceInsufficient(instruments.find_asset_index(&asset), value)
+            AccountEventKind::BalanceSnapshot(snapshot) => {
+                AccountEventKind::BalanceSnapshot(self.asset_balance(snapshot.0).map(Snapshot)?)
             }
-            ExchangeApiError::OrderRejected(cid) => IndexedApiError::OrderRejected(cid),
-            ExchangeApiError::OrderAlreadyCancelled(cid) => IndexedApiError::OrderRejected(cid),
-            ExchangeApiError::OrderAlreadyFullyFilled(cid) => IndexedApiError::OrderRejected(cid),
-        }),
+            AccountEventKind::PositionSnapshot(snapshot) => {
+                AccountEventKind::PositionSnapshot(self.position(snapshot.0).map(Snapshot)?)
+            }
+            AccountEventKind::OrderSnapshot(snapshot) => {
+                AccountEventKind::OrderSnapshot(self.order_snapshot(snapshot.0).map(Snapshot)?)
+            }
+            AccountEventKind::OrderOpened(order) => {
+                AccountEventKind::OrderOpened(self.order_response(order)?)
+            }
+            AccountEventKind::OrderCancelled(order) => {
+                AccountEventKind::OrderCancelled(self.order_response(order)?)
+            }
+            AccountEventKind::Trade(trade) => AccountEventKind::Trade(self.trade(trade)?),
+        };
+
+        Ok(IndexedAccountEvent { exchange, kind })
     }
-}
 
-fn map_order_request_cancel_to_timed_out(
-    order: Order<ExchangeIndex, InstrumentIndex, RequestCancel>,
-) -> Order<ExchangeIndex, InstrumentIndex, Result<Cancelled, IndexedExecutionError>> {
-    let Order {
-        exchange,
-        instrument,
-        cid,
-        side,
-        state: _,
-    } = order;
+    pub fn snapshot(
+        &self,
+        snapshot: UnindexedAccountSnapshot,
+    ) -> Result<IndexedAccountSnapshot, IndexError> {
+        let UnindexedAccountSnapshot {
+            balances,
+            instruments,
+        } = snapshot;
 
-    Order {
-        exchange,
-        instrument,
-        cid,
-        side,
-        state: Err(IndexedExecutionError::Connectivity(
-            ConnectivityError::Timeout,
-        )),
+        let balances = balances
+            .into_iter()
+            .map(|balance| self.asset_balance(balance))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let instruments = instruments
+            .into_iter()
+            .map(|snapshot| {
+                let InstrumentAccountSnapshot { position, orders } = snapshot;
+
+                let position = self.position(position)?;
+                let orders = orders
+                    .into_iter()
+                    .map(|order| self.order_open(order))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                Ok(InstrumentAccountSnapshot { position, orders })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(IndexedAccountSnapshot {
+            balances,
+            instruments,
+        })
     }
-}
 
-fn map_order_request_open_to_timed_out(
-    order: Order<ExchangeIndex, InstrumentIndex, RequestOpen>,
-) -> Order<ExchangeIndex, InstrumentIndex, Result<Open, IndexedExecutionError>> {
-    let Order {
-        exchange,
-        instrument,
-        cid,
-        side,
-        state: _,
-    } = order;
+    pub fn asset_balance(
+        &self,
+        balance: AssetBalance<AssetNameExchange>,
+    ) -> Result<AssetBalance<AssetIndex>, IndexError> {
+        let AssetBalance { asset, balance } = balance;
+        let asset = self.map.find_asset_index(&asset)?;
 
-    Order {
-        exchange,
-        instrument,
-        cid,
-        side,
-        state: Err(IndexedExecutionError::Connectivity(
-            ConnectivityError::Timeout,
-        )),
+        Ok(AssetBalance { asset, balance })
+    }
+
+    pub fn position(
+        &self,
+        position: Position<InstrumentNameExchange>,
+    ) -> Result<Position<InstrumentIndex>, IndexError> {
+        let Position {
+            instrument,
+            side,
+            quantity_net,
+            price_average,
+            pnl_unrealised,
+            pnl_realised,
+        } = position;
+
+        let instrument = self.map.find_instrument_index(&instrument)?;
+
+        Ok(Position {
+            instrument,
+            side,
+            quantity_net,
+            price_average,
+            pnl_unrealised,
+            pnl_realised,
+        })
+    }
+
+    pub fn order_snapshot(
+        &self,
+        order: Order<ExchangeId, InstrumentNameExchange, ExchangeOrderState>,
+    ) -> Result<Order<ExchangeIndex, InstrumentIndex, ExchangeOrderState>, IndexError> {
+        let Order {
+            exchange,
+            instrument,
+            cid,
+            side,
+            state,
+        } = order;
+
+        Ok(Order {
+            exchange: self.map.find_exchange_index(exchange)?,
+            instrument: self.map.find_instrument_index(&instrument)?,
+            cid,
+            side,
+            state,
+        })
+    }
+
+    pub fn order_request<Kind>(
+        &self,
+        order: Order<ExchangeIndex, InstrumentIndex, Kind>,
+    ) -> Result<Order<ExchangeId, &InstrumentNameExchange, Kind>, KeyError> {
+        let Order {
+            exchange,
+            instrument,
+            cid,
+            side,
+            state,
+        } = order;
+
+        let exchange = self.map.find_exchange_id(exchange)?;
+        let instrument = self.map.find_instrument_name_exchange(instrument)?;
+
+        Ok(Order {
+            exchange,
+            instrument,
+            cid,
+            side,
+            state,
+        })
+    }
+
+    pub fn order_open(
+        &self,
+        order: Order<ExchangeId, InstrumentNameExchange, Open>,
+    ) -> Result<Order<ExchangeIndex, InstrumentIndex, Open>, IndexError> {
+        let Order {
+            exchange,
+            instrument,
+            cid,
+            side,
+            state,
+        } = order;
+
+        Ok(Order {
+            exchange: self.map.find_exchange_index(exchange)?,
+            instrument: self.map.find_instrument_index(&instrument)?,
+            cid,
+            side,
+            state,
+        })
+    }
+
+    pub fn order_response<Kind>(
+        &self,
+        order: Order<ExchangeId, InstrumentNameExchange, Result<Kind, UnindexedClientError>>,
+    ) -> Result<Order<ExchangeIndex, InstrumentIndex, Result<Kind, IndexedClientError>>, IndexError>
+    {
+        let Order {
+            exchange,
+            instrument,
+            cid,
+            side,
+            state,
+        } = order;
+
+        let exchange_index = self.map.find_exchange_index(exchange)?;
+        let instrument_index = self.map.find_instrument_index(&instrument)?;
+
+        let state = match state {
+            Ok(state) => Ok(state),
+            Err(error) => Err(self.client_error(error)?),
+        };
+
+        Ok(Order {
+            exchange: exchange_index,
+            instrument: instrument_index,
+            cid,
+            side,
+            state,
+        })
+    }
+
+    pub fn client_error(
+        &self,
+        error: UnindexedClientError,
+    ) -> Result<IndexedClientError, IndexError> {
+        Ok(match error {
+            UnindexedClientError::Connectivity(error) => IndexedClientError::Connectivity(error),
+            UnindexedClientError::Api(error) => IndexedClientError::Api(match error {
+                UnindexedApiError::RateLimit => IndexedApiError::RateLimit,
+                UnindexedApiError::AssetInvalid(asset, value) => {
+                    IndexedApiError::AssetInvalid(self.map.find_asset_index(&asset)?, value)
+                }
+                UnindexedApiError::InstrumentInvalid(instrument, value) => {
+                    IndexedApiError::InstrumentInvalid(
+                        self.map.find_instrument_index(&instrument)?,
+                        value,
+                    )
+                }
+                UnindexedApiError::BalanceInsufficient(asset, value) => {
+                    IndexedApiError::BalanceInsufficient(self.map.find_asset_index(&asset)?, value)
+                }
+                UnindexedApiError::OrderRejected(cid) => IndexedApiError::OrderRejected(cid),
+                UnindexedApiError::OrderAlreadyCancelled(cid) => {
+                    IndexedApiError::OrderRejected(cid)
+                }
+                UnindexedApiError::OrderAlreadyFullyFilled(cid) => {
+                    IndexedApiError::OrderRejected(cid)
+                }
+                UnindexedApiError::Custom(value) => IndexedApiError::Custom(value),
+            }),
+        })
+    }
+
+    pub fn trade(
+        &self,
+        trade: Trade<AssetNameExchange, InstrumentNameExchange>,
+    ) -> Result<Trade<AssetIndex, InstrumentIndex>, IndexError> {
+        let Trade {
+            id,
+            instrument,
+            order_id,
+            time_exchange,
+            side,
+            price,
+            quantity,
+            fees: AssetFees { asset, fees },
+        } = trade;
+
+        let instrument_index = self.map.find_instrument_index(&instrument)?;
+
+        let asset_index = if let Some(asset) = asset {
+            Some(self.map.find_asset_index(&asset)?)
+        } else {
+            None
+        };
+
+        Ok(Trade {
+            id,
+            instrument: instrument_index,
+            order_id,
+            time_exchange,
+            side,
+            price,
+            quantity,
+            fees: AssetFees {
+                asset: asset_index,
+                fees,
+            },
+        })
     }
 }

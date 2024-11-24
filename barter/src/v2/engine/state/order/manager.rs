@@ -1,6 +1,6 @@
 use crate::v2::{
     engine::state::order::in_flight_recorder::InFlightRequestRecorder,
-    execution::error::ExecutionError,
+    execution::error::ClientError,
     order::{Cancelled, ExchangeOrderState, InternalOrderState, Open, Order},
     Snapshot,
 };
@@ -22,7 +22,7 @@ where
         response: &Order<
             ExchangeKey,
             InstrumentKey,
-            Result<Open, ExecutionError<AssetKey, InstrumentKey>>,
+            Result<Open, ClientError<AssetKey, InstrumentKey>>,
         >,
     ) where
         AssetKey: Debug;
@@ -32,7 +32,7 @@ where
         response: &Order<
             ExchangeKey,
             InstrumentKey,
-            Result<Cancelled, ExecutionError<AssetKey, InstrumentKey>>,
+            Result<Cancelled, ClientError<AssetKey, InstrumentKey>>,
         >,
     ) where
         AssetKey: Debug;

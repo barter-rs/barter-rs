@@ -11,8 +11,7 @@ use crate::v2::{
         },
         Processor,
     },
-    execution::{AccountEvent, AccountEventKind}
-    ,
+    execution::{AccountEvent, AccountEventKind},
     Snapshot,
 };
 use barter_data::event::MarketEvent;
@@ -145,9 +144,3 @@ where
         self.risk.process(event);
     }
 }
-
-
-
-
-
-

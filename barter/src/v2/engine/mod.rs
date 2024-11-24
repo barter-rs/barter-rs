@@ -33,7 +33,7 @@ use barter_integration::channel::{ChannelTxDroppable, Tx};
 use chrono::{DateTime, Utc};
 use derive_more::From;
 use std::fmt::Debug;
-use tracing::warn;
+use tracing::{info, warn};
 
 pub mod action;
 pub mod audit;
@@ -65,9 +65,12 @@ where
     // Run Engine process loop until shutdown
     let shutdown_audit = loop {
         let Some(event) = feed.next() else {
+            audit_tx.send(engine.build_audit(ShutdownAudit::FeedEnded));
             break ShutdownAudit::FeedEnded;
         };
 
+        // Todo: determine if AuditKind is terminal, and if so, return ShutdownAudit so engine
+        //       doesn't hang
         let audit_kind = engine.process(event);
         audit_tx.send(engine.build_audit(audit_kind));
     };
@@ -128,7 +131,7 @@ where
         + ClosePositionsStrategy<ExchangeKey, AssetKey, InstrumentKey, State = State>,
     Risk: RiskManager<ExchangeKey, InstrumentKey, State = State>,
     ExchangeKey: Debug + Clone + PartialEq,
-    AssetKey: PartialEq,
+    AssetKey: Debug + PartialEq,
     InstrumentKey: Debug + Clone + PartialEq,
 {
     type Output = Audit<
@@ -210,24 +213,33 @@ impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, 
         Strategy: ClosePositionsStrategy<ExchangeKey, AssetKey, InstrumentKey, State = State>,
         Risk: RiskManager<ExchangeKey, InstrumentKey>,
         ExchangeKey: Debug + Clone + PartialEq,
-        AssetKey: PartialEq,
+        AssetKey: Debug + PartialEq,
         InstrumentKey: Debug + Clone + PartialEq,
     {
         match &command {
             Command::SendCancelRequests(requests) => {
+                info!(
+                    ?requests,
+                    "Engine actioning user Command::SendCancelRequests"
+                );
                 let output = self.send_requests(requests.clone());
                 self.state.record_in_flight_cancels(&output.sent);
                 ActionOutput::CancelOrders(output)
             }
             Command::SendOpenRequests(requests) => {
+                info!(?requests, "Engine actioning user Command::SendOpenRequests");
                 let output = self.send_requests(requests.clone());
                 self.state.record_in_flight_opens(&output.sent);
                 ActionOutput::OpenOrders(output)
             }
             Command::ClosePositions(filter) => {
+                info!(?filter, "Engine actioning user Command::ClosePositions");
                 ActionOutput::ClosePositions(self.close_positions(filter))
             }
-            Command::CancelOrders(filter) => ActionOutput::CancelOrders(self.cancel_orders(filter)),
+            Command::CancelOrders(filter) => {
+                info!(?filter, "Engine actioning user Command::CancelOrders");
+                ActionOutput::CancelOrders(self.cancel_orders(filter))
+            }
         }
     }
 

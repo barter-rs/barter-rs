@@ -197,7 +197,7 @@ impl IndexedInstruments {
             })?;
 
         Ok(ExecutionInstrumentMap::new(
-            exchange_index,
+            Keyed::new(exchange_index, exchange),
             self.assets
                 .iter()
                 .filter_map(|asset| {

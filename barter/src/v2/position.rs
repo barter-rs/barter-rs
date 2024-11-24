@@ -25,3 +25,31 @@ impl<InstrumentKey> Position<InstrumentKey> {
         }
     }
 }
+
+impl<InstrumentKey> Position<InstrumentKey> {
+    pub fn map_instrument_key<NewInstrumentKey>(
+        self,
+        new_key: NewInstrumentKey,
+    ) -> (InstrumentKey, Position<NewInstrumentKey>) {
+        let Self {
+            instrument,
+            side,
+            quantity_net,
+            price_average,
+            pnl_unrealised,
+            pnl_realised,
+        } = self;
+
+        (
+            instrument,
+            Position {
+                instrument: new_key,
+                side,
+                quantity_net,
+                price_average,
+                pnl_unrealised,
+                pnl_realised,
+            },
+        )
+    }
+}

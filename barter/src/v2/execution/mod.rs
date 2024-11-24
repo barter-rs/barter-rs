@@ -1,12 +1,16 @@
 use crate::v2::{
     balance::AssetBalance,
-    execution::error::ExecutionError,
+    execution::error::ClientError,
     order::{Cancelled, ExchangeOrderState, Open, Order, RequestCancel, RequestOpen},
     position::Position,
     trade::Trade,
     Snapshot,
 };
-use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
+use barter_instrument::{
+    asset::{name::AssetNameExchange, AssetIndex},
+    exchange::{ExchangeId, ExchangeIndex},
+    instrument::{name::InstrumentNameExchange, InstrumentIndex},
+};
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
 
@@ -15,16 +19,26 @@ pub mod error;
 pub mod manager;
 pub mod map;
 
-/// Convenient type alias for an [`AccountEvent`] keyed with [`AssetIndex`]
+/// Convenient type alias for an [`AccountEvent`] keyed with [`ExchangeIndex`], [`AssetIndex`]
 /// and [`InstrumentIndex`].
 pub type IndexedAccountEvent = AccountEvent<ExchangeIndex, AssetIndex, InstrumentIndex>;
 
-/// Convenient type alias for an [`AccountSnapshot`] keyed with [`AssetIndex`]
+/// Convenient type alias for an [`AccountEvent`] keyed with [`ExchangeId`],
+/// [`AssetNameExchange`], and [`InstrumentNameExchange`].
+pub type UnindexedAccountEvent =
+    AccountEvent<ExchangeId, AssetNameExchange, InstrumentNameExchange>;
+
+/// Convenient type alias for an [`AccountSnapshot`] keyed with [`ExchangeIndex`], [`AssetIndex`]
 /// and [`InstrumentIndex`].
 pub type IndexedAccountSnapshot = AccountSnapshot<ExchangeIndex, AssetIndex, InstrumentIndex>;
 
-/// Convenient type alias for an [`ExecutionRequest`] keyed with [`ExchangeIndex`] and
-/// [`InstrumentIndex`].
+/// Convenient type alias for an [`AccountSnapshot`] keyed with [`ExchangeId`],
+/// [`AssetNameExchange`], and [`InstrumentNameExchange`].
+pub type UnindexedAccountSnapshot =
+    AccountSnapshot<ExchangeId, AssetNameExchange, InstrumentNameExchange>;
+
+/// Convenient type alias for an [`ExecutionRequest`] keyed with [`ExchangeIndex`], [`AssetIndex`]
+/// and [`InstrumentIndex`].
 pub type IndexedExecutionRequest = ExecutionRequest<ExchangeIndex, InstrumentIndex>;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, From)]
@@ -67,15 +81,11 @@ pub enum AccountEventKind<ExchangeKey, AssetKey, InstrumentKey> {
 
     /// Response to an [`Order<ExchangeKey, InstrumentKey, RequestOpen>`].
     OrderOpened(
-        Order<ExchangeKey, InstrumentKey, Result<Open, ExecutionError<AssetKey, InstrumentKey>>>,
+        Order<ExchangeKey, InstrumentKey, Result<Open, ClientError<AssetKey, InstrumentKey>>>,
     ),
     /// Response to an [`Order<ExchangeKey, InstrumentKey, RequestCancel>`].
     OrderCancelled(
-        Order<
-            ExchangeKey,
-            InstrumentKey,
-            Result<Cancelled, ExecutionError<AssetKey, InstrumentKey>>,
-        >,
+        Order<ExchangeKey, InstrumentKey, Result<Cancelled, ClientError<AssetKey, InstrumentKey>>>,
     ),
 
     /// [`Order<ExchangeKey, InstrumentKey, Open>`] partial or full fill.
@@ -104,4 +114,16 @@ pub struct AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey> {
 pub struct InstrumentAccountSnapshot<ExchangeKey, InstrumentKey> {
     pub position: Position<InstrumentKey>,
     pub orders: Vec<Order<ExchangeKey, InstrumentKey, Open>>,
+}
+
+impl<ExchangeKey, AssetKey, InstrumentKey> AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey> {
+    pub fn assets(&self) -> impl Iterator<Item = &AssetKey> {
+        self.balances.iter().map(|balance| &balance.asset)
+    }
+
+    pub fn instruments(&self) -> impl Iterator<Item = &InstrumentKey> {
+        self.instruments
+            .iter()
+            .map(|snapshot| &snapshot.position.instrument)
+    }
 }

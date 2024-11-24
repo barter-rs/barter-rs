@@ -1,4 +1,5 @@
 use barter::v2::{
+    balance::{AssetBalance, Balance},
     engine::{
         command::Command,
         run,
@@ -11,10 +12,11 @@ use barter::v2::{
     },
     error::BarterError,
     execution::{
-        builder::ExecutionBuilder,
-        manager::client::{MockExecution, MockExecutionConfig},
+        builder::ExecutionBuilder, manager::client::MockExecutionConfig, InstrumentAccountSnapshot,
+        UnindexedAccountSnapshot,
     },
     instrument::IndexedInstruments,
+    position::Position,
     risk::{DefaultRiskManager, DefaultRiskManagerState},
     strategy::{DefaultStrategy, DefaultStrategyState},
     EngineEvent,
@@ -45,10 +47,20 @@ use barter_instrument::{
 use barter_integration::channel::{mpsc_unbounded, ChannelTxDroppable, Tx};
 use chrono::Utc;
 use futures::Stream;
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use tracing::{info, warn};
 
-const EXECUTION_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(1);
+// Todo: Major To Dos:
+//  - Fine tooth comb make sure everything is in the correct file, module, crate, etc.
+//  - Auditor w/ back-test utilities
+//  - Statistics
+//  - impl all state management functionality, including positions, with tests
+//  - Add Binance ExecutionClient
+//  - Ensure Engine Connectivity is set to healthy upon new "Item"
+//  - Test IndexedInstruments, etc.
+
+const EXCHANGE: ExchangeId = ExchangeId::BinanceSpot;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -66,9 +78,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let stream = init_market_data_stream(&instruments).await?;
     tokio::spawn(stream.forward_to(feed_tx.clone()));
 
+    // Define initial mock AccountSnapshot
+    let initial_account = build_initial_account_snapshot(&instruments, dec!(10_000));
+
     // Initialise ExecutionManager & forward Account Streams to Engine feed
     let (execution_txs, account_stream) = ExecutionBuilder::new(&instruments)
-        .add::<MockExecution>(MockExecutionConfig, EXECUTION_REQUEST_TIMEOUT)?
+        .add_mock(MockExecutionConfig::new(EXCHANGE, initial_account, 0.03))?
         .init()
         .await?;
     tokio::spawn(account_stream.forward_to(feed_tx.clone()));
@@ -136,7 +151,7 @@ fn init_logging() {
 fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
     vec![
         Instrument::new(
-            ExchangeId::BinanceSpot,
+            EXCHANGE,
             "btc_usdt",
             "BTCUSDT",
             Underlying::new("btc", "usdt"),
@@ -152,7 +167,7 @@ fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
             ),
         ),
         Instrument::new(
-            ExchangeId::BinanceSpot,
+            EXCHANGE,
             "eth_usdt",
             "ETHUSDT",
             Underlying::new("eth", "usdt"),
@@ -164,7 +179,7 @@ fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
             ),
         ),
         Instrument::new(
-            ExchangeId::BinanceSpot,
+            EXCHANGE,
             "sol_usdt",
             "SOLUSDT",
             Underlying::new("sol", "usdt"),
@@ -216,4 +231,40 @@ fn unindexed_market_data_subscriptions(
         .unzip();
 
     [trades, l1s]
+}
+
+fn build_initial_account_snapshot(
+    instruments: &IndexedInstruments,
+    balance_usd: Decimal,
+) -> UnindexedAccountSnapshot {
+    let balances = instruments
+        .assets
+        .iter()
+        .map(|keyed_asset| {
+            AssetBalance::new(
+                keyed_asset.value.asset.name_exchange.clone(),
+                if keyed_asset.value.asset.name_internal.as_ref() == "usd" {
+                    Balance::new(balance_usd, balance_usd)
+                } else {
+                    Balance::new(Decimal::ZERO, Decimal::ZERO)
+                },
+            )
+        })
+        .collect();
+
+    let instruments = instruments
+        .instruments
+        .iter()
+        .map(|keyed_instrument| {
+            InstrumentAccountSnapshot::new(
+                Position::new_flat(keyed_instrument.value.name_exchange.clone()),
+                vec![],
+            )
+        })
+        .collect();
+
+    UnindexedAccountSnapshot {
+        balances,
+        instruments,
+    }
 }
