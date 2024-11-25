@@ -148,7 +148,7 @@ impl ExecutionClient for MockExecution {
                 )))
             })?;
 
-        let stream =
+        Ok(futures::StreamExt::boxed(
             BroadcastStream::new(self.account_stream_tx.subscribe()).map_while(
                 |result| match result {
                     Ok(event) => Some(event),
@@ -160,9 +160,8 @@ impl ExecutionClient for MockExecution {
                         None
                     }
                 },
-            );
-
-        Ok(futures::StreamExt::boxed(stream))
+            ),
+        ))
     }
 
     async fn cancel_order(

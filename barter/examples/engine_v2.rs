@@ -59,6 +59,7 @@ use tracing::{info, warn};
 //  - Add Binance ExecutionClient
 //  - Ensure Engine Connectivity is set to healthy upon new "Item"
 //  - Test IndexedInstruments, etc.
+//  - Allow cancelling an Order before it's opened via Cid
 
 const EXCHANGE: ExchangeId = ExchangeId::BinanceSpot;
 

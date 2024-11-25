@@ -208,9 +208,10 @@ where
                     "OrderManager received Order<Cancelled> Ok response for untracked ClientOrderId - ignoring"
                 );
             }
-            (Entry::Occupied(order), Err(_err)) => match &order.get().state {
+            (Entry::Occupied(order), Err(error)) => match &order.get().state {
                 InternalOrderState::OpenInFlight(_) => {
                     // Todo: Depends on Err... then fix test
+                    //   eg/ OrderAlreadyFullyFilled vs RateLimit
                 }
                 InternalOrderState::Open(_) => {
                     // Todo: Depends on Err... then fix test
