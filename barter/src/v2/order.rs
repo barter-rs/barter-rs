@@ -123,8 +123,8 @@ pub enum ExchangeOrderState {
 pub struct RequestOpen {
     pub kind: OrderKind,
     pub time_in_force: TimeInForce,
-    pub price: Decimal,
-    pub quantity: Decimal,
+    pub price: f64,
+    pub quantity: f64,
 }
 
 #[derive(

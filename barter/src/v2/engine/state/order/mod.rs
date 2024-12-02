@@ -432,7 +432,6 @@ mod tests {
     };
     use barter_instrument::{exchange::ExchangeId, Side};
     use chrono::{DateTime, Utc};
-    use rust_decimal_macros::dec;
     use smol_str::SmolStr;
 
     fn orders(
@@ -533,8 +532,8 @@ mod tests {
             state: RequestOpen {
                 kind: OrderKind::Limit,
                 time_in_force: TimeInForce::GoodUntilEndOfDay,
-                price: dec!(0.0),
-                quantity: dec!(0.0),
+                price: 0.0,
+                quantity: 0.0,
             },
         }
     }

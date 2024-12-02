@@ -74,24 +74,21 @@ where
         InstrumentKey: 'a,
     {
         let open_requests = state.instruments_filtered(filter).filter_map(|state| {
-            if state.position.quantity_net.is_zero() {
-                return None;
-            }
+            let position = state.position.as_ref()?;
 
             Some(Order {
                 exchange: state.instrument.exchange.clone(),
-                instrument: state.position.instrument.clone(),
+                instrument: position.instrument.clone(),
                 cid: ClientOrderId::default(),
-                side: if state.position.quantity_net.is_sign_positive() {
-                    Side::Sell
-                } else {
-                    Side::Buy
+                side: match position.side {
+                    Side::Buy => Side::Sell,
+                    Side::Sell => Side::Buy,
                 },
                 state: RequestOpen {
                     kind: OrderKind::Market,
                     time_in_force: TimeInForce::ImmediateOrCancel,
                     price: Default::default(),
-                    quantity: state.position.quantity_net.abs(),
+                    quantity: position.state.quantity_abs,
                 },
             })
         });

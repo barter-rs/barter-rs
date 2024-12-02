@@ -8,7 +8,6 @@ use crate::v2::{
     },
     error::{BarterError, IndexError},
     execution::map::ExecutionInstrumentMap,
-    position::Position,
 };
 use barter_data::subscription::{SubKind, Subscription};
 use barter_instrument::{
@@ -169,8 +168,9 @@ impl IndexedInstruments {
                     (
                         instrument.value.name_internal.clone(),
                         InstrumentState::new(
+                            instrument.key,
                             instrument.value.clone().map_exchange_key(exchange_index),
-                            Position::new_flat(instrument.key),
+                            None,
                             Orders::default(),
                             Market::default(),
                         ),

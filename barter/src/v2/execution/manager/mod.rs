@@ -13,7 +13,7 @@ use crate::v2::{
         UnindexedAccountSnapshot,
     },
     order::{Cancelled, ExchangeOrderState, Open, Order, RequestCancel, RequestOpen},
-    position::Position,
+    position::{Exchange, PositionExchange},
     trade::{AssetFees, Trade},
     Snapshot,
 };
@@ -550,34 +550,47 @@ impl AccountEventIndexer {
         &self,
         balance: AssetBalance<AssetNameExchange>,
     ) -> Result<AssetBalance<AssetIndex>, IndexError> {
-        let AssetBalance { asset, balance } = balance;
+        let AssetBalance {
+            asset,
+            balance,
+            // time_exchange,
+        } = balance;
         let asset = self.map.find_asset_index(&asset)?;
 
-        Ok(AssetBalance { asset, balance })
+        Ok(AssetBalance {
+            asset,
+            balance,
+            // time_exchange,
+        })
     }
 
     pub fn position(
         &self,
-        position: Position<InstrumentNameExchange>,
-    ) -> Result<Position<InstrumentIndex>, IndexError> {
-        let Position {
+        position: PositionExchange<InstrumentNameExchange>,
+    ) -> Result<PositionExchange<InstrumentIndex>, IndexError> {
+        let PositionExchange {
             instrument,
             side,
-            quantity_net,
-            price_average,
-            pnl_unrealised,
-            pnl_realised,
+            price_entry_average,
+            time_enter,
+            state:
+                Exchange {
+                    quantity_abs,
+                    time_exchange_update,
+                },
         } = position;
 
         let instrument = self.map.find_instrument_index(&instrument)?;
 
-        Ok(Position {
+        Ok(PositionExchange {
             instrument,
             side,
-            quantity_net,
-            price_average,
-            pnl_unrealised,
-            pnl_realised,
+            price_entry_average,
+            time_enter,
+            state: Exchange {
+                quantity_abs,
+                time_exchange_update,
+            },
         })
     }
 

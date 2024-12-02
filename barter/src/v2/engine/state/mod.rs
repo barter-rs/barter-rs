@@ -85,8 +85,8 @@ where
     Risk: for<'a> Processor<&'a AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>
         + for<'a> Processor<&'a MarketEvent<InstrumentKey, Market::EventKind>>,
     ExchangeKey: Debug + Clone,
-    AssetKey: Debug,
-    InstrumentKey: Debug + Clone,
+    AssetKey: Debug + Clone + PartialEq,
+    InstrumentKey: Debug + Clone + PartialEq,
 {
     type MarketState = Market;
     type MarketEventKind = Market::EventKind;
@@ -138,8 +138,9 @@ where
 
     fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey, Self::MarketEventKind>) {
         // Todo: set exchange ConnectivityState to healthy if unhealthy
+        let instrument_state = self.instrument_mut(&event.instrument);
 
-        self.instrument_mut(&event.instrument).market.process(event);
+        instrument_state.market.process(event);
         self.strategy.process(event);
         self.risk.process(event);
     }

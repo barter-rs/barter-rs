@@ -54,7 +54,7 @@ pub trait InstrumentStateManager<InstrumentKey> {
             )),
             Instruments(instruments) => Either::Right(Either::Right(
                 self.instruments()
-                    .filter(|state| instruments.contains(&state.position.instrument)),
+                    .filter(|state| instruments.contains(&state.key)),
             )),
             Underlyings(underlying) => Either::Right(Either::Left(
                 self.instruments()

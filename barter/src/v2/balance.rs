@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct AssetBalance<AssetKey> {
     pub asset: AssetKey,
     pub balance: Balance,
+    // pub time_exchange: DateTime<Utc>,
 }
 
 #[derive(
