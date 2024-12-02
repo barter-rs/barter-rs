@@ -25,3 +25,50 @@ impl AssetState {
         self.balance = balance.balance;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use barter_instrument::asset::name::AssetNameExchange;
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_update_from_balance() {
+        let mut state = AssetState {
+            asset: Asset {
+                name_internal: AssetNameInternal::new("btc"),
+                name_exchange: AssetNameExchange::new("xbt"),
+            },
+            balance: Balance {
+                total: dec!(1000.0),
+                free: dec!(900.0),
+            },
+        };
+
+        let snapshot = Snapshot(AssetBalance {
+            asset: Asset {
+                name_internal: AssetNameInternal::new("btc"),
+                name_exchange: AssetNameExchange::new("xbt"),
+            },
+            balance: Balance {
+                total: dec!(1000.0),
+                free: dec!(800.0),
+            },
+        });
+
+        state.update_from_balance(snapshot.as_ref());
+
+        let expected = AssetState {
+            asset: Asset {
+                name_internal: AssetNameInternal::new("btc"),
+                name_exchange: AssetNameExchange::new("xbt"),
+            },
+            balance: Balance {
+                total: dec!(1000.0),
+                free: dec!(800.0),
+            },
+        };
+
+        assert_eq!(state, expected)
+    }
+}
