@@ -704,8 +704,11 @@ impl AccountEventIndexer {
                 UnindexedApiError::OrderAlreadyFullyFilled(cid) => {
                     IndexedApiError::OrderRejected(cid)
                 }
-                UnindexedApiError::Custom(value) => IndexedApiError::Custom(value),
             }),
+            UnindexedClientError::AccountSnapshot(value) => {
+                IndexedClientError::AccountSnapshot(value)
+            }
+            UnindexedClientError::AccountStream(value) => IndexedClientError::AccountStream(value),
         })
     }
 

@@ -1,6 +1,6 @@
 use crate::v2::{
     engine::state::order::{in_flight_recorder::InFlightRequestRecorder, manager::OrderManager},
-    execution::error::ClientError,
+    execution::error::{ApiError, ClientError},
     order::{
         Cancelled, ClientOrderId, ExchangeOrderState, InternalOrderState, Open, Order,
         RequestCancel, RequestOpen,
@@ -76,12 +76,12 @@ where
                         "OrderManager received Order<Open> Ok response for existing Order<Open> - taking latest timestamp"
                     );
 
-                    if new_open.time_update > existing_open.time_update {
+                    if new_open.time_exchange > existing_open.time_exchange {
                         order.get_mut().state = InternalOrderState::Open(new_open.clone());
                     }
                 }
                 InternalOrderState::CancelInFlight(_) => {
-                    error!(
+                    warn!(
                         exchange = ?response.exchange,
                         instrument = ?response.instrument,
                         cid = %response.cid,
@@ -108,7 +108,7 @@ where
                     InternalOrderState::from(new_open.clone()),
                 ));
             }
-            (Entry::Occupied(order), Err(_)) => match &order.get().state {
+            (Entry::Occupied(order), Err(error)) => match &order.get().state {
                 InternalOrderState::OpenInFlight(_) => {
                     warn!(
                         exchange = ?response.exchange,
@@ -116,29 +116,61 @@ where
                         cid = %response.cid,
                         order = ?order.get(),
                         update = ?response,
-                        "OrderManager received ExecutionError for Order<OpenInFlight>"
+                        "OrderManager received ClientError for Order<OpenInFlight>"
                     );
                     order.remove();
                 }
                 InternalOrderState::Open(_) => {
-                    error!(
-                        exchange = ?response.exchange,
-                        instrument = ?response.instrument,
-                        cid = %response.cid,
-                        order = ?order.get(),
-                        update = ?response,
-                        "OrderManager received ExecutionError for existing Order<Open>"
-                    );
+                    if matches!(
+                        error,
+                        ClientError::Api(ApiError::OrderAlreadyCancelled(_))
+                            | ClientError::Api(ApiError::OrderAlreadyFullyFilled(_))
+                    ) {
+                        debug!(
+                            exchange = ?response.exchange,
+                            instrument = ?response.instrument,
+                            cid = %response.cid,
+                            order = ?order.get(),
+                            update = ?response,
+                            "OrderManager received 'order already completed' for Order<Open> - removing"
+                        );
+                        order.remove();
+                    } else {
+                        error!(
+                            exchange = ?response.exchange,
+                            instrument = ?response.instrument,
+                            cid = %response.cid,
+                            order = ?order.get(),
+                            update = ?response,
+                            "OrderManager received ClientError for existing Order<Open>"
+                        );
+                    }
                 }
                 InternalOrderState::CancelInFlight(_) => {
-                    error!(
-                        exchange = ?response.exchange,
-                        instrument = ?response.instrument,
-                        cid = %response.cid,
-                        ?order,
-                        update = ?response,
-                        "OrderManager received ExecutionError for existing Order<CancelInFlight>"
-                    );
+                    if matches!(
+                        error,
+                        ClientError::Api(ApiError::OrderAlreadyCancelled(_))
+                            | ClientError::Api(ApiError::OrderAlreadyFullyFilled(_))
+                    ) {
+                        warn!(
+                            exchange = ?response.exchange,
+                            instrument = ?response.instrument,
+                            cid = %response.cid,
+                            order = ?order.get(),
+                            update = ?response,
+                            "OrderManager received 'order already completed' for Order<CancelInFlight> - removing"
+                        );
+                        order.remove();
+                    } else {
+                        error!(
+                            exchange = ?response.exchange,
+                            instrument = ?response.instrument,
+                            cid = %response.cid,
+                            ?order,
+                            update = ?response,
+                            "OrderManager received ClientError for existing Order<CancelInFlight>"
+                        );
+                    }
                 }
             },
             (Entry::Vacant(_), Err(_)) => {
@@ -166,13 +198,13 @@ where
         match (self.0.entry(response.cid), &response.state) {
             (Entry::Occupied(order), Ok(_new_cancel)) => match &order.get().state {
                 InternalOrderState::OpenInFlight(_) => {
-                    warn!(
+                    debug!(
                         exchange = ?response.exchange,
                         instrument = ?response.instrument,
                         cid = %response.cid,
                         order = ?order.get(),
                         update = ?response,
-                        "OrderManager received Order<Cancelled> Ok response for existing Order<OpenInFlight>"
+                        "OrderManager transitioned Order<OpenInFlight> to Order<Cancelled>"
                     );
                     order.remove();
                 }
@@ -210,14 +242,65 @@ where
             }
             (Entry::Occupied(order), Err(error)) => match &order.get().state {
                 InternalOrderState::OpenInFlight(_) => {
-                    // Todo: Depends on Err... then fix test
-                    //   eg/ OrderAlreadyFullyFilled vs RateLimit
+                    if matches!(
+                        error,
+                        ClientError::Api(ApiError::OrderAlreadyCancelled(_))
+                            | ClientError::Api(ApiError::OrderAlreadyFullyFilled(_))
+                    ) {
+                        warn!(
+                            exchange = ?response.exchange,
+                            instrument = ?response.instrument,
+                            cid = %response.cid,
+                            order = ?order.get(),
+                            update = ?response,
+                            "OrderManager received 'order already completed' for Order<OpenInFlight> - removing"
+                        );
+                        order.remove();
+                    } else {
+                        error!(
+                            exchange = ?response.exchange,
+                            instrument = ?response.instrument,
+                            cid = %response.cid,
+                            order = ?order.get(),
+                            update = ?response,
+                            "OrderManager received ClientError for Order<OpenInFlight> whilst cancelling"
+                        );
+                    }
                 }
                 InternalOrderState::Open(_) => {
-                    // Todo: Depends on Err... then fix test
+                    if matches!(
+                        error,
+                        ClientError::Api(ApiError::OrderAlreadyCancelled(_))
+                            | ClientError::Api(ApiError::OrderAlreadyFullyFilled(_))
+                    ) {
+                        debug!(
+                            exchange = ?response.exchange,
+                            instrument = ?response.instrument,
+                            cid = %response.cid,
+                            order = ?order.get(),
+                            update = ?response,
+                            "OrderManager received 'order already completed' for Order<CancelInFlight> - removing"
+                        );
+                        order.remove();
+                    } else {
+                        error!(
+                            exchange = ?response.exchange,
+                            instrument = ?response.instrument,
+                            cid = %response.cid,
+                            order = ?order.get(),
+                            update = ?response,
+                            "OrderManager received ClientError for Order<Open> whilst cancelling"
+                        );
+                    }
                 }
                 InternalOrderState::CancelInFlight(_) => {
-                    // Todo: Depends on Err... then fix test
+                    error!(
+                        instrument = ?response.instrument,
+                        cid = %response.cid,
+                        update = ?response,
+                        "OrderManager received ClientError for Order<CancelInFlight> - removing"
+                    );
+                    order.remove();
                 }
             },
             (Entry::Vacant(_), Err(_)) => {
@@ -233,16 +316,90 @@ where
 
     fn update_from_order_snapshot(
         &mut self,
-        _snapshot: Snapshot<&Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>,
+        snapshot: Snapshot<&Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>,
     ) {
-        todo!()
-    }
+        match self.0.entry(snapshot.0.cid) {
+            Entry::Occupied(mut order) => match &snapshot.0.state {
+                ExchangeOrderState::Cancelled(_) => {
+                    debug!(
+                        exchange = ?snapshot.0.exchange,
+                        instrument = ?snapshot.0.instrument,
+                        cid = %snapshot.0.cid,
+                        order = ?order.get(),
+                        update = ?snapshot,
+                        "OrderManager received Snapshot<Order<Cancelled>> for tracked Order - removing"
+                    );
+                    order.remove();
+                }
+                ExchangeOrderState::Open(exchange_open) => match &order.get().state {
+                    InternalOrderState::OpenInFlight(_) => {
+                        debug!(
+                            exchange = ?snapshot.0.exchange,
+                            instrument = ?snapshot.0.instrument,
+                            cid = %snapshot.0.cid,
+                            order = ?order.get(),
+                            update = ?snapshot,
+                            "OrderManager transitioned Order<OpenInFlight> to Order<Open>"
+                        );
+                        order.get_mut().state = InternalOrderState::Open(exchange_open.clone())
+                    }
+                    InternalOrderState::Open(internal) => {
+                        debug!(
+                            exchange = ?snapshot.0.exchange,
+                            instrument = ?snapshot.0.instrument,
+                            cid = %snapshot.0.cid,
+                            order = ?order.get(),
+                            update = ?snapshot,
+                            "OrderManager received Snapshot<Order<Open>> for existing Order<Open> - taking latest timestamp"
+                        );
 
-    fn update_from_opens_snapshot(
-        &mut self,
-        _snapshot: Snapshot<&Vec<Order<ExchangeKey, InstrumentKey, Open>>>,
-    ) {
-        todo!()
+                        if internal.time_exchange < exchange_open.time_exchange {
+                            order.get_mut().state = InternalOrderState::Open(exchange_open.clone())
+                        }
+                    }
+                    InternalOrderState::CancelInFlight(_) => {
+                        // Waiting for cancel acknowledge, so do nothing
+                        debug!(
+                            exchange = ?snapshot.0.exchange,
+                            instrument = ?snapshot.0.instrument,
+                            cid = %snapshot.0.cid,
+                            order = ?order.get(),
+                            update = ?snapshot,
+                            "OrderManager received Snapshot<Order<Open>> for existing Order<CancelInFlight> - ignoring"
+                        );
+                    }
+                },
+            },
+            Entry::Vacant(untracked_cid) => match &snapshot.0.state {
+                ExchangeOrderState::Cancelled(_) => {
+                    // Order untracked, so ignore cancel acknowledgement
+                    warn!(
+                        exchange = ?snapshot.0.exchange,
+                        instrument = ?snapshot.0.instrument,
+                        cid = %snapshot.0.cid,
+                        update = ?snapshot,
+                        "OrderManager received Snapshot<Order<Cancelled>> for untracked Order - ignoring"
+                    );
+                }
+                ExchangeOrderState::Open(exchange_open) => {
+                    warn!(
+                        exchange = ?snapshot.0.exchange,
+                        instrument = ?snapshot.0.instrument,
+                        cid = %snapshot.0.cid,
+                        update = ?snapshot,
+                        "OrderManager received Snapshot<Order<Open>> for untracked Order - now tracking",
+                    );
+
+                    untracked_cid.insert(Order::new(
+                        snapshot.0.exchange.clone(),
+                        snapshot.0.instrument.clone(),
+                        snapshot.0.cid,
+                        snapshot.0.side,
+                        InternalOrderState::Open(exchange_open.clone()),
+                    ));
+                }
+            },
+        }
     }
 }
 
@@ -278,6 +435,304 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::v2::{
+        engine::state::order::Orders,
+        order::{
+            CancelInFlight, ClientOrderId, InternalOrderState, OpenInFlight, Order, OrderId,
+            OrderKind, RequestOpen, TimeInForce,
+        },
+    };
+    use barter_instrument::{exchange::ExchangeId, Side};
+    use chrono::{DateTime, Utc};
+    use rust_decimal_macros::dec;
+    use smol_str::SmolStr;
 
-    // Todo: paste tests from old versoin
+    fn orders(
+        orders: impl IntoIterator<Item = Order<ExchangeId, u64, InternalOrderState>>,
+    ) -> Orders<ExchangeId, u64> {
+        Orders(orders.into_iter().map(|order| (order.cid, order)).collect())
+    }
+
+    fn order_snapshot_exchange_cancelled(
+        cid: ClientOrderId,
+    ) -> Snapshot<Order<ExchangeId, u64, ExchangeOrderState>> {
+        Snapshot(Order {
+            exchange: ExchangeId::Simulated,
+            instrument: 1,
+            cid,
+            side: Side::Buy,
+            state: ExchangeOrderState::Cancelled(Cancelled {
+                id: OrderId(SmolStr::default()),
+                time_exchange: Default::default(),
+            }),
+        })
+    }
+
+    fn order_snapshot_exchange_open(
+        cid: ClientOrderId,
+        time_exchange: DateTime<Utc>,
+    ) -> Snapshot<Order<ExchangeId, u64, ExchangeOrderState>> {
+        Snapshot(Order {
+            exchange: ExchangeId::Simulated,
+            instrument: 1,
+            cid,
+            side: Side::Buy,
+            state: ExchangeOrderState::Open(open(time_exchange)),
+        })
+    }
+
+    fn open(time_exchange: DateTime<Utc>) -> Open {
+        Open {
+            id: OrderId(SmolStr::default()),
+            time_exchange,
+            price: Default::default(),
+            quantity: Default::default(),
+            filled_quantity: Default::default(),
+        }
+    }
+
+    fn order_internal(
+        cid: ClientOrderId,
+        state: InternalOrderState,
+    ) -> Order<ExchangeId, u64, InternalOrderState> {
+        Order {
+            exchange: ExchangeId::Simulated,
+            instrument: 1,
+            cid,
+            side: Side::Buy,
+            state,
+        }
+    }
+
+    fn order_internal_open(
+        cid: ClientOrderId,
+        time_exchange: DateTime<Utc>,
+    ) -> Order<ExchangeId, u64, InternalOrderState> {
+        order_internal(cid, InternalOrderState::Open(open(time_exchange)))
+    }
+
+    fn request_cancels(
+        orders: impl IntoIterator<Item = Order<ExchangeId, u64, RequestCancel>>,
+    ) -> FnvHashMap<ClientOrderId, Order<ExchangeId, u64, InternalOrderState>> {
+        orders
+            .into_iter()
+            .map(|order| (order.cid, Order::from(&order)))
+            .collect()
+    }
+
+    fn request_cancel(cid: ClientOrderId) -> Order<ExchangeId, u64, RequestCancel> {
+        Order {
+            exchange: ExchangeId::Simulated,
+            instrument: 1,
+            cid,
+            side: Side::Buy,
+            state: RequestCancel { id: None },
+        }
+    }
+
+    fn request_opens(
+        orders: impl IntoIterator<Item = Order<ExchangeId, u64, RequestOpen>>,
+    ) -> FnvHashMap<ClientOrderId, Order<ExchangeId, u64, InternalOrderState>> {
+        orders
+            .into_iter()
+            .map(|order| (order.cid, Order::from(&order)))
+            .collect()
+    }
+
+    fn request_open(cid: ClientOrderId) -> Order<ExchangeId, u64, RequestOpen> {
+        Order {
+            exchange: ExchangeId::Simulated,
+            instrument: 1,
+            cid,
+            side: Side::Buy,
+            state: RequestOpen {
+                kind: OrderKind::Limit,
+                time_in_force: TimeInForce::GoodUntilEndOfDay,
+                price: dec!(0.0),
+                quantity: dec!(0.0),
+            },
+        }
+    }
+
+    #[test]
+    fn test_update_from_open() {
+        panic!()
+    }
+
+    #[test]
+    fn test_update_from_cancel() {
+        panic!()
+    }
+
+    #[test]
+    fn test_update_from_order_snapshot() {
+        struct TestCase {
+            state: Orders<ExchangeId, u64>,
+            input: Snapshot<Order<ExchangeId, u64, ExchangeOrderState>>,
+            expected: Orders<ExchangeId, u64>,
+        }
+
+        let cid = ClientOrderId::default();
+
+        let cases = vec![
+            // TC0: Cancel tracked Order<OpenInFlight> after receiving Snapshot<Order<Cancelled>>
+            TestCase {
+                state: orders([order_internal(
+                    cid,
+                    InternalOrderState::OpenInFlight(OpenInFlight),
+                )]),
+                input: order_snapshot_exchange_cancelled(cid),
+                expected: Orders::default(),
+            },
+            // TC1: Cancel tracked Order<Open> after receiving Snapshot<Order<Cancelled>>
+            TestCase {
+                state: orders([order_internal_open(cid, DateTime::default())]),
+                input: order_snapshot_exchange_cancelled(cid),
+                expected: Orders::default(),
+            },
+            // TC2: Cancel tracked Order<CancelInFlight> after receiving Snapshot<Order<Cancelled>>
+            TestCase {
+                state: orders([order_internal(
+                    cid,
+                    InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
+                )]),
+                input: order_snapshot_exchange_cancelled(cid),
+                expected: Orders::default(),
+            },
+            // TC3: Open tracked Order<OpenInFlight> after receiving Snapshot<Order<Open>>
+            TestCase {
+                state: orders([order_internal(
+                    cid,
+                    InternalOrderState::OpenInFlight(OpenInFlight),
+                )]),
+                input: order_snapshot_exchange_open(cid, DateTime::<Utc>::default()),
+                expected: orders([order_internal_open(cid, DateTime::<Utc>::default())]),
+            },
+            // TC4: Update tracked Order<Open> after receiving more recent Snapshot<Order<Open>>
+            TestCase {
+                state: orders([order_internal_open(cid, DateTime::<Utc>::MIN_UTC)]),
+                input: order_snapshot_exchange_open(cid, DateTime::<Utc>::MAX_UTC),
+                expected: orders([order_internal_open(cid, DateTime::<Utc>::MAX_UTC)]),
+            },
+            // TC5: Ignore stale Snapshot<Order<Open>> when tracked Order<Open> is more recent
+            TestCase {
+                state: orders([order_internal_open(cid, DateTime::<Utc>::MAX_UTC)]),
+                input: order_snapshot_exchange_open(cid, DateTime::<Utc>::MIN_UTC),
+                expected: orders([order_internal_open(cid, DateTime::<Utc>::MAX_UTC)]),
+            },
+            // TC6: Ignore stale Snapshot<Order<Open>> when internal state is Order<CancelInFlight>
+            TestCase {
+                state: orders([order_internal(
+                    cid,
+                    InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
+                )]),
+                input: order_snapshot_exchange_open(cid, DateTime::<Utc>::default()),
+                expected: orders([order_internal(
+                    cid,
+                    InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
+                )]),
+            },
+            // TC7: Ignore Snapshot<Order<Cancelled>> for untracked Order
+            TestCase {
+                state: Orders::default(),
+                input: order_snapshot_exchange_cancelled(cid),
+                expected: Orders::default(),
+            },
+            // TC8: Insert untracked Snapshot<Order<Open>>
+            TestCase {
+                state: Orders::default(),
+                input: order_snapshot_exchange_open(cid, DateTime::<Utc>::default()),
+                expected: orders([order_internal_open(cid, DateTime::<Utc>::default())]),
+            },
+        ];
+
+        for (index, mut test) in cases.into_iter().enumerate() {
+            test.state.update_from_order_snapshot(test.input.as_ref());
+            assert_eq!(test.state, test.expected, "TestCase {index} failed")
+        }
+    }
+
+    #[test]
+    fn test_record_in_flight_cancel() {
+        struct TestCase {
+            state: Orders<ExchangeId, u64>,
+            input: Vec<Order<ExchangeId, u64, RequestCancel>>,
+            expected: Orders<ExchangeId, u64>,
+        }
+
+        let cid_1 = ClientOrderId::default();
+        let cid_2 = ClientOrderId::default();
+
+        let cases = vec![
+            TestCase {
+                // TC0: Insert untracked InFlight
+                state: Orders::default(),
+                input: vec![request_cancel(cid_1)],
+                expected: Orders(request_cancels([request_cancel(cid_1)])),
+            },
+            TestCase {
+                // TC1: Insert InFlight that is already tracked
+                state: Orders(request_cancels([request_cancel(cid_1)])),
+                input: vec![request_cancel(cid_1)],
+                expected: Orders(request_cancels([request_cancel(cid_1)])),
+            },
+            TestCase {
+                // TC2: Insert one untracked InFlight, and one already tracked
+                state: Orders(request_cancels([request_cancel(cid_1)])),
+                input: vec![request_cancel(cid_1), request_cancel(cid_2)],
+                expected: Orders(request_cancels([
+                    request_cancel(cid_1),
+                    request_cancel(cid_2),
+                ])),
+            },
+        ];
+
+        for (index, mut test) in cases.into_iter().enumerate() {
+            for in_flight in test.input {
+                test.state.record_in_flight_cancel(&in_flight);
+            }
+            assert_eq!(test.state, test.expected, "TestCase {index} failed")
+        }
+    }
+
+    #[test]
+    fn test_record_in_flight_open() {
+        struct TestCase {
+            state: Orders<ExchangeId, u64>,
+            input: Vec<Order<ExchangeId, u64, RequestOpen>>,
+            expected: Orders<ExchangeId, u64>,
+        }
+
+        let cid_1 = ClientOrderId::default();
+        let cid_2 = ClientOrderId::default();
+
+        let cases = vec![
+            TestCase {
+                // TC0: Insert unseen InFlight
+                state: Orders::default(),
+                input: vec![request_open(cid_1)],
+                expected: Orders(request_opens([request_open(cid_1)])),
+            },
+            TestCase {
+                // TC1: Insert InFlight that is already tracked
+                state: Orders(request_opens([request_open(cid_1)])),
+                input: vec![request_open(cid_1)],
+                expected: Orders(request_opens([request_open(cid_1)])),
+            },
+            TestCase {
+                // TC2: Insert one untracked InFlight, and one already tracked
+                state: Orders(request_opens([request_open(cid_1)])),
+                input: vec![request_open(cid_1), request_open(cid_2)],
+                expected: Orders(request_opens([request_open(cid_1), request_open(cid_2)])),
+            },
+        ];
+
+        for (index, mut test) in cases.into_iter().enumerate() {
+            for in_flight in test.input {
+                test.state.record_in_flight_open(&in_flight);
+            }
+            assert_eq!(test.state, test.expected, "TestCase {index} failed")
+        }
+    }
 }

@@ -1,9 +1,6 @@
 use crate::v2::{
     balance::AssetBalance,
-    execution::{
-        error::{ApiError, UnindexedClientError},
-        UnindexedAccountEvent, UnindexedAccountSnapshot,
-    },
+    execution::{error::UnindexedClientError, UnindexedAccountEvent, UnindexedAccountSnapshot},
     order::{Cancelled, Open, Order, RequestCancel, RequestOpen},
     position::Position,
 };
@@ -46,12 +43,35 @@ where
         Output = Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedClientError>>,
     > + Send;
 
+    fn cancel_orders<'a>(
+        &self,
+        requests: impl IntoIterator<Item = Order<ExchangeId, &'a InstrumentNameExchange, RequestCancel>>,
+    ) -> impl Stream<
+        Item = Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedClientError>>,
+    > {
+        futures::stream::FuturesUnordered::from_iter(
+            requests
+                .into_iter()
+                .map(|request| self.cancel_order(request)),
+        )
+    }
+
     fn open_order(
         &self,
         request: Order<ExchangeId, &InstrumentNameExchange, RequestOpen>,
     ) -> impl Future<
         Output = Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>>,
     > + Send;
+
+    fn open_orders<'a>(
+        &self,
+        requests: impl IntoIterator<Item = Order<ExchangeId, &'a InstrumentNameExchange, RequestOpen>>,
+    ) -> impl Stream<Item = Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>>>
+    {
+        futures::stream::FuturesUnordered::from_iter(
+            requests.into_iter().map(|request| self.open_order(request)),
+        )
+    }
 
     fn fetch_balances(
         &self,
@@ -125,10 +145,10 @@ impl ExecutionClient for MockExecution {
         // Sanity check (not performance critical):
         self.check_for_untracked_assets_and_instruments(assets, instruments)
             .map_err(|(untracked_assets, untracked_instruments)| {
-                UnindexedClientError::Api(ApiError::Custom(format!(
-                    "MockExecution cannot provide AccountSnapshot for non-configured \
-                    assets: {untracked_assets:?} and instruments: {untracked_instruments:?}"
-                )))
+                UnindexedClientError::AccountSnapshot(format!(
+                    "MockExecution not configured for assets: {:?} and instruments: {:?}",
+                    untracked_assets, untracked_instruments,
+                ))
             })?;
 
         Ok(self.state.clone())
@@ -142,10 +162,10 @@ impl ExecutionClient for MockExecution {
         // Sanity check (not performance critical):
         self.check_for_untracked_assets_and_instruments(assets, instruments)
             .map_err(|(untracked_assets, untracked_instruments)| {
-                UnindexedClientError::Api(ApiError::Custom(format!(
-                    "MockExecution cannot provide AccountSnapshot for non-configured \
-                    assets: {untracked_assets:?} and instruments: {untracked_instruments:?}"
-                )))
+                UnindexedClientError::AccountStream(format!(
+                    "MockExecution not configured for assets: {:?} and instruments: {:?}",
+                    untracked_assets, untracked_instruments,
+                ))
             })?;
 
         Ok(futures::StreamExt::boxed(

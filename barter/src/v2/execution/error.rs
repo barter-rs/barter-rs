@@ -14,14 +14,14 @@ pub type UnindexedApiError = ApiError<AssetNameExchange, InstrumentNameExchange>
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
 pub enum ExecutionError {
-    #[error("{0}")]
-    Client(#[from] IndexedClientError),
+    #[error("ExecutionManager config invalid: {0}")]
+    Config(String),
 
     #[error("IndexError: {0}")]
     Index(#[from] IndexError),
 
-    #[error("ExecutionManager config invalid: {0}")]
-    Config(String),
+    #[error("{0}")]
+    Client(#[from] IndexedClientError),
 }
 
 // Todo: probably lives in barter-execution
@@ -32,6 +32,12 @@ pub enum ClientError<AssetKey, InstrumentKey> {
 
     #[error("API: {0}")]
     Api(#[from] ApiError<AssetKey, InstrumentKey>),
+
+    #[error("failed to fetch AccountSnapshot: {0}")]
+    AccountSnapshot(String),
+
+    #[error("failed to init AccountStream: {0}")]
+    AccountStream(String),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
@@ -59,8 +65,6 @@ pub enum ApiError<AssetKey, InstrumentKey> {
     OrderAlreadyCancelled(ClientOrderId),
     #[error("order already fully filled with ClientOrderId: {0}")]
     OrderAlreadyFullyFilled(ClientOrderId),
-    #[error("{0}")]
-    Custom(String),
 }
 
 impl From<SocketError> for ConnectivityError {

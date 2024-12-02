@@ -41,9 +41,4 @@ where
         &mut self,
         snapshot: Snapshot<&Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>,
     );
-
-    fn update_from_opens_snapshot(
-        &mut self,
-        snapshot: Snapshot<&Vec<Order<ExchangeKey, InstrumentKey, Open>>>,
-    );
 }

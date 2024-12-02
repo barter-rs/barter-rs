@@ -116,8 +116,6 @@ impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, InternalOrder
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, From)]
 pub enum ExchangeOrderState {
     Open(Open),
-    OpenRejected(OpenRejectedReason),
-    CancelRejected(CancelRejectedReason),
     Cancelled(Cancelled),
 }
 
@@ -160,7 +158,7 @@ pub struct OpenInFlight;
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
 pub struct Open {
     pub id: OrderId,
-    pub time_update: DateTime<Utc>,
+    pub time_exchange: DateTime<Utc>,
     pub price: Decimal,
     pub quantity: Decimal,
     pub filled_quantity: Decimal,
@@ -171,9 +169,6 @@ impl Open {
         self.quantity - self.filled_quantity
     }
 }
-
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
-pub struct OpenRejectedReason(pub String);
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct CancelInFlight {
@@ -187,9 +182,6 @@ pub struct Cancelled {
     pub id: OrderId,
     pub time_exchange: DateTime<Utc>,
 }
-
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
-pub struct CancelRejectedReason(pub String);
 
 impl<ExchangeKey, InstrumentKey> From<&Order<ExchangeKey, InstrumentKey, RequestOpen>>
     for Order<ExchangeKey, InstrumentKey, InternalOrderState>
