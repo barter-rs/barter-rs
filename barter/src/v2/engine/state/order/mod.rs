@@ -242,30 +242,16 @@ where
             }
             (Entry::Occupied(order), Err(error)) => match &order.get().state {
                 InternalOrderState::OpenInFlight(_) => {
-                    if matches!(
-                        error,
-                        ClientError::Api(ApiError::OrderAlreadyCancelled(_))
-                            | ClientError::Api(ApiError::OrderAlreadyFullyFilled(_))
-                    ) {
-                        warn!(
-                            exchange = ?response.exchange,
-                            instrument = ?response.instrument,
-                            cid = %response.cid,
-                            order = ?order.get(),
-                            update = ?response,
-                            "OrderManager received 'order already completed' for Order<OpenInFlight> - removing"
-                        );
-                        order.remove();
-                    } else {
-                        error!(
-                            exchange = ?response.exchange,
-                            instrument = ?response.instrument,
-                            cid = %response.cid,
-                            order = ?order.get(),
-                            update = ?response,
-                            "OrderManager received ClientError for Order<OpenInFlight> whilst cancelling"
-                        );
-                    }
+                    error!(
+                        exchange = ?response.exchange,
+                        instrument = ?response.instrument,
+                        cid = %response.cid,
+                        order = ?order.get(),
+                        update = ?response,
+                        "OrderManager received ClientError for Order<OpenInFlight> whilst cancelling"
+                    );
+
+                    order.remove();
                 }
                 InternalOrderState::Open(_) => {
                     if matches!(
@@ -438,6 +424,7 @@ mod tests {
     use super::*;
     use crate::v2::{
         engine::state::order::Orders,
+        execution::error::ConnectivityError,
         order::{
             CancelInFlight, ClientOrderId, InternalOrderState, OpenInFlight, Order, OrderId,
             OrderKind, RequestOpen, TimeInForce,
@@ -452,6 +439,16 @@ mod tests {
         orders: impl IntoIterator<Item = Order<ExchangeId, u64, InternalOrderState>>,
     ) -> Orders<ExchangeId, u64> {
         Orders(orders.into_iter().map(|order| (order.cid, order)).collect())
+    }
+
+    fn order<State>(cid: ClientOrderId, state: State) -> Order<ExchangeId, u64, State> {
+        Order {
+            exchange: ExchangeId::Simulated,
+            instrument: 1,
+            cid,
+            side: Side::Buy,
+            state,
+        }
     }
 
     fn order_snapshot_exchange_cancelled(
@@ -492,24 +489,11 @@ mod tests {
         }
     }
 
-    fn order_internal(
-        cid: ClientOrderId,
-        state: InternalOrderState,
-    ) -> Order<ExchangeId, u64, InternalOrderState> {
-        Order {
-            exchange: ExchangeId::Simulated,
-            instrument: 1,
-            cid,
-            side: Side::Buy,
-            state,
+    fn cancelled() -> Cancelled {
+        Cancelled {
+            id: OrderId(SmolStr::default()),
+            time_exchange: Default::default(),
         }
-    }
-
-    fn order_internal_open(
-        cid: ClientOrderId,
-        time_exchange: DateTime<Utc>,
-    ) -> Order<ExchangeId, u64, InternalOrderState> {
-        order_internal(cid, InternalOrderState::Open(open(time_exchange)))
     }
 
     fn request_cancels(
@@ -557,12 +541,274 @@ mod tests {
 
     #[test]
     fn test_update_from_open() {
-        panic!()
+        struct TestCase {
+            state: Orders<ExchangeId, u64>,
+            input: Order<ExchangeId, u64, Result<Open, ClientError<u64, u64>>>,
+            expected: Orders<ExchangeId, u64>,
+        }
+
+        let cid = ClientOrderId::default();
+
+        let cases = vec![
+            // TC0: cid existing OpenInFlight, response Ok(Open)
+            TestCase {
+                state: orders([order(cid, InternalOrderState::OpenInFlight(OpenInFlight))]),
+                input: order(cid, Ok(open(DateTime::default()))),
+                expected: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::default())),
+                )]),
+            },
+            // TC1: cid existing Open, response Ok(Open) with more recent timestamp
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::MIN_UTC)),
+                )]),
+                input: order(cid, Ok(open(DateTime::<Utc>::MAX_UTC))),
+                expected: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::MAX_UTC)),
+                )]),
+            },
+            // TC2: cid existing Open, response Ok(Open) with less recent timestamp
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::MAX_UTC)),
+                )]),
+                input: order(cid, Ok(open(DateTime::<Utc>::MIN_UTC))),
+                expected: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::MAX_UTC)),
+                )]),
+            },
+            // TC3: cid existing CancelInFlight, response Ok(Open), so ignore response
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
+                )]),
+                input: order(cid, Ok(open(DateTime::default()))),
+                expected: orders([order(
+                    cid,
+                    InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
+                )]),
+            },
+            // TC4: cid untracked, response Ok(Open), so add tracking starting as Open
+            TestCase {
+                state: Orders::default(),
+                input: order(cid, Ok(open(DateTime::default()))),
+                expected: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::default())),
+                )]),
+            },
+            // TC5: cid tracked as OpenInFlight, response Err(Timeout), so remove
+            TestCase {
+                state: orders([order(cid, InternalOrderState::OpenInFlight(OpenInFlight))]),
+                input: order(
+                    cid,
+                    Err(ClientError::Connectivity(ConnectivityError::Timeout)),
+                ),
+                expected: Orders::default(),
+            },
+            // TC6: cid tracked as OpenInFlight, response Err(AlreadyFilled), so remove
+            TestCase {
+                state: orders([order(cid, InternalOrderState::OpenInFlight(OpenInFlight))]),
+                input: order(
+                    cid,
+                    Err(ClientError::Api(ApiError::OrderAlreadyFullyFilled(cid))),
+                ),
+                expected: Orders::default(),
+            },
+            // TC7: cid tracked as Open, response Err(AlreadyCancelled), so remove
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::default())),
+                )]),
+                input: order(
+                    cid,
+                    Err(ClientError::Api(ApiError::OrderAlreadyCancelled(cid))),
+                ),
+                expected: Orders::default(),
+            },
+            // TC8: cid tracked as Open, response Err(AlreadyFilled), so remove
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::default())),
+                )]),
+                input: order(
+                    cid,
+                    Err(ClientError::Api(ApiError::OrderAlreadyFullyFilled(cid))),
+                ),
+                expected: Orders::default(),
+            },
+            // TC9: cid tracked as Open, response Err indicating not already completed, so ignore
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::default())),
+                )]),
+                input: order(cid, Err(ClientError::Api(ApiError::RateLimit))),
+                expected: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::default())),
+                )]),
+            },
+            // TC10: cid tracked as CancelInFlight, response Err(AlreadyCancelled), so remove
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
+                )]),
+                input: order(
+                    cid,
+                    Err(ClientError::Api(ApiError::OrderAlreadyCancelled(cid))),
+                ),
+                expected: Orders::default(),
+            },
+            // TC11: cid tracked as CancelInFlight, response Err(AlreadyFilled), so remove
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
+                )]),
+                input: order(
+                    cid,
+                    Err(ClientError::Api(ApiError::OrderAlreadyFullyFilled(cid))),
+                ),
+                expected: Orders::default(),
+            },
+            // TC12: cid tracked as CancelInFlight, response Err indicating not already completed, so ignore
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
+                )]),
+                input: order(
+                    cid,
+                    Err(ClientError::Connectivity(ConnectivityError::Timeout)),
+                ),
+                expected: orders([order(
+                    cid,
+                    InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
+                )]),
+            },
+            // TC13: cid untracked, response Err, so ignore
+            TestCase {
+                state: Orders::default(),
+                input: order(
+                    cid,
+                    Err(ClientError::Connectivity(ConnectivityError::Timeout)),
+                ),
+                expected: Orders::default(),
+            },
+        ];
+
+        for (index, mut test) in cases.into_iter().enumerate() {
+            test.state.update_from_open(&test.input);
+            assert_eq!(test.state, test.expected, "TC{index} failed")
+        }
     }
 
     #[test]
     fn test_update_from_cancel() {
-        panic!()
+        struct TestCase {
+            state: Orders<ExchangeId, u64>,
+            input: Order<ExchangeId, u64, Result<Cancelled, ClientError<u64, u64>>>,
+            expected: Orders<ExchangeId, u64>,
+        }
+
+        let cid = ClientOrderId::default();
+
+        let cases = vec![
+            // TC0: cid tracked as OpenInFlight, response Ok(Cancelled), so remove
+            TestCase {
+                state: orders([order(cid, InternalOrderState::OpenInFlight(OpenInFlight))]),
+                input: order(cid, Ok(cancelled())),
+                expected: Orders::default(),
+            },
+            // TC1: cid tracked as Open, response Ok(Cancelled), so remove
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::default())),
+                )]),
+                input: order(cid, Ok(cancelled())),
+                expected: Orders::default(),
+            },
+            // TC2: cid tracked as CancelInFlight, response Ok(Cancelled), so remove
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
+                )]),
+                input: order(cid, Ok(cancelled())),
+                expected: Orders::default(),
+            },
+            // TC3: cid untracked, response Ok(Cancelled), so ignore
+            TestCase {
+                state: Orders::default(),
+                input: order(cid, Ok(cancelled())),
+                expected: Orders::default(),
+            },
+            // TC4: cid tracked as OpenInFlight, response Err(_), so remove
+            TestCase {
+                state: orders([order(cid, InternalOrderState::OpenInFlight(OpenInFlight))]),
+                input: order(cid, Err(ClientError::Api(ApiError::RateLimit))),
+                expected: Orders::default(),
+            },
+            // TC5: cid tracked as Open, response Err(AlreadyCancelled), so remove
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::default())),
+                )]),
+                input: order(
+                    cid,
+                    Err(ClientError::Api(ApiError::OrderAlreadyCancelled(cid))),
+                ),
+                expected: Orders::default(),
+            },
+            // TC6: cid tracked as Open, response Err(AlreadyFilled), so remove
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::default())),
+                )]),
+                input: order(
+                    cid,
+                    Err(ClientError::Api(ApiError::OrderAlreadyFullyFilled(cid))),
+                ),
+                expected: Orders::default(),
+            },
+            // TC7: cid tracked as CancelInFlight, response Err(_), so remove
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
+                )]),
+                input: order(cid, Err(ClientError::Api(ApiError::RateLimit))),
+                expected: Orders::default(),
+            },
+            // TC8: cid untracked, response Err(_), so ignore
+            TestCase {
+                state: Orders::default(),
+                input: order(
+                    cid,
+                    Err(ClientError::Connectivity(ConnectivityError::Timeout)),
+                ),
+                expected: Orders::default(),
+            },
+        ];
+
+        for (index, mut test) in cases.into_iter().enumerate() {
+            test.state.update_from_cancel(&test.input);
+            assert_eq!(test.state, test.expected, "TC{index} failed")
+        }
     }
 
     #[test]
@@ -578,22 +824,22 @@ mod tests {
         let cases = vec![
             // TC0: Cancel tracked Order<OpenInFlight> after receiving Snapshot<Order<Cancelled>>
             TestCase {
-                state: orders([order_internal(
-                    cid,
-                    InternalOrderState::OpenInFlight(OpenInFlight),
-                )]),
+                state: orders([order(cid, InternalOrderState::OpenInFlight(OpenInFlight))]),
                 input: order_snapshot_exchange_cancelled(cid),
                 expected: Orders::default(),
             },
             // TC1: Cancel tracked Order<Open> after receiving Snapshot<Order<Cancelled>>
             TestCase {
-                state: orders([order_internal_open(cid, DateTime::default())]),
+                state: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::default())),
+                )]),
                 input: order_snapshot_exchange_cancelled(cid),
                 expected: Orders::default(),
             },
             // TC2: Cancel tracked Order<CancelInFlight> after receiving Snapshot<Order<Cancelled>>
             TestCase {
-                state: orders([order_internal(
+                state: orders([order(
                     cid,
                     InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
                 )]),
@@ -602,33 +848,45 @@ mod tests {
             },
             // TC3: Open tracked Order<OpenInFlight> after receiving Snapshot<Order<Open>>
             TestCase {
-                state: orders([order_internal(
-                    cid,
-                    InternalOrderState::OpenInFlight(OpenInFlight),
-                )]),
+                state: orders([order(cid, InternalOrderState::OpenInFlight(OpenInFlight))]),
                 input: order_snapshot_exchange_open(cid, DateTime::<Utc>::default()),
-                expected: orders([order_internal_open(cid, DateTime::<Utc>::default())]),
+                expected: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::default())),
+                )]),
             },
             // TC4: Update tracked Order<Open> after receiving more recent Snapshot<Order<Open>>
             TestCase {
-                state: orders([order_internal_open(cid, DateTime::<Utc>::MIN_UTC)]),
+                state: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::MIN_UTC)),
+                )]),
                 input: order_snapshot_exchange_open(cid, DateTime::<Utc>::MAX_UTC),
-                expected: orders([order_internal_open(cid, DateTime::<Utc>::MAX_UTC)]),
+                expected: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::MAX_UTC)),
+                )]),
             },
             // TC5: Ignore stale Snapshot<Order<Open>> when tracked Order<Open> is more recent
             TestCase {
-                state: orders([order_internal_open(cid, DateTime::<Utc>::MAX_UTC)]),
+                state: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::MAX_UTC)),
+                )]),
                 input: order_snapshot_exchange_open(cid, DateTime::<Utc>::MIN_UTC),
-                expected: orders([order_internal_open(cid, DateTime::<Utc>::MAX_UTC)]),
+                expected: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::MAX_UTC)),
+                )]),
             },
             // TC6: Ignore stale Snapshot<Order<Open>> when internal state is Order<CancelInFlight>
             TestCase {
-                state: orders([order_internal(
+                state: orders([order(
                     cid,
                     InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
                 )]),
                 input: order_snapshot_exchange_open(cid, DateTime::<Utc>::default()),
-                expected: orders([order_internal(
+                expected: orders([order(
                     cid,
                     InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
                 )]),
@@ -643,13 +901,16 @@ mod tests {
             TestCase {
                 state: Orders::default(),
                 input: order_snapshot_exchange_open(cid, DateTime::<Utc>::default()),
-                expected: orders([order_internal_open(cid, DateTime::<Utc>::default())]),
+                expected: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::default())),
+                )]),
             },
         ];
 
         for (index, mut test) in cases.into_iter().enumerate() {
             test.state.update_from_order_snapshot(test.input.as_ref());
-            assert_eq!(test.state, test.expected, "TestCase {index} failed")
+            assert_eq!(test.state, test.expected, "TC{index} failed")
         }
     }
 
@@ -692,7 +953,7 @@ mod tests {
             for in_flight in test.input {
                 test.state.record_in_flight_cancel(&in_flight);
             }
-            assert_eq!(test.state, test.expected, "TestCase {index} failed")
+            assert_eq!(test.state, test.expected, "TC{index} failed")
         }
     }
 
@@ -732,7 +993,7 @@ mod tests {
             for in_flight in test.input {
                 test.state.record_in_flight_open(&in_flight);
             }
-            assert_eq!(test.state, test.expected, "TestCase {index} failed")
+            assert_eq!(test.state, test.expected, "TC{index} failed")
         }
     }
 }
