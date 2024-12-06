@@ -2,7 +2,7 @@ use crate::v2::{
     engine::state::{instrument::market_data::MarketDataState, order::Orders},
     execution::InstrumentAccountSnapshot,
     order::{Open, Order},
-    position::{Position, PositionClosed, PositionExchange, PositionOpen},
+    position::{Position, PositionExchange, PositionExited},
     trade::Trade,
     Snapshot,
 };
@@ -28,7 +28,7 @@ pub struct InstrumentStates<Market, ExchangeKey, AssetKey, InstrumentKey>(
 pub struct InstrumentState<Market, ExchangeKey, AssetKey, InstrumentKey> {
     pub key: InstrumentKey,
     pub instrument: Instrument<ExchangeKey, AssetKey>,
-    pub position: Option<PositionOpen<AssetKey, InstrumentKey>>,
+    pub position: Option<Position<AssetKey, InstrumentKey>>,
     pub orders: Orders<ExchangeKey, InstrumentKey>,
     pub market: Market,
 }
@@ -54,7 +54,6 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
     ) {
         // Todo: Since PositionExchange doesn't include Trade, fees, etc. Need to find a way to
         //       deal with out of order updates with PositionSnapshot + Trades.
-        //       --> Tempted to bin PositionExchange Snapshots for now... just use Position internally
 
         todo!()
         // if let Some(position) = &mut self.position {
@@ -87,7 +86,7 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
     pub fn update_from_trade(
         &mut self,
         trade: &Trade<AssetKey, InstrumentKey>,
-    ) -> Option<PositionClosed<AssetKey, InstrumentKey>>
+    ) -> Option<PositionExited<AssetKey, InstrumentKey>>
     where
         AssetKey: Debug + Clone + PartialEq,
         InstrumentKey: Debug + Clone + PartialEq,

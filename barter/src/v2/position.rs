@@ -2,56 +2,56 @@ use crate::v2::trade::{AssetFees, Trade, TradeId};
 use barter_instrument::Side;
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
+use rust_decimal::prelude::Zero;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-pub type PositionExchange<InstrumentKey> = Position<Exchange, InstrumentKey>;
-pub type PositionOpen<AssetKey, InstrumentKey> = Position<Open<AssetKey>, InstrumentKey>;
-pub type PositionClosed<AssetKey, InstrumentKey> = Position<Closed<AssetKey>, InstrumentKey>;
-
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
-pub struct Position<State, InstrumentKey> {
+#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
+pub struct Position<AssetKey, InstrumentKey> {
     pub instrument: InstrumentKey,
     pub side: Side,
     pub price_entry_average: f64,
-    pub time_enter: DateTime<Utc>,
-    pub state: State,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
-pub struct Exchange {
-    pub quantity_abs: f64,
-    pub time_exchange_update: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
-pub struct Open<AssetKey> {
     pub quantity_abs: f64,
     pub quantity_abs_max: f64,
     pub pnl_unrealised: f64,
     pub pnl_realised: f64,
     pub fees_enter: AssetFees<AssetKey>,
     pub fees_exit: AssetFees<AssetKey>,
+    pub time_enter: DateTime<Utc>,
     pub time_exchange_update: DateTime<Utc>,
     pub trades: Vec<TradeId>,
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
-pub struct Closed<AssetKey> {
+pub struct PositionExchange<InstrumentKey> {
+    pub instrument: InstrumentKey,
+    pub side: Side,
+    pub price_entry_average: f64,
+    pub quantity_abs: f64,
+    pub time_exchange_update: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
+pub struct PositionExited<AssetKey, InstrumentKey> {
+    pub instrument: InstrumentKey,
+    pub side: Side,
+    pub price_entry_average: f64,
     pub quantity_abs_max: f64,
     pub pnl_realised: f64,
     pub fees_enter: AssetFees<AssetKey>,
     pub fees_exit: AssetFees<AssetKey>,
+    pub time_enter: DateTime<Utc>,
+    pub time_exit: DateTime<Utc>,
     pub trades: Vec<TradeId>,
 }
 
-impl<AssetKey, InstrumentKey> Position<Open<AssetKey>, InstrumentKey> {
+impl<AssetKey, InstrumentKey> Position<AssetKey, InstrumentKey> {
     pub fn update_from_trade(
         mut self,
         trade: &Trade<AssetKey, InstrumentKey>,
     ) -> (
         Option<Self>,
-        Option<PositionClosed<AssetKey, InstrumentKey>>,
+        Option<PositionExited<AssetKey, InstrumentKey>>,
     )
     where
         AssetKey: Debug + Clone + PartialEq,
@@ -62,58 +62,54 @@ impl<AssetKey, InstrumentKey> Position<Open<AssetKey>, InstrumentKey> {
             "Position should never be updated from a trade for a different Instrument"
         );
         assert_eq!(
-            self.state.fees_enter.asset, trade.fees.asset,
+            self.fees_enter.asset, trade.fees.asset,
             "Position fees Asset should never be different from trade fees Asset"
         );
 
         // Add TradeId to current Position
-        self.state.trades.push(trade.id.clone());
+        self.trades.push(trade.id.clone());
 
         use Side::*;
         match (self.side, trade.side) {
             // Increase LONG/SHORT Position
             (Buy, Buy) | (Sell, Sell) => {
-                self.price_entry_average = ((self.price_entry_average * self.state.quantity_abs)
-                    + trade.value_quote())
-                    / self.state.quantity_abs;
-
-                self.state.quantity_abs += trade.quantity.abs();
-                if self.state.quantity_abs > self.state.quantity_abs_max {
-                    self.state.quantity_abs_max = self.state.quantity_abs;
+                self.update_price_entry_average(trade);
+                self.quantity_abs += trade.quantity.abs();
+                if self.quantity_abs > self.quantity_abs_max {
+                    self.quantity_abs_max = self.quantity_abs;
                 }
-
-                self.state.pnl_realised -= trade.fees.fees;
-                self.state.fees_enter.fees += trade.fees.fees;
-                self.state.time_exchange_update = trade.time_exchange;
+                self.pnl_realised -= trade.fees.fees;
+                self.fees_enter.fees += trade.fees.fees;
+                self.time_exchange_update = trade.time_exchange;
                 self.update_pnl_unrealised(trade.price);
 
                 (Some(self), None)
             }
             // Reduce LONG/SHORT Position
-            (Buy, Sell) | (Sell, Buy) if self.state.quantity_abs > trade.quantity.abs() => {
-                self.state.quantity_abs -= trade.quantity.abs();
-                self.state.fees_exit.fees += trade.fees.fees;
-                self.state.time_exchange_update = trade.time_exchange;
+            (Buy, Sell) | (Sell, Buy) if self.quantity_abs > trade.quantity.abs() => {
+                self.quantity_abs -= trade.quantity.abs();
+                self.fees_exit.fees += trade.fees.fees;
+                self.time_exchange_update = trade.time_exchange;
                 self.update_pnl_realised(trade.quantity, trade.price, trade.fees.fees);
                 self.update_pnl_unrealised(trade.price);
 
                 (Some(self), None)
             }
             // Close LONG/SHORT Position (exactly)
-            (Buy, Sell) | (Sell, Buy) if self.state.quantity_abs == trade.quantity.abs() => {
-                self.state.quantity_abs -= trade.quantity.abs();
-                self.state.fees_exit.fees += trade.fees.fees;
-                self.state.time_exchange_update = trade.time_exchange;
+            (Buy, Sell) | (Sell, Buy) if self.quantity_abs == trade.quantity.abs() => {
+                self.quantity_abs -= trade.quantity.abs();
+                self.fees_exit.fees += trade.fees.fees;
+                self.time_exchange_update = trade.time_exchange;
                 self.update_pnl_realised(trade.quantity, trade.price, trade.fees.fees);
                 self.update_pnl_unrealised(trade.price);
 
-                (None, Some(PositionClosed::from(self)))
+                (None, Some(PositionExited::from(self)))
             }
 
             // Close LONG/SHORT Position & open SHORT/LONG with remaining trade.quantity
-            (Buy, Sell) | (Sell, Buy) if self.state.quantity_abs < trade.quantity.abs() => {
+            (Buy, Sell) | (Sell, Buy) if self.quantity_abs < trade.quantity.abs() => {
                 // Trade flips Position, so generate theoretical initial Trade for next Position
-                let next_position_quantity = trade.quantity.abs() - self.state.quantity_abs;
+                let next_position_quantity = trade.quantity.abs() - self.quantity_abs;
                 let next_position_fee_enter =
                     trade.fees.fees * (next_position_quantity / trade.quantity.abs());
                 let next_position_trade = Trade {
@@ -131,31 +127,40 @@ impl<AssetKey, InstrumentKey> Position<Open<AssetKey>, InstrumentKey> {
                 };
 
                 // Update closing Position with appropriate ratio of fees for theoretical quantity
-                let fee_exit = trade.fees.fees * (self.state.quantity_abs / trade.quantity.abs());
-                self.state.fees_exit.fees += fee_exit;
-                self.state.time_exchange_update = trade.time_exchange;
-                self.update_pnl_realised(self.state.quantity_abs, trade.price, fee_exit);
-                self.state.quantity_abs = 0.0;
+                let fee_exit = trade.fees.fees * (self.quantity_abs / trade.quantity.abs());
+                self.fees_exit.fees += fee_exit;
+                self.time_exchange_update = trade.time_exchange;
+                self.update_pnl_realised(self.quantity_abs, trade.price, fee_exit);
+                self.quantity_abs = 0.0;
                 self.update_pnl_unrealised(trade.price);
 
                 (
                     Some(Self::from(&next_position_trade)),
-                    Some(PositionClosed::from(self)),
+                    Some(PositionExited::from(self)),
                 )
             }
             _ => unreachable!("match expression guard statements cover all cases"),
         }
     }
 
+    pub fn update_price_entry_average(&mut self, trade: &Trade<AssetKey, InstrumentKey>) {
+        self.price_entry_average = calculate_price_entry_average(
+            self.price_entry_average,
+            self.quantity_abs,
+            trade.price,
+            trade.quantity.abs(),
+        );
+    }
+
     /// Update [`Position::pnl_unrealised`](Position) with the estimated PnL from closing
     /// the [`Position`] at the provided price.
     pub fn update_pnl_unrealised(&mut self, price: f64) {
-        self.state.pnl_unrealised = calculate_pnl_unrealised(
+        self.pnl_unrealised = calculate_pnl_unrealised(
             self.side,
             self.price_entry_average,
-            self.state.quantity_abs,
-            self.state.quantity_abs_max,
-            self.state.fees_enter.fees,
+            self.quantity_abs,
+            self.quantity_abs_max,
+            self.fees_enter.fees,
             price,
         );
     }
@@ -169,7 +174,7 @@ impl<AssetKey, InstrumentKey> Position<Open<AssetKey>, InstrumentKey> {
         closed_fee: f64,
     ) {
         // Update total Position pnl_realised with closed quantity PnL
-        self.state.pnl_realised += calculate_pnl_realised(
+        self.pnl_realised += calculate_pnl_realised(
             self.side,
             self.price_entry_average,
             closed_quantity,
@@ -180,7 +185,7 @@ impl<AssetKey, InstrumentKey> Position<Open<AssetKey>, InstrumentKey> {
 }
 
 impl<AssetKey, InstrumentKey> From<&Trade<AssetKey, InstrumentKey>>
-    for Position<Open<AssetKey>, InstrumentKey>
+    for Position<AssetKey, InstrumentKey>
 where
     AssetKey: Clone,
     InstrumentKey: Clone,
@@ -192,39 +197,53 @@ where
             instrument: trade.instrument.clone(),
             side: trade.side,
             price_entry_average: trade.price,
+            quantity_abs: trade.quantity.abs(),
+            quantity_abs_max: trade.quantity.abs(),
+            pnl_unrealised: 0.0,
+            pnl_realised: -trade.fees.fees,
+            fees_enter: trade.fees.clone(),
+            fees_exit: AssetFees::default(),
             time_enter: trade.time_exchange,
-            state: Open {
-                quantity_abs: trade.quantity.abs(),
-                quantity_abs_max: trade.quantity.abs(),
-                pnl_unrealised: 0.0,
-                pnl_realised: -trade.fees.fees,
-                fees_enter: trade.fees.clone(),
-                fees_exit: AssetFees::default(),
-                time_exchange_update: trade.time_exchange,
-                trades,
-            },
+            time_exchange_update: trade.time_exchange,
+            trades,
         }
     }
 }
 
-impl<AssetKey, InstrumentKey> From<Position<Open<AssetKey>, InstrumentKey>>
-    for Position<Closed<AssetKey>, InstrumentKey>
+impl<AssetKey, InstrumentKey> From<Position<AssetKey, InstrumentKey>>
+    for PositionExited<AssetKey, InstrumentKey>
 {
-    fn from(value: Position<Open<AssetKey>, InstrumentKey>) -> Self {
+    fn from(value: Position<AssetKey, InstrumentKey>) -> Self {
         Self {
             instrument: value.instrument,
             side: value.side,
             price_entry_average: value.price_entry_average,
+            quantity_abs_max: value.quantity_abs_max,
+            pnl_realised: value.pnl_realised,
+            fees_enter: value.fees_enter,
+            fees_exit: value.fees_exit,
             time_enter: value.time_enter,
-            state: Closed {
-                quantity_abs_max: value.state.quantity_abs_max,
-                pnl_realised: value.state.pnl_realised,
-                fees_enter: value.state.fees_enter,
-                fees_exit: value.state.fees_exit,
-                trades: value.state.trades,
-            },
+            time_exit: value.time_exchange_update,
+            trades: value.trades,
         }
     }
+}
+
+fn calculate_price_entry_average(
+    current_price_entry_average: f64,
+    current_quantity_abs: f64,
+    trade_price: f64,
+    trade_quantity_abs: f64,
+) -> f64 {
+    // Todo: perhaps make this more robust, eg/ with typed_floats
+    if current_quantity_abs.is_zero() && trade_quantity_abs.is_zero() {
+        return 0.0;
+    }
+
+    let current_value = current_price_entry_average * current_quantity_abs;
+    let trade_value = trade_price * trade_quantity_abs;
+
+    (current_value + trade_value) / (current_quantity_abs + trade_quantity_abs)
 }
 
 /// Calculate the estimated unrealised PnL from closing a [`Position`] `quantity_abs` at the
@@ -254,7 +273,7 @@ pub fn calculate_pnl_unrealised(
 /// The `fees_enter` value was the fee cost to enter a [`Position`] of `quantity_abs_max`,
 /// therefore this 'fee per quantity' ratio can be used to approximate the exit fees required to
 /// close a `quantity_abs` [`Position`].
-pub fn approximate_remaining_exit_fees(
+fn approximate_remaining_exit_fees(
     quantity_abs: f64,
     quantity_abs_max: f64,
     fees_enter: f64,
@@ -284,6 +303,81 @@ pub fn calculate_pnl_realised(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_calculate_price_entry_average() {
+        struct TestCase {
+            current_price_entry_average: f64,
+            current_quantity_abs: f64,
+            trade_price: f64,
+            trade_quantity_abs: f64,
+            expected: f64,
+        }
+
+        let cases = vec![
+            // TC0: equal contribution
+            TestCase {
+                current_price_entry_average: 100.0,
+                current_quantity_abs: 2.0,
+                trade_price: 200.0,
+                trade_quantity_abs: 2.0,
+                expected: 150.0,
+            },
+            // TC1: trade larger contribution
+            TestCase {
+                current_price_entry_average: 100.0,
+                current_quantity_abs: 2.0,
+                trade_price: 200.0,
+                trade_quantity_abs: 4.0,
+                expected: 166.666666666666666666,
+            },
+            // TC2: current larger contribution
+            TestCase {
+                current_price_entry_average: 100.0,
+                current_quantity_abs: 20.0,
+                trade_price: 200.0,
+                trade_quantity_abs: 1.0,
+                expected: 104.762,
+            },
+            // TC3: zero current quantity, so expect trade price
+            TestCase {
+                current_price_entry_average: 100.0,
+                current_quantity_abs: 0.0,
+                trade_price: 200.0,
+                trade_quantity_abs: 4.0,
+                expected: 200.0,
+            },
+            // TC4: zero trade quantity, so expect current price
+            TestCase {
+                current_price_entry_average: 100.0,
+                current_quantity_abs: 10.0,
+                trade_price: 0.0,
+                trade_quantity_abs: 4.0,
+                expected: 100.0,
+            },
+        ];
+
+        for (index, test) in cases.into_iter().enumerate() {
+            let actual = calculate_price_entry_average(
+                test.current_price_entry_average,
+                test.current_quantity_abs,
+                test.trade_price,
+                test.trade_quantity_abs,
+            );
+
+            assert!((actual - test.expected).abs() < 0.001, "TC{} failed", index)
+        }
+    }
+
+    #[test]
+    fn test_calculate_pnl_unrealised() {
+        todo!()
+    }
+
+    #[test]
+    fn test_approximate_remaining_exit_fees() {
+        todo!()
+    }
 
     #[test]
     fn test_calculate_pnl_realised() {

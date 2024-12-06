@@ -88,7 +88,7 @@ where
                     kind: OrderKind::Market,
                     time_in_force: TimeInForce::ImmediateOrCancel,
                     price: Default::default(),
-                    quantity: position.state.quantity_abs,
+                    quantity: position.quantity_abs,
                 },
             })
         });

@@ -13,7 +13,7 @@ use crate::v2::{
         UnindexedAccountSnapshot,
     },
     order::{Cancelled, ExchangeOrderState, Open, Order, RequestCancel, RequestOpen},
-    position::{Exchange, PositionExchange},
+    position::PositionExchange,
     trade::{AssetFees, Trade},
     Snapshot,
 };
@@ -572,12 +572,8 @@ impl AccountEventIndexer {
             instrument,
             side,
             price_entry_average,
-            time_enter,
-            state:
-                Exchange {
-                    quantity_abs,
-                    time_exchange_update,
-                },
+            quantity_abs,
+            time_exchange_update,
         } = position;
 
         let instrument = self.map.find_instrument_index(&instrument)?;
@@ -586,11 +582,8 @@ impl AccountEventIndexer {
             instrument,
             side,
             price_entry_average,
-            time_enter,
-            state: Exchange {
-                quantity_abs,
-                time_exchange_update,
-            },
+            quantity_abs,
+            time_exchange_update,
         })
     }
 
