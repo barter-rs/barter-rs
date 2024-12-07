@@ -1,25 +1,31 @@
-use barter::v2::{
-    balance::{AssetBalance, Balance},
-    engine::{
-        command::Command,
-        run,
-        state::{
-            instrument::{manager::InstrumentFilter, market_data::DefaultMarketData},
-            trading::TradingState,
-            EngineState,
+use barter::{
+    statistic::{
+        summary,
+        summary::{trading::TradingSummary, Initialiser},
+    },
+    v2::{
+        balance::{AssetBalance, Balance},
+        engine::{
+            command::Command,
+            run,
+            state::{
+                instrument::{manager::InstrumentFilter, market_data::DefaultMarketData},
+                trading::TradingState,
+                EngineState,
+            },
+            Engine,
         },
-        Engine,
+        error::BarterError,
+        execution::{
+            builder::ExecutionBuilder, manager::client::MockExecutionConfig,
+            InstrumentAccountSnapshot, UnindexedAccountSnapshot,
+        },
+        instrument::IndexedInstruments,
+        position::PositionExchange,
+        risk::{DefaultRiskManager, DefaultRiskManagerState},
+        strategy::{DefaultStrategy, DefaultStrategyState},
+        EngineEvent,
     },
-    error::BarterError,
-    execution::{
-        builder::ExecutionBuilder, manager::client::MockExecutionConfig, InstrumentAccountSnapshot,
-        UnindexedAccountSnapshot,
-    },
-    instrument::IndexedInstruments,
-    position::PositionExchange,
-    risk::{DefaultRiskManager, DefaultRiskManagerState},
-    strategy::{DefaultStrategy, DefaultStrategyState},
-    EngineEvent,
 };
 use barter_data::{
     event::DataKind,
@@ -50,6 +56,7 @@ use futures::Stream;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use tracing::{info, warn};
+
 // Todo: Major To Dos:
 //  - Fine tooth comb make sure everything is in the correct file, module, crate, etc.
 //  - Auditor w/ back-test utilities
@@ -59,6 +66,7 @@ use tracing::{info, warn};
 //  - Ensure Engine Connectivity is set to healthy upon new "Item"
 //  - Test IndexedInstruments, etc.
 //  - Allow cancelling an Order before it's opened via Cid
+//  - Make update from AccountSnapshot more std::mem::replace, since we have SnapUps
 
 const EXCHANGE: ExchangeId = ExchangeId::BinanceSpot;
 
@@ -108,11 +116,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Run synchronous Engine on blocking task
     let engine_task = tokio::task::spawn_blocking(move || {
-        run(
+        let shutdown_audit = run(
             &mut feed_rx,
             &mut engine,
             &mut ChannelTxDroppable::new(audit_tx),
-        )
+        );
+
+        (engine, shutdown_audit)
     });
 
     // Let the example run for 4 seconds..., then:
@@ -127,7 +137,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     feed_tx.send(EngineEvent::Shutdown)?;
 
     // Await Engine task graceful shutdown
-    let shutdown_audit = engine_task.await?;
+    let (engine, shutdown_audit) = engine_task.await?;
     info!(?shutdown_audit, "Engine shutdown");
     Ok(())
 }

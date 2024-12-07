@@ -312,6 +312,14 @@ pub fn calculate_pnl_realised(
     }
 }
 
+pub fn calculate_pnl_return(
+    pnl_realised: f64,
+    price_entry_average: f64,
+    quantity_abs_max: f64,
+) -> f64 {
+    pnl_realised / (price_entry_average * quantity_abs_max)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

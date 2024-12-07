@@ -4,6 +4,7 @@ pub mod pnl;
 pub mod trading;
 
 use crate::portfolio::position::Position;
+use crate::v2::position::PositionExited;
 use prettytable::{Cell, Row, Table};
 use smol_str::SmolStr;
 
@@ -13,9 +14,12 @@ pub trait Initialiser {
 }
 
 pub trait PositionSummariser: Copy {
-    fn update(&mut self, position: &Position);
-    fn generate_summary(&mut self, positions: &[Position]) {
-        for position in positions.iter() {
+    fn update<AssetKey, InstrumentKey>(&mut self, position: &PositionExited<AssetKey, InstrumentKey>);
+    fn generate_summary<AssetKey, InstrumentKey>(
+        &mut self,
+        positions: impl Iterator<Item = &PositionExited<AssetKey, InstrumentKey>>
+    ) {
+        for position in positions {
             self.update(position)
         }
     }
