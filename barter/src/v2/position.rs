@@ -31,6 +31,18 @@ pub struct PositionExchange<InstrumentKey> {
     pub time_exchange_update: DateTime<Utc>,
 }
 
+impl<InstrumentKey> PositionExchange<InstrumentKey> {
+    pub fn new_flat(instrument: InstrumentKey) -> Self {
+        Self {
+            instrument,
+            side: Side::Buy,
+            price_entry_average: 0.0,
+            quantity_abs: 0.0,
+            time_exchange_update: DateTime::<Utc>::MIN_UTC,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
 pub struct PositionExited<AssetKey, InstrumentKey> {
     pub instrument: InstrumentKey,

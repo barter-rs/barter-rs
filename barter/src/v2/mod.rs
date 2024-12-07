@@ -87,4 +87,12 @@ impl<T> Snapshot<T> {
         let Self(item) = self;
         Snapshot(item)
     }
+
+    pub fn map<F, N>(self, op: F) -> Snapshot<N>
+    where
+        F: Fn(T) -> N,
+    {
+        let Self(item) = self;
+        Snapshot(op(item))
+    }
 }

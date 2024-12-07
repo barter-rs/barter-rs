@@ -16,7 +16,7 @@ use barter::v2::{
         UnindexedAccountSnapshot,
     },
     instrument::IndexedInstruments,
-    position::Position,
+    position::PositionExchange,
     risk::{DefaultRiskManager, DefaultRiskManagerState},
     strategy::{DefaultStrategy, DefaultStrategyState},
     EngineEvent,
@@ -50,7 +50,6 @@ use futures::Stream;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use tracing::{info, warn};
-
 // Todo: Major To Dos:
 //  - Fine tooth comb make sure everything is in the correct file, module, crate, etc.
 //  - Auditor w/ back-test utilities
@@ -258,7 +257,7 @@ fn build_initial_account_snapshot(
         .iter()
         .map(|keyed_instrument| {
             InstrumentAccountSnapshot::new(
-                Position::new_flat(keyed_instrument.value.name_exchange.clone()),
+                PositionExchange::new_flat(keyed_instrument.value.name_exchange.clone()),
                 vec![],
             )
         })
