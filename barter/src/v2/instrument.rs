@@ -19,6 +19,7 @@ use barter_instrument::{
     },
     Keyed,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
@@ -147,7 +148,11 @@ impl IndexedInstruments {
                             asset.value.exchange,
                             asset.value.asset.name_internal.clone(),
                         ),
-                        AssetState::new(asset.value.asset.clone(), Balance::default()),
+                        AssetState::new(
+                            asset.value.asset.clone(),
+                            Balance::default(),
+                            DateTime::<Utc>::MIN_UTC,
+                        ),
                     )
                 })
                 .collect(),

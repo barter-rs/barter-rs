@@ -5,6 +5,7 @@ use crate::v2::{
     Snapshot,
 };
 use barter_instrument::asset::{name::AssetNameInternal, Asset, ExchangeAsset};
+use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -17,12 +18,16 @@ pub struct AssetStates(pub IndexMap<ExchangeAsset<AssetNameInternal>, AssetState
 pub struct AssetState {
     pub asset: Asset,
     pub balance: Balance,
+    pub time_exchange: DateTime<Utc>,
 }
 
 impl AssetState {
-    pub fn update_from_balance<AssetKey>(&mut self, balance: Snapshot<&AssetBalance<AssetKey>>) {
-        let Snapshot(balance) = balance;
-        self.balance = balance.balance;
+    pub fn update_from_balance<AssetKey>(&mut self, snapshot: Snapshot<&AssetBalance<AssetKey>>) {
+        let Snapshot(snapshot) = snapshot;
+
+        if self.time_exchange <= snapshot.time_exchange {
+            self.balance = snapshot.balance;
+        }
     }
 }
 

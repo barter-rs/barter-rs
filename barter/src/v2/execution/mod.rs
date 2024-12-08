@@ -110,10 +110,12 @@ pub struct AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey> {
     pub instruments: Vec<InstrumentAccountSnapshot<ExchangeKey, InstrumentKey>>,
 }
 
+// Todo: Maybe InstrumentAccountState, AssetAccountState, and use same types as Engine
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct InstrumentAccountSnapshot<ExchangeKey, InstrumentKey> {
     pub position: PositionExchange<InstrumentKey>,
-    pub orders: Vec<Order<ExchangeKey, InstrumentKey, Open>>,
+    pub orders: Vec<Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>,
 }
 
 impl<ExchangeKey, AssetKey, InstrumentKey> AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey> {

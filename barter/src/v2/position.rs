@@ -1,10 +1,14 @@
-use crate::v2::trade::{AssetFees, Trade, TradeId};
+use crate::v2::{
+    trade::{AssetFees, Trade, TradeId},
+    Snapshot,
+};
 use barter_instrument::Side;
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use rust_decimal::prelude::Zero;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use tracing::error;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
 pub struct Position<AssetKey, InstrumentKey> {
@@ -58,6 +62,40 @@ pub struct PositionExited<AssetKey, InstrumentKey> {
 }
 
 impl<AssetKey, InstrumentKey> Position<AssetKey, InstrumentKey> {
+    pub fn update_from_position_snapshot(
+        self,
+        snapshot: Snapshot<&PositionExchange<InstrumentKey>>,
+    ) -> (
+        Option<Self>,
+        Option<PositionExited<AssetKey, InstrumentKey>>,
+    )
+    where
+        AssetKey: Debug,
+        InstrumentKey: Debug,
+    {
+        let Snapshot(snapshot) = snapshot;
+
+        if self.time_exchange_update > snapshot.time_exchange_update {
+            return (Some(self), None);
+        }
+
+        if self.side != snapshot.side {
+            error!(
+                previous = ?self,
+                update = ?snapshot,
+                action = "emitting PositionExited from previous data & creating new from Snapshot",
+                "Position | DATA-LOSS | could not reconcile update from Snapshot<PositionExchange>"
+            );
+
+            // let new = Position::from
+
+            todo!()
+            // Todo: issue, return PositionExit and create a new Position from snapshot
+        } else {
+            todo!()
+        }
+    }
+
     pub fn update_from_trade(
         mut self,
         trade: &Trade<AssetKey, InstrumentKey>,

@@ -1,31 +1,25 @@
-use barter::{
-    statistic::{
-        summary,
-        summary::{trading::TradingSummary, Initialiser},
-    },
-    v2::{
-        balance::{AssetBalance, Balance},
-        engine::{
-            command::Command,
-            run,
-            state::{
-                instrument::{manager::InstrumentFilter, market_data::DefaultMarketData},
-                trading::TradingState,
-                EngineState,
-            },
-            Engine,
+use barter::v2::{
+    balance::{AssetBalance, Balance},
+    engine::{
+        command::Command,
+        run,
+        state::{
+            instrument::{manager::InstrumentFilter, market_data::DefaultMarketData},
+            trading::TradingState,
+            EngineState,
         },
-        error::BarterError,
-        execution::{
-            builder::ExecutionBuilder, manager::client::MockExecutionConfig,
-            InstrumentAccountSnapshot, UnindexedAccountSnapshot,
-        },
-        instrument::IndexedInstruments,
-        position::PositionExchange,
-        risk::{DefaultRiskManager, DefaultRiskManagerState},
-        strategy::{DefaultStrategy, DefaultStrategyState},
-        EngineEvent,
+        Engine,
     },
+    error::BarterError,
+    execution::{
+        builder::ExecutionBuilder, manager::client::MockExecutionConfig, InstrumentAccountSnapshot,
+        UnindexedAccountSnapshot,
+    },
+    instrument::IndexedInstruments,
+    position::PositionExchange,
+    risk::{DefaultRiskManager, DefaultRiskManagerState},
+    strategy::{DefaultStrategy, DefaultStrategyState},
+    EngineEvent,
 };
 use barter_data::{
     event::DataKind,
@@ -258,6 +252,7 @@ fn build_initial_account_snapshot(
                 } else {
                     Balance::new(Decimal::ZERO, Decimal::ZERO)
                 },
+                Utc::now(),
             )
         })
         .collect();

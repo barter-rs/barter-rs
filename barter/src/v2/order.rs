@@ -119,6 +119,33 @@ pub enum ExchangeOrderState {
     Cancelled(Cancelled),
 }
 
+impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, ExchangeOrderState> {
+    pub fn as_open(&self) -> Option<Order<ExchangeKey, InstrumentKey, Open>>
+    where
+        ExchangeKey: Clone,
+        InstrumentKey: Clone,
+    {
+        let Order {
+            exchange,
+            instrument,
+            cid,
+            side,
+            state: ExchangeOrderState::Open(open),
+        } = self
+        else {
+            return None;
+        };
+
+        Some(Order {
+            exchange: exchange.clone(),
+            instrument: instrument.clone(),
+            cid: *cid,
+            side: *side,
+            state: open.clone(),
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
 pub struct RequestOpen {
     pub kind: OrderKind,

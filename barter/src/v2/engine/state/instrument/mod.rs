@@ -1,7 +1,9 @@
 use crate::v2::{
-    engine::state::{instrument::market_data::MarketDataState, order::Orders},
+    engine::state::{
+        instrument::market_data::MarketDataState,
+        order::{manager::OrderManager, Orders},
+    },
     execution::InstrumentAccountSnapshot,
-    order::{Open, Order},
     position::{Position, PositionExchange, PositionExited},
     trade::Trade,
     Snapshot,
@@ -10,6 +12,7 @@ use barter_data::event::MarketEvent;
 use barter_instrument::instrument::{name::InstrumentNameInternal, Instrument};
 use derive_more::Constructor;
 use indexmap::IndexMap;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -40,47 +43,29 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
         &mut self,
         snapshot: &InstrumentAccountSnapshot<ExchangeKey, InstrumentKey>,
     ) where
-        ExchangeKey: Clone,
-        InstrumentKey: Clone,
+        ExchangeKey: Debug + Clone,
+        InstrumentKey: Debug + Clone,
         AssetKey: Clone,
     {
-        self.update_from_position_snapshot(Snapshot(&snapshot.position));
-        self.update_from_opens_snapshot(Snapshot(&snapshot.orders))
+        let InstrumentAccountSnapshot { position, orders } = snapshot;
+
+        self.update_from_position_snapshot(Snapshot(position));
+
+        for order in orders {
+            self.orders.update_from_order_snapshot(Snapshot(order))
+        }
     }
 
     pub fn update_from_position_snapshot(
         &mut self,
-        _snapshot: Snapshot<&PositionExchange<InstrumentKey>>,
+        snapshot: Snapshot<&PositionExchange<InstrumentKey>>,
     ) {
-        // Todo: Since PositionExchange doesn't include Trade, fees, etc. Need to find a way to
-        //       deal with out of order updates with PositionSnapshot + Trades.
+        if let Some(position) = &mut self.position {
+            // position.update_from_position_snapshot(snapshot)
+        } else {
+        }
 
         todo!()
-        // if let Some(position) = &mut self.position {
-        //     if position.state.time_exchange_update < snapshot.0.state.time_exchange_update {
-        //         let _ = std::mem::replace(position, snapshot.0.clone());
-        //     }
-        // } else {
-        //     let _ = self.position.insert(snapshot.0.clone());
-        // }
-    }
-
-    pub fn update_from_opens_snapshot(
-        &mut self,
-        orders: Snapshot<&Vec<Order<ExchangeKey, InstrumentKey, Open>>>,
-    ) where
-        ExchangeKey: Clone,
-        InstrumentKey: Clone,
-        AssetKey: Clone,
-    {
-        let _ = std::mem::replace(
-            &mut self.orders.0,
-            orders
-                .0
-                .iter()
-                .map(|order| (order.cid, Order::from(order.clone())))
-                .collect(),
-        );
     }
 
     pub fn update_from_trade(

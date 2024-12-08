@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -6,7 +7,7 @@ use serde::{Deserialize, Serialize};
 pub struct AssetBalance<AssetKey> {
     pub asset: AssetKey,
     pub balance: Balance,
-    // pub time_exchange: DateTime<Utc>,
+    pub time_exchange: DateTime<Utc>,
 }
 
 #[derive(

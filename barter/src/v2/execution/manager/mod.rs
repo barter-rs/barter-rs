@@ -101,16 +101,21 @@ where
                     .cloned()
                     .collect::<Vec<_>>();
 
+                // Initialise AccountStream & apply indexing
+                let updates = Self::init_indexed_account_stream(
+                    &client,
+                    indexer.clone(),
+                    &assets,
+                    &instruments,
+                )
+                .await?;
+
                 // Fetch AccountSnapshot & index
                 let snapshot =
                     Self::fetch_indexed_account_snapshot(&client, &indexer, &assets, &instruments)
                         .await?;
 
-                // Initialise AccountStream & apply indexing
-                let updates =
-                    Self::init_indexed_account_stream(&client, indexer, &assets, &instruments)
-                        .await?;
-
+                // It's expected downstream consumers (eg/ EngineState will sync updates)
                 Ok(futures::stream::once(std::future::ready(snapshot)).chain(updates))
             }
         })
@@ -205,6 +210,55 @@ where
             }),
         )
     }
+
+    async fn init_synchronised_account_snapshot_with_updates() {}
+
+    // async fn sync_account_snapshot_and_updates(
+    //     snapshot: IndexedAccountSnapshot,
+    //     updates: impl Stream<Item = IndexedAccountEvent>
+    // ) -> impl Stream<Item = IndexedAccountEvent>
+    // {
+    //     updates
+    //         .scan(snapshot, |snapshot, event| {
+    //
+    //             // Todo:
+    //
+    //             match event.kind {
+    //                 AccountEventKind::Snapshot(snapshot) => {
+    //
+    //                 }
+    //                 AccountEventKind::BalanceSnapshot(Snapshot(event)) => {
+    //                     if let Some(snapshot) = snapshot
+    //                         .balances
+    //                         .iter_mut()
+    //                         .find(|snapshot| {
+    //                             snapshot.asset == event.asset
+    //                         })
+    //                     {
+    //                         if snapshot.time_exchange <= event.time_exchange {
+    //                             snapshot.balance = event.balance;
+    //                         }
+    //                     } else {
+    //                         warn!(
+    //                             ?snapshot,
+    //                             ?event,
+    //                             "AccountSnapshot encountered Balance for non-tracked Asset - adding"
+    //                         );
+    //                         snapshot.balances.push(event);
+    //                     }
+    //                 }
+    //                 AccountEventKind::PositionSnapshot(Snapshot(position_)) => {
+    //
+    //                 }
+    //                 AccountEventKind::OrderSnapshot(_) => {}
+    //                 AccountEventKind::OrderOpened(_) => {}
+    //                 AccountEventKind::OrderCancelled(_) => {}
+    //                 AccountEventKind::Trade(_) => {}
+    //             }
+    //
+    //
+    //         })
+    // }
 
     pub async fn run(mut self) {
         let mut in_flight_cancels = FuturesUnordered::new();
@@ -553,14 +607,14 @@ impl AccountEventIndexer {
         let AssetBalance {
             asset,
             balance,
-            // time_exchange,
+            time_exchange,
         } = balance;
         let asset = self.map.find_asset_index(&asset)?;
 
         Ok(AssetBalance {
             asset,
             balance,
-            // time_exchange,
+            time_exchange,
         })
     }
 
@@ -634,8 +688,8 @@ impl AccountEventIndexer {
 
     pub fn order_open(
         &self,
-        order: Order<ExchangeId, InstrumentNameExchange, Open>,
-    ) -> Result<Order<ExchangeIndex, InstrumentIndex, Open>, IndexError> {
+        order: Order<ExchangeId, InstrumentNameExchange, ExchangeOrderState>,
+    ) -> Result<Order<ExchangeIndex, InstrumentIndex, ExchangeOrderState>, IndexError> {
         let Order {
             exchange,
             instrument,

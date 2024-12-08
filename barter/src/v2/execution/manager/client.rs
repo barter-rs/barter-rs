@@ -1,7 +1,7 @@
 use crate::v2::{
     balance::AssetBalance,
     execution::{error::UnindexedClientError, UnindexedAccountEvent, UnindexedAccountSnapshot},
-    order::{Cancelled, Open, Order, RequestCancel, RequestOpen},
+    order::{Cancelled, ExchangeOrderState, Open, Order, RequestCancel, RequestOpen},
     position::PositionExchange,
 };
 use barter_instrument::{
@@ -226,7 +226,7 @@ impl ExecutionClient for MockExecution {
             .state
             .instruments
             .iter()
-            .flat_map(|state| state.orders.clone())
+            .flat_map(|state| state.orders.iter().filter_map(Order::as_open))
             .collect())
     }
 }
