@@ -24,8 +24,8 @@ pub struct AssetState {
 impl AssetState {
     pub fn update_from_balance<AssetKey>(&mut self, snapshot: Snapshot<&AssetBalance<AssetKey>>) {
         let Snapshot(snapshot) = snapshot;
-
         if self.time_exchange <= snapshot.time_exchange {
+            self.time_exchange = snapshot.time_exchange;
             self.balance = snapshot.balance;
         }
     }
@@ -38,7 +38,7 @@ mod tests {
     use rust_decimal_macros::dec;
 
     #[test]
-    fn test_update_from_balance() {
+    fn test_update_from_balance_with_more_recent_snapshot() {
         let mut state = AssetState {
             asset: Asset {
                 name_internal: AssetNameInternal::new("btc"),
@@ -48,6 +48,7 @@ mod tests {
                 total: dec!(1000.0),
                 free: dec!(900.0),
             },
+            time_exchange: Utc::now(),
         };
 
         let snapshot = Snapshot(AssetBalance {
@@ -59,6 +60,7 @@ mod tests {
                 total: dec!(1000.0),
                 free: dec!(800.0),
             },
+            time_exchange: DateTime::<Utc>::MAX_UTC,
         });
 
         state.update_from_balance(snapshot.as_ref());
@@ -72,6 +74,50 @@ mod tests {
                 total: dec!(1000.0),
                 free: dec!(800.0),
             },
+            time_exchange: DateTime::<Utc>::MAX_UTC,
+        };
+
+        assert_eq!(state, expected)
+    }
+
+    #[test]
+    fn test_update_from_balance_with_stale_snapshot() {
+        let mut state = AssetState {
+            asset: Asset {
+                name_internal: AssetNameInternal::new("btc"),
+                name_exchange: AssetNameExchange::new("xbt"),
+            },
+            balance: Balance {
+                total: dec!(1000.0),
+                free: dec!(900.0),
+            },
+            time_exchange: DateTime::<Utc>::MAX_UTC,
+        };
+
+        let snapshot = Snapshot(AssetBalance {
+            asset: Asset {
+                name_internal: AssetNameInternal::new("btc"),
+                name_exchange: AssetNameExchange::new("xbt"),
+            },
+            balance: Balance {
+                total: dec!(1000.0),
+                free: dec!(800.0),
+            },
+            time_exchange: DateTime::<Utc>::MIN_UTC,
+        });
+
+        state.update_from_balance(snapshot.as_ref());
+
+        let expected = AssetState {
+            asset: Asset {
+                name_internal: AssetNameInternal::new("btc"),
+                name_exchange: AssetNameExchange::new("xbt"),
+            },
+            balance: Balance {
+                total: dec!(1000.0),
+                free: dec!(900.0),
+            },
+            time_exchange: DateTime::<Utc>::MAX_UTC,
         };
 
         assert_eq!(state, expected)

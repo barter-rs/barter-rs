@@ -16,7 +16,6 @@ use barter::v2::{
         UnindexedAccountSnapshot,
     },
     instrument::IndexedInstruments,
-    position::PositionExchange,
     risk::{DefaultRiskManager, DefaultRiskManagerState},
     strategy::{DefaultStrategy, DefaultStrategyState},
     EngineEvent,
@@ -261,10 +260,7 @@ fn build_initial_account_snapshot(
         .instruments
         .iter()
         .map(|keyed_instrument| {
-            InstrumentAccountSnapshot::new(
-                PositionExchange::new_flat(keyed_instrument.value.name_exchange.clone()),
-                vec![],
-            )
+            InstrumentAccountSnapshot::new(keyed_instrument.value.name_exchange.clone(), vec![])
         })
         .collect();
 

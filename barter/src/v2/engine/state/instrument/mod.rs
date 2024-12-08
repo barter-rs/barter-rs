@@ -46,12 +46,7 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
         InstrumentKey: Debug + Clone,
         AssetKey: Clone,
     {
-        let InstrumentAccountSnapshot {
-            instrument: _,
-            orders,
-        } = snapshot;
-
-        for order in orders {
+        for order in &snapshot.orders {
             self.orders.update_from_order_snapshot(Snapshot(order))
         }
     }
