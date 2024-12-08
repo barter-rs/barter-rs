@@ -23,10 +23,10 @@ impl ExchangeIndex {
     }
 }
 
-/// Unique identifier for an exchange server.
+/// Unique identifier for an execution server.
 ///
 /// ### Notes
-/// An exchange may have a distinct server for different
+/// An execution may have a distinct server for different
 /// [`InstrumentKinds`](InstrumentKind).
 ///
 /// For example, BinanceSpot and BinanceFuturesUsd have distinct APIs, and are therefore
@@ -34,7 +34,7 @@ impl ExchangeIndex {
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display,
 )]
-#[serde(rename = "exchange", rename_all = "snake_case")]
+#[serde(rename = "execution", rename_all = "snake_case")]
 pub enum ExchangeId {
     Other,
     Simulated,

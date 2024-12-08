@@ -1,11 +1,16 @@
 #![forbid(unsafe_code)]
-#![warn(clippy::all)]
-#![allow(clippy::pedantic, clippy::type_complexity)]
 #![warn(
+    unused,
+    clippy::cognitive_complexity,
+    unused_crate_dependencies,
+    unused_extern_crates,
+    clippy::unused_self,
+    clippy::useless_let_if_seq,
     missing_debug_implementations,
     rust_2018_idioms,
     rust_2024_compatibility
 )]
+#![allow(clippy::type_complexity, clippy::too_many_arguments, type_alias_bounds)]
 
 //! # Barter-Data
 //! A high-performance WebSocket integration library for streaming public market data from leading cryptocurrency
@@ -18,19 +23,19 @@
 //! ## User API
 //! - [`StreamBuilder`](streams::builder::StreamBuilder) for initialising [`MarketStream`]s of specific data kinds.
 //! - [`DynamicStreams`](streams::builder::DynamicStreams) for initialising [`MarketStream`]s of every supported data kind at once.
-//! - Define what exchange market data you want to stream using the [`Subscription`] type.
+//! - Define what execution market data you want to stream using the [`Subscription`] type.
 //! - Pass [`Subscription`]s to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) or [`DynamicStreams::init`](streams::builder::DynamicStreams::init) methods.
 //! - Each call to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) (or each batch passed to the [`DynamicStreams::init`](streams::builder::DynamicStreams::init))
-//!   method opens a new WebSocket connection to the exchange - giving you full control.
+//!   method opens a new WebSocket connection to the execution - giving you full control.
 //!
 //! ## Examples
 //! For a comprehensive collection of examples, see the /examples directory.
 //!
 //! ### Multi Exchange Public Trades
 //! ```rust,no_run
-//! use barter_data::exchange::gateio::spot::GateioSpot;
+//! use barter_data::execution::gateio::spot::GateioSpot;
 //! use barter_data::{
-//!     exchange::{
+//!     execution::{
 //!         binance::{futures::BinanceFuturesUsd, spot::BinanceSpot},
 //!         coinbase::Coinbase,
 //!         okx::Okx,
@@ -74,8 +79,8 @@
 //!         .await
 //!         .unwrap();
 //!
-//!     // Select and merge every exchange Stream using futures_util::stream::select_all
-//!     // Note: use `Streams.select(ExchangeId)` to interact with individual exchange streams!
+//!     // Select and merge every execution Stream using futures_util::stream::select_all
+//!     // Note: use `Streams.select(ExchangeId)` to interact with individual execution streams!
 //!     let mut joined_stream = streams
 //!         .select_all()
 //!         .with_error_handler(|error| warn!(?error, "MarketStream generated error"));
@@ -85,7 +90,6 @@
 //!     }
 //! }
 //! ```
-
 use crate::{
     error::DataError,
     event::MarketEvent,
@@ -117,7 +121,7 @@ pub mod error;
 /// Defines the generic [`MarketEvent<T>`](MarketEvent) used in every [`MarketStream`].
 pub mod event;
 
-/// [`Connector`] implementations for each exchange.
+/// [`Connector`] implementations for each execution.
 pub mod exchange;
 
 /// High-level API types used for building [`MarketStream`]s from collections
@@ -126,13 +130,13 @@ pub mod streams;
 
 /// [`Subscriber`], [`SubscriptionMapper`](subscriber::mapper::SubscriptionMapper) and
 /// [`SubscriptionValidator`](subscriber::validator::SubscriptionValidator)  traits that define how a
-/// [`Connector`] will subscribe to exchange [`MarketStream`]s.
+/// [`Connector`] will subscribe to execution [`MarketStream`]s.
 ///
 /// Standard implementations for subscribing to WebSocket [`MarketStream`]s are included.
 pub mod subscriber;
 
 /// Types that communicate the type of each [`MarketStream`] to initialise, and what normalised
-/// Barter output type the exchange will be transformed into.
+/// Barter output type the execution will be transformed into.
 pub mod subscription;
 
 /// [`InstrumentData`] trait for instrument describing data.
@@ -142,7 +146,7 @@ pub mod instrument;
 /// a collection of sorted local Instrument [`OrderBook`](books::OrderBook)s
 pub mod books;
 
-/// Generic [`ExchangeTransformer`] implementations used by [`MarketStream`]s to translate exchange
+/// Generic [`ExchangeTransformer`] implementations used by [`MarketStream`]s to translate execution
 /// specific types to normalised Barter types.
 ///
 /// A standard [`StatelessTransformer`](transformer::stateless::StatelessTransformer) implementation
@@ -238,7 +242,7 @@ where
         // Split WebSocket into WsStream & WsSink components
         let (ws_sink, ws_stream) = websocket.split();
 
-        // Spawn task to distribute Transformer messages (eg/ custom pongs) to the exchange
+        // Spawn task to distribute Transformer messages (eg/ custom pongs) to the execution
         let (ws_sink_tx, ws_sink_rx) = mpsc::unbounded_channel();
         tokio::spawn(distribute_messages_to_exchange(
             Exchange::ID,
@@ -246,7 +250,7 @@ where
             ws_sink_rx,
         ));
 
-        // Spawn optional task to distribute custom application-level pings to the exchange
+        // Spawn optional task to distribute custom application-level pings to the execution
         if let Some(ping_interval) = Exchange::ping_interval() {
             tokio::spawn(schedule_pings_to_exchange(
                 Exchange::ID,
@@ -316,7 +320,7 @@ where
         .collect()
 }
 
-/// Transmit [`WsMessage`]s sent from the [`ExchangeTransformer`] to the exchange via
+/// Transmit [`WsMessage`]s sent from the [`ExchangeTransformer`] to the execution via
 /// the [`WsSink`].
 ///
 /// **Note:**
@@ -337,13 +341,13 @@ pub async fn distribute_messages_to_exchange(
             error!(
                 %exchange,
                 %error,
-                "failed to send  output message to the exchange via WsSink"
+                "failed to send  output message to the execution via WsSink"
             );
         }
     }
 }
 
-/// Schedule the sending of custom application-level ping [`WsMessage`]s to the exchange using
+/// Schedule the sending of custom application-level ping [`WsMessage`]s to the execution using
 /// the provided [`PingInterval`].
 ///
 /// **Notes:**
@@ -358,9 +362,9 @@ pub async fn schedule_pings_to_exchange(
         // Wait for next scheduled ping
         interval.tick().await;
 
-        // Construct exchange custom application-level ping payload
+        // Construct execution custom application-level ping payload
         let payload = ping();
-        debug!(%exchange, %payload, "sending custom application-level ping to exchange");
+        debug!(%exchange, %payload, "sending custom application-level ping to execution");
 
         if ws_sink_tx.send(payload).is_err() {
             break;

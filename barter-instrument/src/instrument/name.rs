@@ -95,7 +95,7 @@ impl InstrumentNameExchange {
         Self(name.into())
     }
 
-    /// Return the exchange instrument `SmolStr` name of [`Self`].
+    /// Return the execution instrument `SmolStr` name of [`Self`].
     pub fn name(&self) -> &SmolStr {
         &self.0
     }

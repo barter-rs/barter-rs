@@ -22,7 +22,7 @@ pub enum DataError {
     #[error("SocketError: {0}")]
     Socket(String),
 
-    #[error("unsupported dynamic Subscription for exchange: {exchange}, kind: {sub_kind}")]
+    #[error("unsupported dynamic Subscription for execution: {exchange}, kind: {sub_kind}")]
     Unsupported {
         exchange: ExchangeId,
         sub_kind: SubKind,

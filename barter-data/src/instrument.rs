@@ -1,7 +1,10 @@
+use crate::subscription::{SubKind, Subscription};
 use barter_instrument::{
+    exchange::ExchangeId,
+    index::{error::IndexError, IndexedInstruments},
     instrument::{
         market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
-        InstrumentId,
+        InstrumentId, InstrumentIndex,
     },
     Keyed,
 };
@@ -67,4 +70,57 @@ impl InstrumentData for MarketInstrumentData {
     fn kind(&self) -> &MarketDataInstrumentKind {
         &self.kind
     }
+}
+
+pub fn index_market_data_subscriptions<SubBatchIter, SubIter, Sub>(
+    instruments: &IndexedInstruments,
+    batches: SubBatchIter,
+) -> Result<
+    Vec<Vec<Subscription<ExchangeId, Keyed<InstrumentIndex, MarketDataInstrument>>>>,
+    IndexError,
+>
+where
+    SubBatchIter: IntoIterator<Item = SubIter>,
+    SubIter: IntoIterator<Item = Sub>,
+    Sub: Into<Subscription<ExchangeId, MarketDataInstrument, SubKind>>,
+{
+    batches
+        .into_iter()
+        .map(|batch| batch
+            .into_iter()
+            .map(|sub| {
+                let sub = sub.into();
+
+                let base_index = instruments.find_asset_index(sub.exchange, &sub.instrument.base)?;
+                let quote_index = instruments.find_asset_index(sub.exchange, &sub.instrument.quote)?;
+
+                let find_instrument = |exchange, kind, base, quote| {
+                    instruments
+                        .instruments
+                        .iter()
+                        .find_map(|indexed| {
+                            (
+                                indexed.value.exchange.value == exchange
+                                    && indexed.value.kind.eq_market_data_instrument_kind(kind)
+                                    && indexed.value.underlying.base == base
+                                    && indexed.value.underlying.quote == quote
+                            ).then_some(indexed.key)
+                        })
+                        .ok_or(IndexError::InstrumentIndex(format!(
+                            "Instrument: ({}, {}, {}, {}) must be present in indexed instruments: {:?}",
+                            exchange, kind, base, quote, instruments.instruments
+                        )))
+                };
+
+                let instrument_index = find_instrument(sub.exchange, &sub.instrument.kind, base_index, quote_index)?;
+
+                Ok(Subscription {
+                    exchange: sub.exchange,
+                    instrument: Keyed::new(instrument_index, sub.instrument),
+                    kind: sub.kind,
+                })
+            })
+            .collect()
+        )
+        .collect()
 }

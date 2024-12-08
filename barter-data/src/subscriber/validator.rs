@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use tracing::debug;
 
 /// Defines how to validate that actioned market data
-/// [`Subscription`](crate::subscription::Subscription)s were accepted by the exchange.
+/// [`Subscription`](crate::subscription::Subscription)s were accepted by the execution.
 #[async_trait]
 pub trait SubscriptionValidator {
     type Parser: StreamParser;
@@ -48,7 +48,7 @@ impl SubscriptionValidator for WebSocketSubValidator {
         Instrument: Send,
         Kind: SubscriptionKind + Send,
     {
-        // Establish exchange specific subscription validation parameters
+        // Establish execution specific subscription validation parameters
         let timeout = Exchange::subscription_timeout();
         let expected_responses = Exchange::expected_responses(&instrument_map);
 
@@ -61,7 +61,7 @@ impl SubscriptionValidator for WebSocketSubValidator {
         loop {
             // Break if all Subscriptions were a success
             if success_responses == expected_responses {
-                debug!(exchange = %Exchange::ID, "validated exchange WebSocket subscriptions");
+                debug!(exchange = %Exchange::ID, "validated execution WebSocket subscriptions");
                 break Ok((instrument_map, buff_active_subscription_events));
             }
 

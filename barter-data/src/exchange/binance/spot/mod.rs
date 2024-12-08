@@ -20,7 +20,7 @@ pub mod l2;
 /// See docs: <https://binance-docs.github.io/apidocs/spot/en/#websocket-market-streams>
 pub const WEBSOCKET_BASE_URL_BINANCE_SPOT: &str = "wss://stream.binance.com:9443/ws";
 
-/// [`Binance`] spot exchange.
+/// [`Binance`] spot execution.
 pub type BinanceSpot = Binance<BinanceServerSpot>;
 
 /// [`Binance`] spot [`ExchangeServer`].

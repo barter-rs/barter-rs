@@ -15,7 +15,7 @@ use barter_instrument::exchange::ExchangeId;
 /// See docs: <https://www.gate.io/docs/developers/futures/ws/en/>
 pub const WEBSOCKET_BASE_URL_GATEIO_OPTIONS_USD: &str = "wss://op-ws.gateio.live/v4/ws";
 
-/// [`Gateio`] options exchange.
+/// [`Gateio`] options execution.
 pub type GateioOptions = Gateio<GateioServerOptions>;
 
 /// [`Gateio`] options [`ExchangeServer`].

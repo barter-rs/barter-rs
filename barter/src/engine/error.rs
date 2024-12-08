@@ -1,12 +1,39 @@
-use crate::portfolio::repository::error::RepositoryError;
+use barter_instrument::index::error::IndexError;
+use barter_integration::Unrecoverable;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// All errors generated in barter-engine.
-#[derive(Error, Debug)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
 pub enum EngineError {
-    #[error("Failed to build struct due to missing attributes: {0}")]
-    BuilderIncomplete(&'static str),
+    #[error("recoverable error: {0}")]
+    Recoverable(#[from] RecoverableEngineError),
 
-    #[error("Failed to interact with repository")]
-    RepositoryInteractionError(#[from] RepositoryError),
+    #[error("unrecoverable error: {0}")]
+    Unrecoverable(#[from] UnrecoverableEngineError),
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
+pub enum RecoverableEngineError {
+    #[error("ExecutionRequest channel unhealthy: {0}")]
+    ExecutionChannelUnhealthy(String),
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
+pub enum UnrecoverableEngineError {
+    #[error("IndexError: {0}")]
+    IndexError(#[from] IndexError),
+
+    // #[error("KeyError: {0}")]
+    // Key(#[from] KeyError),
+    #[error("ExecutionRequest channel terminated: {0}")]
+    ExecutionChannelTerminated(String),
+
+    #[error("{0}")]
+    Custom(String),
+}
+
+impl Unrecoverable for EngineError {
+    fn is_unrecoverable(&self) -> bool {
+        matches!(self, EngineError::Unrecoverable(_))
+    }
 }

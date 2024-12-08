@@ -6,7 +6,7 @@ use barter_instrument::exchange::ExchangeId;
 /// See docs: <https://bybit-exchange.github.io/docs/v5/ws/connect>
 pub const WEBSOCKET_BASE_URL_BYBIT_SPOT: &str = "wss://stream.bybit.com/v5/public/spot";
 
-/// [`Bybit`] spot exchange.
+/// [`Bybit`] spot execution.
 pub type BybitSpot = Bybit<BybitServerSpot>;
 
 /// [`Bybit`] spot [`ExchangeServer`].

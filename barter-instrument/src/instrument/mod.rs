@@ -28,7 +28,7 @@ pub mod spec;
 /// market data feeds.
 pub mod market_data;
 
-/// Unique identifier for an `Instrument` traded on an exchange.
+/// Unique identifier for an `Instrument` traded on an execution.
 ///
 /// Used to key data events in a memory efficient way.
 #[derive(

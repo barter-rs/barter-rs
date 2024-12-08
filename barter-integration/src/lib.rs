@@ -1,7 +1,21 @@
+#![forbid(unsafe_code)]
+#![warn(
+    unused,
+    clippy::cognitive_complexity,
+    unused_crate_dependencies,
+    unused_extern_crates,
+    clippy::unused_self,
+    clippy::useless_let_if_seq,
+    missing_debug_implementations,
+    rust_2018_idioms,
+    rust_2024_compatibility
+)]
+#![allow(clippy::type_complexity, clippy::too_many_arguments, type_alias_bounds)]
+
 //! # Barter-Integration
 //! High-performance, low-level framework for composing flexible web integrations.
 //!
-//! Utilised by other Barter trading ecosystem crates to build robust financial exchange integrations,
+//! Utilised by other Barter trading ecosystem crates to build robust financial execution integrations,
 //! primarily for public data collection & trade execution. It is:
 //! * **Low-Level**: Translates raw data streams communicated over the web into any desired data model using arbitrary data transformations.
 //! * **Flexible**: Compatible with any protocol (WebSocket, FIX, Http, etc.), any input/output model, and any user defined transformations.
@@ -11,12 +25,6 @@
 //! - **ExchangeStream** providing configurable communication over any asynchronous stream protocols (WebSocket, FIX, etc.).
 //!
 //! Both core abstractions provide the robust glue you need to conveniently translate between server & client data models.
-
-#![warn(
-    missing_debug_implementations,
-    missing_copy_implementations,
-    rust_2018_idioms
-)]
 
 use crate::error::SocketError;
 use serde::Deserialize;
@@ -46,8 +54,11 @@ pub mod subscription;
 pub mod channel;
 
 pub mod collection;
+
 /// Stream utilities.
 pub mod stream;
+
+pub mod snapshot;
 
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.

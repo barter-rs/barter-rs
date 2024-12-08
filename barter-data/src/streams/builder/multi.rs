@@ -57,15 +57,15 @@ impl<Output> MultiStreamBuilder<Output> {
         Kind: SubscriptionKind + 'static,
         Kind::Event: Send,
     {
-        // Allocate HashMap to hold the exchange_tx<Output> for each StreamBuilder exchange present
+        // Allocate HashMap to hold the exchange_tx<Output> for each StreamBuilder execution present
         let mut exchange_txs = HashMap::with_capacity(builder.channels.len());
 
-        // Iterate over each StreamBuilder exchange present
+        // Iterate over each StreamBuilder execution present
         for exchange in builder.channels.keys().cloned() {
-            // Insert ExchangeChannel<Output> Entry to Self for each exchange
+            // Insert ExchangeChannel<Output> Entry to Self for each execution
             let exchange_tx = self.channels.entry(exchange).or_default().tx.clone();
 
-            // Insert new exchange_tx<Output> into HashMap for each exchange
+            // Insert new exchange_tx<Output> into HashMap for each execution
             exchange_txs.insert(exchange, exchange_tx);
         }
 

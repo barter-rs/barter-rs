@@ -1,6 +1,6 @@
 [package]
 name = "barter-integration"
-version = "0.7.4"
+version = "0.8.0"
 authors = ["JustAStream"]
 edition = "2021"
 license = "MIT"
@@ -12,11 +12,14 @@ keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
 [dev-dependencies]
-barter-instrument = { path = "../barter-instrument", version = "0.1.0" }
-rust_decimal_macros = { workspace = true }
+#rust_decimal_macros = { workspace = true }
 tokio-test = { workspace = true }
+sha2 = { workspace = true }
 
 [dependencies]
+# Barter Ecosystem
+barter-instrument = { path = "../barter-instrument", version = "0.2.0" }
+
 # Logging
 tracing = { workspace = true }
 
@@ -33,11 +36,9 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["net", "sync", "macros", "rt-multi-thread"] }
 tokio-stream = { workspace = true }
 futures = { workspace = true }
-async-trait = { workspace = true }
 pin-project = { workspace = true }
 
 # Data Structures
-rust_decimal = { workspace = true }
 smol_str = { workspace = true, features = ["serde"]}
 
 # Protocol
@@ -47,7 +48,6 @@ url = { workspace = true }
 
 # Cryptographic Signatures
 hmac = { workspace = true }
-sha2 = { workspace = true }
 hex = { workspace = true }
 base64 = { workspace = true }
 

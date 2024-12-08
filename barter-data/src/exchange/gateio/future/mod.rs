@@ -15,7 +15,7 @@ use barter_instrument::exchange::ExchangeId;
 /// See docs: <https://www.gate.io/docs/developers/delivery/ws/en/>
 pub const WEBSOCKET_BASE_URL_GATEIO_FUTURES_USD: &str = "wss://fx-ws.gateio.ws/v4/ws/delivery/usdt";
 
-/// [`Gateio`] perpetual usd exchange.
+/// [`Gateio`] perpetual usd execution.
 pub type GateioFuturesUsd = Gateio<GateioServerFuturesUsd>;
 
 /// [`Gateio`] perpetual usd [`ExchangeServer`].
@@ -45,7 +45,7 @@ where
 /// See docs: <https://www.gate.io/docs/developers/delivery/ws/en/>
 pub const WEBSOCKET_BASE_URL_GATEIO_FUTURES_BTC: &str = "wss://fx-ws.gateio.ws/v4/ws/delivery/btc";
 
-/// [`Gateio`] perpetual btc exchange.
+/// [`Gateio`] perpetual btc execution.
 pub type GateioFuturesBtc = Gateio<GateioServerFuturesBtc>;
 
 /// [`Gateio`] perpetual btc [`ExchangeServer`].

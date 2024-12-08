@@ -25,7 +25,7 @@ pub mod liquidation;
 /// See docs: <https://binance-docs.github.io/apidocs/futures/en/#websocket-market-streams>
 pub const WEBSOCKET_BASE_URL_BINANCE_FUTURES_USD: &str = "wss://fstream.binance.com/ws";
 
-/// [`Binance`] perpetual usd exchange.
+/// [`Binance`] perpetual usd execution.
 pub type BinanceFuturesUsd = Binance<BinanceServerFuturesUsd>;
 
 /// [`Binance`] perpetual usd [`ExchangeServer`].

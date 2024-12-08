@@ -21,7 +21,7 @@
 //     subscription::candle::Candle,
 // };
 // use barter_instrument::{
-//     exchange::ExchangeId,
+//     execution::ExchangeId,
 //     instrument::{kind::InstrumentKind, Instrument},
 //     market::Market,
 // };
@@ -91,7 +91,7 @@ async fn main() {
     //         .strategy(RSIStrategy::new(StrategyConfig { rsi_period: 14 }))
     //         .execution(SimulatedExecution::new(ExecutionConfig {
     //             simulated_fees_pct: Fees {
-    //                 exchange: 0.1,
+    //                 execution: 0.1,
     //                 slippage: 0.05,
     //                 network: 0.0,
     //             },
@@ -134,7 +134,7 @@ async fn main() {
 //         .map(|candle| MarketEvent {
 //             time_exchange: candle.close_time,
 //             time_received: Utc::now(),
-//             exchange: ExchangeId::BinanceSpot,
+//             execution: ExchangeId::BinanceSpot,
 //             instrument: Instrument::from(("btc", "usdt", InstrumentKind::Spot)),
 //             kind: DataKind::Candle(candle),
 //         })

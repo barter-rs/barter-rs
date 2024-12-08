@@ -17,12 +17,12 @@
 // };
 // use barter_data::{
 //     event::{DataKind, MarketEvent},
-//     exchange::binance::spot::BinanceSpot,
+//     execution::binance::spot::BinanceSpot,
 //     streams::{consumer::MarketStreamEvent, reconnect::stream::ReconnectingStream, Streams},
 //     subscription::trade::PublicTrades,
 // };
 // use barter_instrument::{
-//     exchange::ExchangeId,
+//     execution::ExchangeId,
 //     instrument::{kind::InstrumentKind, Instrument},
 //     market::Market,
 // };
@@ -93,7 +93,7 @@ async fn main() {
     //         .strategy(RSIStrategy::new(StrategyConfig { rsi_period: 14 }))
     //         .execution(SimulatedExecution::new(ExecutionConfig {
     //             simulated_fees_pct: Fees {
-    //                 exchange: 0.1,
+    //                 execution: 0.1,
     //                 slippage: 0.05,
     //                 network: 0.0,
     //             },
@@ -151,8 +151,8 @@ async fn main() {
 //         .await
 //         .unwrap();
 //
-//     // Select and merge every exchange Stream using futures_util::stream::select_all
-//     // Note: use `Streams.select(ExchangeId)` to interact with individual exchange streams!
+//     // Select and merge every execution Stream using futures_util::stream::select_all
+//     // Note: use `Streams.select(ExchangeId)` to interact with individual execution streams!
 //     streams
 //         .select_all()
 //         .with_error_handler(|error| warn!(?error, "MarketStream generated error"))

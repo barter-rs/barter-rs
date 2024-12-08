@@ -6,7 +6,7 @@ use std::borrow::Borrow;
 /// Barter lowercase `SmolStr` representation for an [`Asset`](super::Asset) - not unique across
 /// exchanges.
 ///
-/// This may or may not be different from an exchange's representation.
+/// This may or may not be different from an execution's representation.
 ///
 /// For example, some exchanges may refer to "btc" as "xbt".
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Display)]
@@ -82,7 +82,7 @@ impl AssetNameExchange {
         Self(name.into())
     }
 
-    /// Return the exchange asset `SmolStr` name of [`Self`].
+    /// Return the execution asset `SmolStr` name of [`Self`].
     pub fn name(&self) -> &SmolStr {
         &self.0
     }

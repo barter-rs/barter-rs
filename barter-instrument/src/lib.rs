@@ -1,3 +1,17 @@
+#![forbid(unsafe_code)]
+#![warn(
+    unused,
+    clippy::cognitive_complexity,
+    unused_crate_dependencies,
+    unused_extern_crates,
+    clippy::unused_self,
+    clippy::useless_let_if_seq,
+    missing_debug_implementations,
+    rust_2018_idioms,
+    rust_2024_compatibility
+)]
+#![allow(clippy::type_complexity, clippy::too_many_arguments, type_alias_bounds)]
+
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -15,7 +29,8 @@ pub mod asset;
 /// eg/ `InstrumentKind`, `OptionContract``, etc.
 pub mod instrument;
 
-pub mod market;
+/// Todo:
+pub mod index;
 
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,

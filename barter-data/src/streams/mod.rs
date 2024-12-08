@@ -18,7 +18,7 @@ pub mod consumer;
 /// `Stream`.
 pub mod reconnect;
 
-/// Ergonomic collection of exchange [`MarketEvent<T>`](crate::event::MarketEvent) receivers.
+/// Ergonomic collection of execution [`MarketEvent<T>`](crate::event::MarketEvent) receivers.
 #[derive(Debug)]
 pub struct Streams<T> {
     pub streams: FnvHashMap<ExchangeId, UnboundedRx<T>>,
@@ -40,12 +40,12 @@ impl<T> Streams<T> {
         MultiStreamBuilder::<T>::new()
     }
 
-    /// Remove an exchange [`mpsc::UnboundedReceiver`] from the [`Streams`] `HashMap`.
+    /// Remove an execution [`mpsc::UnboundedReceiver`] from the [`Streams`] `HashMap`.
     pub fn select(&mut self, exchange: ExchangeId) -> Option<impl Stream<Item = T> + '_> {
         self.streams.remove(&exchange).map(UnboundedRx::into_stream)
     }
 
-    /// Select and merge every exchange `Stream` using [`select_all`].
+    /// Select and merge every execution `Stream` using [`select_all`].
     pub fn select_all(self) -> impl Stream<Item = T> {
         let all = self.streams.into_values().map(UnboundedRx::into_stream);
         select_all(all)

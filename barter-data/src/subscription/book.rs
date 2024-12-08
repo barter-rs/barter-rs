@@ -89,7 +89,7 @@ impl SubscriptionKind for OrderBooksL2 {
 /// Barter [`Subscription`](super::Subscription) [`SubscriptionKind`] that yields level 3 [`OrderBook`]
 /// [`MarketEvent<T>`](MarketEvent) events.
 ///
-/// Level 3 refers to the non-aggregated [`OrderBook`]. This is a direct replication of the exchange
+/// Level 3 refers to the non-aggregated [`OrderBook`]. This is a direct replication of the execution
 /// [`OrderBook`].
 #[derive(
     Copy,

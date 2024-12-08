@@ -17,8 +17,8 @@ rust_decimal_macros = { workspace = true }
 
 [dependencies]
 # Barter Ecosystem
-barter-integration = { path = "../barter-integration", version = "0.7.4" }
-barter-instrument = { path = "../barter-instrument", version = "0.1.0" }
+barter-integration = { path = "../barter-integration", version = "0.8.0" }
+barter-instrument = { path = "../barter-instrument", version = "0.2.0" }
 barter-macro =  { path = "../barter-macro", version = "0.1.1" }
 
 # Logging
@@ -46,9 +46,6 @@ serde_json = { workspace = true }
 parking_lot = { workspace = true }
 rust_decimal = { workspace = true, features = ["serde-with-str"] }
 smol_str = { workspace = true, features = ["serde"]}
-
-# Strategy
-ta = { workspace = true }
 
 # Misc
 chrono = { workspace = true, features = ["serde"]}

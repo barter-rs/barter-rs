@@ -1,27 +1,28 @@
-use barter::v2::{
-    balance::{AssetBalance, Balance},
+use barter::{
     engine::{
         command::Command,
         run,
         state::{
-            instrument::{manager::InstrumentFilter, market_data::DefaultMarketData},
+            asset::generate_default_asset_states,
+            connectivity::generate_default_connectivity_states,
+            instrument::{
+                generate_default_instrument_states, manager::InstrumentFilter,
+                market_data::DefaultMarketData,
+            },
             trading::TradingState,
             EngineState,
         },
         Engine,
     },
     error::BarterError,
-    execution::{
-        builder::ExecutionBuilder, manager::client::MockExecutionConfig, InstrumentAccountSnapshot,
-        UnindexedAccountSnapshot,
-    },
-    instrument::IndexedInstruments,
+    execution::builder::ExecutionBuilder,
     risk::{DefaultRiskManager, DefaultRiskManagerState},
     strategy::{DefaultStrategy, DefaultStrategyState},
     EngineEvent,
 };
 use barter_data::{
     event::DataKind,
+    instrument::index_market_data_subscriptions,
     streams::{
         builder::dynamic::DynamicStreams,
         consumer::{MarketStreamEvent, MarketStreamResult},
@@ -29,9 +30,15 @@ use barter_data::{
     },
     subscription::{SubKind, Subscription},
 };
+use barter_execution::{
+    balance::{AssetBalance, Balance},
+    client::mock::MockExecutionConfig,
+    InstrumentAccountSnapshot, UnindexedAccountSnapshot,
+};
 use barter_instrument::{
     asset::Asset,
     exchange::ExchangeId,
+    index::IndexedInstruments,
     instrument::{
         kind::InstrumentKind,
         market_data::MarketDataInstrument,
@@ -46,20 +53,8 @@ use barter_instrument::{
 use barter_integration::channel::{mpsc_unbounded, ChannelTxDroppable, Tx};
 use chrono::Utc;
 use futures::Stream;
-use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use tracing::{info, warn};
-
-// Todo: Major To Dos:
-//  - Fine tooth comb make sure everything is in the correct file, module, crate, etc.
-//  - Auditor w/ back-test utilities
-//  - Statistics
-//  - impl all state management functionality, including positions, with tests
-//  - Add Binance ExecutionClient
-//  - Ensure Engine Connectivity is set to healthy upon new "Item"
-//  - Test IndexedInstruments, etc.
-//  - Allow cancelling an Order before it's opened via Cid
-//  - Make update from AccountSnapshot more std::mem::replace, since we have SnapUps
 
 const EXCHANGE: ExchangeId = ExchangeId::BinanceSpot;
 
@@ -80,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(stream.forward_to(feed_tx.clone()));
 
     // Define initial mock AccountSnapshot
-    let initial_account = build_initial_account_snapshot(&instruments, dec!(10_000));
+    let initial_account = build_initial_account_snapshot(&instruments, 10_000.0);
 
     // Initialise ExecutionManager & forward Account Streams to Engine feed
     let (execution_txs, account_stream) = ExecutionBuilder::new(&instruments)
@@ -92,9 +87,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Construct EngineState
     let state = EngineState {
         trading: TradingState::Disabled,
-        connectivity: instruments.connectivity_states(),
-        assets: instruments.asset_states(),
-        instruments: instruments.instrument_states::<DefaultMarketData>(),
+        connectivity: generate_default_connectivity_states(&instruments),
+        assets: generate_default_asset_states(&instruments),
+        instruments: generate_default_instrument_states::<DefaultMarketData>(&instruments),
         strategy: DefaultStrategyState,
         risk: DefaultRiskManagerState,
     };
@@ -200,11 +195,13 @@ async fn init_market_data_stream(
     instruments: &IndexedInstruments,
 ) -> Result<impl Stream<Item = MarketStreamEvent<InstrumentIndex, DataKind>>, BarterError> {
     // Construct Indexed MarketData Subscriptions
-    let data_subscriptions = instruments
-        .market_data_subscriptions(unindexed_market_data_subscriptions(&unindexed_instruments()))?;
+    let subscriptions = index_market_data_subscriptions(
+        instruments,
+        unindexed_market_data_subscriptions(&unindexed_instruments()),
+    )?;
 
     // Initialise MarketData Stream
-    let stream = DynamicStreams::init(data_subscriptions)
+    let stream = DynamicStreams::init(subscriptions)
         .await?
         .select_all::<MarketStreamResult<InstrumentIndex, DataKind>>()
         .with_error_handler(|error| warn!(?error, "MarketStream generated error"));
@@ -238,7 +235,7 @@ fn unindexed_market_data_subscriptions(
 
 fn build_initial_account_snapshot(
     instruments: &IndexedInstruments,
-    balance_usd: Decimal,
+    balance_usd: f64,
 ) -> UnindexedAccountSnapshot {
     let balances = instruments
         .assets
@@ -249,7 +246,7 @@ fn build_initial_account_snapshot(
                 if keyed_asset.value.asset.name_internal.as_ref() == "usd" {
                     Balance::new(balance_usd, balance_usd)
                 } else {
-                    Balance::new(Decimal::ZERO, Decimal::ZERO)
+                    Balance::default()
                 },
                 Utc::now(),
             )
