@@ -237,7 +237,8 @@ pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
 //  - Back-test utilities via Audit route w/ interactive mode
 //    (backward would require Vec<State> to be created on .next()) (add compression using file system)
 //  - Statistics
-//  - Ensure everything is in the correct crate/module/file
+//  - Ensure everything is in the correct crate/module/file (eg/ EngineOutput?)
+//  - Ensure Audit pathway doesn't duplicate Logs
 
 // Todo: Must: Instruments:
 //  - Ensure IndexedInstruments is fully tested, etc.
@@ -246,6 +247,7 @@ pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
 //   - Fix Engine hanging because it doesn't know AuditKind is terminal -> return ShutdownAudit
 //   - Handle re-connections in ConnectivityStates with acceptable performance.
 //   - Comprehensive tests for all managers, updates, etc.
+//   - Add PositionExit to EngineOutput or similar
 
 // Todo: Must: Market Data
 //  - Ensure utils exist for creating of MarketDataStreams for live & historic feeds

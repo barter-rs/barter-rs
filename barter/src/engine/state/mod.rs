@@ -6,6 +6,7 @@ use crate::engine::{
             manager::InstrumentStateManager, market_data::MarketDataState, InstrumentStates,
         },
         order::manager::OrderManager,
+        position::PositionExited,
         trading::{manager::TradingStateManager, TradingState},
     },
     Processor,
@@ -41,7 +42,10 @@ where
     type MarketState;
     type MarketEventKind;
 
-    fn update_from_account(&mut self, event: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>);
+    fn update_from_account(
+        &mut self,
+        event: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>,
+    ) -> Option<PositionExited<AssetKey, InstrumentKey>>;
     fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey, Self::MarketEventKind>);
 }
 
@@ -80,10 +84,11 @@ where
     type MarketState = Market;
     type MarketEventKind = Market::EventKind;
 
-    fn update_from_account(&mut self, event: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) {
-        // Todo: set execution ConnectivityState to healthy if unhealthy
-
-        match &event.kind {
+    fn update_from_account(
+        &mut self,
+        event: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>,
+    ) -> Option<PositionExited<AssetKey, InstrumentKey>> {
+        let output = match &event.kind {
             AccountEventKind::Snapshot(snapshot) => {
                 for balance in &snapshot.balances {
                     self.asset_mut(&balance.asset)
@@ -93,36 +98,44 @@ where
                     self.instrument_mut(&instrument.instrument)
                         .update_from_account_snapshot(instrument)
                 }
+                None
             }
             AccountEventKind::BalanceSnapshot(balance) => {
                 self.asset_mut(&balance.0.asset)
                     .update_from_balance(balance.as_ref());
+                None
             }
-            AccountEventKind::OrderSnapshot(order) => self
-                .instrument_mut(&order.0.instrument)
-                .orders
-                .update_from_order_snapshot(order.as_ref()),
-            AccountEventKind::OrderOpened(response) => self
-                .instrument_mut(&response.instrument)
-                .orders
-                .update_from_open(response),
-            AccountEventKind::OrderCancelled(response) => self
-                .instrument_mut(&response.instrument)
-                .orders
-                .update_from_cancel(response),
-            AccountEventKind::Trade(trade) => {
-                self.instrument_mut(&trade.instrument)
-                    .update_from_trade(trade);
+            AccountEventKind::OrderSnapshot(order) => {
+                self.instrument_mut(&order.0.instrument)
+                    .orders
+                    .update_from_order_snapshot(order.as_ref());
+                None
             }
-        }
+            AccountEventKind::OrderOpened(response) => {
+                self.instrument_mut(&response.instrument)
+                    .orders
+                    .update_from_open(response);
+                None
+            }
+            AccountEventKind::OrderCancelled(response) => {
+                self.instrument_mut(&response.instrument)
+                    .orders
+                    .update_from_cancel(response);
+                None
+            }
+            AccountEventKind::Trade(trade) => self
+                .instrument_mut(&trade.instrument)
+                .update_from_trade(trade),
+        };
 
         // Update any user provided Strategy & Risk State
         self.strategy.process(event);
         self.risk.process(event);
+
+        output
     }
 
     fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey, Self::MarketEventKind>) {
-        // Todo: set execution ConnectivityState to healthy if unhealthy
         let instrument_state = self.instrument_mut(&event.instrument);
 
         instrument_state.market.process(event);

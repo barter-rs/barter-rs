@@ -12,6 +12,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use shutdown::ShutdownAudit;
 
+mod experiment;
 pub mod request;
 pub mod shutdown;
 
@@ -53,7 +54,7 @@ where
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct AuditEvent<Kind> {
-    pub id: u64,
+    pub sequence: u64,
     pub time: DateTime<Utc>,
     pub kind: Kind,
 }

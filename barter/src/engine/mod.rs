@@ -14,6 +14,7 @@ use crate::{
             connectivity::Connection,
             instrument::manager::InstrumentStateManager,
             order::in_flight_recorder::InFlightRequestRecorder,
+            position::PositionExited,
             trading::{manager::TradingStateManager, TradingState},
             StateManager,
         },
@@ -28,7 +29,7 @@ use crate::{
 };
 use audit::shutdown::ShutdownAudit;
 use barter_data::streams::consumer::MarketStreamEvent;
-use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
+use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::channel::{ChannelTxDroppable, Tx};
 use chrono::{DateTime, Utc};
 use derive_more::From;
@@ -41,6 +42,9 @@ pub mod command;
 pub mod error;
 pub mod execution_tx;
 pub mod state;
+
+pub type IndexedEngineOutput<OnTradingDisabled, OnDisconnect> =
+    EngineOutput<ExchangeIndex, AssetIndex, InstrumentIndex, OnTradingDisabled, OnDisconnect>;
 
 pub trait Processor<Event> {
     type Output;
@@ -88,29 +92,26 @@ pub struct Engine<State, ExecutionTxs, Strategy, Risk> {
     pub risk: Risk,
 }
 
-type IndexedEngineOutput<OnTradingDisabled, OnDisconnect> =
-    EngineOutput<ExchangeIndex, InstrumentIndex, OnTradingDisabled, OnDisconnect>;
-
 #[derive(Debug, Clone)]
-pub enum EngineOutput<ExchangeKey, InstrumentKey, OnTradingDisabled, OnDisconnect> {
+pub enum EngineOutput<ExchangeKey, AssetKey, InstrumentKey, OnTradingDisabled, OnDisconnect> {
     Commanded(ActionOutput<ExchangeKey, InstrumentKey>),
     OnTradingDisabled(OnTradingDisabled),
     OnDisconnect(OnDisconnect),
     AlgoOrders(GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>),
+    Position(PositionExited<AssetKey, InstrumentKey>),
 }
-
-impl<ExchangeKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
+impl<ExchangeKey, AssetKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
     From<ActionOutput<ExchangeKey, InstrumentKey>>
-    for EngineOutput<ExchangeKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
+    for EngineOutput<ExchangeKey, AssetKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
 {
     fn from(value: ActionOutput<ExchangeKey, InstrumentKey>) -> Self {
         Self::Commanded(value)
     }
 }
 
-impl<ExchangeKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
+impl<ExchangeKey, AssetKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
     From<GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>>
-    for EngineOutput<ExchangeKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
+    for EngineOutput<ExchangeKey, AssetKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
 {
     fn from(value: GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>) -> Self {
         Self::AlgoOrders(value)
@@ -138,6 +139,7 @@ where
         EngineEvent<State::MarketEventKind, ExchangeKey, AssetKey, InstrumentKey>,
         EngineOutput<
             ExchangeKey,
+            AssetKey,
             InstrumentKey,
             Strategy::OnTradingDisabled,
             Strategy::OnDisconnect,
@@ -272,7 +274,7 @@ impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, 
                 Some(Strategy::on_disconnect(self, *exchange))
             }
             AccountStreamEvent::Item(event) => {
-                self.state.update_from_account(event);
+                let _position = self.state.update_from_account(event);
                 None
             }
         }
@@ -342,7 +344,7 @@ where
         AuditKind: From<Kind>,
     {
         AuditEvent {
-            id: self.sequence_fetch_add(),
+            sequence: self.sequence_fetch_add(),
             time: (self.clock)(),
             kind: AuditKind::from(kind),
         }
