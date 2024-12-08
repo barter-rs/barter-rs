@@ -102,7 +102,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Construct AuditManager w/ initial EngineState snapshot
-    let mut audit_manager = AuditManager::new(engine.audit(engine.snapshot()));
+    let mut audit_manager = AuditManager::new(
+        // Todo: it's possible we don't need the "AuditKind::from<State>" bound
+        //    or we could construct the EngineState and then the AuditManager (as it was)
+        //    Or maybe Engine could construct AuditManager? surely not...
+        engine.audit(engine.snapshot()),
+    );
 
     // Run synchronous Engine on blocking task
     let engine_task = tokio::task::spawn_blocking(move || {

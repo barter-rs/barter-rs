@@ -12,10 +12,9 @@ use crate::{
 };
 use barter_data::streams::consumer::MarketStreamEvent;
 use barter_execution::AccountEventKind;
-use chrono::{DateTime, Utc};
 use futures::{Stream, StreamExt};
 use std::fmt::Debug;
-use tracing::{error, info};
+use tracing::info;
 
 pub mod history;
 
@@ -32,13 +31,6 @@ pub mod history;
 //  - Could change AuditHistory to "TradingSession"
 
 // Todo: Probably move this to a top level crate module, rather than in Engine
-
-// Todo: AuditTick is very similar to AuditEvent
-// #[derive(Debug, Clone)]
-// pub struct AuditTick<State> {
-//     pub sequence: u64,
-//     pub state: State,
-// }
 
 #[derive(Debug, Clone)]
 pub struct AuditManager<State, OnDisable, OnDisconnect, ExchangeKey, AssetKey, InstrumentKey> {
@@ -75,7 +67,7 @@ where
         }
     }
 
-    // So far, this could be sync
+    // Todo: So far, this could be sync
     pub async fn run<AuditStream>(&mut self, stream: &mut AuditStream) -> Result<(), String>
     where
         AuditStream: Stream<
