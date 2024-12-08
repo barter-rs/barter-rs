@@ -11,15 +11,22 @@ use crate::{
     EngineEvent,
 };
 use barter_data::streams::consumer::MarketStreamEvent;
+use barter_execution::trade::Trade;
 use futures::{Stream, StreamExt};
 use std::fmt::Debug;
 use tracing::{error, info};
+// Todo: Add "outputs" to History
+//  - Consider using an AuditIndex to speed up history State lookups from other events
+//      eg/ Position
+//   '--> Makes a good case for adding more "audits" for other types of event
+//    --> Can attach a "snapshot index" to all events that comes through
 
 #[derive(Debug, Clone)]
 pub struct AuditSnapshotManager<State, AssetKey, InstrumentKey> {
     pub current: AuditSnapshot<State>,
     pub history: Vec<AuditSnapshot<State>>,
-    pub positions: Vec<PositionExited<AssetKey, InstrumentKey>>,
+    pub trades: Vec<AuditSnapshot<Trade<AssetKey, InstrumentKey>>>,
+    pub positions: Vec<AuditSnapshot<PositionExited<AssetKey, InstrumentKey>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -36,6 +43,7 @@ impl<State, AssetKey, InstrumentKey> AuditSnapshotManager<State, AssetKey, Instr
         Self {
             current: snapshot.clone(),
             history: vec![snapshot],
+            trades: vec![],
             positions: vec![],
         }
     }
@@ -68,8 +76,6 @@ impl<State, AssetKey, InstrumentKey> AuditSnapshotManager<State, AssetKey, Instr
                 >,
             > + Unpin,
     {
-        // Todo: Add "outputs" to History
-
         while let Some(audit) = stream.next().await {
             if self.current.audit_sequence >= audit.sequence {
                 continue;
@@ -138,7 +144,10 @@ impl<State, AssetKey, InstrumentKey> AuditSnapshotManager<State, AssetKey, Instr
                 }
                 AccountStreamEvent::Item(event) => {
                     if let Some(position) = self.current.state.update_from_account(&event) {
-                        self.positions.push(position);
+                        self.positions.push(AuditSnapshot {
+                            audit_sequence: self.current.audit_sequence,
+                            state: position,
+                        });
                     }
                 }
             },
