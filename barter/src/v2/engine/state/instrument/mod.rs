@@ -4,7 +4,7 @@ use crate::v2::{
         order::{manager::OrderManager, Orders},
     },
     execution::InstrumentAccountSnapshot,
-    position::{Position, PositionExchange, PositionExited},
+    position::{Position, PositionExited},
     trade::Trade,
     Snapshot,
 };
@@ -12,7 +12,6 @@ use barter_data::event::MarketEvent;
 use barter_instrument::instrument::{name::InstrumentNameInternal, Instrument};
 use derive_more::Constructor;
 use indexmap::IndexMap;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -47,25 +46,14 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
         InstrumentKey: Debug + Clone,
         AssetKey: Clone,
     {
-        let InstrumentAccountSnapshot { position, orders } = snapshot;
-
-        self.update_from_position_snapshot(Snapshot(position));
+        let InstrumentAccountSnapshot {
+            instrument: _,
+            orders,
+        } = snapshot;
 
         for order in orders {
             self.orders.update_from_order_snapshot(Snapshot(order))
         }
-    }
-
-    pub fn update_from_position_snapshot(
-        &mut self,
-        snapshot: Snapshot<&PositionExchange<InstrumentKey>>,
-    ) {
-        if let Some(position) = &mut self.position {
-            // position.update_from_position_snapshot(snapshot)
-        } else {
-        }
-
-        todo!()
     }
 
     pub fn update_from_trade(

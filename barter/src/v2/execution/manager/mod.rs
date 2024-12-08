@@ -13,7 +13,6 @@ use crate::v2::{
         UnindexedAccountSnapshot,
     },
     order::{Cancelled, ExchangeOrderState, Open, Order, RequestCancel, RequestOpen},
-    position::PositionExchange,
     trade::{AssetFees, Trade},
     Snapshot,
 };
@@ -211,55 +210,6 @@ where
         )
     }
 
-    async fn init_synchronised_account_snapshot_with_updates() {}
-
-    // async fn sync_account_snapshot_and_updates(
-    //     snapshot: IndexedAccountSnapshot,
-    //     updates: impl Stream<Item = IndexedAccountEvent>
-    // ) -> impl Stream<Item = IndexedAccountEvent>
-    // {
-    //     updates
-    //         .scan(snapshot, |snapshot, event| {
-    //
-    //             // Todo:
-    //
-    //             match event.kind {
-    //                 AccountEventKind::Snapshot(snapshot) => {
-    //
-    //                 }
-    //                 AccountEventKind::BalanceSnapshot(Snapshot(event)) => {
-    //                     if let Some(snapshot) = snapshot
-    //                         .balances
-    //                         .iter_mut()
-    //                         .find(|snapshot| {
-    //                             snapshot.asset == event.asset
-    //                         })
-    //                     {
-    //                         if snapshot.time_exchange <= event.time_exchange {
-    //                             snapshot.balance = event.balance;
-    //                         }
-    //                     } else {
-    //                         warn!(
-    //                             ?snapshot,
-    //                             ?event,
-    //                             "AccountSnapshot encountered Balance for non-tracked Asset - adding"
-    //                         );
-    //                         snapshot.balances.push(event);
-    //                     }
-    //                 }
-    //                 AccountEventKind::PositionSnapshot(Snapshot(position_)) => {
-    //
-    //                 }
-    //                 AccountEventKind::OrderSnapshot(_) => {}
-    //                 AccountEventKind::OrderOpened(_) => {}
-    //                 AccountEventKind::OrderCancelled(_) => {}
-    //                 AccountEventKind::Trade(_) => {}
-    //             }
-    //
-    //
-    //         })
-    // }
-
     pub async fn run(mut self) {
         let mut in_flight_cancels = FuturesUnordered::new();
         let mut in_flight_opens = FuturesUnordered::new();
@@ -281,39 +231,33 @@ where
                 // Process Engine ExecutionRequests
                 request = self.request_stream.next() => match request {
                     Some(ExecutionRequest::Cancel(request)) => {
-                        // Todo: remove need for Cloning
-                        let request_clone = request.clone();
-
                         // Panic since the system is set up incorrectly, so it's foolish to continue
-                        let request = self
+                        let client_request = self
                             .indexer
-                            .order_request(request)
+                            .order_request(&request)
                             .unwrap_or_else(|error| panic!(
                                 "ExecutionManager received cancel request for non-configured key: {error}"
                             ));
 
                         in_flight_cancels.push(RequestFuture::new(
-                            request_clone,
+                            self.client.cancel_order(client_request),
                             self.request_timeout,
-                            self.client.cancel_order(request)
+                            request,
                         ))
                     },
                     Some(ExecutionRequest::Open(request)) => {
-                        // Todo: remove need for Cloning
-                        let request_clone = request.clone();
-
                         // Panic since the system is set up incorrectly, so it's foolish to continue
-                        let request = self
+                        let client_request = self
                             .indexer
-                            .order_request(request)
+                            .order_request(&request)
                             .unwrap_or_else(|error| panic!(
                                 "ExecutionManager received open request for non-configured key: {error}"
                             ));
 
                         in_flight_opens.push(RequestFuture::new(
-                            request_clone,
+                            self.client.open_order(client_request),
                             self.request_timeout,
-                            self.client.open_order(request)
+                            request,
                         ))
                     }
                     None => {
@@ -476,7 +420,7 @@ impl<Request, ResponseFut> RequestFuture<Request, ResponseFut>
 where
     ResponseFut: Future,
 {
-    pub fn new(request: Request, timeout: std::time::Duration, future: ResponseFut) -> Self {
+    pub fn new(future: ResponseFut, timeout: std::time::Duration, request: Request) -> Self {
         Self {
             request,
             response_future: tokio::time::timeout(timeout, future),
@@ -547,9 +491,6 @@ impl AccountEventIndexer {
             AccountEventKind::BalanceSnapshot(snapshot) => {
                 AccountEventKind::BalanceSnapshot(self.asset_balance(snapshot.0).map(Snapshot)?)
             }
-            AccountEventKind::PositionSnapshot(snapshot) => {
-                AccountEventKind::PositionSnapshot(self.position(snapshot.0).map(Snapshot)?)
-            }
             AccountEventKind::OrderSnapshot(snapshot) => {
                 AccountEventKind::OrderSnapshot(self.order_snapshot(snapshot.0).map(Snapshot)?)
             }
@@ -582,15 +523,16 @@ impl AccountEventIndexer {
         let instruments = instruments
             .into_iter()
             .map(|snapshot| {
-                let InstrumentAccountSnapshot { position, orders } = snapshot;
+                let InstrumentAccountSnapshot { instrument, orders } = snapshot;
 
-                let position = self.position(position)?;
+                let instrument = self.map.find_instrument_index(&instrument)?;
+
                 let orders = orders
                     .into_iter()
                     .map(|order| self.order_open(order))
                     .collect::<Result<Vec<_>, _>>()?;
 
-                Ok(InstrumentAccountSnapshot { position, orders })
+                Ok(InstrumentAccountSnapshot { instrument, orders })
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -618,29 +560,6 @@ impl AccountEventIndexer {
         })
     }
 
-    pub fn position(
-        &self,
-        position: PositionExchange<InstrumentNameExchange>,
-    ) -> Result<PositionExchange<InstrumentIndex>, IndexError> {
-        let PositionExchange {
-            instrument,
-            side,
-            price_entry_average,
-            quantity_abs,
-            time_exchange_update,
-        } = position;
-
-        let instrument = self.map.find_instrument_index(&instrument)?;
-
-        Ok(PositionExchange {
-            instrument,
-            side,
-            price_entry_average,
-            quantity_abs,
-            time_exchange_update,
-        })
-    }
-
     pub fn order_snapshot(
         &self,
         order: Order<ExchangeId, InstrumentNameExchange, ExchangeOrderState>,
@@ -664,8 +583,11 @@ impl AccountEventIndexer {
 
     pub fn order_request<Kind>(
         &self,
-        order: Order<ExchangeIndex, InstrumentIndex, Kind>,
-    ) -> Result<Order<ExchangeId, &InstrumentNameExchange, Kind>, KeyError> {
+        order: &Order<ExchangeIndex, InstrumentIndex, Kind>,
+    ) -> Result<Order<ExchangeId, &InstrumentNameExchange, Kind>, KeyError>
+    where
+        Kind: Clone,
+    {
         let Order {
             exchange,
             instrument,
@@ -674,15 +596,15 @@ impl AccountEventIndexer {
             state,
         } = order;
 
-        let exchange = self.map.find_exchange_id(exchange)?;
-        let instrument = self.map.find_instrument_name_exchange(instrument)?;
+        let exchange = self.map.find_exchange_id(*exchange)?;
+        let instrument = self.map.find_instrument_name_exchange(*instrument)?;
 
         Ok(Order {
             exchange,
             instrument,
-            cid,
-            side,
-            state,
+            cid: *cid,
+            side: *side,
+            state: state.clone(),
         })
     }
 

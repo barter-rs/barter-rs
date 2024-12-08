@@ -1,14 +1,10 @@
-use crate::v2::{
-    trade::{AssetFees, Trade, TradeId},
-    Snapshot,
-};
+use crate::v2::trade::{AssetFees, Trade, TradeId};
 use barter_instrument::Side;
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use rust_decimal::prelude::Zero;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use tracing::error;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
 pub struct Position<AssetKey, InstrumentKey> {
@@ -26,76 +22,7 @@ pub struct Position<AssetKey, InstrumentKey> {
     pub trades: Vec<TradeId>,
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
-pub struct PositionExchange<InstrumentKey> {
-    pub instrument: InstrumentKey,
-    pub side: Side,
-    pub price_entry_average: f64,
-    pub quantity_abs: f64,
-    pub time_exchange_update: DateTime<Utc>,
-}
-
-impl<InstrumentKey> PositionExchange<InstrumentKey> {
-    pub fn new_flat(instrument: InstrumentKey) -> Self {
-        Self {
-            instrument,
-            side: Side::Buy,
-            price_entry_average: 0.0,
-            quantity_abs: 0.0,
-            time_exchange_update: DateTime::<Utc>::MIN_UTC,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
-pub struct PositionExited<AssetKey, InstrumentKey> {
-    pub instrument: InstrumentKey,
-    pub side: Side,
-    pub price_entry_average: f64,
-    pub quantity_abs_max: f64,
-    pub pnl_realised: f64,
-    pub fees_enter: AssetFees<AssetKey>,
-    pub fees_exit: AssetFees<AssetKey>,
-    pub time_enter: DateTime<Utc>,
-    pub time_exit: DateTime<Utc>,
-    pub trades: Vec<TradeId>,
-}
-
 impl<AssetKey, InstrumentKey> Position<AssetKey, InstrumentKey> {
-    pub fn update_from_position_snapshot(
-        self,
-        snapshot: Snapshot<&PositionExchange<InstrumentKey>>,
-    ) -> (
-        Option<Self>,
-        Option<PositionExited<AssetKey, InstrumentKey>>,
-    )
-    where
-        AssetKey: Debug,
-        InstrumentKey: Debug,
-    {
-        let Snapshot(snapshot) = snapshot;
-
-        if self.time_exchange_update > snapshot.time_exchange_update {
-            return (Some(self), None);
-        }
-
-        if self.side != snapshot.side {
-            error!(
-                previous = ?self,
-                update = ?snapshot,
-                action = "emitting PositionExited from previous data & creating new from Snapshot",
-                "Position | DATA-LOSS | could not reconcile update from Snapshot<PositionExchange>"
-            );
-
-            // let new = Position::from
-
-            todo!()
-            // Todo: issue, return PositionExit and create a new Position from snapshot
-        } else {
-            todo!()
-        }
-    }
-
     pub fn update_from_trade(
         mut self,
         trade: &Trade<AssetKey, InstrumentKey>,
@@ -258,6 +185,20 @@ where
             trades,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
+pub struct PositionExited<AssetKey, InstrumentKey> {
+    pub instrument: InstrumentKey,
+    pub side: Side,
+    pub price_entry_average: f64,
+    pub quantity_abs_max: f64,
+    pub pnl_realised: f64,
+    pub fees_enter: AssetFees<AssetKey>,
+    pub fees_exit: AssetFees<AssetKey>,
+    pub time_enter: DateTime<Utc>,
+    pub time_exit: DateTime<Utc>,
+    pub trades: Vec<TradeId>,
 }
 
 impl<AssetKey, InstrumentKey> From<Position<AssetKey, InstrumentKey>>

@@ -2,7 +2,6 @@ use crate::v2::{
     balance::AssetBalance,
     execution::error::ClientError,
     order::{Cancelled, ExchangeOrderState, Open, Order, RequestCancel, RequestOpen},
-    position::PositionExchange,
     trade::Trade,
     Snapshot,
 };
@@ -73,9 +72,6 @@ pub enum AccountEventKind<ExchangeKey, AssetKey, InstrumentKey> {
     /// Single [`AssetBalance`] snapshot - replaces existing balance state.
     BalanceSnapshot(Snapshot<AssetBalance<AssetKey>>),
 
-    /// Single [`PositionExchange`] snapshot - used to update internal position state.
-    PositionSnapshot(Snapshot<PositionExchange<InstrumentKey>>),
-
     /// Single [`Order<ExchangeKey, InstrumentKey, Open>`] snapshot - replaces existing order state.
     OrderSnapshot(Snapshot<Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>),
 
@@ -111,10 +107,9 @@ pub struct AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey> {
 }
 
 // Todo: Maybe InstrumentAccountState, AssetAccountState, and use same types as Engine
-
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct InstrumentAccountSnapshot<ExchangeKey, InstrumentKey> {
-    pub position: PositionExchange<InstrumentKey>,
+    pub instrument: InstrumentKey,
     pub orders: Vec<Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>,
 }
 
@@ -124,8 +119,6 @@ impl<ExchangeKey, AssetKey, InstrumentKey> AccountSnapshot<ExchangeKey, AssetKey
     }
 
     pub fn instruments(&self) -> impl Iterator<Item = &InstrumentKey> {
-        self.instruments
-            .iter()
-            .map(|snapshot| &snapshot.position.instrument)
+        self.instruments.iter().map(|snapshot| &snapshot.instrument)
     }
 }

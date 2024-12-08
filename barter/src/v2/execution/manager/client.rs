@@ -1,8 +1,7 @@
 use crate::v2::{
     balance::AssetBalance,
     execution::{error::UnindexedClientError, UnindexedAccountEvent, UnindexedAccountSnapshot},
-    order::{Cancelled, ExchangeOrderState, Open, Order, RequestCancel, RequestOpen},
-    position::PositionExchange,
+    order::{Cancelled, Open, Order, RequestCancel, RequestOpen},
 };
 use barter_instrument::{
     asset::name::AssetNameExchange, exchange::ExchangeId, instrument::name::InstrumentNameExchange,
@@ -76,10 +75,6 @@ where
     fn fetch_balances(
         &self,
     ) -> impl Future<Output = Result<Vec<AssetBalance<AssetNameExchange>>, UnindexedClientError>>;
-
-    fn fetch_positions(
-        &self,
-    ) -> impl Future<Output = Result<Vec<PositionExchange<InstrumentNameExchange>>, UnindexedClientError>>;
 
     fn fetch_open_orders(
         &self,
@@ -206,17 +201,6 @@ impl ExecutionClient for MockExecution {
         &self,
     ) -> Result<Vec<AssetBalance<AssetNameExchange>>, UnindexedClientError> {
         Ok(self.state.balances.clone())
-    }
-
-    async fn fetch_positions(
-        &self,
-    ) -> Result<Vec<PositionExchange<InstrumentNameExchange>>, UnindexedClientError> {
-        Ok(self
-            .state
-            .instruments
-            .iter()
-            .map(|instrument| instrument.position.clone())
-            .collect())
     }
 
     async fn fetch_open_orders(
