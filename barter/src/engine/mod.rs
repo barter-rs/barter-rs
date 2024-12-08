@@ -7,14 +7,13 @@ use crate::{
             send_requests::SendRequests,
             ActionOutput,
         },
-        audit::{Audit, AuditEvent, Auditor},
+        audit::{Audit, AuditTick, Auditor},
         command::Command,
         execution_tx::ExecutionTxMap,
         state::{
             connectivity::Connection,
             instrument::manager::InstrumentStateManager,
             order::in_flight_recorder::InFlightRequestRecorder,
-            position::PositionExited,
             trading::{manager::TradingStateManager, TradingState},
             StateManager,
         },
@@ -29,7 +28,7 @@ use crate::{
 };
 use audit::shutdown::ShutdownAudit;
 use barter_data::streams::consumer::MarketStreamEvent;
-use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
+use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::channel::{ChannelTxDroppable, Tx};
 use chrono::{DateTime, Utc};
 use derive_more::From;
@@ -44,7 +43,7 @@ pub mod execution_tx;
 pub mod state;
 
 pub type IndexedEngineOutput<OnTradingDisabled, OnDisconnect> =
-    EngineOutput<ExchangeIndex, AssetIndex, InstrumentIndex, OnTradingDisabled, OnDisconnect>;
+    EngineOutput<ExchangeIndex, InstrumentIndex, OnTradingDisabled, OnDisconnect>;
 
 pub trait Processor<Event> {
     type Output;
@@ -61,24 +60,24 @@ where
     Events::Item: Clone,
     Engine: Processor<Events::Item> + Auditor<Engine::Output>,
     Engine::Output: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item>>,
-    AuditTx: Tx<Item = AuditEvent<Engine::Output>>,
+    AuditTx: Tx<Item = AuditTick<Engine::Output>>,
 {
     // Send initial Engine state snapshot
-    audit_tx.send(engine.build_audit(engine.snapshot()));
+    audit_tx.send(engine.audit(engine.snapshot()));
 
     // Run Engine process loop until shutdown
     let shutdown_audit = loop {
         let Some(event) = feed.next() else {
-            audit_tx.send(engine.build_audit(ShutdownAudit::FeedEnded));
+            audit_tx.send(engine.audit(ShutdownAudit::FeedEnded));
             break ShutdownAudit::FeedEnded;
         };
 
         let audit_kind = engine.process(event);
-        audit_tx.send(engine.build_audit(audit_kind));
+        audit_tx.send(engine.audit(audit_kind));
     };
 
     // Send Shutdown audit
-    audit_tx.send(engine.build_audit(shutdown_audit.clone()));
+    audit_tx.send(engine.audit(shutdown_audit.clone()));
     shutdown_audit
 }
 
@@ -93,25 +92,24 @@ pub struct Engine<State, ExecutionTxs, Strategy, Risk> {
 }
 
 #[derive(Debug, Clone)]
-pub enum EngineOutput<ExchangeKey, AssetKey, InstrumentKey, OnTradingDisabled, OnDisconnect> {
+pub enum EngineOutput<ExchangeKey, InstrumentKey, OnTradingDisabled, OnDisconnect> {
     Commanded(ActionOutput<ExchangeKey, InstrumentKey>),
     OnTradingDisabled(OnTradingDisabled),
     OnDisconnect(OnDisconnect),
     AlgoOrders(GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>),
-    Position(PositionExited<AssetKey, InstrumentKey>),
 }
-impl<ExchangeKey, AssetKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
+impl<ExchangeKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
     From<ActionOutput<ExchangeKey, InstrumentKey>>
-    for EngineOutput<ExchangeKey, AssetKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
+    for EngineOutput<ExchangeKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
 {
     fn from(value: ActionOutput<ExchangeKey, InstrumentKey>) -> Self {
         Self::Commanded(value)
     }
 }
 
-impl<ExchangeKey, AssetKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
+impl<ExchangeKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
     From<GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>>
-    for EngineOutput<ExchangeKey, AssetKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
+    for EngineOutput<ExchangeKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
 {
     fn from(value: GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>) -> Self {
         Self::AlgoOrders(value)
@@ -139,7 +137,6 @@ where
         EngineEvent<State::MarketEventKind, ExchangeKey, AssetKey, InstrumentKey>,
         EngineOutput<
             ExchangeKey,
-            AssetKey,
             InstrumentKey,
             Strategy::OnTradingDisabled,
             Strategy::OnDisconnect,
@@ -252,7 +249,6 @@ impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, 
         State: TradingStateManager,
         Strategy: OnTradingDisabled<State, ExecutionTxs, Risk>,
     {
-        // Todo: return Audit too?
         self.state
             .update_trading_state(update)
             .transitioned_to_disabled()
@@ -339,13 +335,13 @@ where
         self.state.clone()
     }
 
-    fn build_audit<Kind>(&mut self, kind: Kind) -> AuditEvent<AuditKind>
+    fn audit<Kind>(&mut self, kind: Kind) -> AuditTick<AuditKind>
     where
         AuditKind: From<Kind>,
     {
-        AuditEvent {
+        AuditTick {
             sequence: self.sequence_fetch_add(),
-            time: (self.clock)(),
+            time_engine: (self.clock)(),
             kind: AuditKind::from(kind),
         }
     }

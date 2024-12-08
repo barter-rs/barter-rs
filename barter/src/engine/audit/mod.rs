@@ -12,7 +12,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use shutdown::ShutdownAudit;
 
-mod experiment;
+pub mod manager;
 pub mod request;
 pub mod shutdown;
 
@@ -47,15 +47,15 @@ where
 {
     type Snapshot;
     fn snapshot(&self) -> Self::Snapshot;
-    fn build_audit<Kind>(&mut self, kind: Kind) -> AuditEvent<AuditKind>
+    fn audit<Kind>(&mut self, kind: Kind) -> AuditTick<AuditKind>
     where
         AuditKind: From<Kind>;
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct AuditEvent<Kind> {
+pub struct AuditTick<Kind> {
     pub sequence: u64,
-    pub time: DateTime<Utc>,
+    pub time_engine: DateTime<Utc>,
     pub kind: Kind,
 }
 

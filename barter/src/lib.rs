@@ -243,6 +243,9 @@ pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
 // Todo: Must: Instruments:
 //  - Ensure IndexedInstruments is fully tested, etc.
 
+// Todo: Must: Strategy:
+//  - Add Strategy utilities to help hobbyist traders to create strategies
+
 // Todo: Must: Engine:
 //   - Fix Engine hanging because it doesn't know AuditKind is terminal -> return ShutdownAudit
 //   - Handle re-connections in ConnectivityStates with acceptable performance.

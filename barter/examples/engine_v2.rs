@@ -1,5 +1,6 @@
 use barter::{
     engine::{
+        audit::{manager::AuditManager, Auditor},
         command::Command,
         run,
         state::{
@@ -84,23 +85,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
     tokio::spawn(account_stream.forward_to(feed_tx.clone()));
 
-    // Construct EngineState
-    let state = EngineState {
-        trading: TradingState::Disabled,
-        connectivity: generate_default_connectivity_states(&instruments),
-        assets: generate_default_asset_states(&instruments),
-        instruments: generate_default_instrument_states::<DefaultMarketData>(&instruments),
-        strategy: DefaultStrategyState,
-        risk: DefaultRiskManagerState,
-    };
-
+    // Construct Engine w/ blank EngineState
     let mut engine = Engine::new(
         || Utc::now(),
-        state,
+        EngineState {
+            trading: TradingState::Disabled,
+            connectivity: generate_default_connectivity_states(&instruments),
+            assets: generate_default_asset_states(&instruments),
+            instruments: generate_default_instrument_states::<DefaultMarketData>(&instruments),
+            strategy: DefaultStrategyState,
+            risk: DefaultRiskManagerState,
+        },
         execution_txs,
         DefaultStrategy::default(),
         DefaultRiskManager::default(),
     );
+
+    // Construct AuditManager w/ initial EngineState snapshot
+    let mut audit_manager = AuditManager::new(engine.audit(engine.snapshot()));
 
     // Run synchronous Engine on blocking task
     let engine_task = tokio::task::spawn_blocking(move || {
@@ -111,6 +113,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         (engine, shutdown_audit)
+    });
+
+    // Run AuditManager task
+    let audit_task = tokio::spawn(async move {
+        let mut audit_stream = audit_rx.into_stream();
+        audit_manager.run(&mut audit_stream).await.unwrap();
+
+        (audit_manager, audit_stream)
     });
 
     // Let the example run for 4 seconds..., then:
@@ -124,8 +134,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 4. Stop Engine run loop
     feed_tx.send(EngineEvent::Shutdown)?;
 
-    // Await Engine task graceful shutdown
-    let (engine, shutdown_audit) = engine_task.await?;
+    // Await Engine & AuditManager graceful shutdown
+    let (_engine, shutdown_audit) = engine_task.await?;
+    let (_audit_manager, _audit_stream) = audit_task.await?;
+
     info!(?shutdown_audit, "Engine shutdown");
     Ok(())
 }
