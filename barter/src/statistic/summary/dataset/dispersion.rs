@@ -2,7 +2,7 @@ use crate::statistic::algorithm::welford_online;
 use serde::{Deserialize, Serialize};
 
 /// Representation of a dataset using measures of dispersion - range, variance & standard deviation.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Default, Deserialize, Serialize)]
 pub struct Dispersion {
     pub range: Range,
     pub recurrence_relation_m: f64,
@@ -35,8 +35,8 @@ impl Dispersion {
 }
 
 /// Measure of dispersion providing the highest and lowest value of a dataset. Lazy evaluation is
-/// used when calculating the range between them via the calculate() function.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default, Deserialize, Serialize)]
+/// used when calculating the range value via the range() method.
+#[derive(Debug, Clone, PartialEq, PartialOrd, Default, Deserialize, Serialize)]
 pub struct Range {
     pub activated: bool,
     pub high: f64,
@@ -47,7 +47,7 @@ impl Range {
     /// Initialises the Range with the provided first value of the dataset.
     pub fn init(first_value: f64) -> Self {
         Self {
-            activated: false,
+            activated: true,
             high: first_value,
             low: first_value,
         }
@@ -55,27 +55,23 @@ impl Range {
 
     /// Iteratively updates the Range given the next value in the dataset.
     pub fn update(&mut self, new_value: f64) {
-        match self.activated {
-            true => {
-                if new_value > self.high {
-                    self.high = new_value;
-                }
-
-                if new_value < self.low {
-                    self.low = new_value;
-                }
-            }
-            false => {
-                self.activated = true;
+        if self.activated {
+            if new_value > self.high {
                 self.high = new_value;
+            }
+
+            if new_value < self.low {
                 self.low = new_value;
             }
+        } else {
+            self.activated = true;
+            self.high = new_value;
+            self.low = new_value;
         }
     }
 
-    /// Calculates the range between the highest and lowest value of a dataset. Provided to
-    /// allow lazy evaluation.
-    pub fn calculate(&self) -> f64 {
+    /// Calculates the range between the highest and lowest value of a dataset.
+    pub fn range(&self) -> f64 {
         self.high - self.low
     }
 }
@@ -231,6 +227,6 @@ mod tests {
         };
 
         assert_eq!(actual_range, expected_range);
-        assert_eq!(actual_range.calculate(), 9998.9);
+        assert_eq!(actual_range.range(), 9998.9);
     }
 }

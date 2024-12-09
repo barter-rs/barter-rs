@@ -10,10 +10,11 @@ use crate::{
 };
 use barter_data::event::MarketEvent;
 use barter_execution::{
-    order::{ClientOrderId, Order, OrderKind, RequestCancel, RequestOpen, TimeInForce},
+    order::{ClientOrderId, Order, OrderKind, RequestCancel, RequestOpen, StrategyId, TimeInForce},
     AccountEvent,
 };
 use barter_instrument::{exchange::ExchangeId, Side};
+use rust_decimal::{prelude::FromPrimitive, Decimal};
 use std::marker::PhantomData;
 
 pub mod algo;
@@ -23,12 +24,14 @@ pub mod on_trading_disabled;
 
 #[derive(Debug, Clone)]
 pub struct DefaultStrategy<State> {
+    pub id: StrategyId,
     phantom: PhantomData<State>,
 }
 
 impl<State> Default for DefaultStrategy<State> {
     fn default() -> Self {
         Self {
+            id: StrategyId::new("default"),
             phantom: PhantomData,
         }
     }
@@ -79,6 +82,7 @@ where
             Some(Order {
                 exchange: state.instrument.exchange.clone(),
                 instrument: position.instrument.clone(),
+                strategy: self.id.clone(),
                 cid: ClientOrderId::default(),
                 side: match position.side {
                     Side::Buy => Side::Sell,
@@ -88,7 +92,7 @@ where
                     kind: OrderKind::Market,
                     time_in_force: TimeInForce::ImmediateOrCancel,
                     price: Default::default(),
-                    quantity: position.quantity_abs,
+                    quantity: Decimal::from_f64(position.quantity_abs)?,
                 },
             })
         });
@@ -106,7 +110,6 @@ impl<State, ExecutionTxs, Risk> OnDisconnectStrategy<State, ExecutionTxs, Risk>
         _: &mut Engine<State, ExecutionTxs, Self, Risk>,
         _: ExchangeId,
     ) -> Self::OnDisconnect {
-        todo!()
     }
 }
 
@@ -118,7 +121,6 @@ impl<State, ExecutionTxs, Risk> OnTradingDisabled<State, ExecutionTxs, Risk>
     fn on_trading_disabled(
         _: &mut Engine<State, ExecutionTxs, Self, Risk>,
     ) -> Self::OnTradingDisabled {
-        todo!()
     }
 }
 

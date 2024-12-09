@@ -1,9 +1,14 @@
 use crate::engine::{
     state::{
-        asset::{manager::AssetStateManager, AssetStates},
-        connectivity::{manager::ConnectivityManager, ConnectivityStates},
+        asset::{
+            generate_default_asset_states, manager::AssetStateManager, AssetState, AssetStates,
+        },
+        connectivity::{
+            generate_default_connectivity_states, manager::ConnectivityManager, ConnectivityStates,
+        },
         instrument::{
-            manager::InstrumentStateManager, market_data::MarketDataState, InstrumentStates,
+            generate_default_instrument_states, manager::InstrumentStateManager,
+            market_data::MarketDataState, InstrumentStates,
         },
         order::manager::OrderManager,
         position::PositionExited,
@@ -14,8 +19,9 @@ use crate::engine::{
 use barter_data::event::MarketEvent;
 use barter_execution::{AccountEvent, AccountEventKind};
 use barter_instrument::{
-    asset::AssetIndex,
+    asset::{AssetIndex, QuoteAsset},
     exchange::{ExchangeId, ExchangeIndex},
+    index::IndexedInstruments,
     instrument::InstrumentIndex,
 };
 use barter_integration::snapshot::Snapshot;
@@ -36,7 +42,7 @@ pub trait StateManager<ExchangeKey, AssetKey, InstrumentKey>
 where
     Self: TradingStateManager
         + ConnectivityManager<ExchangeId>
-        + AssetStateManager<AssetKey>
+        + AssetStateManager<AssetKey, State = AssetState>
         + InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey, AssetKey = AssetKey>,
 {
     type MarketState;
@@ -45,7 +51,7 @@ where
     fn update_from_account(
         &mut self,
         event: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>,
-    ) -> Option<PositionExited<AssetKey, InstrumentKey>>;
+    ) -> Option<PositionExited<QuoteAsset, InstrumentKey>>;
     fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey, Self::MarketEventKind>);
 }
 
@@ -65,7 +71,7 @@ impl<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
 where
     Self: TradingStateManager
         + ConnectivityManager<ExchangeId>
-        + AssetStateManager<AssetKey>
+        + AssetStateManager<AssetKey, State = AssetState>
         + InstrumentStateManager<
             InstrumentKey,
             ExchangeKey = ExchangeKey,
@@ -87,7 +93,7 @@ where
     fn update_from_account(
         &mut self,
         event: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>,
-    ) -> Option<PositionExited<AssetKey, InstrumentKey>> {
+    ) -> Option<PositionExited<QuoteAsset, InstrumentKey>> {
         let output = match &event.kind {
             AccountEventKind::Snapshot(snapshot) => {
                 for balance in &snapshot.balances {
@@ -141,5 +147,24 @@ where
         instrument_state.market.process(event);
         self.strategy.process(event);
         self.risk.process(event);
+    }
+}
+
+pub fn init_default_indexed_engine_state<Market, Strategy, Risk>(
+    trading_state: TradingState,
+    instruments: &IndexedInstruments,
+    strategy: Strategy,
+    risk: Risk,
+) -> EngineState<Market, Strategy, Risk, ExchangeIndex, AssetIndex, InstrumentIndex>
+where
+    Market: Default,
+{
+    EngineState {
+        trading: trading_state,
+        connectivity: generate_default_connectivity_states(instruments),
+        assets: generate_default_asset_states(instruments),
+        instruments: generate_default_instrument_states::<Market>(instruments),
+        strategy,
+        risk,
     }
 }

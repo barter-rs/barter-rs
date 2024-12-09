@@ -1,5 +1,4 @@
-pub mod manager;
-
+use crate::FnvIndexMap;
 use barter_execution::balance::{AssetBalance, Balance};
 use barter_instrument::{
     asset::{name::AssetNameInternal, Asset, ExchangeAsset},
@@ -8,12 +7,13 @@ use barter_instrument::{
 use barter_integration::snapshot::Snapshot;
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
-use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+pub mod manager;
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AssetStates(pub IndexMap<ExchangeAsset<AssetNameInternal>, AssetState>);
+pub struct AssetStates(pub FnvIndexMap<ExchangeAsset<AssetNameInternal>, AssetState>);
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
 pub struct AssetState {

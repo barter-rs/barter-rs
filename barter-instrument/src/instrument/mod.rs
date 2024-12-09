@@ -50,7 +50,7 @@ pub struct InstrumentId(pub u64);
     Display,
     Constructor,
 )]
-pub struct InstrumentIndex(usize);
+pub struct InstrumentIndex(pub usize);
 
 impl InstrumentIndex {
     pub fn index(&self) -> usize {

@@ -1,25 +1,25 @@
 use crate::{
     engine::{
-        audit::{manager::history::AuditHistory, Audit, AuditTick},
-        state::{
-            connectivity::Connection, order::in_flight_recorder::InFlightRequestRecorder,
-            StateManager,
-        },
+        audit::{manager::history::TradingHistory, Audit, AuditTick},
+        state::{asset::manager::AssetStateManager, connectivity::Connection, StateManager},
         EngineOutput,
     },
     execution::AccountStreamEvent,
+    statistic::summary::{
+        asset::TearSheetAssetGenerator, InstrumentTearSheetManager, TradingSummaryGenerator,
+    },
     EngineEvent,
 };
 use barter_data::streams::consumer::MarketStreamEvent;
 use barter_execution::AccountEventKind;
-use futures::{Stream, StreamExt};
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::info;
 
 pub mod history;
 
 // Todo: If I had proper deltas I could use much less memory, even computing lazely the prev or
-//      next, and old ever holding the "next event" and "current delta"
+//      next, and only ever holding the "next event" and "current delta"
 //      '--> call .collect() and users can aggregate all into a full history of snapshots
 //      - Would it make sense to add input Events too?
 
@@ -30,67 +30,62 @@ pub mod history;
 //    --> Can attach a "snapshot index" to all events that comes through
 //  - Could change AuditHistory to "TradingSession"
 
-// Todo: Probably move this to a top level crate module, rather than in Engine
+// Todo: Probably move audit module this to a top level crate module, rather than in Engine
 
-#[derive(Debug, Clone)]
-pub struct AuditManager<State, OnDisable, OnDisconnect, ExchangeKey, AssetKey, InstrumentKey> {
-    pub current: AuditTick<State>,
-    pub history: AuditHistory<State, OnDisable, OnDisconnect, ExchangeKey, AssetKey, InstrumentKey>,
+// Todo: Need to action reconnections upon receiving "Item"s, same as EngineState
+//      --> use same solution as Engine, or add "ReconnectAudit" so we can keep it simple here.
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct AuditManager<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey> {
+    pub snapshot: AuditTick<State>,
+    pub summary: TradingSummaryGenerator,
+    pub history: TradingHistory<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey>,
 }
 
-impl<State, OnDisable, OnDisconnect, ExchangeKey, AssetKey, InstrumentKey>
-    AuditManager<State, OnDisable, OnDisconnect, ExchangeKey, AssetKey, InstrumentKey>
-where
-    State: Clone
-        + StateManager<ExchangeKey, AssetKey, InstrumentKey>
-        + InFlightRequestRecorder<ExchangeKey, InstrumentKey>,
-    State::MarketEventKind: Debug,
-    ExchangeKey: Debug,
-    AssetKey: Debug,
-    InstrumentKey: Debug,
+impl<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey>
+    AuditManager<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey>
 {
-    pub fn new(snapshot: AuditTick<State>) -> Self
+    pub fn new(snapshot: AuditTick<State>, summary: TradingSummaryGenerator) -> Self
     where
         State: Clone,
     {
         Self {
-            current: snapshot.clone(),
-            history: AuditHistory {
-                states: vec![snapshot],
-                commands: vec![],
-                trading_disables: vec![],
-                disconnections: vec![],
-                orders: vec![],
-                trades: vec![],
-                positions: vec![],
-            },
+            snapshot: snapshot.clone(),
+            summary,
+            history: TradingHistory::from(snapshot),
         }
     }
 
-    // Todo: So far, this could be sync
-    pub async fn run<AuditStream>(&mut self, stream: &mut AuditStream) -> Result<(), String>
+    pub fn run<Audits, AssetKey>(&mut self, feed: &mut Audits) -> Result<(), String>
     where
-        AuditStream: Stream<
-                Item = AuditTick<
-                    Audit<
-                        State,
-                        EngineEvent<State::MarketEventKind, ExchangeKey, AssetKey, InstrumentKey>,
-                        EngineOutput<ExchangeKey, InstrumentKey, OnDisable, OnDisconnect>,
-                    >,
+        State: Clone + StateManager<ExchangeKey, AssetKey, InstrumentKey>,
+        State::MarketEventKind: Debug,
+        ExchangeKey: Debug,
+        InstrumentKey: Debug,
+        Audits: Iterator<
+            Item = AuditTick<
+                Audit<
+                    State,
+                    EngineEvent<State::MarketEventKind, ExchangeKey, AssetKey, InstrumentKey>,
+                    EngineOutput<ExchangeKey, InstrumentKey, OnDisable, OnDisconnect>,
                 >,
-            > + Unpin,
+            >,
+        >,
+        AssetKey: Debug,
+        TradingSummaryGenerator: InstrumentTearSheetManager<InstrumentKey>
+            + AssetStateManager<AssetKey, State = TearSheetAssetGenerator>,
     {
-        while let Some(audit) = stream.next().await {
-            if self.current.sequence >= audit.sequence {
+        for audit in feed {
+            if self.snapshot.sequence >= audit.sequence {
                 continue;
             } else {
-                self.validate_sequence(audit.sequence)?;
-                self.current.time_engine = audit.time_engine;
+                self.validate_and_increment_sequence(audit.sequence)?;
+                self.snapshot.time_engine = audit.time_engine;
             }
 
-            let shutdown = match audit.kind {
+            let shutdown = match audit.data {
                 Audit::Snapshot(snapshot) => {
-                    self.current.kind = snapshot;
+                    self.snapshot.data = snapshot;
                     None
                 }
                 Audit::Process(event) => {
@@ -109,7 +104,7 @@ where
                 }
             };
 
-            self.history.states.push(self.current.clone());
+            self.history.states.push(self.snapshot.clone());
 
             if let Some(audit) = shutdown {
                 info!(?audit, "Shutdown | AuditManager");
@@ -120,47 +115,45 @@ where
         Ok(())
     }
 
-    fn validate_sequence(&mut self, next: u64) -> Result<(), String> {
-        if self.current.sequence != next - 1 {
+    fn validate_and_increment_sequence(&mut self, next: u64) -> Result<(), String> {
+        if self.snapshot.sequence != next - 1 {
             return Err(format!(
                 "AuditManager | out-of-order AuditStream | next: {} does not follow from {}",
-                next, self.current.sequence,
+                next, self.snapshot.sequence,
             ));
         }
 
-        self.current.sequence = next;
+        self.snapshot.sequence = next;
         Ok(())
     }
 
-    fn tick<T>(&self, kind: T) -> AuditTick<T> {
-        AuditTick {
-            sequence: self.current.sequence,
-            time_engine: self.current.time_engine,
-            kind,
-        }
-    }
-
-    pub fn update_from_event(
+    pub fn update_from_event<AssetKey>(
         &mut self,
         event: EngineEvent<State::MarketEventKind, ExchangeKey, AssetKey, InstrumentKey>,
     ) where
         State: StateManager<ExchangeKey, AssetKey, InstrumentKey>,
+        TradingSummaryGenerator: InstrumentTearSheetManager<InstrumentKey>
+            + AssetStateManager<AssetKey, State = TearSheetAssetGenerator>,
     {
         match event {
             EngineEvent::Shutdown | EngineEvent::Command(_) => {
                 // No action required
             }
             EngineEvent::TradingStateUpdate(trading_state) => {
-                self.current.kind.update_trading_state(trading_state);
+                self.snapshot.data.update_trading_state(trading_state);
             }
             EngineEvent::Account(event) => match event {
                 AccountStreamEvent::Reconnecting(exchange) => {
-                    self.current.kind.connectivity_mut(&exchange).account =
+                    self.snapshot.data.connectivity_mut(&exchange).account =
                         Connection::Reconnecting;
                 }
                 AccountStreamEvent::Item(event) => {
-                    if let Some(position) = self.current.kind.update_from_account(&event) {
+                    if let Some(position) = self.snapshot.data.update_from_account(&event) {
+                        self.summary.update_from_position(&position);
                         self.history.positions.push(self.tick(position));
+                    }
+                    if let AccountEventKind::BalanceSnapshot(balance) = &event.kind {
+                        self.summary.update_from_balance(balance.as_ref());
                     }
                     if let AccountEventKind::Trade(trade) = event.kind {
                         self.history.trades.push(self.tick(trade));
@@ -169,13 +162,21 @@ where
             },
             EngineEvent::Market(event) => match event {
                 MarketStreamEvent::Reconnecting(exchange) => {
-                    self.current.kind.connectivity_mut(&exchange).market_data =
+                    self.snapshot.data.connectivity_mut(&exchange).market_data =
                         Connection::Reconnecting;
                 }
                 MarketStreamEvent::Item(event) => {
-                    self.current.kind.update_from_market(&event);
+                    self.snapshot.data.update_from_market(&event);
                 }
             },
+        }
+    }
+
+    fn tick<T>(&self, kind: T) -> AuditTick<T> {
+        AuditTick {
+            sequence: self.snapshot.sequence,
+            time_engine: self.snapshot.time_engine,
+            data: kind,
         }
     }
 
@@ -194,7 +195,7 @@ where
                 self.history.disconnections.push(self.tick(output));
             }
             EngineOutput::AlgoOrders(output) => {
-                self.history.orders.push(self.tick(output));
+                self.history.orders_sent.push(self.tick(output));
             }
         }
     }

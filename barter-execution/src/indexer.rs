@@ -5,12 +5,12 @@ use crate::{
     },
     map::ExecutionInstrumentMap,
     order::{ExchangeOrderState, Order},
-    trade::{AssetFees, Trade},
+    trade::Trade,
     AccountEventKind, IndexedAccountEvent, IndexedAccountSnapshot, InstrumentAccountSnapshot,
     UnindexedAccountEvent, UnindexedAccountSnapshot,
 };
 use barter_instrument::{
-    asset::{name::AssetNameExchange, AssetIndex},
+    asset::{name::AssetNameExchange, AssetIndex, QuoteAsset},
     exchange::{ExchangeId, ExchangeIndex},
     index::error::IndexError,
     instrument::{name::InstrumentNameExchange, InstrumentIndex},
@@ -130,6 +130,7 @@ impl AccountEventIndexer {
         let Order {
             exchange,
             instrument,
+            strategy,
             cid,
             side,
             state,
@@ -138,6 +139,7 @@ impl AccountEventIndexer {
         Ok(Order {
             exchange: self.map.find_exchange_index(exchange)?,
             instrument: self.map.find_instrument_index(&instrument)?,
+            strategy,
             cid,
             side,
             state,
@@ -154,6 +156,7 @@ impl AccountEventIndexer {
         let Order {
             exchange,
             instrument,
+            strategy,
             cid,
             side,
             state,
@@ -165,6 +168,7 @@ impl AccountEventIndexer {
         Ok(Order {
             exchange,
             instrument,
+            strategy: strategy.clone(),
             cid: *cid,
             side: *side,
             state: state.clone(),
@@ -178,6 +182,7 @@ impl AccountEventIndexer {
         let Order {
             exchange,
             instrument,
+            strategy,
             cid,
             side,
             state,
@@ -186,6 +191,7 @@ impl AccountEventIndexer {
         Ok(Order {
             exchange: self.map.find_exchange_index(exchange)?,
             instrument: self.map.find_instrument_index(&instrument)?,
+            strategy,
             cid,
             side,
             state,
@@ -200,6 +206,7 @@ impl AccountEventIndexer {
         let Order {
             exchange,
             instrument,
+            strategy,
             cid,
             side,
             state,
@@ -216,6 +223,7 @@ impl AccountEventIndexer {
         Ok(Order {
             exchange: exchange_index,
             instrument: instrument_index,
+            strategy,
             cid,
             side,
             state,
@@ -259,39 +267,32 @@ impl AccountEventIndexer {
 
     pub fn trade(
         &self,
-        trade: Trade<AssetNameExchange, InstrumentNameExchange>,
-    ) -> Result<Trade<AssetIndex, InstrumentIndex>, IndexError> {
+        trade: Trade<QuoteAsset, InstrumentNameExchange>,
+    ) -> Result<Trade<QuoteAsset, InstrumentIndex>, IndexError> {
         let Trade {
             id,
-            instrument,
             order_id,
+            instrument,
+            strategy,
             time_exchange,
             side,
             price,
             quantity,
-            fees: AssetFees { asset, fees },
+            fees,
         } = trade;
 
         let instrument_index = self.map.find_instrument_index(&instrument)?;
 
-        let asset_index = if let Some(asset) = asset {
-            Some(self.map.find_asset_index(&asset)?)
-        } else {
-            None
-        };
-
         Ok(Trade {
             id,
-            instrument: instrument_index,
             order_id,
+            instrument: instrument_index,
+            strategy,
             time_exchange,
             side,
             price,
             quantity,
-            fees: AssetFees {
-                asset: asset_index,
-                fees,
-            },
+            fees,
         })
     }
 }

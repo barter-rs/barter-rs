@@ -105,6 +105,7 @@ where
                 cid_untracked.insert(Order::new(
                     response.exchange.clone(),
                     response.instrument.clone(),
+                    response.strategy.clone(),
                     response.cid,
                     response.side,
                     InternalOrderState::from(new_open.clone()),
@@ -319,6 +320,41 @@ where
                     );
                     order.remove();
                 }
+                ExchangeOrderState::FullyFilled => match &order.get().state {
+                    InternalOrderState::OpenInFlight(_) | InternalOrderState::Open(_) => {
+                        debug!(
+                            exchange = ?snapshot.0.exchange,
+                            instrument = ?snapshot.0.instrument,
+                            cid = %snapshot.0.cid,
+                            order = ?order.get(),
+                            update = ?snapshot,
+                            "OrderManager received Snapshot<Order<Filled>> for tracked Order - removing"
+                        );
+                        order.remove();
+                    }
+                    InternalOrderState::CancelInFlight(_) => {
+                        warn!(
+                            exchange = ?snapshot.0.exchange,
+                            instrument = ?snapshot.0.instrument,
+                            cid = %snapshot.0.cid,
+                            order = ?order.get(),
+                            update = ?snapshot,
+                            "OrderManager received Snapshot<Order<Filled>> for Order<CancelInFlight> - removing"
+                        );
+                        order.remove();
+                    }
+                },
+                ExchangeOrderState::Expired => {
+                    debug!(
+                        exchange = ?snapshot.0.exchange,
+                        instrument = ?snapshot.0.instrument,
+                        cid = %snapshot.0.cid,
+                        order = ?order.get(),
+                        update = ?snapshot,
+                        "OrderManager received Snapshot<Order<Expired>> for tracked Order - removing"
+                    );
+                    order.remove();
+                }
                 ExchangeOrderState::Open(exchange_open) => match &order.get().state {
                     InternalOrderState::OpenInFlight(_) => {
                         debug!(
@@ -369,6 +405,24 @@ where
                         "OrderManager received Snapshot<Order<Cancelled>> for untracked Order - ignoring"
                     );
                 }
+                ExchangeOrderState::FullyFilled => {
+                    warn!(
+                        exchange = ?snapshot.0.exchange,
+                        instrument = ?snapshot.0.instrument,
+                        cid = %snapshot.0.cid,
+                        update = ?snapshot,
+                        "OrderManager received Snapshot<Order<Filled>> for untracked Order - ignoring"
+                    );
+                }
+                ExchangeOrderState::Expired => {
+                    warn!(
+                        exchange = ?snapshot.0.exchange,
+                        instrument = ?snapshot.0.instrument,
+                        cid = %snapshot.0.cid,
+                        update = ?snapshot,
+                        "OrderManager received Snapshot<Order<Expired>> for untracked Order - ignoring"
+                    );
+                }
                 ExchangeOrderState::Open(exchange_open) => {
                     warn!(
                         exchange = ?snapshot.0.exchange,
@@ -381,6 +435,7 @@ where
                     untracked_cid.insert(Order::new(
                         snapshot.0.exchange.clone(),
                         snapshot.0.instrument.clone(),
+                        snapshot.0.strategy.clone(),
                         snapshot.0.cid,
                         snapshot.0.side,
                         InternalOrderState::Open(exchange_open.clone()),
@@ -429,11 +484,12 @@ mod tests {
         error::ConnectivityError,
         order::{
             CancelInFlight, ClientOrderId, InternalOrderState, OpenInFlight, Order, OrderId,
-            OrderKind, RequestOpen, TimeInForce,
+            OrderKind, RequestOpen, StrategyId, TimeInForce,
         },
     };
     use barter_instrument::{exchange::ExchangeId, Side};
     use chrono::{DateTime, Utc};
+    use rust_decimal_macros::dec;
     use smol_str::SmolStr;
 
     fn orders(
@@ -446,6 +502,7 @@ mod tests {
         Order {
             exchange: ExchangeId::Simulated,
             instrument: 1,
+            strategy: StrategyId::unknown(),
             cid,
             side: Side::Buy,
             state,
@@ -458,12 +515,39 @@ mod tests {
         Snapshot(Order {
             exchange: ExchangeId::Simulated,
             instrument: 1,
+            strategy: StrategyId::unknown(),
             cid,
             side: Side::Buy,
             state: ExchangeOrderState::Cancelled(Cancelled {
                 id: OrderId(SmolStr::default()),
                 time_exchange: Default::default(),
             }),
+        })
+    }
+
+    fn order_snapshot_exchange_fully_filled(
+        cid: ClientOrderId,
+    ) -> Snapshot<Order<ExchangeId, u64, ExchangeOrderState>> {
+        Snapshot(Order {
+            exchange: ExchangeId::Simulated,
+            instrument: 1,
+            strategy: StrategyId::unknown(),
+            cid,
+            side: Side::Buy,
+            state: ExchangeOrderState::FullyFilled,
+        })
+    }
+
+    fn order_snapshot_exchange_expired(
+        cid: ClientOrderId,
+    ) -> Snapshot<Order<ExchangeId, u64, ExchangeOrderState>> {
+        Snapshot(Order {
+            exchange: ExchangeId::Simulated,
+            instrument: 1,
+            strategy: StrategyId::unknown(),
+            cid,
+            side: Side::Buy,
+            state: ExchangeOrderState::Expired,
         })
     }
 
@@ -474,6 +558,7 @@ mod tests {
         Snapshot(Order {
             exchange: ExchangeId::Simulated,
             instrument: 1,
+            strategy: StrategyId::unknown(),
             cid,
             side: Side::Buy,
             state: ExchangeOrderState::Open(open(time_exchange)),
@@ -510,6 +595,7 @@ mod tests {
         Order {
             exchange: ExchangeId::Simulated,
             instrument: 1,
+            strategy: StrategyId::unknown(),
             cid,
             side: Side::Buy,
             state: RequestCancel { id: None },
@@ -529,13 +615,14 @@ mod tests {
         Order {
             exchange: ExchangeId::Simulated,
             instrument: 1,
+            strategy: StrategyId::unknown(),
             cid,
             side: Side::Buy,
             state: RequestOpen {
                 kind: OrderKind::Limit,
                 time_in_force: TimeInForce::GoodUntilEndOfDay,
-                price: 0.0,
-                quantity: 0.0,
+                price: dec!(0.0),
+                quantity: dec!(0.0),
             },
         }
     }
@@ -847,7 +934,55 @@ mod tests {
                 input: order_snapshot_exchange_cancelled(cid),
                 expected: Orders::default(),
             },
-            // TC3: Open tracked Order<OpenInFlight> after receiving Snapshot<Order<Open>>
+            // TC3: remove tracked Order<OpenInFlight> after receiving Snapshot<Order<FullyFilled>>
+            TestCase {
+                state: orders([order(cid, InternalOrderState::OpenInFlight(OpenInFlight))]),
+                input: order_snapshot_exchange_fully_filled(cid),
+                expected: Orders::default(),
+            },
+            // TC4: remove tracked Order<Open> after receiving Snapshot<Order<FullyFilled>>
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::default())),
+                )]),
+                input: order_snapshot_exchange_fully_filled(cid),
+                expected: Orders::default(),
+            },
+            // TC5: remove tracked Order<CancelInFlight> after receiving Snapshot<Order<FullyFilled>>
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
+                )]),
+                input: order_snapshot_exchange_fully_filled(cid),
+                expected: Orders::default(),
+            },
+            // TC6: remove tracked Order<OpenInFlight> after receiving Snapshot<Order<Expired>>
+            TestCase {
+                state: orders([order(cid, InternalOrderState::OpenInFlight(OpenInFlight))]),
+                input: order_snapshot_exchange_expired(cid),
+                expected: Orders::default(),
+            },
+            // TC7: remove tracked Order<Open> after receiving Snapshot<Order<Expired>>
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::Open(open(DateTime::<Utc>::default())),
+                )]),
+                input: order_snapshot_exchange_expired(cid),
+                expected: Orders::default(),
+            },
+            // TC8: remove tracked Order<CancelInFlight> after receiving Snapshot<Order<Expired>>
+            TestCase {
+                state: orders([order(
+                    cid,
+                    InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
+                )]),
+                input: order_snapshot_exchange_expired(cid),
+                expected: Orders::default(),
+            },
+            // TC9: Open tracked Order<OpenInFlight> after receiving Snapshot<Order<Open>>
             TestCase {
                 state: orders([order(cid, InternalOrderState::OpenInFlight(OpenInFlight))]),
                 input: order_snapshot_exchange_open(cid, DateTime::<Utc>::default()),
@@ -856,7 +991,7 @@ mod tests {
                     InternalOrderState::Open(open(DateTime::<Utc>::default())),
                 )]),
             },
-            // TC4: Update tracked Order<Open> after receiving more recent Snapshot<Order<Open>>
+            // TC10: Update tracked Order<Open> after receiving more recent Snapshot<Order<Open>>
             TestCase {
                 state: orders([order(
                     cid,
@@ -868,7 +1003,7 @@ mod tests {
                     InternalOrderState::Open(open(DateTime::<Utc>::MAX_UTC)),
                 )]),
             },
-            // TC5: Ignore stale Snapshot<Order<Open>> when tracked Order<Open> is more recent
+            // TC11: Ignore stale Snapshot<Order<Open>> when tracked Order<Open> is more recent
             TestCase {
                 state: orders([order(
                     cid,
@@ -880,7 +1015,7 @@ mod tests {
                     InternalOrderState::Open(open(DateTime::<Utc>::MAX_UTC)),
                 )]),
             },
-            // TC6: Ignore stale Snapshot<Order<Open>> when internal state is Order<CancelInFlight>
+            // TC12: Ignore stale Snapshot<Order<Open>> when internal state is Order<CancelInFlight>
             TestCase {
                 state: orders([order(
                     cid,
@@ -892,13 +1027,25 @@ mod tests {
                     InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
                 )]),
             },
-            // TC7: Ignore Snapshot<Order<Cancelled>> for untracked Order
+            // TC13: Ignore Snapshot<Order<Cancelled>> for untracked Order
             TestCase {
                 state: Orders::default(),
                 input: order_snapshot_exchange_cancelled(cid),
                 expected: Orders::default(),
             },
-            // TC8: Insert untracked Snapshot<Order<Open>>
+            // TC14: Ignore Snapshot<Order<FullyFilled>> for untracked Order
+            TestCase {
+                state: Orders::default(),
+                input: order_snapshot_exchange_fully_filled(cid),
+                expected: Orders::default(),
+            },
+            // TC15: Ignore Snapshot<Order<Expired>> for untracked Order
+            TestCase {
+                state: Orders::default(),
+                input: order_snapshot_exchange_expired(cid),
+                expected: Orders::default(),
+            },
+            // TC16: Insert untracked Snapshot<Order<Open>>
             TestCase {
                 state: Orders::default(),
                 input: order_snapshot_exchange_open(cid, DateTime::<Utc>::default()),

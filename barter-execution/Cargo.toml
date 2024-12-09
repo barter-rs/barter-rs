@@ -28,9 +28,9 @@ futures = { workspace = true }
 
 # Data Structures
 smol_str = { workspace = true }
-fnv = {workspace = true }
-indexmap = {workspace = true }
-
+fnv = { workspace = true }
+indexmap = { workspace = true }
+rust_decimal = { workspace = true }
 
 # Error
 thiserror = { workspace = true }

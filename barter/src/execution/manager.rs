@@ -319,6 +319,7 @@ where
         let Order {
             exchange,
             instrument,
+            strategy,
             cid,
             side,
             state: _,
@@ -329,6 +330,7 @@ where
             kind: AccountEventKind::OrderCancelled(Order {
                 exchange,
                 instrument,
+                strategy,
                 cid,
                 side,
                 state: Err(IndexedClientError::Connectivity(ConnectivityError::Timeout)),
@@ -355,6 +357,7 @@ where
         let Order {
             exchange,
             instrument,
+            strategy,
             cid,
             side,
             state: _,
@@ -365,6 +368,7 @@ where
             kind: AccountEventKind::OrderOpened(Order {
                 exchange,
                 instrument,
+                strategy,
                 cid,
                 side,
                 state: Err(IndexedClientError::Connectivity(ConnectivityError::Timeout)),

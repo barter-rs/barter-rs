@@ -1,19 +1,21 @@
-use crate::engine::state::{
-    instrument::market_data::MarketDataState,
-    order::{manager::OrderManager, Orders},
-    position::{Position, PositionExited},
+use crate::{
+    engine::state::{
+        instrument::market_data::MarketDataState,
+        order::{manager::OrderManager, Orders},
+        position::{Position, PositionExited},
+    },
+    FnvIndexMap,
 };
 use barter_data::event::MarketEvent;
 use barter_execution::{trade::Trade, InstrumentAccountSnapshot};
 use barter_instrument::{
-    asset::AssetIndex,
+    asset::{AssetIndex, QuoteAsset},
     exchange::ExchangeIndex,
     index::IndexedInstruments,
     instrument::{name::InstrumentNameInternal, Instrument, InstrumentIndex},
 };
 use barter_integration::snapshot::Snapshot;
 use derive_more::Constructor;
-use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -22,7 +24,7 @@ pub mod market_data;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct InstrumentStates<Market, ExchangeKey, AssetKey, InstrumentKey>(
-    pub  IndexMap<
+    pub  FnvIndexMap<
         InstrumentNameInternal,
         InstrumentState<Market, ExchangeKey, AssetKey, InstrumentKey>,
     >,
@@ -32,7 +34,7 @@ pub struct InstrumentStates<Market, ExchangeKey, AssetKey, InstrumentKey>(
 pub struct InstrumentState<Market, ExchangeKey, AssetKey, InstrumentKey> {
     pub key: InstrumentKey,
     pub instrument: Instrument<ExchangeKey, AssetKey>,
-    pub position: Option<Position<AssetKey, InstrumentKey>>,
+    pub position: Option<Position<QuoteAsset, InstrumentKey>>,
     pub orders: Orders<ExchangeKey, InstrumentKey>,
     pub market: Market,
 }
@@ -55,10 +57,9 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
 
     pub fn update_from_trade(
         &mut self,
-        trade: &Trade<AssetKey, InstrumentKey>,
-    ) -> Option<PositionExited<AssetKey, InstrumentKey>>
+        trade: &Trade<QuoteAsset, InstrumentKey>,
+    ) -> Option<PositionExited<QuoteAsset, InstrumentKey>>
     where
-        AssetKey: Debug + Clone + PartialEq,
         InstrumentKey: Debug + Clone + PartialEq,
     {
         let (current, closed) = match self.position.take() {

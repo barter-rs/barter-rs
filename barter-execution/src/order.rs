@@ -1,6 +1,7 @@
 use barter_instrument::Side;
 use chrono::{DateTime, Utc};
 use derive_more::{Constructor, Display, From};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 use uuid::Uuid;
@@ -29,21 +30,30 @@ impl Default for ClientOrderId<Uuid> {
 }
 
 #[derive(
-    Debug,
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    Deserialize,
-    Serialize,
-    Display,
-    From,
-    Constructor,
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display, From,
 )]
 pub struct OrderId<T = SmolStr>(pub T);
+
+impl OrderId {
+    pub fn new<S: AsRef<str>>(id: S) -> Self {
+        Self(SmolStr::new(id))
+    }
+}
+
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display, From,
+)]
+pub struct StrategyId(pub SmolStr);
+
+impl StrategyId {
+    pub fn new<S: AsRef<str>>(id: S) -> Self {
+        Self(SmolStr::new(id))
+    }
+
+    pub fn unknown() -> Self {
+        Self::new("unknown")
+    }
+}
 
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
@@ -51,6 +61,7 @@ pub struct OrderId<T = SmolStr>(pub T);
 pub struct Order<ExchangeKey, InstrumentKey, State> {
     pub exchange: ExchangeKey,
     pub instrument: InstrumentKey,
+    pub strategy: StrategyId,
     pub cid: ClientOrderId,
     pub side: Side,
     pub state: State,
@@ -89,6 +100,7 @@ impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, InternalOrder
         let Order {
             exchange,
             instrument,
+            strategy,
             cid,
             side,
             state,
@@ -105,6 +117,7 @@ impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, InternalOrder
         Some(Order {
             exchange: exchange.clone(),
             instrument: instrument.clone(),
+            strategy: strategy.clone(),
             cid: *cid,
             side: *side,
             state: request_cancel,
@@ -115,7 +128,9 @@ impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, InternalOrder
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, From)]
 pub enum ExchangeOrderState {
     Open(Open),
+    FullyFilled,
     Cancelled(Cancelled),
+    Expired,
 }
 
 impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, ExchangeOrderState> {
@@ -127,6 +142,7 @@ impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, ExchangeOrder
         let Order {
             exchange,
             instrument,
+            strategy,
             cid,
             side,
             state: ExchangeOrderState::Open(open),
@@ -138,6 +154,7 @@ impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, ExchangeOrder
         Some(Order {
             exchange: exchange.clone(),
             instrument: instrument.clone(),
+            strategy: strategy.clone(),
             cid: *cid,
             side: *side,
             state: open.clone(),
@@ -149,8 +166,8 @@ impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, ExchangeOrder
 pub struct RequestOpen {
     pub kind: OrderKind,
     pub time_in_force: TimeInForce,
-    pub price: f64,
-    pub quantity: f64,
+    pub price: Decimal,
+    pub quantity: Decimal,
 }
 
 #[derive(
@@ -219,6 +236,7 @@ where
         let Order {
             exchange,
             instrument,
+            strategy,
             cid,
             side,
             state: _,
@@ -227,6 +245,7 @@ where
         Self {
             exchange: exchange.clone(),
             instrument: instrument.clone(),
+            strategy: strategy.clone(),
             cid: *cid,
             side: *side,
             state: InternalOrderState::OpenInFlight(OpenInFlight),
@@ -244,6 +263,7 @@ where
         let Order {
             exchange,
             instrument,
+            strategy,
             cid,
             side,
             state,
@@ -252,6 +272,7 @@ where
         Self {
             exchange: exchange.clone(),
             instrument: instrument.clone(),
+            strategy: strategy.clone(),
             cid: *cid,
             side: *side,
             state: InternalOrderState::CancelInFlight(CancelInFlight {
@@ -268,6 +289,7 @@ impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
         let Order {
             exchange,
             instrument,
+            strategy,
             cid,
             side,
             state,
@@ -276,6 +298,7 @@ impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
         Self {
             exchange,
             instrument,
+            strategy,
             cid,
             side,
             state: InternalOrderState::Open(state),

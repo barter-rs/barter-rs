@@ -16,6 +16,7 @@ categories = ["accessibility", "simulation"]
 [dev-dependencies]
 tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
 rust_decimal_macros = { workspace = true }
+approx = { workspace = true }
 
 [dependencies]
 # Barter Ecosystem

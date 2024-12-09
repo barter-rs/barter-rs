@@ -342,7 +342,7 @@ where
         AuditTick {
             sequence: self.sequence_fetch_add(),
             time_engine: (self.clock)(),
-            kind: AuditKind::from(kind),
+            data: AuditKind::from(kind),
         }
     }
 }

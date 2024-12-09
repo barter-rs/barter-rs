@@ -9,6 +9,7 @@ use crate::{
 use barter_instrument::instrument::InstrumentIndex;
 use barter_integration::collection::one_or_many::OneOrMany;
 use chrono::{DateTime, Utc};
+use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use shutdown::ShutdownAudit;
 
@@ -52,11 +53,11 @@ where
         AuditKind: From<Kind>;
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct AuditTick<Kind> {
     pub sequence: u64,
     pub time_engine: DateTime<Utc>,
-    pub kind: Kind,
+    pub data: Kind,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

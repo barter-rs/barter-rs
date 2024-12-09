@@ -67,7 +67,7 @@ impl IndexedInstruments {
 }
 
 fn find_exchange_by_exchange_id(
-    haystack: &[crate::Keyed<ExchangeIndex, ExchangeId>],
+    haystack: &[Keyed<ExchangeIndex, ExchangeId>],
     needle: &ExchangeId,
 ) -> Result<ExchangeIndex, IndexError> {
     haystack
@@ -80,7 +80,7 @@ fn find_exchange_by_exchange_id(
 }
 
 fn find_asset_by_exchange_and_name_internal(
-    haystack: &[crate::Keyed<AssetIndex, ExchangeAsset<Asset>>],
+    haystack: &[Keyed<AssetIndex, ExchangeAsset<Asset>>],
     needle_exchange: ExchangeId,
     needle_name: &AssetNameInternal,
 ) -> Result<AssetIndex, IndexError> {

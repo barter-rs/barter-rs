@@ -33,9 +33,9 @@
 //!
 //! ### Multi Exchange Public Trades
 //! ```rust,no_run
-//! use barter_data::execution::gateio::spot::GateioSpot;
 //! use barter_data::{
-//!     execution::{
+//!     exchange::{
+//!         gateio::spot::GateioSpot,
 //!         binance::{futures::BinanceFuturesUsd, spot::BinanceSpot},
 //!         coinbase::Coinbase,
 //!         okx::Okx,

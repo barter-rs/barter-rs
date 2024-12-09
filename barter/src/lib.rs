@@ -215,18 +215,25 @@ use crate::{
 use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
 use barter_execution::AccountEvent;
 use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
-use derive_more::From;
+use chrono::{DateTime, Utc};
+use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
 
 pub mod engine;
+pub mod error;
 pub mod execution;
 pub mod risk;
-// pub mod statistic;
-pub mod error;
+pub mod statistic;
 pub mod strategy;
 
 pub type FnvIndexMap<K, V> = indexmap::IndexMap<K, V, fnv::FnvBuildHasher>;
 pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Default, Constructor)]
+pub struct Timed<T> {
+    value: T,
+    time: DateTime<Utc>,
+}
 
 // Todo: Must: Final Requirements
 //  - Comprehensive rust docs
@@ -236,34 +243,27 @@ pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
 // Todo: Must: General:
 //  - Back-test utilities via Audit route w/ interactive mode
 //    (backward would require Vec<State> to be created on .next()) (add compression using file system)
-//  - Statistics
 //  - Ensure everything is in the correct crate/module/file (eg/ EngineOutput?)
 //  - Ensure Audit pathway doesn't duplicate Logs
+//    '--> see claude convo with "module layer" etc.
 
 // Todo: Must: Instruments:
 //  - Ensure IndexedInstruments is fully tested, etc.
-
-// Todo: Must: Strategy:
-//  - Add Strategy utilities to help hobbyist traders to create strategies
 
 // Todo: Must: Engine:
 //   - Fix Engine hanging because it doesn't know AuditKind is terminal -> return ShutdownAudit
 //   - Handle re-connections in ConnectivityStates with acceptable performance.
 //   - Comprehensive tests for all managers, updates, etc.
-//   - Add PositionExit to EngineOutput or similar
+
+// Todo: Must: Orders:
+//   - Add some Order lifecycle auditing, with time and order_id metadata for expired & fully filled
+//  eg/ specialised Enum { Sent, RiskRefused, OpenFailed, Open, PartiallyFilled, FullyFilled, Expired }
 
 // Todo: Must: Market Data
 //  - Ensure utils exist for creating of MarketDataStreams for live & historic feeds
 
 // Todo: Must: Execution
-//   - Allow cancelling an Order before it's opened via Cid
-//   - RequestOpen should probably be an enum, since Price is not relevant for OrderKind::Market
 //   - Full MockExecution
-//   - Full BinanceExecution (maybe give some initial code snippets and ask for contributor)
-//   - Re-factor SimulatedExchange to work with new types, etc.
-
-// Todo: Nice To Have:
-//  - Sequenced log stream that can enrich logs w/ additional context eg/ InstrumentName
 
 pub type IndexedEngineEvent<MarketKind> =
     EngineEvent<MarketKind, ExchangeIndex, AssetIndex, InstrumentIndex>;
@@ -271,10 +271,10 @@ pub type IndexedEngineEvent<MarketKind> =
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
 pub enum EngineEvent<MarketKind, ExchangeKey, AssetKey, InstrumentKey> {
     Shutdown,
+    Command(Command<ExchangeKey, AssetKey, InstrumentKey>),
     TradingStateUpdate(TradingState),
     Account(AccountStreamEvent<ExchangeKey, AssetKey, InstrumentKey>),
     Market(MarketStreamEvent<InstrumentKey, MarketKind>),
-    Command(Command<ExchangeKey, AssetKey, InstrumentKey>),
 }
 
 impl<MarketKind, ExchangeKey, AssetKey, InstrumentKey>
@@ -291,5 +291,58 @@ impl<MarketKind, ExchangeKey, AssetKey, InstrumentKey> From<MarketEvent<Instrume
 {
     fn from(value: MarketEvent<InstrumentKey, MarketKind>) -> Self {
         Self::Market(MarketStreamEvent::Item(value))
+    }
+}
+
+#[cfg(test)]
+mod test_utils {
+    use barter_execution::{
+        order::{OrderId, StrategyId},
+        trade::{AssetFees, Trade, TradeId},
+    };
+    use barter_instrument::{asset::QuoteAsset, instrument::name::InstrumentNameInternal, Side};
+    use chrono::{DateTime, Days, Utc};
+
+    pub fn f64_is_eq(actual: f64, expected: f64, epsilon: f64) -> bool {
+        if actual.is_nan() && expected.is_nan() {
+            true
+        } else if actual.is_infinite() && expected.is_infinite() {
+            actual.is_sign_positive() == expected.is_sign_positive()
+        } else if actual.is_nan()
+            || expected.is_nan()
+            || actual.is_infinite()
+            || expected.is_infinite()
+        {
+            false
+        } else {
+            (actual - expected).abs() < epsilon
+        }
+    }
+
+    pub fn time_plus_days(base: DateTime<Utc>, plus: u64) -> DateTime<Utc> {
+        base.checked_add_days(Days::new(plus)).unwrap()
+    }
+
+    pub fn trade(
+        time_exchange: DateTime<Utc>,
+        side: Side,
+        price: f64,
+        quantity: f64,
+        fees: f64,
+    ) -> Trade<QuoteAsset, InstrumentNameInternal> {
+        Trade {
+            id: TradeId::new("trade_id"),
+            order_id: OrderId::new("order_id"),
+            instrument: InstrumentNameInternal::new("instrument"),
+            strategy: StrategyId::new("strategy"),
+            time_exchange,
+            side,
+            price,
+            quantity,
+            fees: AssetFees {
+                asset: QuoteAsset,
+                fees,
+            },
+        }
     }
 }

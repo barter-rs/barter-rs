@@ -1,6 +1,5 @@
 use barter::{
     engine::{
-        audit::{manager::AuditManager, Auditor},
         command::Command,
         run,
         state::{
@@ -101,13 +100,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         DefaultRiskManager::default(),
     );
 
-    // Construct AuditManager w/ initial EngineState snapshot
-    let mut audit_manager = AuditManager::new(
-        // Todo: it's possible we don't need the "AuditKind::from<State>" bound
-        //    or we could construct the EngineState and then the AuditManager (as it was)
-        //    Or maybe Engine could construct AuditManager? surely not...
-        engine.audit(engine.snapshot()),
-    );
+    // let audit = AuditTick {
+    //     sequence: engine.sequence,
+    //     time_engine: (engine.clock)(),
+    //     kind: engine.snapshot(),
+    // };
+    // // Construct AuditManager w/ initial EngineState snapshot
+    // let mut audit_manager = AuditManager::new(
+    //     audit
+    //     // Todo: it's possible we don't need the "AuditKind::from<State>" bound
+    //     //    or we could construct the EngineState and then the AuditManager (as it was)
+    //     //    Or maybe Engine could construct AuditManager? surely not...
+    //     // engine.audit(engine.snapshot()),
+    // );
 
     // Run synchronous Engine on blocking task
     let engine_task = tokio::task::spawn_blocking(move || {
@@ -120,13 +125,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         (engine, shutdown_audit)
     });
 
-    // Run AuditManager task
-    let audit_task = tokio::spawn(async move {
-        let mut audit_stream = audit_rx.into_stream();
-        audit_manager.run(&mut audit_stream).await.unwrap();
-
-        (audit_manager, audit_stream)
-    });
+    // // Run AuditManager task
+    // let audit_task = tokio::spawn(async move {
+    //     let mut audit_stream = audit_rx.into_stream();
+    //     audit_manager.run(&mut audit_stream).await.unwrap();
+    //
+    //     (audit_manager, audit_stream)
+    // });
 
     // Let the example run for 4 seconds..., then:
     tokio::time::sleep(std::time::Duration::from_secs(4)).await;
@@ -141,7 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Await Engine & AuditManager graceful shutdown
     let (_engine, shutdown_audit) = engine_task.await?;
-    let (_audit_manager, _audit_stream) = audit_task.await?;
+    // let (_audit_manager, _audit_stream) = audit_task.await?;
 
     info!(?shutdown_audit, "Engine shutdown");
     Ok(())
@@ -167,7 +172,7 @@ fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
     vec![
         Instrument::new(
             EXCHANGE,
-            "btc_usdt",
+            "binance_spot_btc_usdt",
             "BTCUSDT",
             Underlying::new("btc", "usdt"),
             InstrumentKind::Spot,
@@ -183,7 +188,7 @@ fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
         ),
         Instrument::new(
             EXCHANGE,
-            "eth_usdt",
+            "binance_spot_eth_usdt",
             "ETHUSDT",
             Underlying::new("eth", "usdt"),
             InstrumentKind::Spot,
@@ -195,7 +200,7 @@ fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
         ),
         Instrument::new(
             EXCHANGE,
-            "sol_usdt",
+            "binance_spot_sol_usdt",
             "SOLUSDT",
             Underlying::new("sol", "usdt"),
             InstrumentKind::Spot,

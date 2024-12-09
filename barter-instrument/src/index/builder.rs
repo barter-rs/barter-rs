@@ -1,7 +1,10 @@
 use crate::{
-    asset::{name::AssetNameInternal, Asset, AssetIndex, ExchangeAsset},
+    asset::{Asset, AssetIndex, ExchangeAsset},
     exchange::{ExchangeId, ExchangeIndex},
-    index::{error::IndexError, IndexedInstruments},
+    index::{
+        error::IndexError, find_asset_by_exchange_and_name_internal, find_exchange_by_exchange_id,
+        IndexedInstruments,
+    },
     instrument::{spec::OrderQuantityUnits, Instrument, InstrumentIndex},
     Keyed,
 };
@@ -103,35 +106,4 @@ impl IndexedInstrumentsBuilder {
             assets,
         })
     }
-}
-
-fn find_exchange_by_exchange_id(
-    haystack: &[Keyed<ExchangeIndex, ExchangeId>],
-    needle: &ExchangeId,
-) -> Result<ExchangeIndex, IndexError> {
-    haystack
-        .iter()
-        .find_map(|indexed| (indexed.value == *needle).then_some(indexed.key))
-        .ok_or(IndexError::ExchangeIndex(format!(
-            "Exchange: {} must be present in indexed instrument exchanges: {:?}",
-            needle, haystack
-        )))
-}
-
-fn find_asset_by_exchange_and_name_internal(
-    haystack: &[Keyed<AssetIndex, ExchangeAsset<Asset>>],
-    needle_exchange: ExchangeId,
-    needle_name: &AssetNameInternal,
-) -> Result<AssetIndex, IndexError> {
-    haystack
-        .iter()
-        .find_map(|indexed| {
-            (indexed.value.exchange == needle_exchange
-                && indexed.value.asset.name_internal == *needle_name)
-                .then_some(indexed.key)
-        })
-        .ok_or(IndexError::AssetIndex(format!(
-            "Asset: ({}, {}) must be present in indexed instrument assets: {:?}",
-            needle_exchange, needle_name, haystack
-        )))
 }

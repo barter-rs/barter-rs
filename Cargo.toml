@@ -60,4 +60,5 @@ derive_more = { version = "1.0.0", features = ["constructor", "display", "from"]
 itertools = { version = "0.13.0" }
 rust_decimal_macros = { version = "1.29.1" }
 bytes = { version = "1.5.0" }
+approx = { version = "0.5.1 "}
 
