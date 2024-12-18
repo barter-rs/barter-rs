@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
     Display,
     Constructor,
 )]
-pub struct ExchangeIndex(usize);
+pub struct ExchangeIndex(pub usize);
 
 impl ExchangeIndex {
     pub fn index(&self) -> usize {

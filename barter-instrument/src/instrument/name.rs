@@ -55,6 +55,12 @@ impl From<SmolStr> for InstrumentNameInternal {
     }
 }
 
+impl From<String> for InstrumentNameInternal {
+    fn from(value: String) -> Self {
+        Self::new(value)
+    }
+}
+
 impl Borrow<str> for InstrumentNameInternal {
     fn borrow(&self) -> &str {
         self.0.borrow()
@@ -109,6 +115,12 @@ impl From<&str> for InstrumentNameExchange {
 
 impl From<SmolStr> for InstrumentNameExchange {
     fn from(value: SmolStr) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<String> for InstrumentNameExchange {
+    fn from(value: String) -> Self {
         Self::new(value)
     }
 }

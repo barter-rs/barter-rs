@@ -44,6 +44,12 @@ impl From<SmolStr> for AssetNameInternal {
     }
 }
 
+impl From<String> for AssetNameInternal {
+    fn from(value: String) -> Self {
+        Self::new(value)
+    }
+}
+
 impl Borrow<str> for AssetNameInternal {
     fn borrow(&self) -> &str {
         self.0.borrow()
@@ -96,6 +102,12 @@ impl From<&str> for AssetNameExchange {
 
 impl From<SmolStr> for AssetNameExchange {
     fn from(value: SmolStr) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<String> for AssetNameExchange {
+    fn from(value: String) -> Self {
         Self::new(value)
     }
 }

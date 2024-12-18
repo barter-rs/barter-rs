@@ -295,7 +295,7 @@ impl<MarketKind, ExchangeKey, AssetKey, InstrumentKey> From<MarketEvent<Instrume
 }
 
 #[cfg(test)]
-mod test_utils {
+pub mod test_utils {
     use barter_execution::{
         order::{OrderId, StrategyId},
         trade::{AssetFees, Trade, TradeId},

@@ -85,3 +85,76 @@ impl Display for Side {
         )
     }
 }
+
+#[cfg(test)]
+pub mod test_utils {
+    use crate::{
+        asset::{
+            name::{AssetNameExchange, AssetNameInternal},
+            Asset, ExchangeAsset,
+        },
+        exchange::ExchangeId,
+        instrument::{
+            kind::InstrumentKind,
+            name::{InstrumentNameExchange, InstrumentNameInternal},
+            spec::{
+                InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice,
+                InstrumentSpecQuantity, OrderQuantityUnits,
+            },
+            Instrument,
+        },
+        Underlying,
+    };
+
+    pub fn exchange_asset(exchange: ExchangeId, symbol: &str) -> ExchangeAsset<Asset> {
+        ExchangeAsset {
+            exchange,
+            asset: asset(symbol),
+        }
+    }
+
+    pub fn asset(symbol: &str) -> Asset {
+        Asset {
+            name_internal: AssetNameInternal::from(symbol),
+            name_exchange: AssetNameExchange::from(symbol),
+        }
+    }
+
+    pub fn instrument(
+        exchange: ExchangeId,
+        base: &str,
+        quote: &str,
+    ) -> Instrument<ExchangeId, Asset> {
+        let name_exchange = InstrumentNameExchange::from(format!("{base}_{quote}"));
+        let name_internal =
+            InstrumentNameInternal::new_from_exchange(exchange, name_exchange.clone());
+        let base_asset = asset(base);
+        let quote_asset = asset(quote);
+
+        Instrument::new(
+            exchange,
+            name_internal,
+            name_exchange,
+            Underlying::new(base_asset, quote_asset),
+            InstrumentKind::Spot,
+            instrument_spec(),
+        )
+    }
+
+    pub fn instrument_spec<AssetKey>() -> InstrumentSpec<AssetKey> {
+        InstrumentSpec {
+            price: InstrumentSpecPrice {
+                min: Default::default(),
+                tick_size: Default::default(),
+            },
+            quantity: InstrumentSpecQuantity {
+                unit: OrderQuantityUnits::Quote,
+                min: Default::default(),
+                increment: Default::default(),
+            },
+            notional: InstrumentSpecNotional {
+                min: Default::default(),
+            },
+        }
+    }
+}
