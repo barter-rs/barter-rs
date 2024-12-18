@@ -17,6 +17,7 @@ impl<Interval> SortinoRatio<Interval>
 where
     Interval: TimeInterval,
 {
+    /// Calculate the [`SortinoRatio`] over the provided [`TimeInterval`].
     pub fn calculate(
         risk_free_return: f64,
         mean_return: f64,
@@ -45,7 +46,7 @@ where
         }
     }
 
-    /// Scale the [`SharpeRatio`] from the current [`TimeInterval`] to the provided [`TimeInterval`].
+    /// Scale the [`SortinoRatio`] from the current [`TimeInterval`] to the provided [`TimeInterval`].
     ///
     /// This scaling assumed the returns are independently and identically distributed (IID).
     /// However, this assumption may be less appropriate for downside deviation.

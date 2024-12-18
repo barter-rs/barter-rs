@@ -43,7 +43,7 @@ impl MaxDrawdownGenerator {
         self.max = Some(max);
     }
 
-    /// Generate the current [`MeanDrawdown`], if one exists.
+    /// Generate the current [`MaxDrawdown`], if one exists.
     pub fn generate(&self) -> Option<MaxDrawdown> {
         self.max.clone()
     }

@@ -6,8 +6,8 @@ use derive_more::Display;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-/// Barter [`Subscription`](super::Subscription) [`SubscriptionKind`] that yields level 1 [`OrderBook`]
-/// [`MarketEvent<T>`](MarketEvent) events.
+/// Barter [`Subscription`](super::Subscription) [`SubscriptionKind`] that yields [`OrderBookL1`]
+/// market events.
 ///
 /// Level 1 refers to the best non-aggregated bid and ask [`Level`] on each side of the
 /// [`OrderBook`].

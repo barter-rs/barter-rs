@@ -84,7 +84,7 @@ impl TearSheetGenerator {
 
     /// Generate the latest [`TearSheet`] at the specific [`TimeInterval`].
     ///
-    /// For example, pass [`Annual365`](super::time::Annual365) to generate a crypto-centric
+    /// For example, pass [`Annual365`](super::super::time::Annual365) to generate a crypto-centric
     /// (24/7 trading) annualised [`TearSheet`].
     pub fn generate<Interval>(
         &self,

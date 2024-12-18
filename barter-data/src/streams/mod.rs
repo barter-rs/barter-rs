@@ -4,7 +4,6 @@ use barter_instrument::exchange::ExchangeId;
 use barter_integration::channel::UnboundedRx;
 use fnv::FnvHashMap;
 use futures::Stream;
-use futures_util::stream::select_all;
 
 /// Defines the [`StreamBuilder`] and [`MultiStreamBuilder`] APIs for ergonomically initialising
 /// [`MarketStream`](super::MarketStream) [`Streams`].
@@ -44,9 +43,10 @@ impl<T> Streams<T> {
         self.streams.remove(&exchange).map(UnboundedRx::into_stream)
     }
 
-    /// Select and merge every exchange `Stream` using [`select_all`].
+    /// Select and merge every exchange `Stream` using
+    /// [`select_all`](futures_util::stream::select_all::select_all).
     pub fn select_all(self) -> impl Stream<Item = T> {
         let all = self.streams.into_values().map(UnboundedRx::into_stream);
-        select_all(all)
+        futures_util::stream::select_all::select_all(all)
     }
 }

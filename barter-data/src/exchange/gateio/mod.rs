@@ -49,7 +49,7 @@ pub mod subscription;
 /// Generic [`Gateio<Server>`](Gateio) execution.
 ///
 /// ### Notes
-/// A `Server` [`ExchangeServer`](super::ExchangeServer) implementations exists for
+/// A `Server` [`ExchangeServer`] implementations exists for
 /// [`GateioSpot`](spot::GateioSpot), [`GateioPerpetualUsdt`](perpetual::GateioPerpetualsUsd) and
 /// [`GateioPerpetualBtc`](perpetual::GateioPerpetualsBtc).
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]

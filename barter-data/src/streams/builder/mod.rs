@@ -20,11 +20,11 @@ use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 pub mod multi;
 
 /// Defines the [`DynamicStreams`](dynamic::DynamicStreams) API for initialising an arbitrary number
-/// of [`MarketStream`]s from the [`ExchangeId`] and [`SubKind`] enums, rather than concrete
+/// of [`MarketStream`]s from the [`ExchangeId`] and [`SubKind`](crate::subscription::SubKind) enums, rather than concrete
 /// types.
 pub mod dynamic;
 
-/// Communicative type alias representing the [`Future`] result of a [`Subscription`] [`validate`]
+/// Communicative type alias representing the [`Future`] result of a [`Subscription`] validation
 /// call generated whilst executing [`StreamBuilder::subscribe`].
 pub type SubscribeFuture = Pin<Box<dyn Future<Output = Result<(), DataError>>>>;
 

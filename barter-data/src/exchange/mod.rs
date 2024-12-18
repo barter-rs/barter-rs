@@ -73,7 +73,7 @@ where
     const ID: ExchangeId;
 
     /// Type that defines how to translate a Barter
-    /// [`Subscription`](ubscription::Subscription) into an execution specific channel
+    /// [`Subscription`](subscription::Subscription) into an execution specific channel
     /// to be subscribed to.
     ///
     /// ### Examples
@@ -137,7 +137,7 @@ where
 }
 
 /// Used when an execution has servers different
-/// [`InstrumentKind`] market data on distinct servers,
+/// [`InstrumentKind`](barter_instrument::instrument::kind::InstrumentKind) market data on distinct servers,
 /// allowing all the [`Connector`] logic to be identical apart from what this trait provides.
 ///
 /// ### Examples

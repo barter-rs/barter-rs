@@ -36,10 +36,7 @@ use barter_integration::{
     Validator,
 };
 use fnv::FnvHashMap;
-use futures::{
-    stream::{select_all, SelectAll},
-    Stream,
-};
+use futures::{stream::SelectAll, Stream};
 use futures_util::{future::try_join_all, StreamExt};
 use itertools::Itertools;
 use std::{fmt::Debug, sync::Arc};
@@ -547,11 +544,11 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
     }
 
     /// Select and merge every execution [`PublicTrade`] `Stream` using
-    /// [`SelectAll`](futures_util::stream::select_all).
+    /// [`SelectAll`](futures_util::stream::select_all::select_all).
     pub fn select_all_trades(
         &mut self,
     ) -> SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, PublicTrade>>> {
-        select_all(std::mem::take(&mut self.trades).into_values())
+        futures_util::stream::select_all::select_all(std::mem::take(&mut self.trades).into_values())
     }
 
     /// Remove an execution [`OrderBookL1`] `Stream` from the [`DynamicStreams`] collection.
@@ -565,11 +562,11 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
     }
 
     /// Select and merge every execution [`OrderBookL1`] `Stream` using
-    /// [`SelectAll`](futures_util::stream::select_all).
+    /// [`SelectAll`](futures_util::stream::select_all::select_all).
     pub fn select_all_l1s(
         &mut self,
     ) -> SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, OrderBookL1>>> {
-        select_all(std::mem::take(&mut self.l1s).into_values())
+        futures_util::stream::select_all::select_all(std::mem::take(&mut self.l1s).into_values())
     }
 
     /// Remove an execution [`OrderBookEvent`] `Stream` from the [`DynamicStreams`] collection.
@@ -583,11 +580,11 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
     }
 
     /// Select and merge every execution [`OrderBookEvent`] `Stream` using
-    /// [`SelectAll`](futures_util::stream::select_all).
+    /// [`SelectAll`](futures_util::stream::select_all::select_all).
     pub fn select_all_l2s(
         &mut self,
     ) -> SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, OrderBookEvent>>> {
-        select_all(std::mem::take(&mut self.l2s).into_values())
+        futures_util::stream::select_all::select_all(std::mem::take(&mut self.l2s).into_values())
     }
 
     /// Remove an execution [`Liquidation`] `Stream` from the [`DynamicStreams`] collection.
@@ -601,14 +598,16 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
     }
 
     /// Select and merge every execution [`Liquidation`] `Stream` using
-    /// [`SelectAll`](futures_util::stream::select_all).
+    /// [`SelectAll`](futures_util::stream::select_all::select_all).
     pub fn select_all_liquidations(
         &mut self,
     ) -> SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, Liquidation>>> {
-        select_all(std::mem::take(&mut self.liquidations).into_values())
+        futures_util::stream::select_all::select_all(
+            std::mem::take(&mut self.liquidations).into_values(),
+        )
     }
 
-    /// Select and merge every execution `Stream` for every data type using [`select_all`]
+    /// Select and merge every execution `Stream` for every data type using [`select_all`](futures_util::stream::select_all::select_all)
     ///
     /// Note that using [`MarketStreamResult<Instrument, DataKind>`] as the `Output` is suitable for most
     /// use cases.
@@ -646,7 +645,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
 
         let all = trades.chain(l1s).chain(l2s).chain(liquidations);
 
-        select_all(all)
+        futures_util::stream::select_all::select_all(all)
     }
 }
 

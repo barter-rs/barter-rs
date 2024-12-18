@@ -34,7 +34,7 @@ pub mod message;
 /// [`Validator`](barter_integration::Validator) for [`Bitmex`].
 pub mod subscription;
 
-/// Public trade types for [`Bitmex`](Bitmex)
+/// Public trade types for [`Bitmex`].
 pub mod trade;
 
 /// [`Bitmex`] server base url.

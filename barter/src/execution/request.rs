@@ -8,7 +8,7 @@ use std::{
     task::{Context, Poll},
 };
 
-/// Convenient type alias for an [`ExecutionRequest`] keyed with [`ExchangeIndex`], [`AssetIndex`]
+/// Convenient type alias for an [`ExecutionRequest`] keyed with [`ExchangeIndex`]
 /// and [`InstrumentIndex`].
 pub type IndexedExecutionRequest = ExecutionRequest<ExchangeIndex, InstrumentIndex>;
 

@@ -17,7 +17,7 @@ pub type KrakenTrades = KrakenMessage<KrakenTradesInner>;
 
 /// Collection of [`KrakenTrade`] items with an associated [`SubscriptionId`] (eg/ "trade|XBT/USD").
 ///
-/// See [`KrakenMessage`](super::message::KrakenMessage) for full raw payload examples.
+/// See [`KrakenMessage`] for full raw payload examples.
 ///
 /// See docs: <https://docs.kraken.com/websockets/#message-trade>
 #[derive(Clone, PartialEq, PartialOrd, Debug, Serialize)]
@@ -28,7 +28,7 @@ pub struct KrakenTradesInner {
 
 /// [`Kraken`](super::Kraken) trade.
 ///
-/// See [`KrakenMessage`](super::message::KrakenMessage) for full raw payload examples.
+/// See [`KrakenMessage`] for full raw payload examples.
 ///
 /// See docs: <https://docs.kraken.com/websockets/#message-trade>
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Serialize)]
