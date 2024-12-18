@@ -86,7 +86,6 @@ impl Display for Side {
     }
 }
 
-#[cfg(test)]
 pub mod test_utils {
     use crate::{
         asset::{

@@ -68,7 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (audit_tx, audit_rx) = mpsc_unbounded();
 
     // Construct IndexedInstruments
-    let instruments = IndexedInstruments::new(unindexed_instruments())?;
+    let instruments = IndexedInstruments::new(unindexed_instruments());
 
     // Initialise MarketData Stream & forward to Engine feed
     let stream = init_market_data_stream(&instruments).await?;
@@ -260,7 +260,7 @@ fn build_initial_account_snapshot(
     balance_usd: f64,
 ) -> UnindexedAccountSnapshot {
     let balances = instruments
-        .assets
+        .assets()
         .iter()
         .map(|keyed_asset| {
             AssetBalance::new(
@@ -276,7 +276,7 @@ fn build_initial_account_snapshot(
         .collect();
 
     let instruments = instruments
-        .instruments
+        .instruments()
         .iter()
         .map(|keyed_instrument| {
             InstrumentAccountSnapshot::new(keyed_instrument.value.name_exchange.clone(), vec![])

@@ -10,19 +10,12 @@ use barter_instrument::{
     asset::{AssetIndex, ExchangeAsset},
     exchange::ExchangeId,
     index::IndexedInstruments,
-    instrument::{
-        kind::InstrumentKind,
-        spec::{
-            InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice, InstrumentSpecQuantity,
-            OrderQuantityUnits,
-        },
-        Instrument, InstrumentIndex,
-    },
+    instrument::{kind::InstrumentKind, Instrument, InstrumentIndex},
+    test_utils::instrument_spec,
     Underlying,
 };
 use barter_integration::snapshot::Snapshot;
 use chrono::{DateTime, TimeDelta, Utc};
-use rust_decimal_macros::dec;
 
 const TIME_START: DateTime<Utc> = DateTime::<Utc>::MIN_UTC;
 const RISK_FREE_RETURN: f64 = 0.05;
@@ -54,7 +47,7 @@ fn initial_state() -> TradingSummaryGenerator {
 
     let asset_states = AssetStates(
         instruments
-            .assets
+            .assets()
             .iter()
             .map(|keyed_asset| {
                 (
@@ -92,11 +85,6 @@ fn instruments() -> IndexedInstruments {
         "BTCUSDT",
         Underlying::new("btc", "usdt"),
         InstrumentKind::Spot,
-        InstrumentSpec::new(
-            InstrumentSpecPrice::new(dec!(0.0001), dec!(0.0)),
-            InstrumentSpecQuantity::new(OrderQuantityUnits::Quote, dec!(0.00001), dec!(0.00001)),
-            InstrumentSpecNotional::new(dec!(5.0)),
-        ),
+        instrument_spec(),
     )])
-    .unwrap()
 }

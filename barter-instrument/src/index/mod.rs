@@ -173,10 +173,10 @@ mod tests {
     use super::*;
 
     use crate::{
-        asset::{name::AssetNameExchange, Asset},
+        asset::Asset,
         exchange::ExchangeId,
         instrument::{kind::InstrumentKind, name::InstrumentNameExchange},
-        test_utils::{instrument, instrument_spec},
+        test_utils::{exchange_asset, instrument, instrument_spec},
         Underlying,
     };
 
@@ -190,36 +190,28 @@ mod tests {
 
         // Test creating with single instrument
         let instrument = instrument(ExchangeId::BinanceSpot, "btc", "usdt");
-        let single = IndexedInstruments::new(std::iter::once(instrument));
+        let actual = IndexedInstruments::new(std::iter::once(instrument));
 
-        assert_eq!(single.exchanges().len(), 1);
-        assert_eq!(single.assets().len(), 2); // BTC and USDT
-        assert_eq!(single.instruments().len(), 1);
+        assert_eq!(actual.exchanges().len(), 1);
+        assert_eq!(actual.assets().len(), 2); // BTC and USDT
+        assert_eq!(actual.instruments().len(), 1);
 
         // Verify exchanges indexes
-        assert_eq!(single.exchanges()[0].value, ExchangeId::BinanceSpot);
+        assert_eq!(actual.exchanges()[0].value, ExchangeId::BinanceSpot);
 
         // Verify asset indexes
-        let btc = AssetNameExchange::from("btc");
         assert_eq!(
-            single.assets()[0].value,
-            ExchangeAsset {
-                exchange: ExchangeId::BinanceSpot,
-                asset: Asset::new_from_exchange(btc)
-            }
+            actual.assets()[0].value,
+            exchange_asset(ExchangeId::BinanceSpot, "btc"),
         );
-        let usdt = AssetNameExchange::from("usdt");
         assert_eq!(
-            single.assets()[1].value,
-            ExchangeAsset {
-                exchange: ExchangeId::BinanceSpot,
-                asset: Asset::new_from_exchange(usdt)
-            }
+            actual.assets()[1].value,
+            exchange_asset(ExchangeId::BinanceSpot, "usdt"),
         );
 
         // Very instrument indexes
         assert_eq!(
-            single.instruments()[0].value,
+            actual.instruments()[0].value,
             Instrument {
                 exchange: Keyed::new(ExchangeIndex(0), ExchangeId::BinanceSpot),
                 name_exchange: InstrumentNameExchange::new("btc_usdt"),
@@ -232,15 +224,6 @@ mod tests {
                 spec: instrument_spec()
             }
         );
-
-        // Verify assets include both base and quote
-        let assets: Vec<_> = single
-            .assets()
-            .iter()
-            .map(|a| &a.value.asset.name_internal)
-            .collect();
-        assert!(assets.contains(&&AssetNameInternal::from("btc")));
-        assert!(assets.contains(&&AssetNameInternal::from("usdt")));
     }
 
     #[test]

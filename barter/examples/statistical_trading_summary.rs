@@ -13,19 +13,12 @@ use barter_instrument::{
     asset::{Asset, AssetIndex, ExchangeAsset, QuoteAsset},
     exchange::ExchangeId,
     index::IndexedInstruments,
-    instrument::{
-        kind::InstrumentKind,
-        spec::{
-            InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice, InstrumentSpecQuantity,
-            OrderQuantityUnits,
-        },
-        Instrument, InstrumentIndex,
-    },
+    instrument::{kind::InstrumentKind, Instrument, InstrumentIndex},
+    test_utils::instrument_spec,
     Side, Underlying,
 };
 use barter_integration::snapshot::Snapshot;
 use chrono::{DateTime, Days, Utc};
-use rust_decimal_macros::dec;
 use smol_str::SmolStr;
 
 // Risk-free rate of 5% (configure as needed)
@@ -43,7 +36,7 @@ pub enum ContrivedEvents {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Generate IndexedInstruments
-    let instruments = IndexedInstruments::new(instruments())?;
+    let instruments = IndexedInstruments::new(instruments());
 
     // Set initial timestamp
     let time_now = Utc::now();
@@ -51,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Define initial AssetState balances
     let asset_states = AssetStates(
         instruments
-            .assets
+            .assets()
             .iter()
             .map(|keyed_asset| {
                 (
@@ -109,15 +102,7 @@ fn instruments() -> Vec<Instrument<ExchangeId, Asset>> {
             "BTCUSDT",
             Underlying::new("btc", "usdt"),
             InstrumentKind::Spot,
-            InstrumentSpec::new(
-                InstrumentSpecPrice::new(dec!(0.0001), dec!(0.0)),
-                InstrumentSpecQuantity::new(
-                    OrderQuantityUnits::Quote,
-                    dec!(0.00001),
-                    dec!(0.00001),
-                ),
-                InstrumentSpecNotional::new(dec!(5.0)),
-            ),
+            instrument_spec(),
         ),
         Instrument::new(
             ExchangeId::BinanceSpot,
@@ -125,11 +110,7 @@ fn instruments() -> Vec<Instrument<ExchangeId, Asset>> {
             "ETHUSDT",
             Underlying::new("eth", "usdt"),
             InstrumentKind::Spot,
-            InstrumentSpec::new(
-                InstrumentSpecPrice::new(dec!(0.01), dec!(0.01)),
-                InstrumentSpecQuantity::new(OrderQuantityUnits::Quote, dec!(0.0001), dec!(0.0001)),
-                InstrumentSpecNotional::new(dec!(5.0)),
-            ),
+            instrument_spec(),
         ),
     ]
 }
