@@ -1,8 +1,6 @@
 use crate::engine::{
     state::{
-        asset::{
-            generate_default_asset_states, manager::AssetStateManager, AssetState, AssetStates,
-        },
+        asset::{generate_empty_asset_states, manager::AssetStateManager, AssetState, AssetStates},
         connectivity::{
             generate_default_connectivity_states, manager::ConnectivityManager, ConnectivityStates,
         },
@@ -150,7 +148,7 @@ where
     }
 }
 
-pub fn init_default_indexed_engine_state<Market, Strategy, Risk>(
+pub fn init_empty_indexed_engine_state<Market, Strategy, Risk>(
     trading_state: TradingState,
     instruments: &IndexedInstruments,
     strategy: Strategy,
@@ -162,7 +160,7 @@ where
     EngineState {
         trading: trading_state,
         connectivity: generate_default_connectivity_states(instruments),
-        assets: generate_default_asset_states(instruments),
+        assets: generate_empty_asset_states(instruments),
         instruments: generate_default_instrument_states::<Market>(instruments),
         strategy,
         risk,

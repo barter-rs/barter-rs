@@ -3,7 +3,7 @@ use barter::{
         command::Command,
         run,
         state::{
-            asset::generate_default_asset_states,
+            asset::generate_empty_asset_states,
             connectivity::generate_default_connectivity_states,
             instrument::{
                 generate_default_instrument_states, manager::InstrumentFilter,
@@ -90,7 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         EngineState {
             trading: TradingState::Disabled,
             connectivity: generate_default_connectivity_states(&instruments),
-            assets: generate_default_asset_states(&instruments),
+            assets: generate_empty_asset_states(&instruments),
             instruments: generate_default_instrument_states::<DefaultMarketData>(&instruments),
             strategy: DefaultStrategyState,
             risk: DefaultRiskManagerState,

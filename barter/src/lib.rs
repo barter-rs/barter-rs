@@ -247,9 +247,6 @@ pub struct Timed<T> {
 //  - Ensure Audit pathway doesn't duplicate Logs
 //    '--> see claude convo with "module layer" etc.
 
-// Todo: Must: Instruments:
-//  - Ensure IndexedInstruments is fully tested, etc.
-
 // Todo: Must: Engine:
 //   - Fix Engine hanging because it doesn't know AuditKind is terminal -> return ShutdownAudit
 //   - Handle re-connections in ConnectivityStates with acceptable performance.
@@ -296,11 +293,15 @@ impl<MarketKind, ExchangeKey, AssetKey, InstrumentKey> From<MarketEvent<Instrume
 
 #[cfg(test)]
 pub mod test_utils {
+    use crate::engine::state::asset::AssetState;
     use barter_execution::{
+        balance::Balance,
         order::{OrderId, StrategyId},
         trade::{AssetFees, Trade, TradeId},
     };
-    use barter_instrument::{asset::QuoteAsset, instrument::name::InstrumentNameInternal, Side};
+    use barter_instrument::{
+        asset::QuoteAsset, instrument::name::InstrumentNameInternal, test_utils::asset, Side,
+    };
     use chrono::{DateTime, Days, Utc};
 
     pub fn f64_is_eq(actual: f64, expected: f64, epsilon: f64) -> bool {
@@ -343,6 +344,19 @@ pub mod test_utils {
                 asset: QuoteAsset,
                 fees,
             },
+        }
+    }
+
+    pub fn asset_state(
+        symbol: &str,
+        balance_total: f64,
+        balance_free: f64,
+        time_exchange: DateTime<Utc>,
+    ) -> AssetState {
+        AssetState {
+            asset: asset(symbol),
+            balance: Balance::new(balance_total, balance_free),
+            time_exchange,
         }
     }
 }
