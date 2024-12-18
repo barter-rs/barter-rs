@@ -27,7 +27,7 @@ impl ExchangeIndex {
 ///
 /// ### Notes
 /// An execution may have a distinct server for different
-/// [`InstrumentKinds`](InstrumentKind).
+/// [`InstrumentKinds`](super::instrument::kind::InstrumentKind).
 ///
 /// For example, BinanceSpot and BinanceFuturesUsd have distinct APIs, and are therefore
 /// represented as unique variants.

@@ -41,7 +41,7 @@ async fn main() {
         .unwrap();
 
     // Select the ExchangeId::BinanceSpot stream
-    // Note: use `Streams.select(ExchangeId)` to interact with individual execution streams!
+    // Note: use `Streams.select(ExchangeId)` to interact with individual exchange streams!
     let mut l1_stream = streams
         .select(ExchangeId::BinanceSpot)
         .unwrap()

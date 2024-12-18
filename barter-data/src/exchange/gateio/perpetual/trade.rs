@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Terse type alias for a
-/// [`GateioFuturesUsdt`](super::super::futures::GateioFuturesUsdt),
+/// [`GateioFuturesUsdt`](super::super::super::futures::GateioFuturesUsdt),
 /// [`GateioFuturesBtc`](super::super::futures::GateioFuturesBtc),
 /// [`GateioPerpetualUsdt`](super::GateioPerpetualsUsd) and
 /// [`GateioPerpetualBtc`](super::GateioPerpetualsBtc) real-time trades WebSocket message.

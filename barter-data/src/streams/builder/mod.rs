@@ -112,11 +112,11 @@ where
         self
     }
 
-    /// Spawn a [`MarketEvent<SubscriptionKind::Event>`](MarketEvent) consumer loop for each collection of
-    /// [`Subscription`]s added to [`StreamBuilder`] via the
+    /// Spawn a [`MarketStreamResult<SubscriptionKind::Event>`](MarketStreamResult) consumer loop
+    /// for each collection of [`Subscription`]s added to [`StreamBuilder`] via the
     /// [`subscribe()`](StreamBuilder::subscribe()) method.
     ///
-    /// Each consumer loop distributes consumed [`MarketEvent<SubscriptionKind::Event>s`](MarketEvent) to
+    /// Each consumer loop distributes consumed [`MarketStreamResult`] to
     /// the [`Streams`] `HashMap` returned by this method.
     pub async fn init(
         self,

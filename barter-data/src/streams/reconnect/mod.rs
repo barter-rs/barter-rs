@@ -3,11 +3,12 @@ use serde::{Deserialize, Serialize};
 
 pub mod stream;
 
-/// [`ReconnectingStream`] `Event` that communicates either `Stream::Item`, or that the inner
+/// [`ReconnectingStream`](stream::ReconnectingStream) `Event` that communicates either `Stream::Item`, or that the inner
 /// `Stream` is currently reconnecting.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub enum Event<Origin, T> {
-    /// [`ReconnectingStream`] has disconnecting and is attempting to reconnect.
+    /// [`ReconnectingStream`](stream::ReconnectingStream) has disconnecting and is
+    /// attempting to reconnect.
     Reconnecting(Origin),
     Item(T),
 }

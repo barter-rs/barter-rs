@@ -572,7 +572,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         select_all(std::mem::take(&mut self.l1s).into_values())
     }
 
-    /// Remove an execution [`OrderBook`] `Stream` from the [`DynamicStreams`] collection.
+    /// Remove an execution [`OrderBookEvent`] `Stream` from the [`DynamicStreams`] collection.
     ///
     /// Note that calling this method will permanently remove this `Stream` from [`Self`].
     pub fn select_l2s(
@@ -582,7 +582,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         self.l2s.remove(&exchange)
     }
 
-    /// Select and merge every execution [`OrderBook`] `Stream` using
+    /// Select and merge every execution [`OrderBookEvent`] `Stream` using
     /// [`SelectAll`](futures_util::stream::select_all).
     pub fn select_all_l2s(
         &mut self,
@@ -610,7 +610,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
 
     /// Select and merge every execution `Stream` for every data type using [`select_all`]
     ///
-    /// Note that using [`MarketEvent<Instrument, DataKind>`] as the `Output` is suitable for most
+    /// Note that using [`MarketStreamResult<Instrument, DataKind>`] as the `Output` is suitable for most
     /// use cases.
     pub fn select_all<Output>(self) -> impl Stream<Item = Output>
     where

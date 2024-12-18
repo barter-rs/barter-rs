@@ -236,7 +236,7 @@ pub struct Timed<T> {
 }
 
 // Todo: Must: Final Requirements
-//  - Comprehensive rust docs
+//  - Comprehensive rust docs & check output
 //  - Comprehensive rust examples
 //  - Comprehensive readme.md for each crate & workspace
 

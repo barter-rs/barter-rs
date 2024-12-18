@@ -18,8 +18,8 @@ pub mod channel;
 pub mod spot;
 
 /// [`ExchangeServer`] and [`StreamSelector`](super::StreamSelector) implementations for
-/// [`GateioFutureUsd`](perpetual::GateioFutureUsd) and
-/// [`GateioFutureBtc`](perpetual::GateioFutureBtc).
+/// [`GateioFutureUsd`](future::GateioFuturesUsd) and
+/// [`GateioFutureBtc`](future::GateioFuturesBtc).
 pub mod future;
 
 /// [`ExchangeServer`] and [`StreamSelector`](super::StreamSelector) implementations for

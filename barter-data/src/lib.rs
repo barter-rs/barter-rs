@@ -15,17 +15,17 @@
 //! # Barter-Data
 //! A high-performance WebSocket integration library for streaming public market data from leading cryptocurrency
 //! exchanges - batteries included. It is:
-//! * **Easy**: Barter-Data's simple [`StreamBuilder`](streams::builder::StreamBuilder) and [`DynamicStreams`](streams::builder::DynamicStreams) interface allows for easy & quick setup (see example below and /examples!).
+//! * **Easy**: Barter-Data's simple [`StreamBuilder`](streams::builder::StreamBuilder) and [`DynamicStreams`](streams::builder::dynamic::DynamicStreams) interface allows for easy & quick setup (see example below and /examples!).
 //! * **Normalised**: Barter-Data's unified interface for consuming public WebSocket data means every Exchange returns a normalised data model.
 //! * **Real-Time**: Barter-Data utilises real-time WebSocket integrations enabling the consumption of normalised tick-by-tick data.
 //! * **Extensible**: Barter-Data is highly extensible, and therefore easy to contribute to with coding new integrations!
 //!
 //! ## User API
 //! - [`StreamBuilder`](streams::builder::StreamBuilder) for initialising [`MarketStream`]s of specific data kinds.
-//! - [`DynamicStreams`](streams::builder::DynamicStreams) for initialising [`MarketStream`]s of every supported data kind at once.
+//! - [`DynamicStreams`](streams::builder::dynamic::DynamicStreams) for initialising [`MarketStream`]s of every supported data kind at once.
 //! - Define what execution market data you want to stream using the [`Subscription`] type.
-//! - Pass [`Subscription`]s to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) or [`DynamicStreams::init`](streams::builder::DynamicStreams::init) methods.
-//! - Each call to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) (or each batch passed to the [`DynamicStreams::init`](streams::builder::DynamicStreams::init))
+//! - Pass [`Subscription`]s to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) or [`DynamicStreams::init`](streams::builder::dynamic::DynamicStreams::init) methods.
+//! - Each call to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) (or each batch passed to the [`DynamicStreams::init`](streams::builder::dynamic::DynamicStreams::init))
 //!   method opens a new WebSocket connection to the execution - giving you full control.
 //!
 //! ## Examples
@@ -79,8 +79,8 @@
 //!         .await
 //!         .unwrap();
 //!
-//!     // Select and merge every execution Stream using futures_util::stream::select_all
-//!     // Note: use `Streams.select(ExchangeId)` to interact with individual execution streams!
+//!     // Select and merge every exchange Stream using futures_util::stream::select_all
+//!     // Note: use `Streams.select(ExchangeId)` to interact with individual exchange streams!
 //!     let mut joined_stream = streams
 //!         .select_all()
 //!         .with_error_handler(|error| warn!(?error, "MarketStream generated error"));

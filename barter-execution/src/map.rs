@@ -9,11 +9,8 @@ use barter_instrument::{
 use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 
-/// Indexed instrument map used by an execution manager. Associated internal representation of
-/// instruments and assets with the execution representation.
-///
-/// When an Engine [`ExecutionRequest`](super::ExecutionRequest) is received by the execution manager,
-/// it needs to determine the execution representation of the associated assets and instruments.
+/// Indexed instrument map used to associate the internal Barter representation of instruments and
+/// assets with the [`ExecutionClient`](super::client::ExecutionClient) representation.
 ///
 /// Similarly, when the execution manager received an [`AccountEvent`](super::AccountEvent)
 /// from the execution API, it needs to determine the internal representation of the associated

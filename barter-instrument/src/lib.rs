@@ -16,7 +16,7 @@ use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
-/// Defines a global [`ExchangeId`] enum covering all exchanges.
+/// Defines a global [`ExchangeId`](exchange::ExchangeId) enum covering all exchanges.
 pub mod exchange;
 
 /// [`Asset`](asset::Asset) related data structures.
@@ -24,7 +24,7 @@ pub mod exchange;
 /// eg/ `AssetKind`, `AssetNameInternal`, etc.
 pub mod asset;
 
-/// [`Instrument`](market_data::MarketDataInstrument) related data structures.
+/// [`Instrument`](instrument::Instrument) related data structures.
 ///
 /// eg/ `InstrumentKind`, `OptionContract``, etc.
 pub mod instrument;

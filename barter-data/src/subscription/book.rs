@@ -59,10 +59,10 @@ impl OrderBookL1 {
     }
 }
 
-/// Barter [`Subscription`](super::Subscription) [`SubscriptionKind`] that yields level 2 [`OrderBook`]
-/// [`MarketEvent<T>`](MarketEvent) events.
+/// Barter [`Subscription`](super::Subscription) [`SubscriptionKind`] that yields L2
+/// [`OrderBookEvent`] market events
 ///
-/// Level 2 refers to the [`OrderBook`] aggregated by price.
+/// Level 2 refers to an [`OrderBook`] with orders at each price level aggregated.
 #[derive(
     Copy,
     Clone,
@@ -86,10 +86,10 @@ impl SubscriptionKind for OrderBooksL2 {
     }
 }
 
-/// Barter [`Subscription`](super::Subscription) [`SubscriptionKind`] that yields level 3 [`OrderBook`]
-/// [`MarketEvent<T>`](MarketEvent) events.
+/// Barter [`Subscription`](super::Subscription) [`SubscriptionKind`] that yields
+/// L3 [`OrderBookEvent`] market events.
 ///
-/// Level 3 refers to the non-aggregated [`OrderBook`]. This is a direct replication of the execution
+/// Level 3 refers to the non-aggregated [`OrderBook`]. This is a direct replication of the exchange
 /// [`OrderBook`].
 #[derive(
     Copy,

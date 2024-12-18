@@ -151,8 +151,8 @@ async fn main() {
 //         .await
 //         .unwrap();
 //
-//     // Select and merge every execution Stream using futures_util::stream::select_all
-//     // Note: use `Streams.select(ExchangeId)` to interact with individual execution streams!
+//     // Select and merge every exchange Stream using futures_util::stream::select_all
+//     // Note: use `Streams.select(ExchangeId)` to interact with individual exchange streams!
 //     streams
 //         .select_all()
 //         .with_error_handler(|error| warn!(?error, "MarketStream generated error"))
