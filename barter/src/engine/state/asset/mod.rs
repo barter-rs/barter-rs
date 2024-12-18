@@ -28,7 +28,7 @@ pub struct AssetStates(pub FnvIndexMap<ExchangeAsset<AssetNameInternal>, AssetSt
 /// # Fields
 /// * `asset` - Asset information including internal and exchange names
 /// * `balance` - Current balance information containing total and free amounts
-/// * `time_exchange` - Timestamp of the last state update from the exchange
+/// * `time_exchange` - Timestamp of the last state snapshot from the exchange
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
 pub struct AssetState {
     /// `Asset` name data that details the internal and exchange names.
@@ -61,7 +61,7 @@ impl AssetState {
 ///
 /// # Arguments
 /// * `instruments` - Reference to [`IndexedInstruments`] containing asset specification data.
-pub fn generate_empty_asset_states(instruments: &IndexedInstruments) -> AssetStates {
+pub fn generate_empty_indexed_asset_states(instruments: &IndexedInstruments) -> AssetStates {
     AssetStates(
         instruments
             .assets()

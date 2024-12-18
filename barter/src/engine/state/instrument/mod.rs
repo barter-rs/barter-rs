@@ -96,7 +96,7 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
     }
 }
 
-pub fn generate_default_instrument_states<Market>(
+pub fn generate_empty_indexed_instrument_states<Market>(
     instruments: &IndexedInstruments,
 ) -> InstrumentStates<Market, ExchangeIndex, AssetIndex, InstrumentIndex>
 where
