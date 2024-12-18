@@ -69,7 +69,7 @@ impl Connector for Okx {
     }
 
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
-        vec![WsMessage::Text(
+        vec![WsMessage::text(
             json!({
                 "op": "subscribe",
                 "args": &exchange_subs,

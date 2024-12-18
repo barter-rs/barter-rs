@@ -84,7 +84,7 @@ where
             })
             .collect::<Vec<String>>();
 
-        vec![WsMessage::Text(
+        vec![WsMessage::text(
             serde_json::json!({
                 "method": "SUBSCRIBE",
                 "params": stream_names,

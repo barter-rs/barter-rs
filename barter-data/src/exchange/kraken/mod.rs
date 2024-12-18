@@ -66,7 +66,7 @@ impl Connector for Kraken {
         exchange_subs
             .into_iter()
             .map(|ExchangeSub { channel, market }| {
-                WsMessage::Text(
+                WsMessage::text(
                     json!({
                         "event": "subscribe",
                         "pair": [market.as_ref()],
