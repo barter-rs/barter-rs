@@ -11,55 +11,55 @@ members = [
 
 [workspace.dependencies]
 # Logging
-tracing = { version = "0.1.40" }
-tracing-subscriber = { version = "0.3.16" }
+tracing = { version = "0.1.41" }
+tracing-subscriber = { version = "0.3.19" }
 
 # Async
-tokio = { version = "1.38.0" }
-tokio-stream = { version = "0.1.15" }
-futures = { version = "0.3.30" }
+tokio = { version = "1.42.0" }
+tokio-stream = { version = "0.1.17" }
+futures = { version = "0.3.31" }
 futures-util = { version = "0.3.31" }
-async-trait = { version = "0.1.57" }
-pin-project = { version = "1.1.5" }
+async-trait = { version = "0.1.83" }
+pin-project = { version = "1.1.7" }
 
 # Error
-thiserror = { version = "1.0.61" }
+thiserror = { version = "2.0.8" }
 
 # SerDe
-serde = { version = "1.0.203", features = ["derive"] }
-serde_json = { version = "1.0.120" }
+serde = { version = "1.0.216", features = ["derive"] }
+serde_json = { version = "1.0.133" }
 serde_qs = { version = "0.13.0" }
 serde_urlencoded = { version = "0.7.1" }
 
 # Protocol
-url = { version = "2.3.1 " }
-reqwest = { version = "0.12.4" }
+url = { version = "2.5.4" }
+reqwest = { version = "0.12.9" }
 tokio-tungstenite = { version = "0.26.0", features = ["url"] }
 
 # Strategy
 ta = { version = "0.5.0" }
 
 # Data Structures
-vecmap-rs = { version = "0.2.1" }
+vecmap-rs = { version = "0.2.2" }
 parking_lot = { version = "0.12.3" }
-rust_decimal = { version = "1.29.1" }
-smol_str = { version = "0.3.1" }
+rust_decimal = { version = "1.36.0" }
+smol_str = { version = "0.3.2" }
 
 # Crytographic Signatures
 hmac = { version = "0.12.1" }
-sha2 = { version = "0.10.6" }
+sha2 = { version = "0.10.8" }
 hex = { version = "0.4.3" }
-base64 = { version = "0.22.0" }
+base64 = { version = "0.22.1" }
 
 # Misc
-uuid = { version = "1.9.1", features = ["v4", "serde"] }
-chrono = { version = "0.4.38", features = ["serde"] }
+uuid = { version = "1.11.0", features = ["v4", "serde"] }
+chrono = { version = "0.4.39", features = ["serde"] }
 derive_more = { version = "1.0.0", features = [
     "constructor",
     "display",
     "from",
 ] }
 itertools = { version = "0.13.0" }
-rust_decimal_macros = { version = "1.29.1" }
-bytes = { version = "1.5.0" }
+rust_decimal_macros = { version = "1.36.0" }
+bytes = { version = "1.9.0" }
 fnv = "1.0.7"
