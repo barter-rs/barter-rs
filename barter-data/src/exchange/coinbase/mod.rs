@@ -60,7 +60,7 @@ impl Connector for Coinbase {
         exchange_subs
             .into_iter()
             .map(|ExchangeSub { channel, market }| {
-                WsMessage::Text(
+                WsMessage::text(
                     json!({
                         "type": "subscribe",
                         "product_ids": [market.as_ref()],

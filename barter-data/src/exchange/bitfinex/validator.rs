@@ -125,7 +125,7 @@ impl SubscriptionValidator for BitfinexWebSocketSubValidator {
                         Some(Err(SocketError::Deserialise { error: _, payload })) if success_responses >= 1 => {
                             // Already active Bitfinex subscriptions will send initial snapshots
                             init_snapshots_received += 1;
-                            buff_active_subscription_events.push(WsMessage::Text(payload));
+                            buff_active_subscription_events.push(WsMessage::text(payload));
                             continue
                         }
                         Some(Err(SocketError::Terminated(close_frame))) => {

@@ -88,7 +88,7 @@ impl Connector for Bitfinex {
         exchange_subs
             .into_iter()
             .map(|ExchangeSub { channel, market }| {
-                WsMessage::Text(
+                WsMessage::text(
                     json!({
                         "event": "subscribe",
                         "channel": channel.as_ref(),

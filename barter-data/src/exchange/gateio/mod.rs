@@ -76,7 +76,7 @@ where
         exchange_subs
             .into_iter()
             .map(|ExchangeSub { channel, market }| {
-                WsMessage::Text(
+                WsMessage::text(
                     json!({
                         "time": chrono::Utc::now().timestamp_millis(),
                         "channel": channel.as_ref(),

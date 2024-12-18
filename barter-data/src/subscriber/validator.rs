@@ -99,7 +99,7 @@ impl SubscriptionValidator for WebSocketSubValidator {
                         Some(Err(SocketError::Deserialise { error: _, payload })) if success_responses >= 1 => {
                             // Most likely already active subscription payload, so add to market
                             // event buffer for post validation processing
-                            buff_active_subscription_events.push(WsMessage::Text(payload));
+                            buff_active_subscription_events.push(WsMessage::text(payload));
                             continue
                         }
                         Some(Err(SocketError::Terminated(close_frame))) => {

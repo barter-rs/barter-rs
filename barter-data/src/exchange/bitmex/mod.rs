@@ -63,7 +63,7 @@ impl Connector for Bitmex {
             .map(|sub| format!("{}:{}", sub.channel.as_ref(), sub.market.as_ref(),))
             .collect::<Vec<String>>();
 
-        vec![WsMessage::Text(
+        vec![WsMessage::text(
             serde_json::json!({
                 "op": "subscribe",
                 "args": stream_names

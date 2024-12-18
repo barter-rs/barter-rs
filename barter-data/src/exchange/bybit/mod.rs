@@ -78,7 +78,7 @@ where
         Some(PingInterval {
             interval: time::interval(Duration::from_millis(5_000)),
             ping: || {
-                WsMessage::Text(
+                WsMessage::text(
                     serde_json::json!({
                         "op": "ping",
                     })
@@ -94,7 +94,7 @@ where
             .map(|sub| format!("{}.{}", sub.channel.as_ref(), sub.market.as_ref(),))
             .collect::<Vec<String>>();
 
-        vec![WsMessage::Text(
+        vec![WsMessage::text(
             serde_json::json!({
                 "op": "subscribe",
                 "args": stream_names
