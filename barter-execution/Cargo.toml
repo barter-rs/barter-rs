@@ -14,9 +14,9 @@ categories = ["accessibility", "simulation"]
 
 [dependencies]
 # Barter Ecosystem
-barter-integration = { path = "../barter-integration", version = "0.7.4" }
-barter-instrument = { path = "../barter-instrument", version = "0.1.0" }
-barter-data = { path = "../barter-data", version = "0.9.0" }
+barter-integration = { workspace = true }
+barter-instrument = { workspace = true }
+barter-data = { workspace = true }
 
 # Logging
 tracing = { workspace = true }
@@ -44,5 +44,5 @@ serde_json = { workspace = true }
 reqwest = { workspace = true, features = ["rustls-tls", "json"] }
 
 # Misc
-uuid = { workspace = true, features = ["v4", "serde"]}
-chrono = { workspace = true, features = ["serde"]}
+uuid = { workspace = true, features = ["v4", "serde"] }
+chrono = { workspace = true, features = ["serde"] }
