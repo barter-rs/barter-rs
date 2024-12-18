@@ -13,7 +13,7 @@ categories = ["accessibility", "simulation"]
 
 [dev-dependencies]
 rust_decimal_macros = { workspace = true }
-barter-instrument = { path = "../barter-instrument", version = "0.1.0" }
+barter-instrument = { workspace = true }
 
 [dependencies]
 # Logging
@@ -29,7 +29,12 @@ serde_urlencoded = { workspace = true }
 thiserror = { workspace = true }
 
 # Async
-tokio = { workspace = true, features = ["net", "sync", "macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = [
+    "net",
+    "sync",
+    "macros",
+    "rt-multi-thread",
+] }
 tokio-stream = { workspace = true }
 futures = { workspace = true }
 async-trait = { workspace = true }
@@ -37,7 +42,7 @@ pin-project = { workspace = true }
 
 # Data Structures
 rust_decimal = { workspace = true }
-smol_str = { workspace = true, features = ["serde"]}
+smol_str = { workspace = true, features = ["serde"] }
 
 # Protocol
 tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
