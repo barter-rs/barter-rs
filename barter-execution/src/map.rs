@@ -125,7 +125,7 @@ pub fn generate_execution_instrument_map(
     exchange: ExchangeId,
 ) -> Result<ExecutionInstrumentMap, IndexError> {
     let exchange_index = instruments
-        .exchanges
+        .exchanges()
         .iter()
         .find_map(|keyed_exchange| (keyed_exchange.value == exchange).then_some(keyed_exchange.key))
         .ok_or_else(|| {
@@ -137,7 +137,7 @@ pub fn generate_execution_instrument_map(
     Ok(ExecutionInstrumentMap::new(
         Keyed::new(exchange_index, exchange),
         instruments
-            .assets
+            .assets()
             .iter()
             .filter_map(|asset| {
                 (asset.value.exchange == exchange)
@@ -145,7 +145,7 @@ pub fn generate_execution_instrument_map(
             })
             .collect(),
         instruments
-            .instruments
+            .instruments()
             .iter()
             .filter_map(|instrument| {
                 (instrument.value.exchange.value == exchange)

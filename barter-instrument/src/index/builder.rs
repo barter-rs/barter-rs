@@ -2,8 +2,7 @@ use crate::{
     asset::{Asset, AssetIndex, ExchangeAsset},
     exchange::{ExchangeId, ExchangeIndex},
     index::{
-        error::IndexError, find_asset_by_exchange_and_name_internal, find_exchange_by_exchange_id,
-        IndexedInstruments,
+        find_asset_by_exchange_and_name_internal, find_exchange_by_exchange_id, IndexedInstruments,
     },
     instrument::{spec::OrderQuantityUnits, Instrument, InstrumentIndex},
     Keyed,
@@ -52,7 +51,7 @@ impl IndexedInstrumentsBuilder {
         self.instruments.push(instrument)
     }
 
-    pub fn build(mut self) -> Result<IndexedInstruments, IndexError> {
+    pub fn build(mut self) -> IndexedInstruments {
         // Sort & dedup
         self.exchanges.sort();
         self.exchanges.dedup();
@@ -84,26 +83,29 @@ impl IndexedInstrumentsBuilder {
             .enumerate()
             .map(|(index, instrument)| {
                 let exchange_id = instrument.exchange;
-                let exchange_key = find_exchange_by_exchange_id(&exchanges, &exchange_id)?;
+                let exchange_key = find_exchange_by_exchange_id(&exchanges, &exchange_id)
+                    .expect("every exchange related to every instrument has been added");
 
                 let instrument = instrument.map_exchange_key(Keyed::new(exchange_key, exchange_id));
 
-                let instrument = instrument.map_asset_key_with_lookup(|asset: &Asset| {
-                    find_asset_by_exchange_and_name_internal(
-                        &assets,
-                        exchange_id,
-                        &asset.name_internal,
-                    )
-                })?;
+                let instrument = instrument
+                    .map_asset_key_with_lookup(|asset: &Asset| {
+                        find_asset_by_exchange_and_name_internal(
+                            &assets,
+                            exchange_id,
+                            &asset.name_internal,
+                        )
+                    })
+                    .expect("every asset related to every instrument has been added");
 
-                Ok(Keyed::new(InstrumentIndex::new(index), instrument))
+                Keyed::new(InstrumentIndex::new(index), instrument)
             })
-            .collect::<Result<Vec<_>, IndexError>>()?;
+            .collect();
 
-        Ok(IndexedInstruments {
+        IndexedInstruments {
             exchanges,
             instruments,
             assets,
-        })
+        }
     }
 }

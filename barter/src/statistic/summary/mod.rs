@@ -91,7 +91,7 @@ impl TradingSummaryGenerator {
             time_engine_start,
             time_engine_now: time_engine_start,
             instruments: instruments
-                .instruments
+                .instruments()
                 .iter()
                 .map(|instrument| {
                     (
@@ -101,7 +101,7 @@ impl TradingSummaryGenerator {
                 })
                 .collect(),
             assets: instruments
-                .assets
+                .assets()
                 .iter()
                 .map(|asset| {
                     (

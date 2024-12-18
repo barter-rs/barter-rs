@@ -35,7 +35,7 @@ impl AssetState {
 pub fn generate_default_asset_states(instruments: &IndexedInstruments) -> AssetStates {
     AssetStates(
         instruments
-            .assets
+            .assets()
             .iter()
             .map(|asset| {
                 (

@@ -96,7 +96,7 @@ where
 
                 let find_instrument = |exchange, kind, base, quote| {
                     instruments
-                        .instruments
+                        .instruments()
                         .iter()
                         .find_map(|indexed| {
                             (
@@ -108,7 +108,7 @@ where
                         })
                         .ok_or(IndexError::InstrumentIndex(format!(
                             "Instrument: ({}, {}, {}, {}) must be present in indexed instruments: {:?}",
-                            exchange, kind, base, quote, instruments.instruments
+                            exchange, kind, base, quote, instruments.instruments()
                         )))
                 };
 

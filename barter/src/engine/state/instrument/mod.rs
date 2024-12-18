@@ -104,7 +104,7 @@ where
 {
     InstrumentStates(
         instruments
-            .instruments
+            .instruments()
             .iter()
             .map(|instrument| {
                 let exchange_index = instrument.value.exchange.key;

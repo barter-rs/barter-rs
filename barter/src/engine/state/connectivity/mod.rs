@@ -30,7 +30,7 @@ pub fn generate_default_connectivity_states(
 ) -> ConnectivityStates {
     ConnectivityStates(
         instruments
-            .exchanges
+            .exchanges()
             .iter()
             .map(|exchange| (exchange.value, ConnectivityState::default()))
             .collect(),

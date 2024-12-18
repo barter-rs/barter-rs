@@ -137,7 +137,7 @@ impl<'a> ExecutionBuilder<'a> {
         // Construct indexed ExecutionTx map
         let execution_tx_map = self
             .instruments
-            .exchanges
+            .exchanges()
             .iter()
             .map(|exchange| {
                 // If IndexedInstruments execution not used for execution, add None to map
