@@ -5,8 +5,9 @@ members = [
     "barter-data",
     "barter-integration",
     "barter-execution",
-    "barter-macro"
-, "barter-instrument"]
+    "barter-macro",
+    "barter-instrument",
+]
 
 [workspace.dependencies]
 # Logging
@@ -33,7 +34,7 @@ serde_urlencoded = { version = "0.7.1" }
 # Protocol
 url = { version = "2.3.1 " }
 reqwest = { version = "0.12.4" }
-tokio-tungstenite = { version = "0.21.0" }
+tokio-tungstenite = { version = "0.26.0", features = ["url"] }
 
 # Strategy
 ta = { version = "0.5.0" }
@@ -51,11 +52,14 @@ hex = { version = "0.4.3" }
 base64 = { version = "0.22.0" }
 
 # Misc
-uuid = { version = "1.9.1", features = ["v4", "serde"]}
-chrono = { version = "0.4.38", features = ["serde"]}
-derive_more = { version = "1.0.0", features = ["constructor", "display", "from"] }
+uuid = { version = "1.9.1", features = ["v4", "serde"] }
+chrono = { version = "0.4.38", features = ["serde"] }
+derive_more = { version = "1.0.0", features = [
+    "constructor",
+    "display",
+    "from",
+] }
 itertools = { version = "0.13.0" }
 rust_decimal_macros = { version = "1.29.1" }
 bytes = { version = "1.5.0" }
 fnv = "1.0.7"
-
