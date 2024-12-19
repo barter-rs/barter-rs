@@ -371,3 +371,33 @@ pub async fn schedule_pings_to_exchange(
         }
     }
 }
+
+pub mod test_utils {
+    use crate::{
+        event::{DataKind, MarketEvent},
+        subscription::trade::PublicTrade,
+    };
+    use barter_instrument::{exchange::ExchangeId, Side};
+    use chrono::{DateTime, Utc};
+
+    pub fn market_event_trade_buy<InstrumentKey>(
+        time_exchange: DateTime<Utc>,
+        time_received: DateTime<Utc>,
+        instrument: InstrumentKey,
+        price: f64,
+        quantity: f64,
+    ) -> MarketEvent<InstrumentKey, DataKind> {
+        MarketEvent {
+            time_exchange,
+            time_received,
+            exchange: ExchangeId::BinanceSpot,
+            instrument,
+            kind: DataKind::Trade(PublicTrade {
+                id: "trade_id".to_string(),
+                price,
+                amount: quantity,
+                side: Side::Buy,
+            }),
+        }
+    }
+}

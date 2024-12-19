@@ -229,7 +229,9 @@ pub mod strategy;
 pub type FnvIndexMap<K, V> = indexmap::IndexMap<K, V, fnv::FnvBuildHasher>;
 pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Default, Constructor)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Deserialize, Serialize, Constructor,
+)]
 pub struct Timed<T> {
     value: T,
     time: DateTime<Utc>,
