@@ -4,6 +4,20 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
+/// Records Profit and Loss (PnL) data.
+///
+/// Includes tracking of:
+/// - Raw PnL.
+/// - Statistical summaries of returns for all closed positions (wins and losses combined)
+/// - Statistical summaries of returns for all losing closed positions (useful for downside risk analysis).
+///
+/// # Asset Denomination
+/// The raw PnL values can be denominated in different assets depending on the context:
+/// - For Instrument PnL:
+///   - Usually denominated in the quote asset (e.g., USDT for BTC-USDT spot)
+///   - For derivatives, may be in the settlement asset if different from quote
+/// - For Portfolio/Strategy PnL:
+///   - Can be denominated in any chosen asset for cross-instrument aggregation
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Deserialize, Serialize)]
 pub struct PnLReturns {
     /// Raw PnL.
@@ -24,6 +38,7 @@ pub struct PnLReturns {
 }
 
 impl PnLReturns {
+    /// Update the [`PnlReturns`] from the next [`PositionExited`].
     pub fn update<AssetKey, InstrumentKey>(
         &mut self,
         position: &PositionExited<AssetKey, InstrumentKey>,

@@ -47,12 +47,14 @@ pub struct TradingSummary<Interval> {
 }
 
 impl<Interval> TradingSummary<Interval> {
+    /// Duration of trading that the `TradingSummary` covers.
     pub fn trading_duration(&self) -> TimeDelta {
         self.time_engine_end
             .signed_duration_since(self.time_engine_start)
     }
 }
 
+/// Generator for a [`TradingSummary`].
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct TradingSummaryGenerator {
     /// Theoretical rate of return of an investment with zero risk.

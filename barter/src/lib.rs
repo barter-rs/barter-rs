@@ -239,6 +239,8 @@ pub mod strategy;
 
 // Todo: Must: Docs:
 //  - engine/state/mod.rs docs (the rest are done).
+//  - Whole engine/action module docs.
+//  - Whole engine/audit module docs (or wherever it may be moved to).
 
 // Todo: Must: General:
 //  - Back-test utilities via Audit route w/ interactive mode

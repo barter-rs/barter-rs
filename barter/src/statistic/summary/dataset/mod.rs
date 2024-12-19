@@ -1,8 +1,45 @@
 use crate::statistic::{algorithm::welford_online, summary::dataset::dispersion::Dispersion};
 use serde::{Deserialize, Serialize};
 
+/// Utilities for analysing a datasets measured of dispersion - range, variance & standard deviation.
 pub mod dispersion;
 
+/// Maintains running statistical summaries of a dataset using Welford's online algorithm.
+///
+/// Efficiently computes and maintains key statistical measures of a dataset in "one-pass" (as
+/// new values arrive), without storing the entire dataset in memory.
+///
+/// # Statistical Measures
+/// Tracks:
+/// - Count of observations
+/// - Sum of all values
+/// - Running mean
+/// - Dispersion measures (range, variance, and standard deviation)
+///
+/// # Algorithm
+/// Uses Welford's online algorithm which:
+/// - Updates statistics incrementally with each new value
+/// - Provides better numerical stability than naive methods
+/// - Requires only O(1) memory regardless of dataset size
+///
+/// See: <https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm>
+///
+/// # Example
+/// ```
+/// use barter::statistic::summary::dataset::DataSetSummary;
+///
+/// // Initialise empty DataSetSummary
+/// let mut stats = DataSetSummary::default();
+///
+/// // Update with new values
+/// stats.update(1.0);
+/// stats.update(2.0);
+/// stats.update(3.0);
+///
+/// assert_eq!(stats.count, 3);
+/// assert_eq!(stats.sum, 6.0);
+/// assert_eq!(stats.mean, 2.0);
+/// ```
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Deserialize, Serialize)]
 pub struct DataSetSummary {
     pub count: u64,
@@ -12,6 +49,13 @@ pub struct DataSetSummary {
 }
 
 impl DataSetSummary {
+    /// Updates dataset statistics with the new value using Welford's online algorithm.
+    ///
+    /// This method:
+    /// 1. Increments the observation counter
+    /// 2. Updates the running sum
+    /// 3. Recalculates the mean using Welford's algorithm
+    /// 4. Updates dispersion measures (range, variance, and standard deviation)
     pub fn update(&mut self, next_value: f64) {
         // Increment counter
         self.count += 1;
