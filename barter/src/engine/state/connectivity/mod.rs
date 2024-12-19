@@ -15,10 +15,6 @@ pub struct ConnectivityStates(pub IndexMap<ExchangeId, ConnectivityState>);
 ///
 /// Connection health is monitored separately for market data and account connections since they
 /// often use different endpoints and may have different health states.
-///
-/// # Fields
-/// * `market_data` - Status of the market data connection
-/// * `account` - Status of the account and execution connection
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize)]
 pub struct ConnectivityState {
     /// Status of market data connection.

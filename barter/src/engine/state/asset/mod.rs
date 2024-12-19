@@ -18,17 +18,12 @@ pub mod manager;
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AssetStates(pub FnvIndexMap<ExchangeAsset<AssetNameInternal>, AssetState>);
 
-/// Represents the current state of an asset, including its balance and last update
+/// Represents the current state of an asset, including its [`Balance`] and last update
 /// `time_exchange`.
 ///
 /// When used in the context of [`AssetStates`], this state is for an exchange asset, but it could
 /// be used for a "global" asset that aggregates data for similar named assets on multiple
 /// exchanges.
-///
-/// # Fields
-/// * `asset` - Asset information including internal and exchange names
-/// * `balance` - Current balance information containing total and free amounts
-/// * `time_exchange` - Timestamp of the last state snapshot from the exchange
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
 pub struct AssetState {
     /// `Asset` name data that details the internal and exchange names.
@@ -58,9 +53,6 @@ impl AssetState {
 /// Generates an indexed [`AssetStates`] containing default asset balance data.
 ///
 /// Note that the `time_exchange` is set to `DateTime::<Utc>::MIN_UTC`
-///
-/// # Arguments
-/// * `instruments` - Reference to [`IndexedInstruments`] containing asset specification data.
 pub fn generate_empty_indexed_asset_states(instruments: &IndexedInstruments) -> AssetStates {
     AssetStates(
         instruments
