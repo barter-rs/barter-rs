@@ -226,21 +226,19 @@ pub mod risk;
 pub mod statistic;
 pub mod strategy;
 
-pub type FnvIndexMap<K, V> = indexmap::IndexMap<K, V, fnv::FnvBuildHasher>;
-pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
-
-#[derive(
-    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Deserialize, Serialize, Constructor,
-)]
-pub struct Timed<T> {
-    value: T,
-    time: DateTime<Utc>,
-}
-
 // Todo: Must: Final Requirements
 //  - Comprehensive rust docs & check output
 //  - Comprehensive rust examples
 //  - Comprehensive readme.md for each crate & workspace
+
+// Todo: Spike: Keys
+//  - Try to remove generic keys and enforce indexes
+//  - See if any state management implementations can be removed from EngineState in favour of
+//    smaller components. eg/ impl TradingStateManager for EngineState isn't really appropriate for
+//    testing -> could impl for TradingState itself...
+
+// Todo: Must: Docs:
+//  - engine/state/mod.rs docs (the rest are done).
 
 // Todo: Must: General:
 //  - Back-test utilities via Audit route w/ interactive mode
@@ -263,6 +261,17 @@ pub struct Timed<T> {
 
 // Todo: Must: Execution
 //   - Full MockExecution
+
+pub type FnvIndexMap<K, V> = indexmap::IndexMap<K, V, fnv::FnvBuildHasher>;
+pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Deserialize, Serialize, Constructor,
+)]
+pub struct Timed<T> {
+    value: T,
+    time: DateTime<Utc>,
+}
 
 pub type IndexedEngineEvent<MarketKind> =
     EngineEvent<MarketKind, ExchangeIndex, AssetIndex, InstrumentIndex>;

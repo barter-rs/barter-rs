@@ -2,6 +2,9 @@ use crate::engine::state::{instrument::manager::InstrumentStateManager, EngineSt
 use barter_execution::order::{Order, RequestCancel, RequestOpen};
 use std::fmt::Debug;
 
+/// Synchronous in-flight open and in-flight cancel order request tracker.
+///
+/// See [`Orders`](super::Orders) for an example implementation.
 pub trait InFlightRequestRecorder<ExchangeKey, InstrumentKey> {
     fn record_in_flight_cancels<'a>(
         &mut self,

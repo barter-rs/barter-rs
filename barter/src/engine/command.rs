@@ -3,6 +3,8 @@ use barter_execution::order::{Order, RequestCancel, RequestOpen};
 use barter_integration::collection::one_or_many::OneOrMany;
 use serde::{Deserialize, Serialize};
 
+/// Trading related command for the [`Engine`](super::Engine) to action, sent from an
+/// external process.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub enum Command<ExchangeKey, AssetKey, InstrumentKey> {
     SendCancelRequests(OneOrMany<Order<ExchangeKey, InstrumentKey, RequestCancel>>),

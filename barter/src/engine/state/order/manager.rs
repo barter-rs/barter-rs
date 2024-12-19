@@ -6,6 +6,9 @@ use barter_execution::{
 use barter_integration::snapshot::Snapshot;
 use std::fmt::Debug;
 
+/// Synchronous order manager that tracks the lifecycle of exchange orders.
+///
+/// See [`Orders`](super::Orders) for an example implementation.
 pub trait OrderManager<ExchangeKey, InstrumentKey>
 where
     Self: InFlightRequestRecorder<ExchangeKey, InstrumentKey>,

@@ -18,6 +18,23 @@ use tracing::{debug, error, warn};
 pub mod in_flight_recorder;
 pub mod manager;
 
+/// Synchronous order manager that tracks the lifecycle of exchange orders.
+///
+/// The `Orders` struct maintains a `FnvHashMap` of orders keyed by their [`ClientOrderId`].
+///
+/// Implements the [`OrderManager`] and [`InFlightRequestRecorder`] traits.
+///
+/// A distinct instance of `Orders` is used in the engine
+/// [`InstrumentState`](super::instrument::InstrumentState) to track the active orders for
+/// each instrument, however it could be used to track global orders if [`ClientOrderId`]
+/// is globally unique.
+///
+/// # State Transitions
+/// Orders progress through the following states:
+/// 1. OpenInFlight - Initial order request sent to exchange
+/// 2. Open - Order confirmed as open on exchange
+/// 3. CancelInFlight - Cancellation request sent to exchange
+/// 4. Cancelled/Expired/FullyFilled - Terminal states, once achieved order is no longer tracked.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct Orders<ExchangeKey, InstrumentKey>(
     pub FnvHashMap<ClientOrderId, Order<ExchangeKey, InstrumentKey, InternalOrderState>>,

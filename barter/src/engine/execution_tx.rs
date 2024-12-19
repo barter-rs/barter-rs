@@ -11,11 +11,28 @@ use barter_instrument::{
 use barter_integration::channel::Tx;
 use std::fmt::Debug;
 
+/// Collection of [`ExecutionRequest`] [`Tx`]s for each
+/// exchange [`ExecutionManager`](crate::execution::manager::ExecutionManager).
+///
+/// Facilitates the routing of execution requests in a multi or single exchange trading system.
 pub trait ExecutionTxMap<ExchangeKey, InstrumentKey> {
     type ExecutionTx: Tx<Item = ExecutionRequest<ExchangeKey, InstrumentKey>>;
+
+    /// Attempt to find the [`ExecutionRequest`] [`Tx`] for the provided `ExchangeKey`.
     fn find(&self, exchange: &ExchangeKey) -> Result<&Self::ExecutionTx, UnrecoverableEngineError>;
 }
 
+/// A map of exchange transmitters that efficiently routes execution requests to exchange-specific
+/// transmitter channels.
+///
+/// `FnvIndexMap` of [`ExecutionRequest`] [`Tx`]s for each exchange.
+///
+/// Facilitates the routing of execution requests in a multi exchange trading system.
+///
+/// Note that a transmitter for an exchange is optional. This handles the case where instruments
+/// for an exchange may be tracked by the trading system, but not trading on.
+///
+/// **Without this optional transmitter the [`ExchangeIndex`]s would not be valid.**.
 #[derive(Debug)]
 pub struct MultiExchangeTxMap<Tx>(FnvIndexMap<ExchangeId, Option<Tx>>);
 
