@@ -46,6 +46,8 @@ use std::{
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use vecmap::VecMap;
 
+pub mod indexed;
+
 #[derive(Debug)]
 pub struct DynamicStreams<InstrumentKey> {
     pub trades:

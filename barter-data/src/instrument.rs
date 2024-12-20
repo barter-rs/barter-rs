@@ -1,18 +1,12 @@
-use crate::{
-    error::DataError,
-    subscription::{SubKind, Subscription},
-};
 use barter_instrument::{
-    exchange::ExchangeId,
-    index::{error::IndexError, IndexedInstruments},
     instrument::{
         market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
-        InstrumentId, InstrumentIndex,
+        name::InstrumentNameExchange,
+        Instrument,
     },
     Keyed,
 };
 use serde::{Deserialize, Serialize};
-use smol_str::SmolStr;
 use std::fmt::Debug;
 
 /// Instrument related data that defines an associated unique `Id`.
@@ -57,17 +51,20 @@ impl InstrumentData for MarketDataInstrument {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
-pub struct MarketInstrumentData {
-    pub id: InstrumentId,
-    pub name_exchange: SmolStr,
+pub struct MarketInstrumentData<InstrumentKey> {
+    pub key: InstrumentKey,
+    pub name_exchange: InstrumentNameExchange,
     pub kind: MarketDataInstrumentKind,
 }
 
-impl InstrumentData for MarketInstrumentData {
-    type Key = InstrumentId;
+impl<InstrumentKey> InstrumentData for MarketInstrumentData<InstrumentKey>
+where
+    InstrumentKey: Debug + Clone + Eq + Send + Sync,
+{
+    type Key = InstrumentKey;
 
     fn key(&self) -> &Self::Key {
-        &self.id
+        &self.key
     }
 
     fn kind(&self) -> &MarketDataInstrumentKind {
@@ -75,55 +72,32 @@ impl InstrumentData for MarketInstrumentData {
     }
 }
 
-pub fn index_market_data_subscriptions<SubBatchIter, SubIter, Sub>(
-    instruments: &IndexedInstruments,
-    batches: SubBatchIter,
-) -> Result<
-    Vec<Vec<Subscription<ExchangeId, Keyed<InstrumentIndex, MarketDataInstrument>>>>,
-    DataError,
->
+impl<InstrumentKey> std::fmt::Display for MarketInstrumentData<InstrumentKey>
 where
-    SubBatchIter: IntoIterator<Item = SubIter>,
-    SubIter: IntoIterator<Item = Sub>,
-    Sub: Into<Subscription<ExchangeId, MarketDataInstrument, SubKind>>,
+    InstrumentKey: std::fmt::Display,
 {
-    batches
-        .into_iter()
-        .map(|batch| batch
-            .into_iter()
-            .map(|sub| {
-                let sub = sub.into();
-
-                let base_index = instruments.find_asset_index(sub.exchange, &sub.instrument.base)?;
-                let quote_index = instruments.find_asset_index(sub.exchange, &sub.instrument.quote)?;
-
-                let find_instrument = |exchange, kind, base, quote| {
-                    instruments
-                        .instruments()
-                        .iter()
-                        .find_map(|indexed| {
-                            (
-                                indexed.value.exchange.value == exchange
-                                    && indexed.value.kind.eq_market_data_instrument_kind(kind)
-                                    && indexed.value.underlying.base == base
-                                    && indexed.value.underlying.quote == quote
-                            ).then_some(indexed.key)
-                        })
-                        .ok_or(IndexError::InstrumentIndex(format!(
-                            "Instrument: ({}, {}, {}, {}) must be present in indexed instruments: {:?}",
-                            exchange, kind, base, quote, instruments.instruments()
-                        )))
-                };
-
-                let instrument_index = find_instrument(sub.exchange, &sub.instrument.kind, base_index, quote_index)?;
-
-                Ok(Subscription {
-                    exchange: sub.exchange,
-                    instrument: Keyed::new(instrument_index, sub.instrument),
-                    kind: sub.kind,
-                })
-            })
-            .collect()
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}_{}_{}",
+            self.key,
+            self.name_exchange.as_ref(),
+            self.kind
         )
-        .collect()
+    }
+}
+
+impl<ExchangeKey, AssetKey, InstrumentKey>
+    From<&Keyed<InstrumentKey, Instrument<ExchangeKey, AssetKey>>>
+    for MarketInstrumentData<InstrumentKey>
+where
+    InstrumentKey: Clone,
+{
+    fn from(value: &Keyed<InstrumentKey, Instrument<ExchangeKey, AssetKey>>) -> Self {
+        Self {
+            key: value.key.clone(),
+            name_exchange: value.value.name_exchange.clone(),
+            kind: MarketDataInstrumentKind::from(&value.value.kind),
+        }
+    }
 }

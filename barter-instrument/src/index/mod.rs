@@ -92,6 +92,16 @@ impl IndexedInstruments {
         find_exchange_by_exchange_id(&self.exchanges, &exchange)
     }
 
+    pub fn find_exchange(&self, index: ExchangeIndex) -> Result<ExchangeId, IndexError> {
+        self.exchanges
+            .iter()
+            .find(|keyed| keyed.key == index)
+            .map(|keyed| keyed.value)
+            .ok_or(IndexError::ExchangeIndex(format!(
+                "ExchangeIndex: {index} is not present in indexed instrument exchanges"
+            )))
+    }
+
     /// Finds the [`AssetIndex`] associated with the provided `ExchangeId` and `AssetNameInterval`.
     ///
     /// # Arguments
@@ -107,6 +117,16 @@ impl IndexedInstruments {
         name: &AssetNameInternal,
     ) -> Result<AssetIndex, IndexError> {
         find_asset_by_exchange_and_name_internal(&self.assets, exchange, name)
+    }
+
+    pub fn find_asset(&self, index: AssetIndex) -> Result<&ExchangeAsset<Asset>, IndexError> {
+        self.assets
+            .iter()
+            .find(|keyed| keyed.key == index)
+            .map(|keyed| &keyed.value)
+            .ok_or(IndexError::AssetIndex(format!(
+                "AssetIndex: {index} is not present in indexed instrument assets"
+            )))
     }
 
     /// Finds the [`InstrumentIndex`] associated with the provided `ExchangeId` and
@@ -131,8 +151,21 @@ impl IndexedInstruments {
                     .then_some(indexed.key)
             })
             .ok_or(IndexError::AssetIndex(format!(
-                "Asset: ({}, {}) must be present in indexed instrument assets: {:?}",
+                "Asset: ({}, {}) is not present in indexed instrument assets: {:?}",
                 exchange, name, self.assets
+            )))
+    }
+
+    pub fn find_instrument(
+        &self,
+        index: InstrumentIndex,
+    ) -> Result<&Instrument<Keyed<ExchangeIndex, ExchangeId>, AssetIndex>, IndexError> {
+        self.instruments
+            .iter()
+            .find(|keyed| keyed.key == index)
+            .map(|keyed| &keyed.value)
+            .ok_or(IndexError::InstrumentIndex(format!(
+                "InstrumentIndex: {index} is not present in indexed instrument instruments"
             )))
     }
 }
@@ -145,7 +178,7 @@ fn find_exchange_by_exchange_id(
         .iter()
         .find_map(|indexed| (indexed.value == *needle).then_some(indexed.key))
         .ok_or(IndexError::ExchangeIndex(format!(
-            "Exchange: {} must be present in indexed instrument exchanges: {:?}",
+            "Exchange: {} is not present in indexed instrument exchanges: {:?}",
             needle, haystack
         )))
 }
@@ -163,7 +196,7 @@ fn find_asset_by_exchange_and_name_internal(
                 .then_some(indexed.key)
         })
         .ok_or(IndexError::AssetIndex(format!(
-            "Asset: ({}, {}) must be present in indexed instrument assets: {:?}",
+            "Asset: ({}, {}) is not present in indexed instrument assets: {:?}",
             needle_exchange, needle_name, haystack
         )))
 }

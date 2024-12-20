@@ -92,24 +92,15 @@
 //! ```
 use crate::{
     error::DataError,
-    event::{DataKind, MarketEvent},
+    event::MarketEvent,
     exchange::{Connector, PingInterval},
-    instrument::{index_market_data_subscriptions, InstrumentData},
-    streams::{
-        builder::dynamic::DynamicStreams,
-        consumer::{MarketStreamEvent, MarketStreamResult},
-        reconnect::stream::ReconnectingStream,
-    },
+    instrument::InstrumentData,
     subscriber::{Subscribed, Subscriber},
-    subscription::{SubKind, Subscription, SubscriptionKind},
+    subscription::{Subscription, SubscriptionKind},
     transformer::ExchangeTransformer,
 };
 use async_trait::async_trait;
-use barter_instrument::{
-    exchange::ExchangeId,
-    index::IndexedInstruments,
-    instrument::{market_data::MarketDataInstrument, InstrumentIndex},
-};
+use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
     error::SocketError,
     protocol::{
@@ -379,33 +370,6 @@ pub async fn schedule_pings_to_exchange(
             break;
         }
     }
-}
-
-/// Initialise an indexed market data stream using batches of unindexed [`Subscription`]s.
-///
-/// Uses [`IndexedInstruments`] for indexing and [`DynamicStreams`] for market stream
-/// initialisation.
-///
-/// See [`index_market_data_subscriptions`] for how unindexed `Subscriptions` are indexed.
-pub async fn init_indexed_market_data_stream<SubBatchIter, SubIter, Sub>(
-    indexes: &IndexedInstruments,
-    batches: SubBatchIter,
-) -> Result<impl Stream<Item = MarketStreamEvent<InstrumentIndex, DataKind>>, DataError>
-where
-    SubBatchIter: IntoIterator<Item = SubIter>,
-    SubIter: IntoIterator<Item = Sub>,
-    Sub: Into<Subscription<ExchangeId, MarketDataInstrument, SubKind>>,
-{
-    // Construct Indexed MarketData Subscriptions
-    let subscriptions = index_market_data_subscriptions(indexes, batches)?;
-
-    // Initialise MarketData Stream
-    let stream = DynamicStreams::init(subscriptions)
-        .await?
-        .select_all::<MarketStreamResult<InstrumentIndex, DataKind>>()
-        .with_error_handler(|error| warn!(?error, "MarketStream generated error"));
-
-    Ok(stream)
 }
 
 pub mod test_utils {

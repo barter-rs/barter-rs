@@ -22,11 +22,11 @@ use barter::{
     EngineEvent,
 };
 use barter_data::{
+    event::DataKind,
     streams::{
-        builder::dynamic::indexed::init_indexed_multi_exchange_market_stream,
-        reconnect::stream::ReconnectingStream,
+        consumer::{MarketStreamEvent, MarketStreamResult},
+        reconnect::{stream::ReconnectingStream, Event},
     },
-    subscription::SubKind,
 };
 use barter_execution::{
     balance::{AssetBalance, Balance},
@@ -43,17 +43,21 @@ use barter_instrument::{
             InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice, InstrumentSpecQuantity,
             OrderQuantityUnits,
         },
-        Instrument,
+        Instrument, InstrumentIndex,
     },
     Underlying,
 };
 use barter_integration::channel::{mpsc_unbounded, ChannelTxDroppable, Tx};
 use chrono::Utc;
+use futures::{stream, Stream, StreamExt};
 use rust_decimal_macros::dec;
-use tracing::info;
+use tracing::{info, warn};
 
 const EXCHANGE: ExchangeId = ExchangeId::BinanceSpot;
 const RISK_FREE_RETURN: f64 = 0.05;
+
+const FILE_PATH_HISTORIC_TRADES_AND_L1S: &str =
+    "barter/examples/data/binance_spot_market_data.json";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -67,12 +71,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Construct IndexedInstruments
     let instruments = IndexedInstruments::new(unindexed_instruments());
 
-    // Initialise MarketData Stream & forward to Engine feed
-    let market_stream = init_indexed_multi_exchange_market_stream(
-        &instruments,
-        &[SubKind::PublicTrades, SubKind::OrderBooksL1],
-    )
-    .await?;
+    // Forward historical market data events to Engine feed
+    let market_stream = init_historic_market_data_stream(FILE_PATH_HISTORIC_TRADES_AND_L1S);
     tokio::spawn(market_stream.forward_to(feed_tx.clone()));
 
     // Define initial mock AccountSnapshot
@@ -87,7 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Construct empty EngineState from IndexedInstruments
     let state = EngineState {
-        trading: TradingState::Disabled,
+        trading: TradingState::Enabled,
         connectivity: generate_empty_indexed_connectivity_states(&instruments),
         assets: generate_empty_indexed_asset_states(&instruments),
         instruments: generate_empty_indexed_instrument_states::<DefaultMarketData>(&instruments),
@@ -216,6 +216,36 @@ fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
             ),
         ),
     ]
+}
+
+// Note that there are far more intelligent ways of streaming historical market data, this is
+// just for demonstration purposes.
+//
+// For example:
+// - Stream from database
+// - Stream from file
+fn init_historic_market_data_stream(
+    file_path: &str,
+) -> impl Stream<Item = MarketStreamEvent<InstrumentIndex, DataKind>> {
+    let data = std::fs::read_to_string(file_path).unwrap();
+    let events =
+        serde_json::from_str::<Vec<MarketStreamResult<InstrumentIndex, DataKind>>>(&data).unwrap();
+
+    stream::iter(events)
+        .with_error_handler(|error| warn!(?error, "MarketStream generated error"))
+        .inspect(|event| match event {
+            Event::Reconnecting(exchange) => {
+                info!(%exchange, "sending historical disconnection to Engine")
+            }
+            Event::Item(event) => {
+                info!(
+                    exchange = %event.exchange,
+                    instrument = %event.instrument,
+                    kind = event.kind.kind_name(),
+                    "sending historical event to Engine"
+                )
+            }
+        })
 }
 
 fn build_initial_account_snapshot(
