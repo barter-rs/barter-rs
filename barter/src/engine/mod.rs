@@ -11,7 +11,7 @@ use crate::{
         command::Command,
         execution_tx::ExecutionTxMap,
         state::{
-            connectivity::Connection,
+            connectivity::{manager::ConnectivityManager, ConnectivityState, Health},
             instrument::manager::InstrumentStateManager,
             order::in_flight_recorder::InFlightRequestRecorder,
             trading::{manager::TradingStateManager, TradingState},
@@ -28,11 +28,14 @@ use crate::{
 };
 use audit::shutdown::ShutdownAudit;
 use barter_data::streams::consumer::MarketStreamEvent;
-use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
+use barter_instrument::{
+    exchange::{ExchangeId, ExchangeIndex},
+    instrument::InstrumentIndex,
+};
 use barter_integration::channel::{ChannelTxDroppable, Tx};
 use chrono::{DateTime, Utc};
 use derive_more::From;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use tracing::{info, warn};
 
 pub mod action;
@@ -112,7 +115,7 @@ where
         + AlgoStrategy<ExchangeKey, InstrumentKey, State = State>
         + ClosePositionsStrategy<ExchangeKey, AssetKey, InstrumentKey, State = State>,
     Risk: RiskManager<ExchangeKey, InstrumentKey, State = State>,
-    ExchangeKey: Debug + Clone + PartialEq,
+    ExchangeKey: Debug + Display + Clone + PartialEq,
     AssetKey: Debug + PartialEq,
     InstrumentKey: Debug + Clone + PartialEq,
 {
@@ -246,17 +249,42 @@ impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, 
     where
         State: StateManager<ExchangeKey, AssetKey, InstrumentKey>,
         Strategy: OnDisconnectStrategy<State, ExecutionTxs, Risk>,
+        ExchangeKey: Display,
     {
         match event {
             AccountStreamEvent::Reconnecting(exchange) => {
                 warn!(%exchange, "EngineState received AccountStream disconnected event");
-                self.state.connectivity_mut(exchange).account = Connection::Reconnecting;
+                self.state.connectivity_mut(exchange).account = Health::Reconnecting;
                 Some(Strategy::on_disconnect(self, *exchange))
             }
             AccountStreamEvent::Item(event) => {
+                if let Health::Reconnecting =
+                    <State as ConnectivityManager<ExchangeKey>>::global_health(&self.state)
+                {
+                    self.update_from_account_reconnection(&event.exchange);
+                }
+
                 let _position = self.state.update_from_account(event);
                 None
             }
+        }
+    }
+
+    pub fn update_from_account_reconnection<ExchangeKey>(&mut self, exchange: &ExchangeKey)
+    where
+        State: ConnectivityManager<ExchangeKey>,
+        ExchangeKey: Display,
+    {
+        info!(%exchange, "EngineState setting exchange account connection to Healthy");
+        self.state.connectivity_mut(exchange).account = Health::Healthy;
+
+        if self
+            .state
+            .connectivities()
+            .all(ConnectivityState::all_healthy)
+        {
+            info!("EngineState setting global connectivity to Healthy");
+            *self.state.global_health_mut() = Health::Healthy
         }
     }
 
@@ -271,13 +299,36 @@ impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, 
         match event {
             MarketStreamEvent::Reconnecting(exchange) => {
                 warn!(%exchange, "EngineState received MarketStream disconnect event");
-                self.state.connectivity_mut(exchange).market_data = Connection::Reconnecting;
+                self.state.connectivity_mut(exchange).market_data = Health::Reconnecting;
                 Some(Strategy::on_disconnect(self, *exchange))
             }
             MarketStreamEvent::Item(event) => {
+                if let Health::Reconnecting =
+                    <State as ConnectivityManager<ExchangeKey>>::global_health(&self.state)
+                {
+                    self.update_from_market_reconnection(&event.exchange)
+                }
+
                 self.state.update_from_market(event);
                 None
             }
+        }
+    }
+
+    pub fn update_from_market_reconnection(&mut self, exchange: &ExchangeId)
+    where
+        State: ConnectivityManager<ExchangeId>,
+    {
+        info!(%exchange, "EngineState setting exchange market connection to Healthy");
+        self.state.connectivity_mut(exchange).market_data = Health::Healthy;
+
+        if self
+            .state
+            .connectivities()
+            .all(ConnectivityState::all_healthy)
+        {
+            info!("EngineState setting global connectivity to Healthy");
+            *self.state.global_health_mut() = Health::Healthy
         }
     }
 }

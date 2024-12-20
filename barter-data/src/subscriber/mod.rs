@@ -16,7 +16,7 @@ use barter_integration::{
 use futures::SinkExt;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use tracing::{debug, info};
+use tracing::debug;
 
 /// [`SubscriptionMapper`] implementations defining how to map a
 /// collection of Barter [`Subscription`]s into execution specific [`SubscriptionMeta`].
@@ -96,7 +96,7 @@ impl Subscriber for WebSocketSubscriber {
         >(instrument_map, &mut websocket)
         .await?;
 
-        info!(%exchange, "subscribed to WebSocket");
+        debug!(%exchange, "successfully initialised WebSocket stream with confirmed Subscriptions");
         Ok(Subscribed {
             websocket,
             map,

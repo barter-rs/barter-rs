@@ -43,6 +43,7 @@ pub type IndexedEngineState<Market, Strategy, Risk> =
 pub trait StateManager<ExchangeKey, AssetKey, InstrumentKey>
 where
     Self: TradingStateManager
+        + ConnectivityManager<ExchangeKey>
         + ConnectivityManager<ExchangeId>
         + AssetStateManager<AssetKey, State = AssetState>
         + InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey, AssetKey = AssetKey>,
@@ -72,6 +73,7 @@ impl<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
     for EngineState<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
 where
     Self: TradingStateManager
+        + ConnectivityManager<ExchangeKey>
         + ConnectivityManager<ExchangeId>
         + AssetStateManager<AssetKey, State = AssetState>
         + InstrumentStateManager<

@@ -87,7 +87,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Construct empty EngineState from IndexedInstruments
     let state = EngineState {
-        trading: TradingState::Disabled,
+        // Note: you may want to start to engine with TradingState::Disabled and turn on later
+        trading: TradingState::Enabled,
         connectivity: generate_empty_indexed_connectivity_states(&instruments),
         assets: generate_empty_indexed_asset_states(&instruments),
         instruments: generate_empty_indexed_instrument_states::<DefaultMarketData>(&instruments),
@@ -151,7 +152,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Generate TradingSummary
     let trading_summary = audit_manager.summary.generate(Daily);
 
-    // Print TradingSummary<Daily> to terminal (could save in a file, send somewhere, etc)
+    // Print TradingSummary<Daily> to terminal (could save in a file, send somewhere, etc.)
     trading_summary.print_summary();
 
     Ok(())

@@ -251,10 +251,6 @@ pub mod strategy;
 //  - Ensure Audit pathway doesn't duplicate Logs
 //    '--> see claude convo with "module layer" etc.
 
-// Todo: Must: Engine:
-//   - Handle re-connections in ConnectivityStates with acceptable performance.
-
-
 // Todo: Must: Execution
 //   - Full MockExecution
 

@@ -1,7 +1,7 @@
 use crate::{
     engine::{
         audit::{manager::history::TradingHistory, Audit, AuditTick},
-        state::{asset::manager::AssetStateManager, connectivity::Connection, StateManager},
+        state::{asset::manager::AssetStateManager, connectivity::Health, StateManager},
         EngineOutput,
     },
     execution::AccountStreamEvent,
@@ -144,8 +144,7 @@ impl<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey>
             }
             EngineEvent::Account(event) => match event {
                 AccountStreamEvent::Reconnecting(exchange) => {
-                    self.snapshot.data.connectivity_mut(&exchange).account =
-                        Connection::Reconnecting;
+                    self.snapshot.data.connectivity_mut(&exchange).account = Health::Reconnecting;
                 }
                 AccountStreamEvent::Item(event) => {
                     if let Some(position) = self.snapshot.data.update_from_account(&event) {
@@ -163,7 +162,7 @@ impl<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey>
             EngineEvent::Market(event) => match event {
                 MarketStreamEvent::Reconnecting(exchange) => {
                     self.snapshot.data.connectivity_mut(&exchange).market_data =
-                        Connection::Reconnecting;
+                        Health::Reconnecting;
                 }
                 MarketStreamEvent::Item(event) => {
                     self.snapshot.data.update_from_market(&event);
