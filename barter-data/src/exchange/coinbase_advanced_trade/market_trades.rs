@@ -1,6 +1,4 @@
-use super::CoinbaseChannel;
 use crate::exchange::coinbase_advanced_trade::channel::CoinbaseInternationalChannel;
-use crate::subscription::candle::{Candle, Candles};
 use crate::{
     event::{MarketEvent, MarketIter},
     exchange::ExchangeSub,
@@ -136,8 +134,7 @@ where InstrumentKey: Clone {
                     })
                     .collect::<Vec<_>>(),
             })
-            .collect::<Vec<_>>()
-            .into();
+            .collect::<Vec<_>>();
         Self(events)
     }
 }

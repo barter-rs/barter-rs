@@ -2,11 +2,11 @@ use crate::event::{MarketEvent, MarketIter};
 use crate::exchange::coinbase_advanced_trade::channel::CoinbaseInternationalChannel;
 use crate::exchange::coinbase_advanced_trade::message::CoinbaseInternationalMessage;
 use crate::exchange::subscription::ExchangeSub;
-use crate::subscription::candle::{Candle, Candles};
+use crate::subscription::candle::{Candle};
 use crate::Identifier;
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::subscription::SubscriptionId;
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Coinbase candles WebSocket message.
@@ -129,8 +129,7 @@ where
                     })
                 })
             })
-            .collect::<Vec<_>>()
-            .into();
+            .collect::<Vec<_>>();
         Self(events)
     }
 }

@@ -11,7 +11,6 @@ use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
 use barter_macro::{DeExchange, SerExchange};
 use serde_json::json;
 use url::Url;
-use crate::exchange::coinbase::channel::CoinbaseChannel;
 use crate::exchange::coinbase_advanced_trade::candles::CandleEvent;
 use crate::exchange::coinbase_advanced_trade::channel::CoinbaseInternationalChannel;
 use crate::exchange::coinbase_advanced_trade::level2::Level2Event;
@@ -20,7 +19,7 @@ use crate::exchange::coinbase_advanced_trade::market_trades::{MarketTradeEvent};
 use crate::exchange::coinbase_advanced_trade::message::CoinbaseInternationalMessage;
 use crate::exchange::coinbase_advanced_trade::subscription::CoinbaseInternationalSubResponse;
 use crate::exchange::coinbase_advanced_trade::ticker::TickerEvent;
-use crate::subscription::book::{OrderBookL1, OrderBooksL1, OrderBooksL2};
+use crate::subscription::book::{OrderBooksL1, OrderBooksL2};
 use crate::subscription::candle::Candles;
 
 pub mod channel;

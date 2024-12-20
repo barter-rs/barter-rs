@@ -145,8 +145,7 @@ where
                     })
                 })
             })
-            .collect::<Vec<_>>()
-            .into();
+            .collect::<Vec<_>>();
         Self(events)
     }
 }

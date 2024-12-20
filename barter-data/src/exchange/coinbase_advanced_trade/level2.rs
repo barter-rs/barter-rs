@@ -5,12 +5,11 @@ use barter_integration::Side;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use tracing::debug;
 use crate::event::{MarketEvent, MarketIter};
 use crate::exchange::coinbase_advanced_trade::channel::CoinbaseInternationalChannel;
 use crate::exchange::coinbase_advanced_trade::message::CoinbaseInternationalMessage;
 use crate::exchange::subscription::ExchangeSub;
-use crate::subscription::book::{OrderBookEvent, OrderBooksL2};
+use crate::subscription::book::OrderBookEvent;
 use crate::Identifier;
 
 /// Coinbase level2 WebSocket message.
@@ -142,8 +141,7 @@ where
                     },
                 })
             })
-            .collect::<Vec<_>>()
-            .into();
+            .collect::<Vec<_>>();
         Self(events)
     }
 }
