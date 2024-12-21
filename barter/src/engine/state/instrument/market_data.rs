@@ -48,13 +48,9 @@ impl<InstrumentKey> MarketDataState<InstrumentKey> for DefaultMarketData {
     type EventKind = DataKind;
 
     fn price(&self) -> Option<Decimal> {
-        if self.l1.best_bid.price == Decimal::default()
-            || self.l1.best_ask.price == Decimal::default()
-        {
-            self.last_traded_price.as_ref().map(|timed| timed.value)
-        } else {
-            Some(self.l1.volume_weighed_mid_price())
-        }
+        self.l1
+            .volume_weighed_mid_price()
+            .or(self.last_traded_price.as_ref().map(|timed| timed.value))
     }
 }
 

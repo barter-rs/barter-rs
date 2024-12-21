@@ -324,7 +324,7 @@ mod tests {
         fn test_mid_price() {
             struct TestCase {
                 input: OrderBookL1,
-                expected: Decimal,
+                expected: Option<Decimal>,
             }
 
             let tests = vec![
@@ -332,28 +332,46 @@ mod tests {
                     // TC0
                     input: OrderBookL1 {
                         last_update_time: Default::default(),
-                        best_bid: Level::new(100, 999999),
-                        best_ask: Level::new(200, 1),
+                        best_bid: Some(Level::new(100, 999999)),
+                        best_ask: Some(Level::new(200, 1)),
                     },
-                    expected: dec!(150.0),
+                    expected: Some(dec!(150.0)),
                 },
                 TestCase {
                     // TC1
                     input: OrderBookL1 {
                         last_update_time: Default::default(),
-                        best_bid: Level::new(50, 1),
-                        best_ask: Level::new(250, 999999),
+                        best_bid: Some(Level::new(50, 1)),
+                        best_ask: Some(Level::new(250, 999999)),
                     },
-                    expected: dec!(150.0),
+                    expected: Some(dec!(150.0)),
                 },
                 TestCase {
                     // TC2
                     input: OrderBookL1 {
                         last_update_time: Default::default(),
-                        best_bid: Level::new(10, 999999),
-                        best_ask: Level::new(250, 999999),
+                        best_bid: Some(Level::new(10, 999999)),
+                        best_ask: Some(Level::new(250, 999999)),
                     },
-                    expected: dec!(130.0),
+                    expected: Some(dec!(130.0)),
+                },
+                TestCase {
+                    // TC3
+                    input: OrderBookL1 {
+                        last_update_time: Default::default(),
+                        best_bid: Some(Level::new(10, 999999)),
+                        best_ask: None,
+                    },
+                    expected: None,
+                },
+                TestCase {
+                    // TC4
+                    input: OrderBookL1 {
+                        last_update_time: Default::default(),
+                        best_bid: None,
+                        best_ask: Some(Level::new(250, 999999)),
+                    },
+                    expected: None,
                 },
             ];
 
@@ -366,7 +384,7 @@ mod tests {
         fn test_volume_weighted_mid_price() {
             struct TestCase {
                 input: OrderBookL1,
-                expected: Decimal,
+                expected: Option<Decimal>,
             }
 
             let tests = vec![
@@ -374,28 +392,46 @@ mod tests {
                     // TC0: volume the same so should be equal to non-weighted mid price
                     input: OrderBookL1 {
                         last_update_time: Default::default(),
-                        best_bid: Level::new(100, 100),
-                        best_ask: Level::new(200, 100),
+                        best_bid: Some(Level::new(100, 100)),
+                        best_ask: Some(Level::new(200, 100)),
                     },
-                    expected: dec!(150.0),
+                    expected: Some(dec!(150.0)),
                 },
                 TestCase {
                     // TC1: volume affects mid-price
                     input: OrderBookL1 {
                         last_update_time: Default::default(),
-                        best_bid: Level::new(100, 600),
-                        best_ask: Level::new(200, 1000),
+                        best_bid: Some(Level::new(100, 600)),
+                        best_ask: Some(Level::new(200, 1000)),
                     },
-                    expected: dec!(137.5),
+                    expected: Some(dec!(137.5)),
                 },
                 TestCase {
                     // TC2: volume the same and price the same
                     input: OrderBookL1 {
                         last_update_time: Default::default(),
-                        best_bid: Level::new(1000, 999999),
-                        best_ask: Level::new(1000, 999999),
+                        best_bid: Some(Level::new(1000, 999999)),
+                        best_ask: Some(Level::new(1000, 999999)),
                     },
-                    expected: dec!(1000.0),
+                    expected: Some(dec!(1000.0)),
+                },
+                TestCase {
+                    // TC3: best ask is None
+                    input: OrderBookL1 {
+                        last_update_time: Default::default(),
+                        best_bid: Some(Level::new(1000, 999999)),
+                        best_ask: None,
+                    },
+                    expected: None,
+                },
+                TestCase {
+                    // TC4: best bid is None
+                    input: OrderBookL1 {
+                        last_update_time: Default::default(),
+                        best_bid: None,
+                        best_ask: Some(Level::new(1000, 999999)),
+                    },
+                    expected: None,
                 },
             ];
 

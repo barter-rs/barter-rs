@@ -35,24 +35,30 @@ impl Display for OrderBooksL1 {
 )]
 pub struct OrderBookL1 {
     pub last_update_time: DateTime<Utc>,
-    pub best_bid: Level,
-    pub best_ask: Level,
+    pub best_bid: Option<Level>,
+    pub best_ask: Option<Level>,
 }
 
 impl OrderBookL1 {
     /// Calculate the mid-price by taking the average of the best bid and ask prices.
     ///
     /// See Docs: <https://www.quantstart.com/articles/high-frequency-trading-ii-limit-order-book>
-    pub fn mid_price(&self) -> Decimal {
-        mid_price(self.best_bid.price, self.best_ask.price)
+    pub fn mid_price(&self) -> Option<Decimal> {
+        match (self.best_ask, self.best_bid) {
+            (Some(best_ask), Some(best_bid)) => Some(mid_price(best_bid.price, best_ask.price)),
+            _ => None,
+        }
     }
 
     /// Calculate the volume weighted mid-price (micro-price), weighing the best bid and ask prices
     /// with their associated amount.
     ///
     /// See Docs: <https://www.quantstart.com/articles/high-frequency-trading-ii-limit-order-book>
-    pub fn volume_weighed_mid_price(&self) -> Decimal {
-        volume_weighted_mid_price(self.best_bid, self.best_ask)
+    pub fn volume_weighed_mid_price(&self) -> Option<Decimal> {
+        match (self.best_ask, self.best_bid) {
+            (Some(best_ask), Some(best_bid)) => Some(volume_weighted_mid_price(best_bid, best_ask)),
+            _ => None,
+        }
     }
 }
 
