@@ -14,7 +14,6 @@ use barter_execution::{
     AccountEvent,
 };
 use barter_instrument::{exchange::ExchangeId, Side};
-use rust_decimal::{prelude::FromPrimitive, Decimal};
 use std::marker::PhantomData;
 
 pub mod algo;
@@ -92,7 +91,7 @@ where
                     kind: OrderKind::Market,
                     time_in_force: TimeInForce::ImmediateOrCancel,
                     price: Default::default(),
-                    quantity: Decimal::from_f64(position.quantity_abs)?,
+                    quantity: position.quantity_abs,
                 },
             })
         });

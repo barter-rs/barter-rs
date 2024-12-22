@@ -54,158 +54,8 @@
 //! [`Readme`]: https://crates.io/crates/barter
 //!
 //! ## Getting Started
-//! ### Data Handler
-//! ```
-//!
-//!
-//! use barter::{data::{Feed, historical, MarketGenerator}, test_util};
-//! use barter_instrument::Side;
-//!
-//! let mut data = historical::MarketFeed::new([test_util::market_event_trade(Side::Buy)].into_iter());
-//!
-//! loop {
-//!     let market_event = match data.next() {
-//!         Feed::Next(market_event) => market_event,
-//!         Feed::Finished => break,
-//!         Feed::Unhealthy => continue,
-//!     };
-//! }
-//! ```
-//!
-//! ### Strategy
-//! ```
-//! use barter::{
-//!     strategy::{SignalGenerator, example::{Config as StrategyConfig, RSIStrategy}},
-//!     test_util,
-//! };
-//! use barter_instrument::Side;
-//!
-//! let config = StrategyConfig {
-//!     rsi_period: 14,
-//! };
-//!
-//! let mut strategy = RSIStrategy::new(config);
-//!
-//! let market_event = test_util::market_event_trade(Side::Buy);
-//!
-//! let signal_event = strategy.generate_signal(&market_event);
-//! ```
-//!
-//! ### Portfolio
-//! ```
-//! use barter::{
-//!     portfolio::{
-//!         MarketUpdater, OrderGenerator, FillUpdater,
-//!         portfolio::{PortfolioLego, MetaPortfolio},
-//!         repository::in_memory::InMemoryRepository,
-//!         allocator::DefaultAllocator,
-//!         risk::DefaultRisk,
-//!     },
-//!     statistic::summary::{
-//!         pnl::PnLReturnSummary,
-//!         trading::{Config as StatisticConfig, TradingSummary},
-//!     },
-//!     event::Event,
-//!     test_util,
-//! };
-//! use std::marker::PhantomData;
-//! use uuid::Uuid;
-//! use barter_instrument::execution::ExchangeId;
-//! use barter_instrument::instrument::market_data::kind::MarketDataInstrumentKind;
-//! use barter_instrument::market::Market;
-//!
-//! let components = PortfolioLego {
-//!     engine_id: Uuid::new_v4(),
-//!     markets: vec![Market::new(ExchangeId::BinanceSpot, ("btc", "usdt", MarketDataInstrumentKind::Spot))],
-//!     repository: InMemoryRepository::new(),
-//!     allocator: DefaultAllocator{ default_order_value: 100.0 },
-//!     risk: DefaultRisk{},
-//!     starting_cash: 10000.0,
-//!     statistic_config: StatisticConfig {
-//!         starting_equity: 10000.0 ,
-//!         trading_days_per_year: 365,
-//!         risk_free_return: 0.0
-//!     },
-//!     _statistic_marker: PhantomData::<TradingSummary>::default()
-//! };
-//!
-//! let mut portfolio = MetaPortfolio::init(components).unwrap();
-//!
-//! let some_event = Event::OrderNew(test_util::order_event());
-//!
-//! match some_event {
-//!     Event::Market(market) => {
-//!         portfolio.update_from_market(&market);
-//!     }
-//!     Event::Signal(signal) => {
-//!         portfolio.generate_order(&signal);
-//!     }
-//!     Event::SignalForceExit(signal) => {
-//!         portfolio.generate_exit_order(signal);
-//!     }
-//!     Event::Fill(fill) => {
-//!         portfolio.update_from_fill(&fill);
-//!     }
-//!     _ => {}
-//! }
-//! ```
-//!
-//! ### Execution
-//! ```
-//! use barter::{
-//!     test_util,
-//!     portfolio::OrderEvent,
-//!     execution::{
-//!         simulated::{Config as ExecutionConfig, SimulatedExecution},
-//!         Fees, ExecutionClient,
-//!     }
-//! };
-//!
-//! let config = ExecutionConfig {
-//!     simulated_fees_pct: Fees {
-//!         execution: 0.1,
-//!         slippage: 0.05, // Simulated slippage modelled as a Fee
-//!         network: 0.0,
-//!     }
-//! };
-//!
-//! let mut execution = SimulatedExecution::new(config);
-//!
-//! let order_event = test_util::order_event();
-//!
-//! let fill_event = execution.generate_fill(&order_event);
-//! ```
-//!
-//! ### Statistic
-//! ```
-//! use barter::{
-//!     test_util,
-//!     portfolio::position::Position,
-//!     statistic::summary::{
-//!         trading::{Config as StatisticConfig, TradingSummary},
-//!         Initialiser, PositionSummariser, TableBuilder
-//!     }
-//! };
-//!
-//! // Do some automated trading with barter components that generates a vector of closed Positions
-//! let positions = vec![test_util::position(), test_util::position()];
-//!
-//! let config = StatisticConfig {
-//!     starting_equity: 10000.0,
-//!     trading_days_per_year: 253,
-//!     risk_free_return: 0.5,
-//! };
-//!
-//! let mut trading_summary = TradingSummary::init(config);
-//!
-//! trading_summary.generate_summary(&positions);
-//!
-//! trading_summary
-//!     .table("Total")
-//!     .printstd();
-//! ```
-//!
-//! ### Engine & Traders
+//! Todo: write docs
+//! ### Engine Examples
 //! [See Readme Engine Example](https://crates.io/crates/barter#example)
 
 use crate::{
@@ -251,9 +101,6 @@ pub mod strategy;
 //    (backward would require Vec<State> to be created on .next()) (add compression using file system)
 //  - Ensure Audit pathway doesn't duplicate Logs
 //    '--> see claude convo with "module layer" etc.
-
-// Todo: Must: Execution
-//   - Full MockExecution
 
 pub type FnvIndexMap<K, V> = indexmap::IndexMap<K, V, fnv::FnvBuildHasher>;
 pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
@@ -342,11 +189,11 @@ pub mod test_utils {
             strategy: StrategyId::new("strategy"),
             time_exchange,
             side,
-            price,
-            quantity,
+            price: price.try_into().unwrap(),
+            quantity: quantity.try_into().unwrap(),
             fees: AssetFees {
                 asset: QuoteAsset,
-                fees,
+                fees: fees.try_into().unwrap(),
             },
         }
     }
@@ -359,7 +206,10 @@ pub mod test_utils {
     ) -> AssetState {
         AssetState {
             asset: asset(symbol),
-            balance: Balance::new(balance_total, balance_free),
+            balance: Balance::new(
+                balance_total.try_into().unwrap(),
+                balance_free.try_into().unwrap(),
+            ),
             time_exchange,
         }
     }

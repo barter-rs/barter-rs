@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
@@ -13,12 +14,12 @@ pub struct AssetBalance<AssetKey> {
     Debug, Copy, Clone, PartialEq, PartialOrd, Default, Deserialize, Serialize, Constructor,
 )]
 pub struct Balance {
-    pub total: f64,
-    pub free: f64,
+    pub total: Decimal,
+    pub free: Decimal,
 }
 
 impl Balance {
-    pub fn used(&self) -> f64 {
+    pub fn used(&self) -> Decimal {
         self.total - self.free
     }
 }

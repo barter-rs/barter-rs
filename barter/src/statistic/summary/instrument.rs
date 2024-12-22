@@ -19,13 +19,14 @@ use crate::{
     },
     Timed,
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 /// TearSheet summarising the trading performance related to an instrument.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub struct TearSheet<Interval> {
-    pub pnl: f64,
+    pub pnl: Decimal,
     pub pnl_return: RateOfReturn<Interval>,
     pub sharpe_ratio: SharpeRatio<Interval>,
     pub sortino_ratio: SortinoRatio<Interval>,
@@ -88,7 +89,7 @@ impl TearSheetGenerator {
     /// (24/7 trading) annualised [`TearSheet`].
     pub fn generate<Interval>(
         &self,
-        risk_free_return: f64,
+        risk_free_return: Decimal,
         interval: Interval,
     ) -> TearSheet<Interval>
     where
@@ -96,7 +97,8 @@ impl TearSheetGenerator {
     {
         let trading_period = self
             .time_engine_now
-            .signed_duration_since(self.time_engine_start);
+            .signed_duration_since(self.time_engine_start)
+            .max(TimeDelta::seconds(1));
 
         let sharpe_ratio = SharpeRatio::calculate(
             risk_free_return,
@@ -133,7 +135,7 @@ impl TearSheetGenerator {
             RateOfReturn::calculate(self.pnl_returns.total.mean, trading_period).scale(interval);
 
         let win_rate =
-            WinRate::calculate(self.pnl_returns.total.count, self.pnl_returns.losses.count);
+            WinRate::calculate(self.pnl_returns.losses.count, self.pnl_returns.total.count);
 
         let profit_factor =
             ProfitFactor::calculate(self.pnl_returns.total.sum, self.pnl_returns.losses.sum);

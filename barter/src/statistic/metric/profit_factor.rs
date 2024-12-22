@@ -1,4 +1,4 @@
-use rust_decimal::prelude::Zero;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 /// ProfitFactor is a performance metric that divides the absolute value of gross profits
@@ -13,24 +13,23 @@ use serde::{Deserialize, Serialize};
 /// See docs: <https://www.investopedia.com/articles/fundamental-analysis/10/strategy-performance-reports.asp#toc-profit-factor>
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Deserialize, Serialize)]
 pub struct ProfitFactor {
-    pub value: f64,
+    pub value: Decimal,
 }
 
 impl ProfitFactor {
-    pub fn calculate(profits_gross_abs: f64, losses_gross_abs: f64) -> Self {
-        if profits_gross_abs.is_nan() || losses_gross_abs.is_nan() {
-            return Self { value: f64::NAN };
-        }
-
+    pub fn calculate(profits_gross_abs: Decimal, losses_gross_abs: Decimal) -> Self {
         Self {
             value: if profits_gross_abs.is_zero() && losses_gross_abs.is_zero() {
-                1.0
+                Decimal::ONE
             } else if losses_gross_abs.is_zero() {
-                f64::INFINITY
+                Decimal::MAX
             } else if profits_gross_abs.is_zero() {
-                f64::NEG_INFINITY
+                Decimal::MIN
             } else {
-                profits_gross_abs.abs() / losses_gross_abs.abs()
+                profits_gross_abs
+                    .abs()
+                    .checked_div(losses_gross_abs.abs())
+                    .unwrap()
             },
         }
     }
@@ -39,40 +38,61 @@ impl ProfitFactor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rust_decimal_macros::dec;
+    use std::str::FromStr;
 
     #[test]
     fn test_profit_factor_calculate() {
-        // profits are NAN
-        assert!(ProfitFactor::calculate(f64::NAN, 5.0).value.is_nan());
-
-        // losses are NAN
-        assert!(ProfitFactor::calculate(5.0, f64::NAN).value.is_nan());
-
         // both profits & losses are very small
         assert_eq!(
-            ProfitFactor::calculate(f64::EPSILON, f64::EPSILON).value,
-            1.0
+            ProfitFactor::calculate(
+                Decimal::from_scientific("1e-20").unwrap(),
+                Decimal::from_scientific("1e-20").unwrap()
+            )
+            .value,
+            Decimal::ONE
         );
 
-        // both profits & losses are very small
+        // both profits & losses are very large
         assert_eq!(
-            ProfitFactor::calculate(f64::MAX / 2.0, f64::MAX / 2.0).value,
-            1.0
+            ProfitFactor::calculate(Decimal::MAX / dec!(2), Decimal::MAX / dec!(2)).value,
+            Decimal::ONE
         );
 
         // both profits & losses are zero
-        assert_eq!(ProfitFactor::calculate(0.0, 0.0).value, 1.0);
+        assert_eq!(
+            ProfitFactor::calculate(dec!(0.0), dec!(0.0)).value,
+            Decimal::ONE
+        );
 
         // profits are zero
-        assert_eq!(ProfitFactor::calculate(0.0, 1.0).value, f64::NEG_INFINITY);
+        assert_eq!(
+            ProfitFactor::calculate(dec!(0.0), dec!(1.0)).value,
+            Decimal::MIN
+        );
 
         // losses are zero
-        assert_eq!(ProfitFactor::calculate(1.0, 0.0).value, f64::INFINITY);
+        assert_eq!(
+            ProfitFactor::calculate(dec!(1.0), dec!(0.0)).value,
+            Decimal::MAX
+        );
 
         // both profits & losses are non-zero
-        assert_eq!(ProfitFactor::calculate(10.0, 5.0).value, 2.0);
+        assert_eq!(
+            ProfitFactor::calculate(dec!(10.0), dec!(5.0)).value,
+            dec!(2.0)
+        );
 
         // both profits & losses are non-zero, but input losses are not abs
-        assert_eq!(ProfitFactor::calculate(10.0, -5.0).value, 2.0);
+        assert_eq!(
+            ProfitFactor::calculate(dec!(10.0), dec!(-5.0)).value,
+            dec!(2.0)
+        );
+
+        // test with precise decimal values
+        assert_eq!(
+            ProfitFactor::calculate(dec!(10.5555), dec!(5.2345)).value,
+            Decimal::from_str("2.016524978507975928933040405").unwrap()
+        );
     }
 }

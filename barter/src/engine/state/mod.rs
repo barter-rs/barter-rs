@@ -172,3 +172,27 @@ where
         risk,
     }
 }
+
+// pub fn generate_indexed_engine_state_with_initial_account_snapshots<Market, Strategy, Risk>(
+//     trading_state: TradingState,
+//     instruments: &IndexedInstruments,
+//     strategy: Strategy,
+//     risk: Risk,
+//     snapshots: Vec<UnindexedAccountSnapshot>
+// ) -> EngineState<Market, Strategy, Risk, ExchangeIndex, AssetIndex, InstrumentIndex>
+// where
+//     Market: Default,
+// {
+//     let state = generate_empty_indexed_engine_state(
+//         trading_state,
+//         instruments,
+//         strategy,
+//         risk
+//     );
+//
+//     let snapshots = snapshots
+//
+//     state.update_from_account()
+//
+//
+// }

@@ -4,18 +4,14 @@ use barter::{
         command::Command,
         run,
         state::{
-            asset::generate_empty_indexed_asset_states,
-            connectivity::generate_empty_indexed_connectivity_states,
-            instrument::{
-                generate_empty_indexed_instrument_states, manager::InstrumentFilter,
-                market_data::DefaultMarketData,
-            },
+            generate_empty_indexed_engine_state,
+            instrument::{manager::InstrumentFilter, market_data::DefaultMarketData},
             trading::TradingState,
-            EngineState,
         },
         Engine,
     },
     execution::builder::ExecutionBuilder,
+    logging::init_logging,
     risk::{DefaultRiskManager, DefaultRiskManagerState},
     statistic::{summary::TradingSummaryGenerator, time::Daily},
     strategy::{DefaultStrategy, DefaultStrategyState},
@@ -50,11 +46,15 @@ use barter_instrument::{
 use barter_integration::channel::{mpsc_unbounded, ChannelTxDroppable, Tx};
 use chrono::Utc;
 use futures::{stream, Stream, StreamExt};
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use tracing::{info, warn};
 
 const EXCHANGE: ExchangeId = ExchangeId::BinanceSpot;
-const RISK_FREE_RETURN: f64 = 0.05;
+const RISK_FREE_RETURN: Decimal = dec!(0.05);
+const MOCK_EXCHANGE_ROUND_TRIP_LATENCY_MS: u64 = 100;
+const MOCK_EXCHANGE_FEES_PERCENT: Decimal = dec!(0.05);
+const MOCK_EXCHANGE_STARTING_BALANCE_USD: Decimal = dec!(10_000.0);
 
 const FILE_PATH_HISTORIC_TRADES_AND_L1S: &str =
     "barter/examples/data/binance_spot_market_data.json";
@@ -76,24 +76,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(market_stream.forward_to(feed_tx.clone()));
 
     // Define initial mock AccountSnapshot
-    let initial_account = build_initial_account_snapshot(&instruments, 10_000.0);
+    let initial_account =
+        build_initial_account_snapshot(&instruments, MOCK_EXCHANGE_STARTING_BALANCE_USD);
 
     // Initialise ExecutionManager & forward Account Streams to Engine feed
     let (execution_txs, account_stream) = ExecutionBuilder::new(&instruments)
-        .add_mock(MockExecutionConfig::new(EXCHANGE, initial_account, 0.03))?
+        .add_mock(MockExecutionConfig::new(
+            EXCHANGE,
+            initial_account,
+            MOCK_EXCHANGE_ROUND_TRIP_LATENCY_MS,
+            MOCK_EXCHANGE_FEES_PERCENT,
+        ))?
         .init()
         .await?;
     tokio::spawn(account_stream.forward_to(feed_tx.clone()));
 
     // Construct empty EngineState from IndexedInstruments
-    let state = EngineState {
-        trading: TradingState::Enabled,
-        connectivity: generate_empty_indexed_connectivity_states(&instruments),
-        assets: generate_empty_indexed_asset_states(&instruments),
-        instruments: generate_empty_indexed_instrument_states::<DefaultMarketData>(&instruments),
-        strategy: DefaultStrategyState,
-        risk: DefaultRiskManagerState,
-    };
+    let state = generate_empty_indexed_engine_state::<DefaultMarketData, _, _>(
+        // Note: you may want to start to engine with TradingState::Disabled and turn on later
+        TradingState::Enabled,
+        &instruments,
+        DefaultStrategyState,
+        DefaultRiskManagerState,
+    );
 
     // Construct Engine
     let mut engine = Engine::new(
@@ -104,6 +109,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         DefaultRiskManager::default(),
     );
 
+    // Todo: need to update State with initial AccountSnapshot first?
+    //    + add util for constructing EngineState / AssetStates from AccountSnapshot
+    //    + change in historic example
     // Construct AuditManager w/ initial EngineState
     let mut audit_manager = AuditManager::new(
         engine.audit(state),
@@ -151,26 +159,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Generate TradingSummary
     let trading_summary = audit_manager.summary.generate(Daily);
 
-    // Print TradingSummary<Daily> to terminal (could save in a file, send somewhere, etc)
+    // Print TradingSummary<Daily> to terminal (could save in a file, send somewhere, etc.)
     trading_summary.print_summary();
 
     Ok(())
-}
-
-fn init_logging() {
-    tracing_subscriber::fmt()
-        // Filter messages based on the INFO
-        .with_env_filter(
-            tracing_subscriber::filter::EnvFilter::builder()
-                .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
-                .from_env_lossy(),
-        )
-        // Disable colours on release builds
-        .with_ansi(cfg!(debug_assertions))
-        // Enable Json formatting
-        .json()
-        // Install this Tracing subscriber as global default
-        .init()
 }
 
 fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
@@ -250,7 +242,7 @@ fn init_historic_market_data_stream(
 
 fn build_initial_account_snapshot(
     instruments: &IndexedInstruments,
-    balance_usd: f64,
+    balance_usd: Decimal,
 ) -> UnindexedAccountSnapshot {
     let balances = instruments
         .assets()

@@ -54,6 +54,7 @@ mod tests {
     use super::*;
     use crate::test_utils::time_plus_days;
     use chrono::{DateTime, Utc};
+    use rust_decimal_macros::dec;
 
     #[test]
     fn test_max_drawdown_generator_update() {
@@ -71,19 +72,19 @@ mod tests {
             // TC0: first ever drawdown
             TestCase {
                 input: Drawdown {
-                    value: -25.0 / 110.0,
+                    value: dec!(-0.227272727272727273), // -25/110
                     time_start: base_time,
                     time_end: time_plus_days(base_time, 2),
                 },
                 expected_state: MaxDrawdownGenerator {
                     max: Some(MaxDrawdown::new(Drawdown {
-                        value: -25.0 / 110.0,
+                        value: dec!(-0.227272727272727273),
                         time_start: base_time,
                         time_end: time_plus_days(base_time, 2),
                     })),
                 },
                 expected_output: Some(MaxDrawdown::new(Drawdown {
-                    value: -25.0 / 110.0,
+                    value: dec!(-0.227272727272727273),
                     time_start: base_time,
                     time_end: time_plus_days(base_time, 2),
                 })),
@@ -91,19 +92,19 @@ mod tests {
             // TC1: larger drawdown
             TestCase {
                 input: Drawdown {
-                    value: -110.0 / 200.0,
+                    value: dec!(-0.55), // -110/200
                     time_start: base_time,
                     time_end: time_plus_days(base_time, 3),
                 },
                 expected_state: MaxDrawdownGenerator {
                     max: Some(MaxDrawdown::new(Drawdown {
-                        value: -110.0 / 200.0,
+                        value: dec!(-0.55),
                         time_start: base_time,
                         time_end: time_plus_days(base_time, 3),
                     })),
                 },
                 expected_output: Some(MaxDrawdown::new(Drawdown {
-                    value: -110.0 / 200.0,
+                    value: dec!(-0.55),
                     time_start: base_time,
                     time_end: time_plus_days(base_time, 3),
                 })),
@@ -111,19 +112,19 @@ mod tests {
             // TC2: smaller drawdown
             TestCase {
                 input: Drawdown {
-                    value: -10.0 / 300.0,
+                    value: dec!(-0.033333333333333333), // -10/300
                     time_start: base_time,
                     time_end: time_plus_days(base_time, 3),
                 },
                 expected_state: MaxDrawdownGenerator {
                     max: Some(MaxDrawdown::new(Drawdown {
-                        value: -110.0 / 200.0,
+                        value: dec!(-0.55),
                         time_start: base_time,
                         time_end: time_plus_days(base_time, 3),
                     })),
                 },
                 expected_output: Some(MaxDrawdown::new(Drawdown {
-                    value: -110.0 / 200.0,
+                    value: dec!(-0.55),
                     time_start: base_time,
                     time_end: time_plus_days(base_time, 3),
                 })),
@@ -131,19 +132,19 @@ mod tests {
             // TC3: largest drawdown
             TestCase {
                 input: Drawdown {
-                    value: -9999.9 / 10000.0,
+                    value: dec!(-0.99999), // -9999.9/10000.0
                     time_start: base_time,
                     time_end: time_plus_days(base_time, 3),
                 },
                 expected_state: MaxDrawdownGenerator {
                     max: Some(MaxDrawdown::new(Drawdown {
-                        value: -9999.9 / 10000.0,
+                        value: dec!(-0.99999),
                         time_start: base_time,
                         time_end: time_plus_days(base_time, 3),
                     })),
                 },
                 expected_output: Some(MaxDrawdown::new(Drawdown {
-                    value: -9999.9 / 10000.0,
+                    value: dec!(-0.99999),
                     time_start: base_time,
                     time_end: time_plus_days(base_time, 3),
                 })),

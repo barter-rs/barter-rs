@@ -2,6 +2,7 @@ use crate::{
     engine::state::position::{calculate_pnl_return, PositionExited},
     statistic::summary::dataset::DataSetSummary,
 };
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 /// Records Profit and Loss (PnL) data.
@@ -28,7 +29,7 @@ pub struct PnLReturns {
     ///
     /// For Portfolio and Strategy PnL, this could be denominated in any asset chosen to aggregate
     /// PnL across different instruments.
-    pub pnl_raw: f64,
+    pub pnl_raw: Decimal,
 
     /// PnL returns statistical summary for wins and losses.
     pub total: DataSetSummary,

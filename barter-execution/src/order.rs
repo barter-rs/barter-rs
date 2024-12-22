@@ -130,6 +130,7 @@ pub enum ExchangeOrderState {
     Open(Open),
     FullyFilled,
     Cancelled(Cancelled),
+    Rejected(Option<String>),
     Expired,
 }
 
@@ -202,13 +203,13 @@ pub struct OpenInFlight;
 pub struct Open {
     pub id: OrderId,
     pub time_exchange: DateTime<Utc>,
-    pub price: f64,
-    pub quantity: f64,
-    pub filled_quantity: f64,
+    pub price: Decimal,
+    pub quantity: Decimal,
+    pub filled_quantity: Decimal,
 }
 
 impl Open {
-    pub fn quantity_remaining(&self) -> f64 {
+    pub fn quantity_remaining(&self) -> Decimal {
         self.quantity - self.filled_quantity
     }
 }
@@ -302,6 +303,54 @@ impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
             cid,
             side,
             state: InternalOrderState::Open(state),
+        }
+    }
+}
+
+impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
+    for Order<ExchangeKey, InstrumentKey, ExchangeOrderState>
+{
+    fn from(value: Order<ExchangeKey, InstrumentKey, Open>) -> Self {
+        let Order {
+            exchange,
+            instrument,
+            strategy,
+            cid,
+            side,
+            state,
+        } = value;
+
+        Self {
+            exchange,
+            instrument,
+            strategy,
+            cid,
+            side,
+            state: ExchangeOrderState::Open(state),
+        }
+    }
+}
+
+impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Cancelled>>
+    for Order<ExchangeKey, InstrumentKey, ExchangeOrderState>
+{
+    fn from(value: Order<ExchangeKey, InstrumentKey, Cancelled>) -> Self {
+        let Order {
+            exchange,
+            instrument,
+            strategy,
+            cid,
+            side,
+            state,
+        } = value;
+
+        Self {
+            exchange,
+            instrument,
+            strategy,
+            cid,
+            side,
+            state: ExchangeOrderState::Cancelled(state),
         }
     }
 }

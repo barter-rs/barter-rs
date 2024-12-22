@@ -11,22 +11,31 @@ use barter_data::streams::{
 };
 use barter_execution::{
     client::{
-        mock::{MockExecution, MockExecutionConfig},
+        mock::{MockExecution, MockExecutionClientConfig, MockExecutionConfig},
         ExecutionClient,
     },
+    exchange::mock::{request::MockExchangeRequest, MockExchange},
     indexer::AccountEventIndexer,
     map::generate_execution_instrument_map,
+    UnindexedAccountEvent,
 };
 use barter_instrument::{
-    asset::AssetIndex,
+    asset::{name::AssetNameExchange, AssetIndex},
     exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
-    instrument::InstrumentIndex,
+    instrument::{
+        kind::InstrumentKind,
+        name::InstrumentNameExchange,
+        spec::{InstrumentSpec, InstrumentSpecQuantity, OrderQuantityUnits},
+        Instrument, InstrumentIndex,
+    },
+    Keyed, Underlying,
 };
 use barter_integration::channel::{mpsc_unbounded, Channel, UnboundedTx};
 use fnv::FnvHashMap;
 use futures::Stream;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+use tokio::sync::{broadcast, mpsc};
 
 pub type ExecutionInitFutures = Vec<Pin<Box<dyn Future<Output = Result<(), ExecutionError>>>>>;
 
@@ -55,13 +64,41 @@ impl<'a> ExecutionBuilder<'a> {
     }
 
     pub fn add_mock(self, config: MockExecutionConfig) -> Result<Self, BarterError> {
+        const ACCOUNT_STREAM_CAPACITY: usize = 256;
         const DUMMY_EXECUTION_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
 
+        let mocked_exchange = config.mocked_exchange;
+
+        let (request_tx, request_rx) = mpsc::unbounded_channel();
+
+        let (event_tx, event_rx) = broadcast::channel(ACCOUNT_STREAM_CAPACITY);
+
+        // Run MockExchange
+        self.init_mock_exchange(config, request_rx, event_tx);
+
         self.add_execution::<MockExecution>(
-            config.mocked_exchange,
-            config,
+            mocked_exchange,
+            MockExecutionClientConfig {
+                mocked_exchange,
+                request_tx,
+                event_rx,
+            },
             DUMMY_EXECUTION_REQUEST_TIMEOUT,
         )
+    }
+
+    fn init_mock_exchange(
+        &self,
+        config: MockExecutionConfig,
+        request_rx: mpsc::UnboundedReceiver<MockExchangeRequest>,
+        event_tx: broadcast::Sender<UnindexedAccountEvent>,
+    ) {
+        let instruments =
+            generate_mock_exchange_instruments(self.instruments, config.mocked_exchange);
+
+        let exchange = MockExchange::new(config, request_rx, event_tx, instruments);
+
+        tokio::spawn(exchange.run());
     }
 
     pub fn add_live<Client>(
@@ -96,7 +133,7 @@ impl<'a> ExecutionBuilder<'a> {
             .is_some()
         {
             return Err(BarterError::ExecutionBuilder(format!(
-                "ExecutionBuilder does not support multiple mocked ExecutionManagers. Duplicate: {exchange}"
+                "ExecutionBuilder does not support duplicate mocked ExecutionManagers: {exchange}"
             )));
         }
 
@@ -162,4 +199,97 @@ impl<'a> ExecutionBuilder<'a> {
 
         Ok((execution_tx_map, account_stream))
     }
+}
+
+fn generate_mock_exchange_instruments(
+    instruments: &IndexedInstruments,
+    exchange: ExchangeId,
+) -> FnvHashMap<InstrumentNameExchange, Instrument<ExchangeId, AssetNameExchange>> {
+    instruments
+        .instruments()
+        .iter()
+        .filter_map(
+            |Keyed {
+                 key: _,
+                 value: instrument,
+             }| {
+                if instrument.exchange.value != exchange {
+                    return None;
+                }
+
+                let Instrument {
+                    exchange,
+                    name_internal,
+                    name_exchange,
+                    underlying: Underlying { base, quote },
+                    kind,
+                    spec:
+                        InstrumentSpec {
+                            price,
+                            quantity:
+                                InstrumentSpecQuantity {
+                                    unit,
+                                    min,
+                                    increment,
+                                },
+                            notional,
+                        },
+                } = instrument;
+
+                let kind = match kind {
+                    InstrumentKind::Spot => InstrumentKind::Spot,
+                    unsupported => {
+                        panic!("MockExchange does not support: {unsupported:?}")
+                    }
+                };
+
+                let quantity_unit = match unit {
+                    OrderQuantityUnits::Asset(asset) => {
+                        let quantity_asset = instruments
+                            .find_asset(*asset)
+                            .unwrap()
+                            .asset
+                            .name_exchange
+                            .clone();
+                        OrderQuantityUnits::Asset(quantity_asset)
+                    }
+                    OrderQuantityUnits::Contract => OrderQuantityUnits::Contract,
+                    OrderQuantityUnits::Quote => OrderQuantityUnits::Quote,
+                };
+
+                let base = instruments
+                    .find_asset(*base)
+                    .unwrap()
+                    .asset
+                    .name_exchange
+                    .clone();
+
+                let quote = instruments
+                    .find_asset(*quote)
+                    .unwrap()
+                    .asset
+                    .name_exchange
+                    .clone();
+
+                let instrument = Instrument {
+                    exchange: exchange.value,
+                    name_internal: name_internal.clone(),
+                    name_exchange: name_exchange.clone(),
+                    underlying: Underlying { base, quote },
+                    kind,
+                    spec: InstrumentSpec {
+                        price: *price,
+                        quantity: InstrumentSpecQuantity {
+                            unit: quantity_unit,
+                            min: *min,
+                            increment: *increment,
+                        },
+                        notional: *notional,
+                    },
+                };
+
+                Some((instrument.name_exchange.clone(), instrument))
+            },
+        )
+        .collect()
 }

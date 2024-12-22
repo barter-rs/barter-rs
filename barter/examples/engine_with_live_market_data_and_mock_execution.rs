@@ -4,19 +4,14 @@ use barter::{
         command::Command,
         run,
         state::{
-            asset::generate_empty_indexed_asset_states,
-            connectivity::generate_empty_indexed_connectivity_states,
             generate_empty_indexed_engine_state,
-            instrument::{
-                generate_empty_indexed_instrument_states, manager::InstrumentFilter,
-                market_data::DefaultMarketData,
-            },
+            instrument::{manager::InstrumentFilter, market_data::DefaultMarketData},
             trading::TradingState,
-            EngineState,
         },
         Engine,
     },
     execution::builder::ExecutionBuilder,
+    logging::init_logging,
     risk::{DefaultRiskManager, DefaultRiskManagerState},
     statistic::{summary::TradingSummaryGenerator, time::Daily},
     strategy::{DefaultStrategy, DefaultStrategyState},
@@ -32,7 +27,6 @@ use barter_data::{
 use barter_execution::{
     balance::{AssetBalance, Balance},
     client::mock::MockExecutionConfig,
-    indexer::AccountEventIndexer,
     InstrumentAccountSnapshot, UnindexedAccountSnapshot,
 };
 use barter_instrument::{
@@ -51,11 +45,15 @@ use barter_instrument::{
 };
 use barter_integration::channel::{mpsc_unbounded, ChannelTxDroppable, Tx};
 use chrono::Utc;
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use tracing::info;
 
 const EXCHANGE: ExchangeId = ExchangeId::BinanceSpot;
-const RISK_FREE_RETURN: f64 = 0.05;
+const RISK_FREE_RETURN: Decimal = dec!(0.05);
+const MOCK_EXCHANGE_ROUND_TRIP_LATENCY_MS: u64 = 100;
+const MOCK_EXCHANGE_FEES_PERCENT: Decimal = dec!(0.05);
+const MOCK_EXCHANGE_STARTING_BALANCE_USD: Decimal = dec!(10_000.0);
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -78,11 +76,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(market_stream.forward_to(feed_tx.clone()));
 
     // Define initial mock AccountSnapshot
-    let initial_account = build_initial_account_snapshot(&instruments, 10_000.0);
+    let initial_account =
+        build_initial_account_snapshot(&instruments, MOCK_EXCHANGE_STARTING_BALANCE_USD);
 
     // Initialise ExecutionManager & forward Account Streams to Engine feed
     let (execution_txs, account_stream) = ExecutionBuilder::new(&instruments)
-        .add_mock(MockExecutionConfig::new(EXCHANGE, initial_account, 0.03))?
+        .add_mock(MockExecutionConfig::new(
+            EXCHANGE,
+            initial_account,
+            MOCK_EXCHANGE_ROUND_TRIP_LATENCY_MS,
+            MOCK_EXCHANGE_FEES_PERCENT,
+        ))?
         .init()
         .await?;
     tokio::spawn(account_stream.forward_to(feed_tx.clone()));
@@ -161,22 +165,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn init_logging() {
-    tracing_subscriber::fmt()
-        // Filter messages based on the INFO
-        .with_env_filter(
-            tracing_subscriber::filter::EnvFilter::builder()
-                .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
-                .from_env_lossy(),
-        )
-        // Disable colours on release builds
-        .with_ansi(cfg!(debug_assertions))
-        // Enable Json formatting
-        .json()
-        // Install this Tracing subscriber as global default
-        .init()
-}
-
 fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
     vec![
         Instrument::new(
@@ -224,7 +212,7 @@ fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
 
 fn build_initial_account_snapshot(
     instruments: &IndexedInstruments,
-    balance_usd: f64,
+    balance_usd: Decimal,
 ) -> UnindexedAccountSnapshot {
     let balances = instruments
         .assets()

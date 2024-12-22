@@ -1,6 +1,7 @@
 use crate::statistic::time::TimeInterval;
-use rust_decimal::prelude::Zero;
+use rust_decimal::{Decimal, MathematicalOps};
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 
 /// Represents a Calmar Ratio value over a specific [`TimeInterval`].
 ///
@@ -11,7 +12,7 @@ use serde::{Deserialize, Serialize};
 /// See docs: <https://corporatefinanceinstitute.com/resources/career-map/sell-side/capital-markets/calmar-ratio/>
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Deserialize, Serialize)]
 pub struct CalmarRatio<Interval> {
-    pub value: f64,
+    pub value: Decimal,
     pub interval: Interval,
 }
 
@@ -21,28 +22,28 @@ where
 {
     /// Calculate the [`CalmarRatio`] over the provided [`TimeInterval`].
     pub fn calculate(
-        risk_free_return: f64,
-        mean_return: f64,
-        max_drawdown: f64,
+        risk_free_return: Decimal,
+        mean_return: Decimal,
+        max_drawdown: Decimal,
         returns_period: Interval,
     ) -> Self {
         if max_drawdown.is_zero() {
             Self {
-                value: if mean_return > risk_free_return {
+                value: match mean_return.cmp(&risk_free_return) {
                     // Special case: +ve excess returns with no drawdown risk (very good)
-                    f64::INFINITY
-                } else if mean_return < risk_free_return {
+                    Ordering::Greater => Decimal::MAX,
                     // Special case: -ve excess returns with no drawdown risk (very bad)
-                    f64::NEG_INFINITY
-                } else {
+                    Ordering::Less => Decimal::MIN,
                     // Special case: no excess returns with no drawdown risk (neutral)
-                    0.0
+                    Ordering::Equal => Decimal::ZERO,
                 },
                 interval: returns_period,
             }
         } else {
+            let excess_returns = mean_return - risk_free_return;
+            let ratio = excess_returns.checked_div(max_drawdown.abs()).unwrap();
             Self {
-                value: (mean_return - risk_free_return) / max_drawdown.abs(),
+                value: ratio,
                 interval: returns_period,
             }
         }
@@ -58,12 +59,18 @@ where
         TargetInterval: TimeInterval,
     {
         // Determine scale factor: square root of number of Self Intervals in TargetIntervals
-        let scale = (target.interval().num_seconds() as f64
-            / self.interval.interval().num_seconds() as f64)
-            .sqrt();
+        let target_secs = Decimal::from(target.interval().num_seconds());
+        let current_secs = Decimal::from(self.interval.interval().num_seconds());
+
+        let scale = target_secs
+            .abs()
+            .checked_div(current_secs.abs())
+            .unwrap_or(Decimal::MAX)
+            .sqrt()
+            .expect("ensured seconds are Positive");
 
         CalmarRatio {
-            value: self.value * scale,
+            value: self.value.checked_mul(scale).unwrap_or(Decimal::MAX),
             interval: target,
         }
     }
@@ -73,96 +80,97 @@ where
 mod tests {
     use super::*;
     use crate::statistic::time::{Annual252, Daily};
-    use approx::assert_relative_eq;
     use chrono::TimeDelta;
+    use rust_decimal_macros::dec;
+    use std::str::FromStr;
 
     #[test]
     fn test_calmar_ratio_normal_case() {
-        let risk_free_return = 0.0015; // 0.15%
-        let mean_return = 0.0025; // 0.25%
-        let max_drawdown = 0.02; // 2%
+        let risk_free_return = dec!(0.0015); // 0.15%
+        let mean_return = dec!(0.0025); // 0.25%
+        let max_drawdown = dec!(0.02); // 2%
         let time_period = Daily;
 
         let actual =
             CalmarRatio::calculate(risk_free_return, mean_return, max_drawdown, time_period);
 
         let expected = CalmarRatio {
-            value: 0.05, // (0.0025 - 0.0015) / 0.02
+            value: dec!(0.05), // (0.0025 - 0.0015) / 0.02
             interval: time_period,
         };
 
         assert_eq!(actual.value, expected.value);
-        assert_eq!(actual.interval, time_period);
+        assert_eq!(actual.interval, expected.interval);
     }
 
     #[test]
     fn test_calmar_ratio_zero_drawdown_positive_excess() {
-        let risk_free_return = 0.001; // 0.1%
-        let mean_return = 0.002; // 0.2%
-        let max_drawdown = 0.0; // 0%
+        let risk_free_return = dec!(0.001); // 0.1%
+        let mean_return = dec!(0.002); // 0.2%
+        let max_drawdown = dec!(0.0); // 0%
         let time_period = Daily;
 
         let actual =
             CalmarRatio::calculate(risk_free_return, mean_return, max_drawdown, time_period);
 
-        assert!(actual.value.is_infinite() && actual.value.is_sign_positive());
+        assert_eq!(actual.value, Decimal::MAX);
         assert_eq!(actual.interval, time_period);
     }
 
     #[test]
     fn test_calmar_ratio_zero_drawdown_negative_excess_returns() {
-        let risk_free_return = 0.002; // 0.2%
-        let mean_return = 0.001; // 0.1%
-        let max_drawdown = 0.0; // 0%
+        let risk_free_return = dec!(0.002); // 0.2%
+        let mean_return = dec!(0.001); // 0.1%
+        let max_drawdown = dec!(0.0); // 0%
         let time_period = Daily;
 
         let actual =
             CalmarRatio::calculate(risk_free_return, mean_return, max_drawdown, time_period);
 
-        assert!(actual.value.is_infinite() && actual.value.is_sign_negative());
+        assert_eq!(actual.value, Decimal::MIN);
         assert_eq!(actual.interval, time_period);
     }
 
     #[test]
     fn test_calmar_ratio_zero_drawdown_negative_excess_via_negative_returns() {
-        let risk_free_return = 0.002; // 0.2%
-        let mean_return = -0.001; // 0.1%
-        let max_drawdown = 0.0; // 0%
+        let risk_free_return = dec!(0.002); // 0.2%
+        let mean_return = dec!(-0.001); // -0.1%
+        let max_drawdown = dec!(0.0); // 0%
         let time_period = Daily;
 
         let actual =
             CalmarRatio::calculate(risk_free_return, mean_return, max_drawdown, time_period);
 
-        assert!(actual.value.is_infinite() && actual.value.is_sign_negative());
+        assert_eq!(actual.value, Decimal::MIN);
         assert_eq!(actual.interval, time_period);
     }
 
     #[test]
     fn test_calmar_ratio_zero_drawdown_no_excess_returns() {
-        let risk_free_return = 0.001; // 0.1%
-        let mean_return = 0.001; // 0.1%
-        let max_drawdown = 0.0; // 0%
+        let risk_free_return = dec!(0.001); // 0.1%
+        let mean_return = dec!(0.001); // 0.1%
+        let max_drawdown = dec!(0.0); // 0%
         let time_period = Daily;
 
         let actual =
             CalmarRatio::calculate(risk_free_return, mean_return, max_drawdown, time_period);
 
-        assert_eq!(actual.value, 0.0);
+        assert_eq!(actual.value, dec!(0.0));
         assert_eq!(actual.interval, time_period);
     }
 
     #[test]
     fn test_calmar_ratio_negative_returns() {
-        let risk_free_return = 0.001; // 0.1%
-        let mean_return = -0.002; // -0.2%
-        let max_drawdown = 0.015; // 1.5%
+        let risk_free_return = dec!(0.001); // 0.1%
+        let mean_return = dec!(-0.002); // -0.2%
+        let max_drawdown = dec!(0.015); // 1.5%
         let time_period = Daily;
 
         let actual =
             CalmarRatio::calculate(risk_free_return, mean_return, max_drawdown, time_period);
 
         let expected = CalmarRatio {
-            value: (-0.002 - 0.001) / 0.015, // Should be negative
+            value: Decimal::from_str("-0.2").unwrap(), // (-0.002 - 0.001) / 0.015
             interval: time_period,
         };
 
@@ -172,16 +180,16 @@ mod tests {
 
     #[test]
     fn test_calmar_ratio_custom_interval() {
-        let risk_free_return = 0.0015; // 0.15%
-        let mean_return = 0.0025; // 0.25%
-        let max_drawdown = 0.02; // 2%
+        let risk_free_return = dec!(0.0015); // 0.15%
+        let mean_return = dec!(0.0025); // 0.25%
+        let max_drawdown = dec!(0.02); // 2%
         let time_period = TimeDelta::hours(4);
 
         let actual =
             CalmarRatio::calculate(risk_free_return, mean_return, max_drawdown, time_period);
 
         let expected = CalmarRatio {
-            value: 0.05,
+            value: dec!(0.05),
             interval: time_period,
         };
 
@@ -192,32 +200,35 @@ mod tests {
     #[test]
     fn test_calmar_ratio_scale_daily_to_annual() {
         let daily = CalmarRatio {
-            value: 0.05,
+            value: dec!(0.05),
             interval: Daily,
         };
 
         let actual = daily.scale(Annual252);
 
+        // 0.05 * sqrt(252) ≈ 0.7937
         let expected = CalmarRatio {
-            value: 0.05 * (252.0_f64).sqrt(), // approximately 0.7937
+            value: Decimal::from_str("0.7937").unwrap(),
             interval: Annual252,
         };
 
-        assert_relative_eq!(actual.value, expected.value, epsilon = 1e-4);
+        let diff = (actual.value - expected.value).abs();
+        assert!(diff <= Decimal::from_str("0.0001").unwrap());
         assert_eq!(actual.interval, expected.interval);
     }
 
     #[test]
     fn test_calmar_ratio_scale_custom_intervals() {
         let two_hour = CalmarRatio {
-            value: 0.05,
+            value: dec!(0.05),
             interval: TimeDelta::hours(2),
         };
 
         let actual = two_hour.scale(TimeDelta::hours(8));
 
+        // 0.05 * sqrt(4) = 0.05 * 2 = 0.1
         let expected = CalmarRatio {
-            value: 0.05 * (4.0_f64).sqrt(), // 4 = 8 hours / 2 hours
+            value: dec!(0.1),
             interval: TimeDelta::hours(8),
         };
 
@@ -228,20 +239,32 @@ mod tests {
     #[test]
     fn test_calmar_ratio_extreme_values() {
         // Test with very small values
-        let small = CalmarRatio::calculate(1e-10, 2e-10, 1e-10, Daily);
-        assert_relative_eq!(small.value, 1.0, epsilon = 1e-4);
+        let small = CalmarRatio::calculate(
+            Decimal::from_scientific("1e-10").unwrap(),
+            Decimal::from_scientific("2e-10").unwrap(),
+            Decimal::from_scientific("1e-10").unwrap(),
+            Daily,
+        );
+
+        assert_eq!(small.value, dec!(1.0));
 
         // Test with very large values
-        let large = CalmarRatio::calculate(1e10, 2e10, 1e10, Daily);
-        assert_relative_eq!(large.value, 1.0, epsilon = 1e-4);
+        let large = CalmarRatio::calculate(
+            Decimal::from_scientific("1e10").unwrap(),
+            Decimal::from_scientific("2e10").unwrap(),
+            Decimal::from_scientific("1e10").unwrap(),
+            Daily,
+        );
+
+        assert_eq!(large.value, dec!(1.0));
     }
 
     #[test]
     fn test_calmar_ratio_absolute_drawdown() {
         // Test that negative drawdown values are handled correctly (absolute value is used)
-        let risk_free_return = 0.001;
-        let mean_return = 0.002;
-        let negative_drawdown = -0.015; // Should be treated same as positive 0.015
+        let risk_free_return = dec!(0.001);
+        let mean_return = dec!(0.002);
+        let negative_drawdown = dec!(-0.015); // Should be treated same as positive 0.015
         let time_period = Daily;
 
         let actual = CalmarRatio::calculate(
@@ -252,7 +275,7 @@ mod tests {
         );
 
         let expected = CalmarRatio {
-            value: (0.002 - 0.001) / 0.015,
+            value: Decimal::from_str("0.0666666666666666666666666667").unwrap(), // (0.002 - 0.001) / 0.015
             interval: time_period,
         };
 

@@ -45,6 +45,7 @@ use serde::{Deserialize, Serialize};
 pub mod balance;
 pub mod client;
 pub mod error;
+pub mod exchange;
 pub mod indexer;
 pub mod map;
 pub mod order;

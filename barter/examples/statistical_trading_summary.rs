@@ -20,15 +20,17 @@ use barter_instrument::{
 };
 use barter_integration::snapshot::Snapshot;
 use chrono::{DateTime, Days, Utc};
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use smol_str::SmolStr;
 
 // Risk-free rate of 5% (configure as needed)
-const RISK_FREE_RETURN: f64 = 0.05;
+const RISK_FREE_RETURN: Decimal = dec!(0.05);
 
 // Initial usdt balance (full trading system would receive these from execution account stream)
-const INITIAL_BTC_BALANCE: f64 = 0.1;
-const INITIAL_ETH_BALANCE: f64 = 1.0;
-const INITIAL_USDT_BALANCE: f64 = 10_000.0;
+const INITIAL_BTC_BALANCE: Decimal = dec!(0.1);
+const INITIAL_ETH_BALANCE: Decimal = dec!(1.0);
+const INITIAL_USDT_BALANCE: Decimal = dec!(10_000.0);
 
 pub enum ContrivedEvents {
     Balance(Snapshot<AssetBalance<AssetIndex>>),
@@ -129,29 +131,29 @@ fn generate_synthetic_updates(base_time: DateTime<Utc>) -> Vec<ContrivedEvents> 
         // Update 1: minus 1000 usdt (ie/ executed a Side::Buy MARKET order with no fees)
         ContrivedEvents::Balance(Snapshot::new(AssetBalance {
             asset: AssetIndex(2), // usdt
-            balance: Balance::new(9000.0, 9000.0),
+            balance: Balance::new(dec!(9000.0), dec!(9000.0)),
             time_exchange: base_time.checked_add_days(Days::new(1)).unwrap(),
         })),
         // Update 2: plus 3000 usdt (ie/ executed a Side::Sell MARKET order with no fees)
         ContrivedEvents::Balance(Snapshot::new(AssetBalance {
             asset: AssetIndex(2), // usdt
-            balance: Balance::new(12_000.0, 12_000.0),
+            balance: Balance::new(dec!(12_000.0), dec!(12_000.0)),
             time_exchange: base_time.checked_add_days(Days::new(2)).unwrap(),
         })),
         // Update 3: PositionExited
         ContrivedEvents::Position(PositionExited {
             instrument: InstrumentIndex(0), // BinanceSpot btc_usdt
             side: Side::Buy,
-            price_entry_average: 1.0,
-            quantity_abs_max: 1000.0,
-            pnl_realised: 2000.0, // 2000 usdt profit
+            price_entry_average: dec!(1.0),
+            quantity_abs_max: dec!(1000.0),
+            pnl_realised: dec!(2000.0), // 2000 usdt profit
             fees_enter: AssetFees {
                 asset: QuoteAsset,
-                fees: 0.0,
+                fees: dec!(0.0),
             },
             fees_exit: AssetFees {
                 asset: QuoteAsset,
-                fees: 0.0,
+                fees: dec!(0.0),
             },
             time_enter: base_time.checked_add_days(Days::new(1)).unwrap(),
             time_exit: base_time.checked_add_days(Days::new(2)).unwrap(),
@@ -160,22 +162,22 @@ fn generate_synthetic_updates(base_time: DateTime<Utc>) -> Vec<ContrivedEvents> 
         // Update 4: minus 2000 usdt (ie/ executed a Side::Buy MARKET order with no fees)
         ContrivedEvents::Balance(Snapshot::new(AssetBalance {
             asset: AssetIndex(2), // usdt
-            balance: Balance::new(10_000.0, 10_000.0),
+            balance: Balance::new(dec!(10_000.0), dec!(10_000.0)),
             time_exchange: base_time.checked_add_days(Days::new(2)).unwrap(),
         })),
         // Update 5: plus 3000 usdt (ie/ executed a Side::Sell MARKET order with no fees)
         ContrivedEvents::Balance(Snapshot::new(AssetBalance {
             asset: AssetIndex(2), // usdt
-            balance: Balance::new(13_000.0, 13_000.0),
+            balance: Balance::new(dec!(13_000.0), dec!(13_000.0)),
             time_exchange: base_time.checked_add_days(Days::new(3)).unwrap(),
         })),
         // Update 6: PositionExited
         ContrivedEvents::Position(PositionExited {
             instrument: InstrumentIndex(0), // BinanceSpot btc_usdt
             side: Side::Buy,
-            price_entry_average: 1.0,
-            quantity_abs_max: 2000.0,
-            pnl_realised: 1000.0, // 1000 usdt profit
+            price_entry_average: dec!(1.0),
+            quantity_abs_max: dec!(2000.0),
+            pnl_realised: dec!(1000.0), // 1000 usdt profit
             fees_enter: AssetFees::default(),
             fees_exit: AssetFees::default(),
             time_enter: base_time.checked_add_days(Days::new(2)).unwrap(),
@@ -185,22 +187,22 @@ fn generate_synthetic_updates(base_time: DateTime<Utc>) -> Vec<ContrivedEvents> 
         // Update 7: minus 5000 usdt (ie/ executed a Side::Buy MARKET order with no fees)
         ContrivedEvents::Balance(Snapshot::new(AssetBalance {
             asset: AssetIndex(2), // usdt
-            balance: Balance::new(8000.0, 8000.0),
+            balance: Balance::new(dec!(8000.0), dec!(8000.0)),
             time_exchange: base_time.checked_add_days(Days::new(4)).unwrap(),
         })),
         // Update 8: plus 3000 usdt (ie/ executed a Side::Sell MARKET order with no fees)
         ContrivedEvents::Balance(Snapshot::new(AssetBalance {
             asset: AssetIndex(2), // usdt
-            balance: Balance::new(11_000.0, 11_000.0),
+            balance: Balance::new(dec!(11_000.0), dec!(11_000.0)),
             time_exchange: base_time.checked_add_days(Days::new(5)).unwrap(),
         })),
         // Update 9: PositionExited
         ContrivedEvents::Position(PositionExited {
             instrument: InstrumentIndex(0), // BinanceSpot btc_usdt
             side: Side::Buy,
-            price_entry_average: 1.0,
-            quantity_abs_max: 2000.0,
-            pnl_realised: -2000.0, // 2000 usdt loss
+            price_entry_average: dec!(1.0),
+            quantity_abs_max: dec!(2000.0),
+            pnl_realised: dec!(-2000.0), // 2000 usdt loss
             fees_enter: AssetFees::default(),
             fees_exit: AssetFees::default(),
             time_enter: base_time.checked_add_days(Days::new(4)).unwrap(),
@@ -210,28 +212,28 @@ fn generate_synthetic_updates(base_time: DateTime<Utc>) -> Vec<ContrivedEvents> 
         // Update 10: minus 5000 usdt (ie/ executed a Side::Buy MARKET order with no fees)
         ContrivedEvents::Balance(Snapshot::new(AssetBalance {
             asset: AssetIndex(2), // usdt
-            balance: Balance::new(6000.0, 6000.0),
+            balance: Balance::new(dec!(6000.0), dec!(6000.0)),
             time_exchange: base_time.checked_add_days(Days::new(6)).unwrap(),
         })),
         // Update 11: minus 1000 usdt (ie/ executed a Side::Buy MARKET order with no fees)
         ContrivedEvents::Balance(Snapshot::new(AssetBalance {
             asset: AssetIndex(2), // usdt
-            balance: Balance::new(5000.0, 5000.0),
+            balance: Balance::new(dec!(5000.0), dec!(5000.0)),
             time_exchange: base_time.checked_add_days(Days::new(7)).unwrap(),
         })),
         // Update 12: plus 5000 usdt (ie/ executed a Side::Sell MARKET order with no fees)
         ContrivedEvents::Balance(Snapshot::new(AssetBalance {
             asset: AssetIndex(2), // usdt
-            balance: Balance::new(10_000.0, 10_000.0),
+            balance: Balance::new(dec!(10_000.0), dec!(10_000.0)),
             time_exchange: base_time.checked_add_days(Days::new(8)).unwrap(),
         })),
         // Update 13: PositionExited
         ContrivedEvents::Position(PositionExited {
             instrument: InstrumentIndex(1), // BinanceSpot eth_usdt
             side: Side::Buy,
-            price_entry_average: 1.0,
-            quantity_abs_max: 6000.0,
-            pnl_realised: -1000.0, // 1000 usdt loss
+            price_entry_average: dec!(1.0),
+            quantity_abs_max: dec!(6000.0),
+            pnl_realised: dec!(-1000.0), // 1000 usdt loss
             fees_enter: AssetFees::default(),
             fees_exit: AssetFees::default(),
             time_enter: base_time.checked_add_days(Days::new(6)).unwrap(),
@@ -245,22 +247,22 @@ fn generate_synthetic_updates(base_time: DateTime<Utc>) -> Vec<ContrivedEvents> 
         // Update 14: minus 3000 usdt (ie/ executed a Side::Buy MARKET order with no fees)
         ContrivedEvents::Balance(Snapshot::new(AssetBalance {
             asset: AssetIndex(2), // usdt
-            balance: Balance::new(7000.0, 7000.0),
+            balance: Balance::new(dec!(7000.0), dec!(7000.0)),
             time_exchange: base_time.checked_add_days(Days::new(10)).unwrap(),
         })),
         // Update 15: plus 3500 usdt (ie/ executed a Side::Sell MARKET order with no fees)
         ContrivedEvents::Balance(Snapshot::new(AssetBalance {
             asset: AssetIndex(2), // usdt
-            balance: Balance::new(10_500.0, 10_500.0),
+            balance: Balance::new(dec!(10_500.0), dec!(10_500.0)),
             time_exchange: base_time.checked_add_days(Days::new(11)).unwrap(),
         })),
         // Update 16: PositionExited
         ContrivedEvents::Position(PositionExited {
             instrument: InstrumentIndex(1), // BinanceSpot eth_usdt
             side: Side::Buy,
-            price_entry_average: 1.0,
-            quantity_abs_max: 6000.0,
-            pnl_realised: 500.0, // 500 usdt profit
+            price_entry_average: dec!(1.0),
+            quantity_abs_max: dec!(6000.0),
+            pnl_realised: dec!(500.0), // 500 usdt profit
             fees_enter: AssetFees::default(),
             fees_exit: AssetFees::default(),
             time_enter: base_time.checked_add_days(Days::new(10)).unwrap(),

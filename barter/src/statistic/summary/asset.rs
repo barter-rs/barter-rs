@@ -73,6 +73,7 @@ mod tests {
         Asset, AssetIndex,
     };
     use chrono::{DateTime, Utc};
+    use rust_decimal_macros::dec;
 
     fn balance(balance: Balance, time: DateTime<Utc>) -> AssetBalance<AssetIndex> {
         AssetBalance {
@@ -100,16 +101,19 @@ mod tests {
                 name_internal: AssetNameInternal::new("btc"),
                 name_exchange: AssetNameExchange::new("xbt"),
             },
-            balance: Balance::new(1.0, 1.0),
+            balance: Balance::new(dec!(1.0), dec!(1.0)),
             time_exchange: base_time,
         });
 
         let cases = vec![
             // TC0: Balance increased from 1.0 peak, so no expected drawdowns
             TestCase {
-                input: balance(Balance::new(2.0, 2.0), time_plus_days(base_time, 1)),
+                input: balance(
+                    Balance::new(dec!(2.0), dec!(2.0)),
+                    time_plus_days(base_time, 1),
+                ),
                 expected: TearSheetAsset {
-                    balance_end: Balance::new(2.0, 2.0),
+                    balance_end: Balance::new(dec!(2.0), dec!(2.0)),
                     drawdown: None,
                     drawdown_mean: None,
                     drawdown_max: None,
@@ -117,11 +121,14 @@ mod tests {
             },
             // TC1: Balance decreased, so expect a current drawdown only
             TestCase {
-                input: balance(Balance::new(1.5, 1.5), time_plus_days(base_time, 2)),
+                input: balance(
+                    Balance::new(dec!(1.5), dec!(1.5)),
+                    time_plus_days(base_time, 2),
+                ),
                 expected: TearSheetAsset {
-                    balance_end: Balance::new(1.5, 1.5),
+                    balance_end: Balance::new(dec!(1.5), dec!(1.5)),
                     drawdown: Some(Drawdown {
-                        value: 0.25, // (2.0 - 1.5) / 2.0
+                        value: dec!(0.25), // (2.0 - 1.5) / 2.0
                         time_start: time_plus_days(base_time, 1),
                         time_end: time_plus_days(base_time, 2),
                     }),
@@ -131,11 +138,14 @@ mod tests {
             },
             // TC2: Further decrease - larger drawdown
             TestCase {
-                input: balance(Balance::new(1.0, 1.0), time_plus_days(base_time, 3)),
+                input: balance(
+                    Balance::new(dec!(1.0), dec!(1.0)),
+                    time_plus_days(base_time, 3),
+                ),
                 expected: TearSheetAsset {
-                    balance_end: Balance::new(1.0, 1.0),
+                    balance_end: Balance::new(dec!(1.0), dec!(1.0)),
                     drawdown: Some(Drawdown {
-                        value: 0.5, // (2.0 - 1.0) / 2.0
+                        value: dec!(0.5), // (2.0 - 1.0) / 2.0
                         time_start: time_plus_days(base_time, 1),
                         time_end: time_plus_days(base_time, 3),
                     }),
@@ -145,43 +155,49 @@ mod tests {
             },
             // TC3: Recovery above previous peak - should complete drawdown period
             TestCase {
-                input: balance(Balance::new(2.5, 2.5), time_plus_days(base_time, 4)),
+                input: balance(
+                    Balance::new(dec!(2.5), dec!(2.5)),
+                    time_plus_days(base_time, 4),
+                ),
                 expected: TearSheetAsset {
-                    balance_end: Balance::new(2.5, 2.5),
+                    balance_end: Balance::new(dec!(2.5), dec!(2.5)),
                     drawdown: None,
                     drawdown_mean: Some(MeanDrawdown {
-                        mean_drawdown: 0.5, // Only one drawdown period completed
+                        mean_drawdown: dec!(0.5), // Only one drawdown period completed
                         mean_drawdown_ms: duration_ms(
                             time_plus_days(base_time, 1),
                             time_plus_days(base_time, 4),
                         ),
                     }),
                     drawdown_max: Some(MaxDrawdown(Drawdown {
-                        value: 0.5,
+                        value: dec!(0.5),
                         time_start: time_plus_days(base_time, 1),
                         time_end: time_plus_days(base_time, 4),
                     })),
                 },
             },
-            // TC4: Small drawdown after new peak (25/10 -> 24/10)
+            // TC4: Small drawdown after new peak (2.5 -> 2.4)
             TestCase {
-                input: balance(Balance::new(2.4, 2.4), time_plus_days(base_time, 5)),
+                input: balance(
+                    Balance::new(dec!(2.4), dec!(2.4)),
+                    time_plus_days(base_time, 5),
+                ),
                 expected: TearSheetAsset {
-                    balance_end: Balance::new(2.4, 2.4),
+                    balance_end: Balance::new(dec!(2.4), dec!(2.4)),
                     drawdown: Some(Drawdown {
-                        value: 0.040000000000000036,
+                        value: dec!(0.04), // (2.5 - 2.4) / 2.5
                         time_start: time_plus_days(base_time, 4),
                         time_end: time_plus_days(base_time, 5),
                     }),
                     drawdown_mean: Some(MeanDrawdown {
-                        mean_drawdown: 0.5,
+                        mean_drawdown: dec!(0.5),
                         mean_drawdown_ms: duration_ms(
                             time_plus_days(base_time, 1),
                             time_plus_days(base_time, 4),
                         ),
                     }),
                     drawdown_max: Some(MaxDrawdown(Drawdown {
-                        value: 0.5,
+                        value: dec!(0.5),
                         time_start: time_plus_days(base_time, 1),
                         time_end: time_plus_days(base_time, 4),
                     })),
@@ -189,23 +205,26 @@ mod tests {
             },
             // TC5: Equal to previous value - drawdown continues
             TestCase {
-                input: balance(Balance::new(2.4, 2.4), time_plus_days(base_time, 6)),
+                input: balance(
+                    Balance::new(dec!(2.4), dec!(2.4)),
+                    time_plus_days(base_time, 6),
+                ),
                 expected: TearSheetAsset {
-                    balance_end: Balance::new(2.4, 2.4),
+                    balance_end: Balance::new(dec!(2.4), dec!(2.4)),
                     drawdown: Some(Drawdown {
-                        value: 0.040000000000000036,
+                        value: dec!(0.04),
                         time_start: time_plus_days(base_time, 4),
                         time_end: time_plus_days(base_time, 6),
                     }),
                     drawdown_mean: Some(MeanDrawdown {
-                        mean_drawdown: 0.5,
+                        mean_drawdown: dec!(0.5),
                         mean_drawdown_ms: duration_ms(
                             time_plus_days(base_time, 1),
                             time_plus_days(base_time, 4),
                         ),
                     }),
                     drawdown_max: Some(MaxDrawdown(Drawdown {
-                        value: 0.5,
+                        value: dec!(0.5),
                         time_start: time_plus_days(base_time, 1),
                         time_end: time_plus_days(base_time, 4),
                     })),
@@ -213,23 +232,26 @@ mod tests {
             },
             // TC6: Tiny change, but still in drawdown - retain max drawdown from current period
             TestCase {
-                input: balance(Balance::new(2.41, 2.41), time_plus_days(base_time, 7)),
+                input: balance(
+                    Balance::new(dec!(2.41), dec!(2.41)),
+                    time_plus_days(base_time, 7),
+                ),
                 expected: TearSheetAsset {
-                    balance_end: Balance::new(2.41, 2.41),
+                    balance_end: Balance::new(dec!(2.41), dec!(2.41)),
                     drawdown: Some(Drawdown {
-                        value: 0.040000000000000036, // max drawdown from current period
+                        value: dec!(0.04), // max drawdown from current period
                         time_start: time_plus_days(base_time, 4),
                         time_end: time_plus_days(base_time, 7),
                     }),
                     drawdown_mean: Some(MeanDrawdown {
-                        mean_drawdown: 0.5,
+                        mean_drawdown: dec!(0.5),
                         mean_drawdown_ms: duration_ms(
                             time_plus_days(base_time, 1),
                             time_plus_days(base_time, 4),
                         ),
                     }),
                     drawdown_max: Some(MaxDrawdown(Drawdown {
-                        value: 0.5,
+                        value: dec!(0.5),
                         time_start: time_plus_days(base_time, 1),
                         time_end: time_plus_days(base_time, 4),
                     })),

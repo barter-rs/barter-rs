@@ -250,12 +250,10 @@ impl AccountEventIndexer {
                 UnindexedApiError::BalanceInsufficient(asset, value) => {
                     IndexedApiError::BalanceInsufficient(self.map.find_asset_index(&asset)?, value)
                 }
-                UnindexedApiError::OrderRejected(cid) => IndexedApiError::OrderRejected(cid),
-                UnindexedApiError::OrderAlreadyCancelled(cid) => {
-                    IndexedApiError::OrderRejected(cid)
-                }
-                UnindexedApiError::OrderAlreadyFullyFilled(cid) => {
-                    IndexedApiError::OrderRejected(cid)
+                UnindexedApiError::OrderRejected(reason) => IndexedApiError::OrderRejected(reason),
+                UnindexedApiError::OrderAlreadyCancelled => IndexedApiError::OrderAlreadyCancelled,
+                UnindexedApiError::OrderAlreadyFullyFilled => {
+                    IndexedApiError::OrderAlreadyFullyFilled
                 }
             }),
             UnindexedClientError::AccountSnapshot(value) => {

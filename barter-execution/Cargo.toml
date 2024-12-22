@@ -45,5 +45,6 @@ reqwest = { workspace = true, features = ["rustls-tls", "json"] }
 # Misc
 uuid = { workspace = true, features = ["v4", "serde"]}
 chrono = { workspace = true, features = ["serde"]}
+itertools = { workspace = true }
 derive_more = { workspace = true, features = ["constructor", "from", "display"]}
 

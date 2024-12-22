@@ -1,6 +1,7 @@
 use chrono::TimeDelta;
 use serde::{Deserialize, Serialize};
 use smol_str::{format_smolstr, SmolStr};
+use std::fmt::Debug;
 
 /// A trait for types that represent time intervals used in financial calculations.
 ///
@@ -26,7 +27,7 @@ use smol_str::{format_smolstr, SmolStr};
 /// assert_eq!(annual_crypto.name().as_str(), "Annual(365)");
 /// assert_eq!(annual_crypto.interval().num_days(), 365);
 /// ```
-pub trait TimeInterval: Copy {
+pub trait TimeInterval: Debug + Copy {
     fn name(&self) -> SmolStr;
     fn interval(&self) -> TimeDelta;
 }

@@ -1,6 +1,6 @@
-use crate::order::ClientOrderId;
 use barter_instrument::{
     asset::{name::AssetNameExchange, AssetIndex},
+    exchange::ExchangeId,
     instrument::{name::InstrumentNameExchange, InstrumentIndex},
 };
 use barter_integration::error::SocketError;
@@ -29,11 +29,14 @@ pub enum ClientError<AssetKey, InstrumentKey> {
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
 pub enum ConnectivityError {
-    #[error("{0}")]
-    Socket(String),
+    #[error("Exchange offline: {0}")]
+    ExchangeOffline(ExchangeId),
 
     #[error("ExecutionRequest timed out")]
     Timeout,
+
+    #[error("{0}")]
+    Socket(String),
 }
 
 impl From<SocketError> for ConnectivityError {
@@ -52,12 +55,12 @@ pub enum ApiError<AssetKey, InstrumentKey> {
     InstrumentInvalid(InstrumentKey, String),
     #[error("asset {0} balance insufficient: {1}")]
     BalanceInsufficient(AssetKey, String),
-    #[error("order rejected with ClientOrderId: {0}")]
-    OrderRejected(ClientOrderId),
-    #[error("order already cancelled with ClientOrderId: {0}")]
-    OrderAlreadyCancelled(ClientOrderId),
-    #[error("order already fully filled with ClientOrderId: {0}")]
-    OrderAlreadyFullyFilled(ClientOrderId),
+    #[error("order rejected: {0}")]
+    OrderRejected(String),
+    #[error("order already cancelled")]
+    OrderAlreadyCancelled,
+    #[error("order already fully filled")]
+    OrderAlreadyFullyFilled,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]

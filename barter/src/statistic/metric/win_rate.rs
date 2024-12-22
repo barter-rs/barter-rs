@@ -1,17 +1,18 @@
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Deserialize, Serialize)]
 pub struct WinRate {
-    pub value: f64,
+    pub value: Decimal,
 }
 
 impl WinRate {
-    pub fn calculate(wins: u64, total: u64) -> Self {
+    pub fn calculate(wins: Decimal, total: Decimal) -> Self {
         Self {
-            value: if total == 0 {
-                1.0
+            value: if total == Decimal::ZERO {
+                Decimal::ONE
             } else {
-                wins as f64 / total as f64
+                wins.abs().checked_div(total.abs()).unwrap()
             },
         }
     }
@@ -20,20 +21,29 @@ impl WinRate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use rust_decimal_macros::dec;
 
     #[test]
     fn test_win_rate_calculate() {
         // no trades
-        assert_relative_eq!(WinRate::calculate(0, 0).value, 1.0);
+        assert_eq!(
+            WinRate::calculate(Decimal::ZERO, Decimal::ZERO).value,
+            Decimal::ONE
+        );
 
         // all winning trades
-        assert_relative_eq!(WinRate::calculate(10, 10).value, 1.0);
+        assert_eq!(
+            WinRate::calculate(Decimal::TEN, Decimal::TEN).value,
+            Decimal::ONE
+        );
 
         // no winning trades
-        assert_relative_eq!(WinRate::calculate(0, 10).value, 0.0);
+        assert_eq!(
+            WinRate::calculate(Decimal::ZERO, Decimal::TEN).value,
+            Decimal::ZERO
+        );
 
         // mixed winning and losing trades
-        assert_relative_eq!(WinRate::calculate(6, 10).value, 0.6);
+        assert_eq!(WinRate::calculate(dec!(6), Decimal::TEN).value, dec!(0.6));
     }
 }

@@ -83,7 +83,12 @@ where
                         update = ?response,
                         "OrderManager transitioned Order<OpenInFlight> to Order<Open>"
                     );
-                    order.get_mut().state = InternalOrderState::Open(new_open.clone());
+                    // If Order was OrderKind::Market it may be fully filled
+                    if new_open.quantity_remaining().is_zero() {
+                        order.remove();
+                    } else {
+                        order.get_mut().state = InternalOrderState::Open(new_open.clone());
+                    }
                 }
                 InternalOrderState::Open(existing_open) => {
                     warn!(
@@ -143,8 +148,8 @@ where
                 InternalOrderState::Open(_) => {
                     if matches!(
                         error,
-                        ClientError::Api(ApiError::OrderAlreadyCancelled(_))
-                            | ClientError::Api(ApiError::OrderAlreadyFullyFilled(_))
+                        ClientError::Api(ApiError::OrderAlreadyCancelled)
+                            | ClientError::Api(ApiError::OrderAlreadyFullyFilled)
                     ) {
                         debug!(
                             exchange = ?response.exchange,
@@ -169,8 +174,8 @@ where
                 InternalOrderState::CancelInFlight(_) => {
                     if matches!(
                         error,
-                        ClientError::Api(ApiError::OrderAlreadyCancelled(_))
-                            | ClientError::Api(ApiError::OrderAlreadyFullyFilled(_))
+                        ClientError::Api(ApiError::OrderAlreadyCancelled)
+                            | ClientError::Api(ApiError::OrderAlreadyFullyFilled)
                     ) {
                         warn!(
                             exchange = ?response.exchange,
@@ -276,8 +281,8 @@ where
                 InternalOrderState::Open(_) => {
                     if matches!(
                         error,
-                        ClientError::Api(ApiError::OrderAlreadyCancelled(_))
-                            | ClientError::Api(ApiError::OrderAlreadyFullyFilled(_))
+                        ClientError::Api(ApiError::OrderAlreadyCancelled)
+                            | ClientError::Api(ApiError::OrderAlreadyFullyFilled)
                     ) {
                         debug!(
                             exchange = ?response.exchange,
@@ -372,6 +377,18 @@ where
                     );
                     order.remove();
                 }
+                ExchangeOrderState::Rejected(reason) => {
+                    warn!(
+                        exchange = ?snapshot.0.exchange,
+                        instrument = ?snapshot.0.instrument,
+                        cid = %snapshot.0.cid,
+                        order = ?order.get(),
+                        update = ?snapshot,
+                        ?reason,
+                        "OrderManager received Snapshot<Order<Rejected>> for Order<CancelInFlight> - removing"
+                    );
+                    order.remove();
+                }
                 ExchangeOrderState::Open(exchange_open) => match &order.get().state {
                     InternalOrderState::OpenInFlight(_) => {
                         debug!(
@@ -438,6 +455,16 @@ where
                         cid = %snapshot.0.cid,
                         update = ?snapshot,
                         "OrderManager received Snapshot<Order<Expired>> for untracked Order - ignoring"
+                    );
+                }
+                ExchangeOrderState::Rejected(reason) => {
+                    warn!(
+                        exchange = ?snapshot.0.exchange,
+                        instrument = ?snapshot.0.instrument,
+                        cid = %snapshot.0.cid,
+                        update = ?snapshot,
+                        ?reason,
+                        "OrderManager received Snapshot<Order<Rejected>> for untracked Order - ignoring"
                     );
                 }
                 ExchangeOrderState::Open(exchange_open) => {
@@ -568,6 +595,19 @@ mod tests {
         })
     }
 
+    fn order_snapshot_exchange_rejected(
+        cid: ClientOrderId,
+    ) -> Snapshot<Order<ExchangeId, u64, ExchangeOrderState>> {
+        Snapshot(Order {
+            exchange: ExchangeId::Simulated,
+            instrument: 1,
+            strategy: StrategyId::unknown(),
+            cid,
+            side: Side::Buy,
+            state: ExchangeOrderState::Rejected(None),
+        })
+    }
+
     fn order_snapshot_exchange_open(
         cid: ClientOrderId,
         time_exchange: DateTime<Utc>,
@@ -586,8 +626,8 @@ mod tests {
         Open {
             id: OrderId(SmolStr::default()),
             time_exchange,
-            price: Default::default(),
-            quantity: Default::default(),
+            price: dec!(1),
+            quantity: dec!(1),
             filled_quantity: Default::default(),
         }
     }
@@ -723,7 +763,7 @@ mod tests {
                 state: orders([order(cid, InternalOrderState::OpenInFlight(OpenInFlight))]),
                 input: order(
                     cid,
-                    Err(ClientError::Api(ApiError::OrderAlreadyFullyFilled(cid))),
+                    Err(ClientError::Api(ApiError::OrderAlreadyFullyFilled)),
                 ),
                 expected: Orders::default(),
             },
@@ -733,10 +773,7 @@ mod tests {
                     cid,
                     InternalOrderState::Open(open(DateTime::<Utc>::default())),
                 )]),
-                input: order(
-                    cid,
-                    Err(ClientError::Api(ApiError::OrderAlreadyCancelled(cid))),
-                ),
+                input: order(cid, Err(ClientError::Api(ApiError::OrderAlreadyCancelled))),
                 expected: Orders::default(),
             },
             // TC8: cid tracked as Open, response Err(AlreadyFilled), so remove
@@ -747,7 +784,7 @@ mod tests {
                 )]),
                 input: order(
                     cid,
-                    Err(ClientError::Api(ApiError::OrderAlreadyFullyFilled(cid))),
+                    Err(ClientError::Api(ApiError::OrderAlreadyFullyFilled)),
                 ),
                 expected: Orders::default(),
             },
@@ -769,10 +806,7 @@ mod tests {
                     cid,
                     InternalOrderState::CancelInFlight(CancelInFlight { id: None }),
                 )]),
-                input: order(
-                    cid,
-                    Err(ClientError::Api(ApiError::OrderAlreadyCancelled(cid))),
-                ),
+                input: order(cid, Err(ClientError::Api(ApiError::OrderAlreadyCancelled))),
                 expected: Orders::default(),
             },
             // TC11: cid tracked as CancelInFlight, response Err(AlreadyFilled), so remove
@@ -783,7 +817,7 @@ mod tests {
                 )]),
                 input: order(
                     cid,
-                    Err(ClientError::Api(ApiError::OrderAlreadyFullyFilled(cid))),
+                    Err(ClientError::Api(ApiError::OrderAlreadyFullyFilled)),
                 ),
                 expected: Orders::default(),
             },
@@ -872,10 +906,7 @@ mod tests {
                     cid,
                     InternalOrderState::Open(open(DateTime::<Utc>::default())),
                 )]),
-                input: order(
-                    cid,
-                    Err(ClientError::Api(ApiError::OrderAlreadyCancelled(cid))),
-                ),
+                input: order(cid, Err(ClientError::Api(ApiError::OrderAlreadyCancelled))),
                 expected: Orders::default(),
             },
             // TC6: cid tracked as Open, response Err(AlreadyFilled), so remove
@@ -886,7 +917,7 @@ mod tests {
                 )]),
                 input: order(
                     cid,
-                    Err(ClientError::Api(ApiError::OrderAlreadyFullyFilled(cid))),
+                    Err(ClientError::Api(ApiError::OrderAlreadyFullyFilled)),
                 ),
                 expected: Orders::default(),
             },
@@ -1060,6 +1091,12 @@ mod tests {
             TestCase {
                 state: Orders::default(),
                 input: order_snapshot_exchange_expired(cid),
+                expected: Orders::default(),
+            },
+            // TC15: Ignore Snapshot<Order<Rejected>> for untracked Order
+            TestCase {
+                state: Orders::default(),
+                input: order_snapshot_exchange_rejected(cid),
                 expected: Orders::default(),
             },
             // TC16: Insert untracked Snapshot<Order<Open>>

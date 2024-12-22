@@ -6,7 +6,9 @@ use crate::{
     UnindexedAccountEvent, UnindexedAccountSnapshot,
 };
 use barter_instrument::{
-    asset::name::AssetNameExchange, exchange::ExchangeId, instrument::name::InstrumentNameExchange,
+    asset::{name::AssetNameExchange, QuoteAsset},
+    exchange::ExchangeId,
+    instrument::name::InstrumentNameExchange,
 };
 use chrono::{DateTime, Utc};
 use futures::Stream;
@@ -88,10 +90,5 @@ where
     fn fetch_trades(
         &self,
         time_since: DateTime<Utc>,
-    ) -> impl Future<
-        Output = Result<
-            Vec<Trade<AssetNameExchange, InstrumentNameExchange>>,
-            UnindexedClientError,
-        >,
-    >;
+    ) -> impl Future<Output = Result<Vec<Trade<QuoteAsset, InstrumentNameExchange>>, UnindexedClientError>>;
 }

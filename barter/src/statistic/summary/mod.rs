@@ -20,6 +20,7 @@ use barter_instrument::{
 use barter_integration::snapshot::Snapshot;
 use chrono::{DateTime, TimeDelta, Utc};
 use derive_more::Constructor;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 pub mod asset;
@@ -60,7 +61,7 @@ pub struct TradingSummaryGenerator {
     /// Theoretical rate of return of an investment with zero risk.
     ///
     /// See docs: <https://www.investopedia.com/terms/r/risk-freerate.asp>
-    pub risk_free_return: f64,
+    pub risk_free_return: Decimal,
 
     /// Trading session summary start time defined by the [`Engine`](crate::engine::Engine) clock.
     pub time_engine_start: DateTime<Utc>,
@@ -83,7 +84,7 @@ impl TradingSummaryGenerator {
     /// Initialise a [`TradingSummaryGenerator`] from a `risk_free_return` value, and initial
     /// indexed state.
     pub fn init<Market>(
-        risk_free_return: f64,
+        risk_free_return: Decimal,
         time_engine_start: DateTime<Utc>,
         instruments: &IndexedInstrumentStates<Market>,
         assets: &AssetStates,

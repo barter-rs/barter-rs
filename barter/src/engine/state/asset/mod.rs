@@ -81,6 +81,7 @@ mod tests {
     use crate::test_utils::asset_state;
     use barter_instrument::asset::name::AssetNameExchange;
     use chrono::TimeZone;
+    use rust_decimal_macros::dec;
 
     #[test]
     fn test_update_from_balance_with_more_recent_snapshot() {
@@ -92,8 +93,8 @@ mod tests {
                 name_exchange: AssetNameExchange::new("xbt"),
             },
             balance: Balance {
-                total: 1000.0,
-                free: 800.0,
+                total: dec!(1000.0),
+                free: dec!(800.0),
             },
             time_exchange: DateTime::<Utc>::MAX_UTC,
         });
@@ -118,16 +119,16 @@ mod tests {
                 name_exchange: AssetNameExchange::new("xbt"),
             },
             balance: Balance {
-                total: 1000.0,
-                free: 800.0,
+                total: dec!(1000.0),
+                free: dec!(800.0),
             },
             time_exchange: time,
         });
 
         state.update_from_balance(snapshot.as_ref());
 
-        assert_eq!(state.balance.total, 1000.0);
-        assert_eq!(state.balance.free, 800.0);
+        assert_eq!(state.balance.total, dec!(1000.0));
+        assert_eq!(state.balance.free, dec!(800.0));
         assert_eq!(state.time_exchange, time);
     }
 
@@ -139,8 +140,8 @@ mod tests {
                 name_exchange: AssetNameExchange::new("xbt"),
             },
             balance: Balance {
-                total: 1000.0,
-                free: 900.0,
+                total: dec!(1000.0),
+                free: dec!(900.0),
             },
             time_exchange: DateTime::<Utc>::MAX_UTC,
         };
@@ -151,8 +152,8 @@ mod tests {
                 name_exchange: AssetNameExchange::new("xbt"),
             },
             balance: Balance {
-                total: 1000.0,
-                free: 800.0,
+                total: dec!(1000.0),
+                free: dec!(800.0),
             },
             time_exchange: DateTime::<Utc>::MIN_UTC,
         });
@@ -165,8 +166,8 @@ mod tests {
                 name_exchange: AssetNameExchange::new("xbt"),
             },
             balance: Balance {
-                total: 1000.0,
-                free: 900.0,
+                total: dec!(1000.0),
+                free: dec!(900.0),
             },
             time_exchange: DateTime::<Utc>::MAX_UTC,
         };

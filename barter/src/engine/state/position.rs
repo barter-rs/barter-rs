@@ -2,7 +2,7 @@ use barter_execution::trade::{AssetFees, Trade, TradeId};
 use barter_instrument::{asset::QuoteAsset, Side};
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
-use rust_decimal::prelude::Zero;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::error;
@@ -24,6 +24,7 @@ use tracing::error;
 /// use barter_instrument::Side;
 /// use chrono::{DateTime, Utc};
 /// use std::str::FromStr;
+/// use rust_decimal_macros::dec;
 ///
 /// // Create a new LONG Position from an initial Buy trade
 /// let position = Position::from(&Trade {
@@ -33,12 +34,12 @@ use tracing::error;
 ///     strategy: StrategyId::new("strategy_1"),
 ///     time_exchange: DateTime::from_str("2024-01-01T00:00:00Z").unwrap(),
 ///     side: Side::Buy,
-///     price: 50_000.0,
-///     quantity: 0.1,
-///     fees: AssetFees::quote_fees(5.0)
+///     price: dec!(50_000.0),
+///     quantity: dec!(0.1),
+///     fees: AssetFees::quote_fees(dec!(5.0))
 /// });
 /// assert_eq!(position.side, Side::Buy);
-/// assert_eq!(position.quantity_abs, 0.1);
+/// assert_eq!(position.quantity_abs, dec!(0.1));
 ///
 /// // Partially reduce LONG Position from a new Sell Trade
 /// let (updated_position, closed_position) = position.update_from_trade(&Trade {
@@ -48,16 +49,16 @@ use tracing::error;
 ///     strategy: StrategyId::new("strategy_1"),
 ///     time_exchange: DateTime::from_str("2024-01-01T01:00:00Z").unwrap(),
 ///     side: Side::Sell,
-///     price: 60_000.0,
-///     quantity: 0.05,
-///     fees: AssetFees::quote_fees(2.5)
+///     price: dec!(60_000.0),
+///     quantity: dec!(0.05),
+///     fees: AssetFees::quote_fees(dec!(2.5))
 /// });
 ///
 /// // LONG Position is still open, but with reduced size
 /// let updated_position = updated_position.unwrap();
-/// assert_eq!(updated_position.quantity_abs, 0.05);
-/// assert_eq!(updated_position.quantity_abs_max, 0.1);
-/// assert_eq!(updated_position.pnl_realised, 492.5);
+/// assert_eq!(updated_position.quantity_abs, dec!(0.05));
+/// assert_eq!(updated_position.quantity_abs_max, dec!(0.1));
+/// assert_eq!(updated_position.pnl_realised, dec!(492.5));
 /// assert!(closed_position.is_none());
 /// ```
 ///
@@ -71,6 +72,7 @@ use tracing::error;
 /// use barter_instrument::Side;
 /// use chrono::{DateTime, Utc};
 /// use std::str::FromStr;
+/// use rust_decimal_macros::dec;
 ///
 /// // Create a new SHORT Position from an initial Sell trade
 /// let position = Position::from(&Trade {
@@ -80,12 +82,12 @@ use tracing::error;
 ///     strategy: StrategyId::new("strategy_1"),
 ///     time_exchange: DateTime::from_str("2024-01-01T00:00:00Z").unwrap(),
 ///     side: Side::Sell,
-///     price: 50_000.0,
-///     quantity: 0.1,
-///     fees: AssetFees::quote_fees(5.0)
+///     price: dec!(50_000.0),
+///     quantity: dec!(0.1),
+///     fees: AssetFees::quote_fees(dec!(5.0))
 /// });
 /// assert_eq!(position.side, Side::Sell);
-/// assert_eq!(position.quantity_abs, 0.1);
+/// assert_eq!(position.quantity_abs, dec!(0.1));
 ///
 /// // Close SHORT from a new Buy trade with larger quantity, flipping into a new LONG Position
 /// let (new_position, closed_position) = position.update_from_trade(&Trade {
@@ -95,23 +97,23 @@ use tracing::error;
 ///     strategy: StrategyId::new("strategy_1"),
 ///     time_exchange: DateTime::from_str("2024-01-01T01:00:00Z").unwrap(),
 ///     side: Side::Buy,
-///     price: 40_000.0,
-///     quantity: 0.2,
-///     fees: AssetFees::quote_fees(10.0)
+///     price: dec!(40_000.0),
+///     quantity: dec!(0.2),
+///     fees: AssetFees::quote_fees(dec!(10.0))
 /// });
 ///
 /// // Original SHORT Position closed with profit
 /// let closed = closed_position.unwrap();
 /// assert_eq!(closed.side, Side::Sell);
-/// assert_eq!(closed.quantity_abs_max, 0.1);
-/// assert_eq!(closed.pnl_realised, 990.0);
+/// assert_eq!(closed.quantity_abs_max, dec!(0.1));
+/// assert_eq!(closed.pnl_realised, dec!(990.0));
 ///
 /// // New LONG Position opened with remaining quantity & proportional fees
 /// let new_position = new_position.unwrap();
 /// assert_eq!(new_position.side, Side::Buy);
-/// assert_eq!(new_position.quantity_abs, 0.1);
-/// assert_eq!(new_position.price_entry_average, 40_000.0);
-/// assert_eq!(new_position.pnl_realised, -5.0);
+/// assert_eq!(new_position.quantity_abs, dec!(0.1));
+/// assert_eq!(new_position.price_entry_average, dec!(40_000.0));
+/// assert_eq!(new_position.pnl_realised, dec!(-5.0));
 /// ```
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
 pub struct Position<AssetKey, InstrumentKey> {
@@ -122,23 +124,23 @@ pub struct Position<AssetKey, InstrumentKey> {
     pub side: Side,
 
     /// Volume-weighted average entry price across all [`Position`] increasing [`Trade`]s.
-    pub price_entry_average: f64,
+    pub price_entry_average: Decimal,
 
     /// Current absolute [`Position`] quantity.
-    pub quantity_abs: f64,
+    pub quantity_abs: Decimal,
 
     /// Maximum absolute [`Position`] quantity reached by all entry/increase [`Trade`]s.
-    pub quantity_abs_max: f64,
+    pub quantity_abs_max: Decimal,
 
     /// Estimated unrealised PnL generated from closing the remaining [`Position`] `quantity_abs`.
     ///
     /// Note this includes estimated exit fees.
-    pub pnl_unrealised: f64,
+    pub pnl_unrealised: Decimal,
 
     /// Cumulative realised PnL from any partially closed [`Position`] `quantity_abs_max`.
     ///
     /// Note this includes fees.
-    pub pnl_realised: f64,
+    pub pnl_realised: Decimal,
 
     /// Cumulative fees paid when entering/increasing [`Position`] quantity.
     pub fees_enter: AssetFees<AssetKey>,
@@ -266,7 +268,7 @@ impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
                 self.fees_exit.fees += fee_exit;
                 self.time_exchange_update = trade.time_exchange;
                 self.update_pnl_realised(self.quantity_abs, trade.price, fee_exit);
-                self.quantity_abs = 0.0;
+                self.quantity_abs = Decimal::ZERO;
                 self.update_pnl_unrealised(trade.price);
 
                 (
@@ -295,7 +297,7 @@ impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
     ///
     /// Note that this could be called with a recent [`Trade`] price, or a price generated from
     /// a model based on public market data.
-    pub fn update_pnl_unrealised(&mut self, price: f64) {
+    pub fn update_pnl_unrealised(&mut self, price: Decimal) {
         self.pnl_unrealised = calculate_pnl_unrealised(
             self.side,
             self.price_entry_average,
@@ -309,9 +311,9 @@ impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
     /// Updates the [`Position`] `pnl_realised` from a closed portion of the [`Position`] quantity.
     pub fn update_pnl_realised(
         &mut self,
-        closed_quantity: f64,
-        closed_price: f64,
-        closed_fee: f64,
+        closed_quantity: Decimal,
+        closed_price: Decimal,
+        closed_fee: Decimal,
     ) {
         // Update total Position pnl_realised with closed quantity PnL
         self.pnl_realised += calculate_pnl_realised(
@@ -337,7 +339,7 @@ where
             price_entry_average: trade.price,
             quantity_abs: trade.quantity.abs(),
             quantity_abs_max: trade.quantity.abs(),
-            pnl_unrealised: 0.0,
+            pnl_unrealised: Decimal::ZERO,
             pnl_realised: -trade.fees.fees,
             fees_enter: trade.fees.clone(),
             fees_exit: AssetFees::default(),
@@ -364,15 +366,15 @@ pub struct PositionExited<AssetKey, InstrumentKey> {
     pub side: Side,
 
     /// Volume-weighted average entry price across all [`Position`] increasing [`Trade`]s.
-    pub price_entry_average: f64,
+    pub price_entry_average: Decimal,
 
     /// Maximum absolute [`Position`] quantity reached by all entry/increase [`Trade`]s.
-    pub quantity_abs_max: f64,
+    pub quantity_abs_max: Decimal,
 
     /// Cumulative realised PnL from closing the full [`Position`] `quantity_abs_max`.
     ///
     /// Note this includes fees.
-    pub pnl_realised: f64,
+    pub pnl_realised: Decimal,
 
     /// Cumulative fees paid when entering the [`Position`].
     pub fees_enter: AssetFees<AssetKey>,
@@ -421,13 +423,13 @@ impl<AssetKey, InstrumentKey> From<Position<AssetKey, InstrumentKey>>
 /// * `trade_price` - The price of the new trade
 /// * `trade_quantity_abs` - The absolute quantity of the new trade
 fn calculate_price_entry_average(
-    current_price_entry_average: f64,
-    current_quantity_abs: f64,
-    trade_price: f64,
-    trade_quantity_abs: f64,
-) -> f64 {
+    current_price_entry_average: Decimal,
+    current_quantity_abs: Decimal,
+    trade_price: Decimal,
+    trade_quantity_abs: Decimal,
+) -> Decimal {
     if current_quantity_abs.is_zero() && trade_quantity_abs.is_zero() {
-        return 0.0;
+        return Decimal::ZERO;
     }
 
     let current_value = current_price_entry_average * current_quantity_abs;
@@ -440,12 +442,12 @@ fn calculate_price_entry_average(
 /// provided price.
 pub fn calculate_pnl_unrealised(
     position_side: Side,
-    price_entry_average: f64,
-    quantity_abs: f64,
-    quantity_abs_max: f64,
-    fees_enter: f64,
-    price: f64,
-) -> f64 {
+    price_entry_average: Decimal,
+    quantity_abs: Decimal,
+    quantity_abs_max: Decimal,
+    fees_enter: Decimal,
+    price: Decimal,
+) -> Decimal {
     let approx_exit_fees =
         approximate_remaining_exit_fees(quantity_abs, quantity_abs_max, fees_enter);
 
@@ -464,10 +466,10 @@ pub fn calculate_pnl_unrealised(
 /// therefore this 'fee per quantity' ratio can be used to approximate the exit fees required to
 /// close a `quantity_abs` [`Position`].
 fn approximate_remaining_exit_fees(
-    quantity_abs: f64,
-    quantity_abs_max: f64,
-    fees_enter: f64,
-) -> f64 {
+    quantity_abs: Decimal,
+    quantity_abs_max: Decimal,
+    fees_enter: Decimal,
+) -> Decimal {
     (quantity_abs / quantity_abs_max) * fees_enter
 }
 
@@ -475,11 +477,11 @@ fn approximate_remaining_exit_fees(
 /// specified price and closing fee.
 pub fn calculate_pnl_realised(
     position_side: Side,
-    price_entry_average: f64,
-    closed_quantity: f64,
-    closed_price: f64,
-    closed_fee: f64,
-) -> f64 {
+    price_entry_average: Decimal,
+    closed_quantity: Decimal,
+    closed_price: Decimal,
+    closed_fee: Decimal,
+) -> Decimal {
     let close_quantity = closed_quantity.abs();
     let value_quote_closed = close_quantity * closed_price;
     let value_quote_entry = close_quantity * price_entry_average;
@@ -496,10 +498,10 @@ pub fn calculate_pnl_realised(
 ///
 /// See docs: <https://www.investopedia.com/articles/basics/10/guide-to-calculating-roi.asp>
 pub fn calculate_pnl_return(
-    pnl_realised: f64,
-    price_entry_average: f64,
-    quantity_abs_max: f64,
-) -> f64 {
+    pnl_realised: Decimal,
+    price_entry_average: Decimal,
+    quantity_abs_max: Decimal,
+) -> Decimal {
     pnl_realised / (price_entry_average * quantity_abs_max)
 }
 
@@ -508,6 +510,7 @@ mod tests {
     use super::*;
     use crate::test_utils::{time_plus_days, trade};
     use barter_instrument::instrument::name::InstrumentNameInternal;
+    use rust_decimal_macros::dec;
 
     #[test]
     fn test_position_update_from_trade() {
@@ -528,18 +531,18 @@ mod tests {
                 expected_position: Some(Position {
                     instrument: InstrumentNameInternal::new("instrument"),
                     side: Side::Buy,
-                    price_entry_average: 110.0,
-                    quantity_abs: 2.0,
-                    quantity_abs_max: 2.0,
-                    pnl_unrealised: 0.0,
-                    pnl_realised: -20.0, // Sum of fees
+                    price_entry_average: dec!(110.0),
+                    quantity_abs: dec!(2.0),
+                    quantity_abs_max: dec!(2.0),
+                    pnl_unrealised: dec!(0.0),
+                    pnl_realised: dec!(-20.0), // Sum of fees
                     fees_enter: AssetFees {
                         asset: QuoteAsset,
-                        fees: 20.0,
+                        fees: dec!(20.0),
                     },
                     fees_exit: AssetFees {
                         asset: QuoteAsset,
-                        fees: 0.0,
+                        fees: dec!(0.0),
                     },
                     time_enter: base_time,
                     time_exchange_update: time_plus_days(base_time, 1),
@@ -554,18 +557,18 @@ mod tests {
                 expected_position: Some(Position {
                     instrument: InstrumentNameInternal::new("instrument"),
                     side: Side::Buy,
-                    price_entry_average: 100.0, // update_trade is Sell, so unchanged
-                    quantity_abs: 1.5,
-                    quantity_abs_max: 2.0,
-                    pnl_unrealised: 67.5, // (150-100)*(2.0-0.5) - approx_exit_fees (1.5/2 * 10)
-                    pnl_realised: 10.0,   // (150-100)*0.5 - 15_fees
+                    price_entry_average: dec!(100.0), // update_trade is Sell, so unchanged
+                    quantity_abs: dec!(1.5),
+                    quantity_abs_max: dec!(2.0),
+                    pnl_unrealised: dec!(67.5), // (150-100)*(2.0-0.5) - approx_exit_fees (1.5/2 * 10)
+                    pnl_realised: dec!(10.0),   // (150-100)*0.5 - 15_fees
                     fees_enter: AssetFees {
                         asset: QuoteAsset,
-                        fees: 10.0,
+                        fees: dec!(10.0),
                     },
                     fees_exit: AssetFees {
                         asset: QuoteAsset,
-                        fees: 5.0,
+                        fees: dec!(5.0),
                     },
                     time_enter: base_time,
                     time_exchange_update: time_plus_days(base_time, 1),
@@ -581,16 +584,16 @@ mod tests {
                 expected_position_exited: Some(PositionExited {
                     instrument: InstrumentNameInternal::new("instrument"),
                     side: Side::Buy,
-                    price_entry_average: 100.0,
-                    quantity_abs_max: 1.0,
-                    pnl_realised: 30.0, // (150-100)*1 - 20 (total fees)
+                    price_entry_average: dec!(100.0),
+                    quantity_abs_max: dec!(1.0),
+                    pnl_realised: dec!(30.0), // (150-100)*1 - 20 (total fees)
                     fees_enter: AssetFees {
                         asset: QuoteAsset,
-                        fees: 10.0,
+                        fees: dec!(10.0),
                     },
                     fees_exit: AssetFees {
                         asset: QuoteAsset,
-                        fees: 10.0,
+                        fees: dec!(10.0),
                     },
                     time_enter: base_time,
                     time_exit: time_plus_days(base_time, 1),
@@ -604,18 +607,18 @@ mod tests {
                 expected_position: Some(Position {
                     instrument: InstrumentNameInternal::new("instrument"),
                     side: Side::Sell,
-                    price_entry_average: 150.0,
-                    quantity_abs: 1.0,
-                    quantity_abs_max: 1.0,
-                    pnl_unrealised: 0.0,
-                    pnl_realised: -10.0, // Entry fees for new position (2-1)*(1/2)*20
+                    price_entry_average: dec!(150.0),
+                    quantity_abs: dec!(1.0),
+                    quantity_abs_max: dec!(1.0),
+                    pnl_unrealised: dec!(0.0),
+                    pnl_realised: dec!(-10.0), // Entry fees for new position (2-1)*(1/2)*20
                     fees_enter: AssetFees {
                         asset: QuoteAsset,
-                        fees: 10.0,
+                        fees: dec!(10.0),
                     },
                     fees_exit: AssetFees {
                         asset: QuoteAsset,
-                        fees: 0.0,
+                        fees: dec!(0.0),
                     },
                     time_enter: time_plus_days(base_time, 1),
                     time_exchange_update: time_plus_days(base_time, 1),
@@ -624,16 +627,16 @@ mod tests {
                 expected_position_exited: Some(PositionExited {
                     instrument: InstrumentNameInternal::new("instrument"),
                     side: Side::Buy,
-                    price_entry_average: 100.0,
-                    quantity_abs_max: 1.0,
-                    pnl_realised: 30.0, // (150-100)*1 - 20 (total fees)
+                    price_entry_average: dec!(100.0),
+                    quantity_abs_max: dec!(1.0),
+                    pnl_realised: dec!(30.0), // (150-100)*1 - 20 (total fees)
                     fees_enter: AssetFees {
                         asset: QuoteAsset,
-                        fees: 10.0,
+                        fees: dec!(10.0),
                     },
                     fees_exit: AssetFees {
                         asset: QuoteAsset,
-                        fees: 10.0,
+                        fees: dec!(10.0),
                     },
                     time_enter: base_time,
                     time_exit: time_plus_days(base_time, 1),
@@ -647,18 +650,18 @@ mod tests {
                 expected_position: Some(Position {
                     instrument: InstrumentNameInternal::new("instrument"),
                     side: Side::Sell,
-                    price_entry_average: 90.0, // (100*1 + 80*1)/(1 + 1)
-                    quantity_abs: 2.0,
-                    quantity_abs_max: 2.0,
-                    pnl_unrealised: 0.0, // (90-80)*2 - approx_exit_fees(2/2 * 20)
-                    pnl_realised: -20.0, // Sum of entry fees
+                    price_entry_average: dec!(90.0), // (100*1 + 80*1)/(1 + 1)
+                    quantity_abs: dec!(2.0),
+                    quantity_abs_max: dec!(2.0),
+                    pnl_unrealised: dec!(0.0), // (90-80)*2 - approx_exit_fees(2/2 * 20)
+                    pnl_realised: dec!(-20.0), // Sum of entry fees
                     fees_enter: AssetFees {
                         asset: QuoteAsset,
-                        fees: 20.0,
+                        fees: dec!(20.0),
                     },
                     fees_exit: AssetFees {
                         asset: QuoteAsset,
-                        fees: 0.0,
+                        fees: dec!(0.0),
                     },
                     time_enter: base_time,
                     time_exchange_update: base_time,
@@ -673,18 +676,18 @@ mod tests {
                 expected_position: Some(Position {
                     instrument: InstrumentNameInternal::new("instrument"),
                     side: Side::Sell,
-                    price_entry_average: 100.0, // update_trade is Buy, so unchanged
-                    quantity_abs: 1.5,
-                    quantity_abs_max: 2.0,
-                    pnl_unrealised: 22.5, // (100-80)*1.5 - approx_exit_fees(1.5/2 * 10)
-                    pnl_realised: -5.0,   // 10_fee_entry - (100-80)*0.5 - 5_fee_exit
+                    price_entry_average: dec!(100.0), // update_trade is Buy, so unchanged
+                    quantity_abs: dec!(1.5),
+                    quantity_abs_max: dec!(2.0),
+                    pnl_unrealised: dec!(22.5), // (100-80)*1.5 - approx_exit_fees(1.5/2 * 10)
+                    pnl_realised: dec!(-5.0),   // 10_fee_entry - (100-80)*0.5 - 5_fee_exit
                     fees_enter: AssetFees {
                         asset: QuoteAsset,
-                        fees: 10.0,
+                        fees: dec!(10.0),
                     },
                     fees_exit: AssetFees {
                         asset: QuoteAsset,
-                        fees: 5.0,
+                        fees: dec!(5.0),
                     },
                     time_enter: base_time,
                     time_exchange_update: base_time,
@@ -700,16 +703,16 @@ mod tests {
                 expected_position_exited: Some(PositionExited {
                     instrument: InstrumentNameInternal::new("instrument"),
                     side: Side::Sell,
-                    price_entry_average: 100.0,
-                    quantity_abs_max: 1.0,
-                    pnl_realised: 0.0, // (100-80)*1 - 20 (total fees)
+                    price_entry_average: dec!(100.0),
+                    quantity_abs_max: dec!(1.0),
+                    pnl_realised: dec!(0.0), // (100-80)*1 - 20 (total fees)
                     fees_enter: AssetFees {
                         asset: QuoteAsset,
-                        fees: 10.0,
+                        fees: dec!(10.0),
                     },
                     fees_exit: AssetFees {
                         asset: QuoteAsset,
-                        fees: 10.0,
+                        fees: dec!(10.0),
                     },
                     time_enter: base_time,
                     time_exit: base_time,
@@ -723,18 +726,18 @@ mod tests {
                 expected_position: Some(Position {
                     instrument: InstrumentNameInternal::new("instrument"),
                     side: Side::Buy,
-                    price_entry_average: 80.0,
-                    quantity_abs: 1.0,
-                    quantity_abs_max: 1.0,
-                    pnl_unrealised: 0.0,
-                    pnl_realised: -10.0, // Entry fees for new position
+                    price_entry_average: dec!(80.0),
+                    quantity_abs: dec!(1.0),
+                    quantity_abs_max: dec!(1.0),
+                    pnl_unrealised: dec!(0.0),
+                    pnl_realised: dec!(-10.0), // Entry fees for new position
                     fees_enter: AssetFees {
                         asset: QuoteAsset,
-                        fees: 10.0,
+                        fees: dec!(10.0),
                     },
                     fees_exit: AssetFees {
                         asset: QuoteAsset,
-                        fees: 0.0,
+                        fees: dec!(0.0),
                     },
                     time_enter: base_time,
                     time_exchange_update: base_time,
@@ -743,16 +746,16 @@ mod tests {
                 expected_position_exited: Some(PositionExited {
                     instrument: InstrumentNameInternal::new("instrument"),
                     side: Side::Sell,
-                    price_entry_average: 100.0,
-                    quantity_abs_max: 1.0,
-                    pnl_realised: 0.0, // (100-80)*1 - 20 (total fees)
+                    price_entry_average: dec!(100.0),
+                    quantity_abs_max: dec!(1.0),
+                    pnl_realised: dec!(0.0), // (100-80)*1 - 20 (total fees)
                     fees_enter: AssetFees {
                         asset: QuoteAsset,
-                        fees: 10.0,
+                        fees: dec!(10.0),
                     },
                     fees_exit: AssetFees {
                         asset: QuoteAsset,
-                        fees: 10.0,
+                        fees: dec!(10.0),
                     },
                     time_enter: base_time,
                     time_exit: base_time,
@@ -777,61 +780,61 @@ mod tests {
     #[test]
     fn test_calculate_price_entry_average() {
         struct TestCase {
-            current_price_entry_average: f64,
-            current_quantity_abs: f64,
-            trade_price: f64,
-            trade_quantity_abs: f64,
-            expected: f64,
+            current_price_entry_average: Decimal,
+            current_quantity_abs: Decimal,
+            trade_price: Decimal,
+            trade_quantity_abs: Decimal,
+            expected: Decimal,
         }
 
         let cases = vec![
             // TC0: equal contribution
             TestCase {
-                current_price_entry_average: 100.0,
-                current_quantity_abs: 2.0,
-                trade_price: 200.0,
-                trade_quantity_abs: 2.0,
-                expected: 150.0,
+                current_price_entry_average: dec!(100.0),
+                current_quantity_abs: dec!(2.0),
+                trade_price: dec!(200.0),
+                trade_quantity_abs: dec!(2.0),
+                expected: dec!(150.0),
             },
             // TC1: trade larger contribution
             TestCase {
-                current_price_entry_average: 100.0,
-                current_quantity_abs: 2.0,
-                trade_price: 200.0,
-                trade_quantity_abs: 4.0,
-                expected: 166.666666666666666666,
+                current_price_entry_average: dec!(100.0),
+                current_quantity_abs: dec!(2.0),
+                trade_price: dec!(200.0),
+                trade_quantity_abs: dec!(4.0),
+                expected: dec!(166.66666666666666666666666667),
             },
             // TC2: current larger contribution
             TestCase {
-                current_price_entry_average: 100.0,
-                current_quantity_abs: 20.0,
-                trade_price: 200.0,
-                trade_quantity_abs: 1.0,
-                expected: 104.762,
+                current_price_entry_average: dec!(100.0),
+                current_quantity_abs: dec!(20.0),
+                trade_price: dec!(200.0),
+                trade_quantity_abs: dec!(1.0),
+                expected: dec!(104.76190476190476190476190476),
             },
             // TC3: zero current quantity, so expect trade price
             TestCase {
-                current_price_entry_average: 100.0,
-                current_quantity_abs: 0.0,
-                trade_price: 200.0,
-                trade_quantity_abs: 4.0,
-                expected: 200.0,
+                current_price_entry_average: dec!(100.0),
+                current_quantity_abs: dec!(0.0),
+                trade_price: dec!(200.0),
+                trade_quantity_abs: dec!(4.0),
+                expected: dec!(200.0),
             },
             // TC4: zero trade quantity, so expect current price
             TestCase {
-                current_price_entry_average: 100.0,
-                current_quantity_abs: 10.0,
-                trade_price: 0.0,
-                trade_quantity_abs: 0.0,
-                expected: 100.0,
+                current_price_entry_average: dec!(100.0),
+                current_quantity_abs: dec!(10.0),
+                trade_price: dec!(0.0),
+                trade_quantity_abs: dec!(0.0),
+                expected: dec!(100.0),
             },
             // TC5: both zero quantities
             TestCase {
-                current_price_entry_average: 100.0,
-                current_quantity_abs: 0.0,
-                trade_price: 200.0,
-                trade_quantity_abs: 0.0,
-                expected: 0.0,
+                current_price_entry_average: dec!(100.0),
+                current_quantity_abs: dec!(0.0),
+                trade_price: dec!(200.0),
+                trade_quantity_abs: dec!(0.0),
+                expected: dec!(0.0),
             },
         ];
 
@@ -843,7 +846,7 @@ mod tests {
                 test.trade_quantity_abs,
             );
 
-            assert!((actual - test.expected).abs() < 0.001, "TC{} failed", index)
+            assert_eq!(actual, test.expected, "TC{} failed", index)
         }
     }
 
@@ -851,74 +854,74 @@ mod tests {
     fn test_calculate_pnl_unrealised() {
         struct TestCase {
             position_side: Side,
-            price_entry_average: f64,
-            quantity_abs: f64,
-            quantity_abs_max: f64,
-            fees_enter: f64,
-            price: f64,
-            expected: f64,
+            price_entry_average: Decimal,
+            quantity_abs: Decimal,
+            quantity_abs_max: Decimal,
+            fees_enter: Decimal,
+            price: Decimal,
+            expected: Decimal,
         }
 
         let cases = vec![
             // TC0: LONG position in profit
             TestCase {
                 position_side: Side::Buy,
-                price_entry_average: 100.0,
-                quantity_abs: 1.0,
-                quantity_abs_max: 1.0,
-                fees_enter: 10.0,
-                price: 150.0,
-                expected: 40.0, // (150-100)*1 - 10
+                price_entry_average: dec!(100.0),
+                quantity_abs: dec!(1.0),
+                quantity_abs_max: dec!(1.0),
+                fees_enter: dec!(10.0),
+                price: dec!(150.0),
+                expected: dec!(40.0), // (150-100)*1 - 10
             },
             // TC1: LONG position at loss
             TestCase {
                 position_side: Side::Buy,
-                price_entry_average: 100.0,
-                quantity_abs: 1.0,
-                quantity_abs_max: 1.0,
-                fees_enter: 10.0,
-                price: 80.0,
-                expected: -30.0, // (80-100)*1 - 10
+                price_entry_average: dec!(100.0),
+                quantity_abs: dec!(1.0),
+                quantity_abs_max: dec!(1.0),
+                fees_enter: dec!(10.0),
+                price: dec!(80.0),
+                expected: dec!(-30.0), // (80-100)*1 - 10
             },
             // TC2: SHORT position in profit
             TestCase {
                 position_side: Side::Sell,
-                price_entry_average: 100.0,
-                quantity_abs: 1.0,
-                quantity_abs_max: 1.0,
-                fees_enter: 10.0,
-                price: 80.0,
-                expected: 10.0, // (100-80)*1 - 10
+                price_entry_average: dec!(100.0),
+                quantity_abs: dec!(1.0),
+                quantity_abs_max: dec!(1.0),
+                fees_enter: dec!(10.0),
+                price: dec!(80.0),
+                expected: dec!(10.0), // (100-80)*1 - 10
             },
             // TC3: SHORT position at loss
             TestCase {
                 position_side: Side::Sell,
-                price_entry_average: 100.0,
-                quantity_abs: 1.0,
-                quantity_abs_max: 1.0,
-                fees_enter: 10.0,
-                price: 150.0,
-                expected: -60.0, // (100-150)*1 - 10
+                price_entry_average: dec!(100.0),
+                quantity_abs: dec!(1.0),
+                quantity_abs_max: dec!(1.0),
+                fees_enter: dec!(10.0),
+                price: dec!(150.0),
+                expected: dec!(-60.0), // (100-150)*1 - 10
             },
             // TC4: Partial position remaining (half closed)
             TestCase {
                 position_side: Side::Buy,
-                price_entry_average: 100.0,
-                quantity_abs: 0.5,
-                quantity_abs_max: 1.0,
-                fees_enter: 10.0,
-                price: 150.0,
-                expected: 20.0, // (150-100)*0.5 - (0.5/1.0)*10
+                price_entry_average: dec!(100.0),
+                quantity_abs: dec!(0.5),
+                quantity_abs_max: dec!(1.0),
+                fees_enter: dec!(10.0),
+                price: dec!(150.0),
+                expected: dec!(20.0), // (150-100)*0.5 - (0.5/1.0)*10
             },
             // TC5: Zero quantity position
             TestCase {
                 position_side: Side::Buy,
-                price_entry_average: 100.0,
-                quantity_abs: 0.0,
-                quantity_abs_max: 1.0,
-                fees_enter: 10.0,
-                price: 150.0,
-                expected: 0.0,
+                price_entry_average: dec!(100.0),
+                quantity_abs: dec!(0.0),
+                quantity_abs_max: dec!(1.0),
+                fees_enter: dec!(10.0),
+                price: dec!(150.0),
+                expected: dec!(0.0),
             },
         ];
 
@@ -932,47 +935,47 @@ mod tests {
                 test.price,
             );
 
-            assert!((actual - test.expected).abs() < 0.001, "TC{} failed", index);
+            assert_eq!(actual, test.expected, "TC{} failed", index);
         }
     }
 
     #[test]
     fn test_approximate_remaining_exit_fees() {
         struct TestCase {
-            quantity_abs: f64,
-            quantity_abs_max: f64,
-            fees_enter: f64,
-            expected: f64,
+            quantity_abs: Decimal,
+            quantity_abs_max: Decimal,
+            fees_enter: Decimal,
+            expected: Decimal,
         }
 
         let cases = vec![
             // TC0: Full position - expect full fees
             TestCase {
-                quantity_abs: 1.0,
-                quantity_abs_max: 1.0,
-                fees_enter: 10.0,
-                expected: 10.0,
+                quantity_abs: dec!(1.0),
+                quantity_abs_max: dec!(1.0),
+                fees_enter: dec!(10.0),
+                expected: dec!(10.0),
             },
             // TC1: Half position - expect half fees
             TestCase {
-                quantity_abs: 0.5,
-                quantity_abs_max: 1.0,
-                fees_enter: 10.0,
-                expected: 5.0,
+                quantity_abs: dec!(0.5),
+                quantity_abs_max: dec!(1.0),
+                fees_enter: dec!(10.0),
+                expected: dec!(5.0),
             },
             // TC2: Zero position - expect zero fees
             TestCase {
-                quantity_abs: 0.0,
-                quantity_abs_max: 1.0,
-                fees_enter: 10.0,
-                expected: 0.0,
+                quantity_abs: dec!(0.0),
+                quantity_abs_max: dec!(1.0),
+                fees_enter: dec!(10.0),
+                expected: dec!(0.0),
             },
             // TC3: Larger current quantity than max (edge case)
             TestCase {
-                quantity_abs: 2.0,
-                quantity_abs_max: 1.0,
-                fees_enter: 10.0,
-                expected: 20.0,
+                quantity_abs: dec!(2.0),
+                quantity_abs_max: dec!(1.0),
+                fees_enter: dec!(10.0),
+                expected: dec!(20.0),
             },
         ];
 
@@ -983,7 +986,7 @@ mod tests {
                 test.fees_enter,
             );
 
-            assert!((actual - test.expected).abs() < 0.001, "TC{} failed", index);
+            assert_eq!(actual, test.expected, "TC{} failed", index);
         }
     }
 
@@ -991,131 +994,131 @@ mod tests {
     fn test_calculate_pnl_realised() {
         struct TestCase {
             side: Side,
-            price_entry_average: f64,
-            closed_quantity: f64,
-            closed_price: f64,
-            closed_fee: f64,
-            expected: f64,
+            price_entry_average: Decimal,
+            closed_quantity: Decimal,
+            closed_price: Decimal,
+            closed_fee: Decimal,
+            expected: Decimal,
         }
 
         let cases = vec![
             // TC0: LONG in profit w/ fee deduction
             TestCase {
                 side: Side::Buy,
-                price_entry_average: 100.0,
-                closed_quantity: 10.0,
-                closed_price: 150.0,
-                closed_fee: 5.0,
-                expected: 495.0,
+                price_entry_average: dec!(100.0),
+                closed_quantity: dec!(10.0),
+                closed_price: dec!(150.0),
+                closed_fee: dec!(5.0),
+                expected: dec!(495.0),
             },
             // TC1: LONG in profit w/o fee deduction
             TestCase {
                 side: Side::Buy,
-                price_entry_average: 100.0,
-                closed_quantity: 10.0,
-                closed_price: 150.0,
-                closed_fee: 0.0,
-                expected: 500.0,
+                price_entry_average: dec!(100.0),
+                closed_quantity: dec!(10.0),
+                closed_price: dec!(150.0),
+                closed_fee: dec!(0.0),
+                expected: dec!(500.0),
             },
             // TC2: LONG in profit w/ fee rebate
             TestCase {
                 side: Side::Buy,
-                price_entry_average: 100.0,
-                closed_quantity: 10.0,
-                closed_price: 150.0,
-                closed_fee: -5.0,
-                expected: 505.0,
+                price_entry_average: dec!(100.0),
+                closed_quantity: dec!(10.0),
+                closed_price: dec!(150.0),
+                closed_fee: dec!(-5.0),
+                expected: dec!(505.0),
             },
             // TC3: LONG in loss w/ fee deduction
             TestCase {
                 side: Side::Buy,
-                price_entry_average: 100.0,
-                closed_quantity: 10.0,
-                closed_price: 50.0,
-                closed_fee: 5.0,
-                expected: -505.0,
+                price_entry_average: dec!(100.0),
+                closed_quantity: dec!(10.0),
+                closed_price: dec!(50.0),
+                closed_fee: dec!(5.0),
+                expected: dec!(-505.0),
             },
             // TC4: LONG in loss w/o fee deduction
             TestCase {
                 side: Side::Buy,
-                price_entry_average: 100.0,
-                closed_quantity: 10.0,
-                closed_price: 50.0,
-                closed_fee: 0.0,
-                expected: -500.0,
+                price_entry_average: dec!(100.0),
+                closed_quantity: dec!(10.0),
+                closed_price: dec!(50.0),
+                closed_fee: dec!(0.0),
+                expected: dec!(-500.0),
             },
             // TC5: LONG in loss w/ fee rebate
             TestCase {
                 side: Side::Buy,
-                price_entry_average: 100.0,
-                closed_quantity: 10.0,
-                closed_price: 50.0,
-                closed_fee: -5.0,
-                expected: -495.0,
+                price_entry_average: dec!(100.0),
+                closed_quantity: dec!(10.0),
+                closed_price: dec!(50.0),
+                closed_fee: dec!(-5.0),
+                expected: dec!(-495.0),
             },
             // TC6: SHORT in profit w/ fee deduction
             TestCase {
                 side: Side::Sell,
-                price_entry_average: 100.0,
-                closed_quantity: 10.0,
-                closed_price: 50.0,
-                closed_fee: 5.0,
-                expected: 495.0,
+                price_entry_average: dec!(100.0),
+                closed_quantity: dec!(10.0),
+                closed_price: dec!(50.0),
+                closed_fee: dec!(5.0),
+                expected: dec!(495.0),
             },
             // TC7: SHORT in profit w/o fee deduction
             TestCase {
                 side: Side::Sell,
-                price_entry_average: 100.0,
-                closed_quantity: 10.0,
-                closed_price: 50.0,
-                closed_fee: 0.0,
-                expected: 500.0,
+                price_entry_average: dec!(100.0),
+                closed_quantity: dec!(10.0),
+                closed_price: dec!(50.0),
+                closed_fee: dec!(0.0),
+                expected: dec!(500.0),
             },
             // TC8: SHORT in profit w/ fee rebate
             TestCase {
                 side: Side::Sell,
-                price_entry_average: 100.0,
-                closed_quantity: 10.0,
-                closed_price: 50.0,
-                closed_fee: -5.0,
-                expected: 505.0,
+                price_entry_average: dec!(100.0),
+                closed_quantity: dec!(10.0),
+                closed_price: dec!(50.0),
+                closed_fee: dec!(-5.0),
+                expected: dec!(505.0),
             },
             // TC9: SHORT in loss w/ fee deduction
             TestCase {
                 side: Side::Sell,
-                price_entry_average: 100.0,
-                closed_quantity: 10.0,
-                closed_price: 150.0,
-                closed_fee: 5.0,
-                expected: -505.0,
+                price_entry_average: dec!(100.0),
+                closed_quantity: dec!(10.0),
+                closed_price: dec!(150.0),
+                closed_fee: dec!(5.0),
+                expected: dec!(-505.0),
             },
             // TC10: SHORT in loss w/o fee deduction
             TestCase {
                 side: Side::Sell,
-                price_entry_average: 100.0,
-                closed_quantity: 10.0,
-                closed_price: 150.0,
-                closed_fee: 0.0,
-                expected: -500.0,
+                price_entry_average: dec!(100.0),
+                closed_quantity: dec!(10.0),
+                closed_price: dec!(150.0),
+                closed_fee: dec!(0.0),
+                expected: dec!(-500.0),
             },
             // TC10: SHORT in loss w/ fee rebate
             TestCase {
                 side: Side::Sell,
-                price_entry_average: 100.0,
-                closed_quantity: 10.0,
-                closed_price: 150.0,
-                closed_fee: -5.0,
-                expected: -495.0,
+                price_entry_average: dec!(100.0),
+                closed_quantity: dec!(10.0),
+                closed_price: dec!(150.0),
+                closed_fee: dec!(-5.0),
+                expected: dec!(-495.0),
             },
         ];
 
         for (index, test) in cases.into_iter().enumerate() {
             let actual = calculate_pnl_realised(
                 test.side,
-                test.price_entry_average,
-                test.closed_quantity,
-                test.closed_price,
-                test.closed_fee,
+                test.price_entry_average.into(),
+                test.closed_quantity.into(),
+                test.closed_price.into(),
+                test.closed_fee.into(),
             );
 
             assert_eq!(actual, test.expected, "TC{} failed", index);
@@ -1125,51 +1128,51 @@ mod tests {
     #[test]
     fn test_calculate_pnl_return() {
         struct TestCase {
-            pnl_realised: f64,
-            price_entry_average: f64,
-            quantity_abs_max: f64,
-            expected: f64,
+            pnl_realised: Decimal,
+            price_entry_average: Decimal,
+            quantity_abs_max: Decimal,
+            expected: Decimal,
         }
 
         let cases = vec![
             // TC0: Break even (0% return)
             TestCase {
-                pnl_realised: 0.0,
-                price_entry_average: 100.0,
-                quantity_abs_max: 1.0,
-                expected: 0.0,
+                pnl_realised: dec!(0.0),
+                price_entry_average: dec!(100.0),
+                quantity_abs_max: dec!(1.0),
+                expected: dec!(0.0),
             },
             // TC1: 100% return
             TestCase {
-                pnl_realised: 100.0,
-                price_entry_average: 100.0,
-                quantity_abs_max: 1.0,
-                expected: 1.0,
+                pnl_realised: dec!(100.0),
+                price_entry_average: dec!(100.0),
+                quantity_abs_max: dec!(1.0),
+                expected: dec!(1.0),
             },
             // TC2: -50% return
             TestCase {
-                pnl_realised: -50.0,
-                price_entry_average: 100.0,
-                quantity_abs_max: 1.0,
-                expected: -0.5,
+                pnl_realised: dec!(-50.0),
+                price_entry_average: dec!(100.0),
+                quantity_abs_max: dec!(1.0),
+                expected: dec!(-0.5),
             },
             // TC3: Complex case with larger position
             TestCase {
-                pnl_realised: 500.0,
-                price_entry_average: 100.0,
-                quantity_abs_max: 10.0,
-                expected: 0.5, // 500/(100*10)
+                pnl_realised: dec!(500.0),
+                price_entry_average: dec!(100.0),
+                quantity_abs_max: dec!(10.0),
+                expected: dec!(0.5), // 500/(100*10)
             },
         ];
 
         for (index, test) in cases.into_iter().enumerate() {
             let actual = calculate_pnl_return(
-                test.pnl_realised,
-                test.price_entry_average,
-                test.quantity_abs_max,
+                test.pnl_realised.into(),
+                test.price_entry_average.into(),
+                test.quantity_abs_max.into(),
             );
 
-            assert!((actual - test.expected).abs() < 0.001, "TC{} failed", index);
+            assert_eq!(actual, test.expected, "TC{} failed", index);
         }
     }
 }

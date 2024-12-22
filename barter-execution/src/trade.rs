@@ -2,6 +2,7 @@ use crate::order::{OrderId, StrategyId};
 use barter_instrument::{asset::QuoteAsset, Side};
 use chrono::{DateTime, Utc};
 use derive_more::{Constructor, From};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 use std::fmt::{Display, Formatter};
@@ -23,13 +24,13 @@ pub struct Trade<AssetKey, InstrumentKey> {
     pub strategy: StrategyId,
     pub time_exchange: DateTime<Utc>,
     pub side: Side,
-    pub price: f64,
-    pub quantity: f64,
+    pub price: Decimal,
+    pub quantity: Decimal,
     pub fees: AssetFees<AssetKey>,
 }
 
 impl<AssetKey, InstrumentKey> Trade<AssetKey, InstrumentKey> {
-    pub fn value_quote(&self) -> f64 {
+    pub fn value_quote(&self) -> Decimal {
         self.price * self.quantity.abs()
     }
 }
@@ -51,11 +52,11 @@ where
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
 pub struct AssetFees<AssetKey> {
     pub asset: AssetKey,
-    pub fees: f64,
+    pub fees: Decimal,
 }
 
 impl AssetFees<QuoteAsset> {
-    pub fn quote_fees(fees: f64) -> Self {
+    pub fn quote_fees(fees: Decimal) -> Self {
         Self {
             asset: QuoteAsset,
             fees,
@@ -67,7 +68,7 @@ impl Default for AssetFees<QuoteAsset> {
     fn default() -> Self {
         Self {
             asset: QuoteAsset,
-            fees: 0.0,
+            fees: Decimal::ZERO,
         }
     }
 }
@@ -76,7 +77,7 @@ impl<AssetKey> Default for AssetFees<Option<AssetKey>> {
     fn default() -> Self {
         Self {
             asset: None,
-            fees: 0.0,
+            fees: Decimal::ZERO,
         }
     }
 }

@@ -3,6 +3,7 @@ use crate::statistic::{
     time::TimeInterval,
 };
 use prettytable::{Cell, Row, Table};
+use rust_decimal::Decimal;
 
 impl<Interval> TradingSummary<Interval>
 where
@@ -77,40 +78,65 @@ where
         // Add metric rows
         self.add_instrument_metric_row(&mut table, "PnL", |ts| format!("{:.2}", ts.pnl));
         self.add_instrument_metric_row(&mut table, &format!("Return {}", interval), |ts| {
-            format!("{:.2}%", ts.pnl_return.value * 100.0)
+            format!(
+                "{:.2}%",
+                ts.pnl_return
+                    .value
+                    .checked_mul(Decimal::ONE_HUNDRED)
+                    .unwrap()
+            )
         });
         self.add_instrument_metric_row(&mut table, &format!("Sharpe {}", interval), |ts| {
-            format!("{:.3}", ts.sharpe_ratio.value)
+            format_ratio(ts.sharpe_ratio.value)
         });
         self.add_instrument_metric_row(&mut table, &format!("Sortino {}", interval), |ts| {
-            format!("{:.3}", ts.sortino_ratio.value)
+            format_ratio(ts.sortino_ratio.value)
         });
         self.add_instrument_metric_row(&mut table, &format!("Calmar {}", interval), |ts| {
-            format!("{:.3}", ts.calmar_ratio.value)
+            format_ratio(ts.calmar_ratio.value)
         });
         self.add_instrument_metric_row(&mut table, "PnL Drawdown", |ts| {
             if let Some(drawdown) = &ts.pnl_drawdown {
-                format!("{:.2}%", drawdown.value * 100.0)
+                format!(
+                    "{:.2}%",
+                    drawdown.value.checked_mul(Decimal::ONE_HUNDRED).unwrap()
+                )
             } else {
                 "N/A".to_string()
             }
         });
         self.add_instrument_metric_row(&mut table, "PnL Drawdown Avg", |ts| {
             if let Some(mean_drawdown) = &ts.pnl_drawdown_mean {
-                format!("{:.2}%", mean_drawdown.mean_drawdown * 100.0)
+                format!(
+                    "{:.2}%",
+                    mean_drawdown
+                        .mean_drawdown
+                        .checked_mul(Decimal::ONE_HUNDRED)
+                        .unwrap()
+                )
             } else {
                 "N/A".to_string()
             }
         });
         self.add_instrument_metric_row(&mut table, "PnL Drawdown Max", |ts| {
             if let Some(max_drawdown) = &ts.pnl_drawdown_max {
-                format!("{:.2}%", max_drawdown.0.value * 100.0)
+                format!(
+                    "{:.2}%",
+                    max_drawdown
+                        .0
+                        .value
+                        .checked_mul(Decimal::ONE_HUNDRED)
+                        .unwrap()
+                )
             } else {
                 "N/A".to_string()
             }
         });
         self.add_instrument_metric_row(&mut table, "Win Rate", |ts| {
-            format!("{:.1}%", ts.win_rate.value * 100.0)
+            format!(
+                "{:.1}%",
+                ts.win_rate.value.checked_mul(Decimal::ONE_HUNDRED).unwrap()
+            )
         });
         self.add_instrument_metric_row(&mut table, "Profit Factor", |ts| {
             format!("{:.2}", ts.profit_factor.value)
@@ -161,21 +187,37 @@ where
         });
         self.add_asset_metric_row(&mut table, "Drawdown", |ts| {
             if let Some(drawdown) = &ts.drawdown {
-                format!("{:.2}%", drawdown.value * 100.0)
+                format!(
+                    "{:.2}%",
+                    drawdown.value.checked_mul(Decimal::ONE_HUNDRED).unwrap()
+                )
             } else {
                 "N/A".to_string()
             }
         });
         self.add_asset_metric_row(&mut table, "Drawdown Avg", |ts| {
             if let Some(mean_drawdown) = &ts.drawdown_mean {
-                format!("{:.2}%", mean_drawdown.mean_drawdown * 100.0)
+                format!(
+                    "{:.2}%",
+                    mean_drawdown
+                        .mean_drawdown
+                        .checked_mul(Decimal::ONE_HUNDRED)
+                        .unwrap()
+                )
             } else {
                 "N/A".to_string()
             }
         });
         self.add_asset_metric_row(&mut table, "Drawdown Max", |ts| {
             if let Some(max_drawdown) = &ts.drawdown_max {
-                format!("{:.2}%", max_drawdown.0.value * 100.0)
+                format!(
+                    "{:.2}%",
+                    max_drawdown
+                        .0
+                        .value
+                        .checked_mul(Decimal::ONE_HUNDRED)
+                        .unwrap()
+                )
             } else {
                 "N/A".to_string()
             }
@@ -193,5 +235,17 @@ where
             row.add_cell(Cell::new(&format_value(tear_sheet)));
         }
         table.add_row(row);
+    }
+}
+
+fn format_ratio(value: Decimal) -> String {
+    if value == Decimal::MAX {
+        if value.is_sign_positive() {
+            "∞".to_string()
+        } else {
+            "-∞".to_string()
+        }
+    } else {
+        format!("{:.4}", value)
     }
 }

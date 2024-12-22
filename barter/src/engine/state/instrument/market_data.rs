@@ -3,7 +3,7 @@ use barter_data::{
     event::{DataKind, MarketEvent},
     subscription::book::OrderBookL1,
 };
-use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal::{prelude::FromPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -31,25 +31,25 @@ where
     /// - Most recent `PublicTrade` price.
     /// - Volume-weighted mid-price from an `OrderBookL1`.
     /// - Volume-weighted mid-price from an `OrderBookL2`.
-    fn price(&self) -> Option<f64>;
+    fn price(&self) -> Option<Decimal>;
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub struct DefaultMarketData {
     pub l1: OrderBookL1,
-    pub last_traded_price: Option<Timed<f64>>,
+    pub last_traded_price: Option<Timed<Decimal>>,
 }
 
 impl<InstrumentKey> MarketDataState<InstrumentKey> for DefaultMarketData {
     type EventKind = DataKind;
 
-    fn price(&self) -> Option<f64> {
+    fn price(&self) -> Option<Decimal> {
         if self.l1.best_bid.price == Decimal::default()
             || self.l1.best_ask.price == Decimal::default()
         {
             self.last_traded_price.as_ref().map(|timed| timed.value)
         } else {
-            self.l1.volume_weighed_mid_price().to_f64()
+            Some(self.l1.volume_weighed_mid_price())
         }
     }
 }
@@ -65,8 +65,10 @@ impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>> for Default
                     .as_ref()
                     .map_or(true, |price| price.time < event.time_exchange)
                 {
-                    self.last_traded_price
-                        .replace(Timed::new(trade.price, event.time_exchange));
+                    if let Some(price) = Decimal::from_f64(trade.price) {
+                        self.last_traded_price
+                            .replace(Timed::new(price, event.time_exchange));
+                    }
                 }
             }
             DataKind::OrderBookL1(l1) => {

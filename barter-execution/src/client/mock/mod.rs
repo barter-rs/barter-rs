@@ -2,185 +2,242 @@ use crate::{
     balance::AssetBalance,
     client::ExecutionClient,
     error::UnindexedClientError,
+    exchange::mock::request::MockExchangeRequest,
     order::{Cancelled, Open, Order, RequestCancel, RequestOpen},
     trade::Trade,
     UnindexedAccountEvent, UnindexedAccountSnapshot,
 };
 use barter_instrument::{
-    asset::name::AssetNameExchange, exchange::ExchangeId, instrument::name::InstrumentNameExchange,
+    asset::{name::AssetNameExchange, QuoteAsset},
+    exchange::ExchangeId,
+    instrument::name::InstrumentNameExchange,
 };
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use futures::stream::BoxStream;
-use std::collections::HashSet;
+use rust_decimal::Decimal;
+use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio_stream::{wrappers::BroadcastStream, StreamExt};
 use tracing::error;
-
-#[derive(Debug, Clone, Constructor)]
-pub struct MockExecution {
-    pub mocked_exchange: ExchangeId,
-    pub state: UnindexedAccountSnapshot,
-    pub account_stream_tx: tokio::sync::broadcast::Sender<UnindexedAccountEvent>,
-}
 
 #[derive(Debug, Clone, Constructor)]
 pub struct MockExecutionConfig {
     pub mocked_exchange: ExchangeId,
     pub initial_state: UnindexedAccountSnapshot,
-    pub fees_percent: f64,
+    pub latency_ms: u64,
+    pub fees_percent: Decimal,
+}
+
+#[derive(Debug, Constructor)]
+pub struct MockExecutionClientConfig {
+    pub mocked_exchange: ExchangeId,
+    pub request_tx: mpsc::UnboundedSender<MockExchangeRequest>,
+    pub event_rx: broadcast::Receiver<UnindexedAccountEvent>,
+}
+
+impl Clone for MockExecutionClientConfig {
+    fn clone(&self) -> Self {
+        Self {
+            mocked_exchange: self.mocked_exchange,
+            request_tx: self.request_tx.clone(),
+            event_rx: self.event_rx.resubscribe(),
+        }
+    }
+}
+
+#[derive(Debug, Constructor)]
+pub struct MockExecution {
+    pub mocked_exchange: ExchangeId,
+    pub request_tx: mpsc::UnboundedSender<MockExchangeRequest>,
+    pub event_rx: broadcast::Receiver<UnindexedAccountEvent>,
+}
+
+impl Clone for MockExecution {
+    fn clone(&self) -> Self {
+        Self {
+            mocked_exchange: self.mocked_exchange,
+            request_tx: self.request_tx.clone(),
+            event_rx: self.event_rx.resubscribe(),
+        }
+    }
+}
+
+impl MockExecution {
+    pub fn time_request(&self) -> DateTime<Utc> {
+        Utc::now()
+        // todo!()
+    }
 }
 
 impl ExecutionClient for MockExecution {
     const EXCHANGE: ExchangeId = ExchangeId::Mock;
-    type Config = MockExecutionConfig;
+    type Config = MockExecutionClientConfig;
     type AccountStream = BoxStream<'static, UnindexedAccountEvent>;
 
     fn new(config: Self::Config) -> Self {
-        const ACCOUNT_STREAM_CAPACITY: usize = 256;
-
-        let (tx, _rx) = tokio::sync::broadcast::channel(ACCOUNT_STREAM_CAPACITY);
-
-        // Sanity check: AccountSnapshot Orders are for mocked ExchangeId
-        config
-            .initial_state
-            .instruments
-            .iter()
-            .for_each(|instrument| {
-                instrument.orders.iter().for_each(|order| {
-                    // Check Order is for the mocked ExchangeId
-                    if order.exchange != config.mocked_exchange {
-                        panic!(
-                            "MockExecution initial AccountSnapshot contains Order with: \
-                            {}, but Self is configured to mock: {}. Order: {:?}",
-                            order.exchange, config.mocked_exchange, order
-                        )
-                    }
-                })
-            });
-
         Self {
             mocked_exchange: config.mocked_exchange,
-            state: config.initial_state,
-            account_stream_tx: tx,
+            request_tx: config.request_tx,
+            event_rx: config.event_rx,
         }
     }
 
     async fn account_snapshot(
         &self,
-        assets: &[AssetNameExchange],
-        instruments: &[InstrumentNameExchange],
+        _: &[AssetNameExchange],
+        _: &[InstrumentNameExchange],
     ) -> Result<UnindexedAccountSnapshot, UnindexedClientError> {
-        // Sanity check (not performance critical):
-        self.check_for_untracked_assets_and_instruments(assets, instruments)
-            .map_err(|(untracked_assets, untracked_instruments)| {
-                UnindexedClientError::AccountSnapshot(format!(
-                    "MockExecution not configured for assets: {:?} and instruments: {:?}",
-                    untracked_assets, untracked_instruments,
-                ))
-            })?;
+        let (response_tx, response_rx) = oneshot::channel();
 
-        Ok(self.state.clone())
+        self.request_tx
+            .send(MockExchangeRequest::fetch_account_snapshot(
+                self.time_request(),
+                response_tx,
+            ))
+            .expect("MockExchange is offline - failed to send request");
+
+        let snapshot = response_rx
+            .await
+            .expect("MockExchange if offline - failed to receive response");
+
+        Ok(snapshot)
     }
 
     async fn account_stream(
         &self,
-        assets: &[AssetNameExchange],
-        instruments: &[InstrumentNameExchange],
+        _: &[AssetNameExchange],
+        _: &[InstrumentNameExchange],
     ) -> Result<Self::AccountStream, UnindexedClientError> {
-        // Sanity check (not performance critical):
-        self.check_for_untracked_assets_and_instruments(assets, instruments)
-            .map_err(|(untracked_assets, untracked_instruments)| {
-                UnindexedClientError::AccountStream(format!(
-                    "MockExecution not configured for assets: {:?} and instruments: {:?}",
-                    untracked_assets, untracked_instruments,
-                ))
-            })?;
-
         Ok(futures::StreamExt::boxed(
-            BroadcastStream::new(self.account_stream_tx.subscribe()).map_while(
-                |result| match result {
-                    Ok(event) => Some(event),
-                    Err(error) => {
-                        error!(
-                            ?error,
-                            "MockExecution Broadcast AccountStream lagged - terminating"
-                        );
-                        None
-                    }
-                },
-            ),
+            BroadcastStream::new(self.event_rx.resubscribe()).map_while(|result| match result {
+                Ok(event) => Some(event),
+                Err(error) => {
+                    error!(
+                        ?error,
+                        "MockExchange Broadcast AccountStream lagged - terminating"
+                    );
+                    None
+                }
+            }),
         ))
     }
 
     async fn cancel_order(
         &self,
-        _request: Order<ExchangeId, &InstrumentNameExchange, RequestCancel>,
+        request: Order<ExchangeId, &InstrumentNameExchange, RequestCancel>,
     ) -> Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedClientError>> {
-        // Todo: It's possible we want a MockExchange which this ExecutionClient interacts with...
-        //   that would more easily allow simulating real open & cancel async behaviour...
-        //   -> at minimum probably want some more optimised data structures such as
-        //    Order hashmap, or perhaps AssetStates & InstrumentStates
-        todo!()
+        let (response_tx, response_rx) = oneshot::channel();
+
+        self.request_tx
+            .send(MockExchangeRequest::cancel_order(
+                self.time_request(),
+                response_tx,
+                into_owned_request(request),
+            ))
+            .expect("MockExchange is offline - failed to send request");
+
+        response_rx
+            .await
+            .expect("MockExchange if offline - failed to receive response")
     }
 
     async fn open_order(
         &self,
-        _request: Order<ExchangeId, &InstrumentNameExchange, RequestOpen>,
+        request: Order<ExchangeId, &InstrumentNameExchange, RequestOpen>,
     ) -> Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>> {
-        todo!()
+        let (response_tx, response_rx) = oneshot::channel();
+
+        self.request_tx
+            .send(MockExchangeRequest::open_order(
+                self.time_request(),
+                response_tx,
+                into_owned_request(request),
+            ))
+            .expect("MockExchange is offline - failed to send request");
+
+        response_rx
+            .await
+            .expect("MockExchange if offline - failed to receive response")
     }
 
     async fn fetch_balances(
         &self,
     ) -> Result<Vec<AssetBalance<AssetNameExchange>>, UnindexedClientError> {
-        Ok(self.state.balances.clone())
+        let (response_tx, response_rx) = oneshot::channel();
+
+        self.request_tx
+            .send(MockExchangeRequest::fetch_balances(
+                self.time_request(),
+                response_tx,
+            ))
+            .expect("MockExchange is offline - failed to send request");
+
+        let balances = response_rx
+            .await
+            .expect("MockExchange if offline - failed to receive response");
+
+        Ok(balances)
     }
 
     async fn fetch_open_orders(
         &self,
     ) -> Result<Vec<Order<ExchangeId, InstrumentNameExchange, Open>>, UnindexedClientError> {
-        Ok(self
-            .state
-            .instruments
-            .iter()
-            .flat_map(|state| state.orders.iter().filter_map(Order::as_open))
-            .collect())
+        let (response_tx, response_rx) = oneshot::channel();
+
+        self.request_tx
+            .send(MockExchangeRequest::fetch_orders_open(
+                self.time_request(),
+                response_tx,
+            ))
+            .expect("MockExchange is offline - failed to send request");
+
+        let open_orders = response_rx
+            .await
+            .expect("MockExchange if offline - failed to receive response");
+
+        Ok(open_orders)
     }
 
     async fn fetch_trades(
         &self,
-        _time_since: DateTime<Utc>,
-    ) -> Result<Vec<Trade<AssetNameExchange, InstrumentNameExchange>>, UnindexedClientError> {
-        todo!()
+        time_since: DateTime<Utc>,
+    ) -> Result<Vec<Trade<QuoteAsset, InstrumentNameExchange>>, UnindexedClientError> {
+        let (response_tx, response_rx) = oneshot::channel();
+
+        self.request_tx
+            .send(MockExchangeRequest::fetch_trades(
+                self.time_request(),
+                response_tx,
+                time_since,
+            ))
+            .expect("MockExchange is offline - failed to send request");
+
+        let trades = response_rx
+            .await
+            .expect("MockExchange if offline - failed to receive response");
+
+        Ok(trades)
     }
 }
 
-impl MockExecution {
-    fn check_for_untracked_assets_and_instruments<'a>(
-        &self,
-        assets: &'a [AssetNameExchange],
-        instruments: &'a [InstrumentNameExchange],
-    ) -> Result<
-        (),
-        (
-            HashSet<&'a AssetNameExchange>,
-            HashSet<&'a InstrumentNameExchange>,
-        ),
-    > {
-        let mut assets = assets.iter().collect::<HashSet<_>>();
-        for tracked_asset in self.state.assets() {
-            assets.remove(tracked_asset);
-        }
+fn into_owned_request<Kind>(
+    request: Order<ExchangeId, &InstrumentNameExchange, Kind>,
+) -> Order<ExchangeId, InstrumentNameExchange, Kind> {
+    let Order {
+        exchange,
+        instrument,
+        strategy,
+        cid,
+        side,
+        state,
+    } = request;
 
-        let mut instruments = instruments.iter().collect::<HashSet<_>>();
-        for tracked_instrument in self.state.instruments() {
-            instruments.remove(tracked_instrument);
-        }
-
-        if assets.is_empty() && instruments.is_empty() {
-            Ok(())
-        } else {
-            Err((assets, instruments))
-        }
+    Order {
+        exchange,
+        instrument: instrument.clone(),
+        strategy,
+        cid,
+        side,
+        state,
     }
 }

@@ -1,19 +1,26 @@
 use crate::statistic::algorithm::welford_online;
+use rust_decimal::{Decimal, MathematicalOps};
 use serde::{Deserialize, Serialize};
 
 /// Representation of a dataset using measures of dispersion - range, variance & standard deviation.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Deserialize, Serialize)]
 pub struct Dispersion {
     pub range: Range,
-    pub recurrence_relation_m: f64,
-    pub variance: f64,
-    pub std_dev: f64,
+    pub recurrence_relation_m: Decimal,
+    pub variance: Decimal,
+    pub std_dev: Decimal,
 }
 
 impl Dispersion {
     /// Iteratively updates the measures of Dispersion given the previous mean, new mean, new value,
     /// and the dataset count.
-    pub fn update(&mut self, prev_mean: f64, new_mean: f64, new_value: f64, value_count: u64) {
+    pub fn update(
+        &mut self,
+        prev_mean: Decimal,
+        new_mean: Decimal,
+        new_value: Decimal,
+        value_count: Decimal,
+    ) {
         // Update Range
         self.range.update(new_value);
 
@@ -30,7 +37,11 @@ impl Dispersion {
             welford_online::calculate_population_variance(self.recurrence_relation_m, value_count);
 
         // Update Standard Deviation
-        self.std_dev = self.variance.sqrt();
+        self.std_dev = self
+            .variance
+            .abs()
+            .sqrt()
+            .expect("variance cannot be negative");
     }
 }
 
@@ -39,13 +50,13 @@ impl Dispersion {
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Deserialize, Serialize)]
 pub struct Range {
     pub activated: bool,
-    pub high: f64,
-    pub low: f64,
+    pub high: Decimal,
+    pub low: Decimal,
 }
 
 impl Range {
     /// Initialises the Range with the provided first value of the dataset.
-    pub fn init(first_value: f64) -> Self {
+    pub fn init(first_value: Decimal) -> Self {
         Self {
             activated: true,
             high: first_value,
@@ -54,7 +65,7 @@ impl Range {
     }
 
     /// Iteratively updates the Range given the next value in the dataset.
-    pub fn update(&mut self, new_value: f64) {
+    pub fn update(&mut self, new_value: Decimal) {
         if self.activated {
             if new_value > self.high {
                 self.high = new_value;
@@ -71,7 +82,7 @@ impl Range {
     }
 
     /// Calculates the range between the highest and lowest value of a dataset.
-    pub fn range(&self) -> f64 {
+    pub fn range(&self) -> Decimal {
         self.high - self.low
     }
 }
@@ -79,6 +90,8 @@ impl Range {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rust_decimal_macros::dec;
+    use std::str::FromStr;
 
     #[test]
     fn update_dispersion() {
@@ -86,102 +99,102 @@ mod tests {
 
         // Dataset  = [1.1, 1.2, 1.3, 1.4, 0.6]
         // Means    = [1.1, 1.15, 1.2, 1.25, 1.12]
-        // Inputs:
         struct UpdateInput {
-            prev_mean: f64,
-            new_mean: f64,
-            new_value: f64,
-            value_count: u64,
+            prev_mean: Decimal,
+            new_mean: Decimal,
+            new_value: Decimal,
+            value_count: Decimal,
         }
+
         let input_1 = UpdateInput {
-            prev_mean: 0.0,
-            new_mean: 1.1,
-            new_value: 1.1,
-            value_count: 1,
+            prev_mean: dec!(0.0),
+            new_mean: dec!(1.1),
+            new_value: dec!(1.1),
+            value_count: dec!(1),
         };
         let input_2 = UpdateInput {
-            prev_mean: 1.1,
-            new_mean: 1.15,
-            new_value: 1.2,
-            value_count: 2,
+            prev_mean: dec!(1.1),
+            new_mean: dec!(1.15),
+            new_value: dec!(1.2),
+            value_count: dec!(2),
         };
         let input_3 = UpdateInput {
-            prev_mean: 1.15,
-            new_mean: 1.2,
-            new_value: 1.3,
-            value_count: 3,
+            prev_mean: dec!(1.15),
+            new_mean: dec!(1.2),
+            new_value: dec!(1.3),
+            value_count: dec!(3),
         };
         let input_4 = UpdateInput {
-            prev_mean: 1.2,
-            new_mean: 1.25,
-            new_value: 1.4,
-            value_count: 4,
+            prev_mean: dec!(1.2),
+            new_mean: dec!(1.25),
+            new_value: dec!(1.4),
+            value_count: dec!(4),
         };
         let input_5 = UpdateInput {
-            prev_mean: 1.25,
-            new_mean: 1.12,
-            new_value: 0.6,
-            value_count: 5,
+            prev_mean: dec!(1.25),
+            new_mean: dec!(1.12),
+            new_value: dec!(0.6),
+            value_count: dec!(5),
         };
         let inputs = vec![input_1, input_2, input_3, input_4, input_5];
 
-        // Expected Outputs:
-        // Recurrence_M = [0.0, 0.005, ~0.02, ~0.05, 0.388]
-        // Variance     = [0.0, 0.0025, ~1/150, ~0.0125, 0.0776]
-        // Std. Dev     = [0.0, 0.05, ~(6.sqrt()/30), ~(5.sqrt()/20), ~(194.sqrt()/50)]
+        // Expected outputs calculated with high precision decimal arithmetic:
+        // Recurrence_M = [0.0, 0.005, 0.02, 0.05, 0.388]
+        // Variance     = [0.0, 0.0025, 0.006666666667, 0.0125, 0.0776]
+        // Std. Dev     = [0.0, 0.05, 0.081649658092, 0.111803398875, 0.278567765544]
         let output_1 = Dispersion {
             range: Range {
                 activated: true,
-                high: 1.1,
-                low: 1.1,
+                high: dec!(1.1),
+                low: dec!(1.1),
             },
-            recurrence_relation_m: 0.0,
-            variance: 0.0,
-            std_dev: 0.0,
+            recurrence_relation_m: dec!(0.0),
+            variance: dec!(0.0),
+            std_dev: dec!(0.0),
         };
 
         let output_2 = Dispersion {
             range: Range {
                 activated: true,
-                high: 1.2,
-                low: 1.1,
+                high: dec!(1.2),
+                low: dec!(1.1),
             },
-            recurrence_relation_m: 0.005,
-            variance: 0.0025,
-            std_dev: 0.05,
+            recurrence_relation_m: dec!(0.005),
+            variance: dec!(0.0025),
+            std_dev: dec!(0.05),
         };
 
         let output_3 = Dispersion {
             range: Range {
                 activated: true,
-                high: 1.3,
-                low: 1.1,
+                high: dec!(1.3),
+                low: dec!(1.1),
             },
-            recurrence_relation_m: 0.02,
-            variance: 1.0 / 150.0,
-            std_dev: (6.0_f64.sqrt() / 30.0),
+            recurrence_relation_m: dec!(0.02),
+            variance: Decimal::from_str("0.006666666667").unwrap(),
+            std_dev: Decimal::from_str("0.081649658092").unwrap(),
         };
 
         let output_4 = Dispersion {
             range: Range {
                 activated: true,
-                high: 1.4,
-                low: 1.1,
+                high: dec!(1.4),
+                low: dec!(1.1),
             },
-            recurrence_relation_m: 0.05,
-            variance: 0.0125,
-            std_dev: (5.0_f64.sqrt() / 20.0),
+            recurrence_relation_m: dec!(0.05),
+            variance: dec!(0.0125),
+            std_dev: Decimal::from_str("0.111803398875").unwrap(),
         };
 
         let output_5 = Dispersion {
             range: Range {
                 activated: true,
-                high: 1.4,
-                low: 0.6,
+                high: dec!(1.4),
+                low: dec!(0.6),
             },
-            recurrence_relation_m: 0.388,
-            variance: 0.0776,
-            std_dev: (194.0_f64.sqrt() / 50.0),
+            recurrence_relation_m: dec!(0.388),
+            variance: dec!(0.0776),
+            std_dev: Decimal::from_str("0.278567765544").unwrap(),
         };
 
         let outputs = vec![output_1, output_2, output_3, output_4, output_5];
@@ -194,26 +207,51 @@ mod tests {
                 input.value_count,
             );
 
-            // Range
+            // Range checks - exact equality since these are simple operations
             assert_eq!(dispersion.range.activated, out.range.activated);
             assert_eq!(dispersion.range.high, out.range.high);
             assert_eq!(dispersion.range.low, out.range.low);
 
-            // Floating Point Comparisons
-            let recurrence_diff = dispersion.recurrence_relation_m - out.recurrence_relation_m;
-            assert!(recurrence_diff < 1e-10);
+            // Statistical calculations - check within tolerance due to decimal arithmetic
+            let tolerance = Decimal::from_str("0.000000000001").unwrap();
 
-            let variance_diff = dispersion.variance - out.variance;
-            assert!(variance_diff < 1e-10);
+            let recurrence_diff =
+                (dispersion.recurrence_relation_m - out.recurrence_relation_m).abs();
+            assert!(
+                recurrence_diff <= tolerance,
+                "Recurrence M difference {} exceeds tolerance",
+                recurrence_diff
+            );
 
-            let standard_dev_diff = dispersion.std_dev - out.std_dev;
-            assert!(standard_dev_diff < 1e-10);
+            let variance_diff = (dispersion.variance - out.variance).abs();
+            assert!(
+                variance_diff <= tolerance,
+                "Variance difference {} exceeds tolerance",
+                variance_diff
+            );
+
+            let std_dev_diff = (dispersion.std_dev - out.std_dev).abs();
+            assert!(
+                std_dev_diff <= tolerance,
+                "Standard deviation difference {} exceeds tolerance",
+                std_dev_diff
+            );
         }
     }
 
     #[test]
     fn update_range() {
-        let dataset = [0.1, 1.01, 1.02, 1.03, 1.04, 1.05, 1.06, 1.07, 9999.0];
+        let dataset = [
+            dec!(0.1),
+            dec!(1.01),
+            dec!(1.02),
+            dec!(1.03),
+            dec!(1.04),
+            dec!(1.05),
+            dec!(1.06),
+            dec!(1.07),
+            dec!(9999.0),
+        ];
         let mut actual_range = Range::default();
 
         for &value in &dataset {
@@ -222,11 +260,11 @@ mod tests {
 
         let expected_range = Range {
             activated: true,
-            high: 9999.0,
-            low: 0.1,
+            high: dec!(9999.0),
+            low: dec!(0.1),
         };
 
         assert_eq!(actual_range, expected_range);
-        assert_eq!(actual_range.range(), 9998.9);
+        assert_eq!(actual_range.range(), dec!(9998.9));
     }
 }
