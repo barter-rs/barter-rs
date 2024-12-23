@@ -18,6 +18,7 @@ use std::{
     fmt::{Debug, Formatter},
     marker::PhantomData,
 };
+use tracing::error;
 use uuid::Uuid;
 
 /// Configuration for constructing a [`RedisRepository`] via the new() constructor method.
@@ -53,12 +54,22 @@ where
         &mut self,
         position_id: &PositionId,
     ) -> Result<Option<Position>, RepositoryError> {
-        let position_value: String = self
-            .conn
-            .get(position_id.as_str())
-            .map_err(|_| RepositoryError::ReadError)?;
-
-        Ok(Some(serde_json::from_str::<Position>(&position_value)?))
+        match self.conn.get::<&str, String>(position_id.as_str()) {
+            Ok(position_value) => {
+                // Attempt to deserialize the position value
+                match serde_json::from_str::<Position>(&position_value) {
+                    Ok(position) => Ok(Some(position)), // Successfully deserialized
+                    Err(error) => {
+                        error!("Failed to deserialize position: {}", error);
+                        Ok(None) // Return None if deserialization fails
+                    }
+                }
+            }
+            Err(error) => {
+                error!("Failed to get open position: {}", error);
+                Ok(None) // Return None if fetching from Redis fails
+            }
+        }
     }
 
     fn get_open_positions<'a, Markets: Iterator<Item = &'a Market>>(
