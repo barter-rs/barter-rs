@@ -1,8 +1,10 @@
-use barter_instrument::{exchange::ExchangeId, index::IndexedInstruments};
+use barter_instrument::{
+    exchange::{ExchangeId, ExchangeIndex},
+    index::IndexedInstruments,
+};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-
-pub mod manager;
+use tracing::{info, warn};
 
 /// Maintains a global connection [`Health`], as well as the connection status of market data
 /// and account connections for each exchange.
@@ -16,6 +18,86 @@ pub struct ConnectivityStates {
 
     /// Connectivity `Health` of market data and account connections by exchange.
     pub exchanges: IndexMap<ExchangeId, ConnectivityState>,
+}
+
+impl ConnectivityStates {
+    pub fn update_from_account_reconnecting(&mut self, exchange: &ExchangeId) {
+        warn!(%exchange, "EngineState received AccountStream disconnected event");
+        self.connectivity_mut(exchange).account = Health::Reconnecting
+    }
+
+    pub fn update_from_account_event(&mut self, exchange: &ExchangeIndex) {
+        if self.global == Health::Healthy {
+            return;
+        }
+
+        let state = self.connectivity_index_mut(exchange);
+        if state.account == Health::Healthy {
+            return;
+        }
+
+        info!(%exchange, "EngineState setting exchange account connection to Healthy");
+        state.account = Health::Healthy;
+
+        if self.exchanges().all(ConnectivityState::all_healthy) {
+            info!("EngineState setting global connectivity to Healthy");
+            self.global = Health::Healthy
+        }
+    }
+
+    pub fn update_from_market_reconnecting(&mut self, exchange: &ExchangeId) {
+        warn!(%exchange, "EngineState received MarketStream disconnect event");
+        self.connectivity_mut(exchange).market_data = Health::Reconnecting
+    }
+
+    pub fn update_from_market_event(&mut self, exchange: &ExchangeId) {
+        if self.global == Health::Healthy {
+            return;
+        }
+
+        let state = self.connectivity_mut(exchange);
+        if state.market_data == Health::Healthy {
+            return;
+        }
+
+        info!(%exchange, "EngineState setting exchange market data connection to Healthy");
+        state.market_data = Health::Healthy;
+
+        if self.exchanges().all(ConnectivityState::all_healthy) {
+            info!("EngineState setting global connectivity to Healthy");
+            self.global = Health::Healthy
+        }
+    }
+
+    pub fn connectivity_index(&self, key: &ExchangeIndex) -> &ConnectivityState {
+        self.exchanges
+            .get_index(key.index())
+            .map(|(_key, state)| state)
+            .unwrap_or_else(|| panic!("ConnectivityStates does not contain: {key}"))
+    }
+
+    pub fn connectivity_index_mut(&mut self, key: &ExchangeIndex) -> &mut ConnectivityState {
+        self.exchanges
+            .get_index_mut(key.index())
+            .map(|(_key, state)| state)
+            .unwrap_or_else(|| panic!("ConnectivityStates does not contain: {key}"))
+    }
+
+    pub fn connectivity(&self, key: &ExchangeId) -> &ConnectivityState {
+        self.exchanges
+            .get(key)
+            .unwrap_or_else(|| panic!("ConnectivityStates does not contain: {key}"))
+    }
+
+    pub fn connectivity_mut(&mut self, key: &ExchangeId) -> &mut ConnectivityState {
+        self.exchanges
+            .get_mut(key)
+            .unwrap_or_else(|| panic!("ConnectivityStates does not contain: {key}"))
+    }
+
+    pub fn exchanges(&self) -> impl Iterator<Item = &ConnectivityState> {
+        self.exchanges.values()
+    }
 }
 
 /// Represents the `Health` status of a component or connection to an exchange endpoint.

@@ -10,9 +10,15 @@ use crate::{
     },
     strategy::close_positions::ClosePositionsStrategy,
 };
+use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use std::fmt::Debug;
 
-pub trait ClosePositions<ExchangeKey, AssetKey, InstrumentKey> {
+pub trait ClosePositions<
+    ExchangeKey = ExchangeIndex,
+    AssetKey = AssetIndex,
+    InstrumentKey = InstrumentIndex,
+>
+{
     fn close_positions(
         &mut self,
         filter: &InstrumentFilter<ExchangeKey, AssetKey, InstrumentKey>,

@@ -1,12 +1,11 @@
 use crate::{
     engine::{
         error::UnrecoverableEngineError,
-        state::{instrument::market_data::MarketDataState, EngineState, IndexedEngineState},
-        IndexedEngineOutput,
+        state::{instrument::market_data::MarketDataState, EngineState},
+        EngineOutput,
     },
-    IndexedEngineEvent,
+    EngineEvent,
 };
-use barter_instrument::instrument::InstrumentIndex;
 use barter_integration::collection::one_or_many::OneOrMany;
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
@@ -18,15 +17,15 @@ pub mod request;
 pub mod shutdown;
 
 pub type DefaultAudit<
-    MarketState: MarketDataState<InstrumentIndex>,
+    MarketState: MarketDataState,
     StrategyState,
     RiskState,
     OnTradingDisabled,
     OnDisconnect,
 > = Audit<
-    IndexedEngineState<MarketState, StrategyState, RiskState>,
-    IndexedEngineEvent<MarketState::EventKind>,
-    IndexedEngineOutput<OnTradingDisabled, OnDisconnect>,
+    EngineState<MarketState, StrategyState, RiskState>,
+    EngineEvent<MarketState::EventKind>,
+    EngineOutput<OnTradingDisabled, OnDisconnect>,
 >;
 
 pub type CustomAudit<
@@ -37,9 +36,9 @@ pub type CustomAudit<
     OnTradingDisabled,
     OnDisconnect,
 > = Audit<
-    IndexedEngineState<MarketState, StrategyState, RiskState>,
+    EngineState<MarketState, StrategyState, RiskState>,
     Event,
-    IndexedEngineOutput<OnTradingDisabled, OnDisconnect>,
+    EngineOutput<OnTradingDisabled, OnDisconnect>,
 >;
 
 pub trait Auditor<AuditKind>
@@ -139,17 +138,10 @@ impl<State, Event, Output> Audit<State, Event, Output> {
     }
 }
 
-impl<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey, Event, Output>
-    From<EngineState<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>>
-    for Audit<
-        EngineState<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>,
-        Event,
-        Output,
-    >
+impl<Market, Strategy, Risk, Event, Output> From<EngineState<Market, Strategy, Risk>>
+    for Audit<EngineState<Market, Strategy, Risk>, Event, Output>
 {
-    fn from(
-        value: EngineState<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>,
-    ) -> Self {
+    fn from(value: EngineState<Market, Strategy, Risk>) -> Self {
         Self::Snapshot(value)
     }
 }

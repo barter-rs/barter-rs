@@ -1,6 +1,6 @@
-use crate::engine::state::{instrument::manager::InstrumentStateManager, EngineState};
+use crate::engine::state::EngineState;
 use barter_execution::order::{Order, RequestCancel, RequestOpen};
-use std::fmt::Debug;
+use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 
 /// Synchronous in-flight open and in-flight cancel order request tracker.
 ///
@@ -38,25 +38,25 @@ pub trait InFlightRequestRecorder<ExchangeKey, InstrumentKey> {
     fn record_in_flight_open(&mut self, request: &Order<ExchangeKey, InstrumentKey, RequestOpen>);
 }
 
-impl<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
-    InFlightRequestRecorder<ExchangeKey, InstrumentKey>
-    for EngineState<Market, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
-where
-    Self: InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey>,
-    ExchangeKey: Debug + Clone,
-    InstrumentKey: Debug + Clone,
+impl<Market, Strategy, Risk> InFlightRequestRecorder<ExchangeIndex, InstrumentIndex>
+    for EngineState<Market, Strategy, Risk>
 {
     fn record_in_flight_cancel(
         &mut self,
-        request: &Order<ExchangeKey, InstrumentKey, RequestCancel>,
+        request: &Order<ExchangeIndex, InstrumentIndex, RequestCancel>,
     ) {
-        self.instrument_mut(&request.instrument)
+        self.instruments
+            .instrument_index_mut(&request.instrument)
             .orders
             .record_in_flight_cancel(request);
     }
 
-    fn record_in_flight_open(&mut self, request: &Order<ExchangeKey, InstrumentKey, RequestOpen>) {
-        self.instrument_mut(&request.instrument)
+    fn record_in_flight_open(
+        &mut self,
+        request: &Order<ExchangeIndex, InstrumentIndex, RequestOpen>,
+    ) {
+        self.instruments
+            .instrument_index_mut(&request.instrument)
             .orders
             .record_in_flight_open(request);
     }

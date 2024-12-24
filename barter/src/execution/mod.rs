@@ -11,7 +11,8 @@ pub mod error;
 pub mod manager;
 pub mod request;
 
-pub type IndexedAccountStreamEvent = AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>;
-
-pub type AccountStreamEvent<ExchangeKey, AssetKey, InstrumentKey> =
-    reconnect::Event<ExchangeId, AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>;
+pub type AccountStreamEvent<
+    ExchangeKey = ExchangeIndex,
+    AssetKey = AssetIndex,
+    InstrumentKey = InstrumentIndex,
+> = reconnect::Event<ExchangeId, AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>;

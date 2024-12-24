@@ -1,12 +1,14 @@
 use crate::{
     engine::{
-        audit::{manager::history::TradingHistory, Audit, AuditTick},
-        state::{
-            asset::manager::AssetStateManager,
-            connectivity::{manager::ConnectivityManager, ConnectivityState, Health},
-            StateManager,
+        audit::{
+            manager::history::TradingHistory, shutdown::ShutdownAudit, Audit, AuditTick,
+            DefaultAudit,
         },
-        EngineOutput,
+        state::{
+            asset::manager::AssetStateManager, instrument::market_data::MarketDataState,
+            EngineState,
+        },
+        EngineOutput, Processor,
     },
     execution::AccountStreamEvent,
     statistic::summary::{
@@ -14,40 +16,39 @@ use crate::{
     },
     EngineEvent,
 };
-use barter_data::streams::consumer::MarketStreamEvent;
-use barter_execution::AccountEventKind;
-use barter_instrument::exchange::ExchangeId;
+use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
+use barter_execution::{AccountEvent, AccountEventKind};
+use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::info;
 
 pub mod history;
 
-// Todo: If I had proper deltas I could use much less memory, even computing lazely the prev or
-//      next, and only ever holding the "next event" and "current delta"
-//      '--> call .collect() and users can aggregate all into a full history of snapshots
-//      - Would it make sense to add input Events too?
-
-// Todo:
-//  - Consider using an AuditIndex to speed up history State lookups from other events
-//      eg/ Position
-//   '--> Makes a good case for adding more "audits" for other types of event
-//    --> Can attach a "snapshot index" to all events that comes through
-
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct AuditManager<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey> {
+pub struct AuditManager<State, OnDisable, OnDisconnect> {
     pub snapshot: AuditTick<State>,
     pub summary: TradingSummaryGenerator,
-    pub history: TradingHistory<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey>,
+    pub history: TradingHistory<State, OnDisable, OnDisconnect, ExchangeIndex, InstrumentIndex>,
 }
 
-impl<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey>
-    AuditManager<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey>
+impl<MarketState, StrategyState, RiskState, OnDisable, OnDisconnect>
+    AuditManager<EngineState<MarketState, StrategyState, RiskState>, OnDisable, OnDisconnect>
+where
+    MarketState: MarketDataState,
+    StrategyState: Clone
+        + for<'a> Processor<&'a AccountEvent>
+        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
+    RiskState: Clone
+        + for<'a> Processor<&'a AccountEvent>
+        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
+    TradingSummaryGenerator: InstrumentTearSheetManager<InstrumentIndex>
+        + AssetStateManager<AssetIndex, State = TearSheetAssetGenerator>,
 {
-    pub fn new(snapshot: AuditTick<State>, summary: TradingSummaryGenerator) -> Self
-    where
-        State: Clone,
-    {
+    pub fn new(
+        snapshot: AuditTick<EngineState<MarketState, StrategyState, RiskState>>,
+        summary: TradingSummaryGenerator,
+    ) -> Self {
         Self {
             snapshot: snapshot.clone(),
             summary,
@@ -55,26 +56,21 @@ impl<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey>
         }
     }
 
-    pub fn run<Audits, AssetKey>(&mut self, feed: &mut Audits) -> Result<(), String>
+    pub fn run<Audits>(&mut self, feed: &mut Audits) -> Result<(), String>
     where
-        State: Clone + StateManager<ExchangeKey, AssetKey, InstrumentKey>,
-        State::MarketEventKind: Debug,
-        ExchangeKey: Debug,
-        InstrumentKey: Debug,
         Audits: Iterator<
             Item = AuditTick<
-                Audit<
-                    State,
-                    EngineEvent<State::MarketEventKind, ExchangeKey, AssetKey, InstrumentKey>,
-                    EngineOutput<ExchangeKey, InstrumentKey, OnDisable, OnDisconnect>,
-                >,
+                DefaultAudit<MarketState, StrategyState, RiskState, OnDisable, OnDisconnect>,
             >,
         >,
-        AssetKey: Debug,
-        TradingSummaryGenerator: InstrumentTearSheetManager<InstrumentKey>
-            + AssetStateManager<AssetKey, State = TearSheetAssetGenerator>,
     {
-        for audit in feed {
+        info!("AuditManager running");
+
+        let shutdown_audit = loop {
+            let Some(audit) = feed.next() else {
+                break ShutdownAudit::FeedEnded;
+            };
+
             if self.snapshot.sequence >= audit.sequence {
                 continue;
             } else {
@@ -82,7 +78,7 @@ impl<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey>
                 self.snapshot.time_engine = audit.time_engine;
             }
 
-            let shutdown = match audit.data {
+            let shutdown_audit = match audit.data {
                 Audit::Snapshot(snapshot) => {
                     self.snapshot.data = snapshot;
                     None
@@ -105,11 +101,12 @@ impl<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey>
 
             self.history.states.push(self.snapshot.clone());
 
-            if let Some(audit) = shutdown {
-                info!(?audit, "Shutdown | AuditManager");
-                break;
+            if let Some(shutdown_audit) = shutdown_audit {
+                break shutdown_audit;
             }
-        }
+        };
+
+        info!(?shutdown_audit, "AuditManager stopped");
 
         Ok(())
     }
@@ -126,32 +123,24 @@ impl<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey>
         Ok(())
     }
 
-    pub fn update_from_event<AssetKey>(
-        &mut self,
-        event: EngineEvent<State::MarketEventKind, ExchangeKey, AssetKey, InstrumentKey>,
-    ) where
-        State: StateManager<ExchangeKey, AssetKey, InstrumentKey>,
-        TradingSummaryGenerator: InstrumentTearSheetManager<InstrumentKey>
-            + AssetStateManager<AssetKey, State = TearSheetAssetGenerator>,
-    {
+    pub fn update_from_event(&mut self, event: EngineEvent<MarketState::EventKind>) {
         match event {
             EngineEvent::Shutdown | EngineEvent::Command(_) => {
                 // No action required
             }
             EngineEvent::TradingStateUpdate(trading_state) => {
-                self.replica_engine_state_mut()
-                    .update_trading_state(trading_state);
+                let _audit = self
+                    .replica_engine_state_mut()
+                    .trading
+                    .update(trading_state);
             }
             EngineEvent::Account(event) => match event {
                 AccountStreamEvent::Reconnecting(exchange) => {
                     self.replica_engine_state_mut()
-                        .connectivity_mut(&exchange)
-                        .account = Health::Reconnecting;
+                        .connectivity
+                        .update_from_account_reconnecting(&exchange);
                 }
                 AccountStreamEvent::Item(event) => {
-                    if self.at_least_one_component_reconnecting() {
-                        self.update_from_account_reconnection(&event.exchange);
-                    }
                     if let Some(position) =
                         self.replica_engine_state_mut().update_from_account(&event)
                     {
@@ -169,67 +158,24 @@ impl<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey>
             EngineEvent::Market(event) => match event {
                 MarketStreamEvent::Reconnecting(exchange) => {
                     self.replica_engine_state_mut()
-                        .connectivity_mut(&exchange)
-                        .market_data = Health::Reconnecting;
+                        .connectivity
+                        .update_from_market_reconnecting(&exchange);
                 }
                 MarketStreamEvent::Item(event) => {
-                    if self.at_least_one_component_reconnecting() {
-                        self.update_from_market_reconnection(event.exchange);
-                    }
                     self.replica_engine_state_mut().update_from_market(&event);
                 }
             },
         }
     }
 
-    pub fn replica_engine_state(&self) -> &State {
+    pub fn replica_engine_state(&self) -> &EngineState<MarketState, StrategyState, RiskState> {
         &self.snapshot.data
     }
 
-    fn replica_engine_state_mut(&mut self) -> &mut State {
+    fn replica_engine_state_mut(
+        &mut self,
+    ) -> &mut EngineState<MarketState, StrategyState, RiskState> {
         &mut self.snapshot.data
-    }
-
-    pub fn at_least_one_component_reconnecting(&self) -> bool
-    where
-        State: ConnectivityManager<ExchangeKey>,
-    {
-        self.replica_engine_state().global_health() == Health::Reconnecting
-    }
-
-    fn update_from_account_reconnection(&mut self, exchange: &ExchangeKey)
-    where
-        State: ConnectivityManager<ExchangeKey>,
-    {
-        self.replica_engine_state_mut()
-            .connectivity_mut(exchange)
-            .account = Health::Healthy;
-
-        if self.all_components_now_healthy() {
-            *self.replica_engine_state_mut().global_health_mut() = Health::Healthy;
-        }
-    }
-
-    pub fn all_components_now_healthy<Key>(&self) -> bool
-    where
-        State: ConnectivityManager<Key>,
-    {
-        self.replica_engine_state()
-            .connectivities()
-            .all(ConnectivityState::all_healthy)
-    }
-
-    fn update_from_market_reconnection(&mut self, exchange: ExchangeId)
-    where
-        State: ConnectivityManager<ExchangeId>,
-    {
-        self.replica_engine_state_mut()
-            .connectivity_mut(&exchange)
-            .market_data = Health::Healthy;
-
-        if self.all_components_now_healthy() {
-            *self.replica_engine_state_mut().global_health_mut() = Health::Healthy;
-        }
     }
 
     fn tick<T>(&self, kind: T) -> AuditTick<T> {
@@ -240,10 +186,7 @@ impl<State, OnDisable, OnDisconnect, ExchangeKey, InstrumentKey>
         }
     }
 
-    pub fn update_from_engine_output(
-        &mut self,
-        output: EngineOutput<ExchangeKey, InstrumentKey, OnDisable, OnDisconnect>,
-    ) {
+    pub fn update_from_engine_output(&mut self, output: EngineOutput<OnDisable, OnDisconnect>) {
         match output {
             EngineOutput::Commanded(output) => {
                 self.history.commands.push(self.tick(output));

@@ -6,7 +6,7 @@ use crate::{
     map::ExecutionInstrumentMap,
     order::{ExchangeOrderState, Order},
     trade::Trade,
-    AccountEventKind, IndexedAccountEvent, IndexedAccountSnapshot, InstrumentAccountSnapshot,
+    AccountEvent, AccountEventKind, AccountSnapshot, InstrumentAccountSnapshot,
     UnindexedAccountEvent, UnindexedAccountSnapshot,
 };
 use barter_instrument::{
@@ -31,7 +31,7 @@ pub struct AccountEventIndexer {
 
 impl Indexer for AccountEventIndexer {
     type Unindexed = UnindexedAccountEvent;
-    type Indexed = IndexedAccountEvent;
+    type Indexed = AccountEvent;
 
     fn index(&self, item: Self::Unindexed) -> Result<Self::Indexed, IndexError> {
         self.account_event(item)
@@ -39,10 +39,7 @@ impl Indexer for AccountEventIndexer {
 }
 
 impl AccountEventIndexer {
-    pub fn account_event(
-        &self,
-        event: UnindexedAccountEvent,
-    ) -> Result<IndexedAccountEvent, IndexError> {
+    pub fn account_event(&self, event: UnindexedAccountEvent) -> Result<AccountEvent, IndexError> {
         let UnindexedAccountEvent { exchange, kind } = event;
 
         let exchange = self.map.find_exchange_index(exchange)?;
@@ -66,13 +63,13 @@ impl AccountEventIndexer {
             AccountEventKind::Trade(trade) => AccountEventKind::Trade(self.trade(trade)?),
         };
 
-        Ok(IndexedAccountEvent { exchange, kind })
+        Ok(AccountEvent { exchange, kind })
     }
 
     pub fn snapshot(
         &self,
         snapshot: UnindexedAccountSnapshot,
-    ) -> Result<IndexedAccountSnapshot, IndexError> {
+    ) -> Result<AccountSnapshot, IndexError> {
         let UnindexedAccountSnapshot {
             balances,
             instruments,
@@ -99,7 +96,7 @@ impl AccountEventIndexer {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(IndexedAccountSnapshot {
+        Ok(AccountSnapshot {
             balances,
             instruments,
         })

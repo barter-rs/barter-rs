@@ -4,12 +4,13 @@ use barter_execution::{
     order::{Order, RequestCancel, RequestOpen},
     AccountEvent,
 };
+use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::Unrecoverable;
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
-pub trait RiskManager<ExchangeKey, InstrumentKey> {
+pub trait RiskManager<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     type State;
 
     fn check(

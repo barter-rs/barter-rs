@@ -47,7 +47,6 @@ use barter_integration::channel::{mpsc_unbounded, ChannelTxDroppable, Tx};
 use chrono::Utc;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use tracing::info;
 
 const EXCHANGE: ExchangeId = ExchangeId::BinanceSpot;
 const RISK_FREE_RETURN: Decimal = dec!(0.05);
@@ -151,10 +150,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     feed_tx.send(EngineEvent::Shutdown)?;
 
     // Await Engine & AuditManager graceful shutdown
-    let (_engine, shutdown_audit) = engine_task.await?;
-    info!(?shutdown_audit, "Engine shutdown");
+    let (_engine, _shutdown_audit) = engine_task.await?;
     let (audit_manager, _audit_stream) = audit_task.await?;
-    info!("AuditManager shutdown");
 
     // Generate TradingSummary
     let trading_summary = audit_manager.summary.generate(Daily);

@@ -7,6 +7,7 @@ use crate::{
     execution::request::ExecutionRequest,
 };
 use barter_execution::order::{Order, RequestCancel, RequestOpen};
+use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::{channel::Tx, collection::none_one_or_many::NoneOneOrMany, Unrecoverable};
 use derive_more::Constructor;
 use itertools::Itertools;
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::error;
 
-pub trait SendRequests<ExchangeKey, InstrumentKey> {
+pub trait SendRequests<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     fn send_requests<Kind>(
         &self,
         requests: impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, Kind>>,

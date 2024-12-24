@@ -113,11 +113,13 @@ pub struct Timed<T> {
     time: DateTime<Utc>,
 }
 
-pub type IndexedEngineEvent<MarketKind> =
-    EngineEvent<MarketKind, ExchangeIndex, AssetIndex, InstrumentIndex>;
-
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
-pub enum EngineEvent<MarketKind, ExchangeKey, AssetKey, InstrumentKey> {
+pub enum EngineEvent<
+    MarketKind,
+    ExchangeKey = ExchangeIndex,
+    AssetKey = AssetIndex,
+    InstrumentKey = InstrumentIndex,
+> {
     Shutdown,
     Command(Command<ExchangeKey, AssetKey, InstrumentKey>),
     TradingStateUpdate(TradingState),

@@ -1,5 +1,5 @@
 use barter_execution::trade::{AssetFees, Trade, TradeId};
-use barter_instrument::{asset::QuoteAsset, Side};
+use barter_instrument::{asset::QuoteAsset, instrument::InstrumentIndex, Side};
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use rust_decimal::Decimal;
@@ -358,7 +358,7 @@ where
 /// - `AssetKey`: The type representing the asset used for fees (e.g. AssetIndex, QuoteAsset, etc.)
 /// - `InstrumentKey`: The type identifying the traded instrument (e.g. InstrumentIndex, etc.)
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
-pub struct PositionExited<AssetKey, InstrumentKey> {
+pub struct PositionExited<AssetKey, InstrumentKey = InstrumentIndex> {
     /// Closed [`Position`] Instrument identifier (eg/ InstrumentIndex, InstrumentNameInternal, etc.).
     pub instrument: InstrumentKey,
 

@@ -1,7 +1,7 @@
 use crate::{
     engine::state::{
         asset::{manager::AssetStateManager, AssetStates},
-        instrument::IndexedInstrumentStates,
+        instrument::InstrumentStates,
         position::PositionExited,
     },
     statistic::{
@@ -86,7 +86,7 @@ impl TradingSummaryGenerator {
     pub fn init<Market>(
         risk_free_return: Decimal,
         time_engine_start: DateTime<Utc>,
-        instruments: &IndexedInstrumentStates<Market>,
+        instruments: &InstrumentStates<Market>,
         assets: &AssetStates,
     ) -> Self {
         Self {

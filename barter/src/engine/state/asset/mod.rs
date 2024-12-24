@@ -1,7 +1,7 @@
 use crate::FnvIndexMap;
 use barter_execution::balance::{AssetBalance, Balance};
 use barter_instrument::{
-    asset::{name::AssetNameInternal, Asset, ExchangeAsset},
+    asset::{name::AssetNameInternal, Asset, AssetIndex, ExchangeAsset},
     index::IndexedInstruments,
 };
 use barter_integration::snapshot::Snapshot;
@@ -17,6 +17,34 @@ pub mod manager;
 /// Note that the same named assets on different exchanges will have their own [`AssetState`].
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AssetStates(pub FnvIndexMap<ExchangeAsset<AssetNameInternal>, AssetState>);
+
+impl AssetStates {
+    pub fn asset_index(&self, key: &AssetIndex) -> &AssetState {
+        self.0
+            .get_index(key.index())
+            .map(|(_key, state)| state)
+            .unwrap_or_else(|| panic!("AssetStates does not contain: {key}"))
+    }
+
+    pub fn asset_index_mut(&mut self, key: &AssetIndex) -> &mut AssetState {
+        self.0
+            .get_index_mut(key.index())
+            .map(|(_key, state)| state)
+            .unwrap_or_else(|| panic!("AssetStates does not contain: {key}"))
+    }
+
+    pub fn asset(&self, key: &ExchangeAsset<AssetNameInternal>) -> &AssetState {
+        self.0
+            .get(key)
+            .unwrap_or_else(|| panic!("AssetStates does not contain: {key:?}"))
+    }
+
+    pub fn asset_mut(&mut self, key: &ExchangeAsset<AssetNameInternal>) -> &mut AssetState {
+        self.0
+            .get_mut(key)
+            .unwrap_or_else(|| panic!("AssetStates does not contain: {key:?}"))
+    }
+}
 
 /// Represents the current state of an asset, including its [`Balance`] and last update
 /// `time_exchange`.

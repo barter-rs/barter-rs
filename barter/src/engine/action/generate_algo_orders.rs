@@ -10,16 +10,17 @@ use crate::{
     strategy::algo::AlgoStrategy,
 };
 use barter_execution::order::{Order, RequestCancel, RequestOpen};
+use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::collection::{none_one_or_many::NoneOneOrMany, one_or_many::OneOrMany};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-pub trait GenerateAlgoOrders<ExchangeKey, InstrumentKey> {
+pub trait GenerateAlgoOrders<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     fn generate_algo_orders(&mut self) -> GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>;
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey> {
+pub struct GenerateAlgoOrdersOutput<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     pub cancels_and_opens: SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey>,
     pub cancels_refused:
         NoneOneOrMany<RiskRefused<Order<ExchangeKey, InstrumentKey, RequestCancel>>>,

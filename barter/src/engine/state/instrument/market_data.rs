@@ -3,6 +3,7 @@ use barter_data::{
     event::{DataKind, MarketEvent},
     subscription::book::OrderBookL1,
 };
+use barter_instrument::instrument::InstrumentIndex;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -16,7 +17,7 @@ use std::fmt::Debug;
 /// [`MarketEvent`] that is required to update it.
 ///
 /// For an example, see the [`DefaultMarketData`] implementation.
-pub trait MarketDataState<InstrumentKey>
+pub trait MarketDataState<InstrumentKey = InstrumentIndex>
 where
     Self: Debug + Clone + Send + for<'a> Processor<&'a MarketEvent<InstrumentKey, Self::EventKind>>,
 {

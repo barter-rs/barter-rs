@@ -7,15 +7,12 @@ use crate::{
             send_requests::SendRequests,
             ActionOutput,
         },
-        audit::{Audit, AuditTick, Auditor},
+        audit::{Audit, AuditTick, Auditor, DefaultAudit},
         command::Command,
         execution_tx::ExecutionTxMap,
         state::{
-            connectivity::{manager::ConnectivityManager, ConnectivityState, Health},
-            instrument::manager::InstrumentStateManager,
-            order::in_flight_recorder::InFlightRequestRecorder,
-            trading::{manager::TradingStateManager, TradingState},
-            StateManager,
+            instrument::market_data::MarketDataState,
+            order::in_flight_recorder::InFlightRequestRecorder, trading::TradingState, EngineState,
         },
     },
     execution::AccountStreamEvent,
@@ -27,16 +24,14 @@ use crate::{
     EngineEvent,
 };
 use audit::shutdown::ShutdownAudit;
-use barter_data::streams::consumer::MarketStreamEvent;
-use barter_instrument::{
-    exchange::{ExchangeId, ExchangeIndex},
-    instrument::InstrumentIndex,
-};
+use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
+use barter_execution::AccountEvent;
+use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::channel::{ChannelTxDroppable, Tx};
 use chrono::{DateTime, Utc};
 use derive_more::From;
-use std::fmt::{Debug, Display};
-use tracing::{info, warn};
+use std::fmt::Debug;
+use tracing::info;
 
 pub mod action;
 pub mod audit;
@@ -60,12 +55,14 @@ pub fn run<Events, Engine, AuditTx>(
 ) -> ShutdownAudit<Events::Item>
 where
     Events: Iterator,
-    Events::Item: Clone,
+    Events::Item: Debug + Clone,
     Engine: Processor<Events::Item> + Auditor<Engine::Output>,
     Engine::Output: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item>>,
     AuditTx: Tx<Item = AuditTick<Engine::Output>>,
     Option<ShutdownAudit<Events::Item>>: for<'a> From<&'a Engine::Output>,
 {
+    info!("Engine running");
+
     // Send initial Engine state snapshot
     audit_tx.send(engine.audit(engine.snapshot()));
 
@@ -90,6 +87,8 @@ where
 
     // Send Shutdown audit
     audit_tx.send(engine.audit(shutdown_audit.clone()));
+
+    info!(?shutdown_audit, "Engine shutting down");
     shutdown_audit
 }
 
@@ -103,37 +102,31 @@ pub struct Engine<State, ExecutionTxs, Strategy, Risk> {
     pub risk: Risk,
 }
 
-impl<State, ExecutionTxs, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
-    Processor<EngineEvent<State::MarketEventKind, ExchangeKey, AssetKey, InstrumentKey>>
-    for Engine<State, ExecutionTxs, Strategy, Risk>
+impl<MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
+    Processor<EngineEvent<MarketState::EventKind>>
+    for Engine<EngineState<MarketState, StrategyState, RiskState>, ExecutionTxs, Strategy, Risk>
 where
-    State: StateManager<ExchangeKey, AssetKey, InstrumentKey>
-        + InFlightRequestRecorder<ExchangeKey, InstrumentKey>,
-    ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
-    Strategy: OnTradingDisabled<State, ExecutionTxs, Risk>
-        + OnDisconnectStrategy<State, ExecutionTxs, Risk>
-        + AlgoStrategy<ExchangeKey, InstrumentKey, State = State>
-        + ClosePositionsStrategy<ExchangeKey, AssetKey, InstrumentKey, State = State>,
-    Risk: RiskManager<ExchangeKey, InstrumentKey, State = State>,
-    ExchangeKey: Debug + Display + Clone + PartialEq,
-    AssetKey: Debug + PartialEq,
-    InstrumentKey: Debug + Clone + PartialEq,
+    MarketState: MarketDataState,
+    StrategyState: for<'a> Processor<&'a AccountEvent>
+        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
+    RiskState: for<'a> Processor<&'a AccountEvent>
+        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
+    ExecutionTxs: ExecutionTxMap<ExchangeIndex, InstrumentIndex>,
+    Strategy: OnTradingDisabled<EngineState<MarketState, StrategyState, RiskState>, ExecutionTxs, Risk>
+        + OnDisconnectStrategy<EngineState<MarketState, StrategyState, RiskState>, ExecutionTxs, Risk>
+        + AlgoStrategy<State = EngineState<MarketState, StrategyState, RiskState>>
+        + ClosePositionsStrategy<State = EngineState<MarketState, StrategyState, RiskState>>,
+    Risk: RiskManager<State = EngineState<MarketState, StrategyState, RiskState>>,
 {
-    type Output = Audit<
-        State,
-        EngineEvent<State::MarketEventKind, ExchangeKey, AssetKey, InstrumentKey>,
-        EngineOutput<
-            ExchangeKey,
-            InstrumentKey,
-            Strategy::OnTradingDisabled,
-            Strategy::OnDisconnect,
-        >,
+    type Output = DefaultAudit<
+        MarketState,
+        StrategyState,
+        RiskState,
+        Strategy::OnTradingDisabled,
+        Strategy::OnDisconnect,
     >;
 
-    fn process(
-        &mut self,
-        event: EngineEvent<State::MarketEventKind, ExchangeKey, AssetKey, InstrumentKey>,
-    ) -> Self::Output {
+    fn process(&mut self, event: EngineEvent<MarketState::EventKind>) -> Self::Output {
         match &event {
             EngineEvent::Shutdown => return Audit::shutdown_commanded(event),
             EngineEvent::Command(command) => {
@@ -173,7 +166,7 @@ where
             }
         };
 
-        if let TradingState::Enabled = self.state.trading() {
+        if let TradingState::Enabled = self.state.trading {
             let output = self.generate_algo_orders();
             if let Some(unrecoverable) = output.unrecoverable_errors() {
                 Audit::shutdown_on_err_with_output(event, unrecoverable, output)
@@ -186,20 +179,15 @@ where
     }
 }
 
-impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, Risk> {
-    pub fn action<ExchangeKey, AssetKey, InstrumentKey>(
-        &mut self,
-        command: &Command<ExchangeKey, AssetKey, InstrumentKey>,
-    ) -> ActionOutput<ExchangeKey, InstrumentKey>
+impl<MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
+    Engine<EngineState<MarketState, StrategyState, RiskState>, ExecutionTxs, Strategy, Risk>
+{
+    pub fn action(&mut self, command: &Command) -> ActionOutput
     where
-        State: InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey, AssetKey = AssetKey>
-            + InFlightRequestRecorder<ExchangeKey, InstrumentKey>,
-        ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
-        Strategy: ClosePositionsStrategy<ExchangeKey, AssetKey, InstrumentKey, State = State>,
-        Risk: RiskManager<ExchangeKey, InstrumentKey>,
-        ExchangeKey: Debug + Clone + PartialEq,
-        AssetKey: Debug + PartialEq,
-        InstrumentKey: Debug + Clone + PartialEq,
+        ExecutionTxs: ExecutionTxMap,
+        Strategy:
+            ClosePositionsStrategy<State = EngineState<MarketState, StrategyState, RiskState>>,
+        Risk: RiskManager,
     {
         match &command {
             Command::SendCancelRequests(requests) => {
@@ -233,105 +221,71 @@ impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, 
         update: TradingState,
     ) -> Option<Strategy::OnTradingDisabled>
     where
-        State: TradingStateManager,
-        Strategy: OnTradingDisabled<State, ExecutionTxs, Risk>,
+        Strategy: OnTradingDisabled<
+            EngineState<MarketState, StrategyState, RiskState>,
+            ExecutionTxs,
+            Risk,
+        >,
     {
         self.state
-            .update_trading_state(update)
+            .trading
+            .update(update)
             .transitioned_to_disabled()
             .then(|| Strategy::on_trading_disabled(self))
     }
 
-    pub fn update_from_account_stream<ExchangeKey, AssetKey, InstrumentKey>(
+    pub fn update_from_account_stream(
         &mut self,
-        event: &AccountStreamEvent<ExchangeKey, AssetKey, InstrumentKey>,
+        event: &AccountStreamEvent,
     ) -> Option<Strategy::OnDisconnect>
     where
-        State: StateManager<ExchangeKey, AssetKey, InstrumentKey>,
-        Strategy: OnDisconnectStrategy<State, ExecutionTxs, Risk>,
-        ExchangeKey: Display,
+        StrategyState: for<'a> Processor<&'a AccountEvent>,
+        RiskState: for<'a> Processor<&'a AccountEvent>,
+        Strategy: OnDisconnectStrategy<
+            EngineState<MarketState, StrategyState, RiskState>,
+            ExecutionTxs,
+            Risk,
+        >,
     {
         match event {
             AccountStreamEvent::Reconnecting(exchange) => {
-                warn!(%exchange, "EngineState received AccountStream disconnected event");
-                self.state.connectivity_mut(exchange).account = Health::Reconnecting;
+                self.state
+                    .connectivity
+                    .update_from_account_reconnecting(exchange);
                 Some(Strategy::on_disconnect(self, *exchange))
             }
             AccountStreamEvent::Item(event) => {
-                if self.at_least_one_component_reconnecting::<ExchangeKey>() {
-                    self.update_from_account_reconnection(&event.exchange);
-                }
-
                 let _position = self.state.update_from_account(event);
                 None
             }
         }
     }
 
-    pub fn at_least_one_component_reconnecting<ExchangeKey>(&self) -> bool
-    where
-        State: ConnectivityManager<ExchangeKey>,
-    {
-        self.state.global_health() == Health::Reconnecting
-    }
-
-    pub fn update_from_account_reconnection<ExchangeKey>(&mut self, exchange: &ExchangeKey)
-    where
-        State: ConnectivityManager<ExchangeKey>,
-        ExchangeKey: Display,
-    {
-        info!(%exchange, "EngineState setting exchange account connection to Healthy");
-        self.state.connectivity_mut(exchange).account = Health::Healthy;
-
-        if self
-            .state
-            .connectivities()
-            .all(ConnectivityState::all_healthy)
-        {
-            info!("EngineState setting global connectivity to Healthy");
-            *self.state.global_health_mut() = Health::Healthy
-        }
-    }
-
-    pub fn update_from_market_stream<ExchangeKey, AssetKey, InstrumentKey>(
+    pub fn update_from_market_stream(
         &mut self,
-        event: &MarketStreamEvent<InstrumentKey, State::MarketEventKind>,
+        event: &MarketStreamEvent<InstrumentIndex, MarketState::EventKind>,
     ) -> Option<Strategy::OnDisconnect>
     where
-        State: StateManager<ExchangeKey, AssetKey, InstrumentKey>,
-        Strategy: OnDisconnectStrategy<State, ExecutionTxs, Risk>,
+        MarketState: MarketDataState,
+        StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
+        RiskState: for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
+        Strategy: OnDisconnectStrategy<
+            EngineState<MarketState, StrategyState, RiskState>,
+            ExecutionTxs,
+            Risk,
+        >,
     {
         match event {
             MarketStreamEvent::Reconnecting(exchange) => {
-                warn!(%exchange, "EngineState received MarketStream disconnect event");
-                self.state.connectivity_mut(exchange).market_data = Health::Reconnecting;
+                self.state
+                    .connectivity
+                    .update_from_market_reconnecting(exchange);
                 Some(Strategy::on_disconnect(self, *exchange))
             }
             MarketStreamEvent::Item(event) => {
-                if self.at_least_one_component_reconnecting::<ExchangeId>() {
-                    self.update_from_market_reconnection(&event.exchange)
-                }
-
                 self.state.update_from_market(event);
                 None
             }
-        }
-    }
-
-    pub fn update_from_market_reconnection(&mut self, exchange: &ExchangeId)
-    where
-        State: ConnectivityManager<ExchangeId>,
-    {
-        info!(%exchange, "EngineState setting exchange market connection to Healthy");
-        self.state.connectivity_mut(exchange).market_data = Health::Healthy;
-
-        if self
-            .state
-            .connectivities()
-            .all(ConnectivityState::all_healthy)
-        {
-            info!("EngineState setting global connectivity to Healthy");
-            *self.state.global_health_mut() = Health::Healthy
         }
     }
 }
@@ -392,25 +346,30 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub enum EngineOutput<ExchangeKey, InstrumentKey, OnTradingDisabled, OnDisconnect> {
+pub enum EngineOutput<
+    OnTradingDisabled,
+    OnDisconnect,
+    ExchangeKey = ExchangeIndex,
+    InstrumentKey = InstrumentIndex,
+> {
     Commanded(ActionOutput<ExchangeKey, InstrumentKey>),
     OnTradingDisabled(OnTradingDisabled),
     OnDisconnect(OnDisconnect),
     AlgoOrders(GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>),
 }
 
-impl<ExchangeKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
+impl<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
     From<ActionOutput<ExchangeKey, InstrumentKey>>
-    for EngineOutput<ExchangeKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
+    for EngineOutput<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
 {
     fn from(value: ActionOutput<ExchangeKey, InstrumentKey>) -> Self {
         Self::Commanded(value)
     }
 }
 
-impl<ExchangeKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
+impl<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
     From<GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>>
-    for EngineOutput<ExchangeKey, InstrumentKey, OnTradingDisabled, OnDisconnect>
+    for EngineOutput<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
 {
     fn from(value: GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>) -> Self {
         Self::AlgoOrders(value)

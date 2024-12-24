@@ -1,6 +1,6 @@
 use crate::{
     engine::{
-        state::instrument::manager::{InstrumentFilter, InstrumentStateManager},
+        state::{instrument::manager::InstrumentFilter, EngineState},
         Engine, Processor,
     },
     strategy::{
@@ -13,7 +13,12 @@ use barter_execution::{
     order::{ClientOrderId, Order, OrderKind, RequestCancel, RequestOpen, StrategyId, TimeInForce},
     AccountEvent,
 };
-use barter_instrument::{exchange::ExchangeId, Side};
+use barter_instrument::{
+    asset::AssetIndex,
+    exchange::{ExchangeId, ExchangeIndex},
+    instrument::InstrumentIndex,
+    Side,
+};
 use std::marker::PhantomData;
 
 pub mod algo;
@@ -52,35 +57,30 @@ impl<State, ExchangeKey, InstrumentKey> AlgoStrategy<ExchangeKey, InstrumentKey>
     }
 }
 
-impl<State, ExchangeKey, AssetKey, InstrumentKey>
-    ClosePositionsStrategy<ExchangeKey, AssetKey, InstrumentKey> for DefaultStrategy<State>
-where
-    State: InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey, AssetKey = AssetKey>,
-    ExchangeKey: PartialEq + Clone,
-    AssetKey: PartialEq,
-    InstrumentKey: PartialEq + Clone,
+impl<MarketState, StrategyState, RiskState> ClosePositionsStrategy
+    for DefaultStrategy<EngineState<MarketState, StrategyState, RiskState>>
 {
-    type State = State;
+    type State = EngineState<MarketState, StrategyState, RiskState>;
 
     fn close_positions_requests<'a>(
         &'a self,
         state: &'a Self::State,
-        filter: &'a InstrumentFilter<ExchangeKey, AssetKey, InstrumentKey>,
+        filter: &'a InstrumentFilter,
     ) -> (
-        impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestCancel>> + 'a,
-        impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestOpen>> + 'a,
+        impl IntoIterator<Item = Order<ExchangeIndex, InstrumentIndex, RequestCancel>> + 'a,
+        impl IntoIterator<Item = Order<ExchangeIndex, InstrumentIndex, RequestOpen>> + 'a,
     )
     where
-        ExchangeKey: 'a,
-        AssetKey: 'a,
-        InstrumentKey: 'a,
+        ExchangeIndex: 'a,
+        AssetIndex: 'a,
+        InstrumentIndex: 'a,
     {
-        let open_requests = state.instruments_filtered(filter).filter_map(|state| {
+        let open_requests = state.instruments.filtered(filter).filter_map(|state| {
             let position = state.position.as_ref()?;
 
             Some(Order {
-                exchange: state.instrument.exchange.clone(),
-                instrument: position.instrument.clone(),
+                exchange: state.instrument.exchange,
+                instrument: position.instrument,
                 strategy: self.id.clone(),
                 cid: ClientOrderId::default(),
                 side: match position.side {

@@ -15,7 +15,7 @@ use std::fmt::Debug;
 /// exchange [`ExecutionManager`](crate::execution::manager::ExecutionManager).
 ///
 /// Facilitates the routing of execution requests in a multi or single exchange trading system.
-pub trait ExecutionTxMap<ExchangeKey, InstrumentKey> {
+pub trait ExecutionTxMap<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     type ExecutionTx: Tx<Item = ExecutionRequest<ExchangeKey, InstrumentKey>>;
 
     /// Attempt to find the [`ExecutionRequest`] [`Tx`] for the provided `ExchangeKey`.

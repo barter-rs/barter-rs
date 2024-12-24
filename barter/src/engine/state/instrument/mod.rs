@@ -1,6 +1,6 @@
 use crate::{
     engine::state::{
-        instrument::market_data::MarketDataState,
+        instrument::{manager::InstrumentFilter, market_data::MarketDataState},
         order::{manager::OrderManager, Orders},
         position::{Position, PositionExited},
     },
@@ -16,26 +16,74 @@ use barter_instrument::{
 };
 use barter_integration::snapshot::Snapshot;
 use derive_more::Constructor;
+use itertools::Either;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 pub mod manager;
 pub mod market_data;
 
-pub type IndexedInstrumentStates<Market> =
-    InstrumentStates<Market, ExchangeIndex, AssetIndex, InstrumentIndex>;
-
 /// Collection of [`InstrumentState`]s indexed by [`InstrumentIndex`].
 ///
 /// Note that the same instruments with the same [`InstrumentNameExchange`] (eg/ "btc_usdt") but
 /// on different exchanges will have their own [`InstrumentState`].
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct InstrumentStates<Market, ExchangeKey, AssetKey, InstrumentKey>(
+pub struct InstrumentStates<
+    Market,
+    ExchangeKey = ExchangeIndex,
+    AssetKey = AssetIndex,
+    InstrumentKey = InstrumentIndex,
+>(
     pub  FnvIndexMap<
         InstrumentNameInternal,
         InstrumentState<Market, ExchangeKey, AssetKey, InstrumentKey>,
     >,
 );
+
+impl<Market> InstrumentStates<Market> {
+    pub fn instrument_index(&self, key: &InstrumentIndex) -> &InstrumentState<Market> {
+        self.0
+            .get_index(key.index())
+            .map(|(_key, state)| state)
+            .unwrap_or_else(|| panic!("InstrumentStates does not contain: {key}"))
+    }
+
+    pub fn instrument_index_mut(&mut self, key: &InstrumentIndex) -> &mut InstrumentState<Market> {
+        self.0
+            .get_index_mut(key.index())
+            .map(|(_key, state)| state)
+            .unwrap_or_else(|| panic!("InstrumentStates does not contain: {key}"))
+    }
+
+    pub fn filtered<'a>(
+        &'a self,
+        filter: &'a InstrumentFilter<ExchangeIndex, AssetIndex, InstrumentIndex>,
+    ) -> impl Iterator<Item = &'a InstrumentState<Market>>
+    where
+        Market: 'a,
+    {
+        use crate::engine::state::instrument::manager::InstrumentFilter::*;
+        match filter {
+            None => Either::Left(Either::Left(self.instruments())),
+            Exchanges(exchanges) => Either::Left(Either::Right(
+                self.instruments()
+                    .filter(|state| exchanges.contains(&state.instrument.exchange)),
+            )),
+            Instruments(instruments) => Either::Right(Either::Right(
+                self.instruments()
+                    .filter(|state| instruments.contains(&state.key)),
+            )),
+            Underlyings(underlying) => Either::Right(Either::Left(
+                self.instruments()
+                    .filter(|state| underlying.contains(&state.instrument.underlying)),
+            )),
+        }
+    }
+
+    fn instruments(&self) -> impl Iterator<Item = &InstrumentState<Market>> {
+        self.0.values()
+    }
+}
 
 /// Represents the current state of an instrument, including its [`Position`], [`Orders`], and
 /// user provided market data state.
@@ -43,7 +91,12 @@ pub struct InstrumentStates<Market, ExchangeKey, AssetKey, InstrumentKey>(
 /// This aggregates all the critical trading state for a single instrument, providing a complete
 /// view of its current trading status and market conditions.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct InstrumentState<Market, ExchangeKey, AssetKey, InstrumentKey> {
+pub struct InstrumentState<
+    Market,
+    ExchangeKey = ExchangeIndex,
+    AssetKey = AssetIndex,
+    InstrumentKey = InstrumentIndex,
+> {
     /// Unique `InstrumentKey` identifier for the instrument this state is associated with.
     pub key: InstrumentKey,
 

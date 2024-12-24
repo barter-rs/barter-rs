@@ -57,7 +57,7 @@ const MOCK_EXCHANGE_FEES_PERCENT: Decimal = dec!(0.05);
 const MOCK_EXCHANGE_STARTING_BALANCE_USD: Decimal = dec!(10_000.0);
 
 const FILE_PATH_HISTORIC_TRADES_AND_L1S: &str =
-    "barter/examples/data/binance_spot_market_data.json";
+    "barter/examples/data/binance_spot_market_data_with_disconnect_events.json";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -151,10 +151,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     feed_tx.send(EngineEvent::Shutdown)?;
 
     // Await Engine & AuditManager graceful shutdown
-    let (_engine, shutdown_audit) = engine_task.await?;
-    info!(?shutdown_audit, "Engine shutdown");
+    let (_engine, _shutdown_audit) = engine_task.await?;
     let (audit_manager, _audit_stream) = audit_task.await?;
-    info!("AuditManager shutdown");
 
     // Generate TradingSummary
     let trading_summary = audit_manager.summary.generate(Daily);

@@ -2,15 +2,21 @@ use crate::engine::{
     action::send_requests::{SendRequests, SendRequestsOutput},
     execution_tx::ExecutionTxMap,
     state::{
-        instrument::manager::{InstrumentFilter, InstrumentStateManager},
+        instrument::manager::InstrumentFilter,
         order::{in_flight_recorder::InFlightRequestRecorder, manager::OrderManager},
+        EngineState,
     },
     Engine,
 };
 use barter_execution::order::{Order, RequestCancel};
-use std::fmt::Debug;
+use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 
-pub trait CancelOrders<ExchangeKey, AssetKey, InstrumentKey> {
+pub trait CancelOrders<
+    ExchangeKey = ExchangeIndex,
+    AssetKey = AssetIndex,
+    InstrumentKey = InstrumentIndex,
+>
+{
     type Output;
 
     fn cancel_orders(
@@ -19,26 +25,21 @@ pub trait CancelOrders<ExchangeKey, AssetKey, InstrumentKey> {
     ) -> Self::Output;
 }
 
-impl<State, ExecutionTxs, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
-    CancelOrders<ExchangeKey, AssetKey, InstrumentKey>
-    for Engine<State, ExecutionTxs, Strategy, Risk>
+impl<MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk> CancelOrders
+    for Engine<EngineState<MarketState, StrategyState, RiskState>, ExecutionTxs, Strategy, Risk>
 where
-    State: InstrumentStateManager<InstrumentKey, ExchangeKey = ExchangeKey, AssetKey = AssetKey>
-        + InFlightRequestRecorder<ExchangeKey, InstrumentKey>,
-    ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
-    ExchangeKey: Debug + Clone + PartialEq,
-    AssetKey: PartialEq,
-    InstrumentKey: Debug + Clone + PartialEq,
+    ExecutionTxs: ExecutionTxMap,
 {
-    type Output = SendRequestsOutput<ExchangeKey, InstrumentKey, RequestCancel>;
+    type Output = SendRequestsOutput<ExchangeIndex, InstrumentIndex, RequestCancel>;
 
     fn cancel_orders(
         &mut self,
-        filter: &InstrumentFilter<ExchangeKey, AssetKey, InstrumentKey>,
+        filter: &InstrumentFilter<ExchangeIndex, AssetIndex, InstrumentIndex>,
     ) -> Self::Output {
         let requests = self
             .state
-            .instruments_filtered(filter)
+            .instruments
+            .filtered(filter)
             .flat_map(|state| state.orders.orders().filter_map(Order::as_request_cancel));
 
         // Bypass risk checks...

@@ -1,7 +1,7 @@
 use crate::execution::{
     error::ExecutionError,
     request::{ExecutionRequest, RequestFuture},
-    AccountStreamEvent, IndexedAccountStreamEvent,
+    AccountStreamEvent,
 };
 use barter_data::streams::{
     consumer::StreamKey,
@@ -13,7 +13,7 @@ use barter_execution::{
     indexer::{AccountEventIndexer, IndexedAccountStream},
     map::ExecutionInstrumentMap,
     order::{Cancelled, Open, Order, RequestCancel, RequestOpen},
-    AccountEvent, AccountEventKind, IndexedAccountEvent,
+    AccountEvent, AccountEventKind,
 };
 use barter_instrument::{
     asset::{name::AssetNameExchange, AssetIndex},
@@ -52,7 +52,7 @@ where
         client: Arc<Client>,
         indexer: AccountEventIndexer,
         reconnect_policy: ReconnectionBackoffPolicy,
-    ) -> Result<(Self, impl Stream<Item = IndexedAccountStreamEvent> + Send), ExecutionError> {
+    ) -> Result<(Self, impl Stream<Item = AccountStreamEvent> + Send), ExecutionError> {
         // Determine StreamKey & ExchangeId for use in logging
         let stream_key = Self::determine_account_stream_key(&indexer.map)?;
 
@@ -149,7 +149,7 @@ where
         indexer: &AccountEventIndexer,
         assets: &[AssetNameExchange],
         instruments: &[InstrumentNameExchange],
-    ) -> Result<IndexedAccountEvent, ExecutionError> {
+    ) -> Result<AccountEvent, ExecutionError> {
         match client.account_snapshot(assets, instruments).await {
             Ok(snapshot) => {
                 let indexed_snapshot = indexer.snapshot(snapshot)?;
@@ -167,7 +167,7 @@ where
         indexer: AccountEventIndexer,
         assets: &[AssetNameExchange],
         instruments: &[InstrumentNameExchange],
-    ) -> Result<impl Stream<Item = IndexedAccountEvent>, ExecutionError> {
+    ) -> Result<impl Stream<Item = AccountEvent>, ExecutionError> {
         let stream = match client.account_stream(assets, instruments).await {
             Ok(stream) => stream,
             Err(error) => return Err(ExecutionError::Client(indexer.client_error(error)?)),
@@ -303,10 +303,10 @@ where
     pub fn process_cancel_response(
         &self,
         order: Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedClientError>>,
-    ) -> Result<IndexedAccountStreamEvent, IndexError> {
+    ) -> Result<AccountStreamEvent, IndexError> {
         let order = self.indexer.order_response(order)?;
 
-        Ok(IndexedAccountStreamEvent::Item(AccountEvent {
+        Ok(AccountStreamEvent::Item(AccountEvent {
             exchange: order.exchange,
             kind: AccountEventKind::OrderCancelled(order),
         }))
@@ -315,7 +315,7 @@ where
     pub fn process_cancel_timeout(
         &self,
         order: Order<ExchangeIndex, InstrumentIndex, RequestCancel>,
-    ) -> IndexedAccountStreamEvent {
+    ) -> AccountStreamEvent {
         let Order {
             exchange,
             instrument,
@@ -325,7 +325,7 @@ where
             state: _,
         } = order;
 
-        IndexedAccountStreamEvent::Item(AccountEvent {
+        AccountStreamEvent::Item(AccountEvent {
             exchange,
             kind: AccountEventKind::OrderCancelled(Order {
                 exchange,
@@ -341,10 +341,10 @@ where
     pub fn process_open_response(
         &self,
         order: Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>>,
-    ) -> Result<IndexedAccountStreamEvent, IndexError> {
+    ) -> Result<AccountStreamEvent, IndexError> {
         let order = self.indexer.order_response(order)?;
 
-        Ok(IndexedAccountStreamEvent::Item(AccountEvent {
+        Ok(AccountStreamEvent::Item(AccountEvent {
             exchange: order.exchange,
             kind: AccountEventKind::OrderOpened(order),
         }))
@@ -353,7 +353,7 @@ where
     pub fn process_open_timeout(
         &self,
         order: Order<ExchangeIndex, InstrumentIndex, RequestOpen>,
-    ) -> IndexedAccountStreamEvent {
+    ) -> AccountStreamEvent {
         let Order {
             exchange,
             instrument,
@@ -363,7 +363,7 @@ where
             state: _,
         } = order;
 
-        IndexedAccountStreamEvent::Item(AccountEvent {
+        AccountStreamEvent::Item(AccountEvent {
             exchange,
             kind: AccountEventKind::OrderOpened(Order {
                 exchange,

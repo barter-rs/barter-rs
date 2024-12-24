@@ -240,11 +240,9 @@ where
 
 fn format_ratio(value: Decimal) -> String {
     if value == Decimal::MAX {
-        if value.is_sign_positive() {
-            "∞".to_string()
-        } else {
-            "-∞".to_string()
-        }
+        "∞".to_string()
+    } else if value == Decimal::MIN {
+        "-∞".to_string()
     } else {
         format!("{:.4}", value)
     }

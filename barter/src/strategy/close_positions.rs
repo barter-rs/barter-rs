@@ -1,7 +1,13 @@
 use crate::engine::state::instrument::manager::InstrumentFilter;
 use barter_execution::order::{Order, RequestCancel, RequestOpen};
+use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 
-pub trait ClosePositionsStrategy<ExchangeKey, AssetKey, InstrumentKey> {
+pub trait ClosePositionsStrategy<
+    ExchangeKey = ExchangeIndex,
+    AssetKey = AssetIndex,
+    InstrumentKey = InstrumentIndex,
+>
+{
     type State;
 
     fn close_positions_requests<'a>(

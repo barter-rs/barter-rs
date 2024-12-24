@@ -54,18 +54,10 @@ pub mod trade;
 pub type FnvIndexMap<K, V> = indexmap::IndexMap<K, V, fnv::FnvBuildHasher>;
 pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
 
-/// Convenient type alias for an [`AccountEvent`] keyed with [`ExchangeIndex`], [`AssetIndex`]
-/// and [`InstrumentIndex`].
-pub type IndexedAccountEvent = AccountEvent<ExchangeIndex, AssetIndex, InstrumentIndex>;
-
 /// Convenient type alias for an [`AccountEvent`] keyed with [`ExchangeId`],
 /// [`AssetNameExchange`], and [`InstrumentNameExchange`].
 pub type UnindexedAccountEvent =
     AccountEvent<ExchangeId, AssetNameExchange, InstrumentNameExchange>;
-
-/// Convenient type alias for an [`AccountSnapshot`] keyed with [`ExchangeIndex`], [`AssetIndex`]
-/// and [`InstrumentIndex`].
-pub type IndexedAccountSnapshot = AccountSnapshot<ExchangeIndex, AssetIndex, InstrumentIndex>;
 
 /// Convenient type alias for an [`AccountSnapshot`] keyed with [`ExchangeId`],
 /// [`AssetNameExchange`], and [`InstrumentNameExchange`].
@@ -73,7 +65,11 @@ pub type UnindexedAccountSnapshot =
     AccountSnapshot<ExchangeId, AssetNameExchange, InstrumentNameExchange>;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct AccountEvent<ExchangeKey, AssetKey, InstrumentKey> {
+pub struct AccountEvent<
+    ExchangeKey = ExchangeIndex,
+    AssetKey = AssetIndex,
+    InstrumentKey = InstrumentIndex,
+> {
     pub exchange: ExchangeKey,
     pub kind: AccountEventKind<ExchangeKey, AssetKey, InstrumentKey>,
 }
@@ -129,13 +125,17 @@ where
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey> {
+pub struct AccountSnapshot<
+    ExchangeKey = ExchangeIndex,
+    AssetKey = AssetIndex,
+    InstrumentKey = InstrumentIndex,
+> {
     pub balances: Vec<AssetBalance<AssetKey>>,
     pub instruments: Vec<InstrumentAccountSnapshot<ExchangeKey, InstrumentKey>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct InstrumentAccountSnapshot<ExchangeKey, InstrumentKey> {
+pub struct InstrumentAccountSnapshot<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     pub instrument: InstrumentKey,
     pub orders: Vec<Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>,
 }

@@ -1,5 +1,5 @@
 use barter::{
-    engine::state::instrument::manager::{InstrumentFilter, InstrumentStateManager},
+    engine::state::{instrument::manager::InstrumentFilter, EngineState},
     strategy::{algo::AlgoStrategy, close_positions::ClosePositionsStrategy, DefaultStrategy},
 };
 use barter_execution::order::{Order, RequestCancel, RequestOpen};
@@ -38,7 +38,7 @@ pub enum StrategiesOnTradingDisabled {
     Dumber(()),
 }
 
-impl<State> AlgoStrategy<ExchangeIndex, InstrumentIndex> for MultiStrategy<State> {
+impl<State> AlgoStrategy for MultiStrategy<State> {
     type State = State;
 
     fn generate_algo_orders(
@@ -65,13 +65,10 @@ impl<State> AlgoStrategy<ExchangeIndex, InstrumentIndex> for MultiStrategy<State
     }
 }
 
-impl<State> ClosePositionsStrategy<ExchangeIndex, AssetIndex, InstrumentIndex>
-    for MultiStrategy<State>
-where
-    State:
-        InstrumentStateManager<InstrumentIndex, ExchangeKey = ExchangeIndex, AssetKey = AssetIndex>,
+impl<MarketState, StrategyState, RiskState> ClosePositionsStrategy
+    for MultiStrategy<EngineState<MarketState, StrategyState, RiskState>>
 {
-    type State = State;
+    type State = EngineState<MarketState, StrategyState, RiskState>;
 
     fn close_positions_requests<'a>(
         &'a self,

@@ -6,6 +6,7 @@ use crate::engine::{
     error::UnrecoverableEngineError,
 };
 use barter_execution::order::{RequestCancel, RequestOpen};
+use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::collection::one_or_many::OneOrMany;
 use derive_more::From;
 use serde::{Deserialize, Serialize};
@@ -17,7 +18,7 @@ pub mod generate_algo_orders;
 pub mod send_requests;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
-pub enum ActionOutput<ExchangeKey, InstrumentKey> {
+pub enum ActionOutput<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     GenerateAlgoOrders(GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>),
     CancelOrders(SendRequestsOutput<ExchangeKey, InstrumentKey, RequestCancel>),
     OpenOrders(SendRequestsOutput<ExchangeKey, InstrumentKey, RequestOpen>),
