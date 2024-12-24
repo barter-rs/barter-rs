@@ -9,12 +9,13 @@ use crate::{
     },
     instrument::InstrumentData,
     subscriber::{validator::WebSocketSubValidator, WebSocketSubscriber},
-    subscription::{trade::PublicTrades, Map},
+    subscription::{book::OrderBooksL1, trade::PublicTrades, Map},
     transformer::stateless::StatelessTransformer,
     ExchangeWsStream, NoInitialSnapshots,
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
+use book::l1::BybitOrderBookL1;
 use serde::de::{Error, Unexpected};
 use std::{fmt::Debug, marker::PhantomData, time::Duration};
 use tokio::time;
@@ -48,6 +49,10 @@ pub mod subscription;
 /// Public trade types common to both [`BybitSpot`](spot::BybitSpot) and
 /// [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
 pub mod trade;
+
+/// Level 1 OrderBook types (top of book) common to both [`BybitSpot`](spot::BybitSpot) and
+/// [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
+pub mod book;
 
 /// Generic [`Bybit<Server>`](Bybit) exchange.
 ///
@@ -149,4 +154,14 @@ where
     {
         serializer.serialize_str(Self::ID.as_str())
     }
+}
+
+impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL1> for Bybit<Server>
+where
+    Instrument: InstrumentData,
+    Server: ExchangeServer + Debug + Send + Sync,
+{
+    type Stream = ExchangeWsStream<
+        StatelessTransformer<Self, Instrument::Id, OrderBooksL1, BybitOrderBookL1>,
+    >;
 }
