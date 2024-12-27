@@ -3,7 +3,7 @@ use crate::{
         action::send_requests::{SendCancelsAndOpensOutput, SendRequests},
         execution_tx::ExecutionTxMap,
         state::{
-            instrument::manager::InstrumentFilter,
+            instrument::filter::InstrumentFilter,
             order::in_flight_recorder::InFlightRequestRecorder,
         },
         Engine,

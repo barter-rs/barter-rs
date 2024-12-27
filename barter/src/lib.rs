@@ -82,25 +82,12 @@ pub mod strategy;
 //  - Comprehensive rust examples
 //  - Comprehensive readme.md for each crate & workspace
 
-// Todo: Spike: Keys
-//  - Try to remove generic keys and enforce indexes
-//  - See if any state management implementations can be removed from EngineState in favour of
-//    smaller components. eg/ impl TradingStateManager for EngineState isn't really appropriate for
-//    testing -> could impl for TradingState itself...
-
 // Todo: MarketData:
 // Todo: add utils for creating Instruments from basic base,quote,kind,exchange, etc.
-
-// Todo: Must: Docs:
-//  - engine/state/mod.rs docs (the rest are done).
-//  - Whole engine/action module docs.
-//  - Whole engine/audit module docs (or wherever it may be moved to).
 
 // Todo: Must: General:
 //  - Back-test utilities via Audit route w/ interactive mode
 //    (backward would require Vec<State> to be created on .next()) (add compression using file system)
-//  - Ensure Audit pathway doesn't duplicate Logs
-//    '--> see claude convo with "module layer" etc.
 
 pub type FnvIndexMap<K, V> = indexmap::IndexMap<K, V, fnv::FnvBuildHasher>;
 pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;

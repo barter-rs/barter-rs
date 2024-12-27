@@ -1,9 +1,5 @@
 use crate::{
-    engine::state::{
-        asset::{manager::AssetStateManager, AssetStates},
-        instrument::InstrumentStates,
-        position::PositionExited,
-    },
+    engine::state::{asset::AssetStates, instrument::InstrumentStates, position::PositionExited},
     statistic::{
         summary::{
             asset::{TearSheetAsset, TearSheetAssetGenerator},
@@ -25,7 +21,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod asset;
 pub mod dataset;
-mod display;
+pub mod display;
 pub mod instrument;
 pub mod pnl;
 
@@ -129,7 +125,7 @@ impl TradingSummaryGenerator {
     /// Update the [`TradingSummaryGenerator`] from the next [`Snapshot`] [`AssetBalance`].
     pub fn update_from_balance<AssetKey>(&mut self, balance: Snapshot<&AssetBalance<AssetKey>>)
     where
-        Self: AssetStateManager<AssetKey, State = TearSheetAssetGenerator>,
+        Self: AssetTearSheetManager<AssetKey>,
     {
         if self.time_engine_now < balance.0.time_exchange {
             self.time_engine_now = balance.0.time_exchange;
@@ -208,17 +204,20 @@ impl InstrumentTearSheetManager<InstrumentIndex> for TradingSummaryGenerator {
     }
 }
 
-impl AssetStateManager<AssetIndex> for TradingSummaryGenerator {
-    type State = TearSheetAssetGenerator;
+pub trait AssetTearSheetManager<AssetKey> {
+    fn asset(&self, key: &AssetKey) -> &TearSheetAssetGenerator;
+    fn asset_mut(&mut self, key: &AssetKey) -> &mut TearSheetAssetGenerator;
+}
 
-    fn asset(&self, key: &AssetIndex) -> &Self::State {
+impl AssetTearSheetManager<AssetIndex> for TradingSummaryGenerator {
+    fn asset(&self, key: &AssetIndex) -> &TearSheetAssetGenerator {
         self.assets
             .get_index(key.index())
             .map(|(_key, state)| state)
             .unwrap_or_else(|| panic!("TradingSummaryGenerator does not contain: {key}"))
     }
 
-    fn asset_mut(&mut self, key: &AssetIndex) -> &mut Self::State {
+    fn asset_mut(&mut self, key: &AssetIndex) -> &mut TearSheetAssetGenerator {
         self.assets
             .get_index_mut(key.index())
             .map(|(_key, state)| state)
@@ -226,9 +225,19 @@ impl AssetStateManager<AssetIndex> for TradingSummaryGenerator {
     }
 }
 
-#[cfg(test)]
-mod tests {
+impl AssetTearSheetManager<ExchangeAsset<AssetNameInternal>> for TradingSummaryGenerator {
+    fn asset(&self, key: &ExchangeAsset<AssetNameInternal>) -> &TearSheetAssetGenerator {
+        self.assets
+            .get(key)
+            .unwrap_or_else(|| panic!("TradingSummaryGenerator does not contain: {key:?}"))
+    }
 
-    // #[test]
-    // fn test_trading_summary_generate
+    fn asset_mut(
+        &mut self,
+        key: &ExchangeAsset<AssetNameInternal>,
+    ) -> &mut TearSheetAssetGenerator {
+        self.assets
+            .get_mut(key)
+            .unwrap_or_else(|| panic!("TradingSummaryGenerator does not contain: {key:?}"))
+    }
 }

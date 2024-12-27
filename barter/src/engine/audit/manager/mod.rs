@@ -2,17 +2,14 @@ use crate::{
     engine::{
         audit::{
             manager::history::TradingHistory, shutdown::ShutdownAudit, Audit, AuditTick,
-            DefaultAudit,
+            DefaultAuditTick,
         },
-        state::{
-            asset::manager::AssetStateManager, instrument::market_data::MarketDataState,
-            EngineState,
-        },
+        state::{instrument::market_data::MarketDataState, EngineState},
         EngineOutput, Processor,
     },
     execution::AccountStreamEvent,
     statistic::summary::{
-        asset::TearSheetAssetGenerator, InstrumentTearSheetManager, TradingSummaryGenerator,
+        AssetTearSheetManager, InstrumentTearSheetManager, TradingSummaryGenerator,
     },
     EngineEvent,
 };
@@ -21,9 +18,11 @@ use barter_execution::{AccountEvent, AccountEventKind};
 use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use tracing::info;
+use tracing::{debug_span, info, info_span};
 
 pub mod history;
+
+pub const AUDIT_REPLICA_STATE_UPDATE_SPAN_NAME: &str = "audit_replica_state_update_span";
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct AuditManager<State, OnDisable, OnDisconnect> {
@@ -42,8 +41,8 @@ where
     RiskState: Clone
         + for<'a> Processor<&'a AccountEvent>
         + for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
-    TradingSummaryGenerator: InstrumentTearSheetManager<InstrumentIndex>
-        + AssetStateManager<AssetIndex, State = TearSheetAssetGenerator>,
+    TradingSummaryGenerator:
+        InstrumentTearSheetManager<InstrumentIndex> + AssetTearSheetManager<AssetIndex>,
 {
     pub fn new(
         snapshot: AuditTick<EngineState<MarketState, StrategyState, RiskState>>,
@@ -59,12 +58,14 @@ where
     pub fn run<Audits>(&mut self, feed: &mut Audits) -> Result<(), String>
     where
         Audits: Iterator<
-            Item = AuditTick<
-                DefaultAudit<MarketState, StrategyState, RiskState, OnDisable, OnDisconnect>,
-            >,
+            Item = DefaultAuditTick<MarketState, StrategyState, RiskState, OnDisable, OnDisconnect>,
         >,
     {
         info!("AuditManager running");
+
+        // Create Tracing Span used to filter duplicate replica EngineState update logs
+        let audit_span = info_span!(AUDIT_REPLICA_STATE_UPDATE_SPAN_NAME);
+        let audit_span_guard = audit_span.enter();
 
         let shutdown_audit = loop {
             let Some(audit) = feed.next() else {
@@ -105,6 +106,9 @@ where
                 break shutdown_audit;
             }
         };
+
+        // End Tracing Span used to filter duplicate EngineState update logs
+        drop(audit_span_guard);
 
         info!(?shutdown_audit, "AuditManager stopped");
 

@@ -2,7 +2,7 @@ use crate::engine::{
     action::send_requests::{SendRequests, SendRequestsOutput},
     execution_tx::ExecutionTxMap,
     state::{
-        instrument::manager::InstrumentFilter,
+        instrument::filter::InstrumentFilter,
         order::{in_flight_recorder::InFlightRequestRecorder, manager::OrderManager},
         EngineState,
     },

@@ -5,7 +5,7 @@ use barter::{
         run,
         state::{
             generate_empty_indexed_engine_state,
-            instrument::{manager::InstrumentFilter, market_data::DefaultMarketData},
+            instrument::{filter::InstrumentFilter, market_data::DefaultMarketData},
             trading::TradingState,
         },
         Engine,

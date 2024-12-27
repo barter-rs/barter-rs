@@ -16,6 +16,14 @@ pub mod manager;
 pub mod request;
 pub mod shutdown;
 
+pub type DefaultAuditTick<
+    MarketState: MarketDataState,
+    StrategyState,
+    RiskState,
+    OnTradingDisabled,
+    OnDisconnect,
+> = AuditTick<DefaultAudit<MarketState, StrategyState, RiskState, OnTradingDisabled, OnDisconnect>>;
+
 pub type DefaultAudit<
     MarketState: MarketDataState,
     StrategyState,

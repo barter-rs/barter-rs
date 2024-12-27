@@ -1,6 +1,5 @@
+use crate::engine::audit::manager::AUDIT_REPLICA_STATE_UPDATE_SPAN_NAME;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-const AUDIT_MODULE_FILTER: &str = "barter::engine::audit=off";
 
 /// Initialise default non-JSON `Barter` logging.
 ///
@@ -11,14 +10,10 @@ pub fn init_logging() {
         .with(
             tracing_subscriber::filter::EnvFilter::builder()
                 .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
-                .from_env_lossy()
-                .add_directive(
-                    AUDIT_MODULE_FILTER
-                        .parse()
-                        .expect("audit module is not in expected directory"),
-                ),
+                .from_env_lossy(),
         )
         .with(tracing_subscriber::fmt::layer())
+        .with(AuditSpanFilter)
         .init()
 }
 
@@ -31,13 +26,30 @@ pub fn init_json_logging() {
         .with(
             tracing_subscriber::filter::EnvFilter::builder()
                 .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
-                .from_env_lossy()
-                .add_directive(
-                    AUDIT_MODULE_FILTER
-                        .parse()
-                        .expect("audit module is not in expected directory"),
-                ),
+                .from_env_lossy(),
         )
         .with(tracing_subscriber::fmt::layer().json().flatten_event(true))
+        .with(AuditSpanFilter)
         .init()
+}
+
+struct AuditSpanFilter;
+
+impl<S> tracing_subscriber::layer::Layer<S> for AuditSpanFilter
+where
+    S: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
+{
+    fn event_enabled(
+        &self,
+        _: &tracing::Event<'_>,
+        ctx: tracing_subscriber::layer::Context<'_, S>,
+    ) -> bool {
+        if let Some(span) = ctx.lookup_current() {
+            if span.name() == AUDIT_REPLICA_STATE_UPDATE_SPAN_NAME {
+                return false;
+            }
+        }
+
+        true
+    }
 }

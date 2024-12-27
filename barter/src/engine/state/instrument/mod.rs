@@ -1,6 +1,6 @@
 use crate::{
     engine::state::{
-        instrument::{manager::InstrumentFilter, market_data::MarketDataState},
+        instrument::{filter::InstrumentFilter, market_data::MarketDataState},
         order::{manager::OrderManager, Orders},
         position::{Position, PositionExited},
     },
@@ -20,8 +20,10 @@ use itertools::Either;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-pub mod manager;
 pub mod market_data;
+
+/// Defines an `InstrumentFilter` filter, used to filter instrument-centric data structures.
+pub mod filter;
 
 /// Collection of [`InstrumentState`]s indexed by [`InstrumentIndex`].
 ///
@@ -62,7 +64,7 @@ impl<Market> InstrumentStates<Market> {
     where
         Market: 'a,
     {
-        use crate::engine::state::instrument::manager::InstrumentFilter::*;
+        use filter::InstrumentFilter::*;
         match filter {
             None => Either::Left(Either::Left(self.instruments())),
             Exchanges(exchanges) => Either::Left(Either::Right(

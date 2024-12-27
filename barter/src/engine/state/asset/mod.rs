@@ -10,8 +10,6 @@ use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-pub mod manager;
-
 /// Collection of exchange [`AssetState`]s indexed by [`AssetIndex`].
 ///
 /// Note that the same named assets on different exchanges will have their own [`AssetState`].

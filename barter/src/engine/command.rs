@@ -1,4 +1,4 @@
-use crate::engine::state::instrument::manager::InstrumentFilter;
+use crate::engine::state::instrument::filter::InstrumentFilter;
 use barter_execution::order::{Order, RequestCancel, RequestOpen};
 use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::collection::one_or_many::OneOrMany;

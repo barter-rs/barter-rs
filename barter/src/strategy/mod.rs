@@ -1,6 +1,6 @@
 use crate::{
     engine::{
-        state::{instrument::manager::InstrumentFilter, EngineState},
+        state::{instrument::filter::InstrumentFilter, EngineState},
         Engine, Processor,
     },
     strategy::{
