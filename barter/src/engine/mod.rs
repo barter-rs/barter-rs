@@ -8,6 +8,7 @@ use crate::{
             ActionOutput,
         },
         audit::{context::EngineContext, Audit, AuditTick, Auditor, DefaultAudit},
+        clock::EngineClock,
         command::Command,
         execution_tx::ExecutionTxMap,
         state::{
@@ -38,6 +39,7 @@ use tracing::info;
 
 pub mod action;
 pub mod audit;
+pub mod clock;
 pub mod command;
 pub mod error;
 pub mod execution_tx;
@@ -93,8 +95,8 @@ where
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Engine<State, ExecutionTxs, Strategy, Risk> {
-    pub clock: fn() -> DateTime<Utc>,
+pub struct Engine<Clock, State, ExecutionTxs, Strategy, Risk> {
+    pub clock: Clock,
     pub meta: EngineMeta,
     pub state: State,
     pub execution_txs: ExecutionTxs,
@@ -108,19 +110,34 @@ pub struct EngineMeta {
     pub sequence: Sequence,
 }
 
-impl<MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
+impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
     Processor<EngineEvent<MarketState::EventKind>>
-    for Engine<EngineState<MarketState, StrategyState, RiskState>, ExecutionTxs, Strategy, Risk>
+    for Engine<
+        Clock,
+        EngineState<MarketState, StrategyState, RiskState>,
+        ExecutionTxs,
+        Strategy,
+        Risk,
+    >
 where
+    Clock: EngineClock + for<'a> Processor<&'a EngineEvent<MarketState::EventKind>>,
     MarketState: MarketDataState,
     StrategyState: for<'a> Processor<&'a AccountEvent>
         + for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
     RiskState: for<'a> Processor<&'a AccountEvent>
         + for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
     ExecutionTxs: ExecutionTxMap<ExchangeIndex, InstrumentIndex>,
-    Strategy: OnTradingDisabled<EngineState<MarketState, StrategyState, RiskState>, ExecutionTxs, Risk>
-        + OnDisconnectStrategy<EngineState<MarketState, StrategyState, RiskState>, ExecutionTxs, Risk>
-        + AlgoStrategy<State = EngineState<MarketState, StrategyState, RiskState>>
+    Strategy: OnTradingDisabled<
+            Clock,
+            EngineState<MarketState, StrategyState, RiskState>,
+            ExecutionTxs,
+            Risk,
+        > + OnDisconnectStrategy<
+            Clock,
+            EngineState<MarketState, StrategyState, RiskState>,
+            ExecutionTxs,
+            Risk,
+        > + AlgoStrategy<State = EngineState<MarketState, StrategyState, RiskState>>
         + ClosePositionsStrategy<State = EngineState<MarketState, StrategyState, RiskState>>,
     Risk: RiskManager<State = EngineState<MarketState, StrategyState, RiskState>>,
 {
@@ -133,6 +150,8 @@ where
     >;
 
     fn process(&mut self, event: EngineEvent<MarketState::EventKind>) -> Self::Output {
+        self.clock.process(&event);
+
         match &event {
             EngineEvent::Shutdown => return Audit::shutdown_commanded(event),
             EngineEvent::Command(command) => {
@@ -185,8 +204,8 @@ where
     }
 }
 
-impl<MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
-    Engine<EngineState<MarketState, StrategyState, RiskState>, ExecutionTxs, Strategy, Risk>
+impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
+    Engine<Clock, EngineState<MarketState, StrategyState, RiskState>, ExecutionTxs, Strategy, Risk>
 {
     pub fn action(&mut self, command: &Command) -> ActionOutput
     where
@@ -228,6 +247,7 @@ impl<MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
     ) -> Option<Strategy::OnTradingDisabled>
     where
         Strategy: OnTradingDisabled<
+            Clock,
             EngineState<MarketState, StrategyState, RiskState>,
             ExecutionTxs,
             Risk,
@@ -248,6 +268,7 @@ impl<MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
         StrategyState: for<'a> Processor<&'a AccountEvent>,
         RiskState: for<'a> Processor<&'a AccountEvent>,
         Strategy: OnDisconnectStrategy<
+            Clock,
             EngineState<MarketState, StrategyState, RiskState>,
             ExecutionTxs,
             Risk,
@@ -276,6 +297,7 @@ impl<MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
         StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
         RiskState: for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
         Strategy: OnDisconnectStrategy<
+            Clock,
             EngineState<MarketState, StrategyState, RiskState>,
             ExecutionTxs,
             Risk,
@@ -295,22 +317,29 @@ impl<MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
         }
     }
 
-    pub fn trading_summary_generator(&self, risk_free_return: Decimal) -> TradingSummaryGenerator {
+    pub fn trading_summary_generator(&self, risk_free_return: Decimal) -> TradingSummaryGenerator
+    where
+        Clock: EngineClock,
+    {
         TradingSummaryGenerator::init(
             risk_free_return,
             self.meta.time_start,
+            self.clock.time(),
             &self.state.instruments,
             &self.state.assets,
         )
     }
 }
 
-impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, Risk> {
+impl<Clock, State, ExecutionTxs, Strategy, Risk> Engine<Clock, State, ExecutionTxs, Strategy, Risk>
+where
+    Clock: EngineClock,
+{
     /// Construct a new `Engine`.
     ///
     /// An initial [`EngineMeta`] is constructed form the provided `clock` and `Sequence(0)`.
     pub fn new(
-        clock: fn() -> DateTime<Utc>,
+        clock: Clock,
         state: State,
         execution_txs: ExecutionTxs,
         strategy: Strategy,
@@ -318,7 +347,7 @@ impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, 
     ) -> Self {
         Self {
             meta: EngineMeta {
-                time_start: clock(),
+                time_start: clock.time(),
                 sequence: Sequence(0),
             },
             clock,
@@ -331,20 +360,21 @@ impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, 
 
     /// Return `Engine` clock time.
     pub fn time(&self) -> DateTime<Utc> {
-        (self.clock)()
+        self.clock.time()
     }
 
     /// Reset the internal `EngineMeta` to the `clock` time and `Sequence(0)`.
     pub fn reset_metadata(&mut self) {
-        self.meta.time_start = (self.clock)();
+        self.meta.time_start = self.clock.time();
         self.meta.sequence = Sequence(0);
     }
 }
 
-impl<Audit, State, ExecutionTx, StrategyT, Risk> Auditor<Audit>
-    for Engine<State, ExecutionTx, StrategyT, Risk>
+impl<Audit, Clock, State, ExecutionTx, StrategyT, Risk> Auditor<Audit>
+    for Engine<Clock, State, ExecutionTx, StrategyT, Risk>
 where
     Audit: From<State>,
+    Clock: EngineClock,
     State: Clone,
 {
     type Context = EngineContext;
@@ -363,7 +393,7 @@ where
             event: Audit::from(kind),
             context: EngineContext {
                 sequence: self.meta.sequence.fetch_add(),
-                time: (self.clock)(),
+                time: self.clock.time(),
             },
         }
     }

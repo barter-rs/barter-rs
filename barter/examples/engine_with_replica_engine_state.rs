@@ -1,6 +1,7 @@
 use barter::{
     engine::{
         audit::{manager::state_replica::StateReplicaManager, Auditor},
+        clock::{EngineClock, LiveClock},
         command::Command,
         run,
         state::{
@@ -91,14 +92,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(account_stream.forward_to(feed_tx.clone()));
 
     // Construct Engine clock
-    let clock = || Utc::now();
+    let clock = LiveClock;
 
     // Construct empty EngineState from IndexedInstruments
     let state = generate_empty_indexed_engine_state::<DefaultMarketData, _, _>(
         // Note: you may want to start to engine with TradingState::Disabled and turn on later
         TradingState::Enabled,
         &instruments,
-        clock(),
+        clock.time(),
         DefaultStrategyState,
         DefaultRiskManagerState,
     );

@@ -48,8 +48,9 @@ impl<ExchangeKey, InstrumentKey> GenerateAlgoOrdersOutput<ExchangeKey, Instrumen
     }
 }
 
-impl<State, ExecutionTxs, Strategy, Risk, ExchangeKey, InstrumentKey>
-    GenerateAlgoOrders<ExchangeKey, InstrumentKey> for Engine<State, ExecutionTxs, Strategy, Risk>
+impl<Clock, State, ExecutionTxs, Strategy, Risk, ExchangeKey, InstrumentKey>
+    GenerateAlgoOrders<ExchangeKey, InstrumentKey>
+    for Engine<Clock, State, ExecutionTxs, Strategy, Risk>
 where
     State: InFlightRequestRecorder<ExchangeKey, InstrumentKey>,
     ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,

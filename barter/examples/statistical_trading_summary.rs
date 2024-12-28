@@ -89,6 +89,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut summary_generator = TradingSummaryGenerator::init(
         RISK_FREE_RETURN,
         time_now,
+        // Note: time_engine_now will be updated by the synthetic updates
+        time_now,
         &instrument_states,
         &asset_states,
     );

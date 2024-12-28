@@ -25,8 +25,14 @@ pub trait CancelOrders<
     ) -> Self::Output;
 }
 
-impl<MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk> CancelOrders
-    for Engine<EngineState<MarketState, StrategyState, RiskState>, ExecutionTxs, Strategy, Risk>
+impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk> CancelOrders
+    for Engine<
+        Clock,
+        EngineState<MarketState, StrategyState, RiskState>,
+        ExecutionTxs,
+        Strategy,
+        Risk,
+    >
 where
     ExecutionTxs: ExecutionTxMap,
 {

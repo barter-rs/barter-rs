@@ -35,11 +35,52 @@ where
             title_table.add_row(Row::new(vec![cell]));
         }
 
-        // Add duration on a new line
-        let mut duration_cell = Cell::new(&format!(
-            "(Trading Duration: {} Minutes)",
-            self.trading_duration().num_minutes()
-        ))
+        let mut duration_cell = Cell::new(&{
+            let duration = self.trading_duration();
+            let minutes = duration.num_minutes();
+            let hours = duration.num_hours();
+            let days = duration.num_days();
+
+            match (minutes, hours, days) {
+                // Less than 1 hour - show minutes
+                (minutes, _, _) if minutes < 60 => {
+                    format!("(Trading Duration: {} Minutes)", minutes)
+                }
+
+                // Between 1 hour and 24 hours - show hours and minutes
+                (minutes, hours, _) if hours < 24 => {
+                    let remaining_minutes = minutes % 60;
+                    format!(
+                        "(Trading Duration: {} Hour(s) & {} Minutes)",
+                        hours, remaining_minutes
+                    )
+                }
+
+                // Between 1 day and 7 days - show days and hours
+                (_, hours, days) if days <= 7 => {
+                    let remaining_hours = hours % 24;
+                    format!(
+                        "(Trading Duration: {} Day(s) & {} Hour(s))",
+                        days, remaining_hours
+                    )
+                }
+
+                // Between 1 week and 4 weeks - show weeks and days
+                (_, _, days) if days <= 28 => {
+                    let weeks = days / 7;
+                    let remaining_days = days % 7;
+                    format!(
+                        "(Trading Duration: {} Week(s) & {} Day(s))",
+                        weeks, remaining_days
+                    )
+                }
+
+                // More than 4 weeks - show only days with ~ indicator
+                (_, _, days) => {
+                    format!("(Trading Duration: ~{} Days)", days)
+                }
+            }
+        })
         .style_spec("bcB");
 
         duration_cell.set_hspan(1);

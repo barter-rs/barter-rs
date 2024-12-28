@@ -82,13 +82,14 @@ impl TradingSummaryGenerator {
     pub fn init<Market>(
         risk_free_return: Decimal,
         time_engine_start: DateTime<Utc>,
+        time_engine_now: DateTime<Utc>,
         instruments: &InstrumentStates<Market>,
         assets: &AssetStates,
     ) -> Self {
         Self {
             risk_free_return,
             time_engine_start,
-            time_engine_now: time_engine_start,
+            time_engine_now,
             instruments: instruments
                 .0
                 .values()
