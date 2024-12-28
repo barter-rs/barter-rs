@@ -93,7 +93,18 @@ pub type FnvIndexMap<K, V> = indexmap::IndexMap<K, V, fnv::FnvBuildHasher>;
 pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Deserialize, Serialize, Constructor,
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Default,
+    Deserialize,
+    Serialize,
+    Constructor,
 )]
 pub struct Timed<T> {
     value: T,
@@ -150,7 +161,9 @@ impl Sequence {
 
 #[cfg(test)]
 pub mod test_utils {
-    use crate::engine::state::asset::AssetState;
+    use crate::{
+        engine::state::asset::AssetState, statistic::summary::asset::TearSheetAssetGenerator, Timed,
+    };
     use barter_execution::{
         balance::Balance,
         order::{OrderId, StrategyId},
@@ -160,6 +173,7 @@ pub mod test_utils {
         asset::QuoteAsset, instrument::name::InstrumentNameInternal, test_utils::asset, Side,
     };
     use chrono::{DateTime, Days, Utc};
+    use rust_decimal::Decimal;
 
     pub fn f64_is_eq(actual: f64, expected: f64, epsilon: f64) -> bool {
         if actual.is_nan() && expected.is_nan() {
@@ -210,13 +224,18 @@ pub mod test_utils {
         balance_free: f64,
         time_exchange: DateTime<Utc>,
     ) -> AssetState {
-        AssetState {
-            asset: asset(symbol),
-            balance: Balance::new(
-                balance_total.try_into().unwrap(),
-                balance_free.try_into().unwrap(),
+        let balance = Timed::new(
+            Balance::new(
+                Decimal::try_from(balance_total).unwrap(),
+                Decimal::try_from(balance_free).unwrap(),
             ),
             time_exchange,
+        );
+
+        AssetState {
+            asset: asset(symbol),
+            balance,
+            statistics: TearSheetAssetGenerator::init(&balance),
         }
     }
 }

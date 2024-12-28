@@ -7,13 +7,12 @@ pub struct WinRate {
 }
 
 impl WinRate {
-    pub fn calculate(wins: Decimal, total: Decimal) -> Self {
-        Self {
-            value: if total == Decimal::ZERO {
-                Decimal::ONE
-            } else {
-                wins.abs().checked_div(total.abs()).unwrap()
-            },
+    pub fn calculate(wins: Decimal, total: Decimal) -> Option<Self> {
+        if total == Decimal::ZERO {
+            None
+        } else {
+            let value = wins.abs().checked_div(total.abs())?;
+            Some(Self { value })
         }
     }
 }
@@ -26,24 +25,28 @@ mod tests {
     #[test]
     fn test_win_rate_calculate() {
         // no trades
-        assert_eq!(
-            WinRate::calculate(Decimal::ZERO, Decimal::ZERO).value,
-            Decimal::ONE
-        );
+        assert_eq!(WinRate::calculate(Decimal::ZERO, Decimal::ZERO), None);
 
         // all winning trades
         assert_eq!(
-            WinRate::calculate(Decimal::TEN, Decimal::TEN).value,
+            WinRate::calculate(Decimal::TEN, Decimal::TEN)
+                .unwrap()
+                .value,
             Decimal::ONE
         );
 
         // no winning trades
         assert_eq!(
-            WinRate::calculate(Decimal::ZERO, Decimal::TEN).value,
+            WinRate::calculate(Decimal::ZERO, Decimal::TEN)
+                .unwrap()
+                .value,
             Decimal::ZERO
         );
 
         // mixed winning and losing trades
-        assert_eq!(WinRate::calculate(dec!(6), Decimal::TEN).value, dec!(0.6));
+        assert_eq!(
+            WinRate::calculate(dec!(6), Decimal::TEN).unwrap().value,
+            dec!(0.6)
+        );
     }
 }

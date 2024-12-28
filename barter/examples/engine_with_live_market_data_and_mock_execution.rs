@@ -1,6 +1,6 @@
 use barter::{
     engine::{
-        audit::{manager::AuditManager, Auditor},
+        audit::Audit,
         command::Command,
         run,
         state::{
@@ -13,7 +13,7 @@ use barter::{
     execution::builder::ExecutionBuilder,
     logging::init_logging,
     risk::{DefaultRiskManager, DefaultRiskManagerState},
-    statistic::{summary::TradingSummaryGenerator, time::Daily},
+    statistic::time::Daily,
     strategy::{DefaultStrategy, DefaultStrategyState},
     EngineEvent,
 };
@@ -45,8 +45,10 @@ use barter_instrument::{
 };
 use barter_integration::channel::{mpsc_unbounded, ChannelTxDroppable, Tx};
 use chrono::Utc;
+use futures::StreamExt;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use tracing::debug;
 
 const EXCHANGE: ExchangeId = ExchangeId::BinanceSpot;
 const RISK_FREE_RETURN: Decimal = dec!(0.05);
@@ -61,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialise Channels
     let (feed_tx, mut feed_rx) = mpsc_unbounded();
-    let (audit_tx, mut audit_rx) = mpsc_unbounded();
+    let (audit_tx, audit_rx) = mpsc_unbounded();
 
     // Construct IndexedInstruments
     let instruments = IndexedInstruments::new(unindexed_instruments());
@@ -90,38 +92,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
     tokio::spawn(account_stream.forward_to(feed_tx.clone()));
 
+    // Construct Engine clock
+    let clock = || Utc::now();
+
     // Construct empty EngineState from IndexedInstruments
     let state = generate_empty_indexed_engine_state::<DefaultMarketData, _, _>(
         // Note: you may want to start to engine with TradingState::Disabled and turn on later
         TradingState::Enabled,
         &instruments,
+        clock(),
         DefaultStrategyState,
         DefaultRiskManagerState,
     );
 
     // Construct Engine
     let mut engine = Engine::new(
-        || Utc::now(),
-        state.clone(),
+        clock,
+        state,
         execution_txs,
         DefaultStrategy::default(),
         DefaultRiskManager::default(),
-    );
-
-    // Todo: need to update State with initial AccountSnapshot first?
-    //    + add util for constructing EngineState / AssetStates from AccountSnapshot
-    //    + change in historic example
-    //   also maybe add ExchangeKey to AccountSnapshot? what happens if we are mocking
-    //   multi exchanges
-    // Construct AuditManager w/ initial EngineState
-    let mut audit_manager = AuditManager::new(
-        engine.audit(state),
-        TradingSummaryGenerator::init(
-            RISK_FREE_RETURN,
-            engine.time(),
-            &engine.state.instruments,
-            &engine.state.assets,
-        ),
     );
 
     // Run synchronous Engine on blocking task
@@ -134,10 +124,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         (engine, shutdown_audit)
     });
 
-    // Run synchronous AuditManager on blocking task
-    let audit_task = tokio::task::spawn_blocking(move || {
-        audit_manager.run(&mut audit_rx).unwrap();
-        (audit_manager, audit_rx)
+    // Run dummy asynchronous AuditStream consumer
+    // Note: you probably want to use this Stream to replicate EngineState, or persist events, etc.
+    //  --> eg/ see examples/engine_with_replica_engine_state.rs
+    let audit_task = tokio::spawn(async move {
+        let mut audit_stream = audit_rx.into_stream();
+        while let Some(audit) = audit_stream.next().await {
+            debug!(?audit, "AuditStream consumed AuditTick");
+            if let Audit::Shutdown(_) = audit.event {
+                break;
+            }
+        }
+        audit_stream
     });
 
     // Let the example run for 4 seconds..., then:
@@ -151,12 +149,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 4. Stop Engine run loop
     feed_tx.send(EngineEvent::Shutdown)?;
 
-    // Await Engine & AuditManager graceful shutdown
-    let (_engine, _shutdown_audit) = engine_task.await?;
-    let (audit_manager, _audit_stream) = audit_task.await?;
+    // Await Engine & AuditStream task graceful shutdown
+    // Note: Engine & AuditStream returned, ready for further use
+    let (engine, _shutdown_audit) = engine_task.await?;
+    let _audit_stream = audit_task.await?;
 
-    // Generate TradingSummary
-    let trading_summary = audit_manager.summary.generate(Daily);
+    // Generate TradingSummary<Daily>
+    let trading_summary = engine
+        .trading_summary_generator(RISK_FREE_RETURN)
+        .generate(Daily);
 
     // Print TradingSummary<Daily> to terminal (could save in a file, send somewhere, etc.)
     trading_summary.print_summary();
@@ -219,7 +220,7 @@ fn build_initial_account_snapshot(
         .map(|keyed_asset| {
             AssetBalance::new(
                 keyed_asset.value.asset.name_exchange.clone(),
-                if keyed_asset.value.asset.name_internal.as_ref() == "usd" {
+                if keyed_asset.value.asset.name_internal.as_ref() == "usdt" {
                     Balance::new(balance_usd, balance_usd)
                 } else {
                     Balance::default()

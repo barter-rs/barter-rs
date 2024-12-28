@@ -1,6 +1,6 @@
 use barter::{
     engine::{
-        audit::Audit,
+        audit::{manager::state_replica::StateReplicaManager, Auditor},
         command::Command,
         run,
         state::{
@@ -18,11 +18,11 @@ use barter::{
     EngineEvent,
 };
 use barter_data::{
-    event::DataKind,
     streams::{
-        consumer::{MarketStreamEvent, MarketStreamResult},
-        reconnect::{stream::ReconnectingStream, Event},
+        builder::dynamic::indexed::init_indexed_multi_exchange_market_stream,
+        reconnect::stream::ReconnectingStream,
     },
+    subscription::SubKind,
 };
 use barter_execution::{
     balance::{AssetBalance, Balance},
@@ -39,25 +39,20 @@ use barter_instrument::{
             InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice, InstrumentSpecQuantity,
             OrderQuantityUnits,
         },
-        Instrument, InstrumentIndex,
+        Instrument,
     },
     Underlying,
 };
 use barter_integration::channel::{mpsc_unbounded, ChannelTxDroppable, Tx};
 use chrono::Utc;
-use futures::{stream, Stream, StreamExt};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use tracing::{debug, info, warn};
 
 const EXCHANGE: ExchangeId = ExchangeId::BinanceSpot;
 const RISK_FREE_RETURN: Decimal = dec!(0.05);
 const MOCK_EXCHANGE_ROUND_TRIP_LATENCY_MS: u64 = 100;
 const MOCK_EXCHANGE_FEES_PERCENT: Decimal = dec!(0.05);
 const MOCK_EXCHANGE_STARTING_BALANCE_USD: Decimal = dec!(10_000.0);
-
-const FILE_PATH_HISTORIC_TRADES_AND_L1S: &str =
-    "barter/examples/data/binance_spot_market_data_with_disconnect_events.json";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -66,16 +61,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialise Channels
     let (feed_tx, mut feed_rx) = mpsc_unbounded();
-    let (audit_tx, audit_rx) = mpsc_unbounded();
+    let (audit_tx, mut audit_rx) = mpsc_unbounded();
 
     // Construct IndexedInstruments
     let instruments = IndexedInstruments::new(unindexed_instruments());
 
-    // Forward historical market data events to Engine feed
-    let market_stream = init_historic_market_data_stream(FILE_PATH_HISTORIC_TRADES_AND_L1S);
+    // Initialise MarketData Stream & forward to Engine feed
+    let market_stream = init_indexed_multi_exchange_market_stream(
+        &instruments,
+        &[SubKind::PublicTrades, SubKind::OrderBooksL1],
+    )
+    .await?;
     tokio::spawn(market_stream.forward_to(feed_tx.clone()));
 
-    // Define initial mock AccountSnapshot
+    // Define initial mock AccountSnapshot:
     let initial_account =
         build_initial_account_snapshot(&instruments, MOCK_EXCHANGE_STARTING_BALANCE_USD);
 
@@ -107,11 +106,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Construct Engine
     let mut engine = Engine::new(
         clock,
-        state,
+        state.clone(),
         execution_txs,
         DefaultStrategy::default(),
         DefaultRiskManager::default(),
     );
+
+    // Construct StateReplicaManager w/ initial EngineState
+    let mut state_replica_manager = StateReplicaManager::new(engine.audit(state));
 
     // Run synchronous Engine on blocking task
     let engine_task = tokio::task::spawn_blocking(move || {
@@ -123,18 +125,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         (engine, shutdown_audit)
     });
 
-    // Run dummy asynchronous AuditStream consumer
-    // Note: you probably want to use this Stream to replicate EngineState, or persist events, etc.
-    //  --> eg/ see examples/engine_with_replica_engine_state.rs
-    let audit_task = tokio::spawn(async move {
-        let mut audit_stream = audit_rx.into_stream();
-        while let Some(audit) = audit_stream.next().await {
-            debug!(?audit, "AuditStream consumed AuditTick");
-            if let Audit::Shutdown(_) = audit.event {
-                break;
-            }
-        }
-        audit_stream
+    // Run synchronous AuditReplicaStateManager on blocking task
+    let state_replica_task = tokio::task::spawn_blocking(move || {
+        state_replica_manager.run(&mut audit_rx).unwrap();
+        (state_replica_manager, audit_rx)
     });
 
     // Let the example run for 4 seconds..., then:
@@ -148,10 +142,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 4. Stop Engine run loop
     feed_tx.send(EngineEvent::Shutdown)?;
 
-    // Await Engine & AuditStream task graceful shutdown
+    // Await Engine & AuditReplicaStateManager graceful shutdown
     // Note: Engine & AuditStream returned, ready for further use
     let (engine, _shutdown_audit) = engine_task.await?;
-    let _audit_stream = audit_task.await?;
+    let (_state_replica_manager, _audit_stream) = state_replica_task.await?;
 
     // Generate TradingSummary<Daily>
     let trading_summary = engine
@@ -207,36 +201,6 @@ fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
             ),
         ),
     ]
-}
-
-// Note that there are far more intelligent ways of streaming historical market data, this is
-// just for demonstration purposes.
-//
-// For example:
-// - Stream from database
-// - Stream from file
-fn init_historic_market_data_stream(
-    file_path: &str,
-) -> impl Stream<Item = MarketStreamEvent<InstrumentIndex, DataKind>> {
-    let data = std::fs::read_to_string(file_path).unwrap();
-    let events =
-        serde_json::from_str::<Vec<MarketStreamResult<InstrumentIndex, DataKind>>>(&data).unwrap();
-
-    stream::iter(events)
-        .with_error_handler(|error| warn!(?error, "MarketStream generated error"))
-        .inspect(|event| match event {
-            Event::Reconnecting(exchange) => {
-                info!(%exchange, "sending historical disconnection to Engine")
-            }
-            Event::Item(event) => {
-                info!(
-                    exchange = %event.exchange,
-                    instrument = %event.instrument,
-                    kind = event.kind.kind_name(),
-                    "sending historical event to Engine"
-                )
-            }
-        })
 }
 
 fn build_initial_account_snapshot(

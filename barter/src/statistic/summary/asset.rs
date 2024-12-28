@@ -13,16 +13,16 @@ use serde::{Deserialize, Serialize};
 /// TearSheet summarising the trading session changes for an Asset.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub struct TearSheetAsset {
-    pub balance_end: Balance,
+    pub balance_end: Option<Balance>,
     pub drawdown: Option<Drawdown>,
     pub drawdown_mean: Option<MeanDrawdown>,
     pub drawdown_max: Option<MaxDrawdown>,
 }
 
 /// Generator for an [`TearSheetAsset`].
-#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Default, Deserialize, Serialize)]
 pub struct TearSheetAssetGenerator {
-    pub balance: Balance,
+    pub balance_now: Option<Balance>,
     pub drawdown: DrawdownGenerator,
     pub drawdown_mean: MeanDrawdownGenerator,
     pub drawdown_max: MaxDrawdownGenerator,
@@ -30,9 +30,9 @@ pub struct TearSheetAssetGenerator {
 
 impl TearSheetAssetGenerator {
     /// Initialise a [`TearSheetAssetGenerator`] from an initial [`AssetState`].
-    pub fn init(initial: Timed<Balance>) -> Self {
+    pub fn init(initial: &Timed<Balance>) -> Self {
         Self {
-            balance: initial.value,
+            balance_now: Some(initial.value),
             drawdown: DrawdownGenerator::init(Timed::new(initial.value.total, initial.time)),
             drawdown_mean: MeanDrawdownGenerator::default(),
             drawdown_max: MaxDrawdownGenerator::default(),
@@ -41,25 +41,30 @@ impl TearSheetAssetGenerator {
 
     /// Update the [`TearSheetAssetGenerator`] from the next [`Snapshot`] [`AssetBalance`].
     pub fn update_from_balance<AssetKey>(&mut self, balance: Snapshot<&AssetBalance<AssetKey>>) {
-        if let Some(next_drawdown) = self
-            .drawdown
-            .update(Timed::new(balance.0.balance.total, balance.0.time_exchange))
-        {
+        self.balance_now = Some(balance.value().balance);
+
+        if let Some(next_drawdown) = self.drawdown.update(Timed::new(
+            balance.value().balance.total,
+            balance.value().time_exchange,
+        )) {
             self.drawdown_mean.update(&next_drawdown);
             self.drawdown_max.update(&next_drawdown);
         }
-
-        self.balance = balance.0.balance;
     }
 
     /// Generate the latest [`TearSheetAsset`].
     pub fn generate(&self) -> TearSheetAsset {
         TearSheetAsset {
-            balance_end: self.balance,
+            balance_end: self.balance_now,
             drawdown: self.drawdown.generate(),
             drawdown_mean: self.drawdown_mean.generate(),
             drawdown_max: self.drawdown_max.generate(),
         }
+    }
+
+    /// Reset the internal state, using a new starting `Timed<Balance>` as seed.
+    pub fn reset(&mut self, balance_start: &Timed<Balance>) {
+        *self = Self::init(balance_start);
     }
 }
 
@@ -92,7 +97,7 @@ mod tests {
 
         let base_time = DateTime::<Utc>::MIN_UTC;
 
-        let mut generator = TearSheetAssetGenerator::init(Timed::new(
+        let mut generator = TearSheetAssetGenerator::init(&Timed::new(
             Balance::new(dec!(1.0), dec!(1.0)),
             base_time,
         ));
@@ -105,7 +110,7 @@ mod tests {
                     time_plus_days(base_time, 1),
                 ),
                 expected: TearSheetAsset {
-                    balance_end: Balance::new(dec!(2.0), dec!(2.0)),
+                    balance_end: Some(Balance::new(dec!(2.0), dec!(2.0))),
                     drawdown: None,
                     drawdown_mean: None,
                     drawdown_max: None,
@@ -118,7 +123,7 @@ mod tests {
                     time_plus_days(base_time, 2),
                 ),
                 expected: TearSheetAsset {
-                    balance_end: Balance::new(dec!(1.5), dec!(1.5)),
+                    balance_end: Some(Balance::new(dec!(1.5), dec!(1.5))),
                     drawdown: Some(Drawdown {
                         value: dec!(0.25), // (2.0 - 1.5) / 2.0
                         time_start: time_plus_days(base_time, 1),
@@ -135,7 +140,7 @@ mod tests {
                     time_plus_days(base_time, 3),
                 ),
                 expected: TearSheetAsset {
-                    balance_end: Balance::new(dec!(1.0), dec!(1.0)),
+                    balance_end: Some(Balance::new(dec!(1.0), dec!(1.0))),
                     drawdown: Some(Drawdown {
                         value: dec!(0.5), // (2.0 - 1.0) / 2.0
                         time_start: time_plus_days(base_time, 1),
@@ -152,7 +157,7 @@ mod tests {
                     time_plus_days(base_time, 4),
                 ),
                 expected: TearSheetAsset {
-                    balance_end: Balance::new(dec!(2.5), dec!(2.5)),
+                    balance_end: Some(Balance::new(dec!(2.5), dec!(2.5))),
                     drawdown: None,
                     drawdown_mean: Some(MeanDrawdown {
                         mean_drawdown: dec!(0.5), // Only one drawdown period completed
@@ -175,7 +180,7 @@ mod tests {
                     time_plus_days(base_time, 5),
                 ),
                 expected: TearSheetAsset {
-                    balance_end: Balance::new(dec!(2.4), dec!(2.4)),
+                    balance_end: Some(Balance::new(dec!(2.4), dec!(2.4))),
                     drawdown: Some(Drawdown {
                         value: dec!(0.04), // (2.5 - 2.4) / 2.5
                         time_start: time_plus_days(base_time, 4),
@@ -202,7 +207,7 @@ mod tests {
                     time_plus_days(base_time, 6),
                 ),
                 expected: TearSheetAsset {
-                    balance_end: Balance::new(dec!(2.4), dec!(2.4)),
+                    balance_end: Some(Balance::new(dec!(2.4), dec!(2.4))),
                     drawdown: Some(Drawdown {
                         value: dec!(0.04),
                         time_start: time_plus_days(base_time, 4),
@@ -229,7 +234,7 @@ mod tests {
                     time_plus_days(base_time, 7),
                 ),
                 expected: TearSheetAsset {
-                    balance_end: Balance::new(dec!(2.41), dec!(2.41)),
+                    balance_end: Some(Balance::new(dec!(2.41), dec!(2.41))),
                     drawdown: Some(Drawdown {
                         value: dec!(0.04), // max drawdown from current period
                         time_start: time_plus_days(base_time, 4),

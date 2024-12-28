@@ -4,6 +4,7 @@ use crate::{
         order::{manager::OrderManager, Orders},
         position::{Position, PositionExited},
     },
+    statistic::summary::instrument::TearSheetGenerator,
     FnvIndexMap,
 };
 use barter_data::event::MarketEvent;
@@ -15,6 +16,7 @@ use barter_instrument::{
     instrument::{name::InstrumentNameInternal, Instrument, InstrumentIndex},
 };
 use barter_integration::snapshot::Snapshot;
+use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use itertools::Either;
 use serde::{Deserialize, Serialize};
@@ -140,6 +142,9 @@ pub struct InstrumentState<
 
     /// User provided market data state associated with this instrument.
     pub market: Market,
+
+    /// TearSheet generator for summarising the trading performance associated with an Instrument.
+    pub statistics: TearSheetGenerator,
 }
 
 impl<Market, ExchangeKey, AssetKey, InstrumentKey>
@@ -187,7 +192,13 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
             }
         };
 
+        // Update Instrument TearSheet statistics
+        if let Some(position_exit) = &closed {
+            self.statistics.update_from_position(position_exit);
+        }
+
         self.position = current;
+
         closed
     }
 
@@ -216,6 +227,7 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
 /// Generates an indexed [`InstrumentStates`] containing default instrument state data.
 pub fn generate_empty_indexed_instrument_states<Market>(
     instruments: &IndexedInstruments,
+    time_engine_start: DateTime<Utc>,
 ) -> InstrumentStates<Market, ExchangeIndex, AssetIndex, InstrumentIndex>
 where
     Market: Default,
@@ -234,6 +246,7 @@ where
                         None,
                         Orders::default(),
                         Market::default(),
+                        TearSheetGenerator::init(time_engine_start),
                     ),
                 )
             })

@@ -18,6 +18,10 @@ use serde::{Deserialize, Serialize};
 pub struct Snapshot<T>(pub T);
 
 impl<T> Snapshot<T> {
+    pub fn value(&self) -> &T {
+        &self.0
+    }
+
     pub fn as_ref(&self) -> Snapshot<&T> {
         let Self(item) = self;
         Snapshot(item)

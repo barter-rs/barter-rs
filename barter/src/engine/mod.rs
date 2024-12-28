@@ -17,6 +17,7 @@ use crate::{
     },
     execution::AccountStreamEvent,
     risk::RiskManager,
+    statistic::summary::TradingSummaryGenerator,
     strategy::{
         algo::AlgoStrategy, close_positions::ClosePositionsStrategy,
         on_disconnect::OnDisconnectStrategy, on_trading_disabled::OnTradingDisabled,
@@ -30,6 +31,7 @@ use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::channel::{ChannelTxDroppable, Tx};
 use chrono::{DateTime, Utc};
 use derive_more::From;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::info;
@@ -40,9 +42,6 @@ pub mod command;
 pub mod error;
 pub mod execution_tx;
 pub mod state;
-
-pub type IndexedEngineOutput<OnTradingDisabled, OnDisconnect> =
-    EngineOutput<ExchangeIndex, InstrumentIndex, OnTradingDisabled, OnDisconnect>;
 
 pub trait Processor<Event> {
     type Output;
@@ -93,14 +92,20 @@ where
     shutdown_audit
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Engine<State, ExecutionTxs, Strategy, Risk> {
-    pub sequence: Sequence,
     pub clock: fn() -> DateTime<Utc>,
+    pub meta: EngineMeta,
     pub state: State,
     pub execution_txs: ExecutionTxs,
     pub strategy: Strategy,
     pub risk: Risk,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub struct EngineMeta {
+    pub time_start: DateTime<Utc>,
+    pub sequence: Sequence,
 }
 
 impl<MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
@@ -289,9 +294,21 @@ impl<MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
             }
         }
     }
+
+    pub fn trading_summary_generator(&self, risk_free_return: Decimal) -> TradingSummaryGenerator {
+        TradingSummaryGenerator::init(
+            risk_free_return,
+            self.meta.time_start,
+            &self.state.instruments,
+            &self.state.assets,
+        )
+    }
 }
 
 impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, Risk> {
+    /// Construct a new `Engine`.
+    ///
+    /// An initial [`EngineMeta`] is constructed form the provided `clock` and `Sequence(0)`.
     pub fn new(
         clock: fn() -> DateTime<Utc>,
         state: State,
@@ -300,7 +317,10 @@ impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, 
         risk: Risk,
     ) -> Self {
         Self {
-            sequence: Sequence(0),
+            meta: EngineMeta {
+                time_start: clock(),
+                sequence: Sequence(0),
+            },
             clock,
             state,
             execution_txs,
@@ -312,6 +332,12 @@ impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, 
     /// Return `Engine` clock time.
     pub fn time(&self) -> DateTime<Utc> {
         (self.clock)()
+    }
+
+    /// Reset the internal `EngineMeta` to the `clock` time and `Sequence(0)`.
+    pub fn reset_metadata(&mut self) {
+        self.meta.time_start = (self.clock)();
+        self.meta.sequence = Sequence(0);
     }
 }
 
@@ -336,7 +362,7 @@ where
         AuditTick {
             event: Audit::from(kind),
             context: EngineContext {
-                sequence: self.sequence.fetch_add(),
+                sequence: self.meta.sequence.fetch_add(),
                 time: (self.clock)(),
             },
         }
