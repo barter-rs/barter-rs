@@ -7,6 +7,7 @@ use crate::{
         },
         time::TimeInterval,
     },
+    Timed,
 };
 use barter_execution::{balance::AssetBalance, FnvIndexMap};
 use barter_instrument::{
@@ -102,7 +103,15 @@ impl TradingSummaryGenerator {
             assets: assets
                 .0
                 .iter()
-                .map(|(asset, state)| (asset.clone(), TearSheetAssetGenerator::init(state)))
+                .map(|(asset, state)| {
+                    (
+                        asset.clone(),
+                        TearSheetAssetGenerator::init(Timed::new(
+                            state.balance,
+                            state.time_exchange,
+                        )),
+                    )
+                })
                 .collect(),
         }
     }

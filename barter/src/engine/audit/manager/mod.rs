@@ -1,8 +1,8 @@
 use crate::{
     engine::{
         audit::{
-            manager::history::TradingHistory, shutdown::ShutdownAudit, Audit, AuditTick,
-            DefaultAuditTick,
+            context::EngineContext, manager::history::TradingHistory, shutdown::ShutdownAudit,
+            Audit, AuditTick, DefaultAuditTick,
         },
         state::{instrument::market_data::MarketDataState, EngineState},
         EngineOutput, Processor,
@@ -18,7 +18,7 @@ use barter_execution::{AccountEvent, AccountEventKind};
 use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use tracing::{debug_span, info, info_span};
+use tracing::{info, info_span};
 
 pub mod history;
 
@@ -26,7 +26,7 @@ pub const AUDIT_REPLICA_STATE_UPDATE_SPAN_NAME: &str = "audit_replica_state_upda
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct AuditManager<State, OnDisable, OnDisconnect> {
-    pub snapshot: AuditTick<State>,
+    pub snapshot: AuditTick<State, EngineContext>,
     pub summary: TradingSummaryGenerator,
     pub history: TradingHistory<State, OnDisable, OnDisconnect, ExchangeIndex, InstrumentIndex>,
 }
@@ -45,7 +45,7 @@ where
         InstrumentTearSheetManager<InstrumentIndex> + AssetTearSheetManager<AssetIndex>,
 {
     pub fn new(
-        snapshot: AuditTick<EngineState<MarketState, StrategyState, RiskState>>,
+        snapshot: AuditTick<EngineState<MarketState, StrategyState, RiskState>, EngineContext>,
         summary: TradingSummaryGenerator,
     ) -> Self {
         Self {
@@ -72,35 +72,37 @@ where
                 break ShutdownAudit::FeedEnded;
             };
 
-            if self.snapshot.sequence >= audit.sequence {
+            if self.snapshot.context.sequence >= audit.context.sequence {
                 continue;
             } else {
-                self.validate_and_increment_sequence(audit.sequence)?;
-                self.snapshot.time_engine = audit.time_engine;
+                self.validate_and_update_context(audit.context)?;
             }
 
-            let shutdown_audit = match audit.data {
+            let AuditTick { event, context } = audit;
+
+            let shutdown_audit = match event {
                 Audit::Snapshot(snapshot) => {
-                    self.snapshot.data = snapshot;
+                    self.snapshot.event = snapshot;
                     None
                 }
                 Audit::Process(event) => {
-                    self.update_from_event(event);
+                    self.update_from_event(event, context);
                     None
                 }
                 Audit::ProcessWithOutput(event, output) => {
-                    self.update_from_event(event);
-                    self.update_from_engine_output(output);
+                    self.update_from_event(event, context);
+                    self.update_from_engine_output(output, context);
                     None
                 }
                 Audit::Shutdown(shutdown) => Some(shutdown),
                 Audit::ShutdownWithOutput(shutdown, output) => {
-                    self.update_from_engine_output(output);
+                    self.update_from_engine_output(output, context);
                     Some(shutdown)
                 }
             };
 
-            self.history.states.push(self.snapshot.clone());
+            self.history
+                .add_state_snapshot(self.snapshot.event.clone(), self.snapshot.context);
 
             if let Some(shutdown_audit) = shutdown_audit {
                 break shutdown_audit;
@@ -115,19 +117,23 @@ where
         Ok(())
     }
 
-    fn validate_and_increment_sequence(&mut self, next: u64) -> Result<(), String> {
-        if self.snapshot.sequence != next - 1 {
+    fn validate_and_update_context(&mut self, next: EngineContext) -> Result<(), String> {
+        if self.snapshot.context.sequence.value() != next.sequence.value() - 1 {
             return Err(format!(
-                "AuditManager | out-of-order AuditStream | next: {} does not follow from {}",
-                next, self.snapshot.sequence,
+                "AuditManager | out-of-order AuditStream | next: {:?} does not follow from {:?}",
+                next.sequence, self.snapshot.context.sequence,
             ));
         }
 
-        self.snapshot.sequence = next;
+        self.snapshot.context = next;
         Ok(())
     }
 
-    pub fn update_from_event(&mut self, event: EngineEvent<MarketState::EventKind>) {
+    pub fn update_from_event(
+        &mut self,
+        event: EngineEvent<MarketState::EventKind>,
+        context: EngineContext,
+    ) {
         match event {
             EngineEvent::Shutdown | EngineEvent::Command(_) => {
                 // No action required
@@ -149,13 +155,13 @@ where
                         self.replica_engine_state_mut().update_from_account(&event)
                     {
                         self.summary.update_from_position(&position);
-                        self.history.positions.push(self.tick(position));
+                        self.history.add_position(position, context);
                     }
                     if let AccountEventKind::BalanceSnapshot(balance) = &event.kind {
                         self.summary.update_from_balance(balance.as_ref());
                     }
                     if let AccountEventKind::Trade(trade) = event.kind {
-                        self.history.trades.push(self.tick(trade));
+                        self.history.add_trade(trade, context);
                     }
                 }
             },
@@ -173,36 +179,32 @@ where
     }
 
     pub fn replica_engine_state(&self) -> &EngineState<MarketState, StrategyState, RiskState> {
-        &self.snapshot.data
+        &self.snapshot.event
     }
 
     fn replica_engine_state_mut(
         &mut self,
     ) -> &mut EngineState<MarketState, StrategyState, RiskState> {
-        &mut self.snapshot.data
+        &mut self.snapshot.event
     }
 
-    fn tick<T>(&self, kind: T) -> AuditTick<T> {
-        AuditTick {
-            sequence: self.snapshot.sequence,
-            time_engine: self.snapshot.time_engine,
-            data: kind,
-        }
-    }
-
-    pub fn update_from_engine_output(&mut self, output: EngineOutput<OnDisable, OnDisconnect>) {
+    pub fn update_from_engine_output(
+        &mut self,
+        output: EngineOutput<OnDisable, OnDisconnect>,
+        context: EngineContext,
+    ) {
         match output {
             EngineOutput::Commanded(output) => {
-                self.history.commands.push(self.tick(output));
+                self.history.add_command_output(output, context);
             }
             EngineOutput::OnTradingDisabled(output) => {
-                self.history.trading_disables.push(self.tick(output));
+                self.history.add_trading_disabled_output(output, context);
             }
             EngineOutput::OnDisconnect(output) => {
-                self.history.disconnections.push(self.tick(output));
+                self.history.add_disconnection_output(output, context);
             }
             EngineOutput::AlgoOrders(output) => {
-                self.history.orders_sent.push(self.tick(output));
+                self.history.add_orders_sent(output, context);
             }
         }
     }

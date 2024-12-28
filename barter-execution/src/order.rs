@@ -67,7 +67,7 @@ pub struct Order<ExchangeKey, InstrumentKey, State> {
     pub state: State,
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, From)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
 pub enum InternalOrderState {
     OpenInFlight(OpenInFlight),
     Open(Open),
@@ -125,7 +125,7 @@ impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, InternalOrder
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, From)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
 pub enum ExchangeOrderState {
     Open(Open),
     FullyFilled,
@@ -163,7 +163,9 @@ impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, ExchangeOrder
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
 pub struct RequestOpen {
     pub kind: OrderKind,
     pub time_in_force: TimeInForce,
@@ -199,7 +201,9 @@ pub struct RequestCancel {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct OpenInFlight;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
 pub struct Open {
     pub id: OrderId,
     pub time_exchange: DateTime<Utc>,
@@ -214,7 +218,9 @@ impl Open {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
 pub struct CancelInFlight {
     pub id: Option<OrderId>,
 }

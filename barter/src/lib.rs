@@ -131,6 +131,23 @@ impl<MarketKind, ExchangeKey, AssetKey, InstrumentKey> From<MarketEvent<Instrume
     }
 }
 
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
+pub struct Sequence(pub u64);
+
+impl Sequence {
+    pub fn value(&self) -> u64 {
+        self.0
+    }
+
+    pub fn fetch_add(&mut self) -> Sequence {
+        let sequence = *self;
+        self.0 += 1;
+        sequence
+    }
+}
+
 #[cfg(test)]
 pub mod test_utils {
     use crate::engine::state::asset::AssetState;

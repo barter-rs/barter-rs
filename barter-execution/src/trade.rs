@@ -16,7 +16,9 @@ impl TradeId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
 pub struct Trade<AssetKey, InstrumentKey> {
     pub id: TradeId,
     pub order_id: OrderId,
@@ -49,7 +51,9 @@ where
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
 pub struct AssetFees<AssetKey> {
     pub asset: AssetKey,
     pub fees: Decimal,

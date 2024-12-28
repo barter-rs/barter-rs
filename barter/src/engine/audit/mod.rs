@@ -1,5 +1,6 @@
 use crate::{
     engine::{
+        audit::context::EngineContext,
         error::UnrecoverableEngineError,
         state::{instrument::market_data::MarketDataState, EngineState},
         EngineOutput,
@@ -7,11 +8,11 @@ use crate::{
     EngineEvent,
 };
 use barter_integration::collection::one_or_many::OneOrMany;
-use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use shutdown::ShutdownAudit;
 
+pub mod context;
 pub mod manager;
 pub mod request;
 pub mod shutdown;
@@ -22,7 +23,10 @@ pub type DefaultAuditTick<
     RiskState,
     OnTradingDisabled,
     OnDisconnect,
-> = AuditTick<DefaultAudit<MarketState, StrategyState, RiskState, OnTradingDisabled, OnDisconnect>>;
+> = AuditTick<
+    DefaultAudit<MarketState, StrategyState, RiskState, OnTradingDisabled, OnDisconnect>,
+    EngineContext,
+>;
 
 pub type DefaultAudit<
     MarketState: MarketDataState,
@@ -53,21 +57,62 @@ pub trait Auditor<AuditKind>
 where
     AuditKind: From<Self::Snapshot>,
 {
+    type Context;
     type Snapshot;
     type Shutdown<Event>;
 
     fn snapshot(&self) -> Self::Snapshot;
 
-    fn audit<Kind>(&mut self, kind: Kind) -> AuditTick<AuditKind>
+    fn audit<Kind>(&mut self, kind: Kind) -> AuditTick<AuditKind, Self::Context>
     where
         AuditKind: From<Kind>;
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct AuditTick<Kind> {
-    pub sequence: u64,
-    pub time_engine: DateTime<Utc>,
-    pub data: Kind,
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Default,
+    Deserialize,
+    Serialize,
+    Constructor,
+)]
+pub struct AuditTick<Kind, Context> {
+    pub event: Kind,
+    pub context: Context,
+}
+
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Default,
+    Deserialize,
+    Serialize,
+    Constructor,
+)]
+pub struct AuditIndex(pub usize);
+
+impl AuditIndex {
+    pub fn index(&self) -> usize {
+        self.0
+    }
+
+    pub fn fetch_add(&mut self) -> AuditIndex {
+        let index = *self;
+        self.0 += 1;
+        index
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

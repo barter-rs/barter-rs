@@ -2,7 +2,7 @@ use super::SubscriptionKind;
 use crate::books::{mid_price, volume_weighted_mid_price, Level, OrderBook};
 use barter_macro::{DeSubKind, SerSubKind};
 use chrono::{DateTime, Utc};
-use derive_more::Display;
+use derive_more::{Constructor, Display};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +30,9 @@ impl Display for OrderBooksL1 {
 }
 
 /// Normalised Barter [`OrderBookL1`] snapshot containing the latest best bid and ask.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize, Serialize)]
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize, Constructor,
+)]
 pub struct OrderBookL1 {
     pub last_update_time: DateTime<Utc>,
     pub best_bid: Level,

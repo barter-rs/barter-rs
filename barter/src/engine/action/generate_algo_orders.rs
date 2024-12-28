@@ -19,7 +19,7 @@ pub trait GenerateAlgoOrders<ExchangeKey = ExchangeIndex, InstrumentKey = Instru
     fn generate_algo_orders(&mut self) -> GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>;
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct GenerateAlgoOrdersOutput<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     pub cancels_and_opens: SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey>,
     pub cancels_refused:

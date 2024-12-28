@@ -74,7 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .await?;
     tokio::spawn(market_stream.forward_to(feed_tx.clone()));
 
-    // Define initial mock AccountSnapshot
+    // Define initial mock AccountSnapshot:
     let initial_account =
         build_initial_account_snapshot(&instruments, MOCK_EXCHANGE_STARTING_BALANCE_USD);
 
@@ -111,6 +111,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Todo: need to update State with initial AccountSnapshot first?
     //    + add util for constructing EngineState / AssetStates from AccountSnapshot
     //    + change in historic example
+    //   also maybe add ExchangeKey to AccountSnapshot? what happens if we are mocking
+    //   multi exchanges
     // Construct AuditManager w/ initial EngineState
     let mut audit_manager = AuditManager::new(
         engine.audit(state),

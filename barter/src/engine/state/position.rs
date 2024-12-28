@@ -357,7 +357,9 @@ where
 /// # Type Parameters
 /// - `AssetKey`: The type representing the asset used for fees (e.g. AssetIndex, QuoteAsset, etc.)
 /// - `InstrumentKey`: The type identifying the traded instrument (e.g. InstrumentIndex, etc.)
-#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
 pub struct PositionExited<AssetKey, InstrumentKey = InstrumentIndex> {
     /// Closed [`Position`] Instrument identifier (eg/ InstrumentIndex, InstrumentNameInternal, etc.).
     pub instrument: InstrumentKey,

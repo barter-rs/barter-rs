@@ -17,6 +17,9 @@ use std::fmt::Debug;
 pub struct AssetStates(pub FnvIndexMap<ExchangeAsset<AssetNameInternal>, AssetState>);
 
 impl AssetStates {
+    /// Return a reference to the `AssetState` associated with an `AssetIndex`.
+    ///
+    /// Panics if `AssetState` does not exist.
     pub fn asset_index(&self, key: &AssetIndex) -> &AssetState {
         self.0
             .get_index(key.index())
@@ -24,6 +27,9 @@ impl AssetStates {
             .unwrap_or_else(|| panic!("AssetStates does not contain: {key}"))
     }
 
+    /// Return a mutable reference to the `AssetState` associated with an `AssetIndex`.
+    ///
+    /// Panics if `AssetState` does not exist.
     pub fn asset_index_mut(&mut self, key: &AssetIndex) -> &mut AssetState {
         self.0
             .get_index_mut(key.index())
@@ -31,12 +37,19 @@ impl AssetStates {
             .unwrap_or_else(|| panic!("AssetStates does not contain: {key}"))
     }
 
+    /// Return a reference to the `AssetState` associated with an `ExchangeAsset<AssetNameInternal>`.
+    ///
+    /// Panics if `AssetState` does not exist.
     pub fn asset(&self, key: &ExchangeAsset<AssetNameInternal>) -> &AssetState {
         self.0
             .get(key)
             .unwrap_or_else(|| panic!("AssetStates does not contain: {key:?}"))
     }
 
+    /// Return a mutable reference to the `AssetState` associated with an
+    /// `ExchangeAsset<AssetNameInternal>`.
+    ///
+    /// Panics if `AssetState` does not exist.
     pub fn asset_mut(&mut self, key: &ExchangeAsset<AssetNameInternal>) -> &mut AssetState {
         self.0
             .get_mut(key)

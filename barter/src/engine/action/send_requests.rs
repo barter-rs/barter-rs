@@ -33,7 +33,9 @@ pub trait SendRequests<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIn
         ExecutionRequest<ExchangeKey, InstrumentKey>: From<Order<ExchangeKey, InstrumentKey, Kind>>;
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
 pub struct SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey> {
     pub cancels: SendRequestsOutput<ExchangeKey, InstrumentKey, RequestCancel>,
     pub opens: SendRequestsOutput<ExchangeKey, InstrumentKey, RequestOpen>,
@@ -47,7 +49,18 @@ impl<ExchangeKey, InstrumentKey> SendCancelsAndOpensOutput<ExchangeKey, Instrume
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
+impl<ExchangeKey, InstrumentKey> Default for SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey> {
+    fn default() -> Self {
+        Self {
+            cancels: SendRequestsOutput::default(),
+            opens: SendRequestsOutput::default(),
+        }
+    }
+}
+
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
 pub struct SendRequestsOutput<ExchangeKey, InstrumentKey, Kind> {
     pub sent: NoneOneOrMany<Order<ExchangeKey, InstrumentKey, Kind>>,
     pub errors: NoneOneOrMany<(Order<ExchangeKey, InstrumentKey, Kind>, EngineError)>,
@@ -62,6 +75,17 @@ impl<ExchangeKey, InstrumentKey, Kind> SendRequestsOutput<ExchangeKey, Instrumen
                 _ => None,
             })
             .collect()
+    }
+}
+
+impl<ExchangeKey, InstrumentKey, Kind> Default
+    for SendRequestsOutput<ExchangeKey, InstrumentKey, Kind>
+{
+    fn default() -> Self {
+        Self {
+            sent: NoneOneOrMany::default(),
+            errors: NoneOneOrMany::default(),
+        }
     }
 }
 

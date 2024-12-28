@@ -1,5 +1,4 @@
 use crate::{
-    engine::state::asset::AssetState,
     statistic::metric::drawdown::{
         max::{MaxDrawdown, MaxDrawdownGenerator},
         mean::{MeanDrawdown, MeanDrawdownGenerator},
@@ -31,10 +30,10 @@ pub struct TearSheetAssetGenerator {
 
 impl TearSheetAssetGenerator {
     /// Initialise a [`TearSheetAssetGenerator`] from an initial [`AssetState`].
-    pub fn init(state: &AssetState) -> Self {
+    pub fn init(initial: Timed<Balance>) -> Self {
         Self {
-            balance: state.balance,
-            drawdown: DrawdownGenerator::init(Timed::new(state.balance.total, state.time_exchange)),
+            balance: initial.value,
+            drawdown: DrawdownGenerator::init(Timed::new(initial.value.total, initial.time)),
             drawdown_mean: MeanDrawdownGenerator::default(),
             drawdown_max: MaxDrawdownGenerator::default(),
         }
@@ -68,10 +67,7 @@ impl TearSheetAssetGenerator {
 mod tests {
     use super::*;
     use crate::test_utils::time_plus_days;
-    use barter_instrument::asset::{
-        name::{AssetNameExchange, AssetNameInternal},
-        Asset, AssetIndex,
-    };
+    use barter_instrument::asset::AssetIndex;
     use chrono::{DateTime, Utc};
     use rust_decimal_macros::dec;
 
@@ -96,14 +92,10 @@ mod tests {
 
         let base_time = DateTime::<Utc>::MIN_UTC;
 
-        let mut generator = TearSheetAssetGenerator::init(&AssetState {
-            asset: Asset {
-                name_internal: AssetNameInternal::new("btc"),
-                name_exchange: AssetNameExchange::new("xbt"),
-            },
-            balance: Balance::new(dec!(1.0), dec!(1.0)),
-            time_exchange: base_time,
-        });
+        let mut generator = TearSheetAssetGenerator::init(Timed::new(
+            Balance::new(dec!(1.0), dec!(1.0)),
+            base_time,
+        ));
 
         let cases = vec![
             // TC0: Balance increased from 1.0 peak, so no expected drawdowns

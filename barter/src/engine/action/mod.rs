@@ -17,7 +17,7 @@ pub mod close_positions;
 pub mod generate_algo_orders;
 pub mod send_requests;
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
 pub enum ActionOutput<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     GenerateAlgoOrders(GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>),
     CancelOrders(SendRequestsOutput<ExchangeKey, InstrumentKey, RequestCancel>),

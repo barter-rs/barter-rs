@@ -266,7 +266,7 @@ impl Default for OrderBookSide<Asks> {
 }
 
 /// Normalised Barter OrderBook [`Level`].
-#[derive(Clone, Copy, PartialEq, Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize)]
 pub struct Level {
     pub price: Decimal,
     pub amount: Decimal,

@@ -7,7 +7,7 @@ use crate::{
             send_requests::SendRequests,
             ActionOutput,
         },
-        audit::{Audit, AuditTick, Auditor, DefaultAudit},
+        audit::{context::EngineContext, Audit, AuditTick, Auditor, DefaultAudit},
         command::Command,
         execution_tx::ExecutionTxMap,
         state::{
@@ -21,7 +21,7 @@ use crate::{
         algo::AlgoStrategy, close_positions::ClosePositionsStrategy,
         on_disconnect::OnDisconnectStrategy, on_trading_disabled::OnTradingDisabled,
     },
-    EngineEvent,
+    EngineEvent, Sequence,
 };
 use audit::shutdown::ShutdownAudit;
 use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
@@ -30,6 +30,7 @@ use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::channel::{ChannelTxDroppable, Tx};
 use chrono::{DateTime, Utc};
 use derive_more::From;
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::info;
 
@@ -56,9 +57,9 @@ pub fn run<Events, Engine, AuditTx>(
 where
     Events: Iterator,
     Events::Item: Debug + Clone,
-    Engine: Processor<Events::Item> + Auditor<Engine::Output>,
+    Engine: Processor<Events::Item> + Auditor<Engine::Output, Context = EngineContext>,
     Engine::Output: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item>>,
-    AuditTx: Tx<Item = AuditTick<Engine::Output>>,
+    AuditTx: Tx<Item = AuditTick<Engine::Output, EngineContext>>,
     Option<ShutdownAudit<Events::Item>>: for<'a> From<&'a Engine::Output>,
 {
     info!("Engine running");
@@ -94,7 +95,7 @@ where
 
 #[derive(Debug)]
 pub struct Engine<State, ExecutionTxs, Strategy, Risk> {
-    pub sequence: u64,
+    pub sequence: Sequence,
     pub clock: fn() -> DateTime<Utc>,
     pub state: State,
     pub execution_txs: ExecutionTxs,
@@ -299,7 +300,7 @@ impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, 
         risk: Risk,
     ) -> Self {
         Self {
-            sequence: 0,
+            sequence: Sequence(0),
             clock,
             state,
             execution_txs,
@@ -312,12 +313,6 @@ impl<State, ExecutionTxs, Strategy, Risk> Engine<State, ExecutionTxs, Strategy, 
     pub fn time(&self) -> DateTime<Utc> {
         (self.clock)()
     }
-
-    pub fn sequence_fetch_add(&mut self) -> u64 {
-        let sequence = self.sequence;
-        self.sequence += 1;
-        sequence
-    }
 }
 
 impl<Audit, State, ExecutionTx, StrategyT, Risk> Auditor<Audit>
@@ -326,6 +321,7 @@ where
     Audit: From<State>,
     State: Clone,
 {
+    type Context = EngineContext;
     type Snapshot = State;
     type Shutdown<Event> = ShutdownAudit<Event>;
 
@@ -333,19 +329,21 @@ where
         self.state.clone()
     }
 
-    fn audit<Kind>(&mut self, kind: Kind) -> AuditTick<Audit>
+    fn audit<Kind>(&mut self, kind: Kind) -> AuditTick<Audit, EngineContext>
     where
         Audit: From<Kind>,
     {
         AuditTick {
-            sequence: self.sequence_fetch_add(),
-            time_engine: (self.clock)(),
-            data: Audit::from(kind),
+            event: Audit::from(kind),
+            context: EngineContext {
+                sequence: self.sequence.fetch_add(),
+                time: (self.clock)(),
+            },
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub enum EngineOutput<
     OnTradingDisabled,
     OnDisconnect,

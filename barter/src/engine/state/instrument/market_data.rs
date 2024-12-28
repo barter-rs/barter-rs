@@ -4,6 +4,7 @@ use barter_data::{
     subscription::book::OrderBookL1,
 };
 use barter_instrument::instrument::InstrumentIndex;
+use derive_more::Constructor;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -35,7 +36,9 @@ where
     fn price(&self) -> Option<Decimal>;
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize, Constructor,
+)]
 pub struct DefaultMarketData {
     pub l1: OrderBookL1,
     pub last_traded_price: Option<Timed<Decimal>>,

@@ -43,6 +43,9 @@ pub struct InstrumentStates<
 );
 
 impl<Market> InstrumentStates<Market> {
+    /// Return a reference to the `InstrumentState` associated with an `InstrumentIndex`.
+    ///
+    /// Panics if `InstrumentState` does not exist.
     pub fn instrument_index(&self, key: &InstrumentIndex) -> &InstrumentState<Market> {
         self.0
             .get_index(key.index())
@@ -50,6 +53,9 @@ impl<Market> InstrumentStates<Market> {
             .unwrap_or_else(|| panic!("InstrumentStates does not contain: {key}"))
     }
 
+    /// Return a mutable reference to the `InstrumentState` associated with an `InstrumentIndex`.
+    ///
+    /// Panics if `InstrumentState` does not exist.
     pub fn instrument_index_mut(&mut self, key: &InstrumentIndex) -> &mut InstrumentState<Market> {
         self.0
             .get_index_mut(key.index())
@@ -57,6 +63,26 @@ impl<Market> InstrumentStates<Market> {
             .unwrap_or_else(|| panic!("InstrumentStates does not contain: {key}"))
     }
 
+    /// Return a reference to the `InstrumentState` associated with an `InstrumentNameInternal`.
+    ///
+    /// Panics if `InstrumentState` does not exist.
+    pub fn instrument(&self, key: &InstrumentNameInternal) -> &InstrumentState<Market> {
+        self.0
+            .get(key)
+            .unwrap_or_else(|| panic!("InstrumentStates does not contain: {key}"))
+    }
+
+    /// Return a mutable reference to the `InstrumentState` associated with an
+    /// `InstrumentNameInternal`.
+    ///
+    /// Panics if `InstrumentState` does not exist.
+    pub fn instrument_mut(&mut self, key: &InstrumentNameInternal) -> &mut InstrumentState<Market> {
+        self.0
+            .get_mut(key)
+            .unwrap_or_else(|| panic!("InstrumentStates does not contain: {key}"))
+    }
+
+    /// Return a filtered `Iterator` of `InstrumentState`s using the provided `InstrumentFilter`.
     pub fn filtered<'a>(
         &'a self,
         filter: &'a InstrumentFilter<ExchangeIndex, AssetIndex, InstrumentIndex>,
@@ -82,6 +108,7 @@ impl<Market> InstrumentStates<Market> {
         }
     }
 
+    /// Return an `Iterator` containing every `InstrumentState`s.
     fn instruments(&self) -> impl Iterator<Item = &InstrumentState<Market>> {
         self.0.values()
     }
