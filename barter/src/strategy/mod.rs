@@ -100,25 +100,25 @@ impl<MarketState, StrategyState, RiskState> ClosePositionsStrategy
     }
 }
 
-impl<State, ExecutionTxs, Risk> OnDisconnectStrategy<State, ExecutionTxs, Risk>
+impl<Clock, State, ExecutionTxs, Risk> OnDisconnectStrategy<Clock, State, ExecutionTxs, Risk>
     for DefaultStrategy<State>
 {
     type OnDisconnect = ();
 
     fn on_disconnect(
-        _: &mut Engine<State, ExecutionTxs, Self, Risk>,
+        _: &mut Engine<Clock, State, ExecutionTxs, Self, Risk>,
         _: ExchangeId,
     ) -> Self::OnDisconnect {
     }
 }
 
-impl<State, ExecutionTxs, Risk> OnTradingDisabled<State, ExecutionTxs, Risk>
+impl<Clock, State, ExecutionTxs, Risk> OnTradingDisabled<Clock, State, ExecutionTxs, Risk>
     for DefaultStrategy<State>
 {
     type OnTradingDisabled = ();
 
     fn on_trading_disabled(
-        _: &mut Engine<State, ExecutionTxs, Self, Risk>,
+        _: &mut Engine<Clock, State, ExecutionTxs, Self, Risk>,
     ) -> Self::OnTradingDisabled {
     }
 }

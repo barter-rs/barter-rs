@@ -1,6 +1,7 @@
 use barter::{
     engine::{
         audit::Audit,
+        clock::{EngineClock, HistoricalClock},
         command::Command,
         run,
         state::{
@@ -71,8 +72,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Construct IndexedInstruments
     let instruments = IndexedInstruments::new(unindexed_instruments());
 
-    // Forward historical market data events to Engine feed
-    let market_stream = init_historic_market_data_stream(FILE_PATH_HISTORIC_TRADES_AND_L1S);
+    // Initialise HistoricalClock & MarketStream
+    let (clock, market_stream) =
+        init_historic_clock_and_market_data_stream(FILE_PATH_HISTORIC_TRADES_AND_L1S);
+
+    // Forward market data events to Engine feed
     tokio::spawn(market_stream.forward_to(feed_tx.clone()));
 
     // Define initial mock AccountSnapshot
@@ -91,15 +95,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
     tokio::spawn(account_stream.forward_to(feed_tx.clone()));
 
-    // Construct Engine clock
-    let clock = || Utc::now();
-
     // Construct empty EngineState from IndexedInstruments
     let state = generate_empty_indexed_engine_state::<DefaultMarketData, _, _>(
         // Note: you may want to start to engine with TradingState::Disabled and turn on later
         TradingState::Enabled,
         &instruments,
-        clock(),
+        clock.time(),
         DefaultStrategyState,
         DefaultRiskManagerState,
     );
@@ -215,14 +216,27 @@ fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
 // For example:
 // - Stream from database
 // - Stream from file
-fn init_historic_market_data_stream(
+fn init_historic_clock_and_market_data_stream(
     file_path: &str,
-) -> impl Stream<Item = MarketStreamEvent<InstrumentIndex, DataKind>> {
+) -> (
+    HistoricalClock,
+    impl Stream<Item = MarketStreamEvent<InstrumentIndex, DataKind>>,
+) {
     let data = std::fs::read_to_string(file_path).unwrap();
     let events =
         serde_json::from_str::<Vec<MarketStreamResult<InstrumentIndex, DataKind>>>(&data).unwrap();
 
-    stream::iter(events)
+    let time_exchange_first = events
+        .iter()
+        .find_map(|result| match result {
+            MarketStreamResult::Item(Ok(event)) => Some(event.time_exchange),
+            _ => None,
+        })
+        .unwrap();
+
+    let clock = HistoricalClock::new(time_exchange_first);
+
+    let stream = stream::iter(events)
         .with_error_handler(|error| warn!(?error, "MarketStream generated error"))
         .inspect(|event| match event {
             Event::Reconnecting(exchange) => {
@@ -236,7 +250,9 @@ fn init_historic_market_data_stream(
                     "sending historical event to Engine"
                 )
             }
-        })
+        });
+
+    (clock, stream)
 }
 
 fn build_initial_account_snapshot(

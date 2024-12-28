@@ -81,13 +81,10 @@ pub mod strategy;
 //  - Comprehensive rust docs & check output
 //  - Comprehensive rust examples
 //  - Comprehensive readme.md for each crate & workspace
+//  - Comprehensive rust tests
 
 // Todo: MarketData:
 // Todo: add utils for creating Instruments from basic base,quote,kind,exchange, etc.
-
-// Todo: Must: General:
-//  - Back-test utilities via Audit route w/ interactive mode
-//    (backward would require Vec<State> to be created on .next()) (add compression using file system)
 
 pub type FnvIndexMap<K, V> = indexmap::IndexMap<K, V, fnv::FnvBuildHasher>;
 pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;

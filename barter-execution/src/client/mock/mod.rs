@@ -64,8 +64,8 @@ impl Clone for MockExecution {
 
 impl MockExecution {
     pub fn time_request(&self) -> DateTime<Utc> {
+        // Todo: use input time_engine from requests once this is added
         Utc::now()
-        // todo!()
     }
 }
 

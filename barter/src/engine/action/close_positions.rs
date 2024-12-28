@@ -25,9 +25,9 @@ pub trait ClosePositions<
     ) -> SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey>;
 }
 
-impl<State, ExecutionTxs, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
+impl<Clock, State, ExecutionTxs, Strategy, Risk, ExchangeKey, AssetKey, InstrumentKey>
     ClosePositions<ExchangeKey, AssetKey, InstrumentKey>
-    for Engine<State, ExecutionTxs, Strategy, Risk>
+    for Engine<Clock, State, ExecutionTxs, Strategy, Risk>
 where
     State: InFlightRequestRecorder<ExchangeKey, InstrumentKey>,
     ExecutionTxs: ExecutionTxMap<ExchangeKey, InstrumentKey>,
