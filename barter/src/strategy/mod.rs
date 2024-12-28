@@ -19,6 +19,7 @@ use barter_instrument::{
     instrument::InstrumentIndex,
     Side,
 };
+use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 pub mod algo;
@@ -123,7 +124,9 @@ impl<Clock, State, ExecutionTxs, Risk> OnTradingDisabled<Clock, State, Execution
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize,
+)]
 pub struct DefaultStrategyState;
 
 impl<ExchangeKey, AssetKey, InstrumentKey>

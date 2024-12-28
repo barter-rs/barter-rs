@@ -1,13 +1,23 @@
-use crate::{statistic::summary::asset::TearSheetAssetGenerator, FnvIndexMap, Timed};
+use crate::{
+    engine::state::asset::filter::AssetFilter, statistic::summary::asset::TearSheetAssetGenerator,
+    FnvIndexMap, Timed,
+};
 use barter_execution::balance::{AssetBalance, Balance};
 use barter_instrument::{
-    asset::{name::AssetNameInternal, Asset, AssetIndex, ExchangeAsset},
+    asset::{
+        name::{AssetNameExchange, AssetNameInternal},
+        Asset, AssetIndex, ExchangeAsset,
+    },
     index::IndexedInstruments,
 };
 use barter_integration::snapshot::Snapshot;
+use chrono::Utc;
 use derive_more::Constructor;
+use itertools::Either;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+
+pub mod filter;
 
 /// Collection of exchange [`AssetState`]s indexed by [`AssetIndex`].
 ///
@@ -54,6 +64,24 @@ impl AssetStates {
             .get_mut(key)
             .unwrap_or_else(|| panic!("AssetStates does not contain: {key:?}"))
     }
+
+    pub fn filtered<'a>(&'a self, filter: &'a AssetFilter) -> impl Iterator<Item = &'a AssetState> {
+        use filter::AssetFilter::*;
+        match filter {
+            None => Either::Left(self.assets()),
+            Exchanges(exchanges) => Either::Right(self.0.iter().filter_map(|(asset, state)| {
+                if exchanges.contains(&asset.exchange) {
+                    Some(state)
+                } else {
+                    Option::<&AssetState>::None
+                }
+            })),
+        }
+    }
+
+    pub fn assets(&self) -> impl Iterator<Item = &AssetState> {
+        self.0.values()
+    }
 }
 
 /// Represents the current state of an asset, including its [`Balance`] and last update
@@ -90,6 +118,27 @@ impl AssetState {
             balance.time = snapshot.value().time_exchange;
             balance.value = snapshot.value().balance;
             self.statistics.update_from_balance(snapshot);
+        }
+    }
+}
+
+impl From<&AssetState> for AssetBalance<AssetNameExchange> {
+    fn from(value: &AssetState) -> Self {
+        let AssetState {
+            asset,
+            statistics: _,
+            balance,
+        } = value;
+
+        let (balance, time_exchange) = match balance {
+            None => (Balance::default(), Utc::now()),
+            Some(balance) => (balance.value, balance.time),
+        };
+
+        Self {
+            asset: asset.name_exchange.clone(),
+            balance,
+            time_exchange,
         }
     }
 }

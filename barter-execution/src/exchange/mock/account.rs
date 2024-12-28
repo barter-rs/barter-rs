@@ -73,6 +73,7 @@ impl AccountState {
 impl From<UnindexedAccountSnapshot> for AccountState {
     fn from(value: UnindexedAccountSnapshot) -> Self {
         let UnindexedAccountSnapshot {
+            exchange: _,
             balances,
             instruments,
         } = value;

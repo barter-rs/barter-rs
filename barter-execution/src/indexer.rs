@@ -71,9 +71,12 @@ impl AccountEventIndexer {
         snapshot: UnindexedAccountSnapshot,
     ) -> Result<AccountSnapshot, IndexError> {
         let UnindexedAccountSnapshot {
+            exchange,
             balances,
             instruments,
         } = snapshot;
+
+        let exchange = self.map.find_exchange_index(exchange)?;
 
         let balances = balances
             .into_iter()
@@ -97,6 +100,7 @@ impl AccountEventIndexer {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(AccountSnapshot {
+            exchange,
             balances,
             instruments,
         })

@@ -64,7 +64,7 @@ pub struct Instrument<ExchangeKey, AssetKey> {
     pub underlying: Underlying<AssetKey>,
     #[serde(alias = "instrument_kind")]
     pub kind: InstrumentKind<AssetKey>,
-    pub spec: InstrumentSpec<AssetKey>,
+    pub spec: Option<InstrumentSpec<AssetKey>>,
 }
 
 impl<ExchangeKey, AssetKey> Instrument<ExchangeKey, AssetKey> {
@@ -76,7 +76,7 @@ impl<ExchangeKey, AssetKey> Instrument<ExchangeKey, AssetKey> {
         name_exchange: NameExchange,
         underlying: Underlying<AssetKey>,
         kind: InstrumentKind<AssetKey>,
-        spec: InstrumentSpec<AssetKey>,
+        spec: Option<InstrumentSpec<AssetKey>>,
     ) -> Self
     where
         NameInternal: Into<InstrumentNameInternal>,
@@ -130,17 +130,7 @@ impl<ExchangeKey, AssetKey> Instrument<ExchangeKey, AssetKey> {
             name_exchange,
             underlying: Underlying { base, quote },
             kind,
-            spec:
-                InstrumentSpec {
-                    price,
-                    quantity:
-                        InstrumentSpecQuantity {
-                            unit,
-                            min,
-                            increment,
-                        },
-                    notional,
-                },
+            spec,
         } = self;
 
         let base_new_key = find_asset(&base)?;
@@ -166,10 +156,39 @@ impl<ExchangeKey, AssetKey> Instrument<ExchangeKey, AssetKey> {
                 contract,
             },
         };
-        let unit = match unit {
-            OrderQuantityUnits::Asset(asset) => OrderQuantityUnits::Asset(find_asset(&asset)?),
-            OrderQuantityUnits::Contract => OrderQuantityUnits::Contract,
-            OrderQuantityUnits::Quote => OrderQuantityUnits::Quote,
+
+        let spec = match spec {
+            Some(spec) => {
+                let InstrumentSpec {
+                    price,
+                    quantity:
+                        InstrumentSpecQuantity {
+                            unit,
+                            min,
+                            increment,
+                        },
+                    notional,
+                } = spec;
+
+                let unit = match unit {
+                    OrderQuantityUnits::Asset(asset) => {
+                        OrderQuantityUnits::Asset(find_asset(&asset)?)
+                    }
+                    OrderQuantityUnits::Contract => OrderQuantityUnits::Contract,
+                    OrderQuantityUnits::Quote => OrderQuantityUnits::Quote,
+                };
+
+                Some(InstrumentSpec {
+                    price,
+                    quantity: InstrumentSpecQuantity {
+                        unit,
+                        min,
+                        increment,
+                    },
+                    notional,
+                })
+            }
+            None => None,
         };
 
         Ok(Instrument {
@@ -178,15 +197,7 @@ impl<ExchangeKey, AssetKey> Instrument<ExchangeKey, AssetKey> {
             name_exchange,
             underlying: Underlying::new(base_new_key, quote_new_key),
             kind,
-            spec: InstrumentSpec {
-                price,
-                quantity: InstrumentSpecQuantity {
-                    unit,
-                    min,
-                    increment,
-                },
-                notional,
-            },
+            spec,
         })
     }
 }

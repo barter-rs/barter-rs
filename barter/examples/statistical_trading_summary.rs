@@ -1,25 +1,21 @@
 use barter::{
     engine::state::{
-        asset::{AssetState, AssetStates},
-        instrument::{generate_empty_indexed_instrument_states, market_data::DefaultMarketData},
-        position::PositionExited,
+        instrument::market_data::DefaultMarketData, position::PositionExited,
+        trading::TradingState, EngineState,
     },
-    statistic::{
-        summary::{asset::TearSheetAssetGenerator, TradingSummaryGenerator},
-        time::Annual365,
-    },
-    Timed,
+    risk::DefaultRiskManagerState,
+    statistic::{summary::TradingSummaryGenerator, time::Annual365},
+    strategy::DefaultStrategyState,
 };
 use barter_execution::{
     balance::{AssetBalance, Balance},
     trade::{AssetFees, TradeId},
 };
 use barter_instrument::{
-    asset::{Asset, AssetIndex, ExchangeAsset, QuoteAsset},
+    asset::{AssetIndex, QuoteAsset},
     exchange::ExchangeId,
     index::IndexedInstruments,
     instrument::{kind::InstrumentKind, Instrument, InstrumentIndex},
-    test_utils::instrument_spec,
     Side, Underlying,
 };
 use barter_integration::snapshot::Snapshot;
@@ -30,11 +26,19 @@ use smol_str::SmolStr;
 
 // Risk-free rate of 5% (configure as needed)
 const RISK_FREE_RETURN: Decimal = dec!(0.05);
-
-// Initial usdt balance (full trading system would receive these from execution account stream)
-const INITIAL_BTC_BALANCE: Decimal = dec!(0.1);
-const INITIAL_ETH_BALANCE: Decimal = dec!(1.0);
-const INITIAL_USDT_BALANCE: Decimal = dec!(10_000.0);
+const EXCHANGE: ExchangeId = ExchangeId::BinanceSpot;
+const STARTING_BALANCE_USDT: Balance = Balance {
+    total: dec!(10_000.0),
+    free: dec!(10_000.0),
+};
+const STARTING_BALANCE_BTC: Balance = Balance {
+    total: dec!(0.1),
+    free: dec!(0.1),
+};
+const STARTING_BALANCE_ETH: Balance = Balance {
+    total: dec!(1.0),
+    free: dec!(1.0),
+};
 
 pub enum ContrivedEvents {
     Balance(Snapshot<AssetBalance<AssetIndex>>),
@@ -43,56 +47,37 @@ pub enum ContrivedEvents {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Generate IndexedInstruments
-    let instruments = IndexedInstruments::new(instruments());
+    let instruments = indexed_instruments();
 
-    // Set initial timestamp
+    // Set initial timestamp to seed Instrument TearSheets
     let time_now = Utc::now();
 
-    // Generate initial InstrumentStates
-    let instrument_states =
-        generate_empty_indexed_instrument_states::<DefaultMarketData>(&instruments, time_now);
-
-    // Generate initial AssetStates with balances
-    let asset_states = AssetStates(
-        instruments
-            .assets()
-            .iter()
-            .map(|keyed_asset| {
-                let balance = if keyed_asset.value.asset.name_internal.as_ref() == "btc" {
-                    Balance::new(INITIAL_BTC_BALANCE, INITIAL_BTC_BALANCE)
-                } else if keyed_asset.value.asset.name_internal.as_ref() == "eth" {
-                    Balance::new(INITIAL_ETH_BALANCE, INITIAL_ETH_BALANCE)
-                } else if keyed_asset.value.asset.name_internal.as_ref() == "usdt" {
-                    Balance::new(INITIAL_USDT_BALANCE, INITIAL_USDT_BALANCE)
-                } else {
-                    Balance::default()
-                };
-
-                let balance = Timed::new(balance, time_now);
-
-                (
-                    ExchangeAsset::new(
-                        keyed_asset.value.exchange,
-                        keyed_asset.value.asset.name_internal.clone(),
-                    ),
-                    AssetState::new(
-                        keyed_asset.value.asset.clone(),
-                        TearSheetAssetGenerator::init(&balance),
-                        Some(balance),
-                    ),
-                )
-            })
-            .collect(),
-    );
+    // Construct EngineState from IndexedInstruments and hard-coded exchange asset Balances
+    let state =
+        EngineState::<DefaultMarketData, DefaultStrategyState, DefaultRiskManagerState>::builder(
+            &instruments,
+        )
+        .time_engine_start(time_now)
+        // Note: you may want to start to engine with TradingState::Disabled and turn on later
+        .trading_state(TradingState::Enabled)
+        .balances([
+            (EXCHANGE, "usdt", STARTING_BALANCE_USDT),
+            (EXCHANGE, "btc", STARTING_BALANCE_BTC),
+            (EXCHANGE, "eth", STARTING_BALANCE_ETH),
+        ])
+        // Note: can add other initial data via this builder (eg/ exchange asset balances)
+        .build();
 
     // Initialise TradingSummaryGenerator for all indexed instruments & assets
+    // Note: EngineState already contains Instrument & Asset TearSheets
+    //  --> this is just an example of using a TradingSummaryGenerator directly
     let mut summary_generator = TradingSummaryGenerator::init(
         RISK_FREE_RETURN,
-        time_now,
+        time_now, // time_engine_start
         // Note: time_engine_now will be updated by the synthetic updates
         time_now,
-        &instrument_states,
-        &asset_states,
+        &state.instruments,
+        &state.assets,
     );
 
     // Update TradingSummaryGenerator with some synthetic Balance & PositionExited events
@@ -115,25 +100,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn instruments() -> Vec<Instrument<ExchangeId, Asset>> {
-    vec![
-        Instrument::new(
+fn indexed_instruments() -> IndexedInstruments {
+    IndexedInstruments::builder()
+        .add_instrument(Instrument::new(
             ExchangeId::BinanceSpot,
             "binance_spot_btc_usdt",
             "BTCUSDT",
             Underlying::new("btc", "usdt"),
             InstrumentKind::Spot,
-            instrument_spec(),
-        ),
-        Instrument::new(
+            None,
+        ))
+        .add_instrument(Instrument::new(
             ExchangeId::BinanceSpot,
             "binance_spot_eth_usdt",
             "ETHUSDT",
             Underlying::new("eth", "usdt"),
             InstrumentKind::Spot,
-            instrument_spec(),
-        ),
-    ]
+            None,
+        ))
+        .build()
 }
 
 fn generate_synthetic_updates(base_time: DateTime<Utc>) -> Vec<ContrivedEvents> {

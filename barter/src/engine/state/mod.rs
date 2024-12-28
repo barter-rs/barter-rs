@@ -1,9 +1,11 @@
 use crate::engine::{
     state::{
-        asset::{generate_empty_indexed_asset_states, AssetStates},
+        asset::{filter::AssetFilter, generate_empty_indexed_asset_states, AssetStates},
+        builder::EngineStateBuilder,
         connectivity::{generate_empty_indexed_connectivity_states, ConnectivityStates},
         instrument::{
-            generate_empty_indexed_instrument_states, market_data::MarketDataState,
+            filter::InstrumentFilter, generate_empty_indexed_instrument_states,
+            generate_unindexed_instrument_account_snapshot, market_data::MarketDataState,
             InstrumentStates,
         },
         order::manager::OrderManager,
@@ -13,15 +15,19 @@ use crate::engine::{
     Processor,
 };
 use barter_data::event::MarketEvent;
-use barter_execution::{AccountEvent, AccountEventKind};
+use barter_execution::{
+    balance::AssetBalance, AccountEvent, AccountEventKind, UnindexedAccountSnapshot,
+};
 use barter_instrument::{
     asset::{AssetIndex, QuoteAsset},
-    exchange::ExchangeIndex,
+    exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
     instrument::InstrumentIndex,
 };
-use barter_integration::snapshot::Snapshot;
+use barter_integration::{collection::one_or_many::OneOrMany, snapshot::Snapshot};
 use chrono::{DateTime, Utc};
+use derive_more::Constructor;
+use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -32,7 +38,10 @@ pub mod order;
 pub mod position;
 pub mod trading;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+/// [`EngineState`] builder utility.
+pub mod builder;
+
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 pub struct EngineState<Market, Strategy, Risk> {
     pub trading: TradingState,
     pub connectivity: ConnectivityStates,
@@ -43,6 +52,18 @@ pub struct EngineState<Market, Strategy, Risk> {
 }
 
 impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
+    /// Construct an [`EngineStateBuilder`] to assist with `EngineState` initialisation.
+    pub fn builder(
+        instruments: &IndexedInstruments,
+    ) -> EngineStateBuilder<'_, Market, Strategy, Risk>
+    where
+        Market: Default,
+        Strategy: Default,
+        Risk: Default,
+    {
+        EngineStateBuilder::new(instruments)
+    }
+
     pub fn update_from_account(
         &mut self,
         event: &AccountEvent,
@@ -125,6 +146,49 @@ impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
         instrument_state.market.process(event);
         self.strategy.process(event);
         self.risk.process(event);
+    }
+}
+
+impl<Market, Strategy, Risk> From<&EngineState<Market, Strategy, Risk>>
+    for FnvHashMap<ExchangeId, UnindexedAccountSnapshot>
+{
+    fn from(value: &EngineState<Market, Strategy, Risk>) -> Self {
+        let EngineState {
+            trading: _,
+            connectivity,
+            assets,
+            instruments,
+            strategy: _,
+            risk: _,
+        } = value;
+
+        // Allocate appropriately
+        let mut snapshots =
+            FnvHashMap::with_capacity_and_hasher(connectivity.exchanges.len(), Default::default());
+
+        // Insert UnindexedAccountSnapshot for each exchange
+        for (index, exchange) in connectivity.exchange_ids().enumerate() {
+            snapshots.insert(
+                *exchange,
+                UnindexedAccountSnapshot {
+                    exchange: *exchange,
+                    balances: assets
+                        .filtered(&AssetFilter::Exchanges(OneOrMany::One(*exchange)))
+                        .map(AssetBalance::from)
+                        .collect(),
+                    instruments: instruments
+                        .filtered(&InstrumentFilter::Exchanges(OneOrMany::One(ExchangeIndex(
+                            index,
+                        ))))
+                        .map(|snapshot| {
+                            generate_unindexed_instrument_account_snapshot(*exchange, snapshot)
+                        })
+                        .collect::<Vec<_>>(),
+                },
+            );
+        }
+
+        snapshots
     }
 }
 

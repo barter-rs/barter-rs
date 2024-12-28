@@ -33,10 +33,6 @@ use tracing::error;
 pub mod account;
 pub mod request;
 
-// Todo:
-//  - Create cleanup function that filters out old trades and orders
-//  - Probably add Account.orders_filled and add to snapshot
-
 #[derive(Debug)]
 pub struct MockExchange {
     pub exchange: ExchangeId,
@@ -162,6 +158,7 @@ impl MockExchange {
             .collect();
 
         UnindexedAccountSnapshot {
+            exchange: self.exchange,
             balances,
             instruments,
         }

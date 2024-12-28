@@ -5,9 +5,9 @@ use barter::{
         command::Command,
         run,
         state::{
-            generate_empty_indexed_engine_state,
             instrument::{filter::InstrumentFilter, market_data::DefaultMarketData},
             trading::TradingState,
+            EngineState,
         },
         Engine,
     },
@@ -25,13 +25,8 @@ use barter_data::{
         reconnect::{stream::ReconnectingStream, Event},
     },
 };
-use barter_execution::{
-    balance::{AssetBalance, Balance},
-    client::mock::MockExecutionConfig,
-    InstrumentAccountSnapshot, UnindexedAccountSnapshot,
-};
+use barter_execution::{balance::Balance, client::mock::MockExecutionConfig};
 use barter_instrument::{
-    asset::Asset,
     exchange::ExchangeId,
     index::IndexedInstruments,
     instrument::{
@@ -45,7 +40,7 @@ use barter_instrument::{
     Underlying,
 };
 use barter_integration::channel::{mpsc_unbounded, ChannelTxDroppable, Tx};
-use chrono::Utc;
+use fnv::FnvHashMap;
 use futures::{stream, Stream, StreamExt};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -55,7 +50,22 @@ const EXCHANGE: ExchangeId = ExchangeId::BinanceSpot;
 const RISK_FREE_RETURN: Decimal = dec!(0.05);
 const MOCK_EXCHANGE_ROUND_TRIP_LATENCY_MS: u64 = 100;
 const MOCK_EXCHANGE_FEES_PERCENT: Decimal = dec!(0.05);
-const MOCK_EXCHANGE_STARTING_BALANCE_USD: Decimal = dec!(10_000.0);
+const STARTING_BALANCE_USDT: Balance = Balance {
+    total: dec!(10_000.0),
+    free: dec!(10_000.0),
+};
+const STARTING_BALANCE_BTC: Balance = Balance {
+    total: dec!(0.1),
+    free: dec!(0.1),
+};
+const STARTING_BALANCE_ETH: Balance = Balance {
+    total: dec!(1.0),
+    free: dec!(1.0),
+};
+const STARTING_BALANCE_SOL: Balance = Balance {
+    total: dec!(10.0),
+    free: dec!(10.0),
+};
 
 const FILE_PATH_HISTORIC_TRADES_AND_L1S: &str =
     "barter/examples/data/binance_spot_market_data_with_disconnect_events.json";
@@ -70,7 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (audit_tx, audit_rx) = mpsc_unbounded();
 
     // Construct IndexedInstruments
-    let instruments = IndexedInstruments::new(unindexed_instruments());
+    let instruments = indexed_instruments();
 
     // Initialise HistoricalClock & MarketStream
     let (clock, market_stream) =
@@ -79,31 +89,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Forward market data events to Engine feed
     tokio::spawn(market_stream.forward_to(feed_tx.clone()));
 
-    // Define initial mock AccountSnapshot
-    let initial_account =
-        build_initial_account_snapshot(&instruments, MOCK_EXCHANGE_STARTING_BALANCE_USD);
+    // Construct EngineState from IndexedInstruments and hard-coded exchange asset Balances
+    let state =
+        EngineState::<DefaultMarketData, DefaultStrategyState, DefaultRiskManagerState>::builder(
+            &instruments,
+        )
+        .time_engine_start(clock.time())
+        // Note: you may want to start to engine with TradingState::Disabled and turn on later
+        .trading_state(TradingState::Enabled)
+        .balances([
+            (EXCHANGE, "usdt", STARTING_BALANCE_USDT),
+            (EXCHANGE, "btc", STARTING_BALANCE_BTC),
+            (EXCHANGE, "eth", STARTING_BALANCE_ETH),
+            (EXCHANGE, "sol", STARTING_BALANCE_SOL),
+        ])
+        // Note: can add other initial data via this builder (eg/ exchange asset balances)
+        .build();
+
+    // Generate initial AccountSnapshot from EngineState for BinanceSpot MockExchange
+    // Note: for live-trading this would be automatically fetched via the AccountStream init
+    let mut initial_account = FnvHashMap::from(&state);
+    assert_eq!(initial_account.len(), 1);
 
     // Initialise ExecutionManager & forward Account Streams to Engine feed
     let (execution_txs, account_stream) = ExecutionBuilder::new(&instruments)
         .add_mock(MockExecutionConfig::new(
             EXCHANGE,
-            initial_account,
+            initial_account.remove(&EXCHANGE).unwrap(),
             MOCK_EXCHANGE_ROUND_TRIP_LATENCY_MS,
             MOCK_EXCHANGE_FEES_PERCENT,
         ))?
         .init()
         .await?;
     tokio::spawn(account_stream.forward_to(feed_tx.clone()));
-
-    // Construct empty EngineState from IndexedInstruments
-    let state = generate_empty_indexed_engine_state::<DefaultMarketData, _, _>(
-        // Note: you may want to start to engine with TradingState::Disabled and turn on later
-        TradingState::Enabled,
-        &instruments,
-        clock.time(),
-        DefaultStrategyState,
-        DefaultRiskManagerState,
-    );
 
     // Construct Engine
     let mut engine = Engine::new(
@@ -165,15 +183,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
-    vec![
-        Instrument::new(
+fn indexed_instruments() -> IndexedInstruments {
+    IndexedInstruments::builder()
+        .add_instrument(Instrument::new(
             EXCHANGE,
             "binance_spot_btc_usdt",
             "BTCUSDT",
             Underlying::new("btc", "usdt"),
             InstrumentKind::Spot,
-            InstrumentSpec::new(
+            Some(InstrumentSpec::new(
                 InstrumentSpecPrice::new(dec!(0.0001), dec!(0.0)),
                 InstrumentSpecQuantity::new(
                     OrderQuantityUnits::Quote,
@@ -181,33 +199,33 @@ fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
                     dec!(0.00001),
                 ),
                 InstrumentSpecNotional::new(dec!(5.0)),
-            ),
-        ),
-        Instrument::new(
+            )),
+        ))
+        .add_instrument(Instrument::new(
             EXCHANGE,
             "binance_spot_eth_usdt",
             "ETHUSDT",
             Underlying::new("eth", "usdt"),
             InstrumentKind::Spot,
-            InstrumentSpec::new(
+            Some(InstrumentSpec::new(
                 InstrumentSpecPrice::new(dec!(0.01), dec!(0.01)),
                 InstrumentSpecQuantity::new(OrderQuantityUnits::Quote, dec!(0.0001), dec!(0.0001)),
                 InstrumentSpecNotional::new(dec!(5.0)),
-            ),
-        ),
-        Instrument::new(
+            )),
+        ))
+        .add_instrument(Instrument::new(
             EXCHANGE,
             "binance_spot_sol_usdt",
             "SOLUSDT",
             Underlying::new("sol", "usdt"),
             InstrumentKind::Spot,
-            InstrumentSpec::new(
+            Some(InstrumentSpec::new(
                 InstrumentSpecPrice::new(dec!(0.01), dec!(0.01)),
                 InstrumentSpecQuantity::new(OrderQuantityUnits::Quote, dec!(0.001), dec!(0.001)),
                 InstrumentSpecNotional::new(dec!(5.0)),
-            ),
-        ),
-    ]
+            )),
+        ))
+        .build()
 }
 
 // Note that there are far more intelligent ways of streaming historical market data, this is
@@ -253,38 +271,4 @@ fn init_historic_clock_and_market_data_stream(
         });
 
     (clock, stream)
-}
-
-fn build_initial_account_snapshot(
-    instruments: &IndexedInstruments,
-    balance_usd: Decimal,
-) -> UnindexedAccountSnapshot {
-    let balances = instruments
-        .assets()
-        .iter()
-        .map(|keyed_asset| {
-            AssetBalance::new(
-                keyed_asset.value.asset.name_exchange.clone(),
-                if keyed_asset.value.asset.name_internal.as_ref() == "usdt" {
-                    Balance::new(balance_usd, balance_usd)
-                } else {
-                    Balance::default()
-                },
-                Utc::now(),
-            )
-        })
-        .collect();
-
-    let instruments = instruments
-        .instruments()
-        .iter()
-        .map(|keyed_instrument| {
-            InstrumentAccountSnapshot::new(keyed_instrument.value.name_exchange.clone(), vec![])
-        })
-        .collect();
-
-    UnindexedAccountSnapshot {
-        balances,
-        instruments,
-    }
 }

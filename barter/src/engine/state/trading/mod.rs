@@ -8,10 +8,13 @@ use tracing::info;
 ///
 /// If `TradingState::Disabled`, the Engine will continue to update it's state based on input
 /// events, but it will not generate algorithmic orders. Whilst in this state, `Commands` will
-/// still be actioned (such as 'open order', 'cancel order', 'close positions', etc).
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+/// still be actioned (such as 'open order', 'cancel order', 'close positions', etc.).
+#[derive(
+    Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize,
+)]
 pub enum TradingState {
     Enabled,
+    #[default]
     Disabled,
 }
 

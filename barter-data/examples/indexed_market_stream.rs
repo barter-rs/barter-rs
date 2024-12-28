@@ -3,7 +3,6 @@ use barter_data::{
     subscription::SubKind,
 };
 use barter_instrument::{
-    asset::Asset,
     exchange::ExchangeId,
     index::IndexedInstruments,
     instrument::{
@@ -27,7 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_logging();
 
     // Construct IndexedInstruments
-    let instruments = IndexedInstruments::new(unindexed_instruments());
+    let instruments = indexed_instruments();
 
     // Initialise indexed MarketStream:
     // - Uses IndexedInstruments to generate a Subscription for each Instrument-SubKind combination
@@ -61,15 +60,15 @@ fn init_logging() {
         .init()
 }
 
-fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
-    vec![
-        Instrument::new(
+fn indexed_instruments() -> IndexedInstruments {
+    IndexedInstruments::builder()
+        .add_instrument(Instrument::new(
             ExchangeId::BinanceSpot,
             "binance_spot_btc_usdt",
             "BTCUSDT",
             Underlying::new("btc", "usdt"),
             InstrumentKind::Spot,
-            InstrumentSpec::new(
+            Some(InstrumentSpec::new(
                 InstrumentSpecPrice::new(dec!(0.0001), dec!(0.0)),
                 InstrumentSpecQuantity::new(
                     OrderQuantityUnits::Quote,
@@ -77,31 +76,31 @@ fn unindexed_instruments() -> Vec<Instrument<ExchangeId, Asset>> {
                     dec!(0.00001),
                 ),
                 InstrumentSpecNotional::new(dec!(5.0)),
-            ),
-        ),
-        Instrument::new(
+            )),
+        ))
+        .add_instrument(Instrument::new(
             ExchangeId::BinanceSpot,
             "binance_spot_eth_usdt",
             "ETHUSDT",
             Underlying::new("eth", "usdt"),
             InstrumentKind::Spot,
-            InstrumentSpec::new(
+            Some(InstrumentSpec::new(
                 InstrumentSpecPrice::new(dec!(0.01), dec!(0.01)),
                 InstrumentSpecQuantity::new(OrderQuantityUnits::Quote, dec!(0.0001), dec!(0.0001)),
                 InstrumentSpecNotional::new(dec!(5.0)),
-            ),
-        ),
-        Instrument::new(
+            )),
+        ))
+        .add_instrument(Instrument::new(
             ExchangeId::BinanceSpot,
             "binance_spot_sol_usdt",
             "SOLUSDT",
             Underlying::new("sol", "usdt"),
             InstrumentKind::Spot,
-            InstrumentSpec::new(
+            Some(InstrumentSpec::new(
                 InstrumentSpecPrice::new(dec!(0.01), dec!(0.01)),
                 InstrumentSpecQuantity::new(OrderQuantityUnits::Quote, dec!(0.001), dec!(0.001)),
                 InstrumentSpecNotional::new(dec!(5.0)),
-            ),
-        ),
-    ]
+            )),
+        ))
+        .build()
 }

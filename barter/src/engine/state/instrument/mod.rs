@@ -8,12 +8,19 @@ use crate::{
     FnvIndexMap,
 };
 use barter_data::event::MarketEvent;
-use barter_execution::{trade::Trade, InstrumentAccountSnapshot};
+use barter_execution::{
+    order::{ExchangeOrderState, InternalOrderState, Order},
+    trade::Trade,
+    InstrumentAccountSnapshot,
+};
 use barter_instrument::{
     asset::{AssetIndex, QuoteAsset},
-    exchange::ExchangeIndex,
+    exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
-    instrument::{name::InstrumentNameInternal, Instrument, InstrumentIndex},
+    instrument::{
+        name::{InstrumentNameExchange, InstrumentNameInternal},
+        Instrument, InstrumentIndex,
+    },
 };
 use barter_integration::snapshot::Snapshot;
 use chrono::{DateTime, Utc};
@@ -221,6 +228,58 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
         };
 
         position.update_pnl_unrealised(price);
+    }
+}
+
+pub fn generate_unindexed_instrument_account_snapshot<
+    Market,
+    ExchangeKey,
+    AssetKey,
+    InstrumentKey,
+>(
+    exchange: ExchangeId,
+    state: &InstrumentState<Market, ExchangeKey, AssetKey, InstrumentKey>,
+) -> InstrumentAccountSnapshot<ExchangeId, InstrumentNameExchange>
+where
+    ExchangeKey: Debug + Clone,
+    InstrumentKey: Debug + Clone,
+{
+    let InstrumentState {
+        key: _,
+        instrument,
+        statistics: _,
+        position: _,
+        orders,
+        market: _,
+    } = state;
+
+    InstrumentAccountSnapshot {
+        instrument: instrument.name_exchange.clone(),
+        orders: orders
+            .orders()
+            .filter_map(|order| {
+                let Order {
+                    exchange: _,
+                    instrument: _,
+                    strategy,
+                    cid,
+                    side,
+                    state: InternalOrderState::Open(open),
+                } = order
+                else {
+                    return None;
+                };
+
+                Some(Order {
+                    exchange,
+                    instrument: instrument.name_exchange.clone(),
+                    strategy: strategy.clone(),
+                    cid: *cid,
+                    side: *side,
+                    state: ExchangeOrderState::Open(open.clone()),
+                })
+            })
+            .collect(),
     }
 }
 

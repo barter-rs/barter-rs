@@ -1,6 +1,7 @@
 use crate::{
     asset::name::{AssetNameExchange, AssetNameInternal},
     exchange::ExchangeId,
+    Keyed,
 };
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
@@ -32,12 +33,34 @@ impl Display for AssetIndex {
     }
 }
 
-#[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
-)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct ExchangeAsset<Asset> {
     pub exchange: ExchangeId,
     pub asset: Asset,
+}
+
+impl<Asset> ExchangeAsset<Asset> {
+    pub fn new<A>(exchange: ExchangeId, asset: A) -> Self
+    where
+        A: Into<Asset>,
+    {
+        Self {
+            exchange,
+            asset: asset.into(),
+        }
+    }
+}
+
+impl<Ass, Asset, T> From<(ExchangeId, Ass, T)> for Keyed<ExchangeAsset<Asset>, T>
+where
+    Ass: Into<Asset>,
+{
+    fn from((exchange, asset, value): (ExchangeId, Ass, T)) -> Self {
+        Self {
+            key: ExchangeAsset::new(exchange, asset),
+            value,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]

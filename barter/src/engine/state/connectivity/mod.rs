@@ -42,7 +42,7 @@ impl ConnectivityStates {
         );
         state.account = Health::Healthy;
 
-        if self.exchanges().all(ConnectivityState::all_healthy) {
+        if self.exchange_states().all(ConnectivityState::all_healthy) {
             info!("EngineState setting global connectivity to Healthy");
             self.global = Health::Healthy
         }
@@ -69,7 +69,7 @@ impl ConnectivityStates {
         );
         state.market_data = Health::Healthy;
 
-        if self.exchanges().all(ConnectivityState::all_healthy) {
+        if self.exchange_states().all(ConnectivityState::all_healthy) {
             info!("EngineState setting global connectivity to Healthy");
             self.global = Health::Healthy
         }
@@ -101,7 +101,11 @@ impl ConnectivityStates {
             .unwrap_or_else(|| panic!("ConnectivityStates does not contain: {key}"))
     }
 
-    pub fn exchanges(&self) -> impl Iterator<Item = &ConnectivityState> {
+    pub fn exchange_ids(&self) -> impl Iterator<Item = &ExchangeId> {
+        self.exchanges.keys()
+    }
+
+    pub fn exchange_states(&self) -> impl Iterator<Item = &ConnectivityState> {
         self.exchanges.values()
     }
 }

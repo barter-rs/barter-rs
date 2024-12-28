@@ -223,17 +223,7 @@ fn generate_mock_exchange_instruments(
                     name_exchange,
                     underlying: Underlying { base, quote },
                     kind,
-                    spec:
-                        InstrumentSpec {
-                            price,
-                            quantity:
-                                InstrumentSpecQuantity {
-                                    unit,
-                                    min,
-                                    increment,
-                                },
-                            notional,
-                        },
+                    spec,
                 } = instrument;
 
                 let kind = match kind {
@@ -243,18 +233,44 @@ fn generate_mock_exchange_instruments(
                     }
                 };
 
-                let quantity_unit = match unit {
-                    OrderQuantityUnits::Asset(asset) => {
-                        let quantity_asset = instruments
-                            .find_asset(*asset)
-                            .unwrap()
-                            .asset
-                            .name_exchange
-                            .clone();
-                        OrderQuantityUnits::Asset(quantity_asset)
+                let spec = match spec {
+                    Some(spec) => {
+                        let InstrumentSpec {
+                            price,
+                            quantity:
+                                InstrumentSpecQuantity {
+                                    unit,
+                                    min,
+                                    increment,
+                                },
+                            notional,
+                        } = spec;
+
+                        let unit = match unit {
+                            OrderQuantityUnits::Asset(asset) => {
+                                let quantity_asset = instruments
+                                    .find_asset(*asset)
+                                    .unwrap()
+                                    .asset
+                                    .name_exchange
+                                    .clone();
+                                OrderQuantityUnits::Asset(quantity_asset)
+                            }
+                            OrderQuantityUnits::Contract => OrderQuantityUnits::Contract,
+                            OrderQuantityUnits::Quote => OrderQuantityUnits::Quote,
+                        };
+
+                        Some(InstrumentSpec {
+                            price: *price,
+                            quantity: InstrumentSpecQuantity {
+                                unit,
+                                min: *min,
+                                increment: *increment,
+                            },
+                            notional: *notional,
+                        })
                     }
-                    OrderQuantityUnits::Contract => OrderQuantityUnits::Contract,
-                    OrderQuantityUnits::Quote => OrderQuantityUnits::Quote,
+                    None => None,
                 };
 
                 let base = instruments
@@ -277,15 +293,7 @@ fn generate_mock_exchange_instruments(
                     name_exchange: name_exchange.clone(),
                     underlying: Underlying { base, quote },
                     kind,
-                    spec: InstrumentSpec {
-                        price: *price,
-                        quantity: InstrumentSpecQuantity {
-                            unit: quantity_unit,
-                            min: *min,
-                            increment: *increment,
-                        },
-                        notional: *notional,
-                    },
+                    spec,
                 };
 
                 Some((instrument.name_exchange.clone(), instrument))

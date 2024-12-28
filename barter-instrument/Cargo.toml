@@ -19,6 +19,3 @@ rust_decimal = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 derive_more = { workspace = true, features = ["display"] }
 thiserror = { workspace = true }
-
-[features]
-test_util = []

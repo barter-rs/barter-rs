@@ -1,4 +1,4 @@
-use crate::exchange::ExchangeId;
+use crate::{asset::name::AssetNameExchange, exchange::ExchangeId};
 use derive_more::{Display, From};
 use serde::Serialize;
 use smol_str::{format_smolstr, SmolStr, StrExt};
@@ -13,6 +13,8 @@ pub struct InstrumentNameInternal(pub SmolStr);
 
 impl InstrumentNameInternal {
     /// Construct a new lowercase [`Self`] from the provided `Into<SmolStr>`.
+    ///
+    /// Should be unique across exchanges.
     pub fn new<S>(name: S) -> Self
     where
         S: Into<SmolStr>,
@@ -26,8 +28,24 @@ impl InstrumentNameInternal {
     }
 
     /// Construct a new lowercase [`Self`], combining the [`ExchangeId`] and
-    /// [`InstrumentNameExchange`] to generate an internal instrument identifier unique across
-    /// exchanges.  
+    /// base and quote [`AssetNameExchange`]s.
+    ///
+    /// Generates an internal instrument identifier unique across exchanges.
+    pub fn new_from_exchange_underlying<Ass>(exchange: ExchangeId, base: &Ass, quote: &Ass) -> Self
+    where
+        for<'a> &'a Ass: Into<&'a AssetNameExchange>,
+    {
+        Self::new(format_smolstr!(
+            "{exchange}-{}_{}",
+            base.into(),
+            quote.into()
+        ))
+    }
+
+    /// Construct a new lowercase [`Self`], combining the [`ExchangeId`] and
+    /// [`InstrumentNameExchange`].
+    ///
+    /// Generates an internal instrument identifier unique across exchanges.
     pub fn new_from_exchange<S>(exchange: ExchangeId, name_exchange: S) -> Self
     where
         S: Into<InstrumentNameExchange>,

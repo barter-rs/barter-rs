@@ -128,7 +128,9 @@ impl<State, ExchangeKey, InstrumentKey> RiskManager<ExchangeKey, InstrumentKey>
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize,
+)]
 pub struct DefaultRiskManagerState;
 
 impl<ExchangeKey, AssetKey, InstrumentKey>

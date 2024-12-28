@@ -16,7 +16,11 @@ pub struct IndexedInstrumentsBuilder {
 }
 
 impl IndexedInstrumentsBuilder {
-    pub fn add_instrument(&mut self, instrument: Instrument<ExchangeId, Asset>) {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn add_instrument(mut self, instrument: Instrument<ExchangeId, Asset>) -> Self {
         // Add ExchangeId
         self.exchanges.push(instrument.exchange);
 
@@ -42,13 +46,17 @@ impl IndexedInstrumentsBuilder {
 
         // Add Instrument OrderQuantityUnits if it's defined in asset units
         // --> likely a duplicate asset, but if so will be filtered during Self::build()
-        if let OrderQuantityUnits::Asset(asset) = &instrument.spec.quantity.unit {
-            self.assets
-                .push(ExchangeAsset::new(instrument.exchange, asset.clone()));
+        if let Some(spec) = instrument.spec.as_ref() {
+            if let OrderQuantityUnits::Asset(asset) = &spec.quantity.unit {
+                self.assets
+                    .push(ExchangeAsset::new(instrument.exchange, asset.clone()));
+            }
         }
 
         // Add Instrument
-        self.instruments.push(instrument)
+        self.instruments.push(instrument);
+
+        self
     }
 
     pub fn build(mut self) -> IndexedInstruments {
@@ -121,42 +129,39 @@ mod tests {
                 InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice, InstrumentSpecQuantity,
             },
         },
-        test_utils::{exchange_asset, instrument, instrument_spec},
+        test_utils::{exchange_asset, instrument},
         Underlying,
     };
     use rust_decimal_macros::dec;
 
     #[test]
     fn test_builder_basic_spot() {
-        let mut builder = IndexedInstrumentsBuilder::default();
-
         // Add single spot instrument
-        let instrument = instrument(ExchangeId::BinanceSpot, "btc", "usdt");
-        builder.add_instrument(instrument);
-
-        let actual = builder.build();
+        let indexed = IndexedInstrumentsBuilder::default()
+            .add_instrument(instrument(ExchangeId::BinanceSpot, "btc", "usdt"))
+            .build();
 
         // Verify state
-        assert_eq!(actual.exchanges().len(), 1);
-        assert_eq!(actual.assets().len(), 2); // BTC and USDT
-        assert_eq!(actual.instruments().len(), 1);
+        assert_eq!(indexed.exchanges().len(), 1);
+        assert_eq!(indexed.assets().len(), 2); // BTC and USDT
+        assert_eq!(indexed.instruments().len(), 1);
 
         // Verify exchanges indexes
-        assert_eq!(actual.exchanges()[0].value, ExchangeId::BinanceSpot);
+        assert_eq!(indexed.exchanges()[0].value, ExchangeId::BinanceSpot);
 
         // Verify asset indexes
         assert_eq!(
-            actual.assets()[0].value,
+            indexed.assets()[0].value,
             exchange_asset(ExchangeId::BinanceSpot, "btc"),
         );
         assert_eq!(
-            actual.assets()[1].value,
+            indexed.assets()[1].value,
             exchange_asset(ExchangeId::BinanceSpot, "usdt"),
         );
 
         // Very instrument indexes
         assert_eq!(
-            actual.instruments()[0].value,
+            indexed.instruments()[0].value,
             Instrument {
                 exchange: Keyed::new(ExchangeIndex(0), ExchangeId::BinanceSpot),
                 name_exchange: InstrumentNameExchange::new("btc_usdt"),
@@ -166,42 +171,32 @@ mod tests {
                     quote: AssetIndex(1),
                 },
                 kind: InstrumentKind::Spot,
-                spec: instrument_spec()
+                spec: None
             }
         );
     }
 
     #[test]
     fn test_builder_deduplication() {
-        let mut builder = IndexedInstrumentsBuilder::default();
-
         // Add same spot instrument twice
-        let instrument1 = instrument(ExchangeId::BinanceSpot, "BTC", "USDT");
-        let instrument2 = instrument(ExchangeId::BinanceSpot, "BTC", "USDT");
-
-        builder.add_instrument(instrument1);
-        builder.add_instrument(instrument2);
-
-        let indexed = builder.build();
+        let indexed = IndexedInstrumentsBuilder::default()
+            .add_instrument(instrument(ExchangeId::BinanceSpot, "BTC", "USDT"))
+            .add_instrument(instrument(ExchangeId::BinanceSpot, "BTC", "USDT"))
+            .build();
 
         // Should deduplicate exchanges and assets, but not instruments
-        assert_eq!(indexed.exchanges().len(), 1); // Exchange are de-douped
-        assert_eq!(indexed.assets().len(), 2); // BTC and USDT and de-douped
-        assert_eq!(indexed.instruments().len(), 1); // Instruments are de-douped
+        assert_eq!(indexed.exchanges().len(), 1); // Exchange are de-duped
+        assert_eq!(indexed.assets().len(), 2); // BTC and USDT and de-duped
+        assert_eq!(indexed.instruments().len(), 1); // Instruments are de-duped
     }
 
     #[test]
     fn test_builder_multiple_exchanges() {
-        let mut builder = IndexedInstrumentsBuilder::default();
-
         // Add instruments from different exchanges
-        let instrument1 = instrument(ExchangeId::BinanceSpot, "BTC", "USDT");
-        let instrument2 = instrument(ExchangeId::Coinbase, "BTC", "USD");
-
-        builder.add_instrument(instrument1);
-        builder.add_instrument(instrument2);
-
-        let indexed = builder.build();
+        let indexed = IndexedInstrumentsBuilder::default()
+            .add_instrument(instrument(ExchangeId::BinanceSpot, "BTC", "USDT"))
+            .add_instrument(instrument(ExchangeId::Coinbase, "BTC", "USD"))
+            .build();
 
         // Should maintain separate indices for same asset on different exchanges
         assert_eq!(indexed.exchanges().len(), 2);
@@ -211,8 +206,6 @@ mod tests {
 
     #[test]
     fn test_builder_asset_unit_handling() {
-        let mut builder = IndexedInstrumentsBuilder::default();
-
         // Create instrument with asset-based order quantity
         let base_asset = Asset::new_from_exchange("BTC");
         let quote_asset = Asset::new_from_exchange("USDT");
@@ -223,7 +216,7 @@ mod tests {
             "BTC-USDT",
             Underlying::new(base_asset.clone(), quote_asset.clone()),
             InstrumentKind::Spot,
-            InstrumentSpec {
+            Some(InstrumentSpec {
                 price: InstrumentSpecPrice {
                     min: dec!(0.1),
                     tick_size: dec!(0.1),
@@ -234,11 +227,12 @@ mod tests {
                     increment: dec!(0.001),
                 },
                 notional: InstrumentSpecNotional { min: dec!(10) },
-            },
+            }),
         );
 
-        builder.add_instrument(instrument);
-        let indexed = builder.build();
+        let indexed = IndexedInstrumentsBuilder::default()
+            .add_instrument(instrument)
+            .build();
 
         // Should index the asset used in OrderQuantityUnits
         assert_eq!(indexed.assets().len(), 2);
@@ -250,42 +244,37 @@ mod tests {
 
     #[test]
     fn test_builder_ordering() {
-        let mut builder = IndexedInstrumentsBuilder::default();
-
         // Add instruments in any order
-        let instrument1 = instrument(ExchangeId::BinanceSpot, "BTC", "USDT");
-        let instrument2 = instrument(ExchangeId::Coinbase, "ETH", "USD");
-
-        builder.add_instrument(instrument1);
-        builder.add_instrument(instrument2);
-
-        let actual = builder.build();
+        let indexed = IndexedInstrumentsBuilder::default()
+            .add_instrument(instrument(ExchangeId::BinanceSpot, "BTC", "USDT"))
+            .add_instrument(instrument(ExchangeId::Coinbase, "ETH", "USD"))
+            .build();
 
         // Verify exchanges are ordered by input sequence
-        assert_eq!(actual.exchanges()[0].value, ExchangeId::BinanceSpot);
-        assert_eq!(actual.exchanges()[1].value, ExchangeId::Coinbase);
+        assert_eq!(indexed.exchanges()[0].value, ExchangeId::BinanceSpot);
+        assert_eq!(indexed.exchanges()[1].value, ExchangeId::Coinbase);
 
         // Verify exchanges are ordered by input sequence
         assert_eq!(
-            actual.assets()[0].value,
+            indexed.assets()[0].value,
             exchange_asset(ExchangeId::BinanceSpot, "BTC")
         );
         assert_eq!(
-            actual.assets()[1].value,
+            indexed.assets()[1].value,
             exchange_asset(ExchangeId::BinanceSpot, "USDT")
         );
         assert_eq!(
-            actual.assets()[2].value,
+            indexed.assets()[2].value,
             exchange_asset(ExchangeId::Coinbase, "ETH")
         );
         assert_eq!(
-            actual.assets()[3].value,
+            indexed.assets()[3].value,
             exchange_asset(ExchangeId::Coinbase, "USD")
         );
 
         // Verify instruments are ordered by input sequence
         assert_eq!(
-            actual.instruments()[0].value,
+            indexed.instruments()[0].value,
             Instrument {
                 exchange: Keyed::new(ExchangeIndex(0), ExchangeId::BinanceSpot),
                 name_exchange: InstrumentNameExchange::new("BTC_USDT"),
@@ -295,12 +284,12 @@ mod tests {
                     quote: AssetIndex(1),
                 },
                 kind: InstrumentKind::Spot,
-                spec: instrument_spec()
+                spec: None
             }
         );
 
         assert_eq!(
-            actual.instruments()[1].value,
+            indexed.instruments()[1].value,
             Instrument {
                 exchange: Keyed::new(ExchangeIndex(1), ExchangeId::Coinbase),
                 name_exchange: InstrumentNameExchange::new("ETH_USD"),
@@ -310,7 +299,7 @@ mod tests {
                     quote: AssetIndex(3),
                 },
                 kind: InstrumentKind::Spot,
-                spec: instrument_spec()
+                spec: None
             }
         );
     }

@@ -124,17 +124,22 @@ where
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize, Constructor,
+)]
 pub struct AccountSnapshot<
     ExchangeKey = ExchangeIndex,
     AssetKey = AssetIndex,
     InstrumentKey = InstrumentIndex,
 > {
+    pub exchange: ExchangeKey,
     pub balances: Vec<AssetBalance<AssetKey>>,
     pub instruments: Vec<InstrumentAccountSnapshot<ExchangeKey, InstrumentKey>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize, Constructor,
+)]
 pub struct InstrumentAccountSnapshot<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     pub instrument: InstrumentKey,
     pub orders: Vec<Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>,

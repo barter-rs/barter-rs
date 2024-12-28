@@ -50,9 +50,8 @@ impl IndexedInstruments {
     {
         instruments
             .into_iter()
-            .fold(Self::builder(), |mut builder, instrument| {
-                builder.add_instrument(instrument);
-                builder
+            .fold(Self::builder(), |builder, instrument| {
+                builder.add_instrument(instrument)
             })
             .build()
     }
@@ -209,7 +208,7 @@ mod tests {
         asset::Asset,
         exchange::ExchangeId,
         instrument::{kind::InstrumentKind, name::InstrumentNameExchange},
-        test_utils::{exchange_asset, instrument, instrument_spec},
+        test_utils::{exchange_asset, instrument},
         Underlying,
     };
 
@@ -254,7 +253,7 @@ mod tests {
                     quote: AssetIndex(1),
                 },
                 kind: InstrumentKind::Spot,
-                spec: instrument_spec()
+                spec: None
             }
         );
     }

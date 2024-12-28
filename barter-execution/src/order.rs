@@ -91,12 +91,35 @@ impl InternalOrderState {
     }
 }
 
-impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, InternalOrderState> {
-    pub fn as_request_cancel(&self) -> Option<Order<ExchangeKey, InstrumentKey, RequestCancel>>
-    where
-        ExchangeKey: Clone,
-        InstrumentKey: Clone,
-    {
+impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, InternalOrderState>
+where
+    ExchangeKey: Clone,
+    InstrumentKey: Clone,
+{
+    pub fn as_exchange(&self) -> Option<Order<ExchangeKey, InstrumentKey, ExchangeOrderState>> {
+        let Order {
+            exchange,
+            instrument,
+            strategy,
+            cid,
+            side,
+            state: InternalOrderState::Open(open),
+        } = self
+        else {
+            return None;
+        };
+
+        Some(Order {
+            exchange: exchange.clone(),
+            instrument: instrument.clone(),
+            strategy: strategy.clone(),
+            cid: *cid,
+            side: *side,
+            state: ExchangeOrderState::Open(open.clone()),
+        })
+    }
+
+    pub fn as_request_cancel(&self) -> Option<Order<ExchangeKey, InstrumentKey, RequestCancel>> {
         let Order {
             exchange,
             instrument,

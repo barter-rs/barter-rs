@@ -26,9 +26,7 @@ impl EngineClock for LiveClock {
 impl<Event> Processor<&Event> for LiveClock {
     type Output = ();
 
-    fn process(&mut self, _: &Event) -> Self::Output {
-        ()
-    }
+    fn process(&mut self, _: &Event) -> Self::Output {}
 }
 
 /// Historical `Clock` using processed event timestamps to estimate current historical time.

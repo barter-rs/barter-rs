@@ -106,10 +106,6 @@ pub mod test_utils {
         instrument::{
             kind::InstrumentKind,
             name::{InstrumentNameExchange, InstrumentNameInternal},
-            spec::{
-                InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice,
-                InstrumentSpecQuantity, OrderQuantityUnits,
-            },
             Instrument,
         },
         Underlying,
@@ -146,24 +142,7 @@ pub mod test_utils {
             name_exchange,
             Underlying::new(base_asset, quote_asset),
             InstrumentKind::Spot,
-            instrument_spec(),
+            None,
         )
-    }
-
-    pub fn instrument_spec<AssetKey>() -> InstrumentSpec<AssetKey> {
-        InstrumentSpec {
-            price: InstrumentSpecPrice {
-                min: Default::default(),
-                tick_size: Default::default(),
-            },
-            quantity: InstrumentSpecQuantity {
-                unit: OrderQuantityUnits::Quote,
-                min: Default::default(),
-                increment: Default::default(),
-            },
-            notional: InstrumentSpecNotional {
-                min: Default::default(),
-            },
-        }
     }
 }
