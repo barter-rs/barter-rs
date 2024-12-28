@@ -4,7 +4,11 @@ use barter::{
         instrument::{generate_empty_indexed_instrument_states, market_data::DefaultMarketData},
         position::PositionExited,
     },
-    statistic::{summary::TradingSummaryGenerator, time::Annual365},
+    statistic::{
+        summary::{asset::TearSheetAssetGenerator, TradingSummaryGenerator},
+        time::Annual365,
+    },
+    Timed,
 };
 use barter_execution::{
     balance::{AssetBalance, Balance},
@@ -46,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Generate initial InstrumentStates
     let instrument_states =
-        generate_empty_indexed_instrument_states::<DefaultMarketData>(&instruments);
+        generate_empty_indexed_instrument_states::<DefaultMarketData>(&instruments, time_now);
 
     // Generate initial AssetStates with balances
     let asset_states = AssetStates(
@@ -54,6 +58,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .assets()
             .iter()
             .map(|keyed_asset| {
+                let balance = if keyed_asset.value.asset.name_internal.as_ref() == "btc" {
+                    Balance::new(INITIAL_BTC_BALANCE, INITIAL_BTC_BALANCE)
+                } else if keyed_asset.value.asset.name_internal.as_ref() == "eth" {
+                    Balance::new(INITIAL_ETH_BALANCE, INITIAL_ETH_BALANCE)
+                } else if keyed_asset.value.asset.name_internal.as_ref() == "usdt" {
+                    Balance::new(INITIAL_USDT_BALANCE, INITIAL_USDT_BALANCE)
+                } else {
+                    Balance::default()
+                };
+
+                let balance = Timed::new(balance, time_now);
+
                 (
                     ExchangeAsset::new(
                         keyed_asset.value.exchange,
@@ -61,16 +77,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ),
                     AssetState::new(
                         keyed_asset.value.asset.clone(),
-                        if keyed_asset.value.asset.name_internal.as_ref() == "btc" {
-                            Balance::new(INITIAL_BTC_BALANCE, INITIAL_BTC_BALANCE)
-                        } else if keyed_asset.value.asset.name_internal.as_ref() == "eth" {
-                            Balance::new(INITIAL_ETH_BALANCE, INITIAL_ETH_BALANCE)
-                        } else if keyed_asset.value.asset.name_internal.as_ref() == "usdt" {
-                            Balance::new(INITIAL_USDT_BALANCE, INITIAL_USDT_BALANCE)
-                        } else {
-                            Balance::default()
-                        },
-                        time_now,
+                        TearSheetAssetGenerator::init(&balance),
+                        balance,
                     ),
                 )
             })

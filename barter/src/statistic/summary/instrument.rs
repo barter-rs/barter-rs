@@ -34,8 +34,8 @@ pub struct TearSheet<Interval> {
     pub pnl_drawdown: Option<Drawdown>,
     pub pnl_drawdown_mean: Option<MeanDrawdown>,
     pub pnl_drawdown_max: Option<MaxDrawdown>,
-    pub win_rate: WinRate,
-    pub profit_factor: ProfitFactor,
+    pub win_rate: Option<WinRate>,
+    pub profit_factor: Option<ProfitFactor>,
 }
 
 /// Generator for a [`TearSheet`].
@@ -152,5 +152,10 @@ impl TearSheetGenerator {
             win_rate,
             profit_factor,
         }
+    }
+
+    /// Reset the internal state, using a new starting `DateTime<Utc>` as seed.
+    pub fn reset(&mut self, time_engine_start: DateTime<Utc>) {
+        *self = Self::init(time_engine_start);
     }
 }

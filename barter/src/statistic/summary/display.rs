@@ -133,13 +133,21 @@ where
             }
         });
         self.add_instrument_metric_row(&mut table, "Win Rate", |ts| {
-            format!(
-                "{:.1}%",
-                ts.win_rate.value.checked_mul(Decimal::ONE_HUNDRED).unwrap()
-            )
+            if let Some(win_rate) = &ts.win_rate {
+                format!(
+                    "{:.1}%",
+                    win_rate.value.checked_mul(Decimal::ONE_HUNDRED).unwrap()
+                )
+            } else {
+                "N/A".to_string()
+            }
         });
         self.add_instrument_metric_row(&mut table, "Profit Factor", |ts| {
-            format!("{:.2}", ts.profit_factor.value)
+            if let Some(profit_factor) = &ts.profit_factor {
+                format!("{:.2}", profit_factor.value)
+            } else {
+                "N/A".to_string()
+            }
         });
 
         table
@@ -183,7 +191,11 @@ where
 
         // Add metric rows
         self.add_asset_metric_row(&mut table, "Balance", |ts| {
-            format!("{:.8}", ts.balance_end.total)
+            if let Some(balance) = ts.balance_end {
+                format!("{:.8}", balance.total)
+            } else {
+                "N/A".to_string()
+            }
         });
         self.add_asset_metric_row(&mut table, "Drawdown", |ts| {
             if let Some(drawdown) = &ts.drawdown {

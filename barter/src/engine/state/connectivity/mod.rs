@@ -36,7 +36,10 @@ impl ConnectivityStates {
             return;
         }
 
-        info!(%exchange, "EngineState setting exchange account connection to Healthy");
+        info!(
+            %exchange,
+            "EngineState received AccountStream event - setting connection to Healthy"
+        );
         state.account = Health::Healthy;
 
         if self.exchanges().all(ConnectivityState::all_healthy) {
@@ -60,7 +63,10 @@ impl ConnectivityStates {
             return;
         }
 
-        info!(%exchange, "EngineState setting exchange market data connection to Healthy");
+        info!(
+            %exchange,
+            "EngineState received MarketStream event - setting connection to Healthy"
+        );
         state.market_data = Health::Healthy;
 
         if self.exchanges().all(ConnectivityState::all_healthy) {

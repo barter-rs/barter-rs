@@ -21,6 +21,7 @@ use barter_instrument::{
     instrument::InstrumentIndex,
 };
 use barter_integration::snapshot::Snapshot;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -94,10 +95,13 @@ impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
                     .update_from_cancel(response);
                 None
             }
-            AccountEventKind::Trade(trade) => self
-                .instruments
-                .instrument_index_mut(&trade.instrument)
-                .update_from_trade(trade),
+            AccountEventKind::Trade(trade) => {
+                let _position_exited = self
+                    .instruments
+                    .instrument_index_mut(&trade.instrument)
+                    .update_from_trade(trade);
+                None
+            }
         };
 
         // Update any user provided Strategy & Risk State
@@ -127,6 +131,7 @@ impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
 pub fn generate_empty_indexed_engine_state<Market, Strategy, Risk>(
     trading_state: TradingState,
     instruments: &IndexedInstruments,
+    time_engine_start: DateTime<Utc>,
     strategy: Strategy,
     risk: Risk,
 ) -> EngineState<Market, Strategy, Risk>
@@ -137,7 +142,10 @@ where
         trading: trading_state,
         connectivity: generate_empty_indexed_connectivity_states(instruments),
         assets: generate_empty_indexed_asset_states(instruments),
-        instruments: generate_empty_indexed_instrument_states::<Market>(instruments),
+        instruments: generate_empty_indexed_instrument_states::<Market>(
+            instruments,
+            time_engine_start,
+        ),
         strategy,
         risk,
     }
