@@ -134,6 +134,9 @@ pub struct InstrumentState<
     /// Complete instrument definition.
     pub instrument: Instrument<ExchangeKey, AssetKey>,
 
+    /// TearSheet generator for summarising the trading performance associated with an Instrument.
+    pub statistics: TearSheetGenerator,
+
     /// Current open position.
     pub position: Option<Position<QuoteAsset, InstrumentKey>>,
 
@@ -142,9 +145,6 @@ pub struct InstrumentState<
 
     /// User provided market data state associated with this instrument.
     pub market: Market,
-
-    /// TearSheet generator for summarising the trading performance associated with an Instrument.
-    pub statistics: TearSheetGenerator,
 }
 
 impl<Market, ExchangeKey, AssetKey, InstrumentKey>
@@ -243,10 +243,10 @@ where
                     InstrumentState::new(
                         instrument.key,
                         instrument.value.clone().map_exchange_key(exchange_index),
+                        TearSheetGenerator::init(time_engine_start),
                         None,
                         Orders::default(),
                         Market::default(),
-                        TearSheetGenerator::init(time_engine_start),
                     ),
                 )
             })
