@@ -234,7 +234,7 @@ pub mod test_utils {
 
         AssetState {
             asset: asset(symbol),
-            balance,
+            balance: Some(balance),
             statistics: TearSheetAssetGenerator::init(&balance),
         }
     }

@@ -78,7 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     AssetState::new(
                         keyed_asset.value.asset.clone(),
                         TearSheetAssetGenerator::init(&balance),
-                        balance,
+                        Some(balance),
                     ),
                 )
             })

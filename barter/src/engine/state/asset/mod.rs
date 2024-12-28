@@ -5,7 +5,6 @@ use barter_instrument::{
     index::IndexedInstruments,
 };
 use barter_integration::snapshot::Snapshot;
-use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -72,7 +71,7 @@ pub struct AssetState {
     pub statistics: TearSheetAssetGenerator,
 
     /// Current balance of the asset and associated exchange timestamp.
-    pub balance: Timed<Balance>,
+    pub balance: Option<Timed<Balance>>,
 }
 
 impl AssetState {
@@ -81,9 +80,15 @@ impl AssetState {
     /// This method ensures temporal consistency by only applying updates from snapshots that
     /// are at least as recent as the current state.
     pub fn update_from_balance<AssetKey>(&mut self, snapshot: Snapshot<&AssetBalance<AssetKey>>) {
-        if self.balance.time <= snapshot.value().time_exchange {
-            self.balance.time = snapshot.value().time_exchange;
-            self.balance.value = snapshot.value().balance;
+        let Some(balance) = &mut self.balance else {
+            self.balance = Some(Timed::new(snapshot.0.balance, snapshot.0.time_exchange));
+            self.statistics.update_from_balance(snapshot);
+            return;
+        };
+
+        if balance.time <= snapshot.value().time_exchange {
+            balance.time = snapshot.value().time_exchange;
+            balance.value = snapshot.value().balance;
             self.statistics.update_from_balance(snapshot);
         }
     }
@@ -106,7 +111,7 @@ pub fn generate_empty_indexed_asset_states(instruments: &IndexedInstruments) -> 
                     AssetState::new(
                         asset.value.asset.clone(),
                         TearSheetAssetGenerator::default(),
-                        Timed::new(Balance::default(), DateTime::<Utc>::MIN_UTC),
+                        None,
                     ),
                 )
             })
@@ -119,8 +124,38 @@ mod tests {
     use super::*;
     use crate::test_utils::asset_state;
     use barter_instrument::asset::name::AssetNameExchange;
-    use chrono::TimeZone;
+    use chrono::{DateTime, TimeZone, Utc};
     use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_update_from_balance_with_first_ever_snapshot() {
+        let mut state = AssetState {
+            asset: Asset {
+                name_internal: AssetNameInternal::new("btc"),
+                name_exchange: AssetNameExchange::new("btc"),
+            },
+            statistics: Default::default(),
+            balance: None,
+        };
+
+        let snapshot = Snapshot(AssetBalance {
+            asset: Asset {
+                name_internal: AssetNameInternal::new("btc"),
+                name_exchange: AssetNameExchange::new("btc"),
+            },
+            balance: Balance {
+                total: dec!(1100.0),
+                free: dec!(1100.0),
+            },
+            time_exchange: DateTime::<Utc>::MIN_UTC,
+        });
+
+        state.update_from_balance(snapshot.as_ref());
+
+        let expected = asset_state("btc", 1100.0, 1100.0, DateTime::<Utc>::MIN_UTC);
+
+        assert_eq!(state, expected)
+    }
 
     #[test]
     fn test_update_from_balance_with_more_recent_snapshot() {
@@ -166,27 +201,14 @@ mod tests {
 
         state.update_from_balance(snapshot.as_ref());
 
-        assert_eq!(state.balance.value.total, dec!(1000.0));
-        assert_eq!(state.balance.value.free, dec!(800.0));
-        assert_eq!(state.balance.time, time);
+        assert_eq!(state.balance.unwrap().value.total, dec!(1000.0));
+        assert_eq!(state.balance.unwrap().value.free, dec!(800.0));
+        assert_eq!(state.balance.unwrap().time, time);
     }
 
     #[test]
     fn test_update_from_balance_with_stale_snapshot() {
-        let mut state = AssetState {
-            asset: Asset {
-                name_internal: AssetNameInternal::new("btc"),
-                name_exchange: AssetNameExchange::new("xbt"),
-            },
-            balance: Timed::new(
-                Balance {
-                    total: dec!(1000.0),
-                    free: dec!(900.0),
-                },
-                DateTime::<Utc>::MAX_UTC,
-            ),
-            statistics: TearSheetAssetGenerator::default(),
-        };
+        let mut state = asset_state("btc", 1000.0, 900.0, DateTime::<Utc>::MAX_UTC);
 
         let snapshot = Snapshot(AssetBalance {
             asset: Asset {
@@ -202,20 +224,7 @@ mod tests {
 
         state.update_from_balance(snapshot.as_ref());
 
-        let expected = AssetState {
-            asset: Asset {
-                name_internal: AssetNameInternal::new("btc"),
-                name_exchange: AssetNameExchange::new("xbt"),
-            },
-            balance: Timed::new(
-                Balance {
-                    total: dec!(1000.0),
-                    free: dec!(900.0),
-                },
-                DateTime::<Utc>::MAX_UTC,
-            ),
-            statistics: TearSheetAssetGenerator::default(),
-        };
+        let expected = asset_state("btc", 1000.0, 900.0, DateTime::<Utc>::MAX_UTC);
 
         assert_eq!(state, expected)
     }
