@@ -695,7 +695,7 @@ mod tests {
                     valid_update.asks,
                 ));
 
-                test.book.update(barter_update);
+                test.book.update(&barter_update);
             }
 
             assert_eq!(test.book, test.expected, "TC{index} failed");

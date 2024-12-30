@@ -14,7 +14,7 @@ pub mod manager;
 pub mod map;
 
 /// Normalised Barter [`OrderBook`] snapshot.
-#[derive(Clone, PartialEq, Eq, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Debug, Default, Deserialize, Serialize)]
 pub struct OrderBook {
     pub sequence: u64,
     pub time_engine: Option<DateTime<Utc>>,
@@ -56,28 +56,28 @@ impl OrderBook {
     }
 
     /// Update the local [`OrderBook`] from a new [`OrderBookEvent`].
-    pub fn update(&mut self, event: OrderBookEvent) {
+    pub fn update(&mut self, event: &OrderBookEvent) {
         match event {
             OrderBookEvent::Snapshot(snapshot) => {
-                *self = snapshot;
+                *self = snapshot.clone();
             }
             OrderBookEvent::Update(update) => {
                 self.sequence = update.sequence;
                 self.time_engine = update.time_engine;
-                self.upsert_bids(update.bids);
-                self.upsert_asks(update.asks);
+                self.upsert_bids(&update.bids);
+                self.upsert_asks(&update.asks);
             }
         }
     }
 
     /// Update the local [`OrderBook`] by upserting the levels in an [`OrderBookSide`].
-    pub fn upsert_bids(&mut self, update: OrderBookSide<Bids>) {
-        self.bids.upsert(update.levels)
+    pub fn upsert_bids(&mut self, update: &OrderBookSide<Bids>) {
+        self.bids.upsert(&update.levels)
     }
 
     /// Update the local [`OrderBook`] by upserting the levels in an [`OrderBookSide`].
-    pub fn upsert_asks(&mut self, update: OrderBookSide<Asks>) {
-        self.asks.upsert(update.levels)
+    pub fn upsert_asks(&mut self, update: &OrderBookSide<Asks>) {
+        self.asks.upsert(&update.levels)
     }
 
     /// Return a reference to this [`OrderBook`]s bids.
@@ -119,7 +119,7 @@ impl OrderBook {
 }
 
 /// Normalised Barter [`Level`]s for one `Side` ( of the [`OrderBook`].
-#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+#[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub struct OrderBookSide<Side> {
     #[serde(skip_serializing)]
     pub side: Side,
@@ -157,13 +157,12 @@ impl OrderBookSide<Bids> {
     }
 
     /// Upsert bid [`Level`]s into this [`OrderBookSide<Bids>`].
-    pub fn upsert<Iter, L>(&mut self, levels: Iter)
+    pub fn upsert<L>(&mut self, levels: &[L])
     where
-        Iter: IntoIterator<Item = L>,
-        L: Into<Level>,
+        L: Into<Level> + Copy,
     {
-        levels.into_iter().for_each(|upsert| {
-            let upsert = upsert.into();
+        levels.iter().for_each(|upsert| {
+            let upsert = (*upsert).into();
             self.upsert_single(upsert, |existing| {
                 existing.price.cmp(&upsert.price).reverse()
             })
@@ -185,13 +184,12 @@ impl OrderBookSide<Asks> {
     }
 
     /// Upsert ask [`Level`]s into this [`OrderBookSide<Asks>`].
-    pub fn upsert<Iter, L>(&mut self, levels: Iter)
+    pub fn upsert<L>(&mut self, levels: &[L])
     where
-        Iter: IntoIterator<Item = L>,
-        L: Into<Level>,
+        L: Into<Level> + Copy,
     {
-        levels.into_iter().for_each(|upsert| {
-            let upsert = upsert.into();
+        levels.iter().for_each(|upsert| {
+            let upsert = (*upsert).into();
             self.upsert_single(upsert, |existing| existing.price.cmp(&upsert.price))
         })
     }
