@@ -24,6 +24,7 @@ use fnv::FnvHashMap;
 use futures::stream::BoxStream;
 use itertools::Itertools;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use smol_str::ToSmolStr;
 use std::fmt::Debug;
 use tokio::sync::{broadcast, mpsc, oneshot};
@@ -252,8 +253,27 @@ impl MockExchange {
         Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>>,
         Option<OpenOrderNotifications>,
     ) {
+        // TODO: The mock exchange should handle order executions for different
+        // instrument kinds differently. Currently when executing the Spot order
+        // only the quote balance is updated.
+
         if let Err(error) = self.validate_order_kind_supported(request.state.kind) {
             return (build_open_order_err_response(request, error), None);
+        }
+
+        // If quantity is zero or bellow that means that the strategy proposed
+        // an malformed order.
+        if request.state.quantity <= dec!(0) {
+            let quantity = request.state.quantity;
+            return (
+                build_open_order_err_response(
+                    request,
+                    UnindexedClientError::Api(ApiError::OrderRejected(format!(
+                        "Invalid order quantity: {quantity}",
+                    ))),
+                ),
+                None,
+            );
         }
 
         let underlying = match self.find_instrument_data(&request.instrument) {
