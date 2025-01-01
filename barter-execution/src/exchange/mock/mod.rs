@@ -24,7 +24,6 @@ use fnv::FnvHashMap;
 use futures::stream::BoxStream;
 use itertools::Itertools;
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use smol_str::ToSmolStr;
 use std::fmt::Debug;
 use tokio::sync::{broadcast, mpsc, oneshot};
@@ -263,13 +262,13 @@ impl MockExchange {
 
         // If quantity is zero or bellow that means that the strategy proposed
         // an malformed order.
-        if request.state.quantity <= dec!(0) {
+        if request.state.quantity <= Decimal::ZERO {
             let quantity = request.state.quantity;
             return (
                 build_open_order_err_response(
                     request,
                     UnindexedClientError::Api(ApiError::OrderRejected(format!(
-                        "Invalid order quantity: {quantity}",
+                        "MockExchange does not accept negative order quantities: {quantity}",
                     ))),
                 ),
                 None,

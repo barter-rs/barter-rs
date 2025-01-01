@@ -29,7 +29,6 @@ futures = { workspace = true }
 smol_str = { workspace = true }
 fnv = { workspace = true }
 rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
 
 # Error
 thiserror = { workspace = true }
