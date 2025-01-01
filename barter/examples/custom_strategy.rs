@@ -36,11 +36,15 @@ use barter_data::{
 use barter_execution::{
     balance::Balance,
     client::mock::MockExecutionConfig,
-    order::{ClientOrderId, Order, OrderKind, RequestCancel, RequestOpen, StrategyId, TimeInForce},
+    order::{
+        ClientOrderId, InternalOrderState, Order, OrderKind, RequestCancel, RequestOpen,
+        StrategyId, TimeInForce,
+    },
+    trade::Trade,
     AccountEvent, AccountEventKind,
 };
 use barter_instrument::{
-    asset::AssetIndex,
+    asset::{AssetIndex, QuoteAsset},
     exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
     instrument::{
@@ -58,7 +62,7 @@ use fnv::FnvHashMap;
 use futures::StreamExt;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 const EXCHANGE: ExchangeId = ExchangeId::BinanceSpot;
 const RISK_FREE_RETURN: Decimal = dec!(0.05);
@@ -73,29 +77,33 @@ const STARTING_BALANCE_BTC: Balance = Balance {
     free: dec!(0),
 };
 const STARTING_BALANCE_ETH: Balance = Balance {
-    total: dec!(1.0),
-    free: dec!(1.0),
+    total: dec!(0),
+    free: dec!(0),
 };
 const STARTING_BALANCE_SOL: Balance = Balance {
-    total: dec!(10.0),
-    free: dec!(10.0),
+    total: dec!(1),
+    free: dec!(1),
 };
 
 /// Engine state used for running the custom strategy
 type EngineState =
     state::EngineState<DefaultMarketData, BuyAndHoldStrategyState, DefaultRiskManagerState>;
 
+/// The strategy buys remaining quantity required so that our holdings are at
+/// least equal to the desired holdings.
 struct BuyAndHoldStrategy {
     /// Strategy Id
     id: StrategyId,
-    /// Instrument traded by this strategy
-    instrument: InstrumentIndex,
+    /// Vector of instruments with the desired balances to hold in base asset of
+    /// that instrument.
+    desired_balances: Vec<(InstrumentIndex, Decimal)>,
 }
 
+/// Strategy state that can be mutated
 #[derive(Debug, Default, Clone)]
 struct BuyAndHoldStrategyState {
-    // Desired quantity we would like to buy
-    desired_quantity_to_buy: Decimal,
+    /// Trades that were executed as part of this strategy
+    trades: Vec<Trade<QuoteAsset, InstrumentIndex>>,
 }
 
 impl Processor<&AccountEvent> for BuyAndHoldStrategyState {
@@ -103,13 +111,7 @@ impl Processor<&AccountEvent> for BuyAndHoldStrategyState {
 
     fn process(&mut self, event: &AccountEvent) -> Self::Output {
         if let AccountEventKind::Trade(trade) = &event.kind {
-            if self.desired_quantity_to_buy.is_zero() {
-                // When this executes it means that we proposed multiple open
-                // orders
-                warn!(?event, "Double spend. Kind of.");
-            }
-
-            self.desired_quantity_to_buy -= trade.quantity;
+            self.trades.push(trade.clone());
         }
     }
 }
@@ -129,73 +131,77 @@ impl AlgoStrategy for BuyAndHoldStrategy {
         &self,
         state: &Self::State,
     ) -> (
-        // TODO: Use default types for orders ExchangeKey and InstrumentKey?
         impl IntoIterator<Item = Order<ExchangeIndex, InstrumentIndex, RequestCancel>>,
         impl IntoIterator<Item = Order<ExchangeIndex, InstrumentIndex, RequestOpen>>,
     ) {
-        dbg!(state.strategy.desired_quantity_to_buy);
+        let mut open_requests = vec![];
 
-        // We already bought as much as we wanted
-        if state.strategy.desired_quantity_to_buy.is_zero() {
-            return (vec![], vec![]);
+        for (instrument_index, desired_base) in &self.desired_balances {
+            let instrument = state.instruments.instrument_index(instrument_index);
+
+            // Balance of the base asset
+            let Some(balance) = state
+                .assets
+                .asset_index(&instrument.instrument.underlying.base)
+                .balance
+            else {
+                continue;
+            };
+
+            // Current orders placed for the instrument
+            let current_orders = instrument.orders.orders();
+
+            // The balance change we are expecting to get when the open orders
+            // get filled.
+            let balance_order_delta = current_orders
+                .map(|o| match &o.state {
+                    InternalOrderState::OpenInFlight(_) => Decimal::ZERO,
+                    InternalOrderState::Open(open) => open.quantity_remaining(),
+                    // Decimal::ZERO is not entirely correct. The thing is that
+                    // the order can still be filled until it's cancellation is
+                    // confirmed by the exchange. The calculated delta would be
+                    // wrong until the balances are not updated with that fill.
+                    InternalOrderState::CancelInFlight(_) => Decimal::ZERO,
+                })
+                .sum::<Decimal>();
+
+            // TODO: The calculated quota is not correct whatever we do.
+            // Currently the MockExchange is not updating the balances of base
+            // asset on the order execution. The `balance.value.total` never
+            // changes.
+            let remaining_buy_quota = desired_base - balance.value.total - balance_order_delta;
+            if remaining_buy_quota <= Decimal::ZERO {
+                continue;
+            }
+
+            // Current market price. This is needed because of how the MockExchange
+            // currently mocks order executions. Ideally we wouldn't need to pass
+            // this in the future.
+            // TODO: Ugly type annotation needed.
+            let Some(price) =
+                <DefaultMarketData as MarketDataState<InstrumentIndex>>::price(&instrument.market)
+            else {
+                warn!("Market price is not yet set");
+                return (vec![], vec![]);
+            };
+
+            // Buy order we are proposing
+            open_requests.push(Order {
+                exchange: instrument.instrument.exchange,
+                instrument: *instrument_index,
+                strategy: self.id.clone(),
+                cid: ClientOrderId::default(),
+                side: Side::Buy,
+                state: RequestOpen {
+                    kind: OrderKind::Market,
+                    time_in_force: TimeInForce::ImmediateOrCancel,
+                    price,
+                    quantity: remaining_buy_quota,
+                },
+            });
         }
 
-        // There are already some opened orders. Skip the current evaluation.
-        // This is here so that we don't push many buy orders for the same
-        // desired quantity, before even receiving an event of execution.
-        // TODO: How should this atomicity actually be handled? There are cases
-        // when we can have orders as marked completed and no trade events yet
-        // received from the exchange.
-        let mut current_orders = state
-            .instruments
-            .instrument_index(&self.instrument)
-            .orders
-            .orders();
-        if current_orders.any(|o| o.state.is_open_or_in_flight()) {
-            return (vec![], vec![]);
-        }
-
-        // Instrument data we are trading
-        let instrument = state.instruments.instrument_index(&self.instrument);
-
-        // Current market price. This is needed because of how the MockExchange
-        // currently mocks order executions. Ideally we wouldn't need to pass
-        // this in the future.
-        // TODO: Ugly type annotation needed.
-        let Some(price) =
-            <DefaultMarketData as MarketDataState<InstrumentIndex>>::price(&instrument.market)
-        else {
-            warn!("Market price is not yet set");
-            return (vec![], vec![]);
-        };
-
-        // Available quote balance for the instrument
-        let available_quote = state
-            .assets
-            .asset_index(&instrument.instrument.underlying.quote)
-            .balance
-            .expect("balance should exist for the quote asset")
-            .value
-            .free;
-
-        info!(%available_quote, "Available quote amount");
-
-        // Buy order we are proposing
-        let order = Order {
-            exchange: instrument.instrument.exchange,
-            instrument: self.instrument,
-            strategy: self.id.clone(),
-            cid: ClientOrderId::default(),
-            side: Side::Buy,
-            state: RequestOpen {
-                kind: OrderKind::Market,
-                time_in_force: TimeInForce::ImmediateOrCancel,
-                price,
-                quantity: state.strategy.desired_quantity_to_buy,
-            },
-        };
-
-        (vec![], vec![order])
+        (vec![], open_requests)
     }
 }
 
@@ -274,9 +280,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .time_engine_start(clock.time())
         // Note: you may want to start to engine with TradingState::Disabled and turn on later
         .trading_state(TradingState::Enabled)
-        .strategy(BuyAndHoldStrategyState {
-            desired_quantity_to_buy: dec!(0.01),
-        })
+        .strategy(BuyAndHoldStrategyState::default())
         .balances([
             (EXCHANGE, "usdt", STARTING_BALANCE_USDT),
             (EXCHANGE, "btc", STARTING_BALANCE_BTC),
@@ -303,6 +307,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
     tokio::spawn(account_stream.forward_to(feed_tx.clone()));
 
+    let btc_instrument = instruments
+        .find_instrument_index(EXCHANGE, &"binance_spot_btc_usdt".into())
+        .unwrap();
+    let eth_instrument = instruments
+        .find_instrument_index(EXCHANGE, &"binance_spot_eth_usdt".into())
+        .unwrap();
+    let sol_instrument = instruments
+        .find_instrument_index(EXCHANGE, &"binance_spot_sol_usdt".into())
+        .unwrap();
+
     // Construct Engine
     let mut engine = Engine::new(
         clock,
@@ -310,9 +324,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         execution_txs,
         BuyAndHoldStrategy {
             id: StrategyId::new("buy_and_hold"),
-            instrument: instruments
-                .find_instrument_index(EXCHANGE, &"binance_spot_btc_usdt".into())
-                .expect("instrument index should exist"),
+            desired_balances: vec![
+                (btc_instrument, dec!(0.1)),
+                (eth_instrument, dec!(1)),
+                (sol_instrument, dec!(10)),
+            ],
         },
         DefaultRiskManager::default(),
     );
