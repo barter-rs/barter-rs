@@ -1,14 +1,10 @@
-use crate::{
-    engine::error::UnrecoverableEngineError,
-    execution::request::{ExecutionRequest, IndexedExecutionRequest},
-    FnvIndexMap,
-};
+use crate::{engine::error::UnrecoverableEngineError, execution::request::ExecutionRequest};
 use barter_instrument::{
     exchange::{ExchangeId, ExchangeIndex},
     index::error::IndexError,
     instrument::InstrumentIndex,
 };
-use barter_integration::channel::Tx;
+use barter_integration::{channel::Tx, collection::FnvIndexMap};
 use std::fmt::Debug;
 
 /// Collection of [`ExecutionRequest`] [`Tx`]s for each
@@ -65,7 +61,7 @@ impl<'a, Tx> IntoIterator for &'a mut MultiExchangeTxMap<Tx> {
 
 impl<Transmitter> ExecutionTxMap<ExchangeIndex, InstrumentIndex> for MultiExchangeTxMap<Transmitter>
 where
-    Transmitter: Tx<Item = IndexedExecutionRequest> + Debug,
+    Transmitter: Tx<Item = ExecutionRequest> + Debug,
 {
     type ExecutionTx = Transmitter;
 

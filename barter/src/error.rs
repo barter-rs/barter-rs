@@ -9,8 +9,6 @@ pub enum BarterError {
     #[error("IndexError: {0}")]
     IndexError(#[from] IndexError),
 
-    // #[error("KeyError: {0}")]
-    // Key(#[from] KeyError),
     #[error("ExecutionBuilder: {0}")]
     ExecutionBuilder(String),
 

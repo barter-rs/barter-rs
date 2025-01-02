@@ -1,6 +1,6 @@
 use barter::{
     engine::{
-        audit::Audit,
+        audit::EngineAudit,
         clock::{EngineClock, HistoricalClock},
         command::Command,
         run,
@@ -149,7 +149,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut audit_stream = audit_rx.into_stream();
         while let Some(audit) = audit_stream.next().await {
             debug!(?audit, "AuditStream consumed AuditTick");
-            if let Audit::Shutdown(_) = audit.event {
+            if let EngineAudit::Shutdown(_) = audit.event {
                 break;
             }
         }
@@ -192,7 +192,7 @@ fn indexed_instruments() -> IndexedInstruments {
             Underlying::new("btc", "usdt"),
             InstrumentKind::Spot,
             Some(InstrumentSpec::new(
-                InstrumentSpecPrice::new(dec!(0.0001), dec!(0.0)),
+                InstrumentSpecPrice::new(dec!(0.01), dec!(0.01)),
                 InstrumentSpecQuantity::new(
                     OrderQuantityUnits::Quote,
                     dec!(0.00001),

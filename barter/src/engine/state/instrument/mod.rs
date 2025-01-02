@@ -5,7 +5,6 @@ use crate::{
         position::{Position, PositionExited},
     },
     statistic::summary::instrument::TearSheetGenerator,
-    FnvIndexMap,
 };
 use barter_data::event::MarketEvent;
 use barter_execution::{
@@ -22,16 +21,17 @@ use barter_instrument::{
         Instrument, InstrumentIndex,
     },
 };
-use barter_integration::snapshot::Snapshot;
+use barter_integration::{collection::FnvIndexMap, snapshot::Snapshot};
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use itertools::Either;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+/// Defines the instrument-centric [`MarketDataState`] interface.
 pub mod market_data;
 
-/// Defines an `InstrumentFilter` filter, used to filter instrument-centric data structures.
+/// Defines an `InstrumentFilter`, used to filter instrument-centric data structures.
 pub mod filter;
 
 /// Collection of [`InstrumentState`]s indexed by [`InstrumentIndex`].
@@ -54,7 +54,7 @@ pub struct InstrumentStates<
 impl<Market> InstrumentStates<Market> {
     /// Return a reference to the `InstrumentState` associated with an `InstrumentIndex`.
     ///
-    /// Panics if `InstrumentState` does not exist.
+    /// Panics if `InstrumentState` associated with the `InstrumentIndex` does not exist.
     pub fn instrument_index(&self, key: &InstrumentIndex) -> &InstrumentState<Market> {
         self.0
             .get_index(key.index())
@@ -64,7 +64,7 @@ impl<Market> InstrumentStates<Market> {
 
     /// Return a mutable reference to the `InstrumentState` associated with an `InstrumentIndex`.
     ///
-    /// Panics if `InstrumentState` does not exist.
+    /// Panics if `InstrumentState` associated with the `InstrumentIndex` does not exist.
     pub fn instrument_index_mut(&mut self, key: &InstrumentIndex) -> &mut InstrumentState<Market> {
         self.0
             .get_index_mut(key.index())
@@ -74,7 +74,7 @@ impl<Market> InstrumentStates<Market> {
 
     /// Return a reference to the `InstrumentState` associated with an `InstrumentNameInternal`.
     ///
-    /// Panics if `InstrumentState` does not exist.
+    /// Panics if `InstrumentState` associated with the `InstrumentNameInternal` does not exist.
     pub fn instrument(&self, key: &InstrumentNameInternal) -> &InstrumentState<Market> {
         self.0
             .get(key)
@@ -84,14 +84,14 @@ impl<Market> InstrumentStates<Market> {
     /// Return a mutable reference to the `InstrumentState` associated with an
     /// `InstrumentNameInternal`.
     ///
-    /// Panics if `InstrumentState` does not exist.
+    /// Panics if `InstrumentState` associated with the `InstrumentNameInternal` does not exist.
     pub fn instrument_mut(&mut self, key: &InstrumentNameInternal) -> &mut InstrumentState<Market> {
         self.0
             .get_mut(key)
             .unwrap_or_else(|| panic!("InstrumentStates does not contain: {key}"))
     }
 
-    /// Return a filtered `Iterator` of `InstrumentState`s using the provided `InstrumentFilter`.
+    /// Return a filtered `Iterator` of `InstrumentState`s based on the provided `InstrumentFilter`.
     pub fn filtered<'a>(
         &'a self,
         filter: &'a InstrumentFilter<ExchangeIndex, AssetIndex, InstrumentIndex>,
@@ -117,8 +117,8 @@ impl<Market> InstrumentStates<Market> {
         }
     }
 
-    /// Return an `Iterator` containing every `InstrumentState`s.
-    fn instruments(&self) -> impl Iterator<Item = &InstrumentState<Market>> {
+    /// Return an `Iterator` of all `InstrumentState`s being tracked.
+    pub fn instruments(&self) -> impl Iterator<Item = &InstrumentState<Market>> {
         self.0.values()
     }
 }
@@ -180,6 +180,7 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
     /// - Opening a new position if none exists
     /// - Updating an existing position (increase/decrease/close)
     /// - Handling position flips (close existing & open new with any remaining trade quantity)
+    /// - Updating the internal [`TearSheetGenerator`] if a position is exited.
     pub fn update_from_trade(
         &mut self,
         trade: &Trade<QuoteAsset, InstrumentKey>,
@@ -274,7 +275,7 @@ where
                     exchange,
                     instrument: instrument.name_exchange.clone(),
                     strategy: strategy.clone(),
-                    cid: *cid,
+                    cid: cid.clone(),
                     side: *side,
                     state: ExchangeOrderState::Open(open.clone()),
                 })

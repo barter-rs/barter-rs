@@ -8,12 +8,12 @@ use crate::{
         time::TimeInterval,
     },
 };
-use barter_execution::{balance::AssetBalance, FnvIndexMap};
+use barter_execution::balance::AssetBalance;
 use barter_instrument::{
     asset::{name::AssetNameInternal, AssetIndex, ExchangeAsset},
     instrument::{name::InstrumentNameInternal, InstrumentIndex},
 };
-use barter_integration::snapshot::Snapshot;
+use barter_integration::{collection::FnvIndexMap, snapshot::Snapshot};
 use chrono::{DateTime, TimeDelta, Utc};
 use derive_more::Constructor;
 use rust_decimal::Decimal;
@@ -108,6 +108,11 @@ impl TradingSummaryGenerator {
         }
     }
 
+    /// Update the [`TradingSummaryGenerator`] `time_now`.
+    pub fn update_time_now(&mut self, time_now: DateTime<Utc>) {
+        self.time_engine_now = time_now;
+    }
+
     /// Update the [`TradingSummaryGenerator`] from the next [`PositionExited`].
     pub fn update_from_position<AssetKey, InstrumentKey>(
         &mut self,
@@ -140,13 +145,13 @@ impl TradingSummaryGenerator {
     ///
     /// For example, pass [`Annual365`](super::time::Annual365) to generate a crypto-centric
     /// (24/7 trading) annualised [`TradingSummary`].
-    pub fn generate<Interval>(&self, interval: Interval) -> TradingSummary<Interval>
+    pub fn generate<Interval>(&mut self, interval: Interval) -> TradingSummary<Interval>
     where
         Interval: TimeInterval,
     {
         let instruments = self
             .instruments
-            .iter()
+            .iter_mut()
             .map(|(instrument, tear_sheet)| {
                 (
                     instrument.clone(),
@@ -157,7 +162,7 @@ impl TradingSummaryGenerator {
 
         let assets = self
             .assets
-            .iter()
+            .iter_mut()
             .map(|(asset, tear_sheet)| (asset.clone(), tear_sheet.generate()))
             .collect();
 

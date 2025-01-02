@@ -88,7 +88,7 @@ impl TearSheetGenerator {
     /// For example, pass [`Annual365`](super::super::time::Annual365) to generate a crypto-centric
     /// (24/7 trading) annualised [`TearSheet`].
     pub fn generate<Interval>(
-        &self,
+        &mut self,
         risk_free_return: Decimal,
         interval: Interval,
     ) -> TearSheet<Interval>
@@ -116,6 +116,12 @@ impl TearSheetGenerator {
         )
         .scale(interval);
 
+        let current_pnl_drawdown = self.pnl_drawdown.generate();
+        if let Some(current_pnl_drawdown) = &current_pnl_drawdown {
+            self.pnl_drawdown_mean.update(current_pnl_drawdown);
+            self.pnl_drawdown_max.update(current_pnl_drawdown);
+        }
+        let pnl_drawdown_mean = self.pnl_drawdown_mean.generate();
         let pnl_drawdown_max = self.pnl_drawdown_max.generate();
 
         let calmar_ratio = CalmarRatio::calculate(
@@ -146,8 +152,8 @@ impl TearSheetGenerator {
             calmar_ratio,
             pnl: self.pnl_returns.pnl_raw,
             pnl_return,
-            pnl_drawdown: self.pnl_drawdown.generate(),
-            pnl_drawdown_mean: self.pnl_drawdown_mean.generate(),
+            pnl_drawdown: current_pnl_drawdown,
+            pnl_drawdown_mean,
             pnl_drawdown_max,
             win_rate,
             profit_factor,

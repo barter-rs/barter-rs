@@ -2,6 +2,9 @@ use barter_instrument::exchange::ExchangeId;
 use barter_integration::collection::one_or_many::OneOrMany;
 use serde::{Deserialize, Serialize};
 
+/// Asset filter.
+///
+/// Used to filter asset-centric data structures such as `AssetStates`.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub enum AssetFilter {
     None,

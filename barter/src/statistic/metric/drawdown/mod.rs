@@ -94,7 +94,7 @@ impl DrawdownGenerator {
     }
 
     /// Generates the current [`Drawdown`] at this instant, if it is non-zero.
-    pub fn generate(&self) -> Option<Drawdown> {
+    pub fn generate(&mut self) -> Option<Drawdown> {
         let time_peak = self.time_peak?;
 
         (self.drawdown_max != Decimal::ZERO).then_some(Drawdown {

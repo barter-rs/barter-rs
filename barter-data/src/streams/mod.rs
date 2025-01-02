@@ -17,7 +17,7 @@ pub mod consumer;
 /// for generating an auto reconnecting `Stream`.
 pub mod reconnect;
 
-/// Ergonomic collection of execution market event receivers.
+/// Ergonomic collection of exchange market event receivers.
 #[derive(Debug)]
 pub struct Streams<T> {
     pub streams: FnvHashMap<ExchangeId, UnboundedRx<T>>,

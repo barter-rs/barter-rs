@@ -149,11 +149,6 @@ where
             Err(error) => return vec![Err(error)],
         };
 
-        println!(
-            "Update: {}-{}",
-            valid_update.first_update_id, valid_update.last_update_id
-        );
-
         MarketIter::<InstrumentKey, OrderBookEvent>::from((
             BinanceSpot::ID,
             instrument.key.clone(),

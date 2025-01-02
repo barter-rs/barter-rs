@@ -15,7 +15,7 @@
 //! # Barter
 //! [`Barter`] is an open-source Rust framework for building **event-driven live-trading & back-testing systems**.
 //! Algorithmic trade with the peace of mind that comes from knowing your strategies have been
-//! backtested with a near-identical trading Engine.
+//! back-tested with a near-identical trading system.
 //! It is:
 //! * **Fast**: Barter provides a multithreaded trading Engine framework built in high-performance Rust (in-rust-we-trust).
 //! * **Easy**: Barter provides a modularised data architecture that focuses on simplicity.
@@ -26,8 +26,10 @@
 //!
 //! ## Overview
 //! Barter is an open-source Rust framework for building **event-driven live-trading & backtesting systems**. It provides
-//! a high-performance, easy to customise, trading Engine that enables backtesting strategies on a near-identical system
-//! to live trading. The Engine can be **controlled by issuing Commands** over the Engine's command_tx. Similarly,
+//! a high-performance, easy to customise trading Engine that enables backtesting strategies on a near-identical system
+//! to live trading.
+//!
+//! The Engine can be **controlled by issuing Commands** over the Engine's command_tx. Similarly,
 //! the **Engine's Events can be listened to using the event_rx** (useful for event-sourcing). At a high level,
 //! it provides several de-coupled components that interact via a set of traits:
 
@@ -76,15 +78,6 @@ pub mod logging;
 pub mod risk;
 pub mod statistic;
 pub mod strategy;
-
-// Todo: Must: Final Requirements
-//  - Comprehensive rust docs & check output
-//  - Comprehensive rust examples
-//  - Comprehensive readme.md for each crate & workspace
-//  - Comprehensive rust tests
-
-pub type FnvIndexMap<K, V> = indexmap::IndexMap<K, V, fnv::FnvBuildHasher>;
-pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
 
 #[derive(
     Debug,
@@ -153,7 +146,6 @@ impl Sequence {
     }
 }
 
-#[cfg(test)]
 pub mod test_utils {
     use crate::{
         engine::state::asset::AssetState, statistic::summary::asset::TearSheetAssetGenerator, Timed,
@@ -166,7 +158,7 @@ pub mod test_utils {
     use barter_instrument::{
         asset::QuoteAsset, instrument::name::InstrumentNameInternal, test_utils::asset, Side,
     };
-    use chrono::{DateTime, Days, Utc};
+    use chrono::{DateTime, Days, TimeDelta, Utc};
     use rust_decimal::Decimal;
 
     pub fn f64_is_eq(actual: f64, expected: f64, epsilon: f64) -> bool {
@@ -187,6 +179,20 @@ pub mod test_utils {
 
     pub fn time_plus_days(base: DateTime<Utc>, plus: u64) -> DateTime<Utc> {
         base.checked_add_days(Days::new(plus)).unwrap()
+    }
+
+    pub fn time_plus_secs(base: DateTime<Utc>, plus: i64) -> DateTime<Utc> {
+        base.checked_add_signed(TimeDelta::seconds(plus)).unwrap()
+    }
+
+    pub fn time_plus_millis(base: DateTime<Utc>, plus: i64) -> DateTime<Utc> {
+        base.checked_add_signed(TimeDelta::milliseconds(plus))
+            .unwrap()
+    }
+
+    pub fn time_plus_micros(base: DateTime<Utc>, plus: i64) -> DateTime<Utc> {
+        base.checked_add_signed(TimeDelta::microseconds(plus))
+            .unwrap()
     }
 
     pub fn trade(
