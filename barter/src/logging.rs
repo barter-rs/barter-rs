@@ -1,4 +1,4 @@
-use crate::engine::audit::manager::AUDIT_REPLICA_STATE_UPDATE_SPAN_NAME;
+use crate::engine::audit::state_replica::AUDIT_REPLICA_STATE_UPDATE_SPAN_NAME;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Initialise default non-JSON `Barter` logging.

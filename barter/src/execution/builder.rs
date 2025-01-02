@@ -37,8 +37,15 @@ use futures::Stream;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 use tokio::sync::{broadcast, mpsc};
 
-pub type ExecutionInitFutures = Vec<Pin<Box<dyn Future<Output = Result<(), ExecutionError>>>>>;
+type ExecutionInitFutures = Vec<Pin<Box<dyn Future<Output = Result<(), ExecutionError>>>>>;
 
+/// Builder for adding and initialising [`ExecutionManager`]s.
+///
+/// Handles:
+/// - Initialising mock execution managers (mocks a specific exchange internally via the [`MockExchange`]).
+/// - Initialising live execution managers, setting up an external connection to each exchange.
+/// - Constructs a [`MultiExchangeTxMap`] with an entry for each mock/live execution manager.
+/// - Combines all exchange account streams into a unified [`AccountStreamEvent`] `Stream`.
 #[allow(missing_debug_implementations)]
 pub struct ExecutionBuilder<'a> {
     merged_channel: Channel<AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>>,
@@ -54,6 +61,7 @@ pub struct ExecutionBuilder<'a> {
 }
 
 impl<'a> ExecutionBuilder<'a> {
+    /// Construct a new `ExecutionBuilder` using the provided `IndexedInstruments`.
     pub fn new(instruments: &'a IndexedInstruments) -> Self {
         Self {
             merged_channel: Channel::default(),
@@ -63,6 +71,11 @@ impl<'a> ExecutionBuilder<'a> {
         }
     }
 
+    /// Adds an [`ExecutionManager`] for a mocked exchange, setting up a [`MockExchange`]
+    /// internally.
+    ///
+    /// The provided [`MockExecutionConfig`] is used to configure the [`MockExchange`] and provide
+    /// the initial account state.
     pub fn add_mock(self, config: MockExecutionConfig) -> Result<Self, BarterError> {
         const ACCOUNT_STREAM_CAPACITY: usize = 256;
         const DUMMY_EXECUTION_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
@@ -101,6 +114,7 @@ impl<'a> ExecutionBuilder<'a> {
         tokio::spawn(exchange.run());
     }
 
+    /// Adds an [`ExecutionManager`] for a live exchange.
     pub fn add_live<Client>(
         self,
         config: Client::Config,
@@ -159,6 +173,14 @@ impl<'a> ExecutionBuilder<'a> {
         Ok(self)
     }
 
+    /// Awaits initialisation of all mock and live [`ExecutionManager`]s added to the
+    /// [`ExecutionBuilder`].
+    ///
+    /// This method:
+    /// - Initialises all [`ExecutionManager`]s asynchronously.
+    /// - Constructs an indexed [`MultiExchangeTxMap`] containing the execution request transmitters
+    ///   for every exchange.
+    /// - Combines all exchange account streams into a unified [`AccountStreamEvent`] `Stream`.
     pub async fn init(
         mut self,
     ) -> Result<

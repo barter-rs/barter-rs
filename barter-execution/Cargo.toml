@@ -24,13 +24,12 @@ tracing = { workspace = true }
 # Async
 tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
 tokio-stream = { workspace = true, features = ["sync"] }
-tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
+#tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
 futures = { workspace = true }
 
 # Data Structures
 smol_str = { workspace = true }
 fnv = { workspace = true }
-indexmap = { workspace = true }
 rust_decimal = { workspace = true }
 
 # Error
@@ -38,13 +37,13 @@ thiserror = { workspace = true }
 
 # SerDe
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
+#serde_json = { workspace = true }
 
 # Protocol
-reqwest = { workspace = true, features = ["rustls-tls", "json"] }
+#reqwest = { workspace = true, features = ["rustls-tls", "json"] }
 
 # Misc
-uuid = { workspace = true, features = ["v4", "serde"]}
+rand = { workspace = true }
 chrono = { workspace = true, features = ["serde"]}
 itertools = { workspace = true }
 derive_more = { workspace = true, features = ["constructor", "from", "display"]}

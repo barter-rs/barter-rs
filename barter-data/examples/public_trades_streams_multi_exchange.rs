@@ -45,11 +45,6 @@ async fn main() {
         ])
 
         .subscribe([
-            (Coinbase, "btc", "usd", MarketDataInstrumentKind::Spot, PublicTrades),
-            (Coinbase, "eth", "usd", MarketDataInstrumentKind::Spot, PublicTrades),
-        ])
-
-        .subscribe([
             (GateioSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
         ])
 

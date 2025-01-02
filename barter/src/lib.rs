@@ -13,50 +13,29 @@
 #![allow(clippy::type_complexity, clippy::too_many_arguments, type_alias_bounds)]
 
 //! # Barter
-//! [`Barter`] is an open-source Rust framework for building **event-driven live-trading & back-testing systems**.
-//! Algorithmic trade with the peace of mind that comes from knowing your strategies have been
-//! backtested with a near-identical trading Engine.
-//! It is:
-//! * **Fast**: Barter provides a multithreaded trading Engine framework built in high-performance Rust (in-rust-we-trust).
-//! * **Easy**: Barter provides a modularised data architecture that focuses on simplicity.
-//! * **Customisable**: A set of traits define how every Barter component communicates, providing a highly extensible
-//!   framework for trading.
-//!
-//! See [`Readme`].
+//! Barter core is a Rust framework for building high-performance live-trading, paper-trading and back-testing systems.
+//! * **Fast**: Written in native Rust. Minimal allocations. Data-oriented state management system with direct index lookups.
+//! * **Robust**: Strongly typed. Thread safe. Extensive test coverage.
+//! * **Customisable**: Plug and play Strategy and RiskManager components that facilitates most trading strategies (MarketMaking, StatArb, HFT, etc.).
+//! * **Scalable**: Multithreaded architecture with modular design. Leverages Tokio for I/O. Memory efficient data structures.
 //!
 //! ## Overview
-//! Barter is an open-source Rust framework for building **event-driven live-trading & backtesting systems**. It provides
-//! a high-performance, easy to customise, trading Engine that enables backtesting strategies on a near-identical system
-//! to live trading. The Engine can be **controlled by issuing Commands** over the Engine's command_tx. Similarly,
-//! the **Engine's Events can be listened to using the event_rx** (useful for event-sourcing). At a high level,
-//! it provides several de-coupled components that interact via a set of traits:
-
-//! * **Data**: Continuer & MarketGenerator traits govern the generation of a MarketEvents data feed that acts as the system
-//!   heartbeat. For example, a LiveCandleHandler implementation is provided utilising [`Barter-Data`]'s WebSocket functionality to
-//!   provide a live market Candle data feed to the system.
-//! * **Strategy**: The SignalGenerator trait governs potential generation of SignalEvents after analysing incoming
-//!   MarketEvents. SignalEvents are advisory signals sent to the Portfolio for analysis.
-//! * **Portfolio**: MarketUpdater, OrderGenerator, and FillUpdater govern global state Portfolio implementations. A
-//!   Portfolio may generate OrderEvents after receiving advisory SignalEvents from a Strategy. The Portfolio's state
-//!   updates after receiving MarketEvents and FillEvents.
-//! * **Execution**: The FillGenerator trait governs the generation of FillEvents after receiving OrderEvents from the
-//!   Portfolio. For example, a SimulatedExecution handler implementation is provided for simulating any exchange execution
-//!   behaviour required in dry-trading or backtesting runs.
-//! * **Statistic**: Provides metrics such as Sharpe Ratio, Calmar Ratio, and Max Drawdown to analyse trading session
-//!   performance. One-pass dispersion algorithms analyse each closed Position and efficiently calculates a trading summary.
-//! * **Trader**: Capable of trading a single market pair using a customisable selection of its own Data, Strategy &
-//!   Execution instances, as well as shared access to a global Portfolio.
-//! * **Engine**: Multi-threaded trading Engine capable of trading with an arbitrary number of Trader market pairs. Each
-//!   contained Trader instance operates on its own thread.
+//! Barter core is a Rust framework for building professional grade live-trading, paper-trading and back-testing systems. The
+//! central Engine facilitates executing on many exchanges simultaneously, and offers the flexibility to run most types of
+//! trading strategies.  It allows turning algorithmic order generation on/off and can action Commands issued from external
+//! processes (eg/ CloseAllPositions, OpenOrders, CancelOrders, etc.)
 //!
-//! [`Barter`]: https://github.com/barter-rs/barter-rs
-//! [`Barter-Data`]: https://crates.io/crates/barter-data
-//! [`Readme`]: https://crates.io/crates/barter
+//! At a high-level, it provides a few major components:
+//! * `Engine` with plug and play `Strategy` and `RiskManager` components.
+//! * Centralised cache friendly `EngineState` management with O(1) constant lookups using indexed data structures.
+//! * `Strategy` interfaces for customising Engine behavior (AlgoStrategy, ClosePositionsStrategy, OnDisconnectStrategy, etc.).
+//! * `RiskManager` interface for defining custom risk logic which checking generated algorithmic orders.
+//! * Event-driven system that allows for Commands to be issued from external processes (eg/ CloseAllPositions, OpenOrders, CancelOrders, etc.),
+//!   as well as turning algorithmic trading on/off.
+//! * Comprehensive statistics package that provides a summary of key performance metrics (PnL, Sharpe, Sortino, Drawdown, etc.).
 //!
-//! ## Getting Started
-//! Todo: write docs
-//! ### Engine Examples
-//! [See Readme Engine Example](https://crates.io/crates/barter#example)
+//! ## Getting Started Via Engine Examples
+//! [See Engine Examples](https://github.com/barter-rs/barter-rs/tree/feat/docs_tests_readmes_examples/barter/examples)
 
 use crate::{
     engine::{command::Command, state::trading::TradingState},
@@ -76,15 +55,6 @@ pub mod logging;
 pub mod risk;
 pub mod statistic;
 pub mod strategy;
-
-// Todo: Must: Final Requirements
-//  - Comprehensive rust docs & check output
-//  - Comprehensive rust examples
-//  - Comprehensive readme.md for each crate & workspace
-//  - Comprehensive rust tests
-
-pub type FnvIndexMap<K, V> = indexmap::IndexMap<K, V, fnv::FnvBuildHasher>;
-pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
 
 #[derive(
     Debug,
@@ -153,7 +123,6 @@ impl Sequence {
     }
 }
 
-#[cfg(test)]
 pub mod test_utils {
     use crate::{
         engine::state::asset::AssetState, statistic::summary::asset::TearSheetAssetGenerator, Timed,
@@ -166,7 +135,7 @@ pub mod test_utils {
     use barter_instrument::{
         asset::QuoteAsset, instrument::name::InstrumentNameInternal, test_utils::asset, Side,
     };
-    use chrono::{DateTime, Days, Utc};
+    use chrono::{DateTime, Days, TimeDelta, Utc};
     use rust_decimal::Decimal;
 
     pub fn f64_is_eq(actual: f64, expected: f64, epsilon: f64) -> bool {
@@ -187,6 +156,20 @@ pub mod test_utils {
 
     pub fn time_plus_days(base: DateTime<Utc>, plus: u64) -> DateTime<Utc> {
         base.checked_add_days(Days::new(plus)).unwrap()
+    }
+
+    pub fn time_plus_secs(base: DateTime<Utc>, plus: i64) -> DateTime<Utc> {
+        base.checked_add_signed(TimeDelta::seconds(plus)).unwrap()
+    }
+
+    pub fn time_plus_millis(base: DateTime<Utc>, plus: i64) -> DateTime<Utc> {
+        base.checked_add_signed(TimeDelta::milliseconds(plus))
+            .unwrap()
+    }
+
+    pub fn time_plus_micros(base: DateTime<Utc>, plus: i64) -> DateTime<Utc> {
+        base.checked_add_signed(TimeDelta::microseconds(plus))
+            .unwrap()
     }
 
     pub fn trade(

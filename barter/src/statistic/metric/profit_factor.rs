@@ -17,6 +17,7 @@ pub struct ProfitFactor {
 }
 
 impl ProfitFactor {
+    /// Calculate the [`ProfitFactor`] given the provided gross profits and losses.
     pub fn calculate(profits_gross_abs: Decimal, losses_gross_abs: Decimal) -> Option<Self> {
         if profits_gross_abs.is_zero() && losses_gross_abs.is_zero() {
             return None;

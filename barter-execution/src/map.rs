@@ -1,4 +1,4 @@
-use crate::{error::KeyError, FnvIndexMap, FnvIndexSet};
+use crate::error::KeyError;
 use barter_instrument::{
     asset::{name::AssetNameExchange, AssetIndex},
     exchange::{ExchangeId, ExchangeIndex},
@@ -6,6 +6,7 @@ use barter_instrument::{
     instrument::{name::InstrumentNameExchange, InstrumentIndex},
     Keyed,
 };
+use barter_integration::collection::{FnvIndexMap, FnvIndexSet};
 use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 

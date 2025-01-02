@@ -170,7 +170,7 @@ impl AccountEventIndexer {
             exchange,
             instrument,
             strategy: strategy.clone(),
-            cid: *cid,
+            cid: cid.clone(),
             side: *side,
             state: state.clone(),
         })

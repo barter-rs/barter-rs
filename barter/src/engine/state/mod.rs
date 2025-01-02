@@ -31,23 +31,50 @@ use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+/// Asset-centric state and associated state management logic.
 pub mod asset;
+
+/// Connectivity state that tracks global connection health as well as the status of market data
+/// and account connections for each exchange.
 pub mod connectivity;
+
+/// Instrument-centric state and associated state management logic.
 pub mod instrument;
+
+/// Defines a synchronous `OrderManager` that tracks the lifecycle of exchange orders.
 pub mod order;
+
+/// Position data structures and their associated state management logic.
 pub mod position;
+
+/// Defines the `TradingState` of the `Engine` (ie/ trading enabled & trading disabled), and it's
+/// update logic.
 pub mod trading;
 
 /// [`EngineState`] builder utility.
 pub mod builder;
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+/// Algorithmic trading `Engine` state.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct EngineState<Market, Strategy, Risk> {
+    /// Current `TradingState` of the `Engine`.
     pub trading: TradingState,
+
+    /// Global connection [`Health`](connectivity::Health), and health of the market data and
+    /// account connections for each exchange.
     pub connectivity: ConnectivityStates,
+
+    /// State of every asset (eg/ "btc", "usdt", etc.) being tracked by the `Engine`.
     pub assets: AssetStates,
+
+    /// State of every instrument (eg/ "okx_spot_btc_usdt", "bybit_perpetual_btc_usdt", etc.)
+    /// being tracked by the `Engine`.
     pub instruments: InstrumentStates<Market, ExchangeIndex, AssetIndex, InstrumentIndex>,
+
+    /// Configurable global `Strategy` state.
     pub strategy: Strategy,
+
+    /// Configurable global `RiskManager` state.
     pub risk: Risk,
 }
 
@@ -64,6 +91,16 @@ impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
         EngineStateBuilder::new(instruments)
     }
 
+    /// Updates the internal state from an `AccountEvent`.
+    ///
+    /// If the `AccountEvent` results in a new [`PositionExited`], that is returned.
+    ///
+    /// This method:
+    /// - Sets the account [`ConnectivityState`](connectivity::ConnectivityState) to
+    ///   [`Health::Healthy`](connectivity::Health::Healthy) if it was not previously.
+    /// - Updates the [`AssetState`] and [`InstrumentStates`].
+    /// - Processes the `AccountEvent` with the configured `Strategy` and `RiskManager`
+    ///   implementations.
     pub fn update_from_account(
         &mut self,
         event: &AccountEvent,
@@ -116,13 +153,10 @@ impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
                     .update_from_cancel(response);
                 None
             }
-            AccountEventKind::Trade(trade) => {
-                let _position_exited = self
-                    .instruments
-                    .instrument_index_mut(&trade.instrument)
-                    .update_from_trade(trade);
-                None
-            }
+            AccountEventKind::Trade(trade) => self
+                .instruments
+                .instrument_index_mut(&trade.instrument)
+                .update_from_trade(trade),
         };
 
         // Update any user provided Strategy & Risk State
@@ -132,6 +166,14 @@ impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
         output
     }
 
+    /// Updates the internal state from a `MarketEvent`.
+    ///
+    /// This method:
+    /// - Sets the market data [`ConnectivityState`](connectivity::ConnectivityState) to
+    ///   [`Health::Healthy`](connectivity::Health::Healthy) if it was not previously.
+    /// - Updates the [`MarketDataState`] associated with the `MarketEvent` instrument.
+    /// - Processes the `MarketEvent` with the configured `Strategy` and `RiskManager`
+    ///   implementations.
     pub fn update_from_market(&mut self, event: &MarketEvent<InstrumentIndex, Market::EventKind>)
     where
         Market: MarketDataState,
@@ -192,6 +234,8 @@ impl<Market, Strategy, Risk> From<&EngineState<Market, Strategy, Risk>>
     }
 }
 
+/// Generates an indexed [`EngineState`] containing the provided `TradingState`, `Strategy` state,
+/// and `Risk` state. All other data is set to default values.
 pub fn generate_empty_indexed_engine_state<Market, Strategy, Risk>(
     trading_state: TradingState,
     instruments: &IndexedInstruments,

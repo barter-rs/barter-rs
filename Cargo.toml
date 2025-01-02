@@ -42,7 +42,7 @@ serde_urlencoded = { version = "0.7.1" }
 # Protocol
 url = { version = "2.5.4" }
 reqwest = { version = "0.12.9" }
-tokio-tungstenite = { version = "0.26.0", features = ["url"] }
+tokio-tungstenite = { version = "0.26.0", features = ["url", "native-tls"] }
 
 # Data Structures
 vecmap-rs = { version = "0.2.2" }
@@ -59,7 +59,7 @@ hex = { version = "0.4.3" }
 base64 = { version = "0.22.1" }
 
 # Misc
-uuid = { version = "1.11.0", features = ["v4", "serde"] }
+rand = { version = "0.8.5 " }
 chrono = { version = "0.4.39", features = ["serde"] }
 derive_more = { version = "1.0.0", features = [
     "constructor",

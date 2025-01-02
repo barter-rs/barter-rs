@@ -1,42 +1,33 @@
-# Barter-Execution
-Stream private account data from financial venues, and execute (live or mock) orders. Also provides
-a feature rich MockExchange and MockExecutionClient to assist with backtesting and paper-trading.
+# Barter-Instrument
+Barter-Instrument contains core Exchange, Instrument and Asset data structures and associated utilities.
 
-**It is:**
-* **Easy**: ExecutionClient trait provides a unified and simple language for interacting with exchanges.
-* **Normalised**: Allow your strategy to communicate with every real or MockExchange using the same interface.
-* **Extensible**: Barter-Execution is highly extensible, making it easy to contribute by adding new exchange integrations!
-
-**See: [`Barter`], [`Barter-Data`], [`Barter-Instrument`] & [`Barter-Integration`] for
+**See: [`Barter`], [`Barter-Data`], [`Barter-Execution`] & [`Barter-Integration`] for
 comprehensive documentation of other Barter libraries.**
 
 [![Crates.io][crates-badge]][crates-url]
 [![MIT licensed][mit-badge]][mit-url]
 [![Discord chat][discord-badge]][discord-url]
 
-[crates-badge]: https://img.shields.io/crates/v/barter-execution.svg
-[crates-url]: https://crates.io/crates/barter-execution
+[crates-badge]: https://img.shields.io/crates/v/barter.svg
+[crates-url]: https://crates.io/crates/barter
 
 [mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
-[mit-url]: https://gitlab.com/open-source-keir/financial-modelling/trading/barter-execution-rs/-/blob/main/LICENCE
+[mit-url]: https://github.com/barter-rs/barter-rs/blob/develop/LICENSE
 
 [discord-badge]: https://img.shields.io/discord/910237311332151317.svg?logo=discord&style=flat-square
 [discord-url]: https://discord.gg/wE7RqhnQMV
 
-[API Documentation] | [Chat]
-
 [`Barter`]: https://crates.io/crates/barter
 [`Barter-Data`]: https://crates.io/crates/barter-data
-[`Barter-Instrument`]: https://crates.io/crates/barter-instrument
+[`Barter-Execution`]: https://crates.io/crates/barter-execution
 [`Barter-Integration`]: https://crates.io/crates/barter-integration
-[barter-examples]: https://github.com/barter-rs/barter-rs/tree/develop/barter/examples
-[API Documentation]: https://docs.rs/barter-execution/latest/barter_execution
+[API Documentation]: https://docs.rs/barter/latest/barter/
 [Chat]: https://discord.gg/wE7RqhnQMV
 
 ## Overview
-High-performance and normalised trading interface capable of executing across many financial venues. Also provides
-a feature rich simulated exchange to assist with backtesting and dry-trading. Communicate with an exchange by 
-initialising it's associated `ExecutionClient` instance. 
+Barter-Instrument contains core Exchange, Instrument and Asset data structures and associated utilities.
+
+[barter-examples]: https://github.com/barter-rs/barter-rs/tree/develop/barter/examples
 
 ## Examples
 * See [here][barter-examples] for example of Barter-Instrument in action.

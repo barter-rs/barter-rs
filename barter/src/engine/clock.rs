@@ -5,10 +5,18 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, ops::Add};
 use tracing::{debug, warn};
 
+/// Defines how an [`Engine`](super::Engine) will determine the current time.
+///
+/// Generally an `Engine` will use a:
+/// * [`LiveClock`] for live-trading.
+/// * [`HistoricalClock`] for back-testing.
 pub trait EngineClock {
     fn time(&self) -> DateTime<Utc>;
 }
 
+/// Defines how to extract an "exchange timestamp" from an event.
+///
+/// Used by a [`HistoricalClock`] to assist deriving the "current" `Engine` time.
 pub trait TimeExchange {
     fn time_exchange(&self) -> Option<DateTime<Utc>>;
 }
@@ -24,9 +32,9 @@ impl EngineClock for LiveClock {
 }
 
 impl<Event> Processor<&Event> for LiveClock {
-    type Output = ();
+    type Audit = ();
 
-    fn process(&mut self, _: &Event) -> Self::Output {}
+    fn process(&mut self, _: &Event) -> Self::Audit {}
 }
 
 /// Historical `Clock` using processed event timestamps to estimate current historical time.
@@ -39,6 +47,7 @@ pub struct HistoricalClock {
 }
 
 impl HistoricalClock {
+    /// Construct a new `HistoricalClock` using the provided `last_exchange_time` as a seed.
     pub fn new(last_exchange_time: DateTime<Utc>) -> Self {
         Self {
             time_exchange_last: last_exchange_time,
@@ -65,9 +74,9 @@ impl<Event> Processor<&Event> for HistoricalClock
 where
     Event: Debug + TimeExchange,
 {
-    type Output = ();
+    type Audit = ();
 
-    fn process(&mut self, event: &Event) -> Self::Output {
+    fn process(&mut self, event: &Event) -> Self::Audit {
         let Some(time_event_exchange) = event.time_exchange() else {
             debug!(?event, "HistoricalClock found no timestamp in event");
             return;

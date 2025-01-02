@@ -13,17 +13,13 @@
 #![allow(clippy::type_complexity, clippy::too_many_arguments, type_alias_bounds)]
 
 //! # Barter-Execution
-//! High-performance and normalised trading interface capable of executing across many financial
-//! venues. Also provides a feature rich simulated execution to assist with backtesting
-//! and dry-trading. Communicate with an execution by initialising it's associated
-//! `ExecutionClient` instance.
+//! Stream private account data from financial venues, and execute (live or mock) orders. Also provides
+//! a feature rich MockExchange and MockExecutionClient to assist with backtesting and paper-trading.
+//!
 //! **It is:**
-//! * **Easy**: ExecutionClient trait provides a unified and simple language for interacting with
-//!   exchanges.
-//! * **Normalised**: Allow your strategy to communicate with every real or simulated execution
-//!   using the same interface.
-//! * **Extensible**: Barter-Execution is highly extensible, making it easy to contribute by adding
-//!   new execution integrations!
+//! * **Easy**: ExecutionClient trait provides a unified and simple language for interacting with exchanges.
+//! * **Normalised**: Allow your strategy to communicate with every real or MockExchange using the same interface.
+//! * **Extensible**: Barter-Execution is highly extensible, making it easy to contribute by adding new exchange integrations!
 //!
 //! See `README.md` for more information and examples.
 
@@ -50,9 +46,6 @@ pub mod indexer;
 pub mod map;
 pub mod order;
 pub mod trade;
-
-pub type FnvIndexMap<K, V> = indexmap::IndexMap<K, V, fnv::FnvBuildHasher>;
-pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
 
 /// Convenient type alias for an [`AccountEvent`] keyed with [`ExchangeId`],
 /// [`AssetNameExchange`], and [`InstrumentNameExchange`].

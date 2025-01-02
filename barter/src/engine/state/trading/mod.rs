@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-/// Represents the current `TradingState` of the Engine.
+/// Represents the current `TradingState` of the `Engine`.
 ///
 /// If `TradingState::Enabled`, the Engine will generate algorithmic orders using the
 /// `AlgoStrategy` implementation.

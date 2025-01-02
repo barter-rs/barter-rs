@@ -43,10 +43,12 @@ futures = { workspace = true }
 pin-project = { workspace = true }
 
 # Data Structures
+indexmap = { workspace = true }
+fnv = { workspace = true }
 smol_str = { workspace = true, features = ["serde"]}
 
 # Protocol
-tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
+tokio-tungstenite = { workspace = true, features = ["native-tls"] }
 reqwest = { workspace = true, features = ["json"] }
 url = { workspace = true }
 

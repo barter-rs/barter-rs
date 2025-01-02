@@ -4,6 +4,9 @@ use barter_instrument::{
 use barter_integration::collection::one_or_many::OneOrMany;
 use serde::{Deserialize, Serialize};
 
+/// Instrument filter.
+///
+/// Used to filter instrument-centric data structures such as `InstrumentStates`.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub enum InstrumentFilter<
     ExchangeKey = ExchangeIndex,

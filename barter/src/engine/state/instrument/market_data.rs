@@ -36,6 +36,11 @@ where
     fn price(&self) -> Option<Decimal>;
 }
 
+/// Basic [`MarketDataState`] that tracks the [`OrderBookL1`] and last traded price for an
+/// instrument.
+///
+/// Trading strategies may wish to maintain more data here, such as candles, indicators,
+/// L2 book, etc.
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize, Constructor,
 )]
@@ -44,7 +49,7 @@ pub struct DefaultMarketData {
     pub last_traded_price: Option<Timed<Decimal>>,
 }
 
-impl<InstrumentKey> MarketDataState<InstrumentKey> for DefaultMarketData {
+impl MarketDataState for DefaultMarketData {
     type EventKind = DataKind;
 
     fn price(&self) -> Option<Decimal> {
@@ -55,9 +60,9 @@ impl<InstrumentKey> MarketDataState<InstrumentKey> for DefaultMarketData {
 }
 
 impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>> for DefaultMarketData {
-    type Output = ();
+    type Audit = ();
 
-    fn process(&mut self, event: &MarketEvent<InstrumentKey, DataKind>) -> Self::Output {
+    fn process(&mut self, event: &MarketEvent<InstrumentKey, DataKind>) -> Self::Audit {
         match &event.kind {
             DataKind::Trade(trade) => {
                 if self

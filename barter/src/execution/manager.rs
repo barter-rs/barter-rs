@@ -30,13 +30,30 @@ use futures::{future::Either, stream::FuturesUnordered, Stream, StreamExt};
 use std::sync::Arc;
 use tracing::{error, info, warn};
 
-/// Per exchange execution manager.
+/// Per-exchange execution manager that actions order requests from the Engine and forwards back
+/// responses.
+///
+/// Processes indexed Engine [`ExecutionRequest`]s by:
+/// - Transforming the requests to use the associated exchange's asset and instrument names.
+/// - Issues the request via it's associated exchange [`ExecutionClient`],
+/// - Tracks requests and returns timeouts to the Engine where necessary.
 #[derive(Debug, Constructor)]
 pub struct ExecutionManager<RequestStream, Client> {
+    /// `Stream` of incoming Engine [`ExecutionRequest`]s.
     pub request_stream: RequestStream,
+
+    /// Maximum `Duration` to wait for execution request responses from the [`ExecutionClient`].
     pub request_timeout: std::time::Duration,
+
+    /// Transmitter for sending execution request responses back to the Engine.
     pub response_tx: UnboundedTx<AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>>,
+
+    /// Exchange-specific [`ExecutionClient`] for executing orders.
     pub client: Arc<Client>,
+
+    /// Mapper for converting between exchange-specific and index identifiers.
+    ///
+    /// For example, `InstrumentNameExchange` -> `InstrumentIndex`.
     pub indexer: AccountEventIndexer,
 }
 
@@ -46,6 +63,9 @@ where
     Client: ExecutionClient + Send + Sync,
     Client::AccountStream: Send,
 {
+    /// Initialises a new `ExecutionManager` and it's associated AccountStream.
+    ///
+    /// The first item of the AccountStream will be a full account snapshot.
     pub async fn init(
         request_stream: RequestStream,
         request_timeout: std::time::Duration,
@@ -189,6 +209,8 @@ where
         )
     }
 
+    /// Run the `ExecutionManager`, processing execution requests and forwarding back responses via
+    /// the AccountStream.
     pub async fn run(mut self) {
         let mut in_flight_cancels = FuturesUnordered::new();
         let mut in_flight_opens = FuturesUnordered::new();
@@ -261,7 +283,7 @@ where
                             }
                         }
                         Err(request) => {
-                            self.process_cancel_timeout(request)
+                            Self::process_cancel_timeout(request)
                         }
                     };
 
@@ -287,7 +309,7 @@ where
                             }
                         }
                         Err(request) => {
-                            self.process_open_timeout(request)
+                            Self::process_open_timeout(request)
                         }
                     };
 
@@ -300,7 +322,7 @@ where
         }
     }
 
-    pub fn process_cancel_response(
+    fn process_cancel_response(
         &self,
         order: Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedClientError>>,
     ) -> Result<AccountStreamEvent, IndexError> {
@@ -312,8 +334,7 @@ where
         }))
     }
 
-    pub fn process_cancel_timeout(
-        &self,
+    fn process_cancel_timeout(
         order: Order<ExchangeIndex, InstrumentIndex, RequestCancel>,
     ) -> AccountStreamEvent {
         let Order {
@@ -338,7 +359,7 @@ where
         })
     }
 
-    pub fn process_open_response(
+    fn process_open_response(
         &self,
         order: Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>>,
     ) -> Result<AccountStreamEvent, IndexError> {
@@ -350,8 +371,7 @@ where
         }))
     }
 
-    pub fn process_open_timeout(
-        &self,
+    fn process_open_timeout(
         order: Order<ExchangeIndex, InstrumentIndex, RequestOpen>,
     ) -> AccountStreamEvent {
         let Order {

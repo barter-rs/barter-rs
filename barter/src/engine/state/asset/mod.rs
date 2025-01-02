@@ -1,6 +1,6 @@
 use crate::{
     engine::state::asset::filter::AssetFilter, statistic::summary::asset::TearSheetAssetGenerator,
-    FnvIndexMap, Timed,
+    Timed,
 };
 use barter_execution::balance::{AssetBalance, Balance};
 use barter_instrument::{
@@ -10,25 +10,26 @@ use barter_instrument::{
     },
     index::IndexedInstruments,
 };
-use barter_integration::snapshot::Snapshot;
+use barter_integration::{collection::FnvIndexMap, snapshot::Snapshot};
 use chrono::Utc;
 use derive_more::Constructor;
 use itertools::Either;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+/// Defines an `AssetFilter`, used to filter asset-centric data structures.
 pub mod filter;
 
 /// Collection of exchange [`AssetState`]s indexed by [`AssetIndex`].
 ///
 /// Note that the same named assets on different exchanges will have their own [`AssetState`].
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub struct AssetStates(pub FnvIndexMap<ExchangeAsset<AssetNameInternal>, AssetState>);
 
 impl AssetStates {
     /// Return a reference to the `AssetState` associated with an `AssetIndex`.
     ///
-    /// Panics if `AssetState` does not exist.
+    /// Panics if the `AssetState` associated with the `AssetIndex` does not exist.
     pub fn asset_index(&self, key: &AssetIndex) -> &AssetState {
         self.0
             .get_index(key.index())
@@ -38,7 +39,7 @@ impl AssetStates {
 
     /// Return a mutable reference to the `AssetState` associated with an `AssetIndex`.
     ///
-    /// Panics if `AssetState` does not exist.
+    /// Panics if the `AssetState` associated with the `AssetIndex` does not exist.
     pub fn asset_index_mut(&mut self, key: &AssetIndex) -> &mut AssetState {
         self.0
             .get_index_mut(key.index())
@@ -48,7 +49,8 @@ impl AssetStates {
 
     /// Return a reference to the `AssetState` associated with an `ExchangeAsset<AssetNameInternal>`.
     ///
-    /// Panics if `AssetState` does not exist.
+    /// Panics if the `AssetState` associated with the `ExchangeAsset<AssetNameInternal>`
+    /// does not exist.
     pub fn asset(&self, key: &ExchangeAsset<AssetNameInternal>) -> &AssetState {
         self.0
             .get(key)
@@ -58,13 +60,15 @@ impl AssetStates {
     /// Return a mutable reference to the `AssetState` associated with an
     /// `ExchangeAsset<AssetNameInternal>`.
     ///
-    /// Panics if `AssetState` does not exist.
+    /// Panics if the `AssetState` associated with the `ExchangeAsset<AssetNameInternal>`
+    /// does not exist.
     pub fn asset_mut(&mut self, key: &ExchangeAsset<AssetNameInternal>) -> &mut AssetState {
         self.0
             .get_mut(key)
             .unwrap_or_else(|| panic!("AssetStates does not contain: {key:?}"))
     }
 
+    /// Return an `Iterator` of filtered `AssetState`s based on the provided [`AssetFilter`].
     pub fn filtered<'a>(&'a self, filter: &'a AssetFilter) -> impl Iterator<Item = &'a AssetState> {
         use filter::AssetFilter::*;
         match filter {
@@ -79,6 +83,7 @@ impl AssetStates {
         }
     }
 
+    /// Returns an `Iterator` of all `AssetState`s being tracked.
     pub fn assets(&self) -> impl Iterator<Item = &AssetState> {
         self.0.values()
     }
