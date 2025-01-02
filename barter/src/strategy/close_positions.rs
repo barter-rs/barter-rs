@@ -6,14 +6,30 @@ use barter_instrument::{
     asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex, Side,
 };
 
+/// Strategy interface for generating open and cancel order requests that close open positions.
+///
+/// This allows full customisation of how a strategy will close a position.
+///
+/// Different strategies may:
+/// - Use different order types (Market, Limit, etc.).
+/// - Prioritise certain exchanges.
+/// - Increase the position of an inversely correlated instrument in order to neutralise exposure.
+/// - etc.
 pub trait ClosePositionsStrategy<
     ExchangeKey = ExchangeIndex,
     AssetKey = AssetIndex,
     InstrumentKey = InstrumentIndex,
 >
 {
+    /// State used by the `ClosePositionsStrategy` to determine what open and cancel requests
+    /// to generate.
+    ///
+    /// For Barter ecosystem strategies, this is the full `EngineState` of the trading system.
+    ///
+    /// eg/ `EngineState<DefaultMarketState, DefaultStrategyState, DefaultRiskManagerState>`
     type State;
 
+    /// Generate orders based on current system `State`.
     fn close_positions_requests<'a>(
         &'a self,
         state: &'a Self::State,
@@ -28,6 +44,10 @@ pub trait ClosePositionsStrategy<
         InstrumentKey: 'a;
 }
 
+/// Naive `ClosePositionsStrategy` logic for closing open positions with market orders only.
+///
+/// This function finds all open positions and generates equal but opposite `Side` market orders
+/// that will neutralise the position.
 pub fn close_open_positions_with_market_orders<'a, MarketState, StrategyState, RiskState>(
     strategy_id: &'a StrategyId,
     state: &'a EngineState<MarketState, StrategyState, RiskState>,

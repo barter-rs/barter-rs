@@ -23,11 +23,31 @@ use barter_instrument::{
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
+/// Defines a strategy interface for generating algorithmic open and cancel order requests based
+/// on the current `EngineState`.
 pub mod algo;
+
+/// Defines a strategy interface for generating open and cancel order requests that close open
+/// positions.
 pub mod close_positions;
+
+/// Defines a strategy interface enables custom [`Engine`] to be performed in the event of an
+/// exchange disconnection.
 pub mod on_disconnect;
+
+/// Defines a strategy interface enables custom [`Engine`] to be performed in the event that the
+/// `TradingState` gets set to `TradingState::Disabled`.
 pub mod on_trading_disabled;
 
+/// Naive implementation of all strategy interfaces.
+///
+/// **THIS IS FOR DEMONSTRATION PURPOSES ONLY, NEVER USE FOR REAL TRADING OR IN PRODUCTION**.
+///
+/// This strategy:
+/// - Generates no algorithmic orders (AlgoStrategy).
+/// - Closes positions via the naive [`close_open_positions_with_market_orders`] logic (ClosePositionsStrategy).
+/// - Does nothing when an exchange disconnects (OnDisconnectStrategy).
+/// - Does nothing when trading state is set to disabled (OnDisconnectStrategy).
 #[derive(Debug, Clone)]
 pub struct DefaultStrategy<State> {
     pub id: StrategyId,
