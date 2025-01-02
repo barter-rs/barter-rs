@@ -4,7 +4,7 @@ use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::
 use barter_integration::collection::one_or_many::OneOrMany;
 use serde::{Deserialize, Serialize};
 
-/// Trading related command for the [`Engine`](super::Engine) to action, sent from an
+/// Trading related commands for the [`Engine`](super::Engine) to action, sent from an
 /// external process.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub enum Command<

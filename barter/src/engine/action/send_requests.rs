@@ -15,6 +15,11 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::error;
 
+/// Trait that defines how the [`Engine`] sends order requests.
+///
+/// # Type Parameters
+/// * `ExchangeKey` - Type used to identify an exchange (defaults to [`ExchangeIndex`]).
+/// * `InstrumentKey` - Type used to identify an instrument (defaults to [`InstrumentIndex`]).
 pub trait SendRequests<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     fn send_requests<Kind>(
         &self,
@@ -31,62 +36,6 @@ pub trait SendRequests<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIn
     where
         Kind: Debug + Clone,
         ExecutionRequest<ExchangeKey, InstrumentKey>: From<Order<ExchangeKey, InstrumentKey, Kind>>;
-}
-
-#[derive(
-    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
-)]
-pub struct SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey> {
-    pub cancels: SendRequestsOutput<ExchangeKey, InstrumentKey, RequestCancel>,
-    pub opens: SendRequestsOutput<ExchangeKey, InstrumentKey, RequestOpen>,
-}
-
-impl<ExchangeKey, InstrumentKey> SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey> {
-    pub fn unrecoverable_errors(&self) -> NoneOneOrMany<UnrecoverableEngineError> {
-        self.cancels
-            .unrecoverable_errors()
-            .extend(self.opens.unrecoverable_errors())
-    }
-}
-
-impl<ExchangeKey, InstrumentKey> Default for SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey> {
-    fn default() -> Self {
-        Self {
-            cancels: SendRequestsOutput::default(),
-            opens: SendRequestsOutput::default(),
-        }
-    }
-}
-
-#[derive(
-    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
-)]
-pub struct SendRequestsOutput<ExchangeKey, InstrumentKey, Kind> {
-    pub sent: NoneOneOrMany<Order<ExchangeKey, InstrumentKey, Kind>>,
-    pub errors: NoneOneOrMany<(Order<ExchangeKey, InstrumentKey, Kind>, EngineError)>,
-}
-
-impl<ExchangeKey, InstrumentKey, Kind> SendRequestsOutput<ExchangeKey, InstrumentKey, Kind> {
-    pub fn unrecoverable_errors(&self) -> NoneOneOrMany<UnrecoverableEngineError> {
-        self.errors
-            .iter()
-            .filter_map(|(_order, error)| match error {
-                EngineError::Unrecoverable(error) => Some(error.clone()),
-                _ => None,
-            })
-            .collect()
-    }
-}
-
-impl<ExchangeKey, InstrumentKey, Kind> Default
-    for SendRequestsOutput<ExchangeKey, InstrumentKey, Kind>
-{
-    fn default() -> Self {
-        Self {
-            sent: NoneOneOrMany::default(),
-            errors: NoneOneOrMany::default(),
-        }
-    }
 }
 
 impl<Clock, State, ExecutionTxs, Strategy, Risk, ExchangeKey, InstrumentKey>
@@ -159,6 +108,68 @@ where
                     )),
                 ))
             }
+        }
+    }
+}
+
+/// Summary of cancel and open order requests sent by the [`Engine`] to the `ExecutionManager`.
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
+pub struct SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey> {
+    /// Cancel order requests that were sent for execution.
+    pub cancels: SendRequestsOutput<ExchangeKey, InstrumentKey, RequestCancel>,
+    /// Open order requests that were sent for execution.
+    pub opens: SendRequestsOutput<ExchangeKey, InstrumentKey, RequestOpen>,
+}
+
+impl<ExchangeKey, InstrumentKey> SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey> {
+    /// Returns any unrecoverable errors that occurred during order request sending.
+    pub fn unrecoverable_errors(&self) -> NoneOneOrMany<UnrecoverableEngineError> {
+        self.cancels
+            .unrecoverable_errors()
+            .extend(self.opens.unrecoverable_errors())
+    }
+}
+
+impl<ExchangeKey, InstrumentKey> Default for SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey> {
+    fn default() -> Self {
+        Self {
+            cancels: SendRequestsOutput::default(),
+            opens: SendRequestsOutput::default(),
+        }
+    }
+}
+
+/// Summary of order requests (cancel _or_ open) sent by the [`Engine`] to the `ExecutionManager`.
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
+pub struct SendRequestsOutput<ExchangeKey, InstrumentKey, Kind> {
+    pub sent: NoneOneOrMany<Order<ExchangeKey, InstrumentKey, Kind>>,
+    pub errors: NoneOneOrMany<(Order<ExchangeKey, InstrumentKey, Kind>, EngineError)>,
+}
+
+impl<ExchangeKey, InstrumentKey, Kind> SendRequestsOutput<ExchangeKey, InstrumentKey, Kind> {
+    /// Returns any unrecoverable errors that occurred during order request sending.
+    pub fn unrecoverable_errors(&self) -> NoneOneOrMany<UnrecoverableEngineError> {
+        self.errors
+            .iter()
+            .filter_map(|(_order, error)| match error {
+                EngineError::Unrecoverable(error) => Some(error.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+impl<ExchangeKey, InstrumentKey, Kind> Default
+    for SendRequestsOutput<ExchangeKey, InstrumentKey, Kind>
+{
+    fn default() -> Self {
+        Self {
+            sent: NoneOneOrMany::default(),
+            errors: NoneOneOrMany::default(),
         }
     }
 }

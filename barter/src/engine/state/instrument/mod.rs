@@ -53,7 +53,7 @@ pub struct InstrumentStates<
 impl<Market> InstrumentStates<Market> {
     /// Return a reference to the `InstrumentState` associated with an `InstrumentIndex`.
     ///
-    /// Panics if `InstrumentState` does not exist.
+    /// Panics if `InstrumentState` associated with the `InstrumentIndex` does not exist.
     pub fn instrument_index(&self, key: &InstrumentIndex) -> &InstrumentState<Market> {
         self.0
             .get_index(key.index())
@@ -63,7 +63,7 @@ impl<Market> InstrumentStates<Market> {
 
     /// Return a mutable reference to the `InstrumentState` associated with an `InstrumentIndex`.
     ///
-    /// Panics if `InstrumentState` does not exist.
+    /// Panics if `InstrumentState` associated with the `InstrumentIndex` does not exist.
     pub fn instrument_index_mut(&mut self, key: &InstrumentIndex) -> &mut InstrumentState<Market> {
         self.0
             .get_index_mut(key.index())
@@ -73,7 +73,7 @@ impl<Market> InstrumentStates<Market> {
 
     /// Return a reference to the `InstrumentState` associated with an `InstrumentNameInternal`.
     ///
-    /// Panics if `InstrumentState` does not exist.
+    /// Panics if `InstrumentState` associated with the `InstrumentNameInternal` does not exist.
     pub fn instrument(&self, key: &InstrumentNameInternal) -> &InstrumentState<Market> {
         self.0
             .get(key)
@@ -83,14 +83,14 @@ impl<Market> InstrumentStates<Market> {
     /// Return a mutable reference to the `InstrumentState` associated with an
     /// `InstrumentNameInternal`.
     ///
-    /// Panics if `InstrumentState` does not exist.
+    /// Panics if `InstrumentState` associated with the `InstrumentNameInternal` does not exist.
     pub fn instrument_mut(&mut self, key: &InstrumentNameInternal) -> &mut InstrumentState<Market> {
         self.0
             .get_mut(key)
             .unwrap_or_else(|| panic!("InstrumentStates does not contain: {key}"))
     }
 
-    /// Return a filtered `Iterator` of `InstrumentState`s using the provided `InstrumentFilter`.
+    /// Return a filtered `Iterator` of `InstrumentState`s based on the provided `InstrumentFilter`.
     pub fn filtered<'a>(
         &'a self,
         filter: &'a InstrumentFilter<ExchangeIndex, AssetIndex, InstrumentIndex>,
@@ -116,7 +116,7 @@ impl<Market> InstrumentStates<Market> {
         }
     }
 
-    /// Return an `Iterator` containing every `InstrumentState`s.
+    /// Return an `Iterator` of all `InstrumentState`s being tracked.
     fn instruments(&self) -> impl Iterator<Item = &InstrumentState<Market>> {
         self.0.values()
     }
@@ -179,6 +179,7 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
     /// - Opening a new position if none exists
     /// - Updating an existing position (increase/decrease/close)
     /// - Handling position flips (close existing & open new with any remaining trade quantity)
+    /// - Updating the internal [`TearSheetGenerator`] if a position is exited.
     pub fn update_from_trade(
         &mut self,
         trade: &Trade<QuoteAsset, InstrumentKey>,

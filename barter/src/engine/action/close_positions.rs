@@ -13,12 +13,22 @@ use crate::{
 use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use std::fmt::Debug;
 
+/// Trait that defines how the [`Engine`] generates & sends order requests for closing open
+/// positions.
+///
+/// # Type Parameters
+/// * `ExchangeKey` - Type used to identify an exchange (defaults to [`ExchangeIndex`]).
+/// * `AssetKey` - Type used to identify an asset (defaults to [`AssetIndex`]).
+/// * `InstrumentKey` - Type used to identify an instrument (defaults to [`InstrumentIndex`]).
 pub trait ClosePositions<
     ExchangeKey = ExchangeIndex,
     AssetKey = AssetIndex,
     InstrumentKey = InstrumentIndex,
 >
 {
+    /// Generates and sends order requests to close open positions.
+    ///
+    /// Uses the provided [`InstrumentFilter`] to determine which positions to close.
     fn close_positions(
         &mut self,
         filter: &InstrumentFilter<ExchangeKey, AssetKey, InstrumentKey>,

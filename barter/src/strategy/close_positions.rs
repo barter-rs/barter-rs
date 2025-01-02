@@ -15,6 +15,11 @@ use barter_instrument::{
 /// - Prioritise certain exchanges.
 /// - Increase the position of an inversely correlated instrument in order to neutralise exposure.
 /// - etc.
+///
+/// # Type Parameters
+/// * `ExchangeKey` - Type used to identify an exchange (defaults to [`ExchangeIndex`]).
+/// * `AssetKey` - Type used to identify an asset (defaults to [`AssetIndex`]).
+/// * `InstrumentKey` - Type used to identify an instrument (defaults to [`InstrumentIndex`]).
 pub trait ClosePositionsStrategy<
     ExchangeKey = ExchangeIndex,
     AssetKey = AssetIndex,

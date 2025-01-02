@@ -37,20 +37,47 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::info;
 
+/// Defines how the [`Engine`] actions a [`Command`], and the associated outputs.
 pub mod action;
+
+/// Todo:
 pub mod audit;
-pub mod builder;
+
+/// Defines the [`EngineClock`] interface used to determine the current `Engine` time.
+///
+/// This flexibility enables back-testing runs to use approximately correct historical timestamps.
 pub mod clock;
+
+/// Defines an [`Engine`] [`Command`] - used to give trading directives to the `Engine` from an
+/// external process (eg/ ClosePositions).
 pub mod command;
+
+/// Defines all possible errors that can occur in the [`Engine`].
 pub mod error;
+
+/// Defines the [`ExecutionTxMap`] interface that models a collection of transmitters used to route
+/// can [`ExecutionRequest`] to the appropriate `ExecutionManagers`.
 pub mod execution_tx;
+
+/// Todo:
 pub mod state;
 
+/// Defines how a component processing an input Event and generates an appropriate Output.
 pub trait Processor<Event> {
     type Output;
     fn process(&mut self, event: Event) -> Self::Output;
 }
 
+/// Primary `Engine` entry point that processes input `Events` and forwards audits to the provided
+/// `AuditTx`.
+///
+/// Runs until shutdown, returning a [`ShutdownAudit`] detailing the reason for the shutdown
+/// (eg/ `Events` `FeedEnded`, `Command::Shutdown`, etc.).
+///
+/// # Arguments
+/// * `Events` - Iterator of events for the `Engine` to process.
+/// * `Engine` - Event processor that produces audit events as output.
+/// * `AuditTx` - Channel for sending produced audit events.
 pub fn run<Events, Engine, AuditTx>(
     feed: &mut Events,
     engine: &mut Engine,
@@ -95,6 +122,19 @@ where
     shutdown_audit
 }
 
+/// Algorithmic trading `Engine`.
+///
+/// The `Engine`:
+/// * Processes input [`EngineEvent`] (or custom events if implemented).
+/// * Maintains the internal [`EngineState`] (market data state, open orders, positions, etc.).
+/// * Generates algo orders (if `TradingState::Enabled`).
+///
+/// # Type Parameters
+/// * `Clock` - [`EngineClock`] implementation.
+/// * `State` - Engine `State` implementation (eg/ [`EngineState`]).
+/// * `ExecutionTxs` - [`ExecutionTxMap`] implementation for sending execution requests.
+/// * `Strategy` - Trading Strategy implementation (see [`super::strategy`]).
+/// * `Risk` - [`RiskManager`] implementation.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Engine<Clock, State, ExecutionTxs, Strategy, Risk> {
     pub clock: Clock,
@@ -105,9 +145,12 @@ pub struct Engine<Clock, State, ExecutionTxs, Strategy, Risk> {
     pub risk: Risk,
 }
 
+/// Running [`Engine`] metadata.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct EngineMeta {
+    /// [`EngineClock`] start timestamp of the current [`Engine`] `run`.
     pub time_start: DateTime<Utc>,
+    /// Monotonically increasing [`Sequence`] associated with the number of events processed.
     pub sequence: Sequence,
 }
 
@@ -208,6 +251,7 @@ where
 impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
     Engine<Clock, EngineState<MarketState, StrategyState, RiskState>, ExecutionTxs, Strategy, Risk>
 {
+    /// Action an `Engine` [`Command`], producing an [`ActionOutput`] of work done.
     pub fn action(&mut self, command: &Command) -> ActionOutput
     where
         ExecutionTxs: ExecutionTxMap,
@@ -242,6 +286,10 @@ impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
         }
     }
 
+    /// Update the `Engine` [`TradingState`].
+    ///
+    /// If the `TradingState` transitions to `TradingState::Disabled`, the `Engine` will call
+    /// the configured [`OnTradingDisabled`] strategy logic.
     pub fn update_from_trading_state_update(
         &mut self,
         update: TradingState,
@@ -261,6 +309,10 @@ impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
             .then(|| Strategy::on_trading_disabled(self))
     }
 
+    /// Update the [`Engine`] from an [`AccountStreamEvent`].
+    ///
+    /// If the input `AccountStreamEvent` indicates the exchange execution link has disconnected,
+    /// the `Engine` will call the configured [`OnDisconnectStrategy`] strategy logic.
     pub fn update_from_account_stream(
         &mut self,
         event: &AccountStreamEvent,
@@ -289,6 +341,10 @@ impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
         }
     }
 
+    /// Update the [`Engine`] from a [`MarketStreamEvent`].
+    ///
+    /// If the input `MarketStreamEvent` indicates the exchange market data link has disconnected,
+    /// the `Engine` will call the configured [`OnDisconnectStrategy`] strategy logic.
     pub fn update_from_market_stream(
         &mut self,
         event: &MarketStreamEvent<InstrumentIndex, MarketState::EventKind>,
@@ -318,6 +374,7 @@ impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
         }
     }
 
+    /// Returns a [`TradingSummaryGenerator`] for the current trading session.
     pub fn trading_summary_generator(&self, risk_free_return: Decimal) -> TradingSummaryGenerator
     where
         Clock: EngineClock,
@@ -400,6 +457,7 @@ where
     }
 }
 
+/// Output produced by [`Engine`] operations, used to construct an `Engine` [`Audit`].
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub enum EngineOutput<
     OnTradingDisabled,

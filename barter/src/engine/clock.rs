@@ -5,10 +5,18 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, ops::Add};
 use tracing::{debug, warn};
 
+/// Defines how an [`Engine`](super::Engine) will determine the current time.
+///
+/// Generally an `Engine` will use a:
+/// * [`LiveClock`] for live-trading.
+/// * [`HistoricalClock`] for back-testing.
 pub trait EngineClock {
     fn time(&self) -> DateTime<Utc>;
 }
 
+/// Defines how to extract an "exchange timestamp" from an event.
+///
+/// Used by a [`HistoricalClock`] to assist deriving the "current" `Engine` time.
 pub trait TimeExchange {
     fn time_exchange(&self) -> Option<DateTime<Utc>>;
 }
@@ -39,6 +47,7 @@ pub struct HistoricalClock {
 }
 
 impl HistoricalClock {
+    /// Construct a new `HistoricalClock` using the provided `last_exchange_time` as a seed.
     pub fn new(last_exchange_time: DateTime<Utc>) -> Self {
         Self {
             time_exchange_last: last_exchange_time,

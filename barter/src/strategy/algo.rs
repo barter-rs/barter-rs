@@ -3,6 +3,10 @@ use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 
 /// Strategy interface for generating algorithmic open and cancel order requests based on the
 /// current `EngineState`.
+///
+/// # Type Parameters
+/// * `ExchangeKey` - Type used to identify an exchange (defaults to [`ExchangeIndex`]).
+/// * `InstrumentKey` - Type used to identify an instrument (defaults to [`InstrumentIndex`]).
 pub trait AlgoStrategy<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     /// State used by the `AlgoStrategy` to determine what open and cancel requests to generate.
     ///

@@ -15,7 +15,7 @@
 //! # Barter
 //! [`Barter`] is an open-source Rust framework for building **event-driven live-trading & back-testing systems**.
 //! Algorithmic trade with the peace of mind that comes from knowing your strategies have been
-//! backtested with a near-identical trading Engine.
+//! back-tested with a near-identical trading system.
 //! It is:
 //! * **Fast**: Barter provides a multithreaded trading Engine framework built in high-performance Rust (in-rust-we-trust).
 //! * **Easy**: Barter provides a modularised data architecture that focuses on simplicity.
@@ -26,8 +26,10 @@
 //!
 //! ## Overview
 //! Barter is an open-source Rust framework for building **event-driven live-trading & backtesting systems**. It provides
-//! a high-performance, easy to customise, trading Engine that enables backtesting strategies on a near-identical system
-//! to live trading. The Engine can be **controlled by issuing Commands** over the Engine's command_tx. Similarly,
+//! a high-performance, easy to customise trading Engine that enables backtesting strategies on a near-identical system
+//! to live trading.
+//!
+//! The Engine can be **controlled by issuing Commands** over the Engine's command_tx. Similarly,
 //! the **Engine's Events can be listened to using the event_rx** (useful for event-sourcing). At a high level,
 //! it provides several de-coupled components that interact via a set of traits:
 

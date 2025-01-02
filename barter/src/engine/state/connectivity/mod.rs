@@ -21,11 +21,20 @@ pub struct ConnectivityStates {
 }
 
 impl ConnectivityStates {
+    /// Updates from an exchange AccountStream disconnection.
+    ///
+    /// Sets the account `ConnectivityState` for the provided `ExchangeId`
+    /// to [`Health::Reconnecting`].
     pub fn update_from_account_reconnecting(&mut self, exchange: &ExchangeId) {
         warn!(%exchange, "EngineState received AccountStream disconnected event");
         self.connectivity_mut(exchange).account = Health::Reconnecting
     }
 
+    /// Updates from an exchange AccountStream event, setting the `ConnectivityState` account
+    /// connection to [`Health::Healthy`] if it was not previously.
+    ///
+    /// If after the update all `ConnectivityState`s are healthy, the global health is set to
+    /// `Health::Healthy`.
     pub fn update_from_account_event(&mut self, exchange: &ExchangeIndex) {
         if self.global == Health::Healthy {
             return;
@@ -48,11 +57,20 @@ impl ConnectivityStates {
         }
     }
 
+    /// Updates from an exchange MarketStream disconnection.
+    ///
+    /// Sets the market data `ConnectivityState` for the provided `ExchangeId`
+    /// to [`Health::Reconnecting`].
     pub fn update_from_market_reconnecting(&mut self, exchange: &ExchangeId) {
         warn!(%exchange, "EngineState received MarketStream disconnect event");
         self.connectivity_mut(exchange).market_data = Health::Reconnecting
     }
 
+    /// Updates from an exchange MarketStream event, setting the `ConnectivityState` market data
+    /// connection to [`Health::Healthy`] if it was not previously.
+    ///
+    /// If after the update all `ConnectivityState`s are healthy, the global health is set to
+    /// `Health::Healthy`.
     pub fn update_from_market_event(&mut self, exchange: &ExchangeId) {
         if self.global == Health::Healthy {
             return;
@@ -75,6 +93,10 @@ impl ConnectivityStates {
         }
     }
 
+    /// Returns a reference to the `ConnectivityState` associated with the
+    /// provided `ExchangeIndex`.
+    ///
+    /// Panics if the `ConnectivityState` associated with the `ExchangeIndex` is not found.
     pub fn connectivity_index(&self, key: &ExchangeIndex) -> &ConnectivityState {
         self.exchanges
             .get_index(key.index())
@@ -82,6 +104,10 @@ impl ConnectivityStates {
             .unwrap_or_else(|| panic!("ConnectivityStates does not contain: {key}"))
     }
 
+    /// Returns a mutable reference to the `ConnectivityState` associated with the
+    /// provided `ExchangeIndex`.
+    ///
+    /// Panics if the `ConnectivityState` associated with the `ExchangeIndex` is not found.
     pub fn connectivity_index_mut(&mut self, key: &ExchangeIndex) -> &mut ConnectivityState {
         self.exchanges
             .get_index_mut(key.index())
@@ -89,22 +115,32 @@ impl ConnectivityStates {
             .unwrap_or_else(|| panic!("ConnectivityStates does not contain: {key}"))
     }
 
+    /// Returns a reference to the `ConnectivityState` associated with the
+    /// provided `ExchangeId`.
+    ///
+    /// Panics if the `ConnectivityState` associated with the `ExchangeId` is not found.
     pub fn connectivity(&self, key: &ExchangeId) -> &ConnectivityState {
         self.exchanges
             .get(key)
             .unwrap_or_else(|| panic!("ConnectivityStates does not contain: {key}"))
     }
 
+    /// Returns a mutable reference to the `ConnectivityState` associated with the
+    /// provided `ExchangeId`.
+    ///
+    /// Panics if the `ConnectivityState` associated with the `ExchangeId` is not found.
     pub fn connectivity_mut(&mut self, key: &ExchangeId) -> &mut ConnectivityState {
         self.exchanges
             .get_mut(key)
             .unwrap_or_else(|| panic!("ConnectivityStates does not contain: {key}"))
     }
 
+    /// Return an `Iterator` of the `ExchangeId`s being tracked.
     pub fn exchange_ids(&self) -> impl Iterator<Item = &ExchangeId> {
         self.exchanges.keys()
     }
 
+    /// Return an `Iterator` of all `ConnectivityState`s being tracked.
     pub fn exchange_states(&self) -> impl Iterator<Item = &ConnectivityState> {
         self.exchanges.values()
     }

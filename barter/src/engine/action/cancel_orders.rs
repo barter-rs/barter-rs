@@ -11,18 +11,25 @@ use crate::engine::{
 use barter_execution::order::{Order, RequestCancel};
 use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 
+/// Trait that defines how the [`Engine`] cancels open order requests.
+///
+/// # Type Parameters
+/// * `ExchangeKey` - Type used to identify an exchange (defaults to [`ExchangeIndex`]).
+/// * `AssetKey` - Type used to identify an asset (defaults to [`AssetIndex`]).
+/// * `InstrumentKey` - Type used to identify an instrument (defaults to [`InstrumentIndex`]).
 pub trait CancelOrders<
     ExchangeKey = ExchangeIndex,
     AssetKey = AssetIndex,
     InstrumentKey = InstrumentIndex,
 >
 {
-    type Output;
-
+    /// Generates cancel order requests.
+    ///
+    /// Uses the provided [`InstrumentFilter`] to determine which orders to cancel.
     fn cancel_orders(
         &mut self,
         filter: &InstrumentFilter<ExchangeKey, AssetKey, InstrumentKey>,
-    ) -> Self::Output;
+    ) -> SendRequestsOutput<ExchangeKey, InstrumentKey, RequestCancel>;
 }
 
 impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk> CancelOrders
@@ -36,12 +43,10 @@ impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
 where
     ExecutionTxs: ExecutionTxMap,
 {
-    type Output = SendRequestsOutput<ExchangeIndex, InstrumentIndex, RequestCancel>;
-
     fn cancel_orders(
         &mut self,
         filter: &InstrumentFilter<ExchangeIndex, AssetIndex, InstrumentIndex>,
-    ) -> Self::Output {
+    ) -> SendRequestsOutput<ExchangeIndex, InstrumentIndex, RequestCancel> {
         let requests = self
             .state
             .instruments

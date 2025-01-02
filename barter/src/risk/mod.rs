@@ -19,6 +19,10 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 /// - Adjust order quantities.
 /// - Filter out orders that would cross the OrderBook.
 /// - etc.
+///
+/// # Type Parameters
+/// * `ExchangeKey` - Type used to identify an exchange (defaults to [`ExchangeIndex`]).
+/// * `InstrumentKey` - Type used to identify an instrument (defaults to [`InstrumentIndex`]).
 pub trait RiskManager<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     type State;
 
