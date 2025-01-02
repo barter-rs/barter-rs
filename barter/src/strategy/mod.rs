@@ -4,20 +4,21 @@ use crate::{
         Engine, Processor,
     },
     strategy::{
-        algo::AlgoStrategy, close_positions::ClosePositionsStrategy,
-        on_disconnect::OnDisconnectStrategy, on_trading_disabled::OnTradingDisabled,
+        algo::AlgoStrategy,
+        close_positions::{close_open_positions_with_market_orders, ClosePositionsStrategy},
+        on_disconnect::OnDisconnectStrategy,
+        on_trading_disabled::OnTradingDisabled,
     },
 };
 use barter_data::event::MarketEvent;
 use barter_execution::{
-    order::{ClientOrderId, Order, OrderKind, RequestCancel, RequestOpen, StrategyId, TimeInForce},
+    order::{Order, RequestCancel, RequestOpen, StrategyId},
     AccountEvent,
 };
 use barter_instrument::{
     asset::AssetIndex,
     exchange::{ExchangeId, ExchangeIndex},
     instrument::InstrumentIndex,
-    Side,
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -76,28 +77,7 @@ impl<MarketState, StrategyState, RiskState> ClosePositionsStrategy
         AssetIndex: 'a,
         InstrumentIndex: 'a,
     {
-        let open_requests = state.instruments.filtered(filter).filter_map(|state| {
-            let position = state.position.as_ref()?;
-
-            Some(Order {
-                exchange: state.instrument.exchange,
-                instrument: position.instrument,
-                strategy: self.id.clone(),
-                cid: ClientOrderId::default(),
-                side: match position.side {
-                    Side::Buy => Side::Sell,
-                    Side::Sell => Side::Buy,
-                },
-                state: RequestOpen {
-                    kind: OrderKind::Market,
-                    time_in_force: TimeInForce::ImmediateOrCancel,
-                    price: Default::default(),
-                    quantity: position.quantity_abs,
-                },
-            })
-        });
-
-        (std::iter::empty(), open_requests)
+        close_open_positions_with_market_orders(&self.id, state, filter)
     }
 }
 

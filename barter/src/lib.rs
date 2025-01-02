@@ -77,12 +77,6 @@ pub mod risk;
 pub mod statistic;
 pub mod strategy;
 
-// Todo: Must: Final Requirements
-//  - Comprehensive rust docs & check output
-//  - Comprehensive rust examples
-//  - Comprehensive readme.md for each crate & workspace
-//  - Comprehensive rust tests
-
 #[derive(
     Debug,
     Copy,
@@ -163,7 +157,7 @@ pub mod test_utils {
     use barter_instrument::{
         asset::QuoteAsset, instrument::name::InstrumentNameInternal, test_utils::asset, Side,
     };
-    use chrono::{DateTime, Days, Utc};
+    use chrono::{DateTime, Days, TimeDelta, Utc};
     use rust_decimal::Decimal;
 
     pub fn f64_is_eq(actual: f64, expected: f64, epsilon: f64) -> bool {
@@ -184,6 +178,20 @@ pub mod test_utils {
 
     pub fn time_plus_days(base: DateTime<Utc>, plus: u64) -> DateTime<Utc> {
         base.checked_add_days(Days::new(plus)).unwrap()
+    }
+
+    pub fn time_plus_secs(base: DateTime<Utc>, plus: i64) -> DateTime<Utc> {
+        base.checked_add_signed(TimeDelta::seconds(plus)).unwrap()
+    }
+
+    pub fn time_plus_millis(base: DateTime<Utc>, plus: i64) -> DateTime<Utc> {
+        base.checked_add_signed(TimeDelta::milliseconds(plus))
+            .unwrap()
+    }
+
+    pub fn time_plus_micros(base: DateTime<Utc>, plus: i64) -> DateTime<Utc> {
+        base.checked_add_signed(TimeDelta::microseconds(plus))
+            .unwrap()
     }
 
     pub fn trade(
