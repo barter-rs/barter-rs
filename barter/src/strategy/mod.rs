@@ -41,7 +41,7 @@ pub mod on_trading_disabled;
 
 /// Naive implementation of all strategy interfaces.
 ///
-/// **THIS IS FOR DEMONSTRATION PURPOSES ONLY, NEVER USE FOR REAL TRADING OR IN PRODUCTION**.
+/// *THIS IS FOR DEMONSTRATION PURPOSES ONLY, NEVER USE FOR REAL TRADING OR IN PRODUCTION*.
 ///
 /// This strategy:
 /// - Generates no algorithmic orders (AlgoStrategy).
@@ -124,6 +124,7 @@ impl<Clock, State, ExecutionTxs, Risk> OnTradingDisabled<Clock, State, Execution
     }
 }
 
+/// Empty strategy state that can be used for strategies that require no specific global state.
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize,
 )]
