@@ -12,15 +12,19 @@ use std::{
 /// and [`InstrumentIndex`].
 pub type IndexedExecutionRequest = ExecutionRequest<ExchangeIndex, InstrumentIndex>;
 
+/// Represents an `Engine` request to the `ExecutionManager`.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, From)]
 pub enum ExecutionRequest<ExchangeKey, InstrumentKey> {
+    /// Request to cancel an existing `Order`.
     Cancel(Order<ExchangeKey, InstrumentKey, RequestCancel>),
+
+    /// Request to open an new `Order`.
     Open(Order<ExchangeKey, InstrumentKey, RequestOpen>),
 }
 
 #[derive(Debug)]
 #[pin_project::pin_project]
-pub struct RequestFuture<Request, ResponseFut> {
+pub(super) struct RequestFuture<Request, ResponseFut> {
     request: Request,
     #[pin]
     response_future: tokio::time::Timeout<ResponseFut>,
