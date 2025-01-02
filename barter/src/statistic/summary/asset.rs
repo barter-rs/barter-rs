@@ -53,10 +53,16 @@ impl TearSheetAssetGenerator {
     }
 
     /// Generate the latest [`TearSheetAsset`].
-    pub fn generate(&self) -> TearSheetAsset {
+    pub fn generate(&mut self) -> TearSheetAsset {
+        let current_drawdown = self.drawdown.generate();
+        if let Some(drawdown) = &current_drawdown {
+            self.drawdown_mean.update(drawdown);
+            self.drawdown_max.update(drawdown);
+        }
+
         TearSheetAsset {
             balance_end: self.balance_now,
-            drawdown: self.drawdown.generate(),
+            drawdown: current_drawdown,
             drawdown_mean: self.drawdown_mean.generate(),
             drawdown_max: self.drawdown_max.generate(),
         }

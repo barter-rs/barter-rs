@@ -140,13 +140,13 @@ impl TradingSummaryGenerator {
     ///
     /// For example, pass [`Annual365`](super::time::Annual365) to generate a crypto-centric
     /// (24/7 trading) annualised [`TradingSummary`].
-    pub fn generate<Interval>(&self, interval: Interval) -> TradingSummary<Interval>
+    pub fn generate<Interval>(&mut self, interval: Interval) -> TradingSummary<Interval>
     where
         Interval: TimeInterval,
     {
         let instruments = self
             .instruments
-            .iter()
+            .iter_mut()
             .map(|(instrument, tear_sheet)| {
                 (
                     instrument.clone(),
@@ -157,7 +157,7 @@ impl TradingSummaryGenerator {
 
         let assets = self
             .assets
-            .iter()
+            .iter_mut()
             .map(|(asset, tear_sheet)| (asset.clone(), tear_sheet.generate()))
             .collect();
 
