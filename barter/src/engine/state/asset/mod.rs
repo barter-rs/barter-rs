@@ -17,6 +17,7 @@ use itertools::Either;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+/// Defines an `AssetFilter`, used to filter asset-centric data structures.
 pub mod filter;
 
 /// Collection of exchange [`AssetState`]s indexed by [`AssetIndex`].

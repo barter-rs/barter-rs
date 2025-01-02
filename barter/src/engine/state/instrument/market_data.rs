@@ -36,6 +36,11 @@ where
     fn price(&self) -> Option<Decimal>;
 }
 
+/// Basic [`MarketDataState`] that tracks the [`OrderBookL1`] and last traded price for an
+/// instrument.
+///
+/// Trading strategies may wish to maintain more data here, such as candles, indicators,
+/// L2 book, etc.
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize, Constructor,
 )]

@@ -1,6 +1,6 @@
 use barter::{
     engine::{
-        audit::{manager::state_replica::StateReplicaManager, Auditor},
+        audit::{state_replica::StateReplicaManager, Auditor},
         clock::{EngineClock, LiveClock},
         command::Command,
         run,

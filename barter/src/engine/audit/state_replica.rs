@@ -1,8 +1,7 @@
 use crate::{
     engine::{
         audit::{
-            context::EngineContext, manager::AUDIT_REPLICA_STATE_UPDATE_SPAN_NAME,
-            shutdown::ShutdownAudit, Audit, AuditTick, DefaultAuditTick,
+            context::EngineContext, shutdown::ShutdownAudit, Audit, AuditTick, DefaultAuditTick,
         },
         state::{instrument::market_data::MarketDataState, EngineState},
         EngineMeta, Processor,
@@ -16,6 +15,12 @@ use barter_instrument::instrument::InstrumentIndex;
 use serde::{Deserialize, Serialize};
 use tracing::{info, info_span};
 
+pub const AUDIT_REPLICA_STATE_UPDATE_SPAN_NAME: &str = "audit_replica_state_update_span";
+
+/// Manages a replica of an `EngineState` instance by processing AuditStream events produced by
+/// the `Engine`.
+///
+/// Useful for supporting non-hot path trading system components such as UIs, web apps, etc.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct StateReplicaManager<State> {
     pub meta_start: EngineMeta,
@@ -31,6 +36,7 @@ where
     RiskState: for<'a> Processor<&'a AccountEvent>
         + for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
 {
+    /// Construct a new `StateReplicaManager` using the provided `EngineState` snapshot as a seed.
     pub fn new(
         snapshot: AuditTick<EngineState<MarketState, StrategyState, RiskState>, EngineContext>,
     ) -> Self {
@@ -43,6 +49,8 @@ where
         }
     }
 
+    /// Run the `StateReplicaManager`, managing a replica of an `EngineState` instance by processing
+    /// AuditStream events produced by an `Engine`.
     pub fn run<AuditIter, OnDisable, OnDisconnect>(
         &mut self,
         feed: &mut AuditIter,
@@ -111,6 +119,7 @@ where
         Ok(())
     }
 
+    /// Updates the internal `EngineState` using the provided `EngineEvent`.
     pub fn update_from_event(&mut self, event: EngineEvent<MarketState::EventKind>) {
         match event {
             EngineEvent::Shutdown | EngineEvent::Command(_) => {
@@ -145,6 +154,7 @@ where
         }
     }
 
+    /// Returns a reference to the `EngineState` replica.
     pub fn replica_engine_state(&self) -> &EngineState<MarketState, StrategyState, RiskState> {
         &self.state_replica.event
     }

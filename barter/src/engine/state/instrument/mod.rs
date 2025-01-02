@@ -28,9 +28,10 @@ use itertools::Either;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+/// Defines the instrument-centric [`MarketDataState`] interface.
 pub mod market_data;
 
-/// Defines an `InstrumentFilter` filter, used to filter instrument-centric data structures.
+/// Defines an `InstrumentFilter`, used to filter instrument-centric data structures.
 pub mod filter;
 
 /// Collection of [`InstrumentState`]s indexed by [`InstrumentIndex`].
