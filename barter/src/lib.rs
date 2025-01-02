@@ -83,9 +83,6 @@ pub mod strategy;
 //  - Comprehensive readme.md for each crate & workspace
 //  - Comprehensive rust tests
 
-pub type FnvIndexMap<K, V> = indexmap::IndexMap<K, V, fnv::FnvBuildHasher>;
-pub type FnvIndexSet<T> = indexmap::IndexSet<T, fnv::FnvBuildHasher>;
-
 #[derive(
     Debug,
     Copy,

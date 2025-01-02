@@ -8,12 +8,12 @@ use crate::{
         time::TimeInterval,
     },
 };
-use barter_execution::{balance::AssetBalance, FnvIndexMap};
+use barter_execution::balance::AssetBalance;
 use barter_instrument::{
     asset::{name::AssetNameInternal, AssetIndex, ExchangeAsset},
     instrument::{name::InstrumentNameInternal, InstrumentIndex},
 };
-use barter_integration::snapshot::Snapshot;
+use barter_integration::{collection::FnvIndexMap, snapshot::Snapshot};
 use chrono::{DateTime, TimeDelta, Utc};
 use derive_more::Constructor;
 use rust_decimal::Decimal;

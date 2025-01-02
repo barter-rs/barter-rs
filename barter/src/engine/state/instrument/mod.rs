@@ -5,7 +5,6 @@ use crate::{
         position::{Position, PositionExited},
     },
     statistic::summary::instrument::TearSheetGenerator,
-    FnvIndexMap,
 };
 use barter_data::event::MarketEvent;
 use barter_execution::{
@@ -22,7 +21,7 @@ use barter_instrument::{
         Instrument, InstrumentIndex,
     },
 };
-use barter_integration::snapshot::Snapshot;
+use barter_integration::{collection::FnvIndexMap, snapshot::Snapshot};
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use itertools::Either;

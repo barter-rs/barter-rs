@@ -1,14 +1,13 @@
 use crate::{
     engine::error::UnrecoverableEngineError,
     execution::request::{ExecutionRequest, IndexedExecutionRequest},
-    FnvIndexMap,
 };
 use barter_instrument::{
     exchange::{ExchangeId, ExchangeIndex},
     index::error::IndexError,
     instrument::InstrumentIndex,
 };
-use barter_integration::channel::Tx;
+use barter_integration::{channel::Tx, collection::FnvIndexMap};
 use std::fmt::Debug;
 
 /// Collection of [`ExecutionRequest`] [`Tx`]s for each
