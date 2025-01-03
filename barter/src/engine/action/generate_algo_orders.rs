@@ -97,6 +97,13 @@ impl<ExchangeKey, InstrumentKey> GenerateAlgoOrdersOutput<ExchangeKey, Instrumen
         }
     }
 
+    /// Returns `true` if no `GenerateAlgoOrdersOutput` is completely empty.
+    pub fn is_empty(&self) -> bool {
+        self.cancels_and_opens.is_empty()
+            && self.cancels_refused.is_none()
+            && self.opens_refused.is_none()
+    }
+
     /// Returns any unrecoverable errors that occurred during order request generation & sending.
     pub fn unrecoverable_errors(&self) -> Option<OneOrMany<UnrecoverableEngineError>> {
         self.cancels_and_opens.unrecoverable_errors().into_option()

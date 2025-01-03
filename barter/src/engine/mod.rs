@@ -89,7 +89,7 @@ where
     Engine: Processor<Events::Item> + Auditor<Engine::Output, Context = EngineContext>,
     Engine::Output: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item>>,
     AuditTx: Tx<Item = AuditTick<Engine::Output, EngineContext>>,
-    Option<ShutdownAudit<Events::Item>>: for<'a> From<&'a Engine::Output>,
+    Option<ShutdownAudit<Events::Item>>: for<'a> From<&'a AuditTick<Engine::Output, EngineContext>>,
 {
     info!("Engine running");
 
@@ -103,12 +103,14 @@ where
             break ShutdownAudit::FeedEnded;
         };
 
-        // Process Event & check if Output indicates shutdown is required
-        let audit_kind = engine.process(event);
-        let shutdown = Option::<ShutdownAudit<Events::Item>>::from(&audit_kind);
+        // Process Event with AuditTick generation
+        let audit = process_with_audit(engine, event);
+
+        // Check if AuditTick indicates shutdown is required
+        let shutdown = Option::<ShutdownAudit<Events::Item>>::from(&audit);
 
         // Send AuditTick to AuditManager
-        audit_tx.send(engine.audit(audit_kind));
+        audit_tx.send(audit);
 
         if let Some(shutdown) = shutdown {
             break shutdown;
@@ -120,6 +122,19 @@ where
 
     info!(?shutdown_audit, "Engine shutting down");
     shutdown_audit
+}
+
+// Todo: rust docs
+pub fn process_with_audit<Event, Engine>(
+    engine: &mut Engine,
+    event: Event,
+) -> AuditTick<Engine::Output, EngineContext>
+where
+    Engine: Processor<Event> + Auditor<Engine::Output, Context = EngineContext>,
+    Engine::Output: From<Engine::Snapshot> + From<ShutdownAudit<Event>>,
+{
+    let output = engine.process(event);
+    engine.audit(output)
 }
 
 /// Algorithmic trading `Engine`.
@@ -237,7 +252,10 @@ where
 
         if let TradingState::Enabled = self.state.trading {
             let output = self.generate_algo_orders();
-            if let Some(unrecoverable) = output.unrecoverable_errors() {
+
+            if output.is_empty() {
+                Audit::process(event)
+            } else if let Some(unrecoverable) = output.unrecoverable_errors() {
                 Audit::shutdown_on_err_with_output(event, unrecoverable, output)
             } else {
                 Audit::process_with_output(event, output)

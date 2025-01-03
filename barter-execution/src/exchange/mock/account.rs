@@ -90,7 +90,7 @@ impl From<UnindexedAccountSnapshot> for AccountState {
                     match order.state {
                         ExchangeOrderState::Open(open) => {
                             orders_open.insert(
-                                order.cid,
+                                order.cid.clone(),
                                 Order {
                                     exchange: order.exchange,
                                     instrument: order.instrument,
@@ -103,12 +103,12 @@ impl From<UnindexedAccountSnapshot> for AccountState {
                         }
                         ExchangeOrderState::Cancelled(cancelled) => {
                             orders_cancelled.insert(
-                                order.cid,
+                                order.cid.clone(),
                                 Order {
                                     exchange: order.exchange,
                                     instrument: order.instrument,
                                     strategy: order.strategy,
-                                    cid: order.cid,
+                                    cid: order.cid.clone(),
                                     side: order.side,
                                     state: cancelled,
                                 },

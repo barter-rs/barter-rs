@@ -275,7 +275,7 @@ where
                     exchange,
                     instrument: instrument.name_exchange.clone(),
                     strategy: strategy.clone(),
-                    cid: *cid,
+                    cid: cid.clone(),
                     side: *side,
                     state: ExchangeOrderState::Open(open.clone()),
                 })

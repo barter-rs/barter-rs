@@ -72,7 +72,7 @@ where
     ) where
         AssetKey: Debug,
     {
-        match (self.0.entry(response.cid), &response.state) {
+        match (self.0.entry(response.cid.clone()), &response.state) {
             (Entry::Occupied(mut order), Ok(new_open)) => match &order.get().state {
                 InternalOrderState::OpenInFlight(_) => {
                     debug!(
@@ -128,7 +128,7 @@ where
                     response.exchange.clone(),
                     response.instrument.clone(),
                     response.strategy.clone(),
-                    response.cid,
+                    response.cid.clone(),
                     response.side,
                     InternalOrderState::from(new_open.clone()),
                 ));
@@ -220,7 +220,7 @@ where
     ) where
         AssetKey: Debug,
     {
-        match (self.0.entry(response.cid), &response.state) {
+        match (self.0.entry(response.cid.clone()), &response.state) {
             (Entry::Occupied(order), Ok(_new_cancel)) => match &order.get().state {
                 InternalOrderState::OpenInFlight(_) => {
                     debug!(
@@ -329,7 +329,7 @@ where
         &mut self,
         snapshot: Snapshot<&Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>,
     ) {
-        match self.0.entry(snapshot.0.cid) {
+        match self.0.entry(snapshot.0.cid.clone()) {
             Entry::Occupied(mut order) => match &snapshot.0.state {
                 ExchangeOrderState::Cancelled(_) => {
                     debug!(
@@ -480,7 +480,7 @@ where
                         snapshot.0.exchange.clone(),
                         snapshot.0.instrument.clone(),
                         snapshot.0.strategy.clone(),
-                        snapshot.0.cid,
+                        snapshot.0.cid.clone(),
                         snapshot.0.side,
                         InternalOrderState::Open(exchange_open.clone()),
                     ));
@@ -500,7 +500,8 @@ where
         &mut self,
         request: &Order<ExchangeKey, InstrumentKey, RequestCancel>,
     ) {
-        if let Some(duplicate_cid_order) = self.0.insert(request.cid, Order::from(request)) {
+        if let Some(duplicate_cid_order) = self.0.insert(request.cid.clone(), Order::from(request))
+        {
             error!(
                 cid = %duplicate_cid_order.cid,
                 event = ?duplicate_cid_order,
@@ -510,7 +511,8 @@ where
     }
 
     fn record_in_flight_open(&mut self, request: &Order<ExchangeKey, InstrumentKey, RequestOpen>) {
-        if let Some(duplicate_cid_order) = self.0.insert(request.cid, Order::from(request)) {
+        if let Some(duplicate_cid_order) = self.0.insert(request.cid.clone(), Order::from(request))
+        {
             error!(
                 cid = %duplicate_cid_order.cid,
                 event = ?duplicate_cid_order,

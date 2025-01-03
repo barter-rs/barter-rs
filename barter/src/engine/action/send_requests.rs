@@ -124,6 +124,11 @@ pub struct SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey> {
 }
 
 impl<ExchangeKey, InstrumentKey> SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey> {
+    /// Returns `true` if no `SendCancelsAndOpensOutput` is completely empty.
+    pub fn is_empty(&self) -> bool {
+        self.cancels.is_empty() && self.opens.is_empty()
+    }
+
     /// Returns any unrecoverable errors that occurred during order request sending.
     pub fn unrecoverable_errors(&self) -> NoneOneOrMany<UnrecoverableEngineError> {
         self.cancels
@@ -151,6 +156,11 @@ pub struct SendRequestsOutput<ExchangeKey, InstrumentKey, Kind> {
 }
 
 impl<ExchangeKey, InstrumentKey, Kind> SendRequestsOutput<ExchangeKey, InstrumentKey, Kind> {
+    /// Returns `true` if no `SendRequestsOutput` is completely empty.
+    pub fn is_empty(&self) -> bool {
+        self.sent.is_none() && self.errors.is_none()
+    }
+
     /// Returns any unrecoverable errors that occurred during order request sending.
     pub fn unrecoverable_errors(&self) -> NoneOneOrMany<UnrecoverableEngineError> {
         self.errors

@@ -3,10 +3,13 @@ use barter::{
         action::{
             generate_algo_orders::GenerateAlgoOrdersOutput,
             send_requests::{SendCancelsAndOpensOutput, SendRequestsOutput},
+            ActionOutput,
         },
         audit::Audit,
         clock::HistoricalClock,
+        command::Command,
         execution_tx::MultiExchangeTxMap,
+        process_with_audit,
         state::{
             asset::AssetStates,
             connectivity::Health,
@@ -14,11 +17,10 @@ use barter::{
                 filter::InstrumentFilter,
                 market_data::{DefaultMarketData, MarketDataState},
             },
-            order::manager::OrderManager,
             trading::TradingState,
             EngineState,
         },
-        Engine, EngineOutput, Processor,
+        Engine, EngineOutput,
     },
     execution::{request::ExecutionRequest, AccountStreamEvent},
     risk::{DefaultRiskManager, DefaultRiskManagerState},
@@ -30,7 +32,7 @@ use barter::{
         DefaultStrategyState,
     },
     test_utils::time_plus_days,
-    EngineEvent, Sequence,
+    EngineEvent, Sequence, Timed,
 };
 use barter_data::{
     event::{DataKind, MarketEvent},
@@ -39,7 +41,11 @@ use barter_data::{
 };
 use barter_execution::{
     balance::{AssetBalance, Balance},
-    order::{ClientOrderId, Order, OrderKind, RequestCancel, RequestOpen, StrategyId, TimeInForce},
+    order::{
+        ClientOrderId, Open, Order, OrderId, OrderKind, RequestCancel, RequestOpen, StrategyId,
+        TimeInForce,
+    },
+    trade::{AssetFees, Trade, TradeId},
     AccountEvent, AccountEventKind, AccountSnapshot,
 };
 use barter_instrument::{
@@ -58,7 +64,8 @@ use barter_instrument::{
 };
 use barter_integration::{
     channel::{mpsc_unbounded, UnboundedTx},
-    collection::none_one_or_many::NoneOneOrMany,
+    collection::{none_one_or_many::NoneOneOrMany, one_or_many::OneOrMany},
+    snapshot::Snapshot,
 };
 use chrono::{DateTime, Utc};
 use fnv::FnvHashMap;
@@ -69,27 +76,25 @@ use uuid::Uuid;
 const STARTING_TIMESTAMP: DateTime<Utc> = DateTime::<Utc>::MIN_UTC;
 const RISK_FREE_RETURN: Decimal = dec!(0.05);
 const STARTING_BALANCE_USDT: Balance = Balance {
-    total: dec!(10_000.0),
-    free: dec!(10_000.0),
+    total: dec!(40_000.0),
+    free: dec!(40_000.0),
 };
 const STARTING_BALANCE_BTC: Balance = Balance {
-    total: dec!(0.1),
-    free: dec!(0.1),
-};
-const STARTING_BALANCE_ETH: Balance = Balance {
     total: dec!(1.0),
     free: dec!(1.0),
 };
+const STARTING_BALANCE_ETH: Balance = Balance {
+    total: dec!(10.0),
+    free: dec!(10.0),
+};
+const QUOTE_FEES_PERCENT: f64 = 0.1; // 10%
 
 // Todo:
-//  - do we want to test Sequence?
-//  - Consider adding "no algo orders generated if none were generated" <- this is important, it's wasteful
-//  - Consider engine "process_with_audit" to enable testing of audit tick generation & sequence
 //  - Could add Uuid generator to Instrument :thinking
-//  - Add utils to determine if orders are in flight eg/ orders.filtered() or orders.num_in_flight
+//  - Return PositionExited in Audit
 
 #[test]
-fn test_engine_process_engine_event() {
+fn test_engine_process_engine_event_with_audit() {
     let (execution_tx, mut execution_rx) = mpsc_unbounded();
 
     let mut engine = build_engine(TradingState::Disabled, execution_tx);
@@ -97,24 +102,57 @@ fn test_engine_process_engine_event() {
     assert_eq!(engine.state.connectivity.global, Health::Reconnecting);
 
     // Simulate AccountSnapshot from ExecutionManager::init
-    let snapshot = account_event_snapshot(&engine.state.assets);
-    let output = engine.process(snapshot.clone());
+    let event = account_event_snapshot(&engine.state.assets);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(0));
+    assert_eq!(audit.event, Audit::process(event));
     assert_eq!(engine.state.connectivity.global, Health::Reconnecting);
-    assert_eq!(output, Audit::process(snapshot));
 
     // Process 1st MarketEvent for btc_usdt
-    let output = engine.process(market_event_trade(1, 0, 10_000.0));
+    let event = market_event_trade(1, 0, 10_000.0);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(1));
+    assert_eq!(audit.event, Audit::process(event));
     assert_eq!(engine.state.connectivity.global, Health::Healthy);
-    assert_eq!(output, Audit::process(market_event_trade(1, 0, 10_000.0)));
 
     // Process 1st MarketEvent for eth_btc
-    let output = engine.process(market_event_trade(1, 1, 0.1));
-    assert_eq!(output, Audit::process(market_event_trade(1, 1, 0.1)));
+    let event = market_event_trade(1, 1, 0.1);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(2));
+    assert_eq!(audit.event, Audit::process(event));
 
     // TradingState::Enabled -> expect BuyAndHoldStrategy to open Buy orders
-    let output = engine.process(EngineEvent::TradingStateUpdate(TradingState::Enabled));
+    let event = EngineEvent::TradingStateUpdate(TradingState::Enabled);
+    let audit = process_with_audit(&mut engine, event);
+    assert_eq!(audit.context.sequence, Sequence(3));
+    let btc_usdt_buy_order = Order {
+        exchange: ExchangeIndex(0),
+        instrument: InstrumentIndex(0),
+        strategy: StrategyId::new("TestBuyAndHoldStrategy"),
+        cid: ClientOrderId::new(InstrumentIndex(0).to_string()),
+        side: Side::Buy,
+        state: RequestOpen {
+            kind: OrderKind::Market,
+            time_in_force: TimeInForce::ImmediateOrCancel,
+            price: dec!(10_000),
+            quantity: dec!(1),
+        },
+    };
+    let eth_btc_buy_order = Order {
+        exchange: ExchangeIndex(0),
+        instrument: InstrumentIndex(1),
+        strategy: StrategyId::new("TestBuyAndHoldStrategy"),
+        cid: ClientOrderId::new(InstrumentIndex(1).to_string()),
+        side: Side::Buy,
+        state: RequestOpen {
+            kind: OrderKind::Market,
+            time_in_force: TimeInForce::ImmediateOrCancel,
+            price: dec!(0.1),
+            quantity: dec!(1),
+        },
+    };
     assert_eq!(
-        output,
+        audit.event,
         Audit::process_with_output(
             EngineEvent::TradingStateUpdate(TradingState::Enabled),
             EngineOutput::AlgoOrders(GenerateAlgoOrdersOutput {
@@ -122,32 +160,8 @@ fn test_engine_process_engine_event() {
                     cancels: SendRequestsOutput::default(),
                     opens: SendRequestsOutput {
                         sent: NoneOneOrMany::Many(vec![
-                            Order {
-                                exchange: ExchangeIndex(0),
-                                instrument: InstrumentIndex(0),
-                                strategy: StrategyId::new("TestBuyAndHoldStrategy"),
-                                cid: ClientOrderId::new(Uuid::nil()),
-                                side: Side::Buy,
-                                state: RequestOpen {
-                                    kind: OrderKind::Market,
-                                    time_in_force: TimeInForce::ImmediateOrCancel,
-                                    price: dec!(10_000),
-                                    quantity: dec!(0.00001),
-                                },
-                            },
-                            Order {
-                                exchange: ExchangeIndex(0),
-                                instrument: InstrumentIndex(1),
-                                strategy: StrategyId::new("TestBuyAndHoldStrategy"),
-                                cid: ClientOrderId::new(Uuid::max()),
-                                side: Side::Buy,
-                                state: RequestOpen {
-                                    kind: OrderKind::Market,
-                                    time_in_force: TimeInForce::ImmediateOrCancel,
-                                    price: dec!(0.1),
-                                    quantity: dec!(0.0001),
-                                },
-                            },
+                            btc_usdt_buy_order.clone(),
+                            eth_btc_buy_order.clone(),
                         ]),
                         errors: NoneOneOrMany::None,
                     },
@@ -160,60 +174,121 @@ fn test_engine_process_engine_event() {
     // Ensure ExecutionRequests were sent to ExecutionManager
     assert_eq!(
         execution_rx.next().unwrap(),
-        ExecutionRequest::Open(Order {
-            exchange: ExchangeIndex(0),
-            instrument: InstrumentIndex(0),
-            strategy: StrategyId::new("TestBuyAndHoldStrategy"),
-            cid: ClientOrderId::new(Uuid::nil()),
-            side: Side::Buy,
-            state: RequestOpen {
-                kind: OrderKind::Market,
-                time_in_force: TimeInForce::ImmediateOrCancel,
-                price: dec!(10_000),
-                quantity: dec!(0.00001),
-            },
-        })
+        ExecutionRequest::Open(btc_usdt_buy_order)
     );
     assert_eq!(
         execution_rx.next().unwrap(),
-        ExecutionRequest::Open(Order {
-            exchange: ExchangeIndex(0),
-            instrument: InstrumentIndex(1),
-            strategy: StrategyId::new("TestBuyAndHoldStrategy"),
-            cid: ClientOrderId::new(Uuid::max()),
-            side: Side::Buy,
-            state: RequestOpen {
-                kind: OrderKind::Market,
-                time_in_force: TimeInForce::ImmediateOrCancel,
-                price: dec!(0.1),
-                quantity: dec!(0.0001),
-            },
-        })
+        ExecutionRequest::Open(eth_btc_buy_order)
+    );
+
+    // TradingState::Disabled
+    let event = EngineEvent::TradingStateUpdate(TradingState::Disabled);
+    let audit = process_with_audit(&mut engine, event);
+    assert_eq!(audit.context.sequence, Sequence(4));
+
+    // Simulate OpenOrder response for Sequence(3) btc_usdt_buy_order
+    let event = account_event_order_response(0, 2, 10_000.0, 1.0);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(5));
+    assert_eq!(audit.event, Audit::process(event));
+
+    // Simulate Trade update for Sequence(3) btc_usdt_buy_order (fees 10% -> 1000usdt)
+    let event = account_event_trade(0, 2, Side::Buy, 10_000.0, 1.0);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(6));
+    assert_eq!(audit.event, Audit::process(event));
+
+    // Simulate Balance update for Sequence(3) btc_usdt_buy_order, AssetIndex(2)/usdt reduction
+    let event = account_event_balance(2, 2, 9_000.0); // 10k - 10% fees
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(7));
+    assert_eq!(audit.event, Audit::process(event));
+    assert_eq!(
+        engine
+            .state
+            .assets
+            .asset_index(&AssetIndex(2))
+            .balance
+            .unwrap(),
+        Timed::new(
+            Balance::new(dec!(9_000.0), dec!(9_000.0)),
+            time_plus_days(STARTING_TIMESTAMP, 2)
+        )
+    );
+
+    // Simulate OpenOrder response for Sequence(3) eth_btc_buy_order
+    let event = account_event_order_response(1, 2, 0.1, 1.0);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(8));
+    assert_eq!(audit.event, Audit::process(event));
+
+    // Simulate Trade update for Sequence(3) eth_btc_buy_order (fees 10% -> 0.01btc)
+    let event = account_event_trade(1, 2, Side::Buy, 0.1, 1.0);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(9));
+    assert_eq!(audit.event, Audit::process(event));
+
+    // Simulate Balance update for Sequence(3) eth_btc_buy_order, AssetIndex(0)/btc reduction
+    let event = account_event_balance(0, 2, 0.99); // 1btc - 10% fees
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(10));
+    assert_eq!(audit.event, Audit::process(event));
+    assert_eq!(
+        engine
+            .state
+            .assets
+            .asset_index(&AssetIndex(0))
+            .balance
+            .unwrap(),
+        Timed::new(
+            Balance::new(dec!(0.99), dec!(0.99)),
+            time_plus_days(STARTING_TIMESTAMP, 2)
+        )
     );
 
     // Process 2nd MarketEvent for btc_usdt
-    let output = engine.process(market_event_trade(2, 0, 20_000.0));
-    assert_eq!(
-        output,
-        Audit::process_with_output(
-            market_event_trade(2, 0, 20_000.0),
-            EngineOutput::AlgoOrders(GenerateAlgoOrdersOutput::default())
-        )
-    );
+    let event = market_event_trade(2, 0, 20_000.0);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(11));
+    assert_eq!(audit.event, Audit::process(event));
 
     // Process 2nd MarketEvent for eth_btc
-    let output = engine.process(market_event_trade(2, 1, 0.05));
+    let event = market_event_trade(2, 1, 0.05);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(12));
+    assert_eq!(audit.event, Audit::process(event));
+
+    // Send ClosePositionsCommand for btc_usdt
+    let event = command_close_position(0);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(13));
+    let btc_usdt_sell_order = Order {
+        exchange: ExchangeIndex(0),
+        instrument: InstrumentIndex(0),
+        strategy: StrategyId::new("TestBuyAndHoldStrategy"),
+        cid: ClientOrderId::new(InstrumentIndex(0).to_string()),
+        side: Side::Sell,
+        state: RequestOpen {
+            kind: OrderKind::Market,
+            time_in_force: TimeInForce::ImmediateOrCancel,
+            price: dec!(20_000),
+            quantity: dec!(1),
+        },
+    };
+
     assert_eq!(
-        output,
+        audit.event,
         Audit::process_with_output(
-            market_event_trade(2, 1, 0.05),
-            EngineOutput::AlgoOrders(GenerateAlgoOrdersOutput::default())
+            event,
+            EngineOutput::Commanded(ActionOutput::ClosePositions(SendCancelsAndOpensOutput {
+                cancels: SendRequestsOutput::default(),
+                opens: SendRequestsOutput {
+                    sent: NoneOneOrMany::One(btc_usdt_sell_order.clone()),
+                    errors: NoneOneOrMany::None,
+                },
+            }))
         )
     );
-
-    // Issue CloseAllPositions Command
-
-    // let output = engine.process()
 }
 
 struct TestBuyAndHoldStrategy {
@@ -236,39 +311,36 @@ impl AlgoStrategy for TestBuyAndHoldStrategy {
                 return None;
             }
 
-            // Todo: Don't open more if there is already requests in flight
-            // if state
-            //     .orders
-            //     .orders()
-            //     .map(|x| )
+            // Don't open more orders if there are already some InFlight
+            if !state.orders.0.is_empty() {
+                return None;
+            }
 
             // Don't open if there is no market data price available
             let price = state.market.price()?;
-
-            let cid = if state.key == InstrumentIndex(0) {
-                Uuid::nil()
-            } else {
-                Uuid::max()
-            };
 
             // Generate Market order to buy the minimum allowed quantity
             Some(Order {
                 exchange: state.instrument.exchange,
                 instrument: state.key,
                 strategy: self.id.clone(),
-                cid: ClientOrderId::new(cid),
+                cid: gen_cid(state.key),
                 side: Side::Buy,
                 state: RequestOpen {
                     kind: OrderKind::Market,
                     time_in_force: TimeInForce::ImmediateOrCancel,
                     price,
-                    quantity: state.instrument.spec.unwrap().quantity.min,
+                    quantity: dec!(1),
                 },
             })
         });
 
         (std::iter::empty(), opens)
     }
+}
+
+fn gen_cid(instrument: InstrumentIndex) -> ClientOrderId {
+    ClientOrderId::new(instrument.to_string())
 }
 
 impl ClosePositionsStrategy for TestBuyAndHoldStrategy {
@@ -452,4 +524,74 @@ fn market_event_trade(time_plus: u64, instrument: usize, price: f64) -> EngineEv
             side: Side::Buy,
         }),
     }))
+}
+
+fn account_event_order_response(
+    instrument: usize,
+    time_plus: u64,
+    price: f64,
+    quantity: f64,
+) -> EngineEvent<DataKind> {
+    EngineEvent::Account(AccountStreamEvent::Item(AccountEvent {
+        exchange: ExchangeIndex(0),
+        kind: AccountEventKind::OrderOpened(Order {
+            exchange: ExchangeIndex(0),
+            instrument: InstrumentIndex(instrument),
+            strategy: StrategyId::new("TestBuyAndHoldStrategy"),
+            cid: gen_cid(InstrumentIndex(instrument)),
+            side: Side::Buy,
+            state: Ok(Open {
+                id: OrderId::new(instrument.to_string()),
+                time_exchange: time_plus_days(STARTING_TIMESTAMP, time_plus),
+                price: Decimal::try_from(price).unwrap(),
+                quantity: Decimal::try_from(quantity).unwrap(),
+                filled_quantity: Decimal::try_from(quantity).unwrap(),
+            }),
+        }),
+    }))
+}
+
+fn account_event_balance(asset: usize, time_plus: u64, value: f64) -> EngineEvent<DataKind> {
+    EngineEvent::Account(AccountStreamEvent::Item(AccountEvent {
+        exchange: ExchangeIndex(0),
+        kind: AccountEventKind::BalanceSnapshot(Snapshot(AssetBalance {
+            asset: AssetIndex(asset),
+            balance: Balance::new(
+                Decimal::try_from(value).unwrap(),
+                Decimal::try_from(value).unwrap(),
+            ),
+            time_exchange: time_plus_days(STARTING_TIMESTAMP, time_plus),
+        })),
+    }))
+}
+
+fn account_event_trade(
+    instrument: usize,
+    time_plus: u64,
+    side: Side,
+    price: f64,
+    quantity: f64,
+) -> EngineEvent<DataKind> {
+    EngineEvent::Account(AccountStreamEvent::Item(AccountEvent {
+        exchange: ExchangeIndex(0),
+        kind: AccountEventKind::Trade(Trade {
+            id: TradeId::new(instrument.to_string()),
+            order_id: OrderId::new(instrument.to_string()),
+            instrument: InstrumentIndex(instrument),
+            strategy: StrategyId::new("TestBuyAndHoldStrategy"),
+            time_exchange: time_plus_days(STARTING_TIMESTAMP, time_plus),
+            side,
+            price: Decimal::try_from(price).unwrap(),
+            quantity: Decimal::try_from(quantity).unwrap(),
+            fees: AssetFees::quote_fees(
+                Decimal::try_from(price * quantity * QUOTE_FEES_PERCENT).unwrap(),
+            ),
+        }),
+    }))
+}
+
+fn command_close_position(instrument: usize) -> EngineEvent<DataKind> {
+    EngineEvent::Command(Command::ClosePositions(InstrumentFilter::Instruments(
+        OneOrMany::One(InstrumentIndex(instrument)),
+    )))
 }

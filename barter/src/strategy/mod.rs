@@ -1,6 +1,9 @@
 use crate::{
     engine::{
-        state::{instrument::filter::InstrumentFilter, EngineState},
+        state::{
+            instrument::{filter::InstrumentFilter, market_data::MarketDataState},
+            EngineState,
+        },
         Engine, Processor,
     },
     strategy::{
@@ -81,6 +84,8 @@ impl<State, ExchangeKey, InstrumentKey> AlgoStrategy<ExchangeKey, InstrumentKey>
 
 impl<MarketState, StrategyState, RiskState> ClosePositionsStrategy
     for DefaultStrategy<EngineState<MarketState, StrategyState, RiskState>>
+where
+    MarketState: MarketDataState,
 {
     type State = EngineState<MarketState, StrategyState, RiskState>;
 

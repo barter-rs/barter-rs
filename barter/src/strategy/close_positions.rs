@@ -1,4 +1,7 @@
-use crate::engine::state::{instrument::filter::InstrumentFilter, EngineState};
+use crate::engine::state::{
+    instrument::{filter::InstrumentFilter, market_data::MarketDataState},
+    EngineState,
+};
 use barter_execution::order::{
     ClientOrderId, Order, OrderKind, RequestCancel, RequestOpen, StrategyId, TimeInForce,
 };
@@ -62,18 +65,21 @@ pub fn close_open_positions_with_market_orders<'a, MarketState, StrategyState, R
     impl IntoIterator<Item = Order<ExchangeIndex, InstrumentIndex, RequestOpen>> + 'a,
 )
 where
+    MarketState: MarketDataState,
     ExchangeIndex: 'a,
     AssetIndex: 'a,
     InstrumentIndex: 'a,
 {
-    let open_requests = state.instruments.filtered(filter).filter_map(|state| {
+    let open_requests = state.instruments.filtered(filter).filter_map(move |state| {
+        // Only generate orders if there is a Position and we have market data
         let position = state.position.as_ref()?;
+        let price = state.market.price()?;
 
         Some(Order {
             exchange: state.instrument.exchange,
             instrument: position.instrument,
             strategy: strategy_id.clone(),
-            cid: ClientOrderId::default(),
+            cid: ClientOrderId::new(state.key.to_string()),
             side: match position.side {
                 Side::Buy => Side::Sell,
                 Side::Sell => Side::Buy,
@@ -81,7 +87,7 @@ where
             state: RequestOpen {
                 kind: OrderKind::Market,
                 time_in_force: TimeInForce::ImmediateOrCancel,
-                price: Default::default(),
+                price,
                 quantity: position.quantity_abs,
             },
         })

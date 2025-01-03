@@ -26,6 +26,7 @@ pub mod send_requests;
 
 /// Output of the `Engine` after actioning a [`Command`](super::command::Command).
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
+#[allow(clippy::large_enum_variant)]
 pub enum ActionOutput<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     GenerateAlgoOrders(GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>),
     CancelOrders(SendRequestsOutput<ExchangeKey, InstrumentKey, RequestCancel>),
