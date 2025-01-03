@@ -94,8 +94,8 @@ pub mod strategy;
     Constructor,
 )]
 pub struct Timed<T> {
-    value: T,
-    time: DateTime<Utc>,
+    pub value: T,
+    pub time: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
@@ -146,7 +146,6 @@ impl Sequence {
     }
 }
 
-#[cfg(test)]
 pub mod test_utils {
     use crate::{
         engine::state::asset::AssetState, statistic::summary::asset::TearSheetAssetGenerator, Timed,

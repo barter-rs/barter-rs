@@ -55,7 +55,7 @@ pub mod trading;
 pub mod builder;
 
 /// Algorithmic trading `Engine` state.
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct EngineState<Market, Strategy, Risk> {
     /// Current `TradingState` of the `Engine`.
     pub trading: TradingState,

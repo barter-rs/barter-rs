@@ -8,13 +8,9 @@ use std::{
     task::{Context, Poll},
 };
 
-/// Convenient type alias for an [`ExecutionRequest`] keyed with [`ExchangeIndex`]
-/// and [`InstrumentIndex`].
-pub type IndexedExecutionRequest = ExecutionRequest<ExchangeIndex, InstrumentIndex>;
-
 /// Represents an `Engine` request to the `ExecutionManager`.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, From)]
-pub enum ExecutionRequest<ExchangeKey, InstrumentKey> {
+pub enum ExecutionRequest<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     /// Request to cancel an existing `Order`.
     Cancel(Order<ExchangeKey, InstrumentKey, RequestCancel>),
 

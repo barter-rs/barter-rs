@@ -118,7 +118,7 @@ impl<Market> InstrumentStates<Market> {
     }
 
     /// Return an `Iterator` of all `InstrumentState`s being tracked.
-    fn instruments(&self) -> impl Iterator<Item = &InstrumentState<Market>> {
+    pub fn instruments(&self) -> impl Iterator<Item = &InstrumentState<Market>> {
         self.0.values()
     }
 }

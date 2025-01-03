@@ -192,7 +192,7 @@ fn indexed_instruments() -> IndexedInstruments {
             Underlying::new("btc", "usdt"),
             InstrumentKind::Spot,
             Some(InstrumentSpec::new(
-                InstrumentSpecPrice::new(dec!(0.0001), dec!(0.0)),
+                InstrumentSpecPrice::new(dec!(0.01), dec!(0.01)),
                 InstrumentSpecQuantity::new(
                     OrderQuantityUnits::Quote,
                     dec!(0.00001),

@@ -102,3 +102,13 @@ impl<ExchangeKey, InstrumentKey> GenerateAlgoOrdersOutput<ExchangeKey, Instrumen
         self.cancels_and_opens.unrecoverable_errors().into_option()
     }
 }
+
+impl<ExchangeKey, InstrumentKey> Default for GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey> {
+    fn default() -> Self {
+        Self {
+            cancels_and_opens: SendCancelsAndOpensOutput::default(),
+            cancels_refused: NoneOneOrMany::None,
+            opens_refused: NoneOneOrMany::None,
+        }
+    }
+}

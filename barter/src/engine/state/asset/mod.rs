@@ -23,7 +23,7 @@ pub mod filter;
 /// Collection of exchange [`AssetState`]s indexed by [`AssetIndex`].
 ///
 /// Note that the same named assets on different exchanges will have their own [`AssetState`].
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub struct AssetStates(pub FnvIndexMap<ExchangeAsset<AssetNameInternal>, AssetState>);
 
 impl AssetStates {

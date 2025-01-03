@@ -49,7 +49,7 @@ pub struct DefaultMarketData {
     pub last_traded_price: Option<Timed<Decimal>>,
 }
 
-impl<InstrumentKey> MarketDataState<InstrumentKey> for DefaultMarketData {
+impl MarketDataState for DefaultMarketData {
     type EventKind = DataKind;
 
     fn price(&self) -> Option<Decimal> {
