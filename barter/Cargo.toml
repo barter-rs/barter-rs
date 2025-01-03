@@ -17,7 +17,6 @@ categories = ["accessibility", "simulation"]
 rust_decimal_macros = { workspace = true }
 serde_json = { workspace = true }
 spin_sleep = { workspace = true }
-uuid = { workspace = true }
 
 [dependencies]
 # Barter Ecosystem

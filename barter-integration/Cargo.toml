@@ -12,7 +12,6 @@ keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
 [dev-dependencies]
-#rust_decimal_macros = { workspace = true }
 tokio-test = { workspace = true }
 sha2 = { workspace = true }
 

@@ -32,9 +32,9 @@ impl EngineClock for LiveClock {
 }
 
 impl<Event> Processor<&Event> for LiveClock {
-    type Output = ();
+    type Audit = ();
 
-    fn process(&mut self, _: &Event) -> Self::Output {}
+    fn process(&mut self, _: &Event) -> Self::Audit {}
 }
 
 /// Historical `Clock` using processed event timestamps to estimate current historical time.
@@ -74,9 +74,9 @@ impl<Event> Processor<&Event> for HistoricalClock
 where
     Event: Debug + TimeExchange,
 {
-    type Output = ();
+    type Audit = ();
 
-    fn process(&mut self, event: &Event) -> Self::Output {
+    fn process(&mut self, event: &Event) -> Self::Audit {
         let Some(time_event_exchange) = event.time_exchange() else {
             debug!(?event, "HistoricalClock found no timestamp in event");
             return;

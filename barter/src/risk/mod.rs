@@ -140,11 +140,11 @@ pub struct DefaultRiskManagerState;
 impl<ExchangeKey, AssetKey, InstrumentKey>
     Processor<&AccountEvent<ExchangeKey, AssetKey, InstrumentKey>> for DefaultRiskManagerState
 {
-    type Output = ();
-    fn process(&mut self, _: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) -> Self::Output {}
+    type Audit = ();
+    fn process(&mut self, _: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) -> Self::Audit {}
 }
 
 impl<InstrumentKey, Kind> Processor<&MarketEvent<InstrumentKey, Kind>> for DefaultRiskManagerState {
-    type Output = ();
-    fn process(&mut self, _: &MarketEvent<InstrumentKey, Kind>) -> Self::Output {}
+    type Audit = ();
+    fn process(&mut self, _: &MarketEvent<InstrumentKey, Kind>) -> Self::Audit {}
 }

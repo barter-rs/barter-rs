@@ -64,9 +64,9 @@ impl MarketDataState for DefaultMarketData {
 }
 
 impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>> for DefaultMarketData {
-    type Output = ();
+    type Audit = ();
 
-    fn process(&mut self, event: &MarketEvent<InstrumentKey, DataKind>) -> Self::Output {
+    fn process(&mut self, event: &MarketEvent<InstrumentKey, DataKind>) -> Self::Audit {
         match &event.kind {
             DataKind::Trade(trade) => {
                 if self

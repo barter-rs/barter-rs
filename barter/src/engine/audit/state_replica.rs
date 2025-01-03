@@ -1,7 +1,8 @@
 use crate::{
     engine::{
         audit::{
-            context::EngineContext, shutdown::ShutdownAudit, Audit, AuditTick, DefaultAuditTick,
+            context::EngineContext, shutdown::ShutdownAudit, AuditTick, DefaultAuditTick,
+            EngineAudit, ProcessAudit,
         },
         state::{instrument::market_data::MarketDataState, EngineState},
         EngineMeta, Processor,
@@ -13,6 +14,7 @@ use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
 use barter_execution::AccountEvent;
 use barter_instrument::instrument::InstrumentIndex;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 use tracing::{info, info_span};
 
 pub const AUDIT_REPLICA_STATE_UPDATE_SPAN_NAME: &str = "audit_replica_state_update_span";
@@ -59,6 +61,8 @@ where
         AuditIter: Iterator<
             Item = DefaultAuditTick<MarketState, StrategyState, RiskState, OnDisable, OnDisconnect>,
         >,
+        OnDisable: Debug,
+        OnDisconnect: Debug,
     {
         info!("StateReplicaManager running");
 
@@ -78,20 +82,19 @@ where
             }
 
             let shutdown_audit = match audit.event {
-                Audit::Snapshot(snapshot) => {
+                EngineAudit::Snapshot(snapshot) => {
                     self.state_replica.event = snapshot;
                     None
                 }
-                Audit::Process(event) => {
+                EngineAudit::Process(ProcessAudit::Process(event)) => {
                     self.update_from_event(event);
                     None
                 }
-                Audit::ProcessWithOutput(event, _) => {
+                EngineAudit::Process(ProcessAudit::ProcessWithOutput(event, _)) => {
                     self.update_from_event(event);
                     None
                 }
-                Audit::Shutdown(shutdown) => Some(shutdown),
-                Audit::ShutdownWithOutput(shutdown, _) => Some(shutdown),
+                EngineAudit::Shutdown(shutdown) => Some(shutdown),
             };
 
             if let Some(shutdown_audit) = shutdown_audit {

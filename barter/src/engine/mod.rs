@@ -7,13 +7,17 @@ use crate::{
             send_requests::SendRequests,
             ActionOutput,
         },
-        audit::{context::EngineContext, Audit, AuditTick, Auditor, DefaultAudit},
+        audit::{
+            context::EngineContext, shutdown::ShutdownAudit, AuditTick, Auditor, EngineAudit,
+            ProcessAudit,
+        },
         clock::EngineClock,
         command::Command,
         execution_tx::ExecutionTxMap,
         state::{
             instrument::market_data::MarketDataState,
-            order::in_flight_recorder::InFlightRequestRecorder, trading::TradingState, EngineState,
+            order::in_flight_recorder::InFlightRequestRecorder, position::PositionExited,
+            trading::TradingState, EngineState,
         },
     },
     execution::AccountStreamEvent,
@@ -25,10 +29,9 @@ use crate::{
     },
     EngineEvent, Sequence,
 };
-use audit::shutdown::ShutdownAudit;
 use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
 use barter_execution::AccountEvent;
-use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
+use barter_instrument::{asset::QuoteAsset, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::channel::{ChannelTxDroppable, Tx};
 use chrono::{DateTime, Utc};
 use derive_more::From;
@@ -40,7 +43,9 @@ use tracing::info;
 /// Defines how the [`Engine`] actions a [`Command`], and the associated outputs.
 pub mod action;
 
-/// Todo:
+/// Defines an `Engine` audit types as well as utilities for handling the `Engine` `AuditStream`.
+///
+/// eg/ `StateReplicaManager` component can be used to maintain an `EngineState` replica.
 pub mod audit;
 
 /// Defines the [`EngineClock`] interface used to determine the current `Engine` time.
@@ -59,13 +64,15 @@ pub mod error;
 /// can [`ExecutionRequest`] to the appropriate `ExecutionManagers`.
 pub mod execution_tx;
 
-/// Todo:
+/// Defines all state used by the`Engine` to algorithmically trade.
+///
+/// eg/ `ConnectivityStates`, `AssetStates`, `InstrumentStates`, `Position`, etc.
 pub mod state;
 
-/// Defines how a component processing an input Event and generates an appropriate Output.
+/// Defines how a component processing an input Event and generates an appropriate Audit.
 pub trait Processor<Event> {
-    type Output;
-    fn process(&mut self, event: Event) -> Self::Output;
+    type Audit;
+    fn process(&mut self, event: Event) -> Self::Audit;
 }
 
 /// Primary `Engine` entry point that processes input `Events` and forwards audits to the provided
@@ -82,18 +89,19 @@ pub fn run<Events, Engine, AuditTx>(
     feed: &mut Events,
     engine: &mut Engine,
     audit_tx: &mut ChannelTxDroppable<AuditTx>,
-) -> ShutdownAudit<Events::Item>
+) -> ShutdownAudit<Events::Item, Engine::Output>
 where
     Events: Iterator,
     Events::Item: Debug + Clone,
-    Engine: Processor<Events::Item> + Auditor<Engine::Output, Context = EngineContext>,
-    Engine::Output: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item>>,
-    AuditTx: Tx<Item = AuditTick<Engine::Output, EngineContext>>,
-    Option<ShutdownAudit<Events::Item>>: for<'a> From<&'a AuditTick<Engine::Output, EngineContext>>,
+    Engine: Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext>,
+    Engine::Audit: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item, Engine::Output>>,
+    Engine::Output: Debug + Clone,
+    AuditTx: Tx<Item = AuditTick<Engine::Audit, EngineContext>>,
+    Option<ShutdownAudit<Events::Item, Engine::Output>>: for<'a> From<&'a Engine::Audit>,
 {
     info!("Engine running");
 
-    // Send initial Engine state snapshot
+    // Send initial Engine State snapshot
     audit_tx.send(engine.audit(engine.snapshot()));
 
     // Run Engine process loop until shutdown
@@ -107,7 +115,7 @@ where
         let audit = process_with_audit(engine, event);
 
         // Check if AuditTick indicates shutdown is required
-        let shutdown = Option::<ShutdownAudit<Events::Item>>::from(&audit);
+        let shutdown = Option::<ShutdownAudit<Events::Item, Engine::Output>>::from(&audit.event);
 
         // Send AuditTick to AuditManager
         audit_tx.send(audit);
@@ -128,10 +136,10 @@ where
 pub fn process_with_audit<Event, Engine>(
     engine: &mut Engine,
     event: Event,
-) -> AuditTick<Engine::Output, EngineContext>
+) -> AuditTick<Engine::Audit, EngineContext>
 where
-    Engine: Processor<Event> + Auditor<Engine::Output, Context = EngineContext>,
-    Engine::Output: From<Engine::Snapshot> + From<ShutdownAudit<Event>>,
+    Engine: Processor<Event> + Auditor<Engine::Audit, Context = EngineContext>,
+    Engine::Audit: From<Engine::Snapshot> + From<<Engine as Processor<Event>>::Audit>,
 {
     let output = engine.process(event);
     engine.audit(output)
@@ -200,53 +208,37 @@ where
         + ClosePositionsStrategy<State = EngineState<MarketState, StrategyState, RiskState>>,
     Risk: RiskManager<State = EngineState<MarketState, StrategyState, RiskState>>,
 {
-    type Output = DefaultAudit<
-        MarketState,
-        StrategyState,
-        RiskState,
-        Strategy::OnTradingDisabled,
-        Strategy::OnDisconnect,
+    type Audit = EngineAudit<
+        EngineState<MarketState, StrategyState, RiskState>,
+        EngineEvent<MarketState::EventKind>,
+        EngineOutput<Strategy::OnTradingDisabled, Strategy::OnDisconnect>,
     >;
 
-    fn process(&mut self, event: EngineEvent<MarketState::EventKind>) -> Self::Output {
+    fn process(&mut self, event: EngineEvent<MarketState::EventKind>) -> Self::Audit {
         self.clock.process(&event);
 
-        match &event {
-            EngineEvent::Shutdown => return Audit::shutdown_commanded(event),
+        let process_audit = match &event {
+            EngineEvent::Shutdown => return EngineAudit::shutdown_commanded(event),
             EngineEvent::Command(command) => {
                 let output = self.action(command);
 
-                return if let Some(unrecoverable) = output.unrecoverable_errors() {
-                    Audit::shutdown_on_err_with_output(event, unrecoverable, output)
+                if let Some(unrecoverable) = output.unrecoverable_errors() {
+                    return EngineAudit::shutdown_on_err(event, unrecoverable, output);
                 } else {
-                    Audit::process_with_output(event, output)
-                };
+                    ProcessAudit::with_command_output(event, output)
+                }
             }
             EngineEvent::TradingStateUpdate(trading_state) => {
-                if let Some(trading_disabled) =
-                    self.update_from_trading_state_update(*trading_state)
-                {
-                    return Audit::process_with_output(
-                        event,
-                        EngineOutput::OnTradingDisabled(trading_disabled),
-                    );
-                }
+                let output = self.update_from_trading_state_update(*trading_state);
+                ProcessAudit::with_trading_state_update(event, output)
             }
             EngineEvent::Account(account) => {
-                if let Some(disconnected) = self.update_from_account_stream(account) {
-                    return Audit::process_with_output(
-                        event,
-                        EngineOutput::OnDisconnect(disconnected),
-                    );
-                }
+                let output = self.update_from_account_stream(account);
+                ProcessAudit::with_account_update(event, output)
             }
             EngineEvent::Market(market) => {
-                if let Some(disconnected) = self.update_from_market_stream(market) {
-                    return Audit::process_with_output(
-                        event,
-                        EngineOutput::OnDisconnect(disconnected),
-                    );
-                }
+                let output = self.update_from_market_stream(market);
+                ProcessAudit::with_market_update(event, output)
             }
         };
 
@@ -254,14 +246,14 @@ where
             let output = self.generate_algo_orders();
 
             if output.is_empty() {
-                Audit::process(event)
+                EngineAudit::from(process_audit)
             } else if let Some(unrecoverable) = output.unrecoverable_errors() {
-                Audit::shutdown_on_err_with_output(event, unrecoverable, output)
+                EngineAudit::shutdown_on_err_with_process(process_audit, unrecoverable)
             } else {
-                Audit::process_with_output(event, output)
+                EngineAudit::from(process_audit.add_additional(output))
             }
         } else {
-            Audit::process(event)
+            EngineAudit::from(process_audit)
         }
     }
 }
@@ -334,7 +326,7 @@ impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
     pub fn update_from_account_stream(
         &mut self,
         event: &AccountStreamEvent,
-    ) -> Option<Strategy::OnDisconnect>
+    ) -> UpdateFromAccountOutput<Strategy::OnDisconnect>
     where
         StrategyState: for<'a> Processor<&'a AccountEvent>,
         RiskState: for<'a> Processor<&'a AccountEvent>,
@@ -350,12 +342,14 @@ impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
                 self.state
                     .connectivity
                     .update_from_account_reconnecting(exchange);
-                Some(Strategy::on_disconnect(self, *exchange))
+
+                UpdateFromAccountOutput::OnDisconnect(Strategy::on_disconnect(self, *exchange))
             }
-            AccountStreamEvent::Item(event) => {
-                let _position = self.state.update_from_account(event);
-                None
-            }
+            AccountStreamEvent::Item(event) => self
+                .state
+                .update_from_account(event)
+                .map(UpdateFromAccountOutput::PositionExit)
+                .unwrap_or(UpdateFromAccountOutput::None),
         }
     }
 
@@ -366,7 +360,7 @@ impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
     pub fn update_from_market_stream(
         &mut self,
         event: &MarketStreamEvent<InstrumentIndex, MarketState::EventKind>,
-    ) -> Option<Strategy::OnDisconnect>
+    ) -> UpdateFromMarketOutput<Strategy::OnDisconnect>
     where
         MarketState: MarketDataState,
         StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
@@ -383,11 +377,12 @@ impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
                 self.state
                     .connectivity
                     .update_from_market_reconnecting(exchange);
-                Some(Strategy::on_disconnect(self, *exchange))
+
+                UpdateFromMarketOutput::OnDisconnect(Strategy::on_disconnect(self, *exchange))
             }
             MarketStreamEvent::Item(event) => {
                 self.state.update_from_market(event);
-                None
+                UpdateFromMarketOutput::None
             }
         }
     }
@@ -446,36 +441,7 @@ where
     }
 }
 
-impl<Audit, Clock, State, ExecutionTx, StrategyT, Risk> Auditor<Audit>
-    for Engine<Clock, State, ExecutionTx, StrategyT, Risk>
-where
-    Audit: From<State>,
-    Clock: EngineClock,
-    State: Clone,
-{
-    type Context = EngineContext;
-    type Snapshot = State;
-    type Shutdown<Event> = ShutdownAudit<Event>;
-
-    fn snapshot(&self) -> Self::Snapshot {
-        self.state.clone()
-    }
-
-    fn audit<Kind>(&mut self, kind: Kind) -> AuditTick<Audit, EngineContext>
-    where
-        Audit: From<Kind>,
-    {
-        AuditTick {
-            event: Audit::from(kind),
-            context: EngineContext {
-                sequence: self.meta.sequence.fetch_add(),
-                time: self.clock.time(),
-            },
-        }
-    }
-}
-
-/// Output produced by [`Engine`] operations, used to construct an `Engine` [`Audit`].
+/// Output produced by [`Engine`] operations, used to construct an `Engine` [`EngineAudit`].
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub enum EngineOutput<
     OnTradingDisabled,
@@ -485,15 +451,41 @@ pub enum EngineOutput<
 > {
     Commanded(ActionOutput<ExchangeKey, InstrumentKey>),
     OnTradingDisabled(OnTradingDisabled),
-    OnDisconnect(OnDisconnect),
+    AccountDisconnect(OnDisconnect),
+    PositionExit(PositionExited<QuoteAsset, InstrumentKey>),
+    MarketDisconnect(OnDisconnect),
     AlgoOrders(GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>),
 }
 
-impl<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
-    From<ActionOutput<ExchangeKey, InstrumentKey>>
-    for EngineOutput<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
+/// Output produced by the [`Engine`] updating from an [`TradingState`], used to construct
+/// an `Engine` [`EngineAudit`].
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub enum UpdateTradingStateOutput<OnTradingDisabled> {
+    None,
+    OnTradingDisabled(OnTradingDisabled),
+}
+
+/// Output produced by the [`Engine`] updating from an [`AccountStreamEvent`], used to construct
+/// an `Engine` [`EngineAudit`].
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub enum UpdateFromAccountOutput<OnDisconnect, InstrumentKey = InstrumentIndex> {
+    None,
+    OnDisconnect(OnDisconnect),
+    PositionExit(PositionExited<QuoteAsset, InstrumentKey>),
+}
+
+/// Output produced by the [`Engine`] updating from an [`MarketStreamEvent`], used to construct
+/// an `Engine` [`EngineAudit`].
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub enum UpdateFromMarketOutput<OnDisconnect> {
+    None,
+    OnDisconnect(OnDisconnect),
+}
+
+impl<OnTradingDisabled, OnDisconnect> From<ActionOutput>
+    for EngineOutput<OnTradingDisabled, OnDisconnect>
 {
-    fn from(value: ActionOutput<ExchangeKey, InstrumentKey>) -> Self {
+    fn from(value: ActionOutput) -> Self {
         Self::Commanded(value)
     }
 }

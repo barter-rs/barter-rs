@@ -5,7 +5,7 @@ use barter::{
             send_requests::{SendCancelsAndOpensOutput, SendRequestsOutput},
             ActionOutput,
         },
-        audit::Audit,
+        audit::EngineAudit,
         clock::HistoricalClock,
         command::Command,
         execution_tx::MultiExchangeTxMap,
@@ -71,7 +71,6 @@ use chrono::{DateTime, Utc};
 use fnv::FnvHashMap;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use uuid::Uuid;
 
 const STARTING_TIMESTAMP: DateTime<Utc> = DateTime::<Utc>::MIN_UTC;
 const RISK_FREE_RETURN: Decimal = dec!(0.05);
@@ -89,10 +88,6 @@ const STARTING_BALANCE_ETH: Balance = Balance {
 };
 const QUOTE_FEES_PERCENT: f64 = 0.1; // 10%
 
-// Todo:
-//  - Could add Uuid generator to Instrument :thinking
-//  - Return PositionExited in Audit
-
 #[test]
 fn test_engine_process_engine_event_with_audit() {
     let (execution_tx, mut execution_rx) = mpsc_unbounded();
@@ -105,21 +100,21 @@ fn test_engine_process_engine_event_with_audit() {
     let event = account_event_snapshot(&engine.state.assets);
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(0));
-    assert_eq!(audit.event, Audit::process(event));
+    assert_eq!(audit.event, EngineAudit::process(event));
     assert_eq!(engine.state.connectivity.global, Health::Reconnecting);
 
     // Process 1st MarketEvent for btc_usdt
     let event = market_event_trade(1, 0, 10_000.0);
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(1));
-    assert_eq!(audit.event, Audit::process(event));
+    assert_eq!(audit.event, EngineAudit::process(event));
     assert_eq!(engine.state.connectivity.global, Health::Healthy);
 
     // Process 1st MarketEvent for eth_btc
     let event = market_event_trade(1, 1, 0.1);
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(2));
-    assert_eq!(audit.event, Audit::process(event));
+    assert_eq!(audit.event, EngineAudit::process(event));
 
     // TradingState::Enabled -> expect BuyAndHoldStrategy to open Buy orders
     let event = EngineEvent::TradingStateUpdate(TradingState::Enabled);
@@ -153,7 +148,7 @@ fn test_engine_process_engine_event_with_audit() {
     };
     assert_eq!(
         audit.event,
-        Audit::process_with_output(
+        EngineAudit::process_with_output(
             EngineEvent::TradingStateUpdate(TradingState::Enabled),
             EngineOutput::AlgoOrders(GenerateAlgoOrdersOutput {
                 cancels_and_opens: SendCancelsAndOpensOutput {
@@ -190,19 +185,19 @@ fn test_engine_process_engine_event_with_audit() {
     let event = account_event_order_response(0, 2, 10_000.0, 1.0);
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(5));
-    assert_eq!(audit.event, Audit::process(event));
+    assert_eq!(audit.event, EngineAudit::process(event));
 
     // Simulate Trade update for Sequence(3) btc_usdt_buy_order (fees 10% -> 1000usdt)
     let event = account_event_trade(0, 2, Side::Buy, 10_000.0, 1.0);
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(6));
-    assert_eq!(audit.event, Audit::process(event));
+    assert_eq!(audit.event, EngineAudit::process(event));
 
     // Simulate Balance update for Sequence(3) btc_usdt_buy_order, AssetIndex(2)/usdt reduction
     let event = account_event_balance(2, 2, 9_000.0); // 10k - 10% fees
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(7));
-    assert_eq!(audit.event, Audit::process(event));
+    assert_eq!(audit.event, EngineAudit::process(event));
     assert_eq!(
         engine
             .state
@@ -220,19 +215,19 @@ fn test_engine_process_engine_event_with_audit() {
     let event = account_event_order_response(1, 2, 0.1, 1.0);
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(8));
-    assert_eq!(audit.event, Audit::process(event));
+    assert_eq!(audit.event, EngineAudit::process(event));
 
     // Simulate Trade update for Sequence(3) eth_btc_buy_order (fees 10% -> 0.01btc)
     let event = account_event_trade(1, 2, Side::Buy, 0.1, 1.0);
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(9));
-    assert_eq!(audit.event, Audit::process(event));
+    assert_eq!(audit.event, EngineAudit::process(event));
 
     // Simulate Balance update for Sequence(3) eth_btc_buy_order, AssetIndex(0)/btc reduction
     let event = account_event_balance(0, 2, 0.99); // 1btc - 10% fees
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(10));
-    assert_eq!(audit.event, Audit::process(event));
+    assert_eq!(audit.event, EngineAudit::process(event));
     assert_eq!(
         engine
             .state
@@ -250,13 +245,13 @@ fn test_engine_process_engine_event_with_audit() {
     let event = market_event_trade(2, 0, 20_000.0);
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(11));
-    assert_eq!(audit.event, Audit::process(event));
+    assert_eq!(audit.event, EngineAudit::process(event));
 
     // Process 2nd MarketEvent for eth_btc
     let event = market_event_trade(2, 1, 0.05);
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(12));
-    assert_eq!(audit.event, Audit::process(event));
+    assert_eq!(audit.event, EngineAudit::process(event));
 
     // Send ClosePositionsCommand for btc_usdt
     let event = command_close_position(0);
@@ -278,7 +273,7 @@ fn test_engine_process_engine_event_with_audit() {
 
     assert_eq!(
         audit.event,
-        Audit::process_with_output(
+        EngineAudit::process_with_output(
             event,
             EngineOutput::Commanded(ActionOutput::ClosePositions(SendCancelsAndOpensOutput {
                 cancels: SendRequestsOutput::default(),
