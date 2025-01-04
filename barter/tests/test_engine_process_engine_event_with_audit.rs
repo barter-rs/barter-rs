@@ -187,6 +187,13 @@ fn test_engine_process_engine_event_with_audit() {
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(5));
     assert_eq!(audit.event, EngineAudit::process(event));
+    assert!(engine
+        .state
+        .instruments
+        .instrument_index(&InstrumentIndex(0))
+        .orders
+        .0
+        .is_empty());
 
     // Simulate Trade update for Sequence(3) btc_usdt_buy_order (fees 10% -> 1000usdt)
     let event = account_event_trade(0, 2, Side::Buy, 10_000.0, 1.0);
@@ -217,6 +224,13 @@ fn test_engine_process_engine_event_with_audit() {
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(8));
     assert_eq!(audit.event, EngineAudit::process(event));
+    assert!(engine
+        .state
+        .instruments
+        .instrument_index(&InstrumentIndex(1))
+        .orders
+        .0
+        .is_empty());
 
     // Simulate Trade update for Sequence(3) eth_btc_buy_order (fees 10% -> 0.01btc)
     let event = account_event_trade(1, 2, Side::Buy, 0.1, 1.0);
@@ -296,6 +310,13 @@ fn test_engine_process_engine_event_with_audit() {
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(14));
     assert_eq!(audit.event, EngineAudit::process(event));
+    assert!(engine
+        .state
+        .instruments
+        .instrument_index(&InstrumentIndex(0))
+        .orders
+        .0
+        .is_empty());
 
     // Simulate Balance update for Sequence(13) btc_usdt_sell_order, AssetIndex(2)/usdt increase
     let event = account_event_balance(2, 3, 27_000.0); // 9k + 20k - 10% fees
@@ -337,6 +358,10 @@ fn test_engine_process_engine_event_with_audit() {
             }
         )
     );
+
+    // Todo: Command::OpenOrder to increase eth_btc position
+    // Todo: disconnections
+    // Todo: TradingSummaryGenerator
 }
 
 struct TestBuyAndHoldStrategy {
