@@ -36,9 +36,6 @@ url = { version = "2.3.1 " }
 reqwest = { version = "0.12.4" }
 tokio-tungstenite = { version = "0.21.0" }
 
-# Strategy
-ta = { version = "0.5.0" }
-
 # Data Structures
 fnv = { version = "1.0.7" }
 vecmap-rs = { version = "0.2.1" }
@@ -55,7 +52,6 @@ base64 = { version = "0.22.0" }
 
 # Misc
 rand = { version = "0.8.5 " }
-uuid = { version = "1.9.1", features = ["v4", "serde"]}
 chrono = { version = "0.4.38", features = ["serde"]}
 derive_more = { version = "1.0.0", features = ["constructor", "display", "from"] }
 itertools = { version = "0.13.0" }
