@@ -153,14 +153,10 @@ impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
                     .update_from_cancel(response);
                 None
             }
-            AccountEventKind::Trade(trade) => {
-                let _position_exited = self
-                    .instruments
-                    .instrument_index_mut(&trade.instrument)
-                    .update_from_trade(trade);
-
-                None
-            }
+            AccountEventKind::Trade(trade) => self
+                .instruments
+                .instrument_index_mut(&trade.instrument)
+                .update_from_trade(trade),
         };
 
         // Update any user provided Strategy & Risk State

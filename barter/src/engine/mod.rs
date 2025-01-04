@@ -490,6 +490,14 @@ impl<OnTradingDisabled, OnDisconnect> From<ActionOutput>
     }
 }
 
+impl<OnTradingDisabled, OnDisconnect> From<PositionExited<QuoteAsset>>
+    for EngineOutput<OnTradingDisabled, OnDisconnect>
+{
+    fn from(value: PositionExited<QuoteAsset>) -> Self {
+        Self::PositionExit(value)
+    }
+}
+
 impl<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
     From<GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>>
     for EngineOutput<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>

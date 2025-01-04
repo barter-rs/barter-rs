@@ -17,6 +17,7 @@ use barter::{
                 filter::InstrumentFilter,
                 market_data::{DefaultMarketData, MarketDataState},
             },
+            position::PositionExited,
             trading::TradingState,
             EngineState,
         },
@@ -123,8 +124,8 @@ fn test_engine_process_engine_event_with_audit() {
     let btc_usdt_buy_order = Order {
         exchange: ExchangeIndex(0),
         instrument: InstrumentIndex(0),
-        strategy: StrategyId::new("TestBuyAndHoldStrategy"),
-        cid: ClientOrderId::new(InstrumentIndex(0).to_string()),
+        strategy: strategy_id(),
+        cid: gen_cid(0),
         side: Side::Buy,
         state: RequestOpen {
             kind: OrderKind::Market,
@@ -136,8 +137,8 @@ fn test_engine_process_engine_event_with_audit() {
     let eth_btc_buy_order = Order {
         exchange: ExchangeIndex(0),
         instrument: InstrumentIndex(1),
-        strategy: StrategyId::new("TestBuyAndHoldStrategy"),
-        cid: ClientOrderId::new(InstrumentIndex(1).to_string()),
+        strategy: strategy_id(),
+        cid: gen_cid(1),
         side: Side::Buy,
         state: RequestOpen {
             kind: OrderKind::Market,
@@ -182,7 +183,7 @@ fn test_engine_process_engine_event_with_audit() {
     assert_eq!(audit.context.sequence, Sequence(4));
 
     // Simulate OpenOrder response for Sequence(3) btc_usdt_buy_order
-    let event = account_event_order_response(0, 2, 10_000.0, 1.0);
+    let event = account_event_order_response(0, 2, Side::Buy, 10_000.0, 1.0);
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(5));
     assert_eq!(audit.event, EngineAudit::process(event));
@@ -212,7 +213,7 @@ fn test_engine_process_engine_event_with_audit() {
     );
 
     // Simulate OpenOrder response for Sequence(3) eth_btc_buy_order
-    let event = account_event_order_response(1, 2, 0.1, 1.0);
+    let event = account_event_order_response(1, 2, Side::Buy, 0.1, 1.0);
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(8));
     assert_eq!(audit.event, EngineAudit::process(event));
@@ -260,8 +261,8 @@ fn test_engine_process_engine_event_with_audit() {
     let btc_usdt_sell_order = Order {
         exchange: ExchangeIndex(0),
         instrument: InstrumentIndex(0),
-        strategy: StrategyId::new("TestBuyAndHoldStrategy"),
-        cid: ClientOrderId::new(InstrumentIndex(0).to_string()),
+        strategy: strategy_id(),
+        cid: gen_cid(0),
         side: Side::Sell,
         state: RequestOpen {
             kind: OrderKind::Market,
@@ -270,7 +271,6 @@ fn test_engine_process_engine_event_with_audit() {
             quantity: dec!(1),
         },
     };
-
     assert_eq!(
         audit.event,
         EngineAudit::process_with_output(
@@ -282,6 +282,59 @@ fn test_engine_process_engine_event_with_audit() {
                     errors: NoneOneOrMany::None,
                 },
             }))
+        )
+    );
+
+    // Ensure ClosePositions ExecutionRequest was sent to ExecutionManager
+    assert_eq!(
+        execution_rx.next().unwrap(),
+        ExecutionRequest::Open(btc_usdt_sell_order)
+    );
+
+    // Simulate OpenOrder response for Sequence(13) btc_usdt_sell_order
+    let event = account_event_order_response(0, 3, Side::Sell, 20_000.0, 1.0);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(14));
+    assert_eq!(audit.event, EngineAudit::process(event));
+
+    // Simulate Balance update for Sequence(13) btc_usdt_sell_order, AssetIndex(2)/usdt increase
+    let event = account_event_balance(2, 3, 27_000.0); // 9k + 20k - 10% fees
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(15));
+    assert_eq!(audit.event, EngineAudit::process(event));
+    assert_eq!(
+        engine
+            .state
+            .assets
+            .asset_index(&AssetIndex(2))
+            .balance
+            .unwrap(),
+        Timed::new(
+            Balance::new(dec!(27_000.0), dec!(27_000.0)),
+            time_plus_days(STARTING_TIMESTAMP, 3)
+        )
+    );
+
+    // Simulate Trade update for Sequence(13) btc_usdt_sell_order (fees 10% -> 2000usdt)
+    let event = account_event_trade(0, 3, Side::Sell, 20_000.0, 1.0);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(16));
+    assert_eq!(
+        audit.event,
+        EngineAudit::process_with_output(
+            event,
+            PositionExited {
+                instrument: InstrumentIndex(0),
+                side: Side::Buy,
+                price_entry_average: dec!(10_000.0),
+                quantity_abs_max: dec!(1.0),
+                pnl_realised: dec!(7000.0), // (-10k entry - 1k fees)+(20k exit - 2k fees) = 7k
+                fees_enter: AssetFees::quote_fees(dec!(1_000.0)),
+                fees_exit: AssetFees::quote_fees(dec!(2_000.0)),
+                time_enter: time_plus_days(STARTING_TIMESTAMP, 2),
+                time_exit: time_plus_days(STARTING_TIMESTAMP, 3),
+                trades: vec![gen_trade_id(0), gen_trade_id(0)],
+            }
         )
     );
 }
@@ -319,7 +372,7 @@ impl AlgoStrategy for TestBuyAndHoldStrategy {
                 exchange: state.instrument.exchange,
                 instrument: state.key,
                 strategy: self.id.clone(),
-                cid: gen_cid(state.key),
+                cid: gen_cid(state.key.index()),
                 side: Side::Buy,
                 state: RequestOpen {
                     kind: OrderKind::Market,
@@ -334,8 +387,20 @@ impl AlgoStrategy for TestBuyAndHoldStrategy {
     }
 }
 
-fn gen_cid(instrument: InstrumentIndex) -> ClientOrderId {
-    ClientOrderId::new(instrument.to_string())
+fn strategy_id() -> StrategyId {
+    StrategyId::new("TestBuyAndHoldStrategy")
+}
+
+fn gen_cid(instrument: usize) -> ClientOrderId {
+    ClientOrderId::new(InstrumentIndex(instrument).to_string())
+}
+
+fn gen_trade_id(instrument: usize) -> TradeId {
+    TradeId::new(InstrumentIndex(instrument).to_string())
+}
+
+fn gen_order_id(instrument: usize) -> OrderId {
+    OrderId::new(InstrumentIndex(instrument).to_string())
 }
 
 impl ClosePositionsStrategy for TestBuyAndHoldStrategy {
@@ -479,9 +544,7 @@ fn build_engine(
         clock,
         state,
         execution_txs,
-        TestBuyAndHoldStrategy {
-            id: StrategyId::new("TestBuyAndHoldStrategy"),
-        },
+        TestBuyAndHoldStrategy { id: strategy_id() },
         DefaultRiskManager::default(),
     )
 }
@@ -524,6 +587,7 @@ fn market_event_trade(time_plus: u64, instrument: usize, price: f64) -> EngineEv
 fn account_event_order_response(
     instrument: usize,
     time_plus: u64,
+    side: Side,
     price: f64,
     quantity: f64,
 ) -> EngineEvent<DataKind> {
@@ -532,9 +596,9 @@ fn account_event_order_response(
         kind: AccountEventKind::OrderOpened(Order {
             exchange: ExchangeIndex(0),
             instrument: InstrumentIndex(instrument),
-            strategy: StrategyId::new("TestBuyAndHoldStrategy"),
-            cid: gen_cid(InstrumentIndex(instrument)),
-            side: Side::Buy,
+            strategy: strategy_id(),
+            cid: gen_cid(instrument),
+            side,
             state: Ok(Open {
                 id: OrderId::new(instrument.to_string()),
                 time_exchange: time_plus_days(STARTING_TIMESTAMP, time_plus),
@@ -570,10 +634,10 @@ fn account_event_trade(
     EngineEvent::Account(AccountStreamEvent::Item(AccountEvent {
         exchange: ExchangeIndex(0),
         kind: AccountEventKind::Trade(Trade {
-            id: TradeId::new(instrument.to_string()),
-            order_id: OrderId::new(instrument.to_string()),
+            id: gen_trade_id(instrument),
+            order_id: gen_order_id(instrument),
             instrument: InstrumentIndex(instrument),
-            strategy: StrategyId::new("TestBuyAndHoldStrategy"),
+            strategy: strategy_id(),
             time_exchange: time_plus_days(STARTING_TIMESTAMP, time_plus),
             side,
             price: Decimal::try_from(price).unwrap(),
