@@ -253,7 +253,7 @@ impl<Event, OnTradingDisabled, OnDisconnect>
             UpdateFromMarketOutput::None => Self::Process(event.into()),
             UpdateFromMarketOutput::OnDisconnect(disconnect) => Self::ProcessWithOutput(
                 event.into(),
-                OneOrMany::One(EngineOutput::AccountDisconnect(disconnect)),
+                OneOrMany::One(EngineOutput::MarketDisconnect(disconnect)),
             ),
         }
     }

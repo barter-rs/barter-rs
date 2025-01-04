@@ -179,8 +179,15 @@ fn test_engine_process_engine_event_with_audit() {
 
     // TradingState::Disabled
     let event = EngineEvent::TradingStateUpdate(TradingState::Disabled);
-    let audit = process_with_audit(&mut engine, event);
+    let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(4));
+    assert_eq!(
+        audit.event,
+        EngineAudit::process_with_output(
+            event,
+            EngineOutput::OnTradingDisabled(OnTradingDisabledOutput)
+        )
+    );
 
     // Simulate OpenOrder response for Sequence(3) btc_usdt_buy_order
     let event = account_event_order_response(0, 2, Side::Buy, 10_000.0, 1.0);
@@ -359,8 +366,33 @@ fn test_engine_process_engine_event_with_audit() {
         )
     );
 
-    // Todo: Command::OpenOrder to increase eth_btc position
-    // Todo: disconnections
+    // Simulate exchange disconnection
+    let event = EngineEvent::Market(MarketStreamEvent::Reconnecting(ExchangeId::BinanceSpot));
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(17));
+    assert_eq!(
+        audit.event,
+        EngineAudit::process_with_output(event, EngineOutput::MarketDisconnect(OnDisconnectOutput))
+    );
+    assert_eq!(engine.state.connectivity.global, Health::Reconnecting);
+    assert_eq!(
+        engine
+            .state
+            .connectivity
+            .connectivity(&ExchangeId::BinanceSpot)
+            .market_data,
+        Health::Reconnecting
+    );
+    assert_eq!(
+        engine
+            .state
+            .connectivity
+            .connectivity(&ExchangeId::BinanceSpot)
+            .account,
+        Health::Healthy
+    );
+
+    // Todo: Command::OpenOrder LIMIT to increase eth_btc position & run through some order states
     // Todo: TradingSummaryGenerator
 }
 
@@ -448,6 +480,8 @@ impl ClosePositionsStrategy for TestBuyAndHoldStrategy {
     }
 }
 
+#[derive(Debug, PartialEq)]
+struct OnDisconnectOutput;
 impl
     OnDisconnectStrategy<
         HistoricalClock,
@@ -458,7 +492,7 @@ impl
         >,
     > for TestBuyAndHoldStrategy
 {
-    type OnDisconnect = ();
+    type OnDisconnect = OnDisconnectOutput;
 
     fn on_disconnect(
         _: &mut Engine<
@@ -472,9 +506,12 @@ impl
         >,
         _: ExchangeId,
     ) -> Self::OnDisconnect {
+        OnDisconnectOutput
     }
 }
 
+#[derive(Debug, PartialEq)]
+struct OnTradingDisabledOutput;
 impl
     OnTradingDisabled<
         HistoricalClock,
@@ -485,7 +522,7 @@ impl
         >,
     > for TestBuyAndHoldStrategy
 {
-    type OnTradingDisabled = ();
+    type OnTradingDisabled = OnTradingDisabledOutput;
 
     fn on_trading_disabled(
         _: &mut Engine<
@@ -498,6 +535,7 @@ impl
             >,
         >,
     ) -> Self::OnTradingDisabled {
+        OnTradingDisabledOutput
     }
 }
 

@@ -27,7 +27,8 @@ impl ConnectivityStates {
     /// to [`Health::Reconnecting`].
     pub fn update_from_account_reconnecting(&mut self, exchange: &ExchangeId) {
         warn!(%exchange, "EngineState received AccountStream disconnected event");
-        self.connectivity_mut(exchange).account = Health::Reconnecting
+        self.global = Health::Reconnecting;
+        self.connectivity_mut(exchange).account = Health::Reconnecting;
     }
 
     /// Updates from an exchange AccountStream event, setting the `ConnectivityState` account
@@ -63,6 +64,7 @@ impl ConnectivityStates {
     /// to [`Health::Reconnecting`].
     pub fn update_from_market_reconnecting(&mut self, exchange: &ExchangeId) {
         warn!(%exchange, "EngineState received MarketStream disconnect event");
+        self.global = Health::Reconnecting;
         self.connectivity_mut(exchange).market_data = Health::Reconnecting
     }
 
