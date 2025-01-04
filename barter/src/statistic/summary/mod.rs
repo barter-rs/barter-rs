@@ -108,6 +108,11 @@ impl TradingSummaryGenerator {
         }
     }
 
+    /// Update the [`TradingSummaryGenerator`] `time_now`.
+    pub fn update_time_now(&mut self, time_now: DateTime<Utc>) {
+        self.time_engine_now = time_now;
+    }
+
     /// Update the [`TradingSummaryGenerator`] from the next [`PositionExited`].
     pub fn update_from_position<AssetKey, InstrumentKey>(
         &mut self,

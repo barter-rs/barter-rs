@@ -43,8 +43,8 @@ use barter_data::{
 use barter_execution::{
     balance::{AssetBalance, Balance},
     order::{
-        ClientOrderId, Open, Order, OrderId, OrderKind, RequestCancel, RequestOpen, StrategyId,
-        TimeInForce,
+        ClientOrderId, ExchangeOrderState, InternalOrderState, Open, Order, OrderId, OrderKind,
+        RequestCancel, RequestOpen, StrategyId, TimeInForce,
     },
     trade::{AssetFees, Trade, TradeId},
     AccountEvent, AccountEventKind, AccountSnapshot,
@@ -190,7 +190,7 @@ fn test_engine_process_engine_event_with_audit() {
     );
 
     // Simulate OpenOrder response for Sequence(3) btc_usdt_buy_order
-    let event = account_event_order_response(0, 2, Side::Buy, 10_000.0, 1.0);
+    let event = account_event_order_response(0, 2, Side::Buy, 10_000.0, 1.0, 1.0);
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(5));
     assert_eq!(audit.event, EngineAudit::process(event));
@@ -209,7 +209,7 @@ fn test_engine_process_engine_event_with_audit() {
     assert_eq!(audit.event, EngineAudit::process(event));
 
     // Simulate Balance update for Sequence(3) btc_usdt_buy_order, AssetIndex(2)/usdt reduction
-    let event = account_event_balance(2, 2, 9_000.0); // 10k - 10% fees
+    let event = account_event_balance(2, 2, 9_000.0, 9_000.0); // 10k - 10% fees
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(7));
     assert_eq!(audit.event, EngineAudit::process(event));
@@ -225,11 +225,28 @@ fn test_engine_process_engine_event_with_audit() {
             time_plus_days(STARTING_TIMESTAMP, 2)
         )
     );
-
-    // Simulate OpenOrder response for Sequence(3) eth_btc_buy_order
-    let event = account_event_order_response(1, 2, Side::Buy, 0.1, 1.0);
+    // Simulate Balance update for Sequence(3) btc_usdt_buy_order, AssetIndex(0)/btc increase
+    let event = account_event_balance(0, 2, 2.0, 2.0); // 1btc + 1btc
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(8));
+    assert_eq!(audit.event, EngineAudit::process(event));
+    assert_eq!(
+        engine
+            .state
+            .assets
+            .asset_index(&AssetIndex(0))
+            .balance
+            .unwrap(),
+        Timed::new(
+            Balance::new(dec!(2.0), dec!(2.0)),
+            time_plus_days(STARTING_TIMESTAMP, 2)
+        )
+    );
+
+    // Simulate OpenOrder response for Sequence(3) eth_btc_buy_order
+    let event = account_event_order_response(1, 2, Side::Buy, 0.1, 1.0, 1.0);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(9));
     assert_eq!(audit.event, EngineAudit::process(event));
     assert!(engine
         .state
@@ -242,13 +259,13 @@ fn test_engine_process_engine_event_with_audit() {
     // Simulate Trade update for Sequence(3) eth_btc_buy_order (fees 10% -> 0.01btc)
     let event = account_event_trade(1, 2, Side::Buy, 0.1, 1.0);
     let audit = process_with_audit(&mut engine, event.clone());
-    assert_eq!(audit.context.sequence, Sequence(9));
+    assert_eq!(audit.context.sequence, Sequence(10));
     assert_eq!(audit.event, EngineAudit::process(event));
 
     // Simulate Balance update for Sequence(3) eth_btc_buy_order, AssetIndex(0)/btc reduction
-    let event = account_event_balance(0, 2, 0.99); // 1btc - 10% fees
+    let event = account_event_balance(0, 2, 0.99, 0.99); // 1btc - 10% fees
     let audit = process_with_audit(&mut engine, event.clone());
-    assert_eq!(audit.context.sequence, Sequence(10));
+    assert_eq!(audit.context.sequence, Sequence(11));
     assert_eq!(audit.event, EngineAudit::process(event));
     assert_eq!(
         engine
@@ -263,22 +280,40 @@ fn test_engine_process_engine_event_with_audit() {
         )
     );
 
+    // Simulate Balance update for Sequence(3) eth_btc_buy_order, AssetIndex(1)/eth increase
+    let event = account_event_balance(1, 2, 11.0, 11.0); // 10eth + 1eth
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(12));
+    assert_eq!(audit.event, EngineAudit::process(event));
+    assert_eq!(
+        engine
+            .state
+            .assets
+            .asset_index(&AssetIndex(1))
+            .balance
+            .unwrap(),
+        Timed::new(
+            Balance::new(dec!(11.0), dec!(11.0)),
+            time_plus_days(STARTING_TIMESTAMP, 2)
+        )
+    );
+
     // Process 2nd MarketEvent for btc_usdt
     let event = market_event_trade(2, 0, 20_000.0);
     let audit = process_with_audit(&mut engine, event.clone());
-    assert_eq!(audit.context.sequence, Sequence(11));
+    assert_eq!(audit.context.sequence, Sequence(13));
     assert_eq!(audit.event, EngineAudit::process(event));
 
     // Process 2nd MarketEvent for eth_btc
     let event = market_event_trade(2, 1, 0.05);
     let audit = process_with_audit(&mut engine, event.clone());
-    assert_eq!(audit.context.sequence, Sequence(12));
+    assert_eq!(audit.context.sequence, Sequence(14));
     assert_eq!(audit.event, EngineAudit::process(event));
 
     // Send ClosePositionsCommand for btc_usdt
     let event = command_close_position(0);
     let audit = process_with_audit(&mut engine, event.clone());
-    assert_eq!(audit.context.sequence, Sequence(13));
+    assert_eq!(audit.context.sequence, Sequence(15));
     let btc_usdt_sell_order = Order {
         exchange: ExchangeIndex(0),
         instrument: InstrumentIndex(0),
@@ -312,10 +347,10 @@ fn test_engine_process_engine_event_with_audit() {
         ExecutionRequest::Open(btc_usdt_sell_order)
     );
 
-    // Simulate OpenOrder response for Sequence(13) btc_usdt_sell_order
-    let event = account_event_order_response(0, 3, Side::Sell, 20_000.0, 1.0);
+    // Simulate OpenOrder response for Sequence(15) ClosePositionsCommand btc_usdt_sell_order
+    let event = account_event_order_response(0, 3, Side::Sell, 20_000.0, 1.0, 1.0);
     let audit = process_with_audit(&mut engine, event.clone());
-    assert_eq!(audit.context.sequence, Sequence(14));
+    assert_eq!(audit.context.sequence, Sequence(16));
     assert_eq!(audit.event, EngineAudit::process(event));
     assert!(engine
         .state
@@ -325,10 +360,10 @@ fn test_engine_process_engine_event_with_audit() {
         .0
         .is_empty());
 
-    // Simulate Balance update for Sequence(13) btc_usdt_sell_order, AssetIndex(2)/usdt increase
-    let event = account_event_balance(2, 3, 27_000.0); // 9k + 20k - 10% fees
+    // Simulate Balance update for Sequence(15) btc_usdt_sell_order, AssetIndex(2)/usdt increase
+    let event = account_event_balance(2, 3, 27_000.0, 27_000.0); // 9k + 20k - 10% fees
     let audit = process_with_audit(&mut engine, event.clone());
-    assert_eq!(audit.context.sequence, Sequence(15));
+    assert_eq!(audit.context.sequence, Sequence(17));
     assert_eq!(audit.event, EngineAudit::process(event));
     assert_eq!(
         engine
@@ -343,10 +378,28 @@ fn test_engine_process_engine_event_with_audit() {
         )
     );
 
-    // Simulate Trade update for Sequence(13) btc_usdt_sell_order (fees 10% -> 2000usdt)
+    // Simulate Balance update for Sequence(15) btc_usdt_sell_order, AssetIndex(0)/btc decrease
+    let event = account_event_balance(0, 3, 1.0, 1.0); // 2btc - 1btc
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(18));
+    assert_eq!(audit.event, EngineAudit::process(event));
+    assert_eq!(
+        engine
+            .state
+            .assets
+            .asset_index(&AssetIndex(0))
+            .balance
+            .unwrap(),
+        Timed::new(
+            Balance::new(dec!(1.0), dec!(1.0)),
+            time_plus_days(STARTING_TIMESTAMP, 3)
+        )
+    );
+
+    // Simulate Trade update for Sequence(15) btc_usdt_sell_order (fees 10% -> 2000usdt)
     let event = account_event_trade(0, 3, Side::Sell, 20_000.0, 1.0);
     let audit = process_with_audit(&mut engine, event.clone());
-    assert_eq!(audit.context.sequence, Sequence(16));
+    assert_eq!(audit.context.sequence, Sequence(19));
     assert_eq!(
         audit.event,
         EngineAudit::process_with_output(
@@ -369,7 +422,7 @@ fn test_engine_process_engine_event_with_audit() {
     // Simulate exchange disconnection
     let event = EngineEvent::Market(MarketStreamEvent::Reconnecting(ExchangeId::BinanceSpot));
     let audit = process_with_audit(&mut engine, event.clone());
-    assert_eq!(audit.context.sequence, Sequence(17));
+    assert_eq!(audit.context.sequence, Sequence(20));
     assert_eq!(
         audit.event,
         EngineAudit::process_with_output(event, EngineOutput::MarketDisconnect(OnDisconnectOutput))
@@ -392,8 +445,181 @@ fn test_engine_process_engine_event_with_audit() {
         Health::Healthy
     );
 
-    // Todo: Command::OpenOrder LIMIT to increase eth_btc position & run through some order states
-    // Todo: TradingSummaryGenerator
+    // Issue Command::SendOpenRequests OrderKind::LIMIT to close eth_btc position
+    let eth_btc_sell_order = Order {
+        exchange: ExchangeIndex(0),
+        instrument: InstrumentIndex(1),
+        strategy: strategy_id(),
+        cid: gen_cid(1),
+        side: Side::Sell,
+        state: RequestOpen {
+            kind: OrderKind::Limit,
+            time_in_force: TimeInForce::GoodUntilCancelled { post_only: true },
+            price: dec!(0.05),
+            quantity: dec!(1),
+        },
+    };
+    let event = EngineEvent::Command(Command::SendOpenRequests(OneOrMany::One(
+        eth_btc_sell_order.clone(),
+    )));
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(21));
+    assert_eq!(
+        audit.event,
+        EngineAudit::process_with_output(
+            event,
+            EngineOutput::Commanded(ActionOutput::OpenOrders(SendRequestsOutput {
+                sent: NoneOneOrMany::One(eth_btc_sell_order.clone()),
+                errors: NoneOneOrMany::None,
+            }))
+        )
+    );
+
+    // Ensure ExecutionRequest for Sequence(21) Command::SendOpenRequests was sent to ExecutionManager
+    assert_eq!(
+        execution_rx.next().unwrap(),
+        ExecutionRequest::Open(eth_btc_sell_order)
+    );
+
+    // Simulate LIMIT OpenOrder response for Sequence(21) eth_btc_sell_order (0/1 quantity filled)
+    let event = account_event_order_response(1, 4, Side::Sell, 0.05, 1.0, 0.0);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(22));
+    assert_eq!(audit.event, EngineAudit::process(event));
+    assert_eq!(
+        engine
+            .state
+            .instruments
+            .instrument_index(&InstrumentIndex(1))
+            .orders
+            .0
+            .len(),
+        1
+    );
+    assert_eq!(
+        engine
+            .state
+            .instruments
+            .instrument_index(&InstrumentIndex(1))
+            .orders
+            .0
+            .get(&gen_cid(1))
+            .unwrap(),
+        &Order {
+            exchange: ExchangeIndex(0),
+            instrument: InstrumentIndex(1),
+            strategy: strategy_id(),
+            cid: gen_cid(1),
+            side: Side::Sell,
+            state: InternalOrderState::Open(Open {
+                id: gen_order_id(1),
+                time_exchange: time_plus_days(STARTING_TIMESTAMP, 4),
+                price: dec!(0.05),
+                quantity: dec!(1),
+                filled_quantity: dec!(0),
+            }),
+        }
+    );
+
+    // Simulate Balance update for Sequence(21) eth_btc_sell_order, AssetIndex(1)/eth free reduction
+    let event = account_event_balance(1, 4, 11.0, 10.0); // 1eth in order
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(23));
+    assert_eq!(audit.event, EngineAudit::process(event));
+    assert_eq!(
+        engine
+            .state
+            .assets
+            .asset_index(&AssetIndex(1))
+            .balance
+            .unwrap(),
+        Timed::new(
+            Balance::new(dec!(11.0), dec!(10.0)),
+            time_plus_days(STARTING_TIMESTAMP, 4)
+        )
+    );
+
+    // Simulate Order FullyFilled update for Sequence(21) LIMIT eth_btc_sell_order
+    let event = EngineEvent::Account(AccountStreamEvent::Item(AccountEvent {
+        exchange: ExchangeIndex(0),
+        kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
+            exchange: ExchangeIndex(0),
+            instrument: InstrumentIndex(1),
+            strategy: strategy_id(),
+            cid: gen_cid(1),
+            side: Side::Sell,
+            state: ExchangeOrderState::FullyFilled,
+        })),
+    }));
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(24));
+    assert_eq!(audit.event, EngineAudit::process(event));
+    assert!(engine
+        .state
+        .instruments
+        .instrument_index(&InstrumentIndex(1))
+        .orders
+        .0
+        .is_empty());
+
+    // Simulate Trade update for Sequence(21) LIMIT eth_btc_sell_order (fees 10% -> 0.05btc)
+    let event = account_event_trade(1, 5, Side::Sell, 0.05, 1.0);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(25));
+    assert_eq!(
+        audit.event,
+        EngineAudit::process_with_output(
+            event,
+            PositionExited {
+                instrument: InstrumentIndex(1),
+                side: Side::Buy,
+                price_entry_average: dec!(0.1),
+                quantity_abs_max: dec!(1.0),
+                pnl_realised: dec!(-0.065), // 0.05 - 0.01 - 0.01 entry fees - 0.005 exit fees
+                fees_enter: AssetFees::quote_fees(dec!(0.01)), // 0.01 btc
+                fees_exit: AssetFees::quote_fees(dec!(0.005)), // 0.005 btc
+                time_enter: time_plus_days(STARTING_TIMESTAMP, 2),
+                time_exit: time_plus_days(STARTING_TIMESTAMP, 5),
+                trades: vec![gen_trade_id(1), gen_trade_id(1)],
+            }
+        )
+    );
+
+    // Simulate Balance update for Sequence(21) eth_btc_sell_order Trade, AssetIndex(1)/eth total decrease
+    let event = account_event_balance(1, 5, 10.0, 10.0);
+    let audit = process_with_audit(&mut engine, event.clone());
+    assert_eq!(audit.context.sequence, Sequence(26));
+    assert_eq!(audit.event, EngineAudit::process(event));
+    assert_eq!(
+        engine
+            .state
+            .assets
+            .asset_index(&AssetIndex(1))
+            .balance
+            .unwrap(),
+        Timed::new(
+            Balance::new(dec!(10.0), dec!(10.0)),
+            time_plus_days(STARTING_TIMESTAMP, 5)
+        )
+    );
+
+    // End trading session and produce TradingSummaryGenerator
+    let mut summary = engine.trading_summary_generator(RISK_FREE_RETURN);
+    summary.update_time_now(time_plus_days(STARTING_TIMESTAMP, 5));
+
+    assert_eq!(summary.risk_free_return, RISK_FREE_RETURN);
+    assert_eq!(
+        summary.time_engine_now,
+        time_plus_days(STARTING_TIMESTAMP, 5)
+    );
+
+    let btc_usdt_tear = summary.instruments.get_index(0).unwrap().1;
+    assert_eq!(btc_usdt_tear.pnl_returns.pnl_raw, dec!(7000.0));
+
+    let eth_btc_tear = summary.instruments.get_index(1).unwrap().1;
+    assert_eq!(eth_btc_tear.pnl_returns.pnl_raw, dec!(-0.065));
+
+    // Todo: Additional assertions + TradingSummary assertions once generated (to test TimeInterval)
 }
 
 struct TestBuyAndHoldStrategy {
@@ -653,6 +879,7 @@ fn account_event_order_response(
     side: Side,
     price: f64,
     quantity: f64,
+    filled: f64,
 ) -> EngineEvent<DataKind> {
     EngineEvent::Account(AccountStreamEvent::Item(AccountEvent {
         exchange: ExchangeIndex(0),
@@ -663,24 +890,29 @@ fn account_event_order_response(
             cid: gen_cid(instrument),
             side,
             state: Ok(Open {
-                id: OrderId::new(instrument.to_string()),
+                id: gen_order_id(instrument),
                 time_exchange: time_plus_days(STARTING_TIMESTAMP, time_plus),
                 price: Decimal::try_from(price).unwrap(),
                 quantity: Decimal::try_from(quantity).unwrap(),
-                filled_quantity: Decimal::try_from(quantity).unwrap(),
+                filled_quantity: Decimal::try_from(filled).unwrap(),
             }),
         }),
     }))
 }
 
-fn account_event_balance(asset: usize, time_plus: u64, value: f64) -> EngineEvent<DataKind> {
+fn account_event_balance(
+    asset: usize,
+    time_plus: u64,
+    total: f64,
+    free: f64,
+) -> EngineEvent<DataKind> {
     EngineEvent::Account(AccountStreamEvent::Item(AccountEvent {
         exchange: ExchangeIndex(0),
         kind: AccountEventKind::BalanceSnapshot(Snapshot(AssetBalance {
             asset: AssetIndex(asset),
             balance: Balance::new(
-                Decimal::try_from(value).unwrap(),
-                Decimal::try_from(value).unwrap(),
+                Decimal::try_from(total).unwrap(),
+                Decimal::try_from(free).unwrap(),
             ),
             time_exchange: time_plus_days(STARTING_TIMESTAMP, time_plus),
         })),
