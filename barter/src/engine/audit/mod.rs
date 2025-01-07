@@ -10,7 +10,6 @@ use crate::{
     strategy::{on_disconnect::OnDisconnectStrategy, on_trading_disabled::OnTradingDisabled},
     EngineEvent,
 };
-use barter_data::event::DataKind;
 use barter_integration::collection::one_or_many::OneOrMany;
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
@@ -289,12 +288,19 @@ impl<State, Event, Output> From<ProcessAudit<Event, Output>> for EngineAudit<Sta
     }
 }
 
-impl<State, OnTradingDisabled, OnDisconnect>
-    From<ShutdownAudit<EngineEvent<DataKind>, EngineOutput<OnTradingDisabled, OnDisconnect>>>
-    for EngineAudit<State, EngineEvent<DataKind>, EngineOutput<OnTradingDisabled, OnDisconnect>>
+impl<State, OnTradingDisabled, OnDisconnect, MarketEventKind>
+    From<ShutdownAudit<EngineEvent<MarketEventKind>, EngineOutput<OnTradingDisabled, OnDisconnect>>>
+    for EngineAudit<
+        State,
+        EngineEvent<MarketEventKind>,
+        EngineOutput<OnTradingDisabled, OnDisconnect>,
+    >
 {
     fn from(
-        value: ShutdownAudit<EngineEvent<DataKind>, EngineOutput<OnTradingDisabled, OnDisconnect>>,
+        value: ShutdownAudit<
+            EngineEvent<MarketEventKind>,
+            EngineOutput<OnTradingDisabled, OnDisconnect>,
+        >,
     ) -> Self {
         Self::Shutdown(value)
     }
