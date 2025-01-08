@@ -46,7 +46,7 @@ pub struct ExecutionManager<RequestStream, Client> {
     pub request_timeout: std::time::Duration,
 
     /// Transmitter for sending execution request responses back to the Engine.
-    pub response_tx: UnboundedTx<AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>>,
+    pub response_tx: UnboundedTx<AccountStreamEvent>,
 
     /// Exchange-specific [`ExecutionClient`] for executing orders.
     pub client: Arc<Client>,
