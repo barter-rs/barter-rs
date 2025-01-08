@@ -35,6 +35,14 @@ thiserror = { workspace = true }
 
 # SerDe
 serde = { workspace = true, features = ["derive"] }
+serde_urlencoded = { workspace = true }
+
+# Protocol
+reqwest = { workspace = true, default-features = false, features = ["rustls-tls"] }
+
+# Cryptographic Signatures
+hmac = { workspace = true }
+sha2 = { workspace = true }
 
 # Misc
 rand = { workspace = true }
