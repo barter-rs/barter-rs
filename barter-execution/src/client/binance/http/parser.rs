@@ -1,6 +1,6 @@
-use serde::Deserialize;
+use crate::error::UnindexedClientError;
 use barter_integration::protocol::http::HttpParser;
-use crate::error::{UnindexedClientError};
+use serde::Deserialize;
 
 #[derive(Debug, Clone)]
 pub struct BinanceSpotHttpParser;
@@ -12,7 +12,7 @@ impl HttpParser for BinanceSpotHttpParser {
     fn parse_api_error(
         &self,
         status: reqwest::StatusCode,
-        error: Self::ApiError
+        error: Self::ApiError,
     ) -> Self::OutputError {
         todo!()
     }
