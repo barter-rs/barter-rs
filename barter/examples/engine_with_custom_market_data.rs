@@ -1,6 +1,6 @@
 use barter::{
     engine::{
-        audit::Audit,
+        audit::EngineAudit,
         clock::{EngineClock, LiveClock},
         command::Command,
         run,
@@ -85,9 +85,9 @@ impl<InstrumentKey> MarketDataState<InstrumentKey> for MarketData {
 }
 
 impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>> for MarketData {
-    type Output = ();
+    type Audit = ();
 
-    fn process(&mut self, event: &MarketEvent<InstrumentKey, DataKind>) -> Self::Output {
+    fn process(&mut self, event: &MarketEvent<InstrumentKey, DataKind>) -> Self::Audit {
         match &event.kind {
             DataKind::OrderBook(event) => {
                 self.book.update(event);
@@ -179,7 +179,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut audit_stream = audit_rx.into_stream();
         while let Some(audit) = audit_stream.next().await {
             debug!(?audit, "AuditStream consumed AuditTick");
-            if let Audit::Shutdown(_) = audit.event {
+            if let EngineAudit::Shutdown(_) = audit.event {
                 break;
             }
         }
