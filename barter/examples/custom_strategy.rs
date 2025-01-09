@@ -1,6 +1,6 @@
 use barter::{
     engine::{
-        audit::Audit,
+        audit::EngineAudit,
         clock::{EngineClock, LiveClock},
         command::Command,
         run,
@@ -107,9 +107,9 @@ struct BuyAndHoldStrategyState {
 }
 
 impl Processor<&AccountEvent> for BuyAndHoldStrategyState {
-    type Output = ();
+    type Audit = ();
 
-    fn process(&mut self, event: &AccountEvent) -> Self::Output {
+    fn process(&mut self, event: &AccountEvent) -> Self::Audit {
         if let AccountEventKind::Trade(trade) = &event.kind {
             self.trades.push(trade.clone());
         }
@@ -117,9 +117,9 @@ impl Processor<&AccountEvent> for BuyAndHoldStrategyState {
 }
 
 impl Processor<&MarketEvent> for BuyAndHoldStrategyState {
-    type Output = ();
+    type Audit = ();
 
-    fn process(&mut self, _event: &MarketEvent) -> Self::Output {
+    fn process(&mut self, _event: &MarketEvent) -> Self::Audit {
         // Update strategy state when we receive a specific MarketEvent
     }
 }
@@ -350,7 +350,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut audit_stream = audit_rx.into_stream();
         while let Some(audit) = audit_stream.next().await {
             debug!(?audit, "AuditStream consumed AuditTick");
-            if let Audit::Shutdown(_) = audit.event {
+            if let EngineAudit::Shutdown(_) = audit.event {
                 break;
             }
         }
