@@ -48,8 +48,8 @@ fnv = { workspace = true }
 smol_str = { workspace = true, features = ["serde"]}
 
 # Protocol
-tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
-reqwest = { workspace = true, default-features = false, features = ["json", "rustls-tls"] }
+tokio-tungstenite = { workspace = true }
+reqwest = { workspace = true }
 url = { workspace = true }
 
 # Cryptographic Signatures
