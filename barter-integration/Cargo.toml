@@ -48,7 +48,7 @@ fnv = { workspace = true }
 smol_str = { workspace = true, features = ["serde"]}
 
 # Protocol
-tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
+tokio-tungstenite = { workspace = true }
 reqwest = { workspace = true, default-features = false, features = ["json"] }
 url = { workspace = true }
 
