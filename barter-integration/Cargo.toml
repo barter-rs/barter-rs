@@ -49,7 +49,7 @@ smol_str = { workspace = true, features = ["serde"]}
 
 # Protocol
 tokio-tungstenite = { workspace = true, features = ["native-tls"] }
-reqwest = { workspace = true, features = ["json"] }
+reqwest = { workspace = true, default-features = false, features = ["json"] }
 url = { workspace = true }
 
 # Cryptographic Signatures

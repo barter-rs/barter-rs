@@ -41,7 +41,7 @@ serde_urlencoded = { version = "0.7.1" }
 
 # Protocol
 url = { version = "2.5.4" }
-reqwest = { version = "0.12.9" }
+reqwest = { version = "0.12.9",default-features = false, features = ["rustls-tls"] }
 tokio-tungstenite = { version = "0.26.0", features = ["url", "native-tls"] }
 
 # Data Structures
