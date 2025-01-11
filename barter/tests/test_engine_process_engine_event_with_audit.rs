@@ -44,8 +44,9 @@ use barter_execution::{
     balance::{AssetBalance, Balance},
     order::{
         id::{ClientOrderId, OrderId, StrategyId},
+        request::{OrderRequestCancel, OrderRequestOpen, RequestOpen},
         state::{ActiveOrderState, Open, OrderState},
-        Order, OrderKind, RequestCancel, RequestOpen, TimeInForce,
+        Order, OrderKey, OrderKind, TimeInForce,
     },
     trade::{AssetFees, Trade, TradeId},
     AccountEvent, AccountEventKind, AccountSnapshot,
@@ -55,7 +56,6 @@ use barter_instrument::{
     exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
     instrument::{
-        kind::InstrumentKind,
         spec::{
             InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice, InstrumentSpecQuantity,
             OrderQuantityUnits,
@@ -122,26 +122,30 @@ fn test_engine_process_engine_event_with_audit() {
     let event = EngineEvent::TradingStateUpdate(TradingState::Enabled);
     let audit = process_with_audit(&mut engine, event);
     assert_eq!(audit.context.sequence, Sequence(3));
-    let btc_usdt_buy_order = Order {
-        exchange: ExchangeIndex(0),
-        instrument: InstrumentIndex(0),
-        strategy: strategy_id(),
-        cid: gen_cid(0),
-        side: Side::Buy,
+    let btc_usdt_buy_order = OrderRequestOpen {
+        key: OrderKey {
+            exchange: ExchangeIndex(0),
+            instrument: InstrumentIndex(0),
+            strategy: strategy_id(),
+            cid: gen_cid(0),
+        },
         state: RequestOpen {
+            side: Side::Buy,
             kind: OrderKind::Market,
             time_in_force: TimeInForce::ImmediateOrCancel,
             price: dec!(10_000),
             quantity: dec!(1),
         },
     };
-    let eth_btc_buy_order = Order {
-        exchange: ExchangeIndex(0),
-        instrument: InstrumentIndex(1),
-        strategy: strategy_id(),
-        cid: gen_cid(1),
-        side: Side::Buy,
+    let eth_btc_buy_order = OrderRequestOpen {
+        key: OrderKey {
+            exchange: ExchangeIndex(0),
+            instrument: InstrumentIndex(1),
+            strategy: strategy_id(),
+            cid: gen_cid(1),
+        },
         state: RequestOpen {
+            side: Side::Buy,
             kind: OrderKind::Market,
             time_in_force: TimeInForce::ImmediateOrCancel,
             price: dec!(0.1),
@@ -315,13 +319,15 @@ fn test_engine_process_engine_event_with_audit() {
     let event = command_close_position(0);
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(15));
-    let btc_usdt_sell_order = Order {
-        exchange: ExchangeIndex(0),
-        instrument: InstrumentIndex(0),
-        strategy: strategy_id(),
-        cid: gen_cid(0),
-        side: Side::Sell,
+    let btc_usdt_sell_order = OrderRequestOpen {
+        key: OrderKey {
+            exchange: ExchangeIndex(0),
+            instrument: InstrumentIndex(0),
+            strategy: strategy_id(),
+            cid: gen_cid(0),
+        },
         state: RequestOpen {
+            side: Side::Sell,
             kind: OrderKind::Market,
             time_in_force: TimeInForce::ImmediateOrCancel,
             price: dec!(20_000),
@@ -447,13 +453,15 @@ fn test_engine_process_engine_event_with_audit() {
     );
 
     // Issue Command::SendOpenRequests OrderKind::LIMIT to close eth_btc position
-    let eth_btc_sell_order = Order {
-        exchange: ExchangeIndex(0),
-        instrument: InstrumentIndex(1),
-        strategy: strategy_id(),
-        cid: gen_cid(1),
-        side: Side::Sell,
+    let eth_btc_sell_order = OrderRequestOpen {
+        key: OrderKey {
+            exchange: ExchangeIndex(0),
+            instrument: InstrumentIndex(1),
+            strategy: strategy_id(),
+            cid: gen_cid(1),
+        },
         state: RequestOpen {
+            side: Side::Sell,
             kind: OrderKind::Limit,
             time_in_force: TimeInForce::GoodUntilCancelled { post_only: true },
             price: dec!(0.05),
@@ -507,16 +515,20 @@ fn test_engine_process_engine_event_with_audit() {
             .get(&gen_cid(1))
             .unwrap(),
         &Order {
-            exchange: ExchangeIndex(0),
-            instrument: InstrumentIndex(1),
-            strategy: strategy_id(),
-            cid: gen_cid(1),
+            key: OrderKey {
+                exchange: ExchangeIndex(0),
+                instrument: InstrumentIndex(1),
+                strategy: strategy_id(),
+                cid: gen_cid(1),
+            },
             side: Side::Sell,
+            price: dec!(0.05),
+            quantity: dec!(1),
+            kind: OrderKind::Limit,
+            time_in_force: TimeInForce::GoodUntilCancelled { post_only: true },
             state: ActiveOrderState::Open(Open {
                 id: gen_order_id(1),
                 time_exchange: time_plus_days(STARTING_TIMESTAMP, 4),
-                price: dec!(0.05),
-                quantity: dec!(1),
                 filled_quantity: dec!(0),
             }),
         }
@@ -544,11 +556,17 @@ fn test_engine_process_engine_event_with_audit() {
     let event = EngineEvent::Account(AccountStreamEvent::Item(AccountEvent {
         exchange: ExchangeIndex(0),
         kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
-            exchange: ExchangeIndex(0),
-            instrument: InstrumentIndex(1),
-            strategy: strategy_id(),
-            cid: gen_cid(1),
+            key: OrderKey {
+                exchange: ExchangeIndex(0),
+                instrument: InstrumentIndex(1),
+                strategy: strategy_id(),
+                cid: gen_cid(1),
+            },
             side: Side::Sell,
+            price: dec!(0.05),
+            quantity: dec!(1),
+            kind: OrderKind::Limit,
+            time_in_force: TimeInForce::GoodUntilCancelled { post_only: true },
             state: OrderState::fully_filled(),
         })),
     }));
@@ -634,38 +652,43 @@ impl AlgoStrategy for TestBuyAndHoldStrategy {
         &self,
         state: &Self::State,
     ) -> (
-        impl IntoIterator<Item = Order<ExchangeIndex, InstrumentIndex, RequestCancel>>,
-        impl IntoIterator<Item = Order<ExchangeIndex, InstrumentIndex, RequestOpen>>,
+        impl IntoIterator<Item = OrderRequestCancel<ExchangeIndex, InstrumentIndex>>,
+        impl IntoIterator<Item = OrderRequestOpen<ExchangeIndex, InstrumentIndex>>,
     ) {
-        let opens = state.instruments.instruments().filter_map(|state| {
-            // Don't open more if we have a Position already
-            if state.position.is_some() {
-                return None;
-            }
+        let opens = state
+            .instruments
+            .instruments(&InstrumentFilter::None)
+            .filter_map(|state| {
+                // Don't open more if we have a Position already
+                if state.position.current.is_some() {
+                    return None;
+                }
 
-            // Don't open more orders if there are already some InFlight
-            if !state.orders.0.is_empty() {
-                return None;
-            }
+                // Don't open more orders if there are already some InFlight
+                if !state.orders.0.is_empty() {
+                    return None;
+                }
 
-            // Don't open if there is no market data price available
-            let price = state.market.price()?;
+                // Don't open if there is no market data price available
+                let price = state.market.price()?;
 
-            // Generate Market order to buy the minimum allowed quantity
-            Some(Order {
-                exchange: state.instrument.exchange,
-                instrument: state.key,
-                strategy: self.id.clone(),
-                cid: gen_cid(state.key.index()),
-                side: Side::Buy,
-                state: RequestOpen {
-                    kind: OrderKind::Market,
-                    time_in_force: TimeInForce::ImmediateOrCancel,
-                    price,
-                    quantity: dec!(1),
-                },
-            })
-        });
+                // Generate Market order to buy the minimum allowed quantity
+                Some(OrderRequestOpen {
+                    key: OrderKey {
+                        exchange: state.instrument.exchange,
+                        instrument: state.key,
+                        strategy: self.id.clone(),
+                        cid: gen_cid(state.key.index()),
+                    },
+                    state: RequestOpen {
+                        side: Side::Buy,
+                        kind: OrderKind::Market,
+                        time_in_force: TimeInForce::ImmediateOrCancel,
+                        price,
+                        quantity: dec!(1),
+                    },
+                })
+            });
 
         (std::iter::empty(), opens)
     }
@@ -695,8 +718,8 @@ impl ClosePositionsStrategy for TestBuyAndHoldStrategy {
         state: &'a Self::State,
         filter: &'a InstrumentFilter<ExchangeIndex, AssetIndex, InstrumentIndex>,
     ) -> (
-        impl IntoIterator<Item = Order<ExchangeIndex, InstrumentIndex, RequestCancel>> + 'a,
-        impl IntoIterator<Item = Order<ExchangeIndex, InstrumentIndex, RequestOpen>> + 'a,
+        impl IntoIterator<Item = OrderRequestCancel<ExchangeIndex, InstrumentIndex>> + 'a,
+        impl IntoIterator<Item = OrderRequestOpen<ExchangeIndex, InstrumentIndex>> + 'a,
     )
     where
         ExchangeIndex: 'a,
@@ -779,12 +802,11 @@ fn build_engine(
     >,
 > {
     let instruments = IndexedInstruments::builder()
-        .add_instrument(Instrument::new(
+        .add_instrument(Instrument::spot(
             ExchangeId::BinanceSpot,
             "binance_spot_btc_usdt",
             "BTCUSDT",
             Underlying::new("btc", "usdt"),
-            InstrumentKind::Spot,
             Some(InstrumentSpec::new(
                 InstrumentSpecPrice::new(dec!(0.01), dec!(0.01)),
                 InstrumentSpecQuantity::new(
@@ -795,12 +817,11 @@ fn build_engine(
                 InstrumentSpecNotional::new(dec!(5.0)),
             )),
         ))
-        .add_instrument(Instrument::new(
+        .add_instrument(Instrument::spot(
             ExchangeId::BinanceSpot,
             "binance_spot_eth_btc",
             "ETHBTC",
             Underlying::new("eth", "btc"),
-            InstrumentKind::Spot,
             Some(InstrumentSpec::new(
                 InstrumentSpecPrice::new(dec!(0.00001), dec!(0.00001)),
                 InstrumentSpecQuantity::new(OrderQuantityUnits::Quote, dec!(0.0001), dec!(0.0001)),
@@ -885,16 +906,20 @@ fn account_event_order_response(
     EngineEvent::Account(AccountStreamEvent::Item(AccountEvent {
         exchange: ExchangeIndex(0),
         kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
-            exchange: ExchangeIndex(0),
-            instrument: InstrumentIndex(instrument),
-            strategy: strategy_id(),
-            cid: gen_cid(instrument),
+            key: OrderKey {
+                exchange: ExchangeIndex(0),
+                instrument: InstrumentIndex(instrument),
+                strategy: strategy_id(),
+                cid: gen_cid(instrument),
+            },
             side,
+            price: Decimal::try_from(price).unwrap(),
+            quantity: Decimal::try_from(quantity).unwrap(),
+            kind: OrderKind::Market,
+            time_in_force: TimeInForce::GoodUntilCancelled { post_only: true },
             state: OrderState::active(Open {
                 id: gen_order_id(instrument),
                 time_exchange: time_plus_days(STARTING_TIMESTAMP, time_plus),
-                price: Decimal::try_from(price).unwrap(),
-                quantity: Decimal::try_from(quantity).unwrap(),
                 filled_quantity: Decimal::try_from(filled).unwrap(),
             }),
         })),

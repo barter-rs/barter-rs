@@ -8,8 +8,9 @@ use crate::{
     },
     order::{
         id::OrderId,
+        request::{OrderRequestCancel, OrderRequestOpen},
         state::{Cancelled, Open},
-        Order, OrderKind, RequestCancel, RequestOpen, UnindexedOrder,
+        Order, OrderKind, UnindexedOrder,
     },
     trade::{AssetFees, Trade, TradeId},
     AccountEventKind, InstrumentAccountSnapshot, UnindexedAccountEvent, UnindexedAccountSnapshot,
@@ -148,8 +149,8 @@ impl MockExchange {
             .map(UnindexedOrder::from);
 
         let orders_all = orders_open.chain(orders_cancelled);
-        let orders_all = orders_all.sorted_unstable_by_key(|order| order.instrument.clone());
-        let orders_by_instrument = orders_all.chunk_by(|order| order.instrument.clone());
+        let orders_all = orders_all.sorted_unstable_by_key(|order| order.key.instrument.clone());
+        let orders_by_instrument = orders_all.chunk_by(|order| order.key.instrument.clone());
 
         let instruments = orders_by_instrument
             .into_iter()
@@ -242,14 +243,14 @@ impl MockExchange {
 
     pub fn cancel_order(
         &mut self,
-        _: Order<ExchangeId, InstrumentNameExchange, RequestCancel>,
+        _: OrderRequestCancel<ExchangeId, InstrumentNameExchange>,
     ) -> Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedOrderError>> {
         unimplemented!()
     }
 
     pub fn open_order(
         &mut self,
-        request: Order<ExchangeId, InstrumentNameExchange, RequestOpen>,
+        request: OrderRequestOpen<ExchangeId, InstrumentNameExchange>,
     ) -> (
         Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>,
         Option<OpenOrderNotifications>,
@@ -258,14 +259,14 @@ impl MockExchange {
             return (build_open_order_err_response(request, error), None);
         }
 
-        let underlying = match self.find_instrument_data(&request.instrument) {
+        let underlying = match self.find_instrument_data(&request.key.instrument) {
             Ok(instrument) => instrument.underlying.clone(),
             Err(error) => return (build_open_order_err_response(request, error), None),
         };
 
         let time_exchange = self.time_exchange();
 
-        let balance_change_result = match request.side {
+        let balance_change_result = match request.state.side {
             Side::Buy => {
                 // Buying Instrument requires sufficient QuoteAsset Balance
                 let current = self
@@ -343,16 +344,15 @@ impl MockExchange {
         let trade_id = TradeId(order_id.0.clone());
 
         let order_response = Order {
-            exchange: request.exchange,
-            instrument: request.instrument.clone(),
-            strategy: request.strategy.clone(),
-            cid: request.cid,
-            side: request.side,
+            key: request.key.clone(),
+            side: request.state.side,
+            price: request.state.price,
+            quantity: request.state.quantity,
+            kind: request.state.kind,
+            time_in_force: request.state.time_in_force,
             state: Ok(Open {
                 id: order_id.clone(),
                 time_exchange: self.time_exchange(),
-                price: request.state.price,
-                quantity: request.state.quantity,
                 filled_quantity: request.state.quantity,
             }),
         };
@@ -362,10 +362,10 @@ impl MockExchange {
             trade: Trade {
                 id: trade_id,
                 order_id: order_id.clone(),
-                instrument: request.instrument,
-                strategy: request.strategy,
+                instrument: request.key.instrument,
+                strategy: request.key.strategy,
                 time_exchange: self.time_exchange(),
-                side: request.side,
+                side: request.state.side,
                 price: request.state.price,
                 quantity: request.state.quantity,
                 fees,
@@ -418,18 +418,19 @@ impl MockExchange {
 }
 
 fn build_open_order_err_response<E>(
-    request: Order<ExchangeId, InstrumentNameExchange, RequestOpen>,
+    request: OrderRequestOpen<ExchangeId, InstrumentNameExchange>,
     error: E,
 ) -> Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>
 where
     E: Into<UnindexedOrderError>,
 {
     Order {
-        exchange: request.exchange,
-        instrument: request.instrument,
-        strategy: request.strategy,
-        cid: request.cid,
-        side: request.side,
+        key: request.key,
+        side: request.state.side,
+        price: request.state.price,
+        quantity: request.state.quantity,
+        kind: request.state.kind,
+        time_in_force: request.state.time_in_force,
         state: Err(error.into()),
     }
 }

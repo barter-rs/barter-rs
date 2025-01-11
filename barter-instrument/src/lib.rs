@@ -8,7 +8,7 @@
     clippy::useless_let_if_seq,
     missing_debug_implementations,
     rust_2018_idioms,
-    rust_2024_compatibility
+    // rust_2024_compatibility
 )]
 #![allow(clippy::type_complexity, clippy::too_many_arguments, type_alias_bounds)]
 
@@ -119,6 +119,7 @@ pub mod test_utils {
         instrument::{
             kind::InstrumentKind,
             name::{InstrumentNameExchange, InstrumentNameInternal},
+            quote::InstrumentQuoteAsset,
             Instrument,
         },
         Underlying,
@@ -154,6 +155,7 @@ pub mod test_utils {
             name_internal,
             name_exchange,
             Underlying::new(base_asset, quote_asset),
+            InstrumentQuoteAsset::UnderlyingQuote,
             InstrumentKind::Spot,
             None,
         )

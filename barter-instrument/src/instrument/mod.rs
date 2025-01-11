@@ -4,6 +4,7 @@ use crate::{
         kind::InstrumentKind,
         market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
         name::{InstrumentNameExchange, InstrumentNameInternal},
+        quote::InstrumentQuoteAsset,
         spec::{InstrumentSpec, InstrumentSpecQuantity, OrderQuantityUnits},
     },
     Underlying,
@@ -28,6 +29,9 @@ pub mod spec;
 /// Defines a simplified [`MarketDataInstrument`], with only the necessary data to subscribe to
 /// market data feeds.
 pub mod market_data;
+
+/// Defines the [`InstrumentQuoteAsset`] (underlying base or quote) for an [`Instrument`].
+pub mod quote;
 
 /// Unique identifier for an `Instrument` traded on an execution.
 ///
@@ -62,19 +66,23 @@ pub struct Instrument<ExchangeKey, AssetKey> {
     pub name_internal: InstrumentNameInternal,
     pub name_exchange: InstrumentNameExchange,
     pub underlying: Underlying<AssetKey>,
+    pub quote: InstrumentQuoteAsset,
     #[serde(alias = "instrument_kind")]
     pub kind: InstrumentKind<AssetKey>,
     pub spec: Option<InstrumentSpec<AssetKey>>,
 }
 
 impl<ExchangeKey, AssetKey> Instrument<ExchangeKey, AssetKey> {
-    /// Construct a new [`Self`] with the provided data, assuming the [`InstrumentNameInternal`]
-    /// can be created via the [`InstrumentNameInternal::new_from_exchange`] constructor.
+    /// Construct a new `Instrument` with the provided data.
+    ///
+    /// This constructor assumes the [`InstrumentNameInternal`] can be constructed in the default
+    /// style via the [`InstrumentNameInternal::new_from_exchange`] constructor.
     pub fn new<NameInternal, NameExchange>(
         exchange: ExchangeKey,
         name_internal: NameInternal,
         name_exchange: NameExchange,
         underlying: Underlying<AssetKey>,
+        quote: InstrumentQuoteAsset,
         kind: InstrumentKind<AssetKey>,
         spec: Option<InstrumentSpec<AssetKey>>,
     ) -> Self
@@ -86,8 +94,35 @@ impl<ExchangeKey, AssetKey> Instrument<ExchangeKey, AssetKey> {
             exchange,
             name_internal: name_internal.into(),
             name_exchange: name_exchange.into(),
+            quote,
             underlying,
             kind,
+            spec,
+        }
+    }
+
+    /// Construct a new `Spot` `Instrument` with the provided data.
+    ///
+    /// This constructor assumes the [`InstrumentNameInternal`] can be constructed in the default
+    /// style via the [`InstrumentNameInternal::new_from_exchange`] constructor.
+    pub fn spot<NameInternal, NameExchange>(
+        exchange: ExchangeKey,
+        name_internal: NameInternal,
+        name_exchange: NameExchange,
+        underlying: Underlying<AssetKey>,
+        spec: Option<InstrumentSpec<AssetKey>>,
+    ) -> Self
+    where
+        NameInternal: Into<InstrumentNameInternal>,
+        NameExchange: Into<InstrumentNameExchange>,
+    {
+        Self {
+            exchange,
+            name_internal: name_internal.into(),
+            name_exchange: name_exchange.into(),
+            quote: InstrumentQuoteAsset::UnderlyingQuote,
+            underlying,
+            kind: InstrumentKind::Spot,
             spec,
         }
     }
@@ -102,6 +137,7 @@ impl<ExchangeKey, AssetKey> Instrument<ExchangeKey, AssetKey> {
             name_internal,
             name_exchange,
             underlying,
+            quote,
             kind,
             spec,
         } = self;
@@ -111,6 +147,7 @@ impl<ExchangeKey, AssetKey> Instrument<ExchangeKey, AssetKey> {
             name_internal,
             name_exchange,
             underlying,
+            quote,
             kind,
             spec,
         }
@@ -128,32 +165,41 @@ impl<ExchangeKey, AssetKey> Instrument<ExchangeKey, AssetKey> {
             exchange,
             name_internal,
             name_exchange,
-            underlying: Underlying { base, quote },
+            underlying,
+            quote,
             kind,
             spec,
         } = self;
 
-        let base_new_key = find_asset(&base)?;
-        let quote_new_key = find_asset(&quote)?;
+        let base_new_key = find_asset(&underlying.base)?;
+        let quote_new_key = find_asset(&underlying.quote)?;
 
         let kind = match kind {
             InstrumentKind::Spot => InstrumentKind::Spot,
-            InstrumentKind::Perpetual { settlement_asset } => InstrumentKind::Perpetual {
+            InstrumentKind::Perpetual {
+                contract_size,
+                settlement_asset,
+            } => InstrumentKind::Perpetual {
+                contract_size,
                 settlement_asset: find_asset(&settlement_asset)?,
             },
             InstrumentKind::Future {
+                contract,
+                contract_size,
                 settlement_asset,
-                contract,
             } => InstrumentKind::Future {
-                settlement_asset: find_asset(&settlement_asset)?,
                 contract,
+                contract_size,
+                settlement_asset: find_asset(&settlement_asset)?,
             },
             InstrumentKind::Option {
+                contract,
                 settlement_asset,
-                contract,
+                contract_size,
             } => InstrumentKind::Option {
-                settlement_asset: find_asset(&settlement_asset)?,
                 contract,
+                contract_size,
+                settlement_asset: find_asset(&settlement_asset)?,
             },
         };
 
@@ -196,6 +242,7 @@ impl<ExchangeKey, AssetKey> Instrument<ExchangeKey, AssetKey> {
             name_internal,
             name_exchange,
             underlying: Underlying::new(base_new_key, quote_new_key),
+            quote,
             kind,
             spec,
         })

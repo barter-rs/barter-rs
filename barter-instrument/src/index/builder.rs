@@ -125,6 +125,7 @@ mod tests {
         instrument::{
             kind::InstrumentKind,
             name::{InstrumentNameExchange, InstrumentNameInternal},
+            quote::InstrumentQuoteAsset,
             spec::{
                 InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice, InstrumentSpecQuantity,
             },
@@ -170,6 +171,7 @@ mod tests {
                     base: AssetIndex(0),
                     quote: AssetIndex(1),
                 },
+                quote: InstrumentQuoteAsset::UnderlyingQuote,
                 kind: InstrumentKind::Spot,
                 spec: None
             }
@@ -215,6 +217,7 @@ mod tests {
             "binance_spot_btc_usdt",
             "BTC-USDT",
             Underlying::new(base_asset.clone(), quote_asset.clone()),
+            InstrumentQuoteAsset::UnderlyingQuote,
             InstrumentKind::Spot,
             Some(InstrumentSpec {
                 price: InstrumentSpecPrice {
@@ -283,6 +286,7 @@ mod tests {
                     base: AssetIndex(0),
                     quote: AssetIndex(1),
                 },
+                quote: InstrumentQuoteAsset::UnderlyingQuote,
                 kind: InstrumentKind::Spot,
                 spec: None
             }
@@ -298,6 +302,7 @@ mod tests {
                     base: AssetIndex(2),
                     quote: AssetIndex(3),
                 },
+                quote: InstrumentQuoteAsset::UnderlyingQuote,
                 kind: InstrumentKind::Spot,
                 spec: None
             }
