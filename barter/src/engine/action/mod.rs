@@ -5,7 +5,7 @@ use crate::engine::{
     },
     error::UnrecoverableEngineError,
 };
-use barter_execution::order::{RequestCancel, RequestOpen};
+use barter_execution::order::request::{RequestCancel, RequestOpen};
 use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::collection::one_or_many::OneOrMany;
 use derive_more::From;
@@ -29,8 +29,8 @@ pub mod send_requests;
 #[allow(clippy::large_enum_variant)]
 pub enum ActionOutput<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     GenerateAlgoOrders(GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>),
-    CancelOrders(SendRequestsOutput<ExchangeKey, InstrumentKey, RequestCancel>),
-    OpenOrders(SendRequestsOutput<ExchangeKey, InstrumentKey, RequestOpen>),
+    CancelOrders(SendRequestsOutput<RequestCancel, ExchangeKey, InstrumentKey>),
+    OpenOrders(SendRequestsOutput<RequestOpen, ExchangeKey, InstrumentKey>),
     ClosePositions(SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey>),
 }
 

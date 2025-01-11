@@ -9,7 +9,9 @@ use crate::{
     risk::{RiskApproved, RiskManager, RiskRefused},
     strategy::algo::AlgoStrategy,
 };
-use barter_execution::order::{Order, RequestCancel, RequestOpen};
+use barter_execution::order::request::{
+    OrderRequestCancel, OrderRequestOpen, RequestCancel, RequestOpen,
+};
 use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::collection::{none_one_or_many::NoneOneOrMany, one_or_many::OneOrMany};
 use serde::{Deserialize, Serialize};
@@ -74,21 +76,18 @@ pub struct GenerateAlgoOrdersOutput<ExchangeKey = ExchangeIndex, InstrumentKey =
     /// Generates orders that were approved by the [`RiskManager`] and sent for execution.
     pub cancels_and_opens: SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey>,
     /// Generated cancel requests that were refused by the [`RiskManager`].
-    pub cancels_refused:
-        NoneOneOrMany<RiskRefused<Order<ExchangeKey, InstrumentKey, RequestCancel>>>,
+    pub cancels_refused: NoneOneOrMany<RiskRefused<OrderRequestCancel<ExchangeKey, InstrumentKey>>>,
     /// Generated open requests that were refused by the [`RiskManager`].
-    pub opens_refused: NoneOneOrMany<RiskRefused<Order<ExchangeKey, InstrumentKey, RequestOpen>>>,
+    pub opens_refused: NoneOneOrMany<RiskRefused<OrderRequestOpen<ExchangeKey, InstrumentKey>>>,
 }
 
 impl<ExchangeKey, InstrumentKey> GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey> {
     /// Construct a new [`GenerateAlgoOrdersOutput`].
     pub fn new(
-        cancels: SendRequestsOutput<ExchangeKey, InstrumentKey, RequestCancel>,
-        opens: SendRequestsOutput<ExchangeKey, InstrumentKey, RequestOpen>,
-        cancels_refused: NoneOneOrMany<
-            RiskRefused<Order<ExchangeKey, InstrumentKey, RequestCancel>>,
-        >,
-        opens_refused: NoneOneOrMany<RiskRefused<Order<ExchangeKey, InstrumentKey, RequestOpen>>>,
+        cancels: SendRequestsOutput<RequestCancel, ExchangeKey, InstrumentKey>,
+        opens: SendRequestsOutput<RequestOpen, ExchangeKey, InstrumentKey>,
+        cancels_refused: NoneOneOrMany<RiskRefused<OrderRequestCancel<ExchangeKey, InstrumentKey>>>,
+        opens_refused: NoneOneOrMany<RiskRefused<OrderRequestOpen<ExchangeKey, InstrumentKey>>>,
     ) -> Self {
         Self {
             cancels_and_opens: SendCancelsAndOpensOutput::new(cancels, opens),

@@ -23,7 +23,11 @@
 //!
 //! See `README.md` for more information and examples.
 
-use crate::{balance::AssetBalance, order::Order, trade::Trade};
+use crate::{
+    balance::AssetBalance,
+    order::{request::OrderResponseCancel, Order, OrderSnapshot},
+    trade::Trade,
+};
 use barter_instrument::{
     asset::{name::AssetNameExchange, AssetIndex, QuoteAsset},
     exchange::{ExchangeId, ExchangeIndex},
@@ -85,8 +89,11 @@ pub enum AccountEventKind<ExchangeKey, AssetKey, InstrumentKey> {
 
     /// Single [`Order`] snapshot - used to upsert existing order state if it's more recent.
     ///
-    /// This variant covers cancel & open order responses, as well as general order updates.
+    /// This variant covers general order updates, and open order responses.
     OrderSnapshot(Snapshot<Order<ExchangeKey, InstrumentKey, OrderState<AssetKey, InstrumentKey>>>),
+
+    /// Response to an [`OrderRequestCancel<ExchangeKey, InstrumentKey>`].
+    OrderCancelled(OrderResponseCancel<ExchangeKey, AssetKey, InstrumentKey>),
 
     /// [`Order<ExchangeKey, InstrumentKey, Open>`] partial or full-fill.
     Trade(Trade<QuoteAsset, InstrumentKey>),
@@ -128,7 +135,7 @@ pub struct InstrumentAccountSnapshot<
     InstrumentKey = InstrumentIndex,
 > {
     pub instrument: InstrumentKey,
-    pub orders: Vec<Order<ExchangeKey, InstrumentKey, OrderState<AssetKey, InstrumentKey>>>,
+    pub orders: Vec<OrderSnapshot<ExchangeKey, AssetKey, InstrumentKey>>,
 }
 
 impl<ExchangeKey, AssetKey, InstrumentKey> AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey> {
