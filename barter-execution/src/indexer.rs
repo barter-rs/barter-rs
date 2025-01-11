@@ -6,8 +6,9 @@ use crate::{
     },
     map::ExecutionInstrumentMap,
     order::{
+        request::OrderResponseCancel,
         state::{InactiveOrderState, OrderState, UnindexedOrderState},
-        Order, UnindexedOrder,
+        Order, OrderEvent, OrderKey, OrderSnapshot, UnindexedOrderKey, UnindexedOrderSnapshot,
     },
     trade::Trade,
     AccountEvent, AccountEventKind, AccountSnapshot, InstrumentAccountSnapshot,
@@ -57,6 +58,9 @@ impl AccountEventIndexer {
             }
             AccountEventKind::OrderSnapshot(snapshot) => {
                 AccountEventKind::OrderSnapshot(self.order_snapshot(snapshot.0).map(Snapshot)?)
+            }
+            AccountEventKind::OrderCancelled(response) => {
+                AccountEventKind::OrderCancelled(self.order_response_cancel(response)?)
             }
             AccountEventKind::Trade(trade) => AccountEventKind::Trade(self.trade(trade)?),
         };
@@ -122,20 +126,26 @@ impl AccountEventIndexer {
         })
     }
 
-    pub fn order_snapshot(&self, order: UnindexedOrder) -> Result<Order, IndexError> {
+    pub fn order_snapshot(
+        &self,
+        order: UnindexedOrderSnapshot,
+    ) -> Result<OrderSnapshot, IndexError> {
         let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
+            key,
             side,
+            price,
+            quantity,
+            kind,
+            time_in_force,
             state,
         } = order;
+
+        let key = self.order_key(key)?;
 
         let state = match state {
             UnindexedOrderState::Active(active) => OrderState::Active(active),
             UnindexedOrderState::Inactive(inactive) => match inactive {
-                InactiveOrderState::Failed(failed) => match failed {
+                InactiveOrderState::OpenFailed(failed) => match failed {
                     OrderError::Rejected(rejected) => {
                         OrderState::inactive(OrderError::Rejected(self.api_error(rejected)?))
                     }
@@ -150,12 +160,44 @@ impl AccountEventIndexer {
         };
 
         Ok(Order {
+            key,
+            side,
+            price,
+            quantity,
+            kind,
+            time_in_force,
+            state,
+        })
+    }
+
+    pub fn order_response_cancel(
+        &self,
+        response: OrderResponseCancel<ExchangeId, AssetNameExchange, InstrumentNameExchange>,
+    ) -> Result<OrderResponseCancel, IndexError> {
+        let OrderResponseCancel { key, state } = response;
+
+        Ok(OrderResponseCancel {
+            key: self.order_key(key)?,
+            state: match state {
+                Ok(cancelled) => Ok(cancelled),
+                Err(error) => Err(self.order_error(error)?),
+            },
+        })
+    }
+
+    pub fn order_key(&self, key: UnindexedOrderKey) -> Result<OrderKey, IndexError> {
+        let UnindexedOrderKey {
+            exchange,
+            instrument,
+            strategy,
+            cid,
+        } = key;
+
+        Ok(OrderKey {
             exchange: self.map.find_exchange_index(exchange)?,
             instrument: self.map.find_instrument_index(&instrument)?,
             strategy,
             cid,
-            side,
-            state,
         })
     }
 
@@ -179,60 +221,33 @@ impl AccountEventIndexer {
 
     pub fn order_request<Kind>(
         &self,
-        order: &Order<ExchangeIndex, InstrumentIndex, Kind>,
-    ) -> Result<Order<ExchangeId, &InstrumentNameExchange, Kind>, KeyError>
+        order: &OrderEvent<Kind, ExchangeIndex, InstrumentIndex>,
+    ) -> Result<OrderEvent<Kind, ExchangeId, &InstrumentNameExchange>, KeyError>
     where
         Kind: Clone,
     {
-        let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
-            side,
+        let OrderEvent {
+            key:
+                OrderKey {
+                    exchange,
+                    instrument,
+                    strategy,
+                    cid,
+                },
             state,
         } = order;
 
         let exchange = self.map.find_exchange_id(*exchange)?;
         let instrument = self.map.find_instrument_name_exchange(*instrument)?;
 
-        Ok(Order {
-            exchange,
-            instrument,
-            strategy: strategy.clone(),
-            cid: cid.clone(),
-            side: *side,
+        Ok(OrderEvent {
+            key: OrderKey {
+                exchange,
+                instrument,
+                strategy: strategy.clone(),
+                cid: cid.clone(),
+            },
             state: state.clone(),
-        })
-    }
-
-    pub fn order_response<Kind>(
-        &self,
-        order: Order<ExchangeId, InstrumentNameExchange, Result<Kind, UnindexedOrderError>>,
-    ) -> Result<Order<ExchangeIndex, InstrumentIndex, Result<Kind, OrderError>>, IndexError> {
-        let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
-            side,
-            state,
-        } = order;
-
-        let exchange_index = self.map.find_exchange_index(exchange)?;
-        let instrument_index = self.map.find_instrument_index(&instrument)?;
-        let state = match state {
-            Ok(state) => Ok(state),
-            Err(error) => Err(self.order_error(error)?),
-        };
-
-        Ok(Order {
-            exchange: exchange_index,
-            instrument: instrument_index,
-            strategy,
-            cid,
-            side,
-            state,
         })
     }
 

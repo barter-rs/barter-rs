@@ -94,26 +94,28 @@ impl From<UnindexedAccountSnapshot> for AccountState {
                     match order.state {
                         OrderState::Active(ActiveOrderState::Open(open)) => {
                             orders_open.insert(
-                                order.cid.clone(),
+                                order.key.cid.clone(),
                                 Order {
-                                    exchange: order.exchange,
-                                    instrument: order.instrument,
-                                    strategy: order.strategy,
-                                    cid: order.cid,
+                                    key: order.key,
                                     side: order.side,
+                                    price: order.price,
+                                    quantity: order.quantity,
+                                    kind: order.kind,
+                                    time_in_force: order.time_in_force,
                                     state: open,
                                 },
                             );
                         }
                         OrderState::Inactive(InactiveOrderState::Cancelled(cancelled)) => {
                             orders_cancelled.insert(
-                                order.cid.clone(),
+                                order.key.cid.clone(),
                                 Order {
-                                    exchange: order.exchange,
-                                    instrument: order.instrument,
-                                    strategy: order.strategy,
-                                    cid: order.cid.clone(),
+                                    key: order.key,
                                     side: order.side,
+                                    price: order.price,
+                                    quantity: order.quantity,
+                                    kind: order.kind,
+                                    time_in_force: order.time_in_force,
                                     state: cancelled,
                                 },
                             );

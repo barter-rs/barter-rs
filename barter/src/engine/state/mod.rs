@@ -8,7 +8,6 @@ use crate::engine::{
             generate_unindexed_instrument_account_snapshot, market_data::MarketDataState,
             InstrumentStates,
         },
-        order::manager::OrderManager,
         position::PositionExited,
         trading::TradingState,
     },
@@ -134,9 +133,14 @@ impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
             }
             AccountEventKind::OrderSnapshot(order) => {
                 self.instruments
-                    .instrument_index_mut(&order.0.instrument)
-                    .orders
+                    .instrument_index_mut(&order.0.key.instrument)
                     .update_from_order_snapshot(order.as_ref());
+                None
+            }
+            AccountEventKind::OrderCancelled(response) => {
+                self.instruments
+                    .instrument_index_mut(&response.key.instrument)
+                    .update_from_cancel_response(response);
                 None
             }
             AccountEventKind::Trade(trade) => self
@@ -205,7 +209,7 @@ impl<Market, Strategy, Risk> From<&EngineState<Market, Strategy, Risk>>
                         .map(AssetBalance::from)
                         .collect(),
                     instruments: instruments
-                        .filtered(&InstrumentFilter::Exchanges(OneOrMany::One(ExchangeIndex(
+                        .instruments(&InstrumentFilter::Exchanges(OneOrMany::One(ExchangeIndex(
                             index,
                         ))))
                         .map(|snapshot| {

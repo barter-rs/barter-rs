@@ -15,7 +15,7 @@ use barter_instrument::{
     asset::{AssetIndex, QuoteAsset},
     exchange::ExchangeId,
     index::IndexedInstruments,
-    instrument::{kind::InstrumentKind, Instrument, InstrumentIndex},
+    instrument::{Instrument, InstrumentIndex},
     Side, Underlying,
 };
 use barter_integration::snapshot::Snapshot;
@@ -102,20 +102,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn indexed_instruments() -> IndexedInstruments {
     IndexedInstruments::builder()
-        .add_instrument(Instrument::new(
+        .add_instrument(Instrument::spot(
             ExchangeId::BinanceSpot,
             "binance_spot_btc_usdt",
             "BTCUSDT",
             Underlying::new("btc", "usdt"),
-            InstrumentKind::Spot,
             None,
         ))
-        .add_instrument(Instrument::new(
+        .add_instrument(Instrument::spot(
             ExchangeId::BinanceSpot,
             "binance_spot_eth_usdt",
             "ETHUSDT",
             Underlying::new("eth", "usdt"),
-            InstrumentKind::Spot,
             None,
         ))
         .build()

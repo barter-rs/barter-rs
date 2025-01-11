@@ -68,7 +68,7 @@ impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>> for Default
                 if self
                     .last_traded_price
                     .as_ref()
-                    .map_or(true, |price| price.time < event.time_exchange)
+                    .is_none_or(|price| price.time < event.time_exchange)
                 {
                     if let Some(price) = Decimal::from_f64(trade.price) {
                         self.last_traded_price
