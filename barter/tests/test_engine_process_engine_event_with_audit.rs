@@ -43,8 +43,9 @@ use barter_data::{
 use barter_execution::{
     balance::{AssetBalance, Balance},
     order::{
-        ClientOrderId, ExchangeOrderState, InternalOrderState, Open, Order, OrderId, OrderKind,
-        RequestCancel, RequestOpen, StrategyId, TimeInForce,
+        id::{ClientOrderId, OrderId, StrategyId},
+        ExchangeOrderState, InternalOrderState, Open, Order, OrderKind, RequestCancel, RequestOpen,
+        TimeInForce,
     },
     trade::{AssetFees, Trade, TradeId},
     AccountEvent, AccountEventKind, AccountSnapshot,

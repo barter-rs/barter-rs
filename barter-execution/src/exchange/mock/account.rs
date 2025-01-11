@@ -1,6 +1,6 @@
 use crate::{
     balance::AssetBalance,
-    order::{Cancelled, ClientOrderId, ExchangeOrderState, Open, Order},
+    order::{id::ClientOrderId, Cancelled, ExchangeOrderState, Open, Order},
     trade::Trade,
     UnindexedAccountSnapshot,
 };

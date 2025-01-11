@@ -4,7 +4,7 @@ use crate::engine::state::order::{
 use barter_execution::{
     error::{ApiError, ClientError},
     order::{
-        Cancelled, ClientOrderId, ExchangeOrderState, InternalOrderState, Open, Order,
+        id::ClientOrderId, Cancelled, ExchangeOrderState, InternalOrderState, Open, Order,
         RequestCancel, RequestOpen,
     },
 };
@@ -529,8 +529,9 @@ mod tests {
     use barter_execution::{
         error::ConnectivityError,
         order::{
-            CancelInFlight, ClientOrderId, InternalOrderState, OpenInFlight, Order, OrderId,
-            OrderKind, RequestOpen, StrategyId, TimeInForce,
+            id::{ClientOrderId, OrderId, StrategyId},
+            CancelInFlight, InternalOrderState, OpenInFlight, Order, OrderKind, RequestOpen,
+            TimeInForce,
         },
     };
     use barter_instrument::{exchange::ExchangeId, Side};

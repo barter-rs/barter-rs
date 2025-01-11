@@ -7,7 +7,8 @@ use crate::{
         request::{MockExchangeRequest, MockExchangeRequestKind},
     },
     order::{
-        Cancelled, ExchangeOrderState, Open, Order, OrderId, OrderKind, RequestCancel, RequestOpen,
+        id::OrderId, Cancelled, ExchangeOrderState, Open, Order, OrderKind, RequestCancel,
+        RequestOpen,
     },
     trade::{AssetFees, Trade, TradeId},
     AccountEventKind, InstrumentAccountSnapshot, UnindexedAccountEvent, UnindexedAccountSnapshot,

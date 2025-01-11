@@ -17,7 +17,7 @@ use tracing::error;
 /// ## Partially Reduce LONG Position
 /// ```rust
 /// use barter::engine::state::position::Position;
-/// use barter_execution::order::{OrderId, StrategyId};
+/// use barter_execution::order::id::{OrderId, StrategyId};
 /// use barter_execution::trade::{AssetFees, Trade, TradeId};
 /// use barter_instrument::asset::QuoteAsset;
 /// use barter_instrument::instrument::name::InstrumentNameInternal;
@@ -65,7 +65,7 @@ use tracing::error;
 /// ## Flip Position - Close SHORT and Open LONG
 /// ```rust
 /// use barter::engine::state::position::Position;
-/// use barter_execution::order::{OrderId, StrategyId};
+/// use barter_execution::order::id::{OrderId, StrategyId};
 /// use barter_execution::trade::{AssetFees, Trade, TradeId};
 /// use barter_instrument::asset::QuoteAsset;
 /// use barter_instrument::instrument::name::InstrumentNameInternal;
