@@ -119,6 +119,7 @@ pub mod test_utils {
         instrument::{
             kind::InstrumentKind,
             name::{InstrumentNameExchange, InstrumentNameInternal},
+            quote::InstrumentQuoteAsset,
             Instrument,
         },
         Underlying,
@@ -154,6 +155,7 @@ pub mod test_utils {
             name_internal,
             name_exchange,
             Underlying::new(base_asset, quote_asset),
+            InstrumentQuoteAsset::UnderlyingQuote,
             InstrumentKind::Spot,
             None,
         )

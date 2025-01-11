@@ -6,7 +6,10 @@ use crate::{
     },
     execution::request::ExecutionRequest,
 };
-use barter_execution::order::{Order, RequestCancel, RequestOpen};
+use barter_execution::order::{
+    request::{RequestCancel, RequestOpen},
+    OrderEvent,
+};
 use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::{channel::Tx, collection::none_one_or_many::NoneOneOrMany, Unrecoverable};
 use derive_more::Constructor;
@@ -23,19 +26,21 @@ use tracing::error;
 pub trait SendRequests<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     fn send_requests<Kind>(
         &self,
-        requests: impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, Kind>>,
-    ) -> SendRequestsOutput<ExchangeKey, InstrumentKey, Kind>
+        requests: impl IntoIterator<Item = OrderEvent<Kind, ExchangeKey, InstrumentKey>>,
+    ) -> SendRequestsOutput<Kind, ExchangeKey, InstrumentKey>
     where
         Kind: Debug + Clone,
-        ExecutionRequest<ExchangeKey, InstrumentKey>: From<Order<ExchangeKey, InstrumentKey, Kind>>;
+        ExecutionRequest<ExchangeKey, InstrumentKey>:
+            From<OrderEvent<Kind, ExchangeKey, InstrumentKey>>;
 
     fn send_request<Kind>(
         &self,
-        request: &Order<ExchangeKey, InstrumentKey, Kind>,
+        request: &OrderEvent<Kind, ExchangeKey, InstrumentKey>,
     ) -> Result<(), EngineError>
     where
         Kind: Debug + Clone,
-        ExecutionRequest<ExchangeKey, InstrumentKey>: From<Order<ExchangeKey, InstrumentKey, Kind>>;
+        ExecutionRequest<ExchangeKey, InstrumentKey>:
+            From<OrderEvent<Kind, ExchangeKey, InstrumentKey>>;
 }
 
 impl<Clock, State, ExecutionTxs, Strategy, Risk, ExchangeKey, InstrumentKey>
@@ -47,11 +52,12 @@ where
 {
     fn send_requests<Kind>(
         &self,
-        requests: impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, Kind>>,
-    ) -> SendRequestsOutput<ExchangeKey, InstrumentKey, Kind>
+        requests: impl IntoIterator<Item = OrderEvent<Kind, ExchangeKey, InstrumentKey>>,
+    ) -> SendRequestsOutput<Kind, ExchangeKey, InstrumentKey>
     where
         Kind: Debug + Clone,
-        ExecutionRequest<ExchangeKey, InstrumentKey>: From<Order<ExchangeKey, InstrumentKey, Kind>>,
+        ExecutionRequest<ExchangeKey, InstrumentKey>:
+            From<OrderEvent<Kind, ExchangeKey, InstrumentKey>>,
     {
         // Send order requests
         let (sent, errors): (Vec<_>, Vec<_>) = requests
@@ -68,21 +74,22 @@ where
 
     fn send_request<Kind>(
         &self,
-        request: &Order<ExchangeKey, InstrumentKey, Kind>,
+        request: &OrderEvent<Kind, ExchangeKey, InstrumentKey>,
     ) -> Result<(), EngineError>
     where
         Kind: Debug + Clone,
-        ExecutionRequest<ExchangeKey, InstrumentKey>: From<Order<ExchangeKey, InstrumentKey, Kind>>,
+        ExecutionRequest<ExchangeKey, InstrumentKey>:
+            From<OrderEvent<Kind, ExchangeKey, InstrumentKey>>,
     {
         match self
             .execution_txs
-            .find(&request.exchange)?
+            .find(&request.key.exchange)?
             .send(ExecutionRequest::from(request.clone()))
         {
             Ok(()) => Ok(()),
             Err(error) if error.is_unrecoverable() => {
                 error!(
-                    exchange = ?request.exchange,
+                    exchange = ?request.key.exchange,
                     ?request,
                     ?error,
                     "failed to send ExecutionRequest due to terminated channel"
@@ -90,13 +97,13 @@ where
                 Err(EngineError::Unrecoverable(
                     UnrecoverableEngineError::ExecutionChannelTerminated(format!(
                         "{:?} execution channel terminated: {:?}",
-                        request.exchange, error
+                        request.key.exchange, error
                     )),
                 ))
             }
             Err(error) => {
                 error!(
-                    exchange = ?request.exchange,
+                    exchange = ?request.key.exchange,
                     ?request,
                     ?error,
                     "failed to send ExecutionRequest due to unhealthy channel"
@@ -104,7 +111,7 @@ where
                 Err(EngineError::Recoverable(
                     RecoverableEngineError::ExecutionChannelUnhealthy(format!(
                         "{:?} execution channel unhealthy: {:?}",
-                        request.exchange, error
+                        request.key.exchange, error
                     )),
                 ))
             }
@@ -116,11 +123,11 @@ where
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
-pub struct SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey> {
+pub struct SendCancelsAndOpensOutput<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     /// Cancel order requests that were sent for execution.
-    pub cancels: SendRequestsOutput<ExchangeKey, InstrumentKey, RequestCancel>,
+    pub cancels: SendRequestsOutput<RequestCancel, ExchangeKey, InstrumentKey>,
     /// Open order requests that were sent for execution.
-    pub opens: SendRequestsOutput<ExchangeKey, InstrumentKey, RequestOpen>,
+    pub opens: SendRequestsOutput<RequestOpen, ExchangeKey, InstrumentKey>,
 }
 
 impl<ExchangeKey, InstrumentKey> SendCancelsAndOpensOutput<ExchangeKey, InstrumentKey> {
@@ -150,12 +157,12 @@ impl<ExchangeKey, InstrumentKey> Default for SendCancelsAndOpensOutput<ExchangeK
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
-pub struct SendRequestsOutput<ExchangeKey, InstrumentKey, Kind> {
-    pub sent: NoneOneOrMany<Order<ExchangeKey, InstrumentKey, Kind>>,
-    pub errors: NoneOneOrMany<(Order<ExchangeKey, InstrumentKey, Kind>, EngineError)>,
+pub struct SendRequestsOutput<Kind, ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
+    pub sent: NoneOneOrMany<OrderEvent<Kind, ExchangeKey, InstrumentKey>>,
+    pub errors: NoneOneOrMany<(OrderEvent<Kind, ExchangeKey, InstrumentKey>, EngineError)>,
 }
 
-impl<ExchangeKey, InstrumentKey, Kind> SendRequestsOutput<ExchangeKey, InstrumentKey, Kind> {
+impl<Kind, ExchangeKey, InstrumentKey> SendRequestsOutput<Kind, ExchangeKey, InstrumentKey> {
     /// Returns `true` if no `SendRequestsOutput` is completely empty.
     pub fn is_empty(&self) -> bool {
         self.sent.is_none() && self.errors.is_none()

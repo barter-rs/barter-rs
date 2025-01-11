@@ -4,8 +4,9 @@ use crate::{
     error::{UnindexedClientError, UnindexedOrderError},
     exchange::mock::request::MockExchangeRequest,
     order::{
-        state::{Cancelled, Open},
-        Order, RequestCancel, RequestOpen,
+        request::{OrderRequestCancel, OrderRequestOpen, UnindexedOrderResponseCancel},
+        state::Open,
+        Order, OrderEvent, OrderKey,
     },
     trade::Trade,
     UnindexedAccountEvent, UnindexedAccountSnapshot,
@@ -127,8 +128,8 @@ impl ExecutionClient for MockExecution {
 
     async fn cancel_order(
         &self,
-        request: Order<ExchangeId, &InstrumentNameExchange, RequestCancel>,
-    ) -> Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedOrderError>> {
+        request: OrderRequestCancel<ExchangeId, &InstrumentNameExchange>,
+    ) -> UnindexedOrderResponseCancel {
         let (response_tx, response_rx) = oneshot::channel();
 
         self.request_tx
@@ -146,7 +147,7 @@ impl ExecutionClient for MockExecution {
 
     async fn open_order(
         &self,
-        request: Order<ExchangeId, &InstrumentNameExchange, RequestOpen>,
+        request: OrderRequestOpen<ExchangeId, &InstrumentNameExchange>,
     ) -> Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>> {
         let (response_tx, response_rx) = oneshot::channel();
 
@@ -224,23 +225,26 @@ impl ExecutionClient for MockExecution {
 }
 
 fn into_owned_request<Kind>(
-    request: Order<ExchangeId, &InstrumentNameExchange, Kind>,
-) -> Order<ExchangeId, InstrumentNameExchange, Kind> {
-    let Order {
-        exchange,
-        instrument,
-        strategy,
-        cid,
-        side,
+    request: OrderEvent<Kind, ExchangeId, &InstrumentNameExchange>,
+) -> OrderEvent<Kind, ExchangeId, InstrumentNameExchange> {
+    let OrderEvent {
+        key:
+            OrderKey {
+                exchange,
+                instrument,
+                strategy,
+                cid,
+            },
         state,
     } = request;
 
-    Order {
-        exchange,
-        instrument: instrument.clone(),
-        strategy,
-        cid,
-        side,
+    OrderEvent {
+        key: OrderKey {
+            exchange,
+            instrument: instrument.clone(),
+            strategy,
+            cid,
+        },
         state,
     }
 }

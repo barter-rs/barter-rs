@@ -96,7 +96,7 @@ impl TradingSummaryGenerator {
                 .map(|state| {
                     (
                         state.instrument.name_internal.clone(),
-                        state.statistics.clone(),
+                        state.tear_sheet.clone(),
                     )
                 })
                 .collect(),
