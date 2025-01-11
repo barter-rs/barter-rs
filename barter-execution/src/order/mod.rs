@@ -1,18 +1,32 @@
 use crate::order::id::{OrderId, StrategyId};
-use barter_instrument::Side;
-use chrono::{DateTime, Utc};
+use barter_instrument::{
+    exchange::{ExchangeId, ExchangeIndex},
+    instrument::{name::InstrumentNameExchange, InstrumentIndex},
+    Side,
+};
 use derive_more::{Constructor, Display, From};
 use id::ClientOrderId;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use state::{
+    ActiveOrderState, CancelInFlight, Cancelled, InactiveOrderState, Open, OpenInFlight, OrderState,
+};
 
 /// `Order` related identifiers.
 pub mod id;
 
+/// `Order` states.
+///
+/// eg/ `OpenInFlight`, `Open`, `Rejected`, `Expired`, etc.
+pub mod state;
+
+/// Convenient type alias for an [`Order`] keyed with [`ExchangeId`] and [`InstrumentNameExchange`].
+pub type UnindexedOrder<State> = Order<ExchangeId, InstrumentNameExchange, State>;
+
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
-pub struct Order<ExchangeKey, InstrumentKey, State> {
+pub struct Order<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex, State = OrderState> {
     pub exchange: ExchangeKey,
     pub instrument: InstrumentKey,
     pub strategy: StrategyId,
@@ -21,59 +35,52 @@ pub struct Order<ExchangeKey, InstrumentKey, State> {
     pub state: State,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
-pub enum InternalOrderState {
-    OpenInFlight(OpenInFlight),
-    Open(Open),
-    CancelInFlight(CancelInFlight),
-}
-
-impl InternalOrderState {
-    pub fn order_id(&self) -> Option<OrderId> {
-        match self {
-            InternalOrderState::OpenInFlight(_) => None,
-            InternalOrderState::Open(state) => Some(state.id.clone()),
-            InternalOrderState::CancelInFlight(state) => state.id.clone(),
-        }
-    }
-
-    pub fn is_open_or_in_flight(&self) -> bool {
-        matches!(
-            self,
-            InternalOrderState::OpenInFlight(_) | InternalOrderState::Open(_)
-        )
-    }
-}
-
-impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, InternalOrderState>
-where
-    ExchangeKey: Clone,
-    InstrumentKey: Clone,
-{
-    pub fn as_exchange(&self) -> Option<Order<ExchangeKey, InstrumentKey, ExchangeOrderState>> {
-        let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
-            side,
-            state: InternalOrderState::Open(open),
-        } = self
-        else {
+impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, OrderState> {
+    pub fn to_active(&self) -> Option<Order<ExchangeKey, InstrumentKey, ActiveOrderState>>
+    where
+        ExchangeKey: Clone,
+        InstrumentKey: Clone,
+    {
+        let OrderState::Active(state) = &self.state else {
             return None;
         };
 
         Some(Order {
-            exchange: exchange.clone(),
-            instrument: instrument.clone(),
-            strategy: strategy.clone(),
-            cid: cid.clone(),
-            side: *side,
-            state: ExchangeOrderState::Open(open.clone()),
+            exchange: self.exchange.clone(),
+            instrument: self.instrument.clone(),
+            strategy: self.strategy.clone(),
+            cid: self.cid.clone(),
+            side: self.side,
+            state: state.clone(),
         })
     }
 
-    pub fn as_request_cancel(&self) -> Option<Order<ExchangeKey, InstrumentKey, RequestCancel>> {
+    pub fn to_inactive(&self) -> Option<Order<ExchangeKey, InstrumentKey, InactiveOrderState>>
+    where
+        ExchangeKey: Clone,
+        InstrumentKey: Clone,
+    {
+        let OrderState::Inactive(state) = &self.state else {
+            return None;
+        };
+
+        Some(Order {
+            exchange: self.exchange.clone(),
+            instrument: self.instrument.clone(),
+            strategy: self.strategy.clone(),
+            cid: self.cid.clone(),
+            side: self.side,
+            state: state.clone(),
+        })
+    }
+}
+
+impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, ActiveOrderState>
+where
+    ExchangeKey: Clone,
+    InstrumentKey: Clone,
+{
+    pub fn to_request_cancel(&self) -> Option<Order<ExchangeKey, InstrumentKey, RequestCancel>> {
         let Order {
             exchange,
             instrument,
@@ -84,8 +91,8 @@ where
         } = self;
 
         let request_cancel = match state {
-            InternalOrderState::OpenInFlight(_) => RequestCancel { id: None },
-            InternalOrderState::Open(open) => RequestCancel {
+            ActiveOrderState::OpenInFlight(_) => RequestCancel { id: None },
+            ActiveOrderState::Open(open) => RequestCancel {
                 id: Some(open.id.clone()),
             },
             _ => return None,
@@ -98,44 +105,6 @@ where
             cid: cid.clone(),
             side: *side,
             state: request_cancel,
-        })
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
-pub enum ExchangeOrderState {
-    Open(Open),
-    FullyFilled,
-    Cancelled(Cancelled),
-    Rejected(Option<String>),
-    Expired,
-}
-
-impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, ExchangeOrderState> {
-    pub fn as_open(&self) -> Option<Order<ExchangeKey, InstrumentKey, Open>>
-    where
-        ExchangeKey: Clone,
-        InstrumentKey: Clone,
-    {
-        let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
-            side,
-            state: ExchangeOrderState::Open(open),
-        } = self
-        else {
-            return None;
-        };
-
-        Some(Order {
-            exchange: exchange.clone(),
-            instrument: instrument.clone(),
-            strategy: strategy.clone(),
-            cid: cid.clone(),
-            side: *side,
-            state: open.clone(),
         })
     }
 }
@@ -175,43 +144,8 @@ pub struct RequestCancel {
     pub id: Option<OrderId>,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
-pub struct OpenInFlight;
-
-#[derive(
-    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
-)]
-pub struct Open {
-    pub id: OrderId,
-    pub time_exchange: DateTime<Utc>,
-    pub price: Decimal,
-    pub quantity: Decimal,
-    pub filled_quantity: Decimal,
-}
-
-impl Open {
-    pub fn quantity_remaining(&self) -> Decimal {
-        self.quantity - self.filled_quantity
-    }
-}
-
-#[derive(
-    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
-)]
-pub struct CancelInFlight {
-    pub id: Option<OrderId>,
-}
-
-#[derive(
-    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
-)]
-pub struct Cancelled {
-    pub id: OrderId,
-    pub time_exchange: DateTime<Utc>,
-}
-
 impl<ExchangeKey, InstrumentKey> From<&Order<ExchangeKey, InstrumentKey, RequestOpen>>
-    for Order<ExchangeKey, InstrumentKey, InternalOrderState>
+    for Order<ExchangeKey, InstrumentKey, ActiveOrderState>
 where
     ExchangeKey: Clone,
     InstrumentKey: Clone,
@@ -232,13 +166,13 @@ where
             strategy: strategy.clone(),
             cid: cid.clone(),
             side: *side,
-            state: InternalOrderState::OpenInFlight(OpenInFlight),
+            state: ActiveOrderState::OpenInFlight(OpenInFlight),
         }
     }
 }
 
 impl<ExchangeKey, InstrumentKey> From<&Order<ExchangeKey, InstrumentKey, RequestCancel>>
-    for Order<ExchangeKey, InstrumentKey, InternalOrderState>
+    for Order<ExchangeKey, InstrumentKey, ActiveOrderState>
 where
     ExchangeKey: Clone,
     InstrumentKey: Clone,
@@ -259,7 +193,7 @@ where
             strategy: strategy.clone(),
             cid: cid.clone(),
             side: *side,
-            state: InternalOrderState::CancelInFlight(CancelInFlight {
+            state: ActiveOrderState::CancelInFlight(CancelInFlight {
                 id: state.id.clone(),
             }),
         }
@@ -267,7 +201,7 @@ where
 }
 
 impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
-    for Order<ExchangeKey, InstrumentKey, InternalOrderState>
+    for Order<ExchangeKey, InstrumentKey, ActiveOrderState>
 {
     fn from(value: Order<ExchangeKey, InstrumentKey, Open>) -> Self {
         let Order {
@@ -285,13 +219,13 @@ impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
             strategy,
             cid,
             side,
-            state: InternalOrderState::Open(state),
+            state: ActiveOrderState::Open(state),
         }
     }
 }
 
 impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
-    for Order<ExchangeKey, InstrumentKey, ExchangeOrderState>
+    for Order<ExchangeKey, InstrumentKey, OrderState>
 {
     fn from(value: Order<ExchangeKey, InstrumentKey, Open>) -> Self {
         let Order {
@@ -309,13 +243,13 @@ impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
             strategy,
             cid,
             side,
-            state: ExchangeOrderState::Open(state),
+            state: OrderState::Active(ActiveOrderState::Open(state)),
         }
     }
 }
 
 impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Cancelled>>
-    for Order<ExchangeKey, InstrumentKey, ExchangeOrderState>
+    for Order<ExchangeKey, InstrumentKey, OrderState>
 {
     fn from(value: Order<ExchangeKey, InstrumentKey, Cancelled>) -> Self {
         let Order {
@@ -333,7 +267,7 @@ impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Cancelle
             strategy,
             cid,
             side,
-            state: ExchangeOrderState::Cancelled(state),
+            state: OrderState::Inactive(InactiveOrderState::Cancelled(state)),
         }
     }
 }

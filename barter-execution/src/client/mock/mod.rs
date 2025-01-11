@@ -3,7 +3,10 @@ use crate::{
     client::ExecutionClient,
     error::UnindexedClientError,
     exchange::mock::request::MockExchangeRequest,
-    order::{Cancelled, Open, Order, RequestCancel, RequestOpen},
+    order::{
+        state::{Cancelled, Open},
+        Order, RequestCancel, RequestOpen,
+    },
     trade::Trade,
     UnindexedAccountEvent, UnindexedAccountSnapshot,
 };

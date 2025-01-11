@@ -7,8 +7,9 @@ use crate::{
         request::{MockExchangeRequest, MockExchangeRequestKind},
     },
     order::{
-        id::OrderId, Cancelled, ExchangeOrderState, Open, Order, OrderKind, RequestCancel,
-        RequestOpen,
+        id::OrderId,
+        state::{Cancelled, Open, OrderState},
+        Order, OrderKind, RequestCancel, RequestOpen,
     },
     trade::{AssetFees, Trade, TradeId},
     AccountEventKind, InstrumentAccountSnapshot, UnindexedAccountEvent, UnindexedAccountSnapshot,
@@ -138,13 +139,13 @@ impl MockExchange {
             .account
             .orders_open()
             .cloned()
-            .map(Order::<ExchangeId, InstrumentNameExchange, ExchangeOrderState>::from);
+            .map(Order::<ExchangeId, InstrumentNameExchange, OrderState>::from);
 
         let orders_cancelled = self
             .account
             .orders_cancelled()
             .cloned()
-            .map(Order::<ExchangeId, InstrumentNameExchange, ExchangeOrderState>::from);
+            .map(Order::<ExchangeId, InstrumentNameExchange, OrderState>::from);
 
         let orders_all = orders_open.chain(orders_cancelled);
         let orders_all = orders_all.sorted_unstable_by_key(|order| order.instrument.clone());

@@ -8,7 +8,10 @@ use crate::{
 };
 use barter_data::event::MarketEvent;
 use barter_execution::{
-    order::{ExchangeOrderState, InternalOrderState, Order},
+    order::{
+        state::{ActiveOrderState, OrderState},
+        Order,
+    },
     trade::Trade,
     InstrumentAccountSnapshot,
 };
@@ -265,7 +268,7 @@ where
                     strategy,
                     cid,
                     side,
-                    state: InternalOrderState::Open(open),
+                    state: ActiveOrderState::Open(open),
                 } = order
                 else {
                     return None;
@@ -277,7 +280,7 @@ where
                     strategy: strategy.clone(),
                     cid: cid.clone(),
                     side: *side,
-                    state: ExchangeOrderState::Open(open.clone()),
+                    state: OrderState::open(open.clone()),
                 })
             })
             .collect(),

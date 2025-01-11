@@ -12,7 +12,10 @@ use barter_execution::{
     error::{ConnectivityError, IndexedClientError, UnindexedClientError},
     indexer::{AccountEventIndexer, IndexedAccountStream},
     map::ExecutionInstrumentMap,
-    order::{Cancelled, Open, Order, RequestCancel, RequestOpen},
+    order::{
+        state::{Cancelled, Open},
+        Order, RequestCancel, RequestOpen,
+    },
     AccountEvent, AccountEventKind,
 };
 use barter_instrument::{

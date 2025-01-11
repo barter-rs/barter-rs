@@ -1,7 +1,10 @@
 use crate::{
     balance::AssetBalance,
     error::UnindexedClientError,
-    order::{Cancelled, Open, Order, RequestCancel, RequestOpen},
+    order::{
+        state::{Cancelled, Open},
+        Order, RequestCancel, RequestOpen,
+    },
     trade::Trade,
     UnindexedAccountEvent, UnindexedAccountSnapshot,
 };

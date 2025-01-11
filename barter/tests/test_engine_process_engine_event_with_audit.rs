@@ -44,8 +44,8 @@ use barter_execution::{
     balance::{AssetBalance, Balance},
     order::{
         id::{ClientOrderId, OrderId, StrategyId},
-        ExchangeOrderState, InternalOrderState, Open, Order, OrderKind, RequestCancel, RequestOpen,
-        TimeInForce,
+        state::{ActiveOrderState, Open, OrderState},
+        Order, OrderKind, RequestCancel, RequestOpen, TimeInForce,
     },
     trade::{AssetFees, Trade, TradeId},
     AccountEvent, AccountEventKind, AccountSnapshot,
@@ -512,7 +512,7 @@ fn test_engine_process_engine_event_with_audit() {
             strategy: strategy_id(),
             cid: gen_cid(1),
             side: Side::Sell,
-            state: InternalOrderState::Open(Open {
+            state: ActiveOrderState::Open(Open {
                 id: gen_order_id(1),
                 time_exchange: time_plus_days(STARTING_TIMESTAMP, 4),
                 price: dec!(0.05),
@@ -549,7 +549,7 @@ fn test_engine_process_engine_event_with_audit() {
             strategy: strategy_id(),
             cid: gen_cid(1),
             side: Side::Sell,
-            state: ExchangeOrderState::FullyFilled,
+            state: OrderState::fully_filled(),
         })),
     }));
     let audit = process_with_audit(&mut engine, event.clone());

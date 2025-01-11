@@ -51,7 +51,7 @@ where
             .state
             .instruments
             .filtered(filter)
-            .flat_map(|state| state.orders.orders().filter_map(Order::as_request_cancel));
+            .flat_map(|state| state.orders.orders().filter_map(Order::to_request_cancel));
 
         // Bypass risk checks...
 

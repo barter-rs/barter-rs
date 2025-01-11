@@ -4,7 +4,7 @@ use crate::{
         IndexedApiError, IndexedClientError, KeyError, UnindexedApiError, UnindexedClientError,
     },
     map::ExecutionInstrumentMap,
-    order::{ExchangeOrderState, Order},
+    order::{state::OrderState, Order},
     trade::Trade,
     AccountEvent, AccountEventKind, AccountSnapshot, InstrumentAccountSnapshot,
     UnindexedAccountEvent, UnindexedAccountSnapshot,
@@ -126,8 +126,8 @@ impl AccountEventIndexer {
 
     pub fn order_snapshot(
         &self,
-        order: Order<ExchangeId, InstrumentNameExchange, ExchangeOrderState>,
-    ) -> Result<Order<ExchangeIndex, InstrumentIndex, ExchangeOrderState>, IndexError> {
+        order: Order<ExchangeId, InstrumentNameExchange, OrderState>,
+    ) -> Result<Order<ExchangeIndex, InstrumentIndex, OrderState>, IndexError> {
         let Order {
             exchange,
             instrument,
@@ -178,8 +178,8 @@ impl AccountEventIndexer {
 
     pub fn order_open(
         &self,
-        order: Order<ExchangeId, InstrumentNameExchange, ExchangeOrderState>,
-    ) -> Result<Order<ExchangeIndex, InstrumentIndex, ExchangeOrderState>, IndexError> {
+        order: Order<ExchangeId, InstrumentNameExchange, OrderState>,
+    ) -> Result<Order<ExchangeIndex, InstrumentIndex, OrderState>, IndexError> {
         let Order {
             exchange,
             instrument,

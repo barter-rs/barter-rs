@@ -1,7 +1,10 @@
 use crate::engine::state::order::in_flight_recorder::InFlightRequestRecorder;
 use barter_execution::{
     error::ClientError,
-    order::{Cancelled, ExchangeOrderState, InternalOrderState, Open, Order},
+    order::{
+        state::{ActiveOrderState, Cancelled, Open, OrderState},
+        Order,
+    },
 };
 use barter_integration::snapshot::Snapshot;
 use std::fmt::Debug;
@@ -15,7 +18,7 @@ where
 {
     fn orders<'a>(
         &'a self,
-    ) -> impl Iterator<Item = &'a Order<ExchangeKey, InstrumentKey, InternalOrderState>>
+    ) -> impl Iterator<Item = &'a Order<ExchangeKey, InstrumentKey, ActiveOrderState>>
     where
         ExchangeKey: 'a,
         InstrumentKey: 'a;
@@ -42,6 +45,6 @@ where
 
     fn update_from_order_snapshot(
         &mut self,
-        snapshot: Snapshot<&Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>,
+        snapshot: Snapshot<&Order<ExchangeKey, InstrumentKey, OrderState>>,
     );
 }

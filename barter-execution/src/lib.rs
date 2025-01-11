@@ -23,12 +23,7 @@
 //!
 //! See `README.md` for more information and examples.
 
-use crate::{
-    balance::AssetBalance,
-    error::ClientError,
-    order::{Cancelled, ExchangeOrderState, Open, Order},
-    trade::Trade,
-};
+use crate::{balance::AssetBalance, error::ClientError, order::Order, trade::Trade};
 use barter_instrument::{
     asset::{name::AssetNameExchange, AssetIndex, QuoteAsset},
     exchange::{ExchangeId, ExchangeIndex},
@@ -36,6 +31,7 @@ use barter_instrument::{
 };
 use barter_integration::snapshot::Snapshot;
 use derive_more::{Constructor, From};
+use order::state::{Cancelled, Open, OrderState};
 use serde::{Deserialize, Serialize};
 
 pub mod balance;
@@ -87,8 +83,8 @@ pub enum AccountEventKind<ExchangeKey, AssetKey, InstrumentKey> {
     /// Single [`AssetBalance`] snapshot - replaces existing balance state.
     BalanceSnapshot(Snapshot<AssetBalance<AssetKey>>),
 
-    /// Single [`Order<ExchangeKey, InstrumentKey, Open>`] snapshot - replaces existing order state.
-    OrderSnapshot(Snapshot<Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>),
+    /// Single `Order` snapshot - replaces existing order state if it's more recent.
+    OrderSnapshot(Snapshot<Order<ExchangeKey, InstrumentKey, OrderState>>),
 
     /// Response to an [`Order<ExchangeKey, InstrumentKey, RequestOpen>`].
     OrderOpened(
@@ -135,7 +131,7 @@ pub struct AccountSnapshot<
 )]
 pub struct InstrumentAccountSnapshot<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     pub instrument: InstrumentKey,
-    pub orders: Vec<Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>,
+    pub orders: Vec<Order<ExchangeKey, InstrumentKey, OrderState>>,
 }
 
 impl<ExchangeKey, AssetKey, InstrumentKey> AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey> {
