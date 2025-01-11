@@ -1,4 +1,7 @@
-use crate::order::id::{OrderId, StrategyId};
+use crate::order::{
+    id::{OrderId, StrategyId},
+    state::UnindexedOrderState,
+};
 use barter_instrument::{
     exchange::{ExchangeId, ExchangeIndex},
     instrument::{name::InstrumentNameExchange, InstrumentIndex},
@@ -21,7 +24,7 @@ pub mod id;
 pub mod state;
 
 /// Convenient type alias for an [`Order`] keyed with [`ExchangeId`] and [`InstrumentNameExchange`].
-pub type UnindexedOrder<State> = Order<ExchangeId, InstrumentNameExchange, State>;
+pub type UnindexedOrder = Order<ExchangeId, InstrumentNameExchange, UnindexedOrderState>;
 
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
@@ -35,7 +38,9 @@ pub struct Order<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex, S
     pub state: State,
 }
 
-impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, OrderState> {
+impl<ExchangeKey, AssetKey, InstrumentKey>
+    Order<ExchangeKey, InstrumentKey, OrderState<AssetKey, InstrumentKey>>
+{
     pub fn to_active(&self) -> Option<Order<ExchangeKey, InstrumentKey, ActiveOrderState>>
     where
         ExchangeKey: Clone,
@@ -55,9 +60,12 @@ impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, OrderState> {
         })
     }
 
-    pub fn to_inactive(&self) -> Option<Order<ExchangeKey, InstrumentKey, InactiveOrderState>>
+    pub fn to_inactive(
+        &self,
+    ) -> Option<Order<ExchangeKey, InstrumentKey, InactiveOrderState<AssetKey, InstrumentKey>>>
     where
         ExchangeKey: Clone,
+        AssetKey: Clone,
         InstrumentKey: Clone,
     {
         let OrderState::Inactive(state) = &self.state else {
@@ -224,8 +232,8 @@ impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
     }
 }
 
-impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
-    for Order<ExchangeKey, InstrumentKey, OrderState>
+impl<ExchangeKey, AssetKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
+    for Order<ExchangeKey, InstrumentKey, OrderState<AssetKey, InstrumentKey>>
 {
     fn from(value: Order<ExchangeKey, InstrumentKey, Open>) -> Self {
         let Order {
@@ -248,8 +256,8 @@ impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
     }
 }
 
-impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Cancelled>>
-    for Order<ExchangeKey, InstrumentKey, OrderState>
+impl<ExchangeKey, AssetKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Cancelled>>
+    for Order<ExchangeKey, InstrumentKey, OrderState<AssetKey, InstrumentKey>>
 {
     fn from(value: Order<ExchangeKey, InstrumentKey, Cancelled>) -> Self {
         let Order {

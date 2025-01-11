@@ -1,38 +1,40 @@
-use crate::{error::ConnectivityError, order::id::OrderId};
+use crate::{error::OrderError, order::id::OrderId};
+use barter_instrument::{
+    asset::{name::AssetNameExchange, AssetIndex},
+    instrument::{name::InstrumentNameExchange, InstrumentIndex},
+};
 use chrono::{DateTime, Utc};
 use derive_more::{Constructor, From};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+/// Convenient type alias for an [`OrderState`] keyed with [`AssetNameExchange`]
+/// and [`InstrumentNameExchange`].
+pub type UnindexedOrderState = OrderState<AssetNameExchange, InstrumentNameExchange>;
+
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
-pub enum OrderState {
+pub enum OrderState<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
     Active(ActiveOrderState),
-    Inactive(InactiveOrderState),
+    Inactive(InactiveOrderState<AssetKey, InstrumentKey>),
 }
 
-impl OrderState {
-    pub fn open_in_flight(state: OpenInFlight) -> Self {
-        Self::Active(ActiveOrderState::OpenInFlight(state))
+impl<AssetKey, InstrumentKey> OrderState<AssetKey, InstrumentKey> {
+    pub fn active<S>(state: S) -> Self
+    where
+        S: Into<ActiveOrderState>,
+    {
+        OrderState::Active(state.into())
     }
 
-    pub fn open(state: Open) -> Self {
-        Self::Active(ActiveOrderState::Open(state))
-    }
-
-    pub fn cancel_in_flight(state: CancelInFlight) -> Self {
-        Self::Active(ActiveOrderState::CancelInFlight(state))
-    }
-
-    pub fn cancelled(state: Cancelled) -> Self {
-        Self::Inactive(InactiveOrderState::Cancelled(state))
+    pub fn inactive<S>(state: S) -> Self
+    where
+        S: Into<InactiveOrderState<AssetKey, InstrumentKey>>,
+    {
+        OrderState::Inactive(state.into())
     }
 
     pub fn fully_filled() -> Self {
         Self::Inactive(InactiveOrderState::FullyFilled)
-    }
-
-    pub fn failed(state: Failed) -> Self {
-        Self::Inactive(InactiveOrderState::Failed(state))
     }
 
     pub fn expired() -> Self {
@@ -92,10 +94,10 @@ pub struct CancelInFlight {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
-pub enum InactiveOrderState {
+pub enum InactiveOrderState<AssetKey, InstrumentKey> {
     Cancelled(Cancelled),
     FullyFilled,
-    Failed(Failed),
+    Failed(OrderError<AssetKey, InstrumentKey>),
     Expired,
 }
 
@@ -105,10 +107,4 @@ pub enum InactiveOrderState {
 pub struct Cancelled {
     pub id: OrderId,
     pub time_exchange: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
-pub enum Failed {
-    Rejected(Option<String>),
-    Connectivity(ConnectivityError),
 }

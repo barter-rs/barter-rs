@@ -884,20 +884,20 @@ fn account_event_order_response(
 ) -> EngineEvent<DataKind> {
     EngineEvent::Account(AccountStreamEvent::Item(AccountEvent {
         exchange: ExchangeIndex(0),
-        kind: AccountEventKind::OrderOpened(Order {
+        kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
             exchange: ExchangeIndex(0),
             instrument: InstrumentIndex(instrument),
             strategy: strategy_id(),
             cid: gen_cid(instrument),
             side,
-            state: Ok(Open {
+            state: OrderState::active(Open {
                 id: gen_order_id(instrument),
                 time_exchange: time_plus_days(STARTING_TIMESTAMP, time_plus),
                 price: Decimal::try_from(price).unwrap(),
                 quantity: Decimal::try_from(quantity).unwrap(),
                 filled_quantity: Decimal::try_from(filled).unwrap(),
             }),
-        }),
+        })),
     }))
 }
 
