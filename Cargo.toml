@@ -11,7 +11,7 @@ members = [
 
 [workspace.dependencies]
 # Barter Ecosystem
-barter-integration = { path = "./barter-integration", version = "0.8.0" }
+barter-integration = { path = "./barter-integration", version = "0.8.1" }
 barter-instrument = { path = "./barter-instrument", version = "0.2.0" }
 barter-data = { path = "./barter-data", version = "0.9.0" }
 barter-execution = { path = "./barter-execution", version = "0.4.0" }
@@ -22,7 +22,7 @@ tracing = { version = "0.1.41" }
 tracing-subscriber = { version = "0.3.19" }
 
 # Async
-tokio = { version = "1.42.0" }
+tokio = { version = "1.42", default-features = false, features = ["macros", "net", "rt-multi-thread", "signal", "time"] }
 tokio-stream = { version = "0.1.17" }
 tokio-test = { version = "0.4.4" }
 futures = { version = "0.3.31" }
@@ -41,8 +41,8 @@ serde_urlencoded = { version = "0.7.1" }
 
 # Protocol
 url = { version = "2.5.4" }
-reqwest = { version = "0.12.9" }
-tokio-tungstenite = { version = "0.26.0", features = ["url", "native-tls"] }
+reqwest = { version = "0.12.9",default-features = false, features = ["rustls-tls", "json"] }
+tokio-tungstenite = { version = "0.26.0", features = ["url","rustls-tls-webpki-roots"] }
 
 # Data Structures
 vecmap-rs = { version = "0.2.2" }
