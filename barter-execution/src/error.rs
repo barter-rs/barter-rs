@@ -4,26 +4,25 @@ use barter_instrument::{
     instrument::{name::InstrumentNameExchange, InstrumentIndex},
 };
 use barter_integration::error::SocketError;
+use derive_more::From;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-/// Type alias for a [`ClientError`] that has been indexed.
-pub type IndexedClientError = ClientError<AssetIndex, InstrumentIndex>;
 
 /// Type alias for a [`ClientError`] that is keyed on [`AssetNameExchange`] and
 /// [`InstrumentNameExchange`] (yet to be indexed).
 pub type UnindexedClientError = ClientError<AssetNameExchange, InstrumentNameExchange>;
 
-/// Type alias for a [`ApiError`] that has been indexed.
-pub type IndexedApiError = ApiError<AssetIndex, InstrumentIndex>;
-
 /// Type alias for a [`ApiError`] that is keyed on [`AssetNameExchange`] and
 /// [`InstrumentNameExchange`] (yet to be indexed).
 pub type UnindexedApiError = ApiError<AssetNameExchange, InstrumentNameExchange>;
 
+/// Type alias for a [`OrderError`] that is keyed on [`AssetNameExchange`] and
+/// [`InstrumentNameExchange`] (yet to be indexed).
+pub type UnindexedOrderError = OrderError<AssetNameExchange, InstrumentNameExchange>;
+
 /// Represents all errors produced by an [`ExecutionClient`](super::client::ExecutionClient).
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
-pub enum ClientError<AssetKey, InstrumentKey> {
+pub enum ClientError<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
     /// Connectivity based error.
     ///
     /// eg/ Timeout.
@@ -73,7 +72,7 @@ impl From<SocketError> for ConnectivityError {
 ///
 /// These typically indicate a request is invalid for some reason (eg/ BalanceInsufficient).
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
-pub enum ApiError<AssetKey, InstrumentKey> {
+pub enum ApiError<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
     /// Provided asset identifier is invalid or not supported.
     ///
     /// For example:
@@ -99,6 +98,22 @@ pub enum ApiError<AssetKey, InstrumentKey> {
     OrderAlreadyCancelled,
     #[error("order already fully filled")]
     OrderAlreadyFullyFilled,
+}
+
+/// Represents all errors that can be generated when cancelling or opening orders.
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
+pub enum OrderError<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
+    /// Connectivity based error.
+    ///
+    /// eg/ Timeout.
+    #[error("connectivity: {0}")]
+    Connectivity(#[from] ConnectivityError),
+
+    /// API based error.
+    ///
+    /// eg/ RateLimit.
+    #[error("order rejected: {0}")]
+    Rejected(#[from] ApiError<AssetKey, InstrumentKey>),
 }
 
 /// Represents errors related to exchange, asset and instrument identifier key lookups.

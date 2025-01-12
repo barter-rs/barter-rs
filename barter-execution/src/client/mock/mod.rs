@@ -1,9 +1,12 @@
 use crate::{
     balance::AssetBalance,
     client::ExecutionClient,
-    error::UnindexedClientError,
+    error::{UnindexedClientError, UnindexedOrderError},
     exchange::mock::request::MockExchangeRequest,
-    order::{Cancelled, Open, Order, RequestCancel, RequestOpen},
+    order::{
+        state::{Cancelled, Open},
+        Order, RequestCancel, RequestOpen,
+    },
     trade::Trade,
     UnindexedAccountEvent, UnindexedAccountSnapshot,
 };
@@ -125,7 +128,7 @@ impl ExecutionClient for MockExecution {
     async fn cancel_order(
         &self,
         request: Order<ExchangeId, &InstrumentNameExchange, RequestCancel>,
-    ) -> Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedClientError>> {
+    ) -> Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedOrderError>> {
         let (response_tx, response_rx) = oneshot::channel();
 
         self.request_tx
@@ -144,7 +147,7 @@ impl ExecutionClient for MockExecution {
     async fn open_order(
         &self,
         request: Order<ExchangeId, &InstrumentNameExchange, RequestOpen>,
-    ) -> Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>> {
+    ) -> Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>> {
         let (response_tx, response_rx) = oneshot::channel();
 
         self.request_tx

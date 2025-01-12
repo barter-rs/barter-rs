@@ -9,10 +9,13 @@ use barter_data::streams::{
 };
 use barter_execution::{
     client::ExecutionClient,
-    error::{ConnectivityError, IndexedClientError, UnindexedClientError},
+    error::{ConnectivityError, OrderError, UnindexedOrderError},
     indexer::{AccountEventIndexer, IndexedAccountStream},
     map::ExecutionInstrumentMap,
-    order::{Cancelled, Open, Order, RequestCancel, RequestOpen},
+    order::{
+        state::{Cancelled, Open, OrderState},
+        Order, RequestCancel, RequestOpen,
+    },
     AccountEvent, AccountEventKind,
 };
 use barter_instrument::{
@@ -23,6 +26,7 @@ use barter_instrument::{
 };
 use barter_integration::{
     channel::{mpsc_unbounded, Tx, UnboundedTx},
+    snapshot::Snapshot,
     stream::merge::merge,
 };
 use derive_more::Constructor;
@@ -324,13 +328,34 @@ where
 
     fn process_cancel_response(
         &self,
-        order: Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedClientError>>,
+        order: Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedOrderError>>,
     ) -> Result<AccountStreamEvent, IndexError> {
         let order = self.indexer.order_response(order)?;
 
+        let Order {
+            exchange,
+            instrument,
+            strategy,
+            cid,
+            side,
+            state,
+        } = order;
+
+        let state = match state {
+            Ok(cancelled) => OrderState::inactive(cancelled),
+            Err(error) => OrderState::inactive(error),
+        };
+
         Ok(AccountStreamEvent::Item(AccountEvent {
             exchange: order.exchange,
-            kind: AccountEventKind::OrderCancelled(order),
+            kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
+                exchange,
+                instrument,
+                strategy,
+                cid,
+                side,
+                state,
+            })),
         }))
     }
 
@@ -348,26 +373,48 @@ where
 
         AccountStreamEvent::Item(AccountEvent {
             exchange,
-            kind: AccountEventKind::OrderCancelled(Order {
+            kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
                 exchange,
                 instrument,
                 strategy,
                 cid,
                 side,
-                state: Err(IndexedClientError::Connectivity(ConnectivityError::Timeout)),
-            }),
+                state: OrderState::inactive(OrderError::Connectivity(ConnectivityError::Timeout)),
+            })),
         })
     }
 
     fn process_open_response(
         &self,
-        order: Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>>,
+        order: Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>,
     ) -> Result<AccountStreamEvent, IndexError> {
         let order = self.indexer.order_response(order)?;
 
+        let Order {
+            exchange,
+            instrument,
+            strategy,
+            cid,
+            side,
+            state,
+        } = order;
+
+        let state = match state {
+            Ok(open) if open.quantity_remaining().is_zero() => OrderState::fully_filled(),
+            Ok(open) => OrderState::active(open),
+            Err(error) => OrderState::inactive(error),
+        };
+
         Ok(AccountStreamEvent::Item(AccountEvent {
             exchange: order.exchange,
-            kind: AccountEventKind::OrderOpened(order),
+            kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
+                exchange,
+                instrument,
+                strategy,
+                cid,
+                side,
+                state,
+            })),
         }))
     }
 
@@ -385,14 +432,14 @@ where
 
         AccountStreamEvent::Item(AccountEvent {
             exchange,
-            kind: AccountEventKind::OrderOpened(Order {
+            kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
                 exchange,
                 instrument,
                 strategy,
                 cid,
                 side,
-                state: Err(IndexedClientError::Connectivity(ConnectivityError::Timeout)),
-            }),
+                state: OrderState::inactive(OrderError::Connectivity(ConnectivityError::Timeout)),
+            })),
         })
     }
 }

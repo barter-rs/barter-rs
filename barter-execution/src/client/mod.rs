@@ -1,7 +1,10 @@
 use crate::{
     balance::AssetBalance,
-    error::UnindexedClientError,
-    order::{Cancelled, Open, Order, RequestCancel, RequestOpen},
+    error::{UnindexedClientError, UnindexedOrderError},
+    order::{
+        state::{Cancelled, Open},
+        Order, RequestCancel, RequestOpen,
+    },
     trade::Trade,
     UnindexedAccountEvent, UnindexedAccountSnapshot,
 };
@@ -44,14 +47,14 @@ where
         &self,
         request: Order<ExchangeId, &InstrumentNameExchange, RequestCancel>,
     ) -> impl Future<
-        Output = Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedClientError>>,
+        Output = Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedOrderError>>,
     > + Send;
 
     fn cancel_orders<'a>(
         &self,
         requests: impl IntoIterator<Item = Order<ExchangeId, &'a InstrumentNameExchange, RequestCancel>>,
     ) -> impl Stream<
-        Item = Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedClientError>>,
+        Item = Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedOrderError>>,
     > {
         futures::stream::FuturesUnordered::from_iter(
             requests
@@ -64,13 +67,13 @@ where
         &self,
         request: Order<ExchangeId, &InstrumentNameExchange, RequestOpen>,
     ) -> impl Future<
-        Output = Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>>,
+        Output = Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>,
     > + Send;
 
     fn open_orders<'a>(
         &self,
         requests: impl IntoIterator<Item = Order<ExchangeId, &'a InstrumentNameExchange, RequestOpen>>,
-    ) -> impl Stream<Item = Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>>>
+    ) -> impl Stream<Item = Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>>
     {
         futures::stream::FuturesUnordered::from_iter(
             requests.into_iter().map(|request| self.open_order(request)),

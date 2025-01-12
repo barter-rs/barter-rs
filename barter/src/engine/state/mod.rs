@@ -139,20 +139,6 @@ impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
                     .update_from_order_snapshot(order.as_ref());
                 None
             }
-            AccountEventKind::OrderOpened(response) => {
-                self.instruments
-                    .instrument_index_mut(&response.instrument)
-                    .orders
-                    .update_from_open(response);
-                None
-            }
-            AccountEventKind::OrderCancelled(response) => {
-                self.instruments
-                    .instrument_index_mut(&response.instrument)
-                    .orders
-                    .update_from_cancel(response);
-                None
-            }
             AccountEventKind::Trade(trade) => self
                 .instruments
                 .instrument_index_mut(&trade.instrument)
