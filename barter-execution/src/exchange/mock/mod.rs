@@ -1,13 +1,15 @@
 use crate::{
     balance::AssetBalance,
     client::mock::MockExecutionConfig,
-    error::{ApiError, UnindexedClientError},
+    error::{ApiError, UnindexedApiError, UnindexedOrderError},
     exchange::mock::{
         account::AccountState,
         request::{MockExchangeRequest, MockExchangeRequestKind},
     },
     order::{
-        Cancelled, ExchangeOrderState, Open, Order, OrderId, OrderKind, RequestCancel, RequestOpen,
+        id::OrderId,
+        state::{Cancelled, Open},
+        Order, OrderKind, RequestCancel, RequestOpen, UnindexedOrder,
     },
     trade::{AssetFees, Trade, TradeId},
     AccountEventKind, InstrumentAccountSnapshot, UnindexedAccountEvent, UnindexedAccountSnapshot,
@@ -137,13 +139,13 @@ impl MockExchange {
             .account
             .orders_open()
             .cloned()
-            .map(Order::<ExchangeId, InstrumentNameExchange, ExchangeOrderState>::from);
+            .map(UnindexedOrder::from);
 
         let orders_cancelled = self
             .account
             .orders_cancelled()
             .cloned()
-            .map(Order::<ExchangeId, InstrumentNameExchange, ExchangeOrderState>::from);
+            .map(UnindexedOrder::from);
 
         let orders_all = orders_open.chain(orders_cancelled);
         let orders_all = orders_all.sorted_unstable_by_key(|order| order.instrument.clone());
@@ -241,7 +243,7 @@ impl MockExchange {
     pub fn cancel_order(
         &mut self,
         _: Order<ExchangeId, InstrumentNameExchange, RequestCancel>,
-    ) -> Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedClientError>> {
+    ) -> Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedOrderError>> {
         unimplemented!()
     }
 
@@ -249,7 +251,7 @@ impl MockExchange {
         &mut self,
         request: Order<ExchangeId, InstrumentNameExchange, RequestOpen>,
     ) -> (
-        Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>>,
+        Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>,
         Option<OpenOrderNotifications>,
     ) {
         if let Err(error) = self.validate_order_kind_supported(request.state.kind) {
@@ -287,13 +289,13 @@ impl MockExchange {
 
                     Ok((current.clone(), AssetFees::quote_fees(order_fees_quote)))
                 } else {
-                    Err(UnindexedClientError::Api(ApiError::BalanceInsufficient(
+                    Err(ApiError::BalanceInsufficient(
                         underlying.quote,
                         format!(
                             "Available Balance: {}, Required Balance inc. fees: {}",
                             current.balance.free, quote_required
                         ),
-                    )))
+                    ))
                 }
             }
             Side::Sell => {
@@ -321,13 +323,13 @@ impl MockExchange {
 
                     Ok((current.clone(), AssetFees::quote_fees(fees_quote)))
                 } else {
-                    Err(UnindexedClientError::Api(ApiError::BalanceInsufficient(
+                    Err(ApiError::BalanceInsufficient(
                         underlying.quote,
                         format!(
                             "Available Balance: {}, Required Balance inc. fees: {}",
                             current.balance.free, base_required
                         ),
-                    )))
+                    ))
                 }
             }
         };
@@ -376,25 +378,25 @@ impl MockExchange {
     pub fn validate_order_kind_supported(
         &self,
         order_kind: OrderKind,
-    ) -> Result<(), UnindexedClientError> {
+    ) -> Result<(), UnindexedOrderError> {
         if order_kind == OrderKind::Market {
             Ok(())
         } else {
-            Err(UnindexedClientError::Api(ApiError::OrderRejected(format!(
-                "MockExchange does not supported OrderKind: {order_kind}"
-            ))))
+            Err(UnindexedOrderError::Rejected(ApiError::OrderRejected(
+                format!("MockExchange does not supported OrderKind: {order_kind}"),
+            )))
         }
     }
 
     pub fn find_instrument_data(
         &self,
         instrument: &InstrumentNameExchange,
-    ) -> Result<&Instrument<ExchangeId, AssetNameExchange>, UnindexedClientError> {
+    ) -> Result<&Instrument<ExchangeId, AssetNameExchange>, UnindexedApiError> {
         self.instruments.get(instrument).ok_or_else(|| {
-            UnindexedClientError::Api(ApiError::InstrumentInvalid(
+            ApiError::InstrumentInvalid(
                 instrument.clone(),
                 format!("MockExchange is not set-up for managing: {}", instrument),
-            ))
+            )
         })
     }
 
@@ -415,17 +417,20 @@ impl MockExchange {
     }
 }
 
-fn build_open_order_err_response(
+fn build_open_order_err_response<E>(
     request: Order<ExchangeId, InstrumentNameExchange, RequestOpen>,
-    error: UnindexedClientError,
-) -> Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>> {
+    error: E,
+) -> Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>
+where
+    E: Into<UnindexedOrderError>,
+{
     Order {
         exchange: request.exchange,
         instrument: request.instrument,
         strategy: request.strategy,
         cid: request.cid,
         side: request.side,
-        state: Err(error),
+        state: Err(error.into()),
     }
 }
 

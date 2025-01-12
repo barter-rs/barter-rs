@@ -1,6 +1,10 @@
 use crate::{
     balance::AssetBalance,
-    order::{Cancelled, ClientOrderId, ExchangeOrderState, Open, Order},
+    order::{
+        id::ClientOrderId,
+        state::{ActiveOrderState, Cancelled, InactiveOrderState, Open, OrderState},
+        Order,
+    },
     trade::Trade,
     UnindexedAccountSnapshot,
 };
@@ -88,7 +92,7 @@ impl From<UnindexedAccountSnapshot> for AccountState {
             |(mut orders_open, mut orders_cancelled), snapshot| {
                 for order in snapshot.orders {
                     match order.state {
-                        ExchangeOrderState::Open(open) => {
+                        OrderState::Active(ActiveOrderState::Open(open)) => {
                             orders_open.insert(
                                 order.cid.clone(),
                                 Order {
@@ -101,7 +105,7 @@ impl From<UnindexedAccountSnapshot> for AccountState {
                                 },
                             );
                         }
-                        ExchangeOrderState::Cancelled(cancelled) => {
+                        OrderState::Inactive(InactiveOrderState::Cancelled(cancelled)) => {
                             orders_cancelled.insert(
                                 order.cid.clone(),
                                 Order {
@@ -114,9 +118,7 @@ impl From<UnindexedAccountSnapshot> for AccountState {
                                 },
                             );
                         }
-                        ExchangeOrderState::FullyFilled => {}
-                        ExchangeOrderState::Rejected(_) => {}
-                        ExchangeOrderState::Expired => {}
+                        _ => {}
                     }
                 }
 

@@ -43,8 +43,9 @@ use barter_data::{
 use barter_execution::{
     balance::{AssetBalance, Balance},
     order::{
-        ClientOrderId, ExchangeOrderState, InternalOrderState, Open, Order, OrderId, OrderKind,
-        RequestCancel, RequestOpen, StrategyId, TimeInForce,
+        id::{ClientOrderId, OrderId, StrategyId},
+        state::{ActiveOrderState, Open, OrderState},
+        Order, OrderKind, RequestCancel, RequestOpen, TimeInForce,
     },
     trade::{AssetFees, Trade, TradeId},
     AccountEvent, AccountEventKind, AccountSnapshot,
@@ -511,7 +512,7 @@ fn test_engine_process_engine_event_with_audit() {
             strategy: strategy_id(),
             cid: gen_cid(1),
             side: Side::Sell,
-            state: InternalOrderState::Open(Open {
+            state: ActiveOrderState::Open(Open {
                 id: gen_order_id(1),
                 time_exchange: time_plus_days(STARTING_TIMESTAMP, 4),
                 price: dec!(0.05),
@@ -548,7 +549,7 @@ fn test_engine_process_engine_event_with_audit() {
             strategy: strategy_id(),
             cid: gen_cid(1),
             side: Side::Sell,
-            state: ExchangeOrderState::FullyFilled,
+            state: OrderState::fully_filled(),
         })),
     }));
     let audit = process_with_audit(&mut engine, event.clone());
@@ -883,20 +884,20 @@ fn account_event_order_response(
 ) -> EngineEvent<DataKind> {
     EngineEvent::Account(AccountStreamEvent::Item(AccountEvent {
         exchange: ExchangeIndex(0),
-        kind: AccountEventKind::OrderOpened(Order {
+        kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
             exchange: ExchangeIndex(0),
             instrument: InstrumentIndex(instrument),
             strategy: strategy_id(),
             cid: gen_cid(instrument),
             side,
-            state: Ok(Open {
+            state: OrderState::active(Open {
                 id: gen_order_id(instrument),
                 time_exchange: time_plus_days(STARTING_TIMESTAMP, time_plus),
                 price: Decimal::try_from(price).unwrap(),
                 quantity: Decimal::try_from(quantity).unwrap(),
                 filled_quantity: Decimal::try_from(filled).unwrap(),
             }),
-        }),
+        })),
     }))
 }
 
