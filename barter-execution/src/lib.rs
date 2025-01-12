@@ -23,12 +23,7 @@
 //!
 //! See `README.md` for more information and examples.
 
-use crate::{
-    balance::AssetBalance,
-    error::ClientError,
-    order::{Cancelled, ExchangeOrderState, Open, Order},
-    trade::Trade,
-};
+use crate::{balance::AssetBalance, order::Order, trade::Trade};
 use barter_instrument::{
     asset::{name::AssetNameExchange, AssetIndex, QuoteAsset},
     exchange::{ExchangeId, ExchangeIndex},
@@ -36,6 +31,7 @@ use barter_instrument::{
 };
 use barter_integration::snapshot::Snapshot;
 use derive_more::{Constructor, From};
+use order::state::OrderState;
 use serde::{Deserialize, Serialize};
 
 pub mod balance;
@@ -87,19 +83,12 @@ pub enum AccountEventKind<ExchangeKey, AssetKey, InstrumentKey> {
     /// Single [`AssetBalance`] snapshot - replaces existing balance state.
     BalanceSnapshot(Snapshot<AssetBalance<AssetKey>>),
 
-    /// Single [`Order<ExchangeKey, InstrumentKey, Open>`] snapshot - replaces existing order state.
-    OrderSnapshot(Snapshot<Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>),
+    /// Single [`Order`] snapshot - used to upsert existing order state if it's more recent.
+    ///
+    /// This variant covers cancel & open order responses, as well as general order updates.
+    OrderSnapshot(Snapshot<Order<ExchangeKey, InstrumentKey, OrderState<AssetKey, InstrumentKey>>>),
 
-    /// Response to an [`Order<ExchangeKey, InstrumentKey, RequestOpen>`].
-    OrderOpened(
-        Order<ExchangeKey, InstrumentKey, Result<Open, ClientError<AssetKey, InstrumentKey>>>,
-    ),
-    /// Response to an [`Order<ExchangeKey, InstrumentKey, RequestCancel>`].
-    OrderCancelled(
-        Order<ExchangeKey, InstrumentKey, Result<Cancelled, ClientError<AssetKey, InstrumentKey>>>,
-    ),
-
-    /// [`Order<ExchangeKey, InstrumentKey, Open>`] partial or full fill.
+    /// [`Order<ExchangeKey, InstrumentKey, Open>`] partial or full-fill.
     Trade(Trade<QuoteAsset, InstrumentKey>),
 }
 
@@ -127,15 +116,19 @@ pub struct AccountSnapshot<
 > {
     pub exchange: ExchangeKey,
     pub balances: Vec<AssetBalance<AssetKey>>,
-    pub instruments: Vec<InstrumentAccountSnapshot<ExchangeKey, InstrumentKey>>,
+    pub instruments: Vec<InstrumentAccountSnapshot<ExchangeKey, AssetKey, InstrumentKey>>,
 }
 
 #[derive(
     Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize, Constructor,
 )]
-pub struct InstrumentAccountSnapshot<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
+pub struct InstrumentAccountSnapshot<
+    ExchangeKey = ExchangeIndex,
+    AssetKey = AssetIndex,
+    InstrumentKey = InstrumentIndex,
+> {
     pub instrument: InstrumentKey,
-    pub orders: Vec<Order<ExchangeKey, InstrumentKey, ExchangeOrderState>>,
+    pub orders: Vec<Order<ExchangeKey, InstrumentKey, OrderState<AssetKey, InstrumentKey>>>,
 }
 
 impl<ExchangeKey, AssetKey, InstrumentKey> AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey> {

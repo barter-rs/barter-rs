@@ -15,7 +15,7 @@ use crate::{
 };
 use barter_data::event::MarketEvent;
 use barter_execution::{
-    order::{Order, RequestCancel, RequestOpen, StrategyId},
+    order::{id::StrategyId, Order, RequestCancel, RequestOpen},
     AccountEvent,
 };
 use barter_instrument::{

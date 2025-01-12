@@ -8,12 +8,15 @@ use crate::{
 };
 use barter_data::event::MarketEvent;
 use barter_execution::{
-    order::{ExchangeOrderState, InternalOrderState, Order},
+    order::{
+        state::{ActiveOrderState, OrderState},
+        Order,
+    },
     trade::Trade,
     InstrumentAccountSnapshot,
 };
 use barter_instrument::{
-    asset::{AssetIndex, QuoteAsset},
+    asset::{name::AssetNameExchange, AssetIndex, QuoteAsset},
     exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
     instrument::{
@@ -163,11 +166,11 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
     /// the most recent order state is applied.
     pub fn update_from_account_snapshot(
         &mut self,
-        snapshot: &InstrumentAccountSnapshot<ExchangeKey, InstrumentKey>,
+        snapshot: &InstrumentAccountSnapshot<ExchangeKey, AssetKey, InstrumentKey>,
     ) where
         ExchangeKey: Debug + Clone,
         InstrumentKey: Debug + Clone,
-        AssetKey: Clone,
+        AssetKey: Debug + Clone,
     {
         for order in &snapshot.orders {
             self.orders.update_from_order_snapshot(Snapshot(order))
@@ -240,7 +243,7 @@ pub fn generate_unindexed_instrument_account_snapshot<
 >(
     exchange: ExchangeId,
     state: &InstrumentState<Market, ExchangeKey, AssetKey, InstrumentKey>,
-) -> InstrumentAccountSnapshot<ExchangeId, InstrumentNameExchange>
+) -> InstrumentAccountSnapshot<ExchangeId, AssetNameExchange, InstrumentNameExchange>
 where
     ExchangeKey: Debug + Clone,
     InstrumentKey: Debug + Clone,
@@ -265,7 +268,7 @@ where
                     strategy,
                     cid,
                     side,
-                    state: InternalOrderState::Open(open),
+                    state: ActiveOrderState::Open(open),
                 } = order
                 else {
                     return None;
@@ -277,7 +280,7 @@ where
                     strategy: strategy.clone(),
                     cid: cid.clone(),
                     side: *side,
-                    state: ExchangeOrderState::Open(open.clone()),
+                    state: OrderState::active(open.clone()),
                 })
             })
             .collect(),

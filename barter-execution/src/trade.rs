@@ -1,4 +1,4 @@
-use crate::order::{OrderId, StrategyId};
+use crate::order::id::{OrderId, StrategyId};
 use barter_instrument::{asset::QuoteAsset, Side};
 use chrono::{DateTime, Utc};
 use derive_more::{Constructor, From};

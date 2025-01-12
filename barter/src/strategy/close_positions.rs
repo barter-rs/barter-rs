@@ -3,7 +3,8 @@ use crate::engine::state::{
     EngineState,
 };
 use barter_execution::order::{
-    ClientOrderId, Order, OrderKind, RequestCancel, RequestOpen, StrategyId, TimeInForce,
+    id::{ClientOrderId, StrategyId},
+    Order, OrderKind, RequestCancel, RequestOpen, TimeInForce,
 };
 use barter_instrument::{
     asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex, Side,

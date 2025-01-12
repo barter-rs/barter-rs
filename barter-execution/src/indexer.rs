@@ -1,10 +1,14 @@
 use crate::{
     balance::AssetBalance,
     error::{
-        IndexedApiError, IndexedClientError, KeyError, UnindexedApiError, UnindexedClientError,
+        ApiError, ClientError, KeyError, OrderError, UnindexedApiError, UnindexedClientError,
+        UnindexedOrderError,
     },
     map::ExecutionInstrumentMap,
-    order::{ExchangeOrderState, Order},
+    order::{
+        state::{InactiveOrderState, OrderState, UnindexedOrderState},
+        Order, UnindexedOrder,
+    },
     trade::Trade,
     AccountEvent, AccountEventKind, AccountSnapshot, InstrumentAccountSnapshot,
     UnindexedAccountEvent, UnindexedAccountSnapshot,
@@ -54,12 +58,6 @@ impl AccountEventIndexer {
             AccountEventKind::OrderSnapshot(snapshot) => {
                 AccountEventKind::OrderSnapshot(self.order_snapshot(snapshot.0).map(Snapshot)?)
             }
-            AccountEventKind::OrderOpened(order) => {
-                AccountEventKind::OrderOpened(self.order_response(order)?)
-            }
-            AccountEventKind::OrderCancelled(order) => {
-                AccountEventKind::OrderCancelled(self.order_response(order)?)
-            }
             AccountEventKind::Trade(trade) => AccountEventKind::Trade(self.trade(trade)?),
         };
 
@@ -92,7 +90,7 @@ impl AccountEventIndexer {
 
                 let orders = orders
                     .into_iter()
-                    .map(|order| self.order_open(order))
+                    .map(|order| self.order_snapshot(order))
                     .collect::<Result<Vec<_>, _>>()?;
 
                 Ok(InstrumentAccountSnapshot { instrument, orders })
@@ -124,10 +122,7 @@ impl AccountEventIndexer {
         })
     }
 
-    pub fn order_snapshot(
-        &self,
-        order: Order<ExchangeId, InstrumentNameExchange, ExchangeOrderState>,
-    ) -> Result<Order<ExchangeIndex, InstrumentIndex, ExchangeOrderState>, IndexError> {
+    pub fn order_snapshot(&self, order: UnindexedOrder) -> Result<Order, IndexError> {
         let Order {
             exchange,
             instrument,
@@ -137,6 +132,23 @@ impl AccountEventIndexer {
             state,
         } = order;
 
+        let state = match state {
+            UnindexedOrderState::Active(active) => OrderState::Active(active),
+            UnindexedOrderState::Inactive(inactive) => match inactive {
+                InactiveOrderState::Failed(failed) => match failed {
+                    OrderError::Rejected(rejected) => {
+                        OrderState::inactive(OrderError::Rejected(self.api_error(rejected)?))
+                    }
+                    OrderError::Connectivity(error) => {
+                        OrderState::inactive(OrderError::Connectivity(error))
+                    }
+                },
+                InactiveOrderState::Cancelled(cancelled) => OrderState::inactive(cancelled),
+                InactiveOrderState::FullyFilled => OrderState::fully_filled(),
+                InactiveOrderState::Expired => OrderState::expired(),
+            },
+        };
+
         Ok(Order {
             exchange: self.map.find_exchange_index(exchange)?,
             instrument: self.map.find_instrument_index(&instrument)?,
@@ -144,6 +156,24 @@ impl AccountEventIndexer {
             cid,
             side,
             state,
+        })
+    }
+
+    pub fn api_error(&self, error: UnindexedApiError) -> Result<ApiError, IndexError> {
+        Ok(match error {
+            UnindexedApiError::RateLimit => ApiError::RateLimit,
+            UnindexedApiError::AssetInvalid(asset, value) => {
+                ApiError::AssetInvalid(self.map.find_asset_index(&asset)?, value)
+            }
+            UnindexedApiError::InstrumentInvalid(instrument, value) => {
+                ApiError::InstrumentInvalid(self.map.find_instrument_index(&instrument)?, value)
+            }
+            UnindexedApiError::BalanceInsufficient(asset, value) => {
+                ApiError::BalanceInsufficient(self.map.find_asset_index(&asset)?, value)
+            }
+            UnindexedApiError::OrderRejected(reason) => ApiError::OrderRejected(reason),
+            UnindexedApiError::OrderAlreadyCancelled => ApiError::OrderAlreadyCancelled,
+            UnindexedApiError::OrderAlreadyFullyFilled => ApiError::OrderAlreadyFullyFilled,
         })
     }
 
@@ -176,34 +206,10 @@ impl AccountEventIndexer {
         })
     }
 
-    pub fn order_open(
-        &self,
-        order: Order<ExchangeId, InstrumentNameExchange, ExchangeOrderState>,
-    ) -> Result<Order<ExchangeIndex, InstrumentIndex, ExchangeOrderState>, IndexError> {
-        let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
-            side,
-            state,
-        } = order;
-
-        Ok(Order {
-            exchange: self.map.find_exchange_index(exchange)?,
-            instrument: self.map.find_instrument_index(&instrument)?,
-            strategy,
-            cid,
-            side,
-            state,
-        })
-    }
-
     pub fn order_response<Kind>(
         &self,
-        order: Order<ExchangeId, InstrumentNameExchange, Result<Kind, UnindexedClientError>>,
-    ) -> Result<Order<ExchangeIndex, InstrumentIndex, Result<Kind, IndexedClientError>>, IndexError>
-    {
+        order: Order<ExchangeId, InstrumentNameExchange, Result<Kind, UnindexedOrderError>>,
+    ) -> Result<Order<ExchangeIndex, InstrumentIndex, Result<Kind, OrderError>>, IndexError> {
         let Order {
             exchange,
             instrument,
@@ -215,10 +221,9 @@ impl AccountEventIndexer {
 
         let exchange_index = self.map.find_exchange_index(exchange)?;
         let instrument_index = self.map.find_instrument_index(&instrument)?;
-
         let state = match state {
             Ok(state) => Ok(state),
-            Err(error) => Err(self.client_error(error)?),
+            Err(error) => Err(self.order_error(error)?),
         };
 
         Ok(Order {
@@ -231,36 +236,19 @@ impl AccountEventIndexer {
         })
     }
 
-    pub fn client_error(
-        &self,
-        error: UnindexedClientError,
-    ) -> Result<IndexedClientError, IndexError> {
+    pub fn order_error(&self, error: UnindexedOrderError) -> Result<OrderError, IndexError> {
         Ok(match error {
-            UnindexedClientError::Connectivity(error) => IndexedClientError::Connectivity(error),
-            UnindexedClientError::Api(error) => IndexedClientError::Api(match error {
-                UnindexedApiError::RateLimit => IndexedApiError::RateLimit,
-                UnindexedApiError::AssetInvalid(asset, value) => {
-                    IndexedApiError::AssetInvalid(self.map.find_asset_index(&asset)?, value)
-                }
-                UnindexedApiError::InstrumentInvalid(instrument, value) => {
-                    IndexedApiError::InstrumentInvalid(
-                        self.map.find_instrument_index(&instrument)?,
-                        value,
-                    )
-                }
-                UnindexedApiError::BalanceInsufficient(asset, value) => {
-                    IndexedApiError::BalanceInsufficient(self.map.find_asset_index(&asset)?, value)
-                }
-                UnindexedApiError::OrderRejected(reason) => IndexedApiError::OrderRejected(reason),
-                UnindexedApiError::OrderAlreadyCancelled => IndexedApiError::OrderAlreadyCancelled,
-                UnindexedApiError::OrderAlreadyFullyFilled => {
-                    IndexedApiError::OrderAlreadyFullyFilled
-                }
-            }),
-            UnindexedClientError::AccountSnapshot(value) => {
-                IndexedClientError::AccountSnapshot(value)
-            }
-            UnindexedClientError::AccountStream(value) => IndexedClientError::AccountStream(value),
+            UnindexedOrderError::Connectivity(error) => OrderError::Connectivity(error),
+            UnindexedOrderError::Rejected(error) => OrderError::Rejected(self.api_error(error)?),
+        })
+    }
+
+    pub fn client_error(&self, error: UnindexedClientError) -> Result<ClientError, IndexError> {
+        Ok(match error {
+            UnindexedClientError::Connectivity(error) => ClientError::Connectivity(error),
+            UnindexedClientError::Api(error) => ClientError::Api(self.api_error(error)?),
+            UnindexedClientError::AccountSnapshot(value) => ClientError::AccountSnapshot(value),
+            UnindexedClientError::AccountStream(value) => ClientError::AccountStream(value),
         })
     }
 

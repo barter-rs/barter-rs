@@ -1,4 +1,4 @@
-use barter_execution::error::IndexedClientError;
+use barter_execution::error::ClientError;
 use barter_instrument::index::error::IndexError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -16,7 +16,7 @@ pub enum ExecutionError {
     Index(#[from] IndexError),
 
     /// Represents all errors produced by an
-    /// [`ExecutionClient`](barter_execution::error::ClientError).
+    /// [`ExecutionClient`](barter_execution::client::ExecutionClient).
     #[error("{0}")]
-    Client(#[from] IndexedClientError),
+    Client(#[from] ClientError),
 }

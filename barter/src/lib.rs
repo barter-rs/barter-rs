@@ -156,7 +156,7 @@ pub mod test_utils {
     };
     use barter_execution::{
         balance::Balance,
-        order::{OrderId, StrategyId},
+        order::id::{OrderId, StrategyId},
         trade::{AssetFees, Trade, TradeId},
     };
     use barter_instrument::{

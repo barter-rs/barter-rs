@@ -1,7 +1,10 @@
 use crate::{
     balance::AssetBalance,
-    error::UnindexedClientError,
-    order::{Cancelled, Open, Order, RequestCancel, RequestOpen},
+    error::UnindexedOrderError,
+    order::{
+        state::{Cancelled, Open},
+        Order, RequestCancel, RequestOpen,
+    },
     trade::Trade,
     UnindexedAccountSnapshot,
 };
@@ -71,7 +74,7 @@ impl MockExchangeRequest {
     pub fn cancel_order(
         time_request: DateTime<Utc>,
         response_tx: oneshot::Sender<
-            Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedClientError>>,
+            Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedOrderError>>,
         >,
         request: Order<ExchangeId, InstrumentNameExchange, RequestCancel>,
     ) -> Self {
@@ -87,7 +90,7 @@ impl MockExchangeRequest {
     pub fn open_order(
         time_request: DateTime<Utc>,
         response_tx: oneshot::Sender<
-            Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>>,
+            Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>,
         >,
         request: Order<ExchangeId, InstrumentNameExchange, RequestOpen>,
     ) -> Self {
@@ -118,13 +121,13 @@ pub enum MockExchangeRequestKind {
     },
     CancelOrder {
         response_tx: oneshot::Sender<
-            Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedClientError>>,
+            Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedOrderError>>,
         >,
         request: Order<ExchangeId, InstrumentNameExchange, RequestCancel>,
     },
     OpenOrder {
         response_tx: oneshot::Sender<
-            Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>>,
+            Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>,
         >,
         request: Order<ExchangeId, InstrumentNameExchange, RequestOpen>,
     },
