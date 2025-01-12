@@ -33,7 +33,7 @@ async-trait = { workspace = true }
 
 # Protocol
 url = { workspace = true }
-reqwest = { workspace = true }
+reqwest = { workspace = true}
 
 # Error
 thiserror = { workspace = true }

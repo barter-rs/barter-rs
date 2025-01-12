@@ -1,6 +1,6 @@
 [package]
 name = "barter-integration"
-version = "0.8.0"
+version = "0.8.1"
 edition = "2021"
 authors = ["JustAStream <justastream.code@gmail.com>"]
 license = "MIT"
@@ -48,8 +48,8 @@ fnv = { workspace = true }
 smol_str = { workspace = true, features = ["serde"]}
 
 # Protocol
-tokio-tungstenite = { workspace = true, features = ["native-tls"] }
-reqwest = { workspace = true, features = ["json"] }
+tokio-tungstenite = { workspace = true }
+reqwest = { workspace = true }
 url = { workspace = true }
 
 # Cryptographic Signatures
