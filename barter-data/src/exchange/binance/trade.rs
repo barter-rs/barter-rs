@@ -87,6 +87,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceTrade)>
             instrument,
             kind: PublicTrade {
                 id: trade.id.to_string(),
+                time_executed: trade.time,
                 price: trade.price,
                 amount: trade.amount,
                 side: trade.side,

@@ -74,6 +74,7 @@ impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, KrakenTrades)>
                         instrument: instrument.clone(),
                         kind: PublicTrade {
                             id: custom_kraken_trade_id(&trade),
+                            time_executed: trade.time,
                             price: trade.price,
                             amount: trade.amount,
                             side: trade.side,

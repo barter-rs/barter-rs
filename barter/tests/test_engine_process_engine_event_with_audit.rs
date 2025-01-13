@@ -860,13 +860,16 @@ fn account_event_snapshot(assets: &AssetStates) -> EngineEvent<DataKind> {
 }
 
 fn market_event_trade(time_plus: u64, instrument: usize, price: f64) -> EngineEvent<DataKind> {
+    let time_executed = time_plus_days(STARTING_TIMESTAMP, time_plus);
+
     EngineEvent::Market(MarketStreamEvent::Item(MarketEvent {
-        time_exchange: time_plus_days(STARTING_TIMESTAMP, time_plus),
+        time_exchange: time_executed,
         time_received: time_plus_days(STARTING_TIMESTAMP, time_plus),
         exchange: ExchangeId::BinanceSpot,
         instrument: InstrumentIndex(instrument),
         kind: DataKind::Trade(PublicTrade {
             id: time_plus.to_string(),
+            time_executed,
             price,
             amount: 1.0,
             side: Side::Buy,

@@ -65,6 +65,7 @@ impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, BybitTrade)>
                         instrument: instrument.clone(),
                         kind: PublicTrade {
                             id: trade.id,
+                            time_executed: trade.time,
                             price: trade.price,
                             amount: trade.amount,
                             side: trade.side,

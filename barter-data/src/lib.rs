@@ -394,6 +394,7 @@ pub mod test_utils {
             instrument,
             kind: DataKind::Trade(PublicTrade {
                 id: "trade_id".to_string(),
+                time_executed: time_exchange,
                 price,
                 amount: quantity,
                 side: Side::Buy,

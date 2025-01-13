@@ -1,6 +1,7 @@
 use super::SubscriptionKind;
 use barter_instrument::Side;
 use barter_macro::{DeSubKind, SerSubKind};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Barter [`Subscription`](super::Subscription) [`SubscriptionKind`] that yields [`PublicTrade`]
@@ -28,6 +29,7 @@ impl std::fmt::Display for PublicTrades {
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct PublicTrade {
     pub id: String,
+    pub time_executed: DateTime<Utc>,
     pub price: f64,
     pub amount: f64,
     pub side: Side,

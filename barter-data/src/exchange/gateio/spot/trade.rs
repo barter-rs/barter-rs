@@ -67,6 +67,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, GateioSpotTrade)>
             instrument,
             kind: PublicTrade {
                 id: trade.data.id.to_string(),
+                time_executed: trade.data.time,
                 price: trade.data.price,
                 amount: trade.data.amount,
                 side: trade.data.side,

@@ -84,6 +84,7 @@ impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, GateioFuturesTrades)
                     instrument: instrument.clone(),
                     kind: PublicTrade {
                         id: trade.id.to_string(),
+                        time_executed: trade.time,
                         price: trade.price,
                         amount: trade.amount,
                         side: if trade.amount.is_sign_positive() {
