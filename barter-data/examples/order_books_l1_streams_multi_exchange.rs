@@ -6,6 +6,7 @@ use barter_data::{
 use barter_instrument::instrument::market_data::kind::MarketDataInstrumentKind;
 use futures::StreamExt;
 use tracing::{info, warn};
+use barter_data::exchange::coinbase::Coinbase;
 
 #[rustfmt::skip]
 #[tokio::main]
@@ -24,6 +25,11 @@ async fn main() {
             (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, OrderBooksL1),
             (BinanceFuturesUsd::default(), "eth", "usd", MarketDataInstrumentKind::Perpetual, OrderBooksL1),
         ])
+        .subscribe(
+        [
+            (Coinbase::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL1),
+        ]
+    )
         .init()
         .await
         .unwrap();

@@ -16,6 +16,7 @@ use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
 use serde_json::json;
 use url::Url;
+use crate::subscription::book::OrderBooksL1;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
 /// into an execution [`Connector`] specific channel used for generating [`Connector::requests`].
@@ -32,10 +33,13 @@ pub mod subscription;
 /// Public trade types for [`Coinbase`].
 pub mod trade;
 
+/// Public book types for [`Coinbase`].
+pub mod book;
+
 /// [`Coinbase`] server base url.
 ///
 /// See docs: <https://docs.cloud.coinbase.com/exchange/docs/websocket-overview>
-pub const BASE_URL_COINBASE: &str = "wss://ws-feed.execution.coinbase.com";
+pub const BASE_URL_COINBASE: &str = "wss://ws-feed.exchange.coinbase.com";
 
 /// [`Coinbase`] execution.
 ///
@@ -92,4 +96,14 @@ where
     type SnapFetcher = NoInitialSnapshots;
     type Stream =
         ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, CoinbaseTrade>>;
+}
+
+impl<Instrument> StreamSelector<Instrument, OrderBooksL1> for Coinbase
+where
+    Instrument: InstrumentData,
+{
+    type SnapFetcher = NoInitialSnapshots;
+    type Stream = ExchangeWsStream<
+        StatelessTransformer<Self, Instrument::Key, OrderBooksL1, CoinbaseOrderBookL1>,
+    >;
 }

@@ -1,11 +1,13 @@
 use crate::{
     event::{MarketEvent, MarketIter},
     exchange::{coinbase::channel::CoinbaseChannel, subscription::ExchangeSub, ExchangeId},
-    subscription::book::{Level, OrderBookL1},
+    books::Level,
+    subscription::book::OrderBookL1,
     Identifier,
 };
-use barter_integration::model::{Exchange, SubscriptionId};
+use barter_integration::subscription::SubscriptionId;
 use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 /// [`Coinbase`](super::super::Coinbase) real-time OrderBook Level1 (top of book) message.
@@ -50,22 +52,22 @@ pub struct CoinbaseOrderBookL1 {
         rename(deserialize = "best_bid"),
         deserialize_with = "barter_integration::de::de_str"
     )]
-    pub best_bid_price: f64,
+    pub best_bid_price: Decimal,
     #[serde(
         rename(deserialize = "best_bid_size"),
-        deserialize_with = "barter_integration::de::de_str"
+        with = "rust_decimal::serde::str"
     )]
-    pub best_bid_amount: f64,
+    pub best_bid_amount: Decimal,
     #[serde(
         rename(deserialize = "best_ask"),
-        deserialize_with = "barter_integration::de::de_str"
+        with = "rust_decimal::serde::str"
     )]
-    pub best_ask_price: f64,
+    pub best_ask_price: Decimal,
     #[serde(
         rename(deserialize = "best_ask_size"),
-        deserialize_with = "barter_integration::de::de_str"
+        with = "rust_decimal::serde::str"
     )]
-    pub best_ask_amount: f64,
+    pub best_ask_amount: Decimal,
 }
 
 impl Identifier<Option<SubscriptionId>> for CoinbaseOrderBookL1 {
@@ -80,15 +82,27 @@ impl<InstrumentId> From<(ExchangeId, InstrumentId, CoinbaseOrderBookL1)>
     fn from(
         (exchange_id, instrument, book): (ExchangeId, InstrumentId, CoinbaseOrderBookL1),
     ) -> Self {
+        let best_ask = if book.best_ask_price.is_zero() {
+            None
+        } else {
+            Some(Level::new(book.best_ask_price, book.best_ask_amount))
+        };
+
+        let best_bid = if book.best_bid_price.is_zero() {
+            None
+        } else {
+            Some(Level::new(book.best_bid_price, book.best_bid_amount))
+        };
+
         Self(vec![Ok(MarketEvent {
-            exchange_time: book.time,
-            received_time: Utc::now(),
-            exchange: Exchange::from(exchange_id),
+            time_exchange: book.time,
+            time_received: Utc::now(),
+            exchange: exchange_id,
             instrument,
             kind: OrderBookL1 {
                 last_update_time: book.time,
-                best_bid: Level::new(book.best_bid_price, book.best_bid_amount),
-                best_ask: Level::new(book.best_ask_price, book.best_ask_amount),
+                best_bid,
+                best_ask,
             },
         })])
     }
@@ -149,10 +163,10 @@ mod tests {
                     sequence: 37475248783,
                     subscription_id: SubscriptionId::from("ticker|ETH-USD"),
                     time,
-                    best_bid_price: 1285.04,
-                    best_bid_amount: 0.46688654,
-                    best_ask_price: 1285.27,
-                    best_ask_amount: 1.56637040,
+                    best_bid_price: Decimal::try_from(1285.04).unwrap(),
+                    best_bid_amount: Decimal::try_from(0.46688654).unwrap(),
+                    best_ask_price: Decimal::try_from(1285.27).unwrap(),
+                    best_ask_amount: Decimal::try_from(1.56637040).unwrap(),
                 },
             }];
 
