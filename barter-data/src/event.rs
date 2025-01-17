@@ -62,6 +62,53 @@ impl<InstrumentKey, T> MarketEvent<InstrumentKey, T> {
     }
 }
 
+impl<InstrumentKey> MarketEvent<InstrumentKey, DataKind> {
+    pub fn as_public_trade(&self) -> Option<MarketEvent<&InstrumentKey, &PublicTrade>> {
+        match &self.kind {
+            DataKind::Trade(public_trade) => Some(self.as_event(public_trade)),
+            _ => None,
+        }
+    }
+
+    pub fn as_order_book_l1(&self) -> Option<MarketEvent<&InstrumentKey, &OrderBookL1>> {
+        match &self.kind {
+            DataKind::OrderBookL1(orderbook) => Some(self.as_event(orderbook)),
+            _ => None,
+        }
+    }
+
+    pub fn as_order_book(&self) -> Option<MarketEvent<&InstrumentKey, &OrderBookEvent>> {
+        match &self.kind {
+            DataKind::OrderBook(orderbook) => Some(self.as_event(orderbook)),
+            _ => None,
+        }
+    }
+
+    pub fn as_candle(&self) -> Option<MarketEvent<&InstrumentKey, &Candle>> {
+        match &self.kind {
+            DataKind::Candle(candle) => Some(self.as_event(candle)),
+            _ => None,
+        }
+    }
+
+    pub fn as_liquidation(&self) -> Option<MarketEvent<&InstrumentKey, &Liquidation>> {
+        match &self.kind {
+            DataKind::Liquidation(liquidation) => Some(self.as_event(liquidation)),
+            _ => None,
+        }
+    }
+
+    fn as_event<'a, K>(&'a self, kind: &'a K) -> MarketEvent<&'a InstrumentKey, &'a K> {
+        MarketEvent {
+            time_exchange: self.time_exchange,
+            time_received: self.time_received,
+            exchange: self.exchange,
+            instrument: &self.instrument,
+            kind,
+        }
+    }
+}
+
 /// Available kinds of normalised Barter [`MarketEvent<T>`](MarketEvent).
 ///
 /// ### Notes
