@@ -22,7 +22,7 @@ impl CoinbaseChannel {
     ///
     /// See docs: <https://docs.cdp.coinbase.com/exchange/docs/websocket-channels/#ticker-channel>
     pub const ORDER_BOOK_L1: Self = Self("ticker");
-    pub const ORDER_BOOK_L2: Self = Self("level2");
+    pub const ORDER_BOOK_L2: Self = Self("level2_batch");
 }
 
 impl<Instrument> Identifier<CoinbaseChannel> for Subscription<Coinbase, Instrument, PublicTrades> {

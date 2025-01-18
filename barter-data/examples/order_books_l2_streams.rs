@@ -22,22 +22,22 @@ async fn main() {
     let mut streams = Streams::<OrderBooksL2>::builder()
 
         // Separate WebSocket connection for BTC_USDT stream since it's very high volume
-        .subscribe([
-            (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
-        ])
+        // .subscribe([
+        //     (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
+        // ])
 
         // Separate WebSocket connection for ETH_USDT stream since it's very high volume
-        .subscribe([
-            (BinanceSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
-        ])
+        // .subscribe([
+        //     (BinanceSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
+        // ])
 
         // Lower volume Instruments can share a WebSocket connection
-        .subscribe([
-            (BinanceSpot::default(), "xrp", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
-            (BinanceSpot::default(), "sol", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
-            (BinanceSpot::default(), "avax", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
-            (BinanceSpot::default(), "ltc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
-        ])
+        // .subscribe([
+        //     (BinanceSpot::default(), "xrp", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
+        //     (BinanceSpot::default(), "sol", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
+        //     (BinanceSpot::default(), "avax", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
+        //     (BinanceSpot::default(), "ltc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
+        // ])
         .subscribe([
             (Coinbase::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
         ])
@@ -48,7 +48,7 @@ async fn main() {
     // Select the ExchangeId::BinanceSpot stream
     // Note: use `Streams.select(ExchangeId)` to interact with individual exchange streams!
     let mut l1_stream = streams
-        .select(ExchangeId::BinanceSpot)
+        .select(ExchangeId::Coinbase)
         .unwrap()
         .with_error_handler(|error| warn!(?error, "MarketStream generated error"));
 
@@ -63,7 +63,7 @@ fn init_logging() {
         // Filter messages based on the INFO
         .with_env_filter(
             tracing_subscriber::filter::EnvFilter::builder()
-                .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
+                .with_default_directive(tracing_subscriber::filter::LevelFilter::DEBUG.into())
                 .from_env_lossy(),
         )
         // Disable colours on release builds

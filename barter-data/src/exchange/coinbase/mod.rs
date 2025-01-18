@@ -16,7 +16,7 @@ use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
 use serde_json::json;
 use url::Url;
-use crate::exchange::coinbase::book::l2::CoinbaseOrderBooksL2Transformer;
+use crate::exchange::coinbase::book::l2::{CoinbaseOrderBooksL2SnapshotFetcher, CoinbaseOrderBooksL2Transformer};
 use crate::subscription::book::{OrderBooksL1, OrderBooksL2};
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
@@ -113,6 +113,6 @@ impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for Coinbase
 where
     Instrument: InstrumentData,
 {
-    type SnapFetcher = NoInitialSnapshots;
+    type SnapFetcher = CoinbaseOrderBooksL2SnapshotFetcher;
     type Stream = ExchangeWsStream<CoinbaseOrderBooksL2Transformer<Instrument::Key>>;
 }
