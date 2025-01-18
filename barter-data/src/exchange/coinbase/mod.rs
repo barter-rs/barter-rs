@@ -16,7 +16,8 @@ use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
 use serde_json::json;
 use url::Url;
-use crate::subscription::book::OrderBooksL1;
+use crate::exchange::coinbase::book::l2::CoinbaseOrderBooksL2Transformer;
+use crate::subscription::book::{OrderBooksL1, OrderBooksL2};
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
 /// into an execution [`Connector`] specific channel used for generating [`Connector::requests`].
@@ -106,4 +107,12 @@ where
     type Stream = ExchangeWsStream<
         StatelessTransformer<Self, Instrument::Key, OrderBooksL1, CoinbaseOrderBookL1>,
     >;
+}
+
+impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for Coinbase
+where
+    Instrument: InstrumentData,
+{
+    type SnapFetcher = NoInitialSnapshots;
+    type Stream = ExchangeWsStream<CoinbaseOrderBooksL2Transformer<Instrument::Key>>;
 }

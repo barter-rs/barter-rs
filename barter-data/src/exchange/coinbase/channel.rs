@@ -4,6 +4,7 @@ use crate::{
     Identifier,
 };
 use serde::Serialize;
+use crate::subscription::book::OrderBooksL2;
 
 /// Type that defines how to translate a Barter [`Subscription`] into a
 /// [`Coinbase`] channel to be subscribed to.
@@ -19,8 +20,9 @@ impl CoinbaseChannel {
     pub const TRADES: Self = Self("matches");
     /// [`Coinbase`] real-time L1 orderbook channel.
     ///
-    /// See docs: <https://docs.cloud.coinbase.com/exchange/docs/websocket-channels#level2-channel>
+    /// See docs: <https://docs.cdp.coinbase.com/exchange/docs/websocket-channels/#ticker-channel>
     pub const ORDER_BOOK_L1: Self = Self("ticker");
+    pub const ORDER_BOOK_L2: Self = Self("level2");
 }
 
 impl<Instrument> Identifier<CoinbaseChannel> for Subscription<Coinbase, Instrument, PublicTrades> {
@@ -32,6 +34,12 @@ impl<Instrument> Identifier<CoinbaseChannel> for Subscription<Coinbase, Instrume
 impl<Instrument> Identifier<CoinbaseChannel> for Subscription<Coinbase, Instrument, OrderBooksL1> {
     fn id(&self) -> CoinbaseChannel {
         CoinbaseChannel::ORDER_BOOK_L1
+    }
+}
+
+impl<Instrument> Identifier<CoinbaseChannel> for Subscription<Coinbase, Instrument, OrderBooksL2> {
+    fn id(&self) -> CoinbaseChannel {
+        CoinbaseChannel::ORDER_BOOK_L2
     }
 }
 

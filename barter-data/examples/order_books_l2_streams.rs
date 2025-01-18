@@ -8,6 +8,8 @@ use barter_instrument::{
 };
 use futures_util::StreamExt;
 use tracing::{info, warn};
+use barter_data::exchange::coinbase::Coinbase;
+use barter_data::subscription::book::OrderBooksL1;
 
 #[rustfmt::skip]
 #[tokio::main]
@@ -35,6 +37,9 @@ async fn main() {
             (BinanceSpot::default(), "sol", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
             (BinanceSpot::default(), "avax", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
             (BinanceSpot::default(), "ltc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
+        ])
+        .subscribe([
+            (Coinbase::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
         ])
         .init()
         .await

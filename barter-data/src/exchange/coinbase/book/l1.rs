@@ -14,11 +14,10 @@ use serde::{Deserialize, Serialize};
 ///
 /// ### Raw Payload Examples
 /// #### Coinbase OrderBookL1
-/// See docs: <https://docs.cdp.coinbase.com/exchange/docs/websocket-channels/#level2-channel>
+/// See docs: <https://docs.cdp.coinbase.com/exchange/docs/websocket-channels/#ticker-channel>
 /// ```json
 ///{
 ///  "type": "ticker",
-///  "sequence": 37475248783,
 ///  "product_id": "ETH-USD",
 ///  "price": "1285.22",
 ///  "open_24h": "1310.79",
@@ -42,7 +41,6 @@ pub struct CoinbaseOrderBookL1 {
     pub time: DateTime<Utc>,
     #[serde(rename(deserialize = "type"))]
     pub kind: String,
-    pub sequence: u64,
     #[serde(
         rename(deserialize = "product_id"),
         deserialize_with = "de_ob_l1_subscription_id"
@@ -160,7 +158,6 @@ mod tests {
               "#,
                 expected: CoinbaseOrderBookL1 {
                     kind: "ticker".into(),
-                    sequence: 37475248783,
                     subscription_id: SubscriptionId::from("ticker|ETH-USD"),
                     time,
                     best_bid_price: Decimal::try_from(1285.04).unwrap(),
