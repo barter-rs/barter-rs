@@ -26,7 +26,7 @@ use crate::subscription::book::{OrderBookEvent, OrderBooksL2};
 use crate::subscription::{Map, Subscription};
 use crate::transformer::ExchangeTransformer;
 
-pub const HTTP_PRODUCT_BOOK_SNAPSHOT_URL: &str = "https://api.exchange.coinbase.com/products";
+pub const HTTP_COINBASE_API: &str = "https://api.exchange.coinbase.com";
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct CoinbaseOrderBookSnapshot {
@@ -109,8 +109,8 @@ impl SnapshotFetcher<Coinbase, OrderBooksL2>for CoinbaseOrderBooksL2SnapshotFetc
             // Construct initial OrderBook snapshot GET url
             let market = sub.id();
             let snapshot_url = format!(
-                "{url}/{product_id}/book?level=2",
-                url = HTTP_PRODUCT_BOOK_SNAPSHOT_URL,
+                "{url}/products/{product_id}/book?level=2",
+                url = HTTP_COINBASE_API,
                 product_id = market.as_ref(),
             );
 
