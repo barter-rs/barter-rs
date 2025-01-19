@@ -1,12 +1,12 @@
 # Barter
-Barter is an algorithmic trading ecosystem of Rust libraries for building high-performance live-trading, paper-trading 
+Barter is an algorithmic trading ecosystem of Rust libraries for building high-performance live-trading, paper-trading
 and back-testing systems.
 * **Fast**: Written in native Rust. Minimal allocations. Data-oriented state management system with direct index lookups.
 * **Robust**: Strongly typed. Thread safe. Extensive test coverage.
 * **Customisable**: Plug and play Strategy and RiskManager components that facilitates most trading strategies (MarketMaking, StatArb, HFT, etc.).
-* **Scalable**: Multithreaded architecture with modular design. Leverages Tokio for I/O. Memory efficient data structures.  
+* **Scalable**: Multithreaded architecture with modular design. Leverages Tokio for I/O. Memory efficient data structures.
 
-**See: [`Barter`], [`Barter-Data`], [`Barter-Instrument`], [`Barter-Execution`] & [`Barter-Integration`] for 
+**See: [`Barter`], [`Barter-Data`], [`Barter-Instrument`], [`Barter-Execution`] & [`Barter-Integration`] for
 comprehensive documentation and examples for each library.**
 
 [![Crates.io][crates-badge]][crates-url]
@@ -31,24 +31,24 @@ comprehensive documentation and examples for each library.**
 [Chat]: https://discord.gg/wE7RqhnQMV
 
 ## Overview
-Barter is an algorithmic trading ecosystem of Rust libraries for building high-performance live-trading, paper-trading 
+Barter is an algorithmic trading ecosystem of Rust libraries for building high-performance live-trading, paper-trading
 and back-testing systems. It is made up of several easy-to-use, extensible crates:
 * **Barter**: Algorithmic trading Engine with feature rich state management system.
-* **Barter-Instrument**: Exchange, Instrument and Asset data structures and utilities. 
+* **Barter-Instrument**: Exchange, Instrument and Asset data structures and utilities.
 * **Barter-Data**: Stream public market data from financial venues. Easily extensible via the MarketStream interface.
-* **Barter-Execution**: Stream private account data and execute orders. Easily extensible via the ExecutionClient interface. 
+* **Barter-Execution**: Stream private account data and execute orders. Easily extensible via the ExecutionClient interface.
 * **Barter-Integration**: Low-level frameworks for flexible REST/WebSocket integrations.
 
 ## Notable Features
-- Stream public market data from financial venues via the [`Barter-Data`] library. 
+- Stream public market data from financial venues via the [`Barter-Data`] library.
 - Stream private account data, execute orders (live or mock)** via the [`Barter-Execution`] library.
-- Plug and play Strategy and RiskManager components that facilitate most trading strategies. 
+- Plug and play Strategy and RiskManager components that facilitate most trading strategies.
 - Flexible Engine that facilitates trading strategies that execute on many exchanges simultaneously.
-- Use mock MarketStream or Execution components to enable back-testing on a near-identical trading system as live-trading.  
+- Use mock MarketStream or Execution components to enable back-testing on a near-identical trading system as live-trading.
 - Centralised cache friendly state management system with O(1) constant lookups using indexed data structures.
-- Robust Order management system - use stand-alone or with Barter. 
+- Robust Order management system - use stand-alone or with Barter.
 - Trading summaries with comprehensive performance metrics (PnL, Sharpe, Sortino, Drawdown, etc.).
-- Turn on/off algorithmic trading from an external process (eg/ UI, Telegram, etc.) whilst still processing market/account data. 
+- Turn on/off algorithmic trading from an external process (eg/ UI, Telegram, etc.) whilst still processing market/account data.
 - Issue Engine Commands from an external process (eg/ UI, Telegram, etc.) to initiate actions (CloseAllPositions, OpenOrders, CancelOrders, etc.).
 - EngineState replica manager that processes the Engine AuditStream to facilitate non-hot path monitoring components (eg/ UI, Telegram, etc.).
 
