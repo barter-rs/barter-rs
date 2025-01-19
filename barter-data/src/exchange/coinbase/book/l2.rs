@@ -23,7 +23,7 @@ use crate::{Identifier, SnapshotFetcher};
 use crate::exchange::coinbase::market::CoinbaseMarket;
 use crate::instrument::InstrumentData;
 use crate::subscription::book::{OrderBookEvent, OrderBooksL2};
-use crate::subscription::{Map, Subscription, SubscriptionKind};
+use crate::subscription::{Map, Subscription};
 use crate::transformer::ExchangeTransformer;
 
 pub const HTTP_PRODUCT_BOOK_SNAPSHOT_URL: &str = "https://api.exchange.coinbase.com/products";
@@ -249,7 +249,7 @@ where
                     .find(|snapshot| snapshot.instrument == instrument_key)
                     .ok_or_else(|| DataError::InitialSnapshotMissing(sub_id.clone()))?;
 
-                let OrderBookEvent::Snapshot(snapshot) = &snapshot.kind else {
+                let OrderBookEvent::Snapshot(_snapshot) = &snapshot.kind else {
                     return Err(DataError::InitialSnapshotInvalid(String::from(
                         "expected OrderBookEvent::Snapshot but found OrderBookEvent::Update",
                     )));
@@ -396,8 +396,10 @@ mod tests {
     use std::str::FromStr;
     use rust_decimal::Decimal;
     use barter_instrument::Side;
-    use barter_integration::subscription::SubscriptionId;
-    use super::{get_book_snapshot_url, CoinbaseOrderBookL2Change, CoinbaseOrderBookL2Update};
+    use crate::books::{Level, OrderBook};
+    use crate::error::DataError;
+    use crate::subscription::book::OrderBookEvent;
+    use super::{get_book_snapshot_url, CoinbaseOrderBookL2Change, CoinbaseOrderBookL2Sequencer, CoinbaseOrderBookL2Snapshot, CoinbaseOrderBookL2SnapshotLevel, CoinbaseOrderBookL2Update};
 
     #[test]
     fn test_get_book_snapshot_url() {
@@ -433,5 +435,231 @@ mod tests {
                 },
             ]
         });
+    }
+
+    #[test]
+    fn test_de_coinbase_order_book_l2_snapshot() {
+        let input = r#"
+            {
+                "product_id": "BTC-USD",
+                "bids": [
+                    ["10000.00", "0.01"]
+                ],
+                "asks": [
+                    ["10001.00", "0.01"]
+                ]
+            }
+        "#;
+
+        let expected = CoinbaseOrderBookL2Snapshot {
+            product_id: "BTC-USD".to_string(),
+            bids: vec![
+                CoinbaseOrderBookL2SnapshotLevel {
+                    price: Decimal::from_str("10000.00").unwrap(),
+                    size: Decimal::from_str("0.01").unwrap()
+                }
+            ],
+            asks: vec![
+                CoinbaseOrderBookL2SnapshotLevel {
+                    price: Decimal::from_str("10001.00").unwrap(),
+                    size: Decimal::from_str("0.01").unwrap()
+                }
+            ]
+        };
+
+        let result: CoinbaseOrderBookL2Snapshot = serde_json::from_str(input).unwrap();
+        assert_eq!(result, expected);
+    }
+
+
+    #[test]
+    fn test_coinbase_sequencer_validate_first_update() {
+        struct TestCase {
+            sequencer: CoinbaseOrderBookL2Sequencer,
+            input: CoinbaseOrderBookL2Update,
+            expected: Result<Option<CoinbaseOrderBookL2Update>, DataError>,
+        }
+
+        let tests = vec![
+            TestCase {
+                // TC0: valid first update
+                sequencer: CoinbaseOrderBookL2Sequencer {
+                    updates_processed: 0,
+                    last_updated_at: chrono::DateTime::from_str("2022-08-04T15:25:05.010758Z").unwrap(),
+                },
+                input: CoinbaseOrderBookL2Update {
+                    product_id: "BTC-USD".to_string(),
+                    time_exchange: chrono::DateTime::from_str("2022-08-04T15:25:06.010758Z").unwrap(),
+                    changes: vec![],
+                },
+                expected: Ok(Some(CoinbaseOrderBookL2Update {
+                    product_id: "BTC-USD".to_string(),
+                    time_exchange: chrono::DateTime::from_str("2022-08-04T15:25:06.010758Z").unwrap(),
+                    changes: vec![],
+                })),
+            },
+            TestCase {
+                // TC1: invalid first update with time_exchange <= last_updated_at
+                sequencer: CoinbaseOrderBookL2Sequencer {
+                    updates_processed: 0,
+                    last_updated_at: chrono::DateTime::from_str("2022-08-04T15:25:05.010758Z").unwrap(),
+                },
+                input: CoinbaseOrderBookL2Update {
+                    product_id: "BTC-USD".to_string(),
+                    time_exchange: chrono::DateTime::from_str("2022-08-04T15:25:05.010758Z").unwrap(),
+                    changes: vec![],
+                },
+                expected: Ok(None),
+            },
+        ];
+
+        for (index, mut test) in tests.into_iter().enumerate() {
+            let actual = test.sequencer.validate_sequence(test.input);
+            assert_eq!(actual, test.expected, "TC{} failed", index);
+        }
+    }
+
+    #[test]
+    fn test_coinbase_sequencer_validate_next_update() {
+        struct TestCase {
+            sequencer: CoinbaseOrderBookL2Sequencer,
+            input: CoinbaseOrderBookL2Update,
+            expected: Result<Option<CoinbaseOrderBookL2Update>, DataError>,
+        }
+
+        let tests = vec![
+            TestCase {
+                // TC0: valid next update
+                sequencer: CoinbaseOrderBookL2Sequencer {
+                    updates_processed: 1,
+                    last_updated_at: chrono::DateTime::from_str("2022-08-04T15:25:05.010758Z").unwrap(),
+                },
+                input: CoinbaseOrderBookL2Update {
+                    product_id: "BTC-USD".to_string(),
+                    time_exchange: chrono::DateTime::from_str("2022-08-04T15:25:06.010758Z").unwrap(),
+                    changes: vec![],
+                },
+                expected: Ok(Some(CoinbaseOrderBookL2Update {
+                    product_id: "BTC-USD".to_string(),
+                    time_exchange: chrono::DateTime::from_str("2022-08-04T15:25:06.010758Z").unwrap(),
+                    changes: vec![],
+                })),
+            },
+            TestCase {
+                // TC1: invalid next update with time_exchange <= last_updated_at
+                sequencer: CoinbaseOrderBookL2Sequencer {
+                    updates_processed: 1,
+                    last_updated_at: chrono::DateTime::from_str("2022-08-04T15:25:05.010758Z").unwrap(),
+                },
+                input: CoinbaseOrderBookL2Update {
+                    product_id: "BTC-USD".to_string(),
+                    time_exchange: chrono::DateTime::from_str("2022-08-04T15:25:05.010000Z").unwrap(),
+                    changes: vec![],
+                },
+                expected: Ok(None),
+            },
+        ];
+
+        for (index, mut test) in tests.into_iter().enumerate() {
+            let actual = test.sequencer.validate_sequence(test.input);
+            assert_eq!(actual, test.expected, "TC{} failed", index);
+        }
+    }
+
+    #[test]
+    fn test_update_barter_order_book_with_sequenced_updates() {
+        struct TestCase {
+            sequencer: CoinbaseOrderBookL2Sequencer,
+            book: OrderBook,
+            input_update: CoinbaseOrderBookL2Update,
+            expected: OrderBook,
+        }
+
+        let tests = vec![
+            TestCase {
+                // TC0: Drop any event where time_exchange <= last_updated_at
+                sequencer: CoinbaseOrderBookL2Sequencer {
+                    updates_processed: 1,
+                    last_updated_at: chrono::DateTime::from_str("2022-08-04T15:25:05.010758Z").unwrap(),
+                },
+                book: OrderBook::new(0, None, vec![Level::new(50, 1)], vec![Level::new(100, 1)]),
+                input_update: CoinbaseOrderBookL2Update {
+                    product_id: "BTC-USD".to_string(),
+                    time_exchange: chrono::DateTime::from_str("2022-08-04T15:25:05.010758Z").unwrap(),
+                    changes: vec![],
+                },
+                expected: OrderBook::new(
+                    0,
+                    None,
+                    vec![Level::new(50, 1)],
+                    vec![Level::new(100, 1)],
+                ),
+            },
+            TestCase {
+                // TC1: valid update & relevant update
+                sequencer: CoinbaseOrderBookL2Sequencer {
+                    updates_processed: 1,
+                    last_updated_at: chrono::DateTime::from_str("2022-08-04T15:25:05.010758Z").unwrap(),
+                },
+                book: OrderBook::new(
+                    0,
+                    None,
+                    vec![Level::new(80, 1), Level::new(100, 1), Level::new(90, 1)],
+                    vec![Level::new(150, 1), Level::new(110, 1), Level::new(120, 1)],
+                ),
+                input_update: CoinbaseOrderBookL2Update {
+                    product_id: "BTC-USD".to_string(),
+                    time_exchange: chrono::DateTime::from_str("2022-08-04T15:25:06.010758Z").unwrap(),
+                    changes: vec![
+                        // Level exists & new value is 0 => remove Level
+                        CoinbaseOrderBookL2Change {
+                            side: Side::Buy,
+                            price: Decimal::from_str("80").unwrap(),
+                            size: Decimal::from_str("0").unwrap(),
+                        },
+                        // Level exists & new value is > 0 => replace Level
+                        CoinbaseOrderBookL2Change {
+                            side: Side::Buy,
+                            price: Decimal::from_str("90").unwrap(),
+                            size: Decimal::from_str("10").unwrap(),
+                        },
+                        // Level does not exist & new value > 0 => insert new Level
+                        CoinbaseOrderBookL2Change {
+                            side: Side::Sell,
+                            price: Decimal::from_str("200").unwrap(),
+                            size: Decimal::from_str("1").unwrap(),
+                        },
+                    ],
+                },
+                expected: OrderBook::new(
+                    1,
+                    None,
+                    vec![Level::new(100, 1), Level::new(90, 10)],
+                    vec![
+                        Level::new(110, 1),
+                        Level::new(120, 1),
+                        Level::new(150, 1),
+                        Level::new(200, 1),
+                    ],
+                ),
+            },
+        ];
+
+        for (index, mut test) in tests.into_iter().enumerate() {
+            if let Some(valid_update) = test.sequencer.validate_sequence(test.input_update).unwrap() {
+                let (bids, asks): (Vec<_>, Vec<_>) = valid_update.changes.into_iter().partition(|change| change.side == Side::Buy);
+
+                let barter_update = OrderBookEvent::Update(OrderBook::new(
+                    1,
+                    None,
+                    bids,
+                    asks,
+                ));
+
+                test.book.update(barter_update);
+            }
+
+            assert_eq!(test.book, test.expected, "TC{index} failed");
+        }
     }
 }

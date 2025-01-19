@@ -6,7 +6,6 @@ use barter_data::{
 use barter_instrument::instrument::market_data::kind::MarketDataInstrumentKind;
 use futures::StreamExt;
 use tracing::{info, warn};
-use barter_data::exchange::coinbase::Coinbase;
 
 #[rustfmt::skip]
 #[tokio::main]
@@ -17,19 +16,14 @@ async fn main() {
     // Initialise OrderBooksL1 Streams for various exchanges
     // '--> each call to StreamBuilder::subscribe() initialises a separate WebSocket connection
     let streams = Streams::<OrderBooksL1>::builder()
-        // .subscribe([
-        //     (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL1),
-        //     (BinanceSpot::default(), "eth", "usd", MarketDataInstrumentKind::Spot, OrderBooksL1),
-        // ])
-        // .subscribe([
-        //     (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, OrderBooksL1),
-        //     (BinanceFuturesUsd::default(), "eth", "usd", MarketDataInstrumentKind::Perpetual, OrderBooksL1),
-        // ])
-        .subscribe(
-        [
-            (Coinbase::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL1),
-        ]
-    )
+        .subscribe([
+            (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL1),
+            (BinanceSpot::default(), "eth", "usd", MarketDataInstrumentKind::Spot, OrderBooksL1),
+        ])
+        .subscribe([
+            (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, OrderBooksL1),
+            (BinanceFuturesUsd::default(), "eth", "usd", MarketDataInstrumentKind::Perpetual, OrderBooksL1),
+        ])
         .init()
         .await
         .unwrap();
