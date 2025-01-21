@@ -254,8 +254,27 @@ impl MockExchange {
         Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>,
         Option<OpenOrderNotifications>,
     ) {
+        // TODO: The mock exchange should handle order executions for different
+        // instrument kinds differently. Currently when executing the Spot order
+        // only the quote balance is updated.
+
         if let Err(error) = self.validate_order_kind_supported(request.state.kind) {
             return (build_open_order_err_response(request, error), None);
+        }
+
+        // If quantity is zero or bellow that means that the strategy proposed
+        // an malformed order.
+        if request.state.quantity <= Decimal::ZERO {
+            let quantity = request.state.quantity;
+            return (
+                build_open_order_err_response(
+                    request,
+                    UnindexedClientError::Api(ApiError::OrderRejected(format!(
+                        "MockExchange does not accept negative order quantities: {quantity}",
+                    ))),
+                ),
+                None,
+            );
         }
 
         let underlying = match self.find_instrument_data(&request.instrument) {
