@@ -13,7 +13,10 @@ use crate::{
         http::BybitHttpResponse,
         types::{BybitOrderTimeInForce, BybitPositionSide, InstrumentCategory},
     },
-    order::{ClientOrderId, OrderId, OrderKind},
+    order::{
+        id::{ClientOrderId, OrderId},
+        OrderKind,
+    },
 };
 
 /// https://bybit-exchange.github.io/docs/v5/order/create-order

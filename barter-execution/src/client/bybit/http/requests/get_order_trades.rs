@@ -14,7 +14,7 @@ use crate::{
         http::{BybitHttpResponse, ResultList},
         types::InstrumentCategory,
     },
-    order::{ClientOrderId, OrderId},
+    order::id::{ClientOrderId, OrderId},
     trade::TradeId,
 };
 

@@ -130,6 +130,12 @@ pub enum OrderError<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
     Rejected(#[from] ApiError<AssetKey, InstrumentKey>),
 }
 
+impl<AssetKey, InstrumentKey> From<SocketError> for OrderError<AssetKey, InstrumentKey> {
+    fn from(value: SocketError) -> Self {
+        Self::Connectivity(ConnectivityError::Socket(value.to_string()))
+    }
+}
+
 /// Represents errors related to exchange, asset and instrument identifier key lookups.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
 pub enum KeyError {
