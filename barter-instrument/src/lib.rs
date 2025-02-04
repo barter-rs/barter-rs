@@ -90,9 +90,9 @@ impl<AssetKey> Underlying<AssetKey> {
 /// [`Side`] of a trade or position - Buy or Sell.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub enum Side {
-    #[serde(alias = "buy", alias = "BUY", alias = "b")]
+    #[serde(alias = "buy", alias = "Buy", alias = "BUY", alias = "b")]
     Buy,
-    #[serde(alias = "sell", alias = "SELL", alias = "s")]
+    #[serde(alias = "sell", alias = "Sell", alias = "SELL", alias = "s")]
     Sell,
 }
 

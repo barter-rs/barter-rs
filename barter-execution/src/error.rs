@@ -44,6 +44,12 @@ pub enum ClientError<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
     AccountStream(String),
 }
 
+impl<AssetKey, InstrumentKey> From<SocketError> for ClientError<AssetKey, InstrumentKey> {
+    fn from(value: SocketError) -> Self {
+        Self::Connectivity(ConnectivityError::from(value))
+    }
+}
+
 /// Represents all connectivity-centric errors.
 ///
 /// Connectivity errors are generally intermittent / non-deterministic (eg/ Timeout).
@@ -88,8 +94,12 @@ pub enum ApiError<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
     #[error("instrument {0} invalid: {1}")]
     InstrumentInvalid(InstrumentKey, String),
 
+    #[error("unauthorized: {0}")]
+    Unauthorized(String),
+
     #[error("rate limit exceeded")]
     RateLimit,
+
     #[error("asset {0} balance insufficient: {1}")]
     BalanceInsufficient(AssetKey, String),
     #[error("order rejected: {0}")]
@@ -98,6 +108,11 @@ pub enum ApiError<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
     OrderAlreadyCancelled,
     #[error("order already fully filled")]
     OrderAlreadyFullyFilled,
+    #[error("order not found")]
+    OrderNotFound,
+
+    #[error("Custom error: {0}")]
+    Custom(String),
 }
 
 /// Represents all errors that can be generated when cancelling or opening orders.
@@ -114,6 +129,12 @@ pub enum OrderError<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
     /// eg/ RateLimit.
     #[error("order rejected: {0}")]
     Rejected(#[from] ApiError<AssetKey, InstrumentKey>),
+}
+
+impl<AssetKey, InstrumentKey> From<SocketError> for OrderError<AssetKey, InstrumentKey> {
+    fn from(value: SocketError) -> Self {
+        Self::Connectivity(ConnectivityError::Socket(value.to_string()))
+    }
 }
 
 /// Represents errors related to exchange, asset and instrument identifier key lookups.
