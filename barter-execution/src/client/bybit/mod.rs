@@ -16,24 +16,26 @@ use futures::StreamExt;
 use hmac::{Hmac, Mac};
 use http::{
     parser::BybitParser,
-    requests::{PlaceOrderBody, PlaceOrderRequest},
+    requests::{
+        CancelOrderBody, CancelOrderRequest, GetOpenAndClosedOrders, GetOpenAndClosedOrdersParams,
+        GetWalletBalanceParams, GetWalletBalanceRequest, GetWalletBalanceResponseInner,
+        PlaceOrderBody, PlaceOrderRequest,
+    },
     signer::{BybitRequestSigner, BybitSigner},
 };
 use itertools::Itertools;
-use rust_decimal::{prelude::FromPrimitive, Decimal};
+use rust_decimal::Decimal;
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use tokio_tungstenite::tungstenite::Error;
-use tracing::{error, warn};
-use types::BybitOrderStatus;
-use websocket::{subscribe, BybitPayload, OrderExecutionData, OrderUpdateData};
+use tracing::{debug, error, warn};
+use types::{AccountType, InstrumentCategory};
+use websocket::{extract_event, subscribe, BybitPayload};
 
 use crate::{
-    balance::AssetBalance,
+    balance::{AssetBalance, Balance},
     error::{ConnectivityError, UnindexedClientError},
-    order::{Cancelled, ClientOrderId, Open, Order, RequestCancel, RequestOpen, StrategyId},
-    trade::{AssetFees, Trade},
-    AccountEvent, AccountEventKind, ApiCredentials, InstrumentAccountSnapshot,
-    UnindexedAccountEvent, UnindexedAccountSnapshot,
+    order::{Cancelled, Open, Order, RequestCancel, RequestOpen, StrategyId},
+    trade::Trade,
+    ApiCredentials, InstrumentAccountSnapshot, UnindexedAccountEvent, UnindexedAccountSnapshot,
 };
 
 use super::ExecutionClient;
@@ -50,6 +52,8 @@ pub struct BybitConfig {
     credentials: ApiCredentials,
 }
 
+/// Only UTA 2.0 account type is supported by this client
+/// https://bybit-exchange.github.io/docs/v5/acct-mode#uta-20
 #[derive(Debug, Clone)]
 pub struct Bybit {
     config: BybitConfig,
@@ -194,26 +198,64 @@ impl ExecutionClient for Bybit {
 
     async fn cancel_order(
         &self,
-        request: Order<ExchangeId, &InstrumentNameExchange, RequestCancel>,
+        cancel_request: Order<ExchangeId, &InstrumentNameExchange, RequestCancel>,
     ) -> Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedClientError>> {
-        todo!()
+        let request = CancelOrderRequest::new(CancelOrderBody {
+            category: InstrumentCategory::Spot,
+            symbol: cancel_request.instrument.clone(),
+            exchange_order_id: None,
+            client_order_id: Some(cancel_request.cid.clone()),
+        });
+
+        let state = self
+            .rest_client
+            .execute(request)
+            .await
+            .map(|(response, _metric)| Cancelled {
+                id: response.result.exchange_order_id,
+                time_exchange: response.time,
+            })
+            .map_err(Into::into);
+
+        Order {
+            exchange: Self::EXCHANGE,
+            instrument: cancel_request.instrument.clone(),
+            strategy: cancel_request.strategy,
+            cid: cancel_request.cid,
+            side: cancel_request.side,
+            state,
+        }
     }
 
     async fn open_order(
         &self,
-        order_request: Order<ExchangeId, &InstrumentNameExchange, RequestOpen>,
+        open_request: Order<ExchangeId, &InstrumentNameExchange, RequestOpen>,
     ) -> Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>> {
+        let time_in_force = match open_request.state.time_in_force.try_into() {
+            Ok(time_in_force) => time_in_force,
+            Err(err) => {
+                return Order {
+                    exchange: Self::EXCHANGE,
+                    instrument: open_request.instrument.clone(),
+                    strategy: open_request.strategy,
+                    cid: open_request.cid,
+                    side: open_request.side,
+                    state: Err(err),
+                }
+            }
+        };
+
         let request = PlaceOrderRequest::new(PlaceOrderBody {
-            category: todo!(),
-            symbol: todo!(),
-            side: todo!(),
-            kind: todo!(),
-            time_in_force: todo!(),
-            quantity: todo!(),
-            price: todo!(),
-            position_side: todo!(),
-            client_order_id: todo!(),
-            reduce_only: todo!(),
+            category: InstrumentCategory::Spot,
+            symbol: open_request.instrument.clone(),
+            client_order_id: Some(open_request.cid.clone()),
+            side: open_request.side,
+            kind: open_request.state.kind,
+            time_in_force,
+            quantity: open_request.state.quantity,
+            price: Some(open_request.state.price),
+            position_side: None,
+            reduce_only: None,
         });
 
         let state = self
@@ -223,18 +265,18 @@ impl ExecutionClient for Bybit {
             .map(|(response, _metric)| Open {
                 id: response.result.exchange_order_id,
                 time_exchange: response.time,
-                price: order_request.state.price,
-                quantity: order_request.state.quantity,
+                price: open_request.state.price,
+                quantity: open_request.state.quantity,
                 filled_quantity: Decimal::ZERO,
             })
             .map_err(Into::into);
 
         Order {
             exchange: Self::EXCHANGE,
-            instrument: *order_request.instrument,
-            strategy: order_request.strategy,
-            cid: order_request.cid,
-            side: order_request.side,
+            instrument: open_request.instrument.clone(),
+            strategy: open_request.strategy,
+            cid: open_request.cid,
+            side: open_request.side,
             state,
         }
     }
@@ -242,13 +284,75 @@ impl ExecutionClient for Bybit {
     async fn fetch_balances(
         &self,
     ) -> Result<Vec<AssetBalance<AssetNameExchange>>, UnindexedClientError> {
-        todo!()
+        let request = GetWalletBalanceRequest::new(GetWalletBalanceParams {
+            account_type: AccountType::Unified,
+            coin: None,
+        });
+
+        // TODO: Implement pagination
+        let (response, _) = self.rest_client.execute(request).await?;
+        let balances: Vec<GetWalletBalanceResponseInner> = response.result.list;
+
+        // We only support Unified account
+        let Some(balances) = balances
+            .into_iter()
+            .find(|b| b.account_type == AccountType::Unified)
+        else {
+            return Ok(vec![]);
+        };
+
+        let balances = balances
+            .coin
+            .into_iter()
+            .map(|balance| AssetBalance {
+                asset: balance.symbol,
+                balance: Balance {
+                    total: balance.total_balance,
+                    free: balance.total_balance - balance.locked_balance,
+                },
+                time_exchange: response.time,
+            })
+            .collect::<Vec<_>>();
+
+        Ok(balances)
     }
 
     async fn fetch_open_orders(
         &self,
     ) -> Result<Vec<Order<ExchangeId, InstrumentNameExchange, Open>>, UnindexedClientError> {
-        todo!()
+        let request = GetOpenAndClosedOrders::new(GetOpenAndClosedOrdersParams {
+            category: InstrumentCategory::Spot,
+        });
+        let (response, _) = self.rest_client.execute(request).await?;
+
+        let orders = response
+            .result
+            .list
+            .into_iter()
+            .filter_map(|o| {
+                let Some(cid) = o.client_order_id else {
+                    debug!("fetch_open_orders: filtered out an order without a client id");
+                    return None;
+                };
+
+                Some(Order {
+                    exchange: Self::EXCHANGE,
+                    instrument: o.instrument,
+                    strategy: StrategyId::unknown(),
+                    cid,
+                    side: o.side,
+                    state: Open {
+                        id: o.exchange_order_id,
+                        time_exchange: response.time,
+                        price: o.price,
+                        quantity: o.quantity,
+                        filled_quantity: o.filled_quantity,
+                    },
+                })
+            })
+            .collect::<Vec<_>>();
+
+        Ok(orders)
     }
 
     async fn fetch_trades(
@@ -257,112 +361,4 @@ impl ExecutionClient for Bybit {
     ) -> Result<Vec<Trade<QuoteAsset, InstrumentNameExchange>>, UnindexedClientError> {
         todo!()
     }
-}
-
-async fn extract_event(
-    payload: BybitPayload,
-    _assets: &[AssetNameExchange],
-    instruments: &[InstrumentNameExchange],
-) -> Result<Option<UnindexedAccountEvent>, Error> {
-    let event = match payload.topic.as_str() {
-        "order" => {
-            let order = serde_json::from_str::<OrderUpdateData>(payload.data.get()).unwrap();
-
-            instruments
-                .contains(&order.symbol)
-                .then(|| to_unified_order(order, payload.timestamp))
-        }
-        "execution" => {
-            let execution = serde_json::from_str::<OrderExecutionData>(payload.data.get()).unwrap();
-
-            instruments
-                .contains(&execution.symbol)
-                .then(|| to_unified_execution(execution, payload.timestamp))
-                .flatten()
-        }
-        // TODO: Add balance and position updates
-        _ => {
-            error!(?payload, "message from unknown topic received");
-            None
-        }
-    };
-
-    Ok(event)
-}
-
-fn to_unified_order(order: OrderUpdateData, time_exchange: DateTime<Utc>) -> UnindexedAccountEvent {
-    let kind = match order.status {
-        BybitOrderStatus::New
-        | BybitOrderStatus::PartiallyFilled
-        | BybitOrderStatus::Untriggered => {
-            AccountEventKind::OrderOpened::<ExchangeId, AssetNameExchange, InstrumentNameExchange>(
-                Order {
-                    exchange: ExchangeId::BybitSpot,
-                    instrument: order.symbol,
-                    strategy: StrategyId::unknown(),
-                    cid: ClientOrderId::new(order.client_order_id.unwrap()),
-                    side: order.side,
-                    state: Ok(Open {
-                        id: order.exchange_order_id,
-                        time_exchange,
-                        price: Decimal::from_f64(order.original_price).unwrap(),
-                        // TODO: We should probably also add an average price
-                        quantity: Decimal::from_f64(order.original_quantity).unwrap(),
-                        filled_quantity: Decimal::from_f64(order.cumulative_executed_quantity)
-                            .unwrap(),
-                    }),
-                },
-            )
-        }
-        BybitOrderStatus::Rejected
-        | BybitOrderStatus::PartiallyFilledCanceled
-        | BybitOrderStatus::Filled
-        | BybitOrderStatus::Cancelled
-        | BybitOrderStatus::Triggered
-        | BybitOrderStatus::Deactivated => {
-            AccountEventKind::OrderCancelled::<ExchangeId, AssetNameExchange, InstrumentNameExchange>(
-                Order {
-                    exchange: ExchangeId::BybitSpot,
-                    instrument: order.symbol,
-                    strategy: StrategyId::unknown(),
-                    cid: ClientOrderId::new(order.client_order_id.unwrap()),
-                    side: order.side,
-                    state: Ok(Cancelled {
-                        id: order.exchange_order_id,
-                        time_exchange,
-                    }),
-                },
-            )
-        }
-    };
-
-    AccountEvent {
-        exchange: ExchangeId::BybitSpot,
-        kind,
-    }
-}
-
-pub fn to_unified_execution(
-    execution: OrderExecutionData,
-    time_exchange: DateTime<Utc>,
-) -> Option<UnindexedAccountEvent> {
-    Some(AccountEvent {
-        exchange: ExchangeId::BybitSpot,
-        kind: AccountEventKind::Trade(Trade {
-            id: execution.trade_id,
-            order_id: execution.exchange_order_id,
-            instrument: execution.symbol,
-            strategy: StrategyId::unknown(),
-            time_exchange,
-            // TODO: Handle side
-            side: todo!(),
-            price: Decimal::from_f64(execution.exec_price)?,
-            quantity: Decimal::from_f64(execution.exec_qty)?,
-            // TODO: Handle fees
-            fees: AssetFees {
-                asset: QuoteAsset,
-                fees: todo!(),
-            },
-        }),
-    })
 }
