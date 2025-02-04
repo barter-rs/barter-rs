@@ -57,7 +57,7 @@ pub struct PlaceOrderBody {
     pub category: InstrumentCategory,
 
     #[serde(rename = "symbol")]
-    pub symbol: InstrumentNameExchange,
+    pub instrument: InstrumentNameExchange,
 
     #[serde(rename = "side")]
     pub side: Side,

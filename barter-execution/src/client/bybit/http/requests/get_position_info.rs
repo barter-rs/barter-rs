@@ -41,7 +41,7 @@ pub struct GetPositionInfoParams {
     pub category: InstrumentCategory,
 
     #[serde(rename = "symbol")]
-    pub symbol: Option<InstrumentNameExchange>,
+    pub instrument: Option<InstrumentNameExchange>,
 
     #[serde(rename = "settleCoin")]
     pub settle_coin: Option<AssetNameExchange>,
@@ -59,7 +59,7 @@ type GetPositionInfoResponse = BybitHttpResponse<ResultList<GetPositionInfoRespo
 #[derive(Debug, Clone, Deserialize)]
 pub struct GetPositionInfoResponseInner {
     #[serde(rename = "symbol")]
-    pub symbol: InstrumentNameExchange,
+    pub instrument: InstrumentNameExchange,
 
     #[serde_as(as = "DisplayFromStr")]
     #[serde(rename = "leverage")]
