@@ -10,6 +10,7 @@ use std::{
 
 pub mod indexed;
 pub mod merge;
+pub mod databento;
 
 /// An [`ExchangeStream`] is a communication protocol agnostic [`Stream`]. It polls protocol
 /// messages from the inner [`Stream`], and transforms them into the desired output data structure.
