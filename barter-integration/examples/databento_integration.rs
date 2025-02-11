@@ -4,9 +4,11 @@ use databento::{
     live::Subscription,
     LiveClient,
 };
-use databento::dbn::{Dataset, PitSymbolMap};
-use barter_integration::stream::databento::{DBTransformer, DatabentoStream};
+use databento::dbn::{Dataset};
 use futures::{StreamExt};
+use barter_integration::protocol::StreamParser;
+use barter_integration::stream::databento::DatabentoStream;
+use barter_integration::Transformer;
 
 #[rustfmt::skip]
 #[tokio::main]
@@ -16,6 +18,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .dataset(Dataset::DbeqBasic)
         .build()
         .await?;
+
     client
         .subscribe(
             &Subscription::builder()
