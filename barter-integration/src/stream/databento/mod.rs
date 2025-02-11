@@ -30,9 +30,7 @@ impl Stream for DatabentoStream {
     type Item = Result<DatabentoMessage, DatabentoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let this = self.as_mut().project();
-        let client = this.client;
-        let future = client.next_record();
+        let future = self.project().client.next_record();
         pin_mut!(future);
 
         match future.try_poll(cx) {
