@@ -13,8 +13,11 @@ use barter_execution::{
     indexer::{AccountEventIndexer, IndexedAccountStream},
     map::ExecutionInstrumentMap,
     order::{
-        state::{Cancelled, Open, OrderState},
-        Order, RequestCancel, RequestOpen,
+        request::{
+            OrderRequestCancel, OrderRequestOpen, OrderResponseCancel, UnindexedOrderResponseCancel,
+        },
+        state::{Open, OrderState},
+        Order,
     },
     AccountEvent, AccountEventKind,
 };
@@ -328,59 +331,27 @@ where
 
     fn process_cancel_response(
         &self,
-        order: Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedOrderError>>,
+        order: UnindexedOrderResponseCancel,
     ) -> Result<AccountStreamEvent, IndexError> {
-        let order = self.indexer.order_response(order)?;
-
-        let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
-            side,
-            state,
-        } = order;
-
-        let state = match state {
-            Ok(cancelled) => OrderState::inactive(cancelled),
-            Err(error) => OrderState::inactive(error),
-        };
+        let order = self.indexer.order_response_cancel(order)?;
 
         Ok(AccountStreamEvent::Item(AccountEvent {
-            exchange: order.exchange,
-            kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
-                exchange,
-                instrument,
-                strategy,
-                cid,
-                side,
-                state,
-            })),
+            exchange: order.key.exchange,
+            kind: AccountEventKind::OrderCancelled(order),
         }))
     }
 
     fn process_cancel_timeout(
-        order: Order<ExchangeIndex, InstrumentIndex, RequestCancel>,
+        order: OrderRequestCancel<ExchangeIndex, InstrumentIndex>,
     ) -> AccountStreamEvent {
-        let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
-            side,
-            state: _,
-        } = order;
+        let OrderRequestCancel { key, state: _ } = order;
 
         AccountStreamEvent::Item(AccountEvent {
-            exchange,
-            kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
-                exchange,
-                instrument,
-                strategy,
-                cid,
-                side,
-                state: OrderState::inactive(OrderError::Connectivity(ConnectivityError::Timeout)),
-            })),
+            exchange: key.exchange,
+            kind: AccountEventKind::OrderCancelled(OrderResponseCancel {
+                key,
+                state: Err(OrderError::Connectivity(ConnectivityError::Timeout)),
+            }),
         })
     }
 
@@ -388,56 +359,52 @@ where
         &self,
         order: Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>,
     ) -> Result<AccountStreamEvent, IndexError> {
-        let order = self.indexer.order_response(order)?;
-
         let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
+            key,
             side,
+            price,
+            quantity,
+            kind,
+            time_in_force,
             state,
         } = order;
 
+        let key = self.indexer.order_key(key)?;
+
         let state = match state {
-            Ok(open) if open.quantity_remaining().is_zero() => OrderState::fully_filled(),
+            Ok(open) if open.quantity_remaining(quantity).is_zero() => OrderState::fully_filled(),
             Ok(open) => OrderState::active(open),
-            Err(error) => OrderState::inactive(error),
+            Err(error) => OrderState::inactive(self.indexer.order_error(error)?),
         };
 
         Ok(AccountStreamEvent::Item(AccountEvent {
-            exchange: order.exchange,
+            exchange: key.exchange,
             kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
-                exchange,
-                instrument,
-                strategy,
-                cid,
+                key,
                 side,
+                price,
+                quantity,
+                kind,
+                time_in_force,
                 state,
             })),
         }))
     }
 
     fn process_open_timeout(
-        order: Order<ExchangeIndex, InstrumentIndex, RequestOpen>,
+        order: OrderRequestOpen<ExchangeIndex, InstrumentIndex>,
     ) -> AccountStreamEvent {
-        let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
-            side,
-            state: _,
-        } = order;
+        let OrderRequestOpen { key, state } = order;
 
         AccountStreamEvent::Item(AccountEvent {
-            exchange,
+            exchange: key.exchange,
             kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
-                exchange,
-                instrument,
-                strategy,
-                cid,
-                side,
+                key,
+                side: state.side,
+                price: state.price,
+                quantity: state.quantity,
+                kind: state.kind,
+                time_in_force: state.time_in_force,
                 state: OrderState::inactive(OrderError::Connectivity(ConnectivityError::Timeout)),
             })),
         })

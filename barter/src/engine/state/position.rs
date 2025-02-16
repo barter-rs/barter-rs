@@ -1,11 +1,58 @@
 use barter_execution::trade::{AssetFees, Trade, TradeId};
-use barter_instrument::{asset::QuoteAsset, instrument::InstrumentIndex, Side};
+use barter_instrument::{
+    asset::{AssetIndex, QuoteAsset},
+    instrument::InstrumentIndex,
+    Side,
+};
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::error;
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
+pub struct PositionManager<InstrumentKey = InstrumentIndex> {
+    pub current: Option<Position<QuoteAsset, InstrumentKey>>,
+}
+
+impl<InstrumentKey> Default for PositionManager<InstrumentKey> {
+    fn default() -> Self {
+        Self { current: None }
+    }
+}
+
+impl<InstrumentKey> PositionManager<InstrumentKey> {
+    /// Updates the current position state based on a new trade.
+    ///
+    /// This method handles:
+    /// - Opening a new position if none exists
+    /// - Updating an existing position (increase/decrease/close)
+    /// - Handling position flips (close existing & open new with any remaining trade quantity)
+    pub fn update_from_trade(
+        &mut self,
+        trade: &Trade<QuoteAsset, InstrumentKey>,
+    ) -> Option<PositionExited<QuoteAsset, InstrumentKey>>
+    where
+        InstrumentKey: Debug + Clone + PartialEq,
+    {
+        let (current, closed) = match self.current.take() {
+            Some(position) => {
+                // Update current Position, maybe closing it, and maybe opening a new Position
+                // with leftover trade.quantity
+                position.update_from_trade(trade)
+            }
+            None => {
+                // No current Position, so enter a new one with Trade
+                (Some(Position::from(trade)), None)
+            }
+        };
+
+        self.current = current;
+
+        closed
+    }
+}
 
 /// Represents an open trading position for a specific instrument.
 ///
@@ -116,7 +163,7 @@ use tracing::error;
 /// assert_eq!(new_position.pnl_realised, dec!(-5.0));
 /// ```
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
-pub struct Position<AssetKey, InstrumentKey> {
+pub struct Position<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
     /// [`Position`] Instrument identifier (eg/ InstrumentIndex, InstrumentNameInternal, etc.).
     pub instrument: InstrumentKey,
 

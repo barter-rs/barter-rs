@@ -4,7 +4,8 @@ use crate::engine::state::{
 };
 use barter_execution::order::{
     id::{ClientOrderId, StrategyId},
-    Order, OrderKind, RequestCancel, RequestOpen, TimeInForce,
+    request::{OrderRequestCancel, OrderRequestOpen, RequestOpen},
+    OrderKey, OrderKind, TimeInForce,
 };
 use barter_instrument::{
     asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex, Side,
@@ -44,8 +45,8 @@ pub trait ClosePositionsStrategy<
         state: &'a Self::State,
         filter: &'a InstrumentFilter<ExchangeKey, AssetKey, InstrumentKey>,
     ) -> (
-        impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestCancel>> + 'a,
-        impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestOpen>> + 'a,
+        impl IntoIterator<Item = OrderRequestCancel<ExchangeKey, InstrumentKey>> + 'a,
+        impl IntoIterator<Item = OrderRequestOpen<ExchangeKey, InstrumentKey>> + 'a,
     )
     where
         ExchangeKey: 'a,
@@ -62,8 +63,8 @@ pub fn close_open_positions_with_market_orders<'a, MarketState, StrategyState, R
     state: &'a EngineState<MarketState, StrategyState, RiskState>,
     filter: &'a InstrumentFilter,
 ) -> (
-    impl IntoIterator<Item = Order<ExchangeIndex, InstrumentIndex, RequestCancel>> + 'a,
-    impl IntoIterator<Item = Order<ExchangeIndex, InstrumentIndex, RequestOpen>> + 'a,
+    impl IntoIterator<Item = OrderRequestCancel<ExchangeIndex, InstrumentIndex>> + 'a,
+    impl IntoIterator<Item = OrderRequestOpen<ExchangeIndex, InstrumentIndex>> + 'a,
 )
 where
     MarketState: MarketDataState,
@@ -71,28 +72,33 @@ where
     AssetIndex: 'a,
     InstrumentIndex: 'a,
 {
-    let open_requests = state.instruments.filtered(filter).filter_map(move |state| {
-        // Only generate orders if there is a Position and we have market data
-        let position = state.position.as_ref()?;
-        let price = state.market.price()?;
+    let open_requests = state
+        .instruments
+        .instruments(filter)
+        .filter_map(move |state| {
+            // Only generate orders if there is a Position and we have market data
+            let position = state.position.current.as_ref()?;
+            let price = state.market.price()?;
 
-        Some(Order {
-            exchange: state.instrument.exchange,
-            instrument: position.instrument,
-            strategy: strategy_id.clone(),
-            cid: ClientOrderId::new(state.key.to_string()),
-            side: match position.side {
-                Side::Buy => Side::Sell,
-                Side::Sell => Side::Buy,
-            },
-            state: RequestOpen {
-                kind: OrderKind::Market,
-                time_in_force: TimeInForce::ImmediateOrCancel,
-                price,
-                quantity: position.quantity_abs,
-            },
-        })
-    });
+            Some(OrderRequestOpen {
+                key: OrderKey {
+                    exchange: state.instrument.exchange,
+                    instrument: position.instrument,
+                    strategy: strategy_id.clone(),
+                    cid: ClientOrderId::new(state.key.to_string()),
+                },
+                state: RequestOpen {
+                    side: match position.side {
+                        Side::Buy => Side::Sell,
+                        Side::Sell => Side::Buy,
+                    },
+                    price,
+                    quantity: position.quantity_abs,
+                    kind: OrderKind::Market,
+                    time_in_force: TimeInForce::ImmediateOrCancel,
+                },
+            })
+        });
 
     (std::iter::empty(), open_requests)
 }

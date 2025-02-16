@@ -50,12 +50,16 @@ pub enum ActiveOrderState {
 }
 
 impl ActiveOrderState {
-    pub fn order_id(&self) -> Option<OrderId> {
+    pub fn open_meta(&self) -> Option<&Open> {
         match self {
-            ActiveOrderState::OpenInFlight(_) => None,
-            ActiveOrderState::Open(state) => Some(state.id.clone()),
-            ActiveOrderState::CancelInFlight(state) => state.id.clone(),
+            Self::OpenInFlight(_) => None,
+            Self::Open(open) => Some(open),
+            Self::CancelInFlight(cancel) => cancel.order.as_ref(),
         }
+    }
+
+    pub fn order_id(&self) -> Option<&OrderId> {
+        self.open_meta().map(|open| &open.id)
     }
 
     pub fn is_open_or_in_flight(&self) -> bool {
@@ -75,22 +79,20 @@ pub struct OpenInFlight;
 pub struct Open {
     pub id: OrderId,
     pub time_exchange: DateTime<Utc>,
-    pub price: Decimal,
-    pub quantity: Decimal,
     pub filled_quantity: Decimal,
 }
 
 impl Open {
-    pub fn quantity_remaining(&self) -> Decimal {
-        self.quantity - self.filled_quantity
+    pub fn quantity_remaining(&self, initial_quantity: Decimal) -> Decimal {
+        initial_quantity - self.filled_quantity
     }
 }
 
 #[derive(
-    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize, Constructor,
 )]
 pub struct CancelInFlight {
-    pub id: Option<OrderId>,
+    pub order: Option<Open>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]

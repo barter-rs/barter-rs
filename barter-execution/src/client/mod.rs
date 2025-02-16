@@ -2,8 +2,9 @@ use crate::{
     balance::AssetBalance,
     error::{UnindexedClientError, UnindexedOrderError},
     order::{
-        state::{Cancelled, Open},
-        Order, RequestCancel, RequestOpen,
+        request::{OrderRequestCancel, OrderRequestOpen, UnindexedOrderResponseCancel},
+        state::Open,
+        Order,
     },
     trade::Trade,
     UnindexedAccountEvent, UnindexedAccountSnapshot,
@@ -45,17 +46,13 @@ where
 
     fn cancel_order(
         &self,
-        request: Order<ExchangeId, &InstrumentNameExchange, RequestCancel>,
-    ) -> impl Future<
-        Output = Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedOrderError>>,
-    > + Send;
+        request: OrderRequestCancel<ExchangeId, &InstrumentNameExchange>,
+    ) -> impl Future<Output = UnindexedOrderResponseCancel> + Send;
 
     fn cancel_orders<'a>(
         &self,
-        requests: impl IntoIterator<Item = Order<ExchangeId, &'a InstrumentNameExchange, RequestCancel>>,
-    ) -> impl Stream<
-        Item = Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedOrderError>>,
-    > {
+        requests: impl IntoIterator<Item = OrderRequestCancel<ExchangeId, &'a InstrumentNameExchange>>,
+    ) -> impl Stream<Item = UnindexedOrderResponseCancel> {
         futures::stream::FuturesUnordered::from_iter(
             requests
                 .into_iter()
@@ -65,14 +62,14 @@ where
 
     fn open_order(
         &self,
-        request: Order<ExchangeId, &InstrumentNameExchange, RequestOpen>,
+        request: OrderRequestOpen<ExchangeId, &InstrumentNameExchange>,
     ) -> impl Future<
         Output = Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>,
     > + Send;
 
     fn open_orders<'a>(
         &self,
-        requests: impl IntoIterator<Item = Order<ExchangeId, &'a InstrumentNameExchange, RequestOpen>>,
+        requests: impl IntoIterator<Item = OrderRequestOpen<ExchangeId, &'a InstrumentNameExchange>>,
     ) -> impl Stream<Item = Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>>
     {
         futures::stream::FuturesUnordered::from_iter(

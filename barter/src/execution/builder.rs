@@ -243,7 +243,8 @@ fn generate_mock_exchange_instruments(
                     exchange,
                     name_internal,
                     name_exchange,
-                    underlying: Underlying { base, quote },
+                    underlying,
+                    quote,
                     kind,
                     spec,
                 } = instrument;
@@ -295,15 +296,15 @@ fn generate_mock_exchange_instruments(
                     None => None,
                 };
 
-                let base = instruments
-                    .find_asset(*base)
+                let underlying_base = instruments
+                    .find_asset(underlying.base)
                     .unwrap()
                     .asset
                     .name_exchange
                     .clone();
 
-                let quote = instruments
-                    .find_asset(*quote)
+                let underlying_quote = instruments
+                    .find_asset(underlying.quote)
                     .unwrap()
                     .asset
                     .name_exchange
@@ -313,7 +314,11 @@ fn generate_mock_exchange_instruments(
                     exchange: exchange.value,
                     name_internal: name_internal.clone(),
                     name_exchange: name_exchange.clone(),
-                    underlying: Underlying { base, quote },
+                    underlying: Underlying {
+                        base: underlying_base,
+                        quote: underlying_quote,
+                    },
+                    quote: *quote,
                     kind,
                     spec,
                 };

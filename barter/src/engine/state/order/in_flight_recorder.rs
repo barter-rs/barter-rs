@@ -1,5 +1,5 @@
 use crate::engine::state::EngineState;
-use barter_execution::order::{Order, RequestCancel, RequestOpen};
+use barter_execution::order::request::{OrderRequestCancel, OrderRequestOpen};
 use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 
 /// Synchronous in-flight open and in-flight cancel order request tracker.
@@ -8,7 +8,7 @@ use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 pub trait InFlightRequestRecorder<ExchangeKey, InstrumentKey> {
     fn record_in_flight_cancels<'a>(
         &mut self,
-        requests: impl IntoIterator<Item = &'a Order<ExchangeKey, InstrumentKey, RequestCancel>>,
+        requests: impl IntoIterator<Item = &'a OrderRequestCancel<ExchangeKey, InstrumentKey>>,
     ) where
         ExchangeKey: 'a,
         InstrumentKey: 'a,
@@ -20,7 +20,7 @@ pub trait InFlightRequestRecorder<ExchangeKey, InstrumentKey> {
 
     fn record_in_flight_opens<'a>(
         &mut self,
-        requests: impl IntoIterator<Item = &'a Order<ExchangeKey, InstrumentKey, RequestOpen>>,
+        requests: impl IntoIterator<Item = &'a OrderRequestOpen<ExchangeKey, InstrumentKey>>,
     ) where
         ExchangeKey: 'a,
         InstrumentKey: 'a,
@@ -30,12 +30,9 @@ pub trait InFlightRequestRecorder<ExchangeKey, InstrumentKey> {
             .for_each(|request| self.record_in_flight_open(request))
     }
 
-    fn record_in_flight_cancel(
-        &mut self,
-        request: &Order<ExchangeKey, InstrumentKey, RequestCancel>,
-    );
+    fn record_in_flight_cancel(&mut self, request: &OrderRequestCancel<ExchangeKey, InstrumentKey>);
 
-    fn record_in_flight_open(&mut self, request: &Order<ExchangeKey, InstrumentKey, RequestOpen>);
+    fn record_in_flight_open(&mut self, request: &OrderRequestOpen<ExchangeKey, InstrumentKey>);
 }
 
 impl<Market, Strategy, Risk> InFlightRequestRecorder<ExchangeIndex, InstrumentIndex>
@@ -43,20 +40,26 @@ impl<Market, Strategy, Risk> InFlightRequestRecorder<ExchangeIndex, InstrumentIn
 {
     fn record_in_flight_cancel(
         &mut self,
-        request: &Order<ExchangeIndex, InstrumentIndex, RequestCancel>,
+        request: &OrderRequestCancel<ExchangeIndex, InstrumentIndex>,
     ) {
+        let instrument_state = self
+            .instruments
+            .instrument_index_mut(&request.key.instrument);
+
+        instrument_state.orders.record_in_flight_cancel(request);
+
         self.instruments
-            .instrument_index_mut(&request.instrument)
+            .instrument_index_mut(&request.key.instrument)
             .orders
             .record_in_flight_cancel(request);
     }
 
     fn record_in_flight_open(
         &mut self,
-        request: &Order<ExchangeIndex, InstrumentIndex, RequestOpen>,
+        request: &OrderRequestOpen<ExchangeIndex, InstrumentIndex>,
     ) {
         self.instruments
-            .instrument_index_mut(&request.instrument)
+            .instrument_index_mut(&request.key.instrument)
             .orders
             .record_in_flight_open(request);
     }

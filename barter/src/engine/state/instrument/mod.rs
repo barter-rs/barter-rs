@@ -2,15 +2,16 @@ use crate::{
     engine::state::{
         instrument::{filter::InstrumentFilter, market_data::MarketDataState},
         order::{manager::OrderManager, Orders},
-        position::{Position, PositionExited},
+        position::{PositionExited, PositionManager},
     },
     statistic::summary::instrument::TearSheetGenerator,
 };
 use barter_data::event::MarketEvent;
 use barter_execution::{
     order::{
+        request::OrderResponseCancel,
         state::{ActiveOrderState, OrderState},
-        Order,
+        Order, OrderKey,
     },
     trade::Trade,
     InstrumentAccountSnapshot,
@@ -94,35 +95,87 @@ impl<Market> InstrumentStates<Market> {
             .unwrap_or_else(|| panic!("InstrumentStates does not contain: {key}"))
     }
 
-    /// Return a filtered `Iterator` of `InstrumentState`s based on the provided `InstrumentFilter`.
-    pub fn filtered<'a>(
+    /// Return an `Iterator` of all `InstrumentState`s being tracked, optionally filtered by the
+    /// provided `InstrumentFilter`.
+    pub fn instruments<'a>(
         &'a self,
-        filter: &'a InstrumentFilter<ExchangeIndex, AssetIndex, InstrumentIndex>,
+        filter: &'a InstrumentFilter,
+    ) -> impl Iterator<Item = &'a InstrumentState<Market>> {
+        self.filtered(filter)
+    }
+
+    /// Return a filtered `Iterator` of `InstrumentState`s based on the provided `InstrumentFilter`.
+    fn filtered<'a>(
+        &'a self,
+        filter: &'a InstrumentFilter,
     ) -> impl Iterator<Item = &'a InstrumentState<Market>>
     where
         Market: 'a,
     {
         use filter::InstrumentFilter::*;
         match filter {
-            None => Either::Left(Either::Left(self.instruments())),
+            None => Either::Left(Either::Left(self.0.values())),
             Exchanges(exchanges) => Either::Left(Either::Right(
-                self.instruments()
+                self.0
+                    .values()
                     .filter(|state| exchanges.contains(&state.instrument.exchange)),
             )),
             Instruments(instruments) => Either::Right(Either::Right(
-                self.instruments()
+                self.0
+                    .values()
                     .filter(|state| instruments.contains(&state.key)),
             )),
             Underlyings(underlying) => Either::Right(Either::Left(
-                self.instruments()
+                self.0
+                    .values()
                     .filter(|state| underlying.contains(&state.instrument.underlying)),
             )),
         }
     }
 
-    /// Return an `Iterator` of all `InstrumentState`s being tracked.
-    pub fn instruments(&self) -> impl Iterator<Item = &InstrumentState<Market>> {
-        self.0.values()
+    /// Return an `Iterator` of instrument `TearSheetGenerator`s, optionally filtered by the
+    /// provided `InstrumentFilter`.
+    pub fn tear_sheets<'a>(
+        &'a self,
+        filter: &'a InstrumentFilter,
+    ) -> impl Iterator<Item = &'a TearSheetGenerator>
+    where
+        Market: 'a,
+    {
+        self.filtered(filter).map(|state| &state.tear_sheet)
+    }
+
+    /// Return an `Iterator` of instrument `PositionManager`s, optionally filtered by the
+    /// provided `InstrumentFilter`.
+    pub fn positions<'a>(
+        &'a self,
+        filter: &'a InstrumentFilter,
+    ) -> impl Iterator<Item = &'a PositionManager>
+    where
+        Market: 'a,
+    {
+        self.filtered(filter).map(|state| &state.position)
+    }
+
+    /// Return an `Iterator` of all instrument `Orders`s, optionally filtered by the
+    /// provided `InstrumentFilter`.
+    pub fn orders<'a>(&'a self, filter: &'a InstrumentFilter) -> impl Iterator<Item = &'a Orders>
+    where
+        Market: 'a,
+    {
+        self.filtered(filter).map(|state| &state.orders)
+    }
+
+    /// Return an `Iterator` of all instrument `MarketDataState`s, optionally filtered by the
+    /// provided `InstrumentFilter`.
+    pub fn market_datas<'a>(
+        &'a self,
+        filter: &'a InstrumentFilter,
+    ) -> impl Iterator<Item = &'a Market>
+    where
+        Market: 'a,
+    {
+        self.filtered(filter).map(|state| &state.market)
     }
 }
 
@@ -145,10 +198,10 @@ pub struct InstrumentState<
     pub instrument: Instrument<ExchangeKey, AssetKey>,
 
     /// TearSheet generator for summarising the trading performance associated with an Instrument.
-    pub statistics: TearSheetGenerator,
+    pub tear_sheet: TearSheetGenerator,
 
-    /// Current open position.
-    pub position: Option<Position<QuoteAsset, InstrumentKey>>,
+    /// Current `PositionManager`.
+    pub position: PositionManager<InstrumentKey>,
 
     /// Active orders and associated order management.
     pub orders: Orders<ExchangeKey, InstrumentKey>,
@@ -173,16 +226,40 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
         AssetKey: Debug + Clone,
     {
         for order in &snapshot.orders {
-            self.orders.update_from_order_snapshot(Snapshot(order))
+            self.update_from_order_snapshot(Snapshot(order))
         }
     }
 
-    /// Updates the instrument's position state based on a new trade.
+    /// Updates the instrument state from an [`Order`] snapshot.
+    pub fn update_from_order_snapshot(
+        &mut self,
+        order: Snapshot<&Order<ExchangeKey, InstrumentKey, OrderState<AssetKey, InstrumentKey>>>,
+    ) where
+        ExchangeKey: Debug + Clone,
+        AssetKey: Debug + Clone,
+        InstrumentKey: Debug + Clone,
+    {
+        self.orders.update_from_order_snapshot(order);
+    }
+
+    /// Updates the instrument state from an
+    /// [`OrderRequestCancel`](barter_execution::order::request::OrderRequestCancel) response.
+    pub fn update_from_cancel_response(
+        &mut self,
+        response: &OrderResponseCancel<ExchangeKey, AssetKey, InstrumentKey>,
+    ) where
+        ExchangeKey: Debug + Clone,
+        AssetKey: Debug + Clone,
+        InstrumentKey: Debug + Clone,
+    {
+        self.orders
+            .update_from_cancel_response::<AssetKey>(response);
+    }
+
+    /// Updates the instrument state based on a new trade.
     ///
     /// This method handles:
-    /// - Opening a new position if none exists
-    /// - Updating an existing position (increase/decrease/close)
-    /// - Handling position flips (close existing & open new with any remaining trade quantity)
+    /// - Opening/updating the current position state based on a new trade.
     /// - Updating the internal [`TearSheetGenerator`] if a position is exited.
     pub fn update_from_trade(
         &mut self,
@@ -191,26 +268,9 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
     where
         InstrumentKey: Debug + Clone + PartialEq,
     {
-        let (current, closed) = match self.position.take() {
-            Some(position) => {
-                // Update current Position, maybe closing it, and maybe opening a new Position
-                // with leftover trade.quantity
-                position.update_from_trade(trade)
-            }
-            None => {
-                // No current Position, so enter a new one with Trade
-                (Some(Position::from(trade)), None)
-            }
-        };
-
-        // Update Instrument TearSheet statistics
-        if let Some(position_exit) = &closed {
-            self.statistics.update_from_position(position_exit);
-        }
-
-        self.position = current;
-
-        closed
+        self.position
+            .update_from_trade(trade)
+            .inspect(|closed| self.tear_sheet.update_from_position(closed))
     }
 
     /// Updates the instrument's market data state from a new market event.
@@ -223,7 +283,7 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
     {
         self.market.process(event);
 
-        let Some(position) = &mut self.position else {
+        let Some(position) = &mut self.position.current else {
             return;
         };
 
@@ -251,7 +311,7 @@ where
     let InstrumentState {
         key: _,
         instrument,
-        statistics: _,
+        tear_sheet: _,
         position: _,
         orders,
         market: _,
@@ -263,11 +323,12 @@ where
             .orders()
             .filter_map(|order| {
                 let Order {
-                    exchange: _,
-                    instrument: _,
-                    strategy,
-                    cid,
+                    key,
                     side,
+                    price,
+                    quantity,
+                    kind,
+                    time_in_force,
                     state: ActiveOrderState::Open(open),
                 } = order
                 else {
@@ -275,11 +336,17 @@ where
                 };
 
                 Some(Order {
-                    exchange,
-                    instrument: instrument.name_exchange.clone(),
-                    strategy: strategy.clone(),
-                    cid: cid.clone(),
+                    key: OrderKey {
+                        exchange,
+                        instrument: instrument.name_exchange.clone(),
+                        strategy: key.strategy.clone(),
+                        cid: key.cid.clone(),
+                    },
                     side: *side,
+                    price: *price,
+                    quantity: *quantity,
+                    kind: *kind,
+                    time_in_force: *time_in_force,
                     state: OrderState::active(open.clone()),
                 })
             })
@@ -307,7 +374,7 @@ where
                         instrument.key,
                         instrument.value.clone().map_exchange_key(exchange_index),
                         TearSheetGenerator::init(time_engine_start),
-                        None,
+                        PositionManager::default(),
                         Orders::default(),
                         Market::default(),
                     ),

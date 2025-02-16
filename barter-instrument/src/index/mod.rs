@@ -207,7 +207,9 @@ mod tests {
     use crate::{
         asset::Asset,
         exchange::ExchangeId,
-        instrument::{kind::InstrumentKind, name::InstrumentNameExchange},
+        instrument::{
+            kind::InstrumentKind, name::InstrumentNameExchange, quote::InstrumentQuoteAsset,
+        },
         test_utils::{exchange_asset, instrument},
         Underlying,
     };
@@ -252,6 +254,7 @@ mod tests {
                     base: AssetIndex(0),
                     quote: AssetIndex(1),
                 },
+                quote: InstrumentQuoteAsset::UnderlyingQuote,
                 kind: InstrumentKind::Spot,
                 spec: None
             }

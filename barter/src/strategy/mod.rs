@@ -15,7 +15,10 @@ use crate::{
 };
 use barter_data::event::MarketEvent;
 use barter_execution::{
-    order::{id::StrategyId, Order, RequestCancel, RequestOpen},
+    order::{
+        id::StrategyId,
+        request::{OrderRequestCancel, OrderRequestOpen},
+    },
     AccountEvent,
 };
 use barter_instrument::{
@@ -75,8 +78,8 @@ impl<State, ExchangeKey, InstrumentKey> AlgoStrategy<ExchangeKey, InstrumentKey>
         &self,
         _: &Self::State,
     ) -> (
-        impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestCancel>>,
-        impl IntoIterator<Item = Order<ExchangeKey, InstrumentKey, RequestOpen>>,
+        impl IntoIterator<Item = OrderRequestCancel<ExchangeKey, InstrumentKey>>,
+        impl IntoIterator<Item = OrderRequestOpen<ExchangeKey, InstrumentKey>>,
     ) {
         (std::iter::empty(), std::iter::empty())
     }
@@ -94,8 +97,8 @@ where
         state: &'a Self::State,
         filter: &'a InstrumentFilter,
     ) -> (
-        impl IntoIterator<Item = Order<ExchangeIndex, InstrumentIndex, RequestCancel>> + 'a,
-        impl IntoIterator<Item = Order<ExchangeIndex, InstrumentIndex, RequestOpen>> + 'a,
+        impl IntoIterator<Item = OrderRequestCancel<ExchangeIndex, InstrumentIndex>> + 'a,
+        impl IntoIterator<Item = OrderRequestOpen<ExchangeIndex, InstrumentIndex>> + 'a,
     )
     where
         ExchangeIndex: 'a,

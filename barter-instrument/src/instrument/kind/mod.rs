@@ -2,6 +2,7 @@ use crate::instrument::{
     kind::{future::FutureContract, option::OptionContract},
     market_data::kind::MarketDataInstrumentKind,
 };
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 pub mod future;
@@ -13,32 +14,47 @@ pub mod option;
 pub enum InstrumentKind<AssetKey> {
     Spot,
     Perpetual {
+        contract_size: Decimal,
         settlement_asset: AssetKey,
     },
     Future {
-        settlement_asset: AssetKey,
         contract: FutureContract,
+        contract_size: Decimal,
+        settlement_asset: AssetKey,
     },
     Option {
-        settlement_asset: AssetKey,
         contract: OptionContract,
+        contract_size: Decimal,
+        settlement_asset: AssetKey,
     },
 }
 
 impl<AssetKey> InstrumentKind<AssetKey> {
+    /// Returns the `contract_size` value for the `InstrumentKind`.
+    ///
+    /// Note that `Spot` is always `Decimal::ONE`.
+    pub fn contract_size(&self) -> Decimal {
+        match self {
+            InstrumentKind::Spot => Decimal::ONE,
+            InstrumentKind::Perpetual { contract_size, .. } => *contract_size,
+            InstrumentKind::Future { contract_size, .. } => *contract_size,
+            InstrumentKind::Option { contract_size, .. } => *contract_size,
+        }
+    }
+
     /// For `Perpetual`, `Future` & `Option` variants of [`Self`], returns the settlement
     /// `AssetKey`, and `None` for Spot.
     pub fn settlement_asset(&self) -> Option<&AssetKey> {
         match self {
             InstrumentKind::Spot => None,
-            InstrumentKind::Perpetual { settlement_asset } => Some(settlement_asset),
+            InstrumentKind::Perpetual {
+                settlement_asset, ..
+            } => Some(settlement_asset),
             InstrumentKind::Future {
-                settlement_asset,
-                contract: _,
+                settlement_asset, ..
             } => Some(settlement_asset),
             InstrumentKind::Option {
-                settlement_asset,
-                contract: _,
+                settlement_asset, ..
             } => Some(settlement_asset),
         }
     }
