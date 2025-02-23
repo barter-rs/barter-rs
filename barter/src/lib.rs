@@ -152,7 +152,7 @@ impl Sequence {
 /// Barter core test utilities.
 pub mod test_utils {
     use crate::{
-        engine::state::asset::AssetState, statistic::summary::asset::TearSheetAssetGenerator, Timed,
+        Timed, engine::state::asset::AssetState, statistic::summary::asset::TearSheetAssetGenerator,
     };
     use barter_execution::{
         balance::Balance,
@@ -160,7 +160,7 @@ pub mod test_utils {
         trade::{AssetFees, Trade, TradeId},
     };
     use barter_instrument::{
-        asset::QuoteAsset, instrument::name::InstrumentNameInternal, test_utils::asset, Side,
+        Side, asset::QuoteAsset, instrument::name::InstrumentNameInternal, test_utils::asset,
     };
     use chrono::{DateTime, Days, TimeDelta, Utc};
     use rust_decimal::Decimal;

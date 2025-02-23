@@ -1,12 +1,12 @@
-use super::{futures::BinanceFuturesUsd, Binance};
+use super::{Binance, futures::BinanceFuturesUsd};
 use crate::{
+    Identifier,
     subscription::{
+        Subscription,
         book::{OrderBooksL1, OrderBooksL2},
         liquidation::Liquidations,
         trade::PublicTrades,
-        Subscription,
     },
-    Identifier,
 };
 use serde::Serialize;
 

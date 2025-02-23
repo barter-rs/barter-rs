@@ -1,11 +1,11 @@
 use self::trade::GateioSpotTrade;
 use super::Gateio;
 use crate::{
+    ExchangeWsStream, NoInitialSnapshots,
     exchange::{ExchangeServer, StreamSelector},
     instrument::InstrumentData,
     subscription::trade::PublicTrades,
     transformer::stateless::StatelessTransformer,
-    ExchangeWsStream, NoInitialSnapshots,
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_macro::{DeExchange, SerExchange};

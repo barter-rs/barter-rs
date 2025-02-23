@@ -3,12 +3,12 @@ use self::{
     message::KrakenMessage, subscription::KrakenSubResponse, trade::KrakenTrades,
 };
 use crate::{
+    ExchangeWsStream, NoInitialSnapshots,
     exchange::{Connector, ExchangeSub, StreamSelector},
     instrument::InstrumentData,
-    subscriber::{validator::WebSocketSubValidator, WebSocketSubscriber},
+    subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
     subscription::{book::OrderBooksL1, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
-    ExchangeWsStream, NoInitialSnapshots,
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};

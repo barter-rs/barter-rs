@@ -1,12 +1,12 @@
 use crate::{
-    exchange::bitmex::Bitmex, instrument::MarketInstrumentData, subscription::Subscription,
-    Identifier,
+    Identifier, exchange::bitmex::Bitmex, instrument::MarketInstrumentData,
+    subscription::Subscription,
 };
 use barter_instrument::{
-    asset::name::AssetNameInternal, instrument::market_data::MarketDataInstrument, Keyed,
+    Keyed, asset::name::AssetNameInternal, instrument::market_data::MarketDataInstrument,
 };
 use serde::{Deserialize, Serialize};
-use smol_str::{format_smolstr, SmolStr, StrExt};
+use smol_str::{SmolStr, StrExt, format_smolstr};
 
 /// Type that defines how to translate a Barter [`Subscription`] into a [`Bitmex`]
 /// market that can be subscribed to.

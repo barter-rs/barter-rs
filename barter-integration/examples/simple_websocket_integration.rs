@@ -1,11 +1,11 @@
 use barter_integration::{
+    Transformer,
     error::SocketError,
     protocol::websocket::{WebSocket, WebSocketParser, WsMessage},
     stream::ExchangeStream,
-    Transformer,
 };
 use futures::{SinkExt, StreamExt};
-use serde::{de, Deserialize};
+use serde::{Deserialize, de};
 use serde_json::json;
 use std::{collections::VecDeque, str::FromStr};
 use tokio_tungstenite::connect_async;

@@ -1,7 +1,7 @@
 use crate::{
+    Keyed,
     asset::name::{AssetNameExchange, AssetNameInternal},
     exchange::ExchangeId,
-    Keyed,
 };
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};

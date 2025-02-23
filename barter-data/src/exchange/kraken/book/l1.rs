@@ -1,10 +1,10 @@
 use super::super::KrakenMessage;
 use crate::{
+    Identifier,
     books::Level,
     event::{MarketEvent, MarketIter},
     exchange::{kraken::channel::KrakenChannel, subscription::ExchangeSub},
     subscription::book::OrderBookL1,
-    Identifier,
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{de::extract_next, subscription::SubscriptionId};
@@ -209,7 +209,9 @@ mod tests {
                     }
                     (actual, expected) => {
                         // Test failed
-                        panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                        panic!(
+                            "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                        );
                     }
                 }
             }

@@ -1,9 +1,9 @@
 use crate::{
+    Identifier,
     books::Level,
     event::{MarketEvent, MarketIter},
     exchange::{binance::channel::BinanceChannel, subscription::ExchangeSub},
     subscription::book::OrderBookL1,
-    Identifier,
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::subscription::SubscriptionId;

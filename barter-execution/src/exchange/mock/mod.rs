@@ -1,4 +1,5 @@
 use crate::{
+    AccountEventKind, InstrumentAccountSnapshot, UnindexedAccountEvent, UnindexedAccountSnapshot,
     balance::AssetBalance,
     client::mock::MockExecutionConfig,
     error::{ApiError, UnindexedApiError, UnindexedOrderError},
@@ -7,19 +8,18 @@ use crate::{
         request::{MockExchangeRequest, MockExchangeRequestKind},
     },
     order::{
+        Order, OrderKind, UnindexedOrder,
         id::OrderId,
         request::{OrderRequestCancel, OrderRequestOpen},
         state::{Cancelled, Open},
-        Order, OrderKind, UnindexedOrder,
     },
     trade::{AssetFees, Trade, TradeId},
-    AccountEventKind, InstrumentAccountSnapshot, UnindexedAccountEvent, UnindexedAccountSnapshot,
 };
 use barter_instrument::{
-    asset::{name::AssetNameExchange, QuoteAsset},
-    exchange::ExchangeId,
-    instrument::{name::InstrumentNameExchange, Instrument},
     Side,
+    asset::{QuoteAsset, name::AssetNameExchange},
+    exchange::ExchangeId,
+    instrument::{Instrument, name::InstrumentNameExchange},
 };
 use barter_integration::snapshot::Snapshot;
 use chrono::{DateTime, TimeDelta, Utc};
@@ -30,7 +30,7 @@ use rust_decimal::Decimal;
 use smol_str::ToSmolStr;
 use std::fmt::Debug;
 use tokio::sync::{broadcast, mpsc, oneshot};
-use tokio_stream::{wrappers::BroadcastStream, StreamExt};
+use tokio_stream::{StreamExt, wrappers::BroadcastStream};
 use tracing::error;
 
 pub mod account;

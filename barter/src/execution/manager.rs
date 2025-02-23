@@ -1,39 +1,39 @@
 use crate::execution::{
+    AccountStreamEvent,
     error::ExecutionError,
     request::{ExecutionRequest, RequestFuture},
-    AccountStreamEvent,
 };
 use barter_data::streams::{
     consumer::StreamKey,
-    reconnect::stream::{init_reconnecting_stream, ReconnectingStream, ReconnectionBackoffPolicy},
+    reconnect::stream::{ReconnectingStream, ReconnectionBackoffPolicy, init_reconnecting_stream},
 };
 use barter_execution::{
+    AccountEvent, AccountEventKind,
     client::ExecutionClient,
     error::{ConnectivityError, OrderError, UnindexedOrderError},
     indexer::{AccountEventIndexer, IndexedAccountStream},
     map::ExecutionInstrumentMap,
     order::{
+        Order,
         request::{
             OrderRequestCancel, OrderRequestOpen, OrderResponseCancel, UnindexedOrderResponseCancel,
         },
         state::{Open, OrderState},
-        Order,
     },
-    AccountEvent, AccountEventKind,
 };
 use barter_instrument::{
-    asset::{name::AssetNameExchange, AssetIndex},
+    asset::{AssetIndex, name::AssetNameExchange},
     exchange::{ExchangeId, ExchangeIndex},
     index::error::IndexError,
-    instrument::{name::InstrumentNameExchange, InstrumentIndex},
+    instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
 use barter_integration::{
-    channel::{mpsc_unbounded, Tx, UnboundedTx},
+    channel::{Tx, UnboundedTx, mpsc_unbounded},
     snapshot::Snapshot,
     stream::merge::merge,
 };
 use derive_more::Constructor;
-use futures::{future::Either, stream::FuturesUnordered, Stream, StreamExt};
+use futures::{Stream, StreamExt, future::Either, stream::FuturesUnordered};
 use std::sync::Arc;
 use tracing::{error, info, warn};
 
@@ -194,7 +194,7 @@ where
         indexer: AccountEventIndexer,
         assets: &[AssetNameExchange],
         instruments: &[InstrumentNameExchange],
-    ) -> Result<impl Stream<Item = AccountEvent>, ExecutionError> {
+    ) -> Result<impl Stream<Item = AccountEvent> + use<RequestStream, Client>, ExecutionError> {
         let stream = match client.account_stream(assets, instruments).await {
             Ok(stream) => stream,
             Err(error) => return Err(ExecutionError::Client(indexer.client_error(error)?)),

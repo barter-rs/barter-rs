@@ -1,11 +1,11 @@
 use crate::{
+    Keyed,
     asset::{Asset, AssetIndex, ExchangeAsset},
     exchange::{ExchangeId, ExchangeIndex},
     index::{
-        find_asset_by_exchange_and_name_internal, find_exchange_by_exchange_id, IndexedInstruments,
+        IndexedInstruments, find_asset_by_exchange_and_name_internal, find_exchange_by_exchange_id,
     },
-    instrument::{spec::OrderQuantityUnits, Instrument, InstrumentIndex},
-    Keyed,
+    instrument::{Instrument, InstrumentIndex, spec::OrderQuantityUnits},
 };
 
 #[derive(Debug, Default)]
@@ -122,6 +122,7 @@ impl IndexedInstrumentsBuilder {
 mod tests {
     use super::*;
     use crate::{
+        Underlying,
         instrument::{
             kind::InstrumentKind,
             name::{InstrumentNameExchange, InstrumentNameInternal},
@@ -131,7 +132,6 @@ mod tests {
             },
         },
         test_utils::{exchange_asset, instrument},
-        Underlying,
     };
     use rust_decimal_macros::dec;
 

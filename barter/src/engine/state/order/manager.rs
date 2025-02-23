@@ -1,8 +1,8 @@
 use crate::engine::state::order::in_flight_recorder::InFlightRequestRecorder;
 use barter_execution::order::{
+    Order,
     request::OrderResponseCancel,
     state::{ActiveOrderState, OrderState},
-    Order,
 };
 use barter_integration::snapshot::Snapshot;
 use std::fmt::Debug;

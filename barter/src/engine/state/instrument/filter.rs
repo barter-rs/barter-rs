@@ -1,5 +1,5 @@
 use barter_instrument::{
-    asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex, Underlying,
+    Underlying, asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex,
 };
 use barter_integration::collection::one_or_many::OneOrMany;
 use serde::{Deserialize, Serialize};

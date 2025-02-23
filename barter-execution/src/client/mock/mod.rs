@@ -1,18 +1,18 @@
 use crate::{
+    UnindexedAccountEvent, UnindexedAccountSnapshot,
     balance::AssetBalance,
     client::ExecutionClient,
     error::{UnindexedClientError, UnindexedOrderError},
     exchange::mock::request::MockExchangeRequest,
     order::{
+        Order, OrderEvent, OrderKey,
         request::{OrderRequestCancel, OrderRequestOpen, UnindexedOrderResponseCancel},
         state::Open,
-        Order, OrderEvent, OrderKey,
     },
     trade::Trade,
-    UnindexedAccountEvent, UnindexedAccountSnapshot,
 };
 use barter_instrument::{
-    asset::{name::AssetNameExchange, QuoteAsset},
+    asset::{QuoteAsset, name::AssetNameExchange},
     exchange::ExchangeId,
     instrument::name::InstrumentNameExchange,
 };
@@ -21,7 +21,7 @@ use derive_more::Constructor;
 use futures::stream::BoxStream;
 use rust_decimal::Decimal;
 use tokio::sync::{broadcast, mpsc, oneshot};
-use tokio_stream::{wrappers::BroadcastStream, StreamExt};
+use tokio_stream::{StreamExt, wrappers::BroadcastStream};
 use tracing::error;
 
 #[derive(Debug, Clone, Constructor)]

@@ -1,7 +1,7 @@
 use super::{super::channel::BinanceChannel, BinanceLevel};
 use crate::{
-    books::OrderBook, event::MarketEvent, exchange::subscription::ExchangeSub,
-    subscription::book::OrderBookEvent, Identifier,
+    Identifier, books::OrderBook, event::MarketEvent, exchange::subscription::ExchangeSub,
+    subscription::book::OrderBookEvent,
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::subscription::SubscriptionId;

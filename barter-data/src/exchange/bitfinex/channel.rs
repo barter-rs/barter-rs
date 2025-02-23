@@ -1,7 +1,7 @@
 use super::Bitfinex;
 use crate::{
-    subscription::{trade::PublicTrades, Subscription},
     Identifier,
+    subscription::{Subscription, trade::PublicTrades},
 };
 use serde::Serialize;
 

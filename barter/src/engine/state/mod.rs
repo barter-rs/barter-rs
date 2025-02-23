@@ -1,21 +1,20 @@
 use crate::engine::{
+    Processor,
     state::{
-        asset::{filter::AssetFilter, generate_empty_indexed_asset_states, AssetStates},
+        asset::{AssetStates, filter::AssetFilter, generate_empty_indexed_asset_states},
         builder::EngineStateBuilder,
-        connectivity::{generate_empty_indexed_connectivity_states, ConnectivityStates},
+        connectivity::{ConnectivityStates, generate_empty_indexed_connectivity_states},
         instrument::{
-            filter::InstrumentFilter, generate_empty_indexed_instrument_states,
+            InstrumentStates, filter::InstrumentFilter, generate_empty_indexed_instrument_states,
             generate_unindexed_instrument_account_snapshot, market_data::MarketDataState,
-            InstrumentStates,
         },
         position::PositionExited,
         trading::TradingState,
     },
-    Processor,
 };
 use barter_data::event::MarketEvent;
 use barter_execution::{
-    balance::AssetBalance, AccountEvent, AccountEventKind, UnindexedAccountSnapshot,
+    AccountEvent, AccountEventKind, UnindexedAccountSnapshot, balance::AssetBalance,
 };
 use barter_instrument::{
     asset::{AssetIndex, QuoteAsset},

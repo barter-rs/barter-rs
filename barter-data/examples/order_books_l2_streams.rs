@@ -1,6 +1,6 @@
 use barter_data::{
     exchange::binance::spot::BinanceSpot,
-    streams::{reconnect::stream::ReconnectingStream, Streams},
+    streams::{Streams, reconnect::stream::ReconnectingStream},
     subscription::book::OrderBooksL2,
 };
 use barter_instrument::{

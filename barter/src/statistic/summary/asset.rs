@@ -1,10 +1,10 @@
 use crate::{
+    Timed,
     statistic::metric::drawdown::{
+        Drawdown, DrawdownGenerator,
         max::{MaxDrawdown, MaxDrawdownGenerator},
         mean::{MeanDrawdown, MeanDrawdownGenerator},
-        Drawdown, DrawdownGenerator,
     },
-    Timed,
 };
 use barter_execution::balance::{AssetBalance, Balance};
 use barter_integration::snapshot::Snapshot;

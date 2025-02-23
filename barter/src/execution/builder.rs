@@ -2,36 +2,36 @@ use crate::{
     engine::execution_tx::MultiExchangeTxMap,
     error::BarterError,
     execution::{
-        error::ExecutionError, manager::ExecutionManager, request::ExecutionRequest,
-        AccountStreamEvent,
+        AccountStreamEvent, error::ExecutionError, manager::ExecutionManager,
+        request::ExecutionRequest,
     },
 };
 use barter_data::streams::{
     consumer::STREAM_RECONNECTION_POLICY, reconnect::stream::ReconnectingStream,
 };
 use barter_execution::{
+    UnindexedAccountEvent,
     client::{
-        mock::{MockExecution, MockExecutionClientConfig, MockExecutionConfig},
         ExecutionClient,
+        mock::{MockExecution, MockExecutionClientConfig, MockExecutionConfig},
     },
-    exchange::mock::{request::MockExchangeRequest, MockExchange},
+    exchange::mock::{MockExchange, request::MockExchangeRequest},
     indexer::AccountEventIndexer,
     map::generate_execution_instrument_map,
-    UnindexedAccountEvent,
 };
 use barter_instrument::{
-    asset::{name::AssetNameExchange, AssetIndex},
+    Keyed, Underlying,
+    asset::{AssetIndex, name::AssetNameExchange},
     exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
     instrument::{
+        Instrument, InstrumentIndex,
         kind::InstrumentKind,
         name::InstrumentNameExchange,
         spec::{InstrumentSpec, InstrumentSpecQuantity, OrderQuantityUnits},
-        Instrument, InstrumentIndex,
     },
-    Keyed, Underlying,
 };
-use barter_integration::channel::{mpsc_unbounded, Channel, UnboundedTx};
+use barter_integration::channel::{Channel, UnboundedTx, mpsc_unbounded};
 use fnv::FnvHashMap;
 use futures::Stream;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
@@ -186,7 +186,7 @@ impl<'a> ExecutionBuilder<'a> {
     ) -> Result<
         (
             MultiExchangeTxMap<UnboundedTx<ExecutionRequest<ExchangeIndex, InstrumentIndex>>>,
-            impl Stream<Item = AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>>,
+            impl Stream<Item = AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>> + use<>,
         ),
         BarterError,
     > {
@@ -207,8 +207,7 @@ impl<'a> ExecutionBuilder<'a> {
                 };
 
                 assert_eq!(
-                    exchange.key,
-                    added_execution_exchange_index,
+                    exchange.key, added_execution_exchange_index,
                     "execution ExchangeIndex != IndexedInstruments Keyed<ExchangeIndex, ExchangeId>"
                 );
 

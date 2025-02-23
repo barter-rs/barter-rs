@@ -1,9 +1,11 @@
 use barter::{
+    EngineEvent, Sequence, Timed,
     engine::{
+        Engine, EngineOutput,
         action::{
+            ActionOutput,
             generate_algo_orders::GenerateAlgoOrdersOutput,
             send_requests::{SendCancelsAndOpensOutput, SendRequestsOutput},
-            ActionOutput,
         },
         audit::EngineAudit,
         clock::HistoricalClock,
@@ -11,6 +13,7 @@ use barter::{
         execution_tx::MultiExchangeTxMap,
         process_with_audit,
         state::{
+            EngineState,
             asset::AssetStates,
             connectivity::Health,
             instrument::{
@@ -19,21 +22,18 @@ use barter::{
             },
             position::PositionExited,
             trading::TradingState,
-            EngineState,
         },
-        Engine, EngineOutput,
     },
-    execution::{request::ExecutionRequest, AccountStreamEvent},
+    execution::{AccountStreamEvent, request::ExecutionRequest},
     risk::{DefaultRiskManager, DefaultRiskManagerState},
     strategy::{
+        DefaultStrategyState,
         algo::AlgoStrategy,
-        close_positions::{close_open_positions_with_market_orders, ClosePositionsStrategy},
+        close_positions::{ClosePositionsStrategy, close_open_positions_with_market_orders},
         on_disconnect::OnDisconnectStrategy,
         on_trading_disabled::OnTradingDisabled,
-        DefaultStrategyState,
     },
     test_utils::time_plus_days,
-    EngineEvent, Sequence, Timed,
 };
 use barter_data::{
     event::{DataKind, MarketEvent},
@@ -41,31 +41,31 @@ use barter_data::{
     subscription::trade::PublicTrade,
 };
 use barter_execution::{
+    AccountEvent, AccountEventKind, AccountSnapshot,
     balance::{AssetBalance, Balance},
     order::{
+        Order, OrderKey, OrderKind, TimeInForce,
         id::{ClientOrderId, OrderId, StrategyId},
         request::{OrderRequestCancel, OrderRequestOpen, RequestOpen},
         state::{ActiveOrderState, Open, OrderState},
-        Order, OrderKey, OrderKind, TimeInForce,
     },
     trade::{AssetFees, Trade, TradeId},
-    AccountEvent, AccountEventKind, AccountSnapshot,
 };
 use barter_instrument::{
+    Side, Underlying,
     asset::AssetIndex,
     exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
     instrument::{
+        Instrument, InstrumentIndex,
         spec::{
             InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice, InstrumentSpecQuantity,
             OrderQuantityUnits,
         },
-        Instrument, InstrumentIndex,
     },
-    Side, Underlying,
 };
 use barter_integration::{
-    channel::{mpsc_unbounded, UnboundedTx},
+    channel::{UnboundedTx, mpsc_unbounded},
     collection::{none_one_or_many::NoneOneOrMany, one_or_many::OneOrMany},
     snapshot::Snapshot,
 };
@@ -199,13 +199,15 @@ fn test_engine_process_engine_event_with_audit() {
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(5));
     assert_eq!(audit.event, EngineAudit::process(event));
-    assert!(engine
-        .state
-        .instruments
-        .instrument_index(&InstrumentIndex(0))
-        .orders
-        .0
-        .is_empty());
+    assert!(
+        engine
+            .state
+            .instruments
+            .instrument_index(&InstrumentIndex(0))
+            .orders
+            .0
+            .is_empty()
+    );
 
     // Simulate Trade update for Sequence(3) btc_usdt_buy_order (fees 10% -> 1000usdt)
     let event = account_event_trade(0, 2, Side::Buy, 10_000.0, 1.0);
@@ -253,13 +255,15 @@ fn test_engine_process_engine_event_with_audit() {
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(9));
     assert_eq!(audit.event, EngineAudit::process(event));
-    assert!(engine
-        .state
-        .instruments
-        .instrument_index(&InstrumentIndex(1))
-        .orders
-        .0
-        .is_empty());
+    assert!(
+        engine
+            .state
+            .instruments
+            .instrument_index(&InstrumentIndex(1))
+            .orders
+            .0
+            .is_empty()
+    );
 
     // Simulate Trade update for Sequence(3) eth_btc_buy_order (fees 10% -> 0.01btc)
     let event = account_event_trade(1, 2, Side::Buy, 0.1, 1.0);
@@ -359,13 +363,15 @@ fn test_engine_process_engine_event_with_audit() {
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(16));
     assert_eq!(audit.event, EngineAudit::process(event));
-    assert!(engine
-        .state
-        .instruments
-        .instrument_index(&InstrumentIndex(0))
-        .orders
-        .0
-        .is_empty());
+    assert!(
+        engine
+            .state
+            .instruments
+            .instrument_index(&InstrumentIndex(0))
+            .orders
+            .0
+            .is_empty()
+    );
 
     // Simulate Balance update for Sequence(15) btc_usdt_sell_order, AssetIndex(2)/usdt increase
     let event = account_event_balance(2, 3, 27_000.0, 27_000.0); // 9k + 20k - 10% fees
@@ -573,13 +579,15 @@ fn test_engine_process_engine_event_with_audit() {
     let audit = process_with_audit(&mut engine, event.clone());
     assert_eq!(audit.context.sequence, Sequence(24));
     assert_eq!(audit.event, EngineAudit::process(event));
-    assert!(engine
-        .state
-        .instruments
-        .instrument_index(&InstrumentIndex(1))
-        .orders
-        .0
-        .is_empty());
+    assert!(
+        engine
+            .state
+            .instruments
+            .instrument_index(&InstrumentIndex(1))
+            .orders
+            .0
+            .is_empty()
+    );
 
     // Simulate Trade update for Sequence(21) LIMIT eth_btc_sell_order (fees 10% -> 0.05btc)
     let event = account_event_trade(1, 5, Side::Sell, 0.05, 1.0);

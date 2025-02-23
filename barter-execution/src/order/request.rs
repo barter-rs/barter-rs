@@ -1,12 +1,12 @@
 use crate::{
     error::OrderError,
-    order::{id::OrderId, state::Cancelled, OrderEvent, OrderKind, TimeInForce},
+    order::{OrderEvent, OrderKind, TimeInForce, id::OrderId, state::Cancelled},
 };
 use barter_instrument::{
-    asset::{name::AssetNameExchange, AssetIndex},
-    exchange::{ExchangeId, ExchangeIndex},
-    instrument::{name::InstrumentNameExchange, InstrumentIndex},
     Side,
+    asset::{AssetIndex, name::AssetNameExchange},
+    exchange::{ExchangeId, ExchangeIndex},
+    instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
 use derive_more::Constructor;
 use rust_decimal::Decimal;

@@ -2,9 +2,9 @@ use barter_instrument::asset::name::AssetNameInternal;
 use barter_integration::{
     error::SocketError,
     protocol::http::{
-        private::{encoder::HexEncoder, RequestSigner, Signer},
-        rest::{client::RestClient, RestRequest},
         HttpParser,
+        private::{RequestSigner, Signer, encoder::HexEncoder},
+        rest::{RestRequest, client::RestClient},
     },
 };
 use chrono::{DateTime, Utc};

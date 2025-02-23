@@ -25,13 +25,13 @@
 
 use crate::{
     balance::AssetBalance,
-    order::{request::OrderResponseCancel, Order, OrderSnapshot},
+    order::{Order, OrderSnapshot, request::OrderResponseCancel},
     trade::Trade,
 };
 use barter_instrument::{
-    asset::{name::AssetNameExchange, AssetIndex, QuoteAsset},
+    asset::{AssetIndex, QuoteAsset, name::AssetNameExchange},
     exchange::{ExchangeId, ExchangeIndex},
-    instrument::{name::InstrumentNameExchange, InstrumentIndex},
+    instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
 use barter_integration::snapshot::Snapshot;
 use derive_more::{Constructor, From};
@@ -105,10 +105,9 @@ where
     InstrumentKey: Eq,
 {
     pub fn snapshot(self) -> Option<AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey>> {
-        if let AccountEventKind::Snapshot(snapshot) = self.kind {
-            Some(snapshot)
-        } else {
-            None
+        match self.kind {
+            AccountEventKind::Snapshot(snapshot) => Some(snapshot),
+            _ => None,
         }
     }
 }

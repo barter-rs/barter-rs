@@ -1,15 +1,15 @@
 use crate::{
+    Identifier,
     event::MarketIter,
     exchange::bybit::{channel::BybitChannel, subscription::BybitResponse, trade::BybitTrade},
     subscription::trade::PublicTrade,
-    Identifier,
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::subscription::SubscriptionId;
 use chrono::{DateTime, Utc};
 use serde::{
-    de::{Error, Unexpected},
     Deserialize, Serialize,
+    de::{Error, Unexpected},
 };
 
 /// [`Bybit`](super::Bybit) websocket message supports both [`BybitTrade`] and [`BybitResponse`].
@@ -146,7 +146,9 @@ mod tests {
                     }
                     (actual, expected) => {
                         // Test failed
-                        panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                        panic!(
+                            "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                        );
                     }
                 }
             }
