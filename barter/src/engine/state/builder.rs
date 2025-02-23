@@ -1,13 +1,13 @@
 use crate::engine::state::{
-    asset::generate_empty_indexed_asset_states,
+    EngineState, asset::generate_empty_indexed_asset_states,
     connectivity::generate_empty_indexed_connectivity_states,
-    instrument::generate_empty_indexed_instrument_states, trading::TradingState, EngineState,
+    instrument::generate_empty_indexed_instrument_states, trading::TradingState,
 };
 use barter_execution::balance::{AssetBalance, Balance};
 use barter_instrument::{
-    asset::{name::AssetNameInternal, ExchangeAsset},
-    index::IndexedInstruments,
     Keyed,
+    asset::{ExchangeAsset, name::AssetNameInternal},
+    index::IndexedInstruments,
 };
 use barter_integration::snapshot::Snapshot;
 use chrono::{DateTime, Utc};

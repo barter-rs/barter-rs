@@ -1,4 +1,4 @@
-use barter_integration::{error::SocketError, Validator};
+use barter_integration::{Validator, error::SocketError};
 use serde::{Deserialize, Serialize};
 
 /// [`Bitfinex`](super::Bitfinex) platform event detailing the variants expected to be received
@@ -272,7 +272,9 @@ mod tests {
                 }
                 (actual, expected) => {
                     // Test failed
-                    panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                    panic!(
+                        "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                    );
                 }
             }
         }
@@ -350,7 +352,9 @@ mod tests {
                 }
                 (actual, expected) => {
                     // Test failed
-                    panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                    panic!(
+                        "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                    );
                 }
             }
         }

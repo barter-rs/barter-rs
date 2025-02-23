@@ -1,4 +1,6 @@
 use crate::{
+    AccountEvent, AccountEventKind, AccountSnapshot, InstrumentAccountSnapshot,
+    UnindexedAccountEvent, UnindexedAccountSnapshot,
     balance::AssetBalance,
     error::{
         ApiError, ClientError, KeyError, OrderError, UnindexedApiError, UnindexedClientError,
@@ -6,19 +8,17 @@ use crate::{
     },
     map::ExecutionInstrumentMap,
     order::{
+        Order, OrderEvent, OrderKey, OrderSnapshot, UnindexedOrderKey, UnindexedOrderSnapshot,
         request::OrderResponseCancel,
         state::{InactiveOrderState, OrderState, UnindexedOrderState},
-        Order, OrderEvent, OrderKey, OrderSnapshot, UnindexedOrderKey, UnindexedOrderSnapshot,
     },
     trade::Trade,
-    AccountEvent, AccountEventKind, AccountSnapshot, InstrumentAccountSnapshot,
-    UnindexedAccountEvent, UnindexedAccountSnapshot,
 };
 use barter_instrument::{
-    asset::{name::AssetNameExchange, AssetIndex, QuoteAsset},
+    asset::{AssetIndex, QuoteAsset, name::AssetNameExchange},
     exchange::{ExchangeId, ExchangeIndex},
     index::error::IndexError,
-    instrument::{name::InstrumentNameExchange, InstrumentIndex},
+    instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
 use barter_integration::{
     snapshot::Snapshot,

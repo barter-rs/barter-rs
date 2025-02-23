@@ -1,6 +1,6 @@
 use chrono::TimeDelta;
 use serde::{Deserialize, Serialize};
-use smol_str::{format_smolstr, SmolStr};
+use smol_str::{SmolStr, format_smolstr};
 use std::fmt::Debug;
 
 /// A trait for types that represent time intervals used in financial calculations.

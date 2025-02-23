@@ -1,28 +1,28 @@
 use super::super::book::BinanceLevel;
 use crate::{
+    Identifier, SnapshotFetcher,
     books::OrderBook,
     error::DataError,
     event::{MarketEvent, MarketIter},
     exchange::{
+        Connector,
         binance::{
             book::l2::{BinanceOrderBookL2Meta, BinanceOrderBookL2Snapshot},
             market::BinanceMarket,
             spot::BinanceSpot,
         },
-        Connector,
     },
     instrument::InstrumentData,
     subscription::{
-        book::{OrderBookEvent, OrderBooksL2},
         Map, Subscription,
+        book::{OrderBookEvent, OrderBooksL2},
     },
     transformer::ExchangeTransformer,
-    Identifier, SnapshotFetcher,
 };
 use async_trait::async_trait;
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
-    error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId, Transformer,
+    Transformer, error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId,
 };
 use chrono::{DateTime, Utc};
 use futures_util::future::try_join_all;
@@ -42,7 +42,7 @@ impl SnapshotFetcher<BinanceSpot, OrderBooksL2> for BinanceSpotOrderBooksL2Snaps
     fn fetch_snapshots<Instrument>(
         subscriptions: &[Subscription<BinanceSpot, Instrument, OrderBooksL2>],
     ) -> impl Future<Output = Result<Vec<MarketEvent<Instrument::Key, OrderBookEvent>>, SocketError>>
-           + Send
+    + Send
     where
         Instrument: InstrumentData,
         Subscription<BinanceSpot, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
@@ -524,7 +524,9 @@ mod tests {
                 }
                 (actual, expected) => {
                     // Test failed
-                    panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                    panic!(
+                        "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                    );
                 }
             }
         }
@@ -589,7 +591,9 @@ mod tests {
                 }
                 (actual, expected) => {
                     // Test failed
-                    panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                    panic!(
+                        "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                    );
                 }
             }
         }

@@ -4,7 +4,7 @@ use barter_data::{
     subscription::book::OrderBooksL2,
 };
 use barter_instrument::instrument::market_data::{
-    kind::MarketDataInstrumentKind, MarketDataInstrument,
+    MarketDataInstrument, kind::MarketDataInstrumentKind,
 };
 use std::time::Duration;
 use tracing::info;

@@ -1,4 +1,4 @@
-use barter_integration::{error::SocketError, Validator};
+use barter_integration::{Validator, error::SocketError};
 use serde::{Deserialize, Serialize};
 
 /// [`Coinbase`](super::Coinbase) WebSocket subscription response.
@@ -121,7 +121,9 @@ mod tests {
                     }
                     (actual, expected) => {
                         // Test failed
-                        panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                        panic!(
+                            "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                        );
                     }
                 }
             }

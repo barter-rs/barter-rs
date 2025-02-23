@@ -1,10 +1,10 @@
 use super::Bitfinex;
-use crate::{instrument::MarketInstrumentData, subscription::Subscription, Identifier};
+use crate::{Identifier, instrument::MarketInstrumentData, subscription::Subscription};
 use barter_instrument::{
-    asset::name::AssetNameInternal, instrument::market_data::MarketDataInstrument, Keyed,
+    Keyed, asset::name::AssetNameInternal, instrument::market_data::MarketDataInstrument,
 };
 use serde::{Deserialize, Serialize};
-use smol_str::{format_smolstr, SmolStr, ToSmolStr};
+use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 
 /// Type that defines how to translate a Barter [`Subscription`] into a
 /// [`Bitfinex`] market that can be subscribed to.

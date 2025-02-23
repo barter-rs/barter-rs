@@ -1,4 +1,4 @@
-use self::builder::{multi::MultiStreamBuilder, StreamBuilder};
+use self::builder::{StreamBuilder, multi::MultiStreamBuilder};
 use crate::subscription::SubscriptionKind;
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::channel::UnboundedRx;

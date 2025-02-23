@@ -1,5 +1,5 @@
 use super::message::KrakenError;
-use barter_integration::{error::SocketError, Validator};
+use barter_integration::{Validator, error::SocketError};
 use serde::{Deserialize, Serialize};
 
 /// [`Kraken`](super::Kraken) message received in response to WebSocket subscription requests.
@@ -125,7 +125,9 @@ mod tests {
                     }
                     (actual, expected) => {
                         // Test failed
-                        panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                        panic!(
+                            "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                        );
                     }
                 }
             }

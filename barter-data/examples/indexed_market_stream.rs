@@ -3,16 +3,16 @@ use barter_data::{
     subscription::SubKind,
 };
 use barter_instrument::{
+    Underlying,
     exchange::ExchangeId,
     index::IndexedInstruments,
     instrument::{
+        Instrument,
         spec::{
             InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice, InstrumentSpecQuantity,
             OrderQuantityUnits,
         },
-        Instrument,
     },
-    Underlying,
 };
 use futures_util::StreamExt;
 use rust_decimal_macros::dec;

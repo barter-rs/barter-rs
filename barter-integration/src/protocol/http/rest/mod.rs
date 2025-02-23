@@ -1,4 +1,4 @@
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::time::Duration;
 
 /// Configurable [`client::RestClient`] capable of executing signed [`RestRequest`]s and parsing

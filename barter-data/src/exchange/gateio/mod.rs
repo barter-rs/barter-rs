@@ -1,7 +1,7 @@
 use self::{channel::GateioChannel, market::GateioMarket, subscription::GateioSubResponse};
 use crate::{
-    exchange::{subscription::ExchangeSub, Connector, ExchangeServer},
-    subscriber::{validator::WebSocketSubValidator, WebSocketSubscriber},
+    exchange::{Connector, ExchangeServer, subscription::ExchangeSub},
+    subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};

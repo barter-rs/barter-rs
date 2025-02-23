@@ -1,7 +1,7 @@
 use crate::{error::OrderError, order::id::OrderId};
 use barter_instrument::{
-    asset::{name::AssetNameExchange, AssetIndex},
-    instrument::{name::InstrumentNameExchange, InstrumentIndex},
+    asset::{AssetIndex, name::AssetNameExchange},
+    instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
 use chrono::{DateTime, Utc};
 use derive_more::{Constructor, From};

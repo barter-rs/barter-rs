@@ -1,15 +1,15 @@
 use crate::{
+    UnindexedAccountSnapshot,
     balance::AssetBalance,
     order::{
+        Order,
         id::ClientOrderId,
         state::{ActiveOrderState, Cancelled, InactiveOrderState, Open, OrderState},
-        Order,
     },
     trade::Trade,
-    UnindexedAccountSnapshot,
 };
 use barter_instrument::{
-    asset::{name::AssetNameExchange, QuoteAsset},
+    asset::{QuoteAsset, name::AssetNameExchange},
     exchange::ExchangeId,
     instrument::name::InstrumentNameExchange,
 };

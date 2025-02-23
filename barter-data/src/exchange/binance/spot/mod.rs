@@ -1,14 +1,14 @@
 use super::{Binance, ExchangeServer};
 use crate::{
+    ExchangeWsStream,
     exchange::{
+        StreamSelector,
         binance::spot::l2::{
             BinanceSpotOrderBooksL2SnapshotFetcher, BinanceSpotOrderBooksL2Transformer,
         },
-        StreamSelector,
     },
     instrument::InstrumentData,
     subscription::book::OrderBooksL2,
-    ExchangeWsStream,
 };
 use barter_instrument::exchange::ExchangeId;
 use std::fmt::{Display, Formatter};

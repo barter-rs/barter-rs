@@ -4,7 +4,7 @@ use crate::{
     subscription::{Map, SubscriptionKind},
 };
 use async_trait::async_trait;
-use barter_integration::{protocol::websocket::WsMessage, Transformer};
+use barter_integration::{Transformer, protocol::websocket::WsMessage};
 use tokio::sync::mpsc;
 
 /// Generic stateless [`ExchangeTransformer`] often used for transforming

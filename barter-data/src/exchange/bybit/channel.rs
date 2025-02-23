@@ -1,7 +1,7 @@
 use crate::{
-    exchange::bybit::Bybit,
-    subscription::{trade::PublicTrades, Subscription},
     Identifier,
+    exchange::bybit::Bybit,
+    subscription::{Subscription, trade::PublicTrades},
 };
 use serde::Serialize;
 

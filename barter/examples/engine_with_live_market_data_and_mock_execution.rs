@@ -1,22 +1,22 @@
 use barter::{
+    EngineEvent,
     engine::{
+        Engine,
         audit::EngineAudit,
         clock::{EngineClock, LiveClock},
         command::Command,
         run,
         state::{
+            EngineState,
             instrument::{filter::InstrumentFilter, market_data::DefaultMarketData},
             trading::TradingState,
-            EngineState,
         },
-        Engine,
     },
     execution::builder::ExecutionBuilder,
     logging::init_logging,
     risk::{DefaultRiskManager, DefaultRiskManagerState},
     statistic::time::Daily,
     strategy::{DefaultStrategy, DefaultStrategyState},
-    EngineEvent,
 };
 use barter_data::{
     streams::{
@@ -27,18 +27,18 @@ use barter_data::{
 };
 use barter_execution::{balance::Balance, client::mock::MockExecutionConfig};
 use barter_instrument::{
+    Underlying,
     exchange::ExchangeId,
     index::IndexedInstruments,
     instrument::{
+        Instrument,
         spec::{
             InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice, InstrumentSpecQuantity,
             OrderQuantityUnits,
         },
-        Instrument,
     },
-    Underlying,
 };
-use barter_integration::channel::{mpsc_unbounded, ChannelTxDroppable, Tx};
+use barter_integration::channel::{ChannelTxDroppable, Tx, mpsc_unbounded};
 use fnv::FnvHashMap;
 use futures::StreamExt;
 use rust_decimal::Decimal;

@@ -1,25 +1,25 @@
 use crate::{
     engine::{
-        state::{
-            instrument::{filter::InstrumentFilter, market_data::MarketDataState},
-            EngineState,
-        },
         Engine, Processor,
+        state::{
+            EngineState,
+            instrument::{filter::InstrumentFilter, market_data::MarketDataState},
+        },
     },
     strategy::{
         algo::AlgoStrategy,
-        close_positions::{close_open_positions_with_market_orders, ClosePositionsStrategy},
+        close_positions::{ClosePositionsStrategy, close_open_positions_with_market_orders},
         on_disconnect::OnDisconnectStrategy,
         on_trading_disabled::OnTradingDisabled,
     },
 };
 use barter_data::event::MarketEvent;
 use barter_execution::{
+    AccountEvent,
     order::{
         id::StrategyId,
         request::{OrderRequestCancel, OrderRequestOpen},
     },
-    AccountEvent,
 };
 use barter_instrument::{
     asset::AssetIndex,

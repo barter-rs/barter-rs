@@ -1,4 +1,4 @@
-use crate::{error::SocketError, protocol::StreamParser, Transformer};
+use crate::{Transformer, error::SocketError, protocol::StreamParser};
 use futures::Stream;
 use pin_project::pin_project;
 use std::{

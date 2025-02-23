@@ -1,28 +1,28 @@
 use crate::{
     engine::state::{
         instrument::{filter::InstrumentFilter, market_data::MarketDataState},
-        order::{manager::OrderManager, Orders},
+        order::{Orders, manager::OrderManager},
         position::{PositionExited, PositionManager},
     },
     statistic::summary::instrument::TearSheetGenerator,
 };
 use barter_data::event::MarketEvent;
 use barter_execution::{
+    InstrumentAccountSnapshot,
     order::{
+        Order, OrderKey,
         request::OrderResponseCancel,
         state::{ActiveOrderState, OrderState},
-        Order, OrderKey,
     },
     trade::Trade,
-    InstrumentAccountSnapshot,
 };
 use barter_instrument::{
-    asset::{name::AssetNameExchange, AssetIndex, QuoteAsset},
+    asset::{AssetIndex, QuoteAsset, name::AssetNameExchange},
     exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
     instrument::{
-        name::{InstrumentNameExchange, InstrumentNameInternal},
         Instrument, InstrumentIndex,
+        name::{InstrumentNameExchange, InstrumentNameInternal},
     },
 };
 use barter_integration::{collection::FnvIndexMap, snapshot::Snapshot};

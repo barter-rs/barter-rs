@@ -1,46 +1,46 @@
 use barter::{
+    EngineEvent,
     engine::{
+        Engine,
         audit::EngineAudit,
         clock::{EngineClock, HistoricalClock},
         command::Command,
         run,
         state::{
+            EngineState,
             instrument::{filter::InstrumentFilter, market_data::DefaultMarketData},
             trading::TradingState,
-            EngineState,
         },
-        Engine,
     },
     execution::builder::ExecutionBuilder,
     logging::init_logging,
     risk::{DefaultRiskManager, DefaultRiskManagerState},
     statistic::time::Daily,
     strategy::{DefaultStrategy, DefaultStrategyState},
-    EngineEvent,
 };
 use barter_data::{
     event::DataKind,
     streams::{
         consumer::{MarketStreamEvent, MarketStreamResult},
-        reconnect::{stream::ReconnectingStream, Event},
+        reconnect::{Event, stream::ReconnectingStream},
     },
 };
 use barter_execution::{balance::Balance, client::mock::MockExecutionConfig};
 use barter_instrument::{
+    Underlying,
     exchange::ExchangeId,
     index::IndexedInstruments,
     instrument::{
+        Instrument, InstrumentIndex,
         spec::{
             InstrumentSpec, InstrumentSpecNotional, InstrumentSpecPrice, InstrumentSpecQuantity,
             OrderQuantityUnits,
         },
-        Instrument, InstrumentIndex,
     },
-    Underlying,
 };
-use barter_integration::channel::{mpsc_unbounded, ChannelTxDroppable, Tx};
+use barter_integration::channel::{ChannelTxDroppable, Tx, mpsc_unbounded};
 use fnv::FnvHashMap;
-use futures::{stream, Stream, StreamExt};
+use futures::{Stream, StreamExt, stream};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use tracing::{debug, info, warn};
@@ -234,7 +234,7 @@ fn init_historic_clock_and_market_data_stream(
     file_path: &str,
 ) -> (
     HistoricalClock,
-    impl Stream<Item = MarketStreamEvent<InstrumentIndex, DataKind>>,
+    impl Stream<Item = MarketStreamEvent<InstrumentIndex, DataKind>> + use<>,
 ) {
     let data = std::fs::read_to_string(file_path).unwrap();
     let events =
