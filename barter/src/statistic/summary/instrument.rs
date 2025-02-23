@@ -1,12 +1,13 @@
 use crate::{
+    Timed,
     engine::state::position::PositionExited,
     statistic::{
         metric::{
             calmar::CalmarRatio,
             drawdown::{
+                Drawdown, DrawdownGenerator,
                 max::{MaxDrawdown, MaxDrawdownGenerator},
                 mean::{MeanDrawdown, MeanDrawdownGenerator},
-                Drawdown, DrawdownGenerator,
             },
             profit_factor::ProfitFactor,
             rate_of_return::RateOfReturn,
@@ -17,7 +18,6 @@ use crate::{
         summary::pnl::PnLReturns,
         time::TimeInterval,
     },
-    Timed,
 };
 use chrono::{DateTime, TimeDelta, Utc};
 use rust_decimal::Decimal;

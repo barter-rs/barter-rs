@@ -102,13 +102,13 @@ use crate::{
 use async_trait::async_trait;
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
+    Transformer,
     error::SocketError,
     protocol::{
-        websocket::{WebSocketParser, WsMessage, WsSink, WsStream},
         StreamParser,
+        websocket::{WebSocketParser, WsMessage, WsSink, WsStream},
     },
     stream::ExchangeStream,
-    Transformer,
 };
 use futures::{SinkExt, Stream, StreamExt};
 use std::{collections::VecDeque, future::Future};
@@ -377,7 +377,7 @@ pub mod test_utils {
         event::{DataKind, MarketEvent},
         subscription::trade::PublicTrade,
     };
-    use barter_instrument::{exchange::ExchangeId, Side};
+    use barter_instrument::{Side, exchange::ExchangeId};
     use chrono::{DateTime, Utc};
 
     pub fn market_event_trade_buy<InstrumentKey>(

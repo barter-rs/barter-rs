@@ -1,7 +1,7 @@
 use crate::{
     error::SocketError,
     metric::{Field, Metric, Tag},
-    protocol::http::{rest::RestRequest, BuildStrategy, HttpParser},
+    protocol::http::{BuildStrategy, HttpParser, rest::RestRequest},
 };
 use bytes::Bytes;
 use chrono::Utc;

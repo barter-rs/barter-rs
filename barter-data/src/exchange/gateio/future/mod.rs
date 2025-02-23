@@ -1,12 +1,12 @@
 use crate::{
+    ExchangeWsStream, NoInitialSnapshots,
     exchange::{
-        gateio::{perpetual::trade::GateioFuturesTrades, Gateio},
         ExchangeServer, StreamSelector,
+        gateio::{Gateio, perpetual::trade::GateioFuturesTrades},
     },
     instrument::InstrumentData,
     subscription::trade::PublicTrades,
     transformer::stateless::StatelessTransformer,
-    ExchangeWsStream, NoInitialSnapshots,
 };
 use barter_instrument::exchange::ExchangeId;
 use std::fmt::Display;

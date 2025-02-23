@@ -3,15 +3,15 @@ use self::{
     validator::SubscriptionValidator,
 };
 use crate::{
+    Identifier,
     exchange::Connector,
     instrument::InstrumentData,
     subscription::{Map, Subscription, SubscriptionKind, SubscriptionMeta},
-    Identifier,
 };
 use async_trait::async_trait;
 use barter_integration::{
     error::SocketError,
-    protocol::websocket::{connect, WebSocket, WsMessage},
+    protocol::websocket::{WebSocket, WsMessage, connect},
 };
 use futures::SinkExt;
 use serde::{Deserialize, Serialize};

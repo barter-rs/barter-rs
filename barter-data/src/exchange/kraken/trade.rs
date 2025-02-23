@@ -1,10 +1,10 @@
 use super::KrakenMessage;
 use crate::{
+    Identifier,
     event::{MarketEvent, MarketIter},
     subscription::trade::PublicTrade,
-    Identifier,
 };
-use barter_instrument::{exchange::ExchangeId, Side};
+use barter_instrument::{Side, exchange::ExchangeId};
 use barter_integration::{
     de::{datetime_utc_from_epoch_duration, extract_next},
     subscription::SubscriptionId,
@@ -283,7 +283,9 @@ mod tests {
                     }
                     (actual, expected) => {
                         // Test failed
-                        panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                        panic!(
+                            "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                        );
                     }
                 }
             }

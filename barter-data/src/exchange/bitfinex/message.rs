@@ -1,5 +1,5 @@
 use super::trade::BitfinexTrade;
-use crate::{event::MarketIter, subscription::trade::PublicTrade, Identifier};
+use crate::{Identifier, event::MarketIter, subscription::trade::PublicTrade};
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{de::extract_next, subscription::SubscriptionId};
 use serde::Serialize;
@@ -110,7 +110,7 @@ impl<'de> serde::Deserialize<'de> for BitfinexMessage {
                         return Err(serde::de::Error::unknown_variant(
                             other,
                             &["heartbeat (hb)", "trade (te | tu)"],
-                        ))
+                        ));
                     }
                 };
 
@@ -209,7 +209,9 @@ mod tests {
                 }
                 (actual, expected) => {
                     // Test failed
-                    panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                    panic!(
+                        "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                    );
                 }
             }
         }

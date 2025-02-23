@@ -1,17 +1,17 @@
 use super::Streams;
 use crate::{
+    Identifier,
     error::DataError,
     exchange::StreamSelector,
     instrument::InstrumentData,
     streams::{
-        consumer::{init_market_stream, MarketStreamResult, STREAM_RECONNECTION_POLICY},
+        consumer::{MarketStreamResult, STREAM_RECONNECTION_POLICY, init_market_stream},
         reconnect::stream::ReconnectingStream,
     },
     subscription::{Subscription, SubscriptionKind},
-    Identifier,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{channel::Channel, Validator};
+use barter_integration::{Validator, channel::Channel};
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},

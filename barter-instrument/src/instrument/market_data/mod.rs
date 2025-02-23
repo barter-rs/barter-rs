@@ -58,7 +58,7 @@ mod tests {
             future::FutureContract,
             option::{OptionContract, OptionExercise, OptionKind},
         },
-        market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
+        market_data::{MarketDataInstrument, kind::MarketDataInstrumentKind},
     };
     use chrono::{TimeZone, Utc};
     use rust_decimal_macros::dec;
@@ -168,7 +168,9 @@ mod tests {
                 }
                 (actual, expected) => {
                     // Test failed
-                    panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                    panic!(
+                        "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                    );
                 }
             }
         }

@@ -1,17 +1,17 @@
 use crate::{
     engine::{
+        Engine,
         error::{EngineError, RecoverableEngineError, UnrecoverableEngineError},
         execution_tx::ExecutionTxMap,
-        Engine,
     },
     execution::request::ExecutionRequest,
 };
 use barter_execution::order::{
-    request::{RequestCancel, RequestOpen},
     OrderEvent,
+    request::{RequestCancel, RequestOpen},
 };
 use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
-use barter_integration::{channel::Tx, collection::none_one_or_many::NoneOneOrMany, Unrecoverable};
+use barter_integration::{Unrecoverable, channel::Tx, collection::none_one_or_many::NoneOneOrMany};
 use derive_more::Constructor;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};

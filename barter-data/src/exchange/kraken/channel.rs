@@ -1,7 +1,7 @@
 use super::Kraken;
 use crate::{
-    subscription::{book::OrderBooksL1, trade::PublicTrades, Subscription},
     Identifier,
+    subscription::{Subscription, book::OrderBooksL1, trade::PublicTrades},
 };
 use serde::Serialize;
 

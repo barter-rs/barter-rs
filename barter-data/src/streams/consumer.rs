@@ -1,4 +1,5 @@
 use crate::{
+    Identifier, MarketStream,
     error::DataError,
     event::MarketEvent,
     exchange::StreamSelector,
@@ -6,11 +7,10 @@ use crate::{
     streams::{
         reconnect,
         reconnect::stream::{
-            init_reconnecting_stream, ReconnectingStream, ReconnectionBackoffPolicy,
+            ReconnectingStream, ReconnectionBackoffPolicy, init_reconnecting_stream,
         },
     },
-    subscription::{display_subscriptions_without_exchange, Subscription, SubscriptionKind},
-    Identifier, MarketStream,
+    subscription::{Subscription, SubscriptionKind, display_subscriptions_without_exchange},
 };
 use barter_instrument::exchange::ExchangeId;
 use derive_more::Constructor;

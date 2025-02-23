@@ -4,14 +4,14 @@ use barter_data::{
         binance::{futures::BinanceFuturesUsd, spot::BinanceSpot},
         okx::Okx,
     },
-    streams::{consumer::MarketStreamResult, reconnect::stream::ReconnectingStream, Streams},
+    streams::{Streams, consumer::MarketStreamResult, reconnect::stream::ReconnectingStream},
     subscription::{
         book::{OrderBooksL1, OrderBooksL2},
         trade::PublicTrades,
     },
 };
 use barter_instrument::instrument::market_data::{
-    kind::MarketDataInstrumentKind, MarketDataInstrument,
+    MarketDataInstrument, kind::MarketDataInstrumentKind,
 };
 use tokio_stream::StreamExt;
 use tracing::{info, warn};

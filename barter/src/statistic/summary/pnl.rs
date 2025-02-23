@@ -1,5 +1,5 @@
 use crate::{
-    engine::state::position::{calculate_pnl_return, PositionExited},
+    engine::state::position::{PositionExited, calculate_pnl_return},
     statistic::summary::dataset::DataSetSummary,
 };
 use rust_decimal::Decimal;

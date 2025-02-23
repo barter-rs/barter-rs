@@ -1,18 +1,18 @@
 use super::Okx;
-use crate::{instrument::MarketInstrumentData, subscription::Subscription, Identifier};
+use crate::{Identifier, instrument::MarketInstrumentData, subscription::Subscription};
 use barter_instrument::{
+    Keyed,
     instrument::{
         kind::option::OptionKind,
-        market_data::{kind::MarketDataInstrumentKind::*, MarketDataInstrument},
+        market_data::{MarketDataInstrument, kind::MarketDataInstrumentKind::*},
     },
-    Keyed,
 };
 use chrono::{
-    format::{DelayedFormat, StrftimeItems},
     DateTime, Utc,
+    format::{DelayedFormat, StrftimeItems},
 };
 use serde::{Deserialize, Serialize};
-use smol_str::{format_smolstr, SmolStr, StrExt};
+use smol_str::{SmolStr, StrExt, format_smolstr};
 
 /// Type that defines how to translate a Barter [`Subscription`] into a
 /// [`Okx`] market that can be subscribed to.

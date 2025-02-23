@@ -1,16 +1,16 @@
 use crate::{
+    UnindexedAccountSnapshot,
     balance::AssetBalance,
     error::UnindexedOrderError,
     order::{
+        Order,
         request::{OrderRequestCancel, OrderRequestOpen, UnindexedOrderResponseCancel},
         state::Open,
-        Order,
     },
     trade::Trade,
-    UnindexedAccountSnapshot,
 };
 use barter_instrument::{
-    asset::{name::AssetNameExchange, QuoteAsset},
+    asset::{QuoteAsset, name::AssetNameExchange},
     exchange::ExchangeId,
     instrument::name::InstrumentNameExchange,
 };

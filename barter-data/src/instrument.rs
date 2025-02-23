@@ -1,10 +1,10 @@
 use barter_instrument::{
-    instrument::{
-        market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
-        name::InstrumentNameExchange,
-        Instrument,
-    },
     Keyed,
+    instrument::{
+        Instrument,
+        market_data::{MarketDataInstrument, kind::MarketDataInstrumentKind},
+        name::InstrumentNameExchange,
+    },
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;

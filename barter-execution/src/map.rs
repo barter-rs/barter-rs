@@ -1,10 +1,10 @@
 use crate::error::KeyError;
 use barter_instrument::{
-    asset::{name::AssetNameExchange, AssetIndex},
-    exchange::{ExchangeId, ExchangeIndex},
-    index::{error::IndexError, IndexedInstruments},
-    instrument::{name::InstrumentNameExchange, InstrumentIndex},
     Keyed,
+    asset::{AssetIndex, name::AssetNameExchange},
+    exchange::{ExchangeId, ExchangeIndex},
+    index::{IndexedInstruments, error::IndexError},
+    instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
 use barter_integration::collection::{FnvIndexMap, FnvIndexSet};
 use fnv::FnvHashMap;

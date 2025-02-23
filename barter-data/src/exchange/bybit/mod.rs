@@ -1,17 +1,17 @@
 use crate::{
+    ExchangeWsStream, NoInitialSnapshots,
     exchange::{
+        Connector, ExchangeServer, PingInterval, StreamSelector,
         bybit::{
             channel::BybitChannel, market::BybitMarket, message::BybitMessage,
             subscription::BybitResponse,
         },
         subscription::ExchangeSub,
-        Connector, ExchangeServer, PingInterval, StreamSelector,
     },
     instrument::InstrumentData,
-    subscriber::{validator::WebSocketSubValidator, WebSocketSubscriber},
-    subscription::{trade::PublicTrades, Map},
+    subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
+    subscription::{Map, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
-    ExchangeWsStream, NoInitialSnapshots,
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};

@@ -1,8 +1,8 @@
 use barter_execution::trade::{AssetFees, Trade, TradeId};
 use barter_instrument::{
+    Side,
     asset::{AssetIndex, QuoteAsset},
     instrument::InstrumentIndex,
-    Side,
 };
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;

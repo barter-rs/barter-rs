@@ -1,7 +1,7 @@
 use crate::{
-    instrument::InstrumentData,
-    subscription::{trade::PublicTrades, Subscription},
     Identifier,
+    instrument::InstrumentData,
+    subscription::{Subscription, trade::PublicTrades},
 };
 use barter_instrument::instrument::market_data::kind::MarketDataInstrumentKind;
 use serde::Serialize;

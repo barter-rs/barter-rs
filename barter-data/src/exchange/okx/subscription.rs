@@ -1,7 +1,7 @@
 use super::{channel::OkxChannel, market::OkxMarket};
 use crate::exchange::subscription::ExchangeSub;
-use barter_integration::{error::SocketError, Validator};
-use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
+use barter_integration::{Validator, error::SocketError};
+use serde::{Deserialize, Serialize, Serializer, ser::SerializeStruct};
 
 // Implement custom Serialize to assist aesthetics of <Okx as Connector>::requests() function.
 impl Serialize for ExchangeSub<OkxChannel, OkxMarket> {
@@ -118,7 +118,9 @@ mod tests {
                     }
                     (actual, expected) => {
                         // Test failed
-                        panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                        panic!(
+                            "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                        );
                     }
                 }
             }
