@@ -1,10 +1,10 @@
 use crate::{
     engine::{
+        Engine,
         action::send_requests::{SendCancelsAndOpensOutput, SendRequests, SendRequestsOutput},
         error::UnrecoverableEngineError,
         execution_tx::ExecutionTxMap,
         state::order::in_flight_recorder::InFlightRequestRecorder,
-        Engine,
     },
     risk::{RiskApproved, RiskManager, RiskRefused},
     strategy::algo::AlgoStrategy,

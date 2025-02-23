@@ -1,8 +1,8 @@
 use crate::{
-    exchange::{subscription::ExchangeSub, Connector},
+    Identifier,
+    exchange::{Connector, subscription::ExchangeSub},
     instrument::InstrumentData,
     subscription::{Map, Subscription, SubscriptionKind, SubscriptionMeta},
-    Identifier,
 };
 use barter_integration::subscription::SubscriptionId;
 use fnv::FnvHashMap;

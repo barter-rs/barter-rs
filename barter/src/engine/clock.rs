@@ -1,4 +1,4 @@
-use crate::{engine::Processor, EngineEvent};
+use crate::{EngineEvent, engine::Processor};
 use barter_data::streams::consumer::MarketStreamEvent;
 use chrono::{DateTime, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};

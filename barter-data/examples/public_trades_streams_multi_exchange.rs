@@ -10,7 +10,7 @@ use barter_data::{
         },
         okx::Okx,
     },
-    streams::{reconnect::stream::ReconnectingStream, Streams},
+    streams::{Streams, reconnect::stream::ReconnectingStream},
     subscription::trade::PublicTrades,
 };
 use barter_instrument::instrument::{

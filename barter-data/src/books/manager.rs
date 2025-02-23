@@ -1,17 +1,17 @@
 use crate::{
+    Identifier,
     books::{
-        map::{OrderBookMap, OrderBookMapMulti},
         OrderBook,
+        map::{OrderBookMap, OrderBookMapMulti},
     },
     error::DataError,
     exchange::StreamSelector,
     instrument::InstrumentData,
-    streams::{consumer::MarketStreamEvent, reconnect::stream::ReconnectingStream, Streams},
+    streams::{Streams, consumer::MarketStreamEvent, reconnect::stream::ReconnectingStream},
     subscription::{
-        book::{OrderBookEvent, OrderBooksL2},
         Subscription,
+        book::{OrderBookEvent, OrderBooksL2},
     },
-    Identifier,
 };
 use fnv::FnvHashMap;
 use futures::Stream;

@@ -1,10 +1,10 @@
 use crate::{
+    Identifier,
     event::{MarketEvent, MarketIter},
     exchange::ExchangeSub,
     subscription::trade::PublicTrade,
-    Identifier,
 };
-use barter_instrument::{exchange::ExchangeId, Side};
+use barter_instrument::{Side, exchange::ExchangeId};
 use barter_integration::subscription::SubscriptionId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -186,7 +186,9 @@ mod tests {
                 }
                 (actual, expected) => {
                     // Test failed
-                    panic!("TC failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                    panic!(
+                        "TC failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                    );
                 }
             }
         }

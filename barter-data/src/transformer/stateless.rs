@@ -1,15 +1,15 @@
 use super::ExchangeTransformer;
 use crate::{
+    Identifier,
     error::DataError,
     event::{MarketEvent, MarketIter},
     exchange::Connector,
     subscription::{Map, SubscriptionKind},
-    Identifier,
 };
 use async_trait::async_trait;
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
-    protocol::websocket::WsMessage, subscription::SubscriptionId, Transformer,
+    Transformer, protocol::websocket::WsMessage, subscription::SubscriptionId,
 };
 use serde::Deserialize;
 use std::marker::PhantomData;

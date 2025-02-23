@@ -1,23 +1,24 @@
 use crate::{
+    EngineEvent, Sequence,
     engine::{
         action::{
+            ActionOutput,
             cancel_orders::CancelOrders,
             close_positions::ClosePositions,
             generate_algo_orders::{GenerateAlgoOrders, GenerateAlgoOrdersOutput},
             send_requests::SendRequests,
-            ActionOutput,
         },
         audit::{
-            context::EngineContext, shutdown::ShutdownAudit, AuditTick, Auditor, EngineAudit,
-            ProcessAudit,
+            AuditTick, Auditor, EngineAudit, ProcessAudit, context::EngineContext,
+            shutdown::ShutdownAudit,
         },
         clock::EngineClock,
         command::Command,
         execution_tx::ExecutionTxMap,
         state::{
-            instrument::market_data::MarketDataState,
+            EngineState, instrument::market_data::MarketDataState,
             order::in_flight_recorder::InFlightRequestRecorder, position::PositionExited,
-            trading::TradingState, EngineState,
+            trading::TradingState,
         },
     },
     execution::AccountStreamEvent,
@@ -27,7 +28,6 @@ use crate::{
         algo::AlgoStrategy, close_positions::ClosePositionsStrategy,
         on_disconnect::OnDisconnectStrategy, on_trading_disabled::OnTradingDisabled,
     },
-    EngineEvent, Sequence,
 };
 use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
 use barter_execution::AccountEvent;
@@ -306,11 +306,11 @@ impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
     ) -> Option<Strategy::OnTradingDisabled>
     where
         Strategy: OnTradingDisabled<
-            Clock,
-            EngineState<MarketState, StrategyState, RiskState>,
-            ExecutionTxs,
-            Risk,
-        >,
+                Clock,
+                EngineState<MarketState, StrategyState, RiskState>,
+                ExecutionTxs,
+                Risk,
+            >,
     {
         self.state
             .trading
@@ -331,11 +331,11 @@ impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
         StrategyState: for<'a> Processor<&'a AccountEvent>,
         RiskState: for<'a> Processor<&'a AccountEvent>,
         Strategy: OnDisconnectStrategy<
-            Clock,
-            EngineState<MarketState, StrategyState, RiskState>,
-            ExecutionTxs,
-            Risk,
-        >,
+                Clock,
+                EngineState<MarketState, StrategyState, RiskState>,
+                ExecutionTxs,
+                Risk,
+            >,
     {
         match event {
             AccountStreamEvent::Reconnecting(exchange) => {
@@ -366,11 +366,11 @@ impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
         StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
         RiskState: for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
         Strategy: OnDisconnectStrategy<
-            Clock,
-            EngineState<MarketState, StrategyState, RiskState>,
-            ExecutionTxs,
-            Risk,
-        >,
+                Clock,
+                EngineState<MarketState, StrategyState, RiskState>,
+                ExecutionTxs,
+                Risk,
+            >,
     {
         match event {
             MarketStreamEvent::Reconnecting(exchange) => {

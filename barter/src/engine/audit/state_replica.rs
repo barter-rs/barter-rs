@@ -1,14 +1,14 @@
 use crate::{
+    EngineEvent,
     engine::{
-        audit::{
-            context::EngineContext, shutdown::ShutdownAudit, AuditTick, DefaultAuditTick,
-            EngineAudit, ProcessAudit,
-        },
-        state::{instrument::market_data::MarketDataState, EngineState},
         EngineMeta, Processor,
+        audit::{
+            AuditTick, DefaultAuditTick, EngineAudit, ProcessAudit, context::EngineContext,
+            shutdown::ShutdownAudit,
+        },
+        state::{EngineState, instrument::market_data::MarketDataState},
     },
     execution::AccountStreamEvent,
-    EngineEvent,
 };
 use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
 use barter_execution::AccountEvent;

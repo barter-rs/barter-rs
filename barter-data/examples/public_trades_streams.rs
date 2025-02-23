@@ -1,6 +1,6 @@
 use barter_data::{
     exchange::binance::futures::BinanceFuturesUsd,
-    streams::{reconnect::stream::ReconnectingStream, Streams},
+    streams::{Streams, reconnect::stream::ReconnectingStream},
     subscription::trade::PublicTrades,
 };
 use barter_instrument::instrument::market_data::kind::MarketDataInstrumentKind;

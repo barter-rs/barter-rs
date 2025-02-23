@@ -1,7 +1,7 @@
 use barter_instrument::{
-    asset::{name::AssetNameExchange, AssetIndex},
+    asset::{AssetIndex, name::AssetNameExchange},
     exchange::ExchangeId,
-    instrument::{name::InstrumentNameExchange, InstrumentIndex},
+    instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
 use barter_integration::error::SocketError;
 use derive_more::From;

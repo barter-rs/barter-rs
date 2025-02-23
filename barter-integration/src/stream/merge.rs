@@ -22,7 +22,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::channel::{mpsc_unbounded, Tx};
+    use crate::channel::{Tx, mpsc_unbounded};
     use futures::StreamExt;
     use tokio_test::{assert_pending, assert_ready, assert_ready_eq};
 

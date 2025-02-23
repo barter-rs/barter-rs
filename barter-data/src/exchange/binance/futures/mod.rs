@@ -1,16 +1,16 @@
 use self::liquidation::BinanceLiquidation;
 use super::{Binance, ExchangeServer};
 use crate::{
+    ExchangeWsStream, NoInitialSnapshots,
     exchange::{
+        StreamSelector,
         binance::futures::l2::{
             BinanceFuturesUsdOrderBooksL2SnapshotFetcher, BinanceFuturesUsdOrderBooksL2Transformer,
         },
-        StreamSelector,
     },
     instrument::InstrumentData,
     subscription::{book::OrderBooksL2, liquidation::Liquidations},
     transformer::stateless::StatelessTransformer,
-    ExchangeWsStream, NoInitialSnapshots,
 };
 use barter_instrument::exchange::ExchangeId;
 use std::fmt::{Display, Formatter};

@@ -1,8 +1,8 @@
 use crate::engine::Processor;
 use barter_data::event::MarketEvent;
 use barter_execution::{
-    order::request::{OrderRequestCancel, OrderRequestOpen},
     AccountEvent,
+    order::request::{OrderRequestCancel, OrderRequestOpen},
 };
 use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::Unrecoverable;

@@ -1,14 +1,14 @@
 use crate::engine::{
+    Engine,
     action::send_requests::{SendRequests, SendRequestsOutput},
     execution_tx::ExecutionTxMap,
     state::{
+        EngineState,
         instrument::filter::InstrumentFilter,
         order::{in_flight_recorder::InFlightRequestRecorder, manager::OrderManager},
-        EngineState,
     },
-    Engine,
 };
-use barter_execution::order::{request::RequestCancel, Order};
+use barter_execution::order::{Order, request::RequestCancel};
 use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 
 /// Trait that defines how the [`Engine`] cancels open order requests.

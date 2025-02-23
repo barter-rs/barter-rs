@@ -1,13 +1,13 @@
 use crate::{
+    Underlying,
     asset::Asset,
     instrument::{
         kind::InstrumentKind,
-        market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
+        market_data::{MarketDataInstrument, kind::MarketDataInstrumentKind},
         name::{InstrumentNameExchange, InstrumentNameInternal},
         quote::InstrumentQuoteAsset,
         spec::{InstrumentSpec, InstrumentSpecQuantity, OrderQuantityUnits},
     },
-    Underlying,
 };
 use derive_more::{Constructor, Display};
 use serde::{Deserialize, Serialize};

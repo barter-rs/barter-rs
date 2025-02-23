@@ -8,7 +8,7 @@ use barter_data::{
 };
 use barter_instrument::{
     exchange::ExchangeId,
-    instrument::market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
+    instrument::market_data::{MarketDataInstrument, kind::MarketDataInstrumentKind},
 };
 use futures::StreamExt;
 use tracing::{info, warn};

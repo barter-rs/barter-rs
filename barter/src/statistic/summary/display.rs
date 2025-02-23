@@ -1,5 +1,5 @@
 use crate::statistic::{
-    summary::{asset::TearSheetAsset, instrument::TearSheet, TradingSummary},
+    summary::{TradingSummary, asset::TearSheetAsset, instrument::TearSheet},
     time::TimeInterval,
 };
 use prettytable::{Cell, Row, Table};
@@ -25,7 +25,7 @@ where
             "   ██    ██   ██ ██   ██ ██   ██ ██ ████   ██ ██           ██      ██    ██ ████  ████ ████  ████ ██   ██ ██   ██  ██  ██ ",
             "   ██    ██████  ███████ ██   ██ ██ ██ ██  ██ ██   ███     ███████ ██    ██ ██ ████ ██ ██ ████ ██ ███████ ██████    ████  ",
             "   ██    ██   ██ ██   ██ ██   ██ ██ ██  ██ ██ ██    ██          ██ ██    ██ ██  ██  ██ ██  ██  ██ ██   ██ ██   ██    ██   ",
-            "   ██    ██   ██ ██   ██ ██████  ██ ██   ████  ██████      ███████  ██████  ██      ██ ██      ██ ██   ██ ██   ██    ██   "
+            "   ██    ██   ██ ██   ██ ██████  ██ ██   ████  ██████      ███████  ██████  ██      ██ ██      ██ ██   ██ ██   ██    ██   ",
         ];
 
         // Add the large text

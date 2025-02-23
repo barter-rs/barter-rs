@@ -1,12 +1,12 @@
 use crate::{
-    engine::state::asset::filter::AssetFilter, statistic::summary::asset::TearSheetAssetGenerator,
-    Timed,
+    Timed, engine::state::asset::filter::AssetFilter,
+    statistic::summary::asset::TearSheetAssetGenerator,
 };
 use barter_execution::balance::{AssetBalance, Balance};
 use barter_instrument::{
     asset::{
-        name::{AssetNameExchange, AssetNameInternal},
         Asset, AssetIndex, ExchangeAsset,
+        name::{AssetNameExchange, AssetNameInternal},
     },
     index::IndexedInstruments,
 };

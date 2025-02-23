@@ -3,7 +3,7 @@ use crate::{
     exchange::bybit::message::BybitPayload,
     subscription::trade::PublicTrade,
 };
-use barter_instrument::{exchange::ExchangeId, Side};
+use barter_instrument::{Side, exchange::ExchangeId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -178,7 +178,9 @@ mod tests {
                     }
                     (actual, expected) => {
                         // Test failed
-                        panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                        panic!(
+                            "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                        );
                     }
                 }
             }
@@ -325,7 +327,9 @@ mod tests {
                     }
                     (actual, expected) => {
                         // Test failed
-                        panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                        panic!(
+                            "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                        );
                     }
                 }
             }

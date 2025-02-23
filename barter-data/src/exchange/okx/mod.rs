@@ -2,12 +2,12 @@ use self::{
     channel::OkxChannel, market::OkxMarket, subscription::OkxSubResponse, trade::OkxTrades,
 };
 use crate::{
+    ExchangeWsStream, NoInitialSnapshots,
     exchange::{Connector, ExchangeSub, PingInterval, StreamSelector},
     instrument::InstrumentData,
-    subscriber::{validator::WebSocketSubValidator, WebSocketSubscriber},
+    subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
     subscription::trade::PublicTrades,
     transformer::stateless::StatelessTransformer,
-    ExchangeWsStream, NoInitialSnapshots,
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};

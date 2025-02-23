@@ -1,4 +1,4 @@
-use crate::{subscription::Subscription, Identifier};
+use crate::{Identifier, subscription::Subscription};
 use barter_integration::subscription::SubscriptionId;
 use serde::Deserialize;
 

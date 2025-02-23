@@ -4,12 +4,12 @@ use crate::{
 };
 use async_trait::async_trait;
 use barter_integration::{
+    Validator,
     error::SocketError,
     protocol::{
-        websocket::{WebSocket, WebSocketParser, WsMessage},
         StreamParser,
+        websocket::{WebSocket, WebSocketParser, WsMessage},
     },
-    Validator,
 };
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};

@@ -1,17 +1,17 @@
 use crate::{exchange::Connector, instrument::InstrumentData};
 use barter_instrument::{
+    Keyed,
     asset::name::AssetNameInternal,
     exchange::ExchangeId,
-    instrument::market_data::{kind::MarketDataInstrumentKind, MarketDataInstrument},
-    Keyed,
+    instrument::market_data::{MarketDataInstrument, kind::MarketDataInstrumentKind},
 };
 use barter_integration::{
-    error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId, Validator,
+    Validator, error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId,
 };
 use derive_more::Display;
 use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
-use smol_str::{format_smolstr, ToSmolStr};
+use smol_str::{ToSmolStr, format_smolstr};
 use std::{borrow::Borrow, fmt::Debug, hash::Hash};
 
 /// OrderBook [`SubscriptionKind`]s and the associated Barter output data models.
@@ -473,7 +473,9 @@ mod tests {
                     }
                     (actual, expected) => {
                         // Test failed
-                        panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                        panic!(
+                            "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                        );
                     }
                 }
             }
@@ -535,7 +537,9 @@ mod tests {
                     }
                     (actual, expected) => {
                         // Test failed
-                        panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                        panic!(
+                            "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                        );
                     }
                 }
             }
@@ -589,7 +593,9 @@ mod tests {
                     }
                     (actual, expected) => {
                         // Test failed
-                        panic!("TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n");
+                        panic!(
+                            "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                        );
                     }
                 }
             }

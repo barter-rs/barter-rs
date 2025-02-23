@@ -1,5 +1,5 @@
 use crate::order::id::{OrderId, StrategyId};
-use barter_instrument::{asset::QuoteAsset, Side};
+use barter_instrument::{Side, asset::QuoteAsset};
 use chrono::{DateTime, Utc};
 use derive_more::{Constructor, From};
 use rust_decimal::Decimal;

@@ -1,7 +1,7 @@
 use barter::{
     engine::state::{
-        instrument::market_data::DefaultMarketData, position::PositionExited,
-        trading::TradingState, EngineState,
+        EngineState, instrument::market_data::DefaultMarketData, position::PositionExited,
+        trading::TradingState,
     },
     risk::DefaultRiskManagerState,
     statistic::{summary::TradingSummaryGenerator, time::Annual365},
@@ -12,11 +12,11 @@ use barter_execution::{
     trade::{AssetFees, TradeId},
 };
 use barter_instrument::{
+    Side, Underlying,
     asset::{AssetIndex, QuoteAsset},
     exchange::ExchangeId,
     index::IndexedInstruments,
     instrument::{Instrument, InstrumentIndex},
-    Side, Underlying,
 };
 use barter_integration::snapshot::Snapshot;
 use chrono::{DateTime, Days, Utc};

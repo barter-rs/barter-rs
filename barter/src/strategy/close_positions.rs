@@ -1,14 +1,14 @@
 use crate::engine::state::{
-    instrument::{filter::InstrumentFilter, market_data::MarketDataState},
     EngineState,
+    instrument::{filter::InstrumentFilter, market_data::MarketDataState},
 };
 use barter_execution::order::{
+    OrderKey, OrderKind, TimeInForce,
     id::{ClientOrderId, StrategyId},
     request::{OrderRequestCancel, OrderRequestOpen, RequestOpen},
-    OrderKey, OrderKind, TimeInForce,
 };
 use barter_instrument::{
-    asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex, Side,
+    Side, asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex,
 };
 
 /// Strategy interface for generating open and cancel order requests that close open positions.

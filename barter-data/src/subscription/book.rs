@@ -1,5 +1,5 @@
 use super::SubscriptionKind;
-use crate::books::{mid_price, volume_weighted_mid_price, Level, OrderBook};
+use crate::books::{Level, OrderBook, mid_price, volume_weighted_mid_price};
 use barter_macro::{DeSubKind, SerSubKind};
 use chrono::{DateTime, Utc};
 use derive_more::{Constructor, Display};

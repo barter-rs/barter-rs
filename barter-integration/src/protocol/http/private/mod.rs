@@ -1,5 +1,5 @@
 use self::encoder::Encoder;
-use super::{rest::RestRequest, BuildStrategy};
+use super::{BuildStrategy, rest::RestRequest};
 use crate::error::SocketError;
 use hmac::Mac;
 

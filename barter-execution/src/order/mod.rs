@@ -4,10 +4,10 @@ use crate::order::{
     state::UnindexedOrderState,
 };
 use barter_instrument::{
-    asset::{name::AssetNameExchange, AssetIndex},
-    exchange::{ExchangeId, ExchangeIndex},
-    instrument::{name::InstrumentNameExchange, InstrumentIndex},
     Side,
+    asset::{AssetIndex, name::AssetNameExchange},
+    exchange::{ExchangeId, ExchangeIndex},
+    instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
 use derive_more::{Constructor, Display, From};
 use id::ClientOrderId;
