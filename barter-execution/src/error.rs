@@ -43,6 +43,12 @@ pub enum ClientError<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
     AccountStream(String),
 }
 
+impl<AssetKey, InstrumentKey> From<SocketError> for ClientError<AssetKey, InstrumentKey> {
+    fn from(value: SocketError) -> Self {
+        Self::Connectivity(ConnectivityError::from(value))
+    }
+}
+
 /// Represents all connectivity-centric errors.
 ///
 /// Connectivity errors are generally intermittent / non-deterministic (eg/ Timeout).
