@@ -1,4 +1,3 @@
-use derive_more::From;
 use serde::{Deserialize, Serialize};
 
 pub mod stream;

@@ -1,5 +1,4 @@
 use crate::collection::one_or_many::OneOrMany;
-use derive_more::From;
 use itertools::Either;
 use serde::{Deserialize, Serialize};
 use std::{

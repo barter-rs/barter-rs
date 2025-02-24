@@ -59,9 +59,9 @@ hex = { version = "0.4.3" }
 base64 = { version = "0.22.1" }
 
 # Misc
-rand = { version = "0.8.5 " }
+rand = { version = "0.9.0" }
 chrono = { version = "0.4.39", features = ["serde"] }
-derive_more = { version = "1.0.0", features = [
+derive_more = { version = "2.0.1", features = [
     "constructor",
     "display",
     "from",

@@ -1,6 +1,6 @@
 use crate::streams::{consumer::StreamKey, reconnect::Event};
 use barter_integration::channel::Tx;
-use derive_more::{Constructor, From};
+use derive_more::Constructor;
 use futures::Stream;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};

@@ -1,4 +1,4 @@
-use derive_more::{Display, From};
+use derive_more::Display;
 use serde::Serialize;
 use smol_str::{SmolStr, StrExt};
 use std::borrow::Borrow;
