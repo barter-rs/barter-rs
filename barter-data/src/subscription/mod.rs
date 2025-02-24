@@ -50,8 +50,8 @@ pub fn display_subscriptions_without_exchange<Exchange, Instrument, Kind>(
     subscriptions: &[Subscription<Exchange, Instrument, Kind>],
 ) -> String
 where
-    Instrument: Display,
-    Kind: Display,
+    Instrument: std::fmt::Display,
+    Kind: std::fmt::Display,
 {
     subscriptions
         .iter()
@@ -68,9 +68,9 @@ where
 
 impl<Exchange, Instrument, Kind> std::fmt::Display for Subscription<Exchange, Instrument, Kind>
 where
-    Exchange: Display,
-    Instrument: Display,
-    Kind: Display,
+    Exchange: std::fmt::Display,
+    Instrument: std::fmt::Display,
+    Kind: std::fmt::Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}|{}|{})", self.exchange, self.kind, self.instrument)

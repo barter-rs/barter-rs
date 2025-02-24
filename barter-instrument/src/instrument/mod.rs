@@ -52,7 +52,7 @@ impl InstrumentIndex {
     }
 }
 
-impl Display for InstrumentIndex {
+impl std::fmt::Display for InstrumentIndex {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "InstrumentIndex({})", self.0)
     }

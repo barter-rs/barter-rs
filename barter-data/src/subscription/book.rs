@@ -2,7 +2,7 @@ use super::SubscriptionKind;
 use crate::books::{Level, OrderBook, mid_price, volume_weighted_mid_price};
 use barter_macro::{DeSubKind, SerSubKind};
 use chrono::{DateTime, Utc};
-use derive_more::{Constructor, Display};
+use derive_more::Constructor;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +23,7 @@ impl SubscriptionKind for OrderBooksL1 {
     }
 }
 
-impl Display for OrderBooksL1 {
+impl std::fmt::Display for OrderBooksL1 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }
@@ -78,7 +78,7 @@ impl SubscriptionKind for OrderBooksL2 {
     }
 }
 
-impl Display for OrderBooksL2 {
+impl std::fmt::Display for OrderBooksL2 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }
@@ -102,7 +102,7 @@ impl SubscriptionKind for OrderBooksL3 {
     }
 }
 
-impl Display for OrderBooksL3 {
+impl std::fmt::Display for OrderBooksL3 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }

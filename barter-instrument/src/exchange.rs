@@ -12,7 +12,7 @@ impl ExchangeIndex {
     }
 }
 
-impl Display for ExchangeIndex {
+impl std::fmt::Display for ExchangeIndex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ExchangeIndex({})", self.0)
     }
