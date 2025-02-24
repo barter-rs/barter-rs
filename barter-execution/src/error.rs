@@ -4,7 +4,6 @@ use barter_instrument::{
     instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
 use barter_integration::error::SocketError;
-use derive_more::From;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

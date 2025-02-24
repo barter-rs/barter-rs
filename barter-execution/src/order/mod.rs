@@ -9,7 +9,7 @@ use barter_instrument::{
     exchange::{ExchangeId, ExchangeIndex},
     instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
-use derive_more::{Constructor, Display, From};
+use derive_more::{Constructor, Display};
 use id::ClientOrderId;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};

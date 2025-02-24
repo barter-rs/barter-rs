@@ -1,5 +1,5 @@
 use derive_more::{Display, From};
-use rand::prelude::SliceRandom;
+use rand::prelude::IndexedRandom;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 
@@ -28,7 +28,7 @@ impl ClientOrderId<SmolStr> {
         // SmolStr can be up to 23 bytes long without allocating
         const LEN_NON_ALLOCATING_CID: usize = 23;
 
-        let mut thread_rng = rand::thread_rng();
+        let mut thread_rng = rand::rng();
 
         let random_utf8: [u8; LEN_NON_ALLOCATING_CID] = std::array::from_fn(|_| {
             let symbol = URL_SAFE_SYMBOLS

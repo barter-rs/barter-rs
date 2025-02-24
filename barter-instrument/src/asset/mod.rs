@@ -3,7 +3,7 @@ use crate::{
     asset::name::{AssetNameExchange, AssetNameInternal},
     exchange::ExchangeId,
 };
-use derive_more::{Constructor, Display, From};
+use derive_more::{Constructor, Display};
 use serde::{Deserialize, Serialize};
 
 /// Defines the [`AssetNameInternal`] and [`AssetNameExchange`] types, used as `SmolStr`
@@ -27,7 +27,7 @@ impl AssetIndex {
     }
 }
 
-impl Display for AssetIndex {
+impl std::fmt::Display for AssetIndex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "AssetIndex({})", self.0)
     }

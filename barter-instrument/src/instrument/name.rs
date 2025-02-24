@@ -1,5 +1,5 @@
 use crate::{asset::name::AssetNameExchange, exchange::ExchangeId};
-use derive_more::{Display, From};
+use derive_more::Display;
 use serde::Serialize;
 use smol_str::{SmolStr, StrExt, format_smolstr};
 use std::borrow::Borrow;
