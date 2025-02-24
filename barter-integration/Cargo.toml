@@ -1,6 +1,6 @@
 [package]
 name = "barter-integration"
-version = "0.8.1"
+version = "0.9.0"
 edition = "2024"
 authors = ["JustAStream <justastream.code@gmail.com>"]
 license = "MIT"
@@ -17,7 +17,7 @@ sha2 = { workspace = true }
 
 [dependencies]
 # Barter Ecosystem
-barter-instrument = { path = "../barter-instrument", version = "0.2.0" }
+barter-instrument = { workspace = true }
 
 # Logging
 tracing = { workspace = true }
