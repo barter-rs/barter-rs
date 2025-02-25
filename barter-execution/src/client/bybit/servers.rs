@@ -7,7 +7,7 @@ pub trait BybitServer {
     const CATEGORY: InstrumentCategory;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct SpotServer;
 
 impl BybitServer for SpotServer {
@@ -15,7 +15,7 @@ impl BybitServer for SpotServer {
     const CATEGORY: InstrumentCategory = InstrumentCategory::Spot;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct FuturesUsdServer;
 
 impl BybitServer for FuturesUsdServer {

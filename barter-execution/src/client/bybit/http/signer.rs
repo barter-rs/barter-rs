@@ -21,7 +21,7 @@ pub struct BybitSignConfig<'a> {
     api_key: &'a str,
     timestamp: i64,
     params_to_sign: String,
-    body_to_sign: String,
+    body_to_sign: Option<String>,
 }
 
 impl Signer for BybitSigner {
@@ -45,9 +45,7 @@ impl Signer for BybitSigner {
 
         let body_to_sign = request
             .body()
-            .map(|body| serde_json::to_string(body))
-            .expect("Bybit private requests should all have a body")
-            .unwrap_or_default();
+            .map(|body| serde_json::to_string(body).expect("serialization should not fail"));
 
         Ok(Self::Config {
             api_key: self.api_key.as_str(),
@@ -66,7 +64,9 @@ impl Signer for BybitSigner {
         mac.update(config.api_key.as_bytes());
         mac.update(RECV_WINDOW.as_bytes());
         mac.update(config.params_to_sign.as_bytes());
-        mac.update(config.body_to_sign.as_bytes());
+        if let Some(body) = &config.body_to_sign {
+            mac.update(body.as_bytes());
+        }
     }
 
     fn build_signed_request<'a>(
