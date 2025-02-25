@@ -10,7 +10,7 @@ use crate::{
     },
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
-    subscription::{Map, trade::PublicTrades},
+    subscription::{Map, book::OrderBooksL1, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
@@ -48,6 +48,10 @@ pub mod subscription;
 /// Public trade types common to both [`BybitSpot`](spot::BybitSpot) and
 /// [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
 pub mod trade;
+
+/// Orderbook types common to both [`BybitSpot`](spot::BybitSpot) and
+/// [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
+pub mod book;
 
 /// Generic [`Bybit<Server>`](Bybit) execution.
 ///
@@ -116,6 +120,16 @@ where
     type SnapFetcher = NoInitialSnapshots;
     type Stream =
         ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BybitMessage>>;
+}
+
+impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL1> for Bybit<Server>
+where
+    Instrument: InstrumentData,
+    Server: ExchangeServer + Debug + Send + Sync,
+{
+    type SnapFetcher = NoInitialSnapshots;
+    type Stream =
+        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, OrderBooksL1, BybitMessage>>;
 }
 
 impl<'de, Server> serde::Deserialize<'de> for Bybit<Server>

@@ -258,7 +258,7 @@ pub fn exchange_supports_instrument_kind_sub_kind(
         (BinanceFuturesUsd, Perpetual, PublicTrades | OrderBooksL1 | Liquidations) => true,
         (Bitfinex, Spot, PublicTrades) => true,
         (Bitmex, Perpetual, PublicTrades) => true,
-        (BybitSpot, Spot, PublicTrades) => true,
+        (BybitSpot, Spot, PublicTrades | OrderBooksL1) => true,
         (BybitPerpetualsUsd, Perpetual, PublicTrades) => true,
         (Coinbase, Spot, PublicTrades) => true,
         (GateioSpot, Spot, PublicTrades) => true,
