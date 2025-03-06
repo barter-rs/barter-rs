@@ -14,11 +14,10 @@ use barter_data::{
     subscription::trade::PublicTrades,
 };
 use barter_instrument::instrument::{
-    kind::{
-        future::FutureContract,
-        option::{OptionContract, OptionExercise, OptionKind},
+    kind::option::{OptionExercise, OptionKind},
+    market_data::kind::{
+        MarketDataFutureContract, MarketDataInstrumentKind, MarketDataOptionContract,
     },
-    market_data::kind::MarketDataInstrumentKind,
 };
 use chrono::{TimeZone, Utc};
 use futures::StreamExt;
@@ -62,7 +61,7 @@ async fn main() {
         .subscribe([
             (Okx, "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
             (Okx, "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
-            (Okx, "btc", "usd", MarketDataInstrumentKind::Future(future_contract()), PublicTrades),
+            (Okx, "btc", "usd", MarketDataInstrumentKind::Future(future_contract_expiry()), PublicTrades),
             (Okx, "btc", "usd", MarketDataInstrumentKind::Option(call_contract()), PublicTrades),
         ])
 
@@ -111,12 +110,12 @@ fn init_logging() {
         .init()
 }
 
-fn put_contract() -> OptionContract {
+fn put_contract() -> MarketDataOptionContract {
     let expiry = Utc.timestamp_millis_opt(1758844800000).unwrap();
     if expiry < Utc::now() {
         panic!("Put contract has expired, please configure a non-expired instrument")
     }
-    OptionContract {
+    MarketDataOptionContract {
         kind: OptionKind::Put,
         exercise: OptionExercise::European,
         expiry,
@@ -124,21 +123,21 @@ fn put_contract() -> OptionContract {
     }
 }
 
-fn future_contract() -> FutureContract {
+fn future_contract_expiry() -> MarketDataFutureContract {
     let expiry = Utc.timestamp_millis_opt(1743120000000).unwrap();
     if expiry < Utc::now() {
         panic!("Future contract has expired, please configure a non-expired instrument")
     }
-    FutureContract { expiry }
+    MarketDataFutureContract { expiry }
 }
 
-fn call_contract() -> OptionContract {
+fn call_contract() -> MarketDataOptionContract {
     let expiry = Utc.timestamp_millis_opt(1758844800000).unwrap();
     if expiry < Utc::now() {
         panic!("Future contract has expired, please configure a non-expired instrument")
     }
 
-    OptionContract {
+    MarketDataOptionContract {
         kind: OptionKind::Call,
         exercise: OptionExercise::American,
         expiry,

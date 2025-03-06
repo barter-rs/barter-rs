@@ -1,4 +1,6 @@
-use crate::instrument::kind::{future::FutureContract, option::OptionContract};
+use crate::instrument::kind::option::{OptionExercise, OptionKind};
+use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
@@ -8,9 +10,9 @@ use std::fmt::{Display, Formatter};
 #[serde(rename_all = "snake_case")]
 pub enum MarketDataInstrumentKind {
     Spot,
-    Future(FutureContract),
     Perpetual,
-    Option(OptionContract),
+    Future(MarketDataFutureContract),
+    Option(MarketDataOptionContract),
 }
 
 impl Default for MarketDataInstrumentKind {
@@ -26,17 +28,32 @@ impl Display for MarketDataInstrumentKind {
             "{}",
             match self {
                 MarketDataInstrumentKind::Spot => "spot".to_string(),
-                MarketDataInstrumentKind::Future(future) =>
-                    format!("future_{}-UTC", future.expiry.date_naive()),
                 MarketDataInstrumentKind::Perpetual => "perpetual".to_string(),
-                MarketDataInstrumentKind::Option(option) => format!(
+                MarketDataInstrumentKind::Future(contract) =>
+                    format!("future_{}-UTC", contract.expiry.date_naive()),
+                MarketDataInstrumentKind::Option(contract) => format!(
                     "option_{}_{}_{}-UTC_{}",
-                    option.kind,
-                    option.exercise,
-                    option.expiry.date_naive(),
-                    option.strike,
+                    contract.kind,
+                    contract.exercise,
+                    contract.expiry.date_naive(),
+                    contract.strike,
                 ),
             }
         )
     }
+}
+
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+pub struct MarketDataFutureContract {
+    #[serde(with = "chrono::serde::ts_milliseconds")]
+    pub expiry: DateTime<Utc>,
+}
+
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+pub struct MarketDataOptionContract {
+    pub kind: OptionKind,
+    pub exercise: OptionExercise,
+    #[serde(with = "chrono::serde::ts_milliseconds")]
+    pub expiry: DateTime<Utc>,
+    pub strike: Decimal,
 }

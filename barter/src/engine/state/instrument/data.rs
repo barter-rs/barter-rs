@@ -18,7 +18,7 @@ use std::fmt::Debug;
 /// [`MarketEvent`] that is required to update it. The custom instrument data could include
 /// market data, strategy-specific data, risk-specific data, or any other instrument level data.
 ///
-/// For an example, see the [`DefaultInstrumentData`] implementation.
+/// For an example, see the [`DefaultInstrumentMarketData`] implementation.
 pub trait InstrumentDataState<InstrumentKey = InstrumentIndex>
 where
     Self: Debug
@@ -40,8 +40,8 @@ where
     fn price(&self) -> Option<Decimal>;
 }
 
-/// Basic [`InstrumentDataState`] implementation that tracks the [`OrderBookL1`] and last traded price
-/// for an instrument.
+/// Basic [`InstrumentDataState`] implementation that tracks the [`OrderBookL1`] and last traded
+/// price for an instrument.
 ///
 /// This is a simple example of instrument level data. Trading strategies typically maintain more
 /// comprehensive data, such as candles, technical indicators, market depth (L2 book), volatility metrics,
@@ -49,12 +49,12 @@ where
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize, Constructor,
 )]
-pub struct DefaultInstrumentData {
+pub struct DefaultInstrumentMarketData {
     pub l1: OrderBookL1,
     pub last_traded_price: Option<Timed<Decimal>>,
 }
 
-impl InstrumentDataState for DefaultInstrumentData {
+impl InstrumentDataState for DefaultInstrumentMarketData {
     type MarketEventKind = DataKind;
 
     fn price(&self) -> Option<Decimal> {
@@ -64,7 +64,9 @@ impl InstrumentDataState for DefaultInstrumentData {
     }
 }
 
-impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>> for DefaultInstrumentData {
+impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>>
+    for DefaultInstrumentMarketData
+{
     type Audit = ();
 
     fn process(&mut self, event: &MarketEvent<InstrumentKey, DataKind>) -> Self::Audit {
