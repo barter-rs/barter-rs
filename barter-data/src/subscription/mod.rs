@@ -201,8 +201,8 @@ pub fn exchange_supports_instrument_kind(
         (_, Spot) => true,
 
         // Future
-        (GateioFuturesUsd | GateioFuturesBtc | Okx, Future(_)) => true,
-        (_, Future(_)) => false,
+        (GateioFuturesUsd | GateioFuturesBtc | Okx, Future { .. }) => true,
+        (_, Future { .. }) => false,
 
         // Perpetual
         (
@@ -213,8 +213,8 @@ pub fn exchange_supports_instrument_kind(
         (_, Perpetual) => false,
 
         // Option
-        (GateioOptions | Okx, Option(_)) => true,
-        (_, Option(_)) => false,
+        (GateioOptions | Okx, Option { .. }) => true,
+        (_, Option { .. }) => false,
     }
 }
 
@@ -262,13 +262,13 @@ pub fn exchange_supports_instrument_kind_sub_kind(
         (BybitPerpetualsUsd, Perpetual, PublicTrades) => true,
         (Coinbase, Spot, PublicTrades) => true,
         (GateioSpot, Spot, PublicTrades) => true,
-        (GateioFuturesUsd, Future(_), PublicTrades) => true,
-        (GateioFuturesBtc, Future(_), PublicTrades) => true,
+        (GateioFuturesUsd, Future { .. }, PublicTrades) => true,
+        (GateioFuturesBtc, Future { .. }, PublicTrades) => true,
         (GateioPerpetualsUsd, Perpetual, PublicTrades) => true,
         (GateioPerpetualsBtc, Perpetual, PublicTrades) => true,
-        (GateioOptions, Option(_), PublicTrades) => true,
+        (GateioOptions, Option { .. }, PublicTrades) => true,
         (Kraken, Spot, PublicTrades | OrderBooksL1) => true,
-        (Okx, Spot | Future(_) | Perpetual | Option(_), PublicTrades) => true,
+        (Okx, Spot | Future { .. } | Perpetual | Option { .. }, PublicTrades) => true,
 
         (_, _, _) => false,
     }
