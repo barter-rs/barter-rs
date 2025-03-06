@@ -17,7 +17,7 @@ use barter::{
             asset::AssetStates,
             connectivity::Health,
             instrument::{
-                data::{DefaultInstrumentData, InstrumentDataState},
+                data::{DefaultInstrumentMarketData, InstrumentDataState},
                 filter::InstrumentFilter,
             },
             position::PositionExited,
@@ -654,7 +654,8 @@ struct TestBuyAndHoldStrategy {
 }
 
 impl AlgoStrategy for TestBuyAndHoldStrategy {
-    type State = EngineState<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>;
+    type State =
+        EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>;
 
     fn generate_algo_orders(
         &self,
@@ -719,7 +720,8 @@ fn gen_order_id(instrument: usize) -> OrderId {
 }
 
 impl ClosePositionsStrategy for TestBuyAndHoldStrategy {
-    type State = EngineState<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>;
+    type State =
+        EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>;
 
     fn close_positions_requests<'a>(
         &'a self,
@@ -743,10 +745,10 @@ struct OnDisconnectOutput;
 impl
     OnDisconnectStrategy<
         HistoricalClock,
-        EngineState<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>,
+        EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
         MultiExchangeTxMap<UnboundedTx<ExecutionRequest>>,
         DefaultRiskManager<
-            EngineState<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>,
+            EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
         >,
     > for TestBuyAndHoldStrategy
 {
@@ -755,11 +757,15 @@ impl
     fn on_disconnect(
         _: &mut Engine<
             HistoricalClock,
-            EngineState<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>,
+            EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
             MultiExchangeTxMap<UnboundedTx<ExecutionRequest>>,
             Self,
             DefaultRiskManager<
-                EngineState<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>,
+                EngineState<
+                    DefaultInstrumentMarketData,
+                    DefaultStrategyState,
+                    DefaultRiskManagerState,
+                >,
             >,
         >,
         _: ExchangeId,
@@ -773,10 +779,10 @@ struct OnTradingDisabledOutput;
 impl
     OnTradingDisabled<
         HistoricalClock,
-        EngineState<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>,
+        EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
         MultiExchangeTxMap<UnboundedTx<ExecutionRequest>>,
         DefaultRiskManager<
-            EngineState<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>,
+            EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
         >,
     > for TestBuyAndHoldStrategy
 {
@@ -785,11 +791,15 @@ impl
     fn on_trading_disabled(
         _: &mut Engine<
             HistoricalClock,
-            EngineState<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>,
+            EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
             MultiExchangeTxMap<UnboundedTx<ExecutionRequest>>,
             Self,
             DefaultRiskManager<
-                EngineState<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>,
+                EngineState<
+                    DefaultInstrumentMarketData,
+                    DefaultStrategyState,
+                    DefaultRiskManagerState,
+                >,
             >,
         >,
     ) -> Self::OnTradingDisabled {
@@ -802,11 +812,11 @@ fn build_engine(
     execution_tx: UnboundedTx<ExecutionRequest>,
 ) -> Engine<
     HistoricalClock,
-    EngineState<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>,
+    EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
     MultiExchangeTxMap<UnboundedTx<ExecutionRequest>>,
     TestBuyAndHoldStrategy,
     DefaultRiskManager<
-        EngineState<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>,
+        EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
     >,
 > {
     let instruments = IndexedInstruments::builder()
@@ -840,18 +850,19 @@ fn build_engine(
 
     let clock = HistoricalClock::new(STARTING_TIMESTAMP);
 
-    let state =
-        EngineState::<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>::builder(
-            &instruments,
-        )
-        .time_engine_start(STARTING_TIMESTAMP)
-        .trading_state(trading_state)
-        .balances([
-            (ExchangeId::BinanceSpot, "usdt", STARTING_BALANCE_USDT),
-            (ExchangeId::BinanceSpot, "btc", STARTING_BALANCE_BTC),
-            (ExchangeId::BinanceSpot, "eth", STARTING_BALANCE_ETH),
-        ])
-        .build();
+    let state = EngineState::<
+        DefaultInstrumentMarketData,
+        DefaultStrategyState,
+        DefaultRiskManagerState,
+    >::builder(&instruments)
+    .time_engine_start(STARTING_TIMESTAMP)
+    .trading_state(trading_state)
+    .balances([
+        (ExchangeId::BinanceSpot, "usdt", STARTING_BALANCE_USDT),
+        (ExchangeId::BinanceSpot, "btc", STARTING_BALANCE_BTC),
+        (ExchangeId::BinanceSpot, "eth", STARTING_BALANCE_ETH),
+    ])
+    .build();
 
     let initial_account = FnvHashMap::from(&state);
     assert_eq!(initial_account.len(), 1);

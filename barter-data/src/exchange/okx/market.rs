@@ -54,14 +54,14 @@ fn okx_market(instrument: &MarketDataInstrument) -> OkxMarket {
 
     OkxMarket(match kind {
         Spot => format_smolstr!("{base}-{quote}").to_uppercase_smolstr(),
-        Future(future) => format_smolstr!("{base}-{quote}-{}", format_expiry(future.expiry))
+        Future(contract) => format_smolstr!("{base}-{quote}-{}", format_expiry(contract.expiry))
             .to_uppercase_smolstr(),
         Perpetual => format_smolstr!("{base}-{quote}-SWAP").to_uppercase_smolstr(),
-        Option(option) => format_smolstr!(
+        Option(contract) => format_smolstr!(
             "{base}-{quote}-{}-{}-{}",
-            format_expiry(option.expiry),
-            option.strike,
-            match option.kind {
+            format_expiry(contract.expiry),
+            contract.strike,
+            match contract.kind {
                 OptionKind::Call => "C",
                 OptionKind::Put => "P",
             },

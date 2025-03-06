@@ -2,7 +2,10 @@ use crate::{
     Underlying,
     asset::Asset,
     instrument::{
-        kind::InstrumentKind,
+        kind::{
+            InstrumentKind, future::FutureContract, option::OptionContract,
+            perpetual::PerpetualContract,
+        },
         market_data::{MarketDataInstrument, kind::MarketDataInstrumentKind},
         name::{InstrumentNameExchange, InstrumentNameInternal},
         quote::InstrumentQuoteAsset,
@@ -176,31 +179,23 @@ impl<ExchangeKey, AssetKey> Instrument<ExchangeKey, AssetKey> {
 
         let kind = match kind {
             InstrumentKind::Spot => InstrumentKind::Spot,
-            InstrumentKind::Perpetual {
-                contract_size,
-                settlement_asset,
-            } => InstrumentKind::Perpetual {
-                contract_size,
-                settlement_asset: find_asset(&settlement_asset)?,
-            },
-            InstrumentKind::Future {
-                contract,
-                contract_size,
-                settlement_asset,
-            } => InstrumentKind::Future {
-                contract,
-                contract_size,
-                settlement_asset: find_asset(&settlement_asset)?,
-            },
-            InstrumentKind::Option {
-                contract,
-                settlement_asset,
-                contract_size,
-            } => InstrumentKind::Option {
-                contract,
-                contract_size,
-                settlement_asset: find_asset(&settlement_asset)?,
-            },
+            InstrumentKind::Perpetual(contract) => InstrumentKind::Perpetual(PerpetualContract {
+                contract_size: contract.contract_size,
+                settlement_asset: find_asset(&contract.settlement_asset)?,
+            }),
+            InstrumentKind::Future(contract) => InstrumentKind::Future(FutureContract {
+                contract_size: contract.contract_size,
+                settlement_asset: find_asset(&contract.settlement_asset)?,
+                expiry: contract.expiry,
+            }),
+            InstrumentKind::Option(contract) => InstrumentKind::Option(OptionContract {
+                contract_size: contract.contract_size,
+                settlement_asset: find_asset(&contract.settlement_asset)?,
+                kind: contract.kind,
+                exercise: contract.exercise,
+                expiry: contract.expiry,
+                strike: contract.strike,
+            }),
         };
 
         let spec = match spec {
