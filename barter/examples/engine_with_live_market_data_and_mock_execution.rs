@@ -8,7 +8,7 @@ use barter::{
         run,
         state::{
             EngineState,
-            instrument::{data::DefaultInstrumentData, filter::InstrumentFilter},
+            instrument::{data::DefaultInstrumentMarketData, filter::InstrumentFilter},
             trading::TradingState,
         },
     },
@@ -90,21 +90,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let clock = LiveClock;
 
     // Construct EngineState from IndexedInstruments and hard-coded exchange asset Balances
-    let state =
-        EngineState::<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>::builder(
-            &instruments,
-        )
-        .time_engine_start(clock.time())
-        // Note: you may want to start to engine with TradingState::Disabled and turn on later
-        .trading_state(TradingState::Enabled)
-        .balances([
-            (EXCHANGE, "usdt", STARTING_BALANCE_USDT),
-            (EXCHANGE, "btc", STARTING_BALANCE_BTC),
-            (EXCHANGE, "eth", STARTING_BALANCE_ETH),
-            (EXCHANGE, "sol", STARTING_BALANCE_SOL),
-        ])
-        // Note: can add other initial data via this builder (eg/ exchange asset balances)
-        .build();
+    let state = EngineState::<
+        DefaultInstrumentMarketData,
+        DefaultStrategyState,
+        DefaultRiskManagerState,
+    >::builder(&instruments)
+    .time_engine_start(clock.time())
+    // Note: you may want to start to engine with TradingState::Disabled and turn on later
+    .trading_state(TradingState::Enabled)
+    .balances([
+        (EXCHANGE, "usdt", STARTING_BALANCE_USDT),
+        (EXCHANGE, "btc", STARTING_BALANCE_BTC),
+        (EXCHANGE, "eth", STARTING_BALANCE_ETH),
+        (EXCHANGE, "sol", STARTING_BALANCE_SOL),
+    ])
+    // Note: can add other initial data via this builder (eg/ exchange asset balances)
+    .build();
 
     // Generate initial AccountSnapshot from EngineState for BinanceSpot MockExchange
     // Note: for live-trading this would be automatically fetched via the AccountStream init

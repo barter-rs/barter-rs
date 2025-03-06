@@ -12,10 +12,10 @@ use derive_more::Constructor;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-pub type OrderRequestOpen<ExchangeKey, InstrumentKey> =
+pub type OrderRequestOpen<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> =
     OrderEvent<RequestOpen, ExchangeKey, InstrumentKey>;
 
-pub type OrderRequestCancel<ExchangeKey, InstrumentKey> =
+pub type OrderRequestCancel<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> =
     OrderEvent<RequestCancel, ExchangeKey, InstrumentKey>;
 
 pub type OrderResponseCancel<

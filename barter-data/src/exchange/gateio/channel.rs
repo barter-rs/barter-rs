@@ -39,10 +39,10 @@ where
     fn id(&self) -> GateioChannel {
         match self.instrument.kind() {
             MarketDataInstrumentKind::Spot => GateioChannel::SPOT_TRADES,
-            MarketDataInstrumentKind::Future(_) | MarketDataInstrumentKind::Perpetual => {
+            MarketDataInstrumentKind::Future { .. } | MarketDataInstrumentKind::Perpetual => {
                 GateioChannel::FUTURE_TRADES
             }
-            MarketDataInstrumentKind::Option(_) => GateioChannel::OPTION_TRADES,
+            MarketDataInstrumentKind::Option { .. } => GateioChannel::OPTION_TRADES,
         }
     }
 }
