@@ -1,6 +1,6 @@
 use barter::{
     engine::state::{
-        EngineState, instrument::market_data::DefaultMarketData, position::PositionExited,
+        EngineState, instrument::data::DefaultInstrumentData, position::PositionExited,
         trading::TradingState,
     },
     risk::DefaultRiskManagerState,
@@ -54,7 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Construct EngineState from IndexedInstruments and hard-coded exchange asset Balances
     let state =
-        EngineState::<DefaultMarketData, DefaultStrategyState, DefaultRiskManagerState>::builder(
+        EngineState::<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>::builder(
             &instruments,
         )
         .time_engine_start(time_now)

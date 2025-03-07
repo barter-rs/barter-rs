@@ -9,21 +9,25 @@ use rust_decimal::{Decimal, prelude::FromPrimitive};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-/// Defines a state object for tracking and managing the market data state of an instrument.
+/// Defines a state object for tracking and managing custom instrument level data.
 ///
-/// Implementations must handle market event processing and logic for providing the latest
-/// instrument price.
+/// Implementations must handle market event processing and provide logic for accessing the latest
+/// instrument market price.
 ///
-/// The trait enables users to provide their own instrument market data state, and the type of
-/// [`MarketEvent`] that is required to update it.
+/// This trait enables users to define their own instrument level data, and specify the type of
+/// [`MarketEvent`] that is required to update it. The custom instrument data could include
+/// market data, strategy-specific data, risk-specific data, or any other instrument level data.
 ///
-/// For an example, see the [`DefaultMarketData`] implementation.
-pub trait MarketDataState<InstrumentKey = InstrumentIndex>
+/// For an example, see the [`DefaultInstrumentData`] implementation.
+pub trait InstrumentDataState<InstrumentKey = InstrumentIndex>
 where
-    Self: Debug + Clone + Send + for<'a> Processor<&'a MarketEvent<InstrumentKey, Self::EventKind>>,
+    Self: Debug
+        + Clone
+        + Send
+        + for<'a> Processor<&'a MarketEvent<InstrumentKey, Self::MarketEventKind>>,
 {
-    /// [`MarketEvent<_, EventKind>`](MarketEvent) expected by this market data state.
-    type EventKind: Debug + Clone + Send;
+    /// [`MarketEvent<_, EventKind>`](MarketEvent) expected by this instrument data state.
+    type MarketEventKind: Debug + Clone + Send;
 
     /// Latest price for an instrument, if available.
     ///
@@ -36,21 +40,22 @@ where
     fn price(&self) -> Option<Decimal>;
 }
 
-/// Basic [`MarketDataState`] that tracks the [`OrderBookL1`] and last traded price for an
-/// instrument.
+/// Basic [`InstrumentDataState`] implementation that tracks the [`OrderBookL1`] and last traded price
+/// for an instrument.
 ///
-/// Trading strategies may wish to maintain more data here, such as candles, indicators,
-/// L2 book, etc.
+/// This is a simple example of instrument level data. Trading strategies typically maintain more
+/// comprehensive data, such as candles, technical indicators, market depth (L2 book), volatility metrics,
+/// or strategy-specific state data.
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize, Constructor,
 )]
-pub struct DefaultMarketData {
+pub struct DefaultInstrumentData {
     pub l1: OrderBookL1,
     pub last_traded_price: Option<Timed<Decimal>>,
 }
 
-impl MarketDataState for DefaultMarketData {
-    type EventKind = DataKind;
+impl InstrumentDataState for DefaultInstrumentData {
+    type MarketEventKind = DataKind;
 
     fn price(&self) -> Option<Decimal> {
         self.l1
@@ -59,7 +64,7 @@ impl MarketDataState for DefaultMarketData {
     }
 }
 
-impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>> for DefaultMarketData {
+impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>> for DefaultInstrumentData {
     type Audit = ();
 
     fn process(&mut self, event: &MarketEvent<InstrumentKey, DataKind>) -> Self::Audit {

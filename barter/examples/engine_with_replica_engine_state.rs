@@ -8,7 +8,7 @@ use barter::{
         run,
         state::{
             EngineState,
-            instrument::{filter::InstrumentFilter, market_data::DefaultMarketData},
+            instrument::{data::DefaultInstrumentData, filter::InstrumentFilter},
             trading::TradingState,
         },
     },
@@ -90,7 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Construct EngineState from IndexedInstruments and hard-coded exchange asset Balances
     let state =
-        EngineState::<DefaultMarketData, DefaultStrategyState, DefaultRiskManagerState>::builder(
+        EngineState::<DefaultInstrumentData, DefaultStrategyState, DefaultRiskManagerState>::builder(
             &instruments,
         )
         .time_engine_start(clock.time())

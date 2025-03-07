@@ -6,7 +6,7 @@ use crate::{
         audit::{context::EngineContext, shutdown::ShutdownAudit},
         clock::EngineClock,
         error::UnrecoverableEngineError,
-        state::{EngineState, instrument::market_data::MarketDataState},
+        state::{EngineState, instrument::data::InstrumentDataState},
     },
     strategy::{on_disconnect::OnDisconnectStrategy, on_trading_disabled::OnTradingDisabled},
 };
@@ -27,15 +27,15 @@ pub mod state_replica;
 
 /// Convenient type alias for the default `Engine` `AuditTick`.
 pub type DefaultAuditTick<
-    MarketState: MarketDataState,
+    InstrumentData: InstrumentDataState,
     StrategyState,
     RiskState,
     OnTradingDisabled,
     OnDisconnect,
 > = AuditTick<
     EngineAudit<
-        EngineState<MarketState, StrategyState, RiskState>,
-        EngineEvent<MarketState::EventKind>,
+        EngineState<InstrumentData, StrategyState, RiskState>,
+        EngineEvent<InstrumentData::MarketEventKind>,
         EngineOutput<OnTradingDisabled, OnDisconnect>,
     >,
     EngineContext,
