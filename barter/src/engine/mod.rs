@@ -16,7 +16,7 @@ use crate::{
         command::Command,
         execution_tx::ExecutionTxMap,
         state::{
-            EngineState, instrument::market_data::MarketDataState,
+            EngineState, instrument::data::InstrumentDataState,
             order::in_flight_recorder::InFlightRequestRecorder, position::PositionExited,
             trading::TradingState,
         },
@@ -148,7 +148,7 @@ where
 ///
 /// The `Engine`:
 /// * Processes input [`EngineEvent`] (or custom events if implemented).
-/// * Maintains the internal [`EngineState`] (market data state, open orders, positions, etc.).
+/// * Maintains the internal [`EngineState`] (instrument data state, open orders, positions, etc.).
 /// * Generates algo orders (if `TradingState::Enabled`).
 ///
 /// # Type Parameters
@@ -176,44 +176,44 @@ pub struct EngineMeta {
     pub sequence: Sequence,
 }
 
-impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
-    Processor<EngineEvent<MarketState::EventKind>>
+impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
+    Processor<EngineEvent<InstrumentData::MarketEventKind>>
     for Engine<
         Clock,
-        EngineState<MarketState, StrategyState, RiskState>,
+        EngineState<InstrumentData, StrategyState, RiskState>,
         ExecutionTxs,
         Strategy,
         Risk,
     >
 where
-    Clock: EngineClock + for<'a> Processor<&'a EngineEvent<MarketState::EventKind>>,
-    MarketState: MarketDataState,
+    Clock: EngineClock + for<'a> Processor<&'a EngineEvent<InstrumentData::MarketEventKind>>,
+    InstrumentData: InstrumentDataState,
     StrategyState: for<'a> Processor<&'a AccountEvent>
-        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
+        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
     RiskState: for<'a> Processor<&'a AccountEvent>
-        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
+        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
     ExecutionTxs: ExecutionTxMap<ExchangeIndex, InstrumentIndex>,
     Strategy: OnTradingDisabled<
             Clock,
-            EngineState<MarketState, StrategyState, RiskState>,
+            EngineState<InstrumentData, StrategyState, RiskState>,
             ExecutionTxs,
             Risk,
         > + OnDisconnectStrategy<
             Clock,
-            EngineState<MarketState, StrategyState, RiskState>,
+            EngineState<InstrumentData, StrategyState, RiskState>,
             ExecutionTxs,
             Risk,
-        > + AlgoStrategy<State = EngineState<MarketState, StrategyState, RiskState>>
-        + ClosePositionsStrategy<State = EngineState<MarketState, StrategyState, RiskState>>,
-    Risk: RiskManager<State = EngineState<MarketState, StrategyState, RiskState>>,
+        > + AlgoStrategy<State = EngineState<InstrumentData, StrategyState, RiskState>>
+        + ClosePositionsStrategy<State = EngineState<InstrumentData, StrategyState, RiskState>>,
+    Risk: RiskManager<State = EngineState<InstrumentData, StrategyState, RiskState>>,
 {
     type Audit = EngineAudit<
-        EngineState<MarketState, StrategyState, RiskState>,
-        EngineEvent<MarketState::EventKind>,
+        EngineState<InstrumentData, StrategyState, RiskState>,
+        EngineEvent<InstrumentData::MarketEventKind>,
         EngineOutput<Strategy::OnTradingDisabled, Strategy::OnDisconnect>,
     >;
 
-    fn process(&mut self, event: EngineEvent<MarketState::EventKind>) -> Self::Audit {
+    fn process(&mut self, event: EngineEvent<InstrumentData::MarketEventKind>) -> Self::Audit {
         self.clock.process(&event);
 
         let process_audit = match &event {
@@ -257,15 +257,21 @@ where
     }
 }
 
-impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
-    Engine<Clock, EngineState<MarketState, StrategyState, RiskState>, ExecutionTxs, Strategy, Risk>
+impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
+    Engine<
+        Clock,
+        EngineState<InstrumentData, StrategyState, RiskState>,
+        ExecutionTxs,
+        Strategy,
+        Risk,
+    >
 {
     /// Action an `Engine` [`Command`], producing an [`ActionOutput`] of work done.
     pub fn action(&mut self, command: &Command) -> ActionOutput
     where
         ExecutionTxs: ExecutionTxMap,
         Strategy:
-            ClosePositionsStrategy<State = EngineState<MarketState, StrategyState, RiskState>>,
+            ClosePositionsStrategy<State = EngineState<InstrumentData, StrategyState, RiskState>>,
         Risk: RiskManager,
     {
         match &command {
@@ -306,7 +312,7 @@ impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
     where
         Strategy: OnTradingDisabled<
                 Clock,
-                EngineState<MarketState, StrategyState, RiskState>,
+                EngineState<InstrumentData, StrategyState, RiskState>,
                 ExecutionTxs,
                 Risk,
             >,
@@ -331,7 +337,7 @@ impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
         RiskState: for<'a> Processor<&'a AccountEvent>,
         Strategy: OnDisconnectStrategy<
                 Clock,
-                EngineState<MarketState, StrategyState, RiskState>,
+                EngineState<InstrumentData, StrategyState, RiskState>,
                 ExecutionTxs,
                 Risk,
             >,
@@ -358,15 +364,17 @@ impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
     /// the `Engine` will call the configured [`OnDisconnectStrategy`] strategy logic.
     pub fn update_from_market_stream(
         &mut self,
-        event: &MarketStreamEvent<InstrumentIndex, MarketState::EventKind>,
+        event: &MarketStreamEvent<InstrumentIndex, InstrumentData::MarketEventKind>,
     ) -> UpdateFromMarketOutput<Strategy::OnDisconnect>
     where
-        MarketState: MarketDataState,
-        StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
-        RiskState: for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
+        InstrumentData: InstrumentDataState,
+        StrategyState:
+            for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
+        RiskState:
+            for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
         Strategy: OnDisconnectStrategy<
                 Clock,
-                EngineState<MarketState, StrategyState, RiskState>,
+                EngineState<InstrumentData, StrategyState, RiskState>,
                 ExecutionTxs,
                 Risk,
             >,

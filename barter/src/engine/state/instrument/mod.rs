@@ -1,6 +1,6 @@
 use crate::{
     engine::state::{
-        instrument::{filter::InstrumentFilter, market_data::MarketDataState},
+        instrument::{data::InstrumentDataState, filter::InstrumentFilter},
         order::{Orders, manager::OrderManager},
         position::{PositionExited, PositionManager},
     },
@@ -32,8 +32,9 @@ use itertools::Either;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-/// Defines the instrument-centric [`MarketDataState`] interface.
-pub mod market_data;
+/// Defines the state interface [`InstrumentDataState`] that can be implemented for custom
+/// instrument level data state.
+pub mod data;
 
 /// Defines an `InstrumentFilter`, used to filter instrument-centric data structures.
 pub mod filter;
@@ -44,14 +45,14 @@ pub mod filter;
 /// on different exchanges will have their own [`InstrumentState`].
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct InstrumentStates<
-    Market,
+    InstrumentData,
     ExchangeKey = ExchangeIndex,
     AssetKey = AssetIndex,
     InstrumentKey = InstrumentIndex,
 >(
     pub  FnvIndexMap<
         InstrumentNameInternal,
-        InstrumentState<Market, ExchangeKey, AssetKey, InstrumentKey>,
+        InstrumentState<InstrumentData, ExchangeKey, AssetKey, InstrumentKey>,
     >,
 );
 
@@ -166,27 +167,27 @@ impl<Market> InstrumentStates<Market> {
         self.filtered(filter).map(|state| &state.orders)
     }
 
-    /// Return an `Iterator` of all instrument `MarketDataState`s, optionally filtered by the
-    /// provided `InstrumentFilter`.
-    pub fn market_datas<'a>(
+    /// Return an `Iterator` of all user defined instrument level data state, optionally filtered
+    /// by the provided `InstrumentFilter`.
+    pub fn instrument_datas<'a>(
         &'a self,
         filter: &'a InstrumentFilter,
     ) -> impl Iterator<Item = &'a Market>
     where
         Market: 'a,
     {
-        self.filtered(filter).map(|state| &state.market)
+        self.filtered(filter).map(|state| &state.data)
     }
 }
 
 /// Represents the current state of an instrument, including its [`Position`], [`Orders`], and
-/// user provided market data state.
+/// user provided instrument data.
 ///
-/// This aggregates all the critical trading state for a single instrument, providing a complete
-/// view of its current trading status and market conditions.
+/// This aggregates all the state and data for a single instrument, providing a comprehensive
+/// view of the instrument.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
 pub struct InstrumentState<
-    Market,
+    InstrumentData,
     ExchangeKey = ExchangeIndex,
     AssetKey = AssetIndex,
     InstrumentKey = InstrumentIndex,
@@ -206,12 +207,13 @@ pub struct InstrumentState<
     /// Active orders and associated order management.
     pub orders: Orders<ExchangeKey, InstrumentKey>,
 
-    /// User provided market data state associated with this instrument.
-    pub market: Market,
+    /// User provided instrument level data state. This can include market data, strategy data,
+    /// risk data, option pricing data, or any other instrument-specific information.
+    pub data: InstrumentData,
 }
 
-impl<Market, ExchangeKey, AssetKey, InstrumentKey>
-    InstrumentState<Market, ExchangeKey, AssetKey, InstrumentKey>
+impl<InstrumentData, ExchangeKey, AssetKey, InstrumentKey>
+    InstrumentState<InstrumentData, ExchangeKey, AssetKey, InstrumentKey>
 {
     /// Updates the instrument state using an account snapshot from the exchange.
     ///
@@ -273,21 +275,23 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
             .inspect(|closed| self.tear_sheet.update_from_position(closed))
     }
 
-    /// Updates the instrument's market data state from a new market event.
+    /// Updates the instrument state based on a new market event.
     ///
     /// If the market event has a price associated with it (eg/ `PublicTrade`, `OrderBookL1`), any
     /// open [`Position`] `pnl_unrealised` is re-calculated.
-    pub fn update_from_market(&mut self, event: &MarketEvent<InstrumentKey, Market::EventKind>)
-    where
-        Market: MarketDataState<InstrumentKey>,
+    pub fn update_from_market(
+        &mut self,
+        event: &MarketEvent<InstrumentKey, InstrumentData::MarketEventKind>,
+    ) where
+        InstrumentData: InstrumentDataState<InstrumentKey>,
     {
-        self.market.process(event);
+        self.data.process(event);
 
         let Some(position) = &mut self.position.current else {
             return;
         };
 
-        let Some(price) = self.market.price() else {
+        let Some(price) = self.data.price() else {
             return;
         };
 
@@ -296,13 +300,13 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
 }
 
 pub fn generate_unindexed_instrument_account_snapshot<
-    Market,
+    InstrumentData,
     ExchangeKey,
     AssetKey,
     InstrumentKey,
 >(
     exchange: ExchangeId,
-    state: &InstrumentState<Market, ExchangeKey, AssetKey, InstrumentKey>,
+    state: &InstrumentState<InstrumentData, ExchangeKey, AssetKey, InstrumentKey>,
 ) -> InstrumentAccountSnapshot<ExchangeId, AssetNameExchange, InstrumentNameExchange>
 where
     ExchangeKey: Debug + Clone,
@@ -314,7 +318,7 @@ where
         tear_sheet: _,
         position: _,
         orders,
-        market: _,
+        data: _,
     } = state;
 
     InstrumentAccountSnapshot {

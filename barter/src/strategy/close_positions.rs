@@ -1,6 +1,6 @@
 use crate::engine::state::{
     EngineState,
-    instrument::{filter::InstrumentFilter, market_data::MarketDataState},
+    instrument::{data::InstrumentDataState, filter::InstrumentFilter},
 };
 use barter_execution::order::{
     OrderKey, OrderKind, TimeInForce,
@@ -36,7 +36,7 @@ pub trait ClosePositionsStrategy<
     ///
     /// For Barter ecosystem strategies, this is the full `EngineState` of the trading system.
     ///
-    /// eg/ `EngineState<DefaultMarketState, DefaultStrategyState, DefaultRiskManagerState>`
+    /// eg/ `EngineState<DefaultInstrumentState, DefaultStrategyState, DefaultRiskManagerState>`
     type State;
 
     /// Generate orders based on current system `State`.
@@ -58,16 +58,16 @@ pub trait ClosePositionsStrategy<
 ///
 /// This function finds all open positions and generates equal but opposite `Side` market orders
 /// that will neutralise the position.
-pub fn close_open_positions_with_market_orders<'a, MarketState, StrategyState, RiskState>(
+pub fn close_open_positions_with_market_orders<'a, InstrumentData, StrategyState, RiskState>(
     strategy_id: &'a StrategyId,
-    state: &'a EngineState<MarketState, StrategyState, RiskState>,
+    state: &'a EngineState<InstrumentData, StrategyState, RiskState>,
     filter: &'a InstrumentFilter,
 ) -> (
     impl IntoIterator<Item = OrderRequestCancel<ExchangeIndex, InstrumentIndex>> + 'a,
     impl IntoIterator<Item = OrderRequestOpen<ExchangeIndex, InstrumentIndex>> + 'a,
 )
 where
-    MarketState: MarketDataState,
+    InstrumentData: InstrumentDataState,
     ExchangeIndex: 'a,
     AssetIndex: 'a,
     InstrumentIndex: 'a,
@@ -78,7 +78,7 @@ where
         .filter_map(move |state| {
             // Only generate orders if there is a Position and we have market data
             let position = state.position.current.as_ref()?;
-            let price = state.market.price()?;
+            let price = state.data.price()?;
 
             Some(OrderRequestOpen {
                 key: OrderKey {

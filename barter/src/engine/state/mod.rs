@@ -5,8 +5,9 @@ use crate::engine::{
         builder::EngineStateBuilder,
         connectivity::{ConnectivityStates, generate_empty_indexed_connectivity_states},
         instrument::{
-            InstrumentStates, filter::InstrumentFilter, generate_empty_indexed_instrument_states,
-            generate_unindexed_instrument_account_snapshot, market_data::MarketDataState,
+            InstrumentStates, data::InstrumentDataState, filter::InstrumentFilter,
+            generate_empty_indexed_instrument_states,
+            generate_unindexed_instrument_account_snapshot,
         },
         position::PositionExited,
         trading::TradingState,
@@ -36,7 +37,7 @@ pub mod asset;
 /// and account connections for each exchange.
 pub mod connectivity;
 
-/// Instrument-centric state and associated state management logic.
+/// Instrument-level state and associated state management logic.
 pub mod instrument;
 
 /// Defines a synchronous `OrderManager` that tracks the lifecycle of exchange orders.
@@ -54,7 +55,7 @@ pub mod builder;
 
 /// Algorithmic trading `Engine` state.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct EngineState<Market, Strategy, Risk> {
+pub struct EngineState<InstrumentData, Strategy, Risk> {
     /// Current `TradingState` of the `Engine`.
     pub trading: TradingState,
 
@@ -67,7 +68,7 @@ pub struct EngineState<Market, Strategy, Risk> {
 
     /// State of every instrument (eg/ "okx_spot_btc_usdt", "bybit_perpetual_btc_usdt", etc.)
     /// being tracked by the `Engine`.
-    pub instruments: InstrumentStates<Market, ExchangeIndex, AssetIndex, InstrumentIndex>,
+    pub instruments: InstrumentStates<InstrumentData, ExchangeIndex, AssetIndex, InstrumentIndex>,
 
     /// Configurable global `Strategy` state.
     pub strategy: Strategy,
@@ -76,13 +77,13 @@ pub struct EngineState<Market, Strategy, Risk> {
     pub risk: Risk,
 }
 
-impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
+impl<InstrumentData, Strategy, Risk> EngineState<InstrumentData, Strategy, Risk> {
     /// Construct an [`EngineStateBuilder`] to assist with `EngineState` initialisation.
     pub fn builder(
         instruments: &IndexedInstruments,
-    ) -> EngineStateBuilder<'_, Market, Strategy, Risk>
+    ) -> EngineStateBuilder<'_, InstrumentData, Strategy, Risk>
     where
-        Market: Default,
+        InstrumentData: Default,
         Strategy: Default,
         Risk: Default,
     {
@@ -160,21 +161,24 @@ impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
     /// This method:
     /// - Sets the market data [`ConnectivityState`](connectivity::ConnectivityState) to
     ///   [`Health::Healthy`](connectivity::Health::Healthy) if it was not previously.
-    /// - Updates the [`MarketDataState`] associated with the `MarketEvent` instrument.
+    /// - Updates the [`InstrumentDataState`] associated with the `MarketEvent` instrument.
     /// - Processes the `MarketEvent` with the configured `Strategy` and `RiskManager`
     ///   implementations.
-    pub fn update_from_market(&mut self, event: &MarketEvent<InstrumentIndex, Market::EventKind>)
-    where
-        Market: MarketDataState,
-        Strategy: for<'a> Processor<&'a MarketEvent<InstrumentIndex, Market::EventKind>>,
-        Risk: for<'a> Processor<&'a MarketEvent<InstrumentIndex, Market::EventKind>>,
+    pub fn update_from_market(
+        &mut self,
+        event: &MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>,
+    ) where
+        InstrumentData: InstrumentDataState,
+        Strategy:
+            for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
+        Risk: for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
     {
         // Set exchange market data connectivity to Healthy if it was Reconnecting
         self.connectivity.update_from_market_event(&event.exchange);
 
         let instrument_state = self.instruments.instrument_index_mut(&event.instrument);
 
-        instrument_state.market.process(event);
+        instrument_state.data.process(event);
         self.strategy.process(event);
         self.risk.process(event);
     }
