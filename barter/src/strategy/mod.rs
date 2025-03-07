@@ -3,7 +3,7 @@ use crate::{
         Engine, Processor,
         state::{
             EngineState,
-            instrument::{filter::InstrumentFilter, market_data::MarketDataState},
+            instrument::{data::InstrumentDataState, filter::InstrumentFilter},
         },
     },
     strategy::{
@@ -85,12 +85,12 @@ impl<State, ExchangeKey, InstrumentKey> AlgoStrategy<ExchangeKey, InstrumentKey>
     }
 }
 
-impl<MarketState, StrategyState, RiskState> ClosePositionsStrategy
-    for DefaultStrategy<EngineState<MarketState, StrategyState, RiskState>>
+impl<InstrumentData, StrategyState, RiskState> ClosePositionsStrategy
+    for DefaultStrategy<EngineState<InstrumentData, StrategyState, RiskState>>
 where
-    MarketState: MarketDataState,
+    InstrumentData: InstrumentDataState,
 {
-    type State = EngineState<MarketState, StrategyState, RiskState>;
+    type State = EngineState<InstrumentData, StrategyState, RiskState>;
 
     fn close_positions_requests<'a>(
         &'a self,

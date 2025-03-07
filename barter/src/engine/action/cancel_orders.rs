@@ -32,10 +32,10 @@ pub trait CancelOrders<
     ) -> SendRequestsOutput<RequestCancel, ExchangeKey, InstrumentKey>;
 }
 
-impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk> CancelOrders
+impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Risk> CancelOrders
     for Engine<
         Clock,
-        EngineState<MarketState, StrategyState, RiskState>,
+        EngineState<InstrumentData, StrategyState, RiskState>,
         ExecutionTxs,
         Strategy,
         Risk,

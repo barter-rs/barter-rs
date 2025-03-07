@@ -12,7 +12,7 @@ pub trait AlgoStrategy<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIn
     ///
     /// For Barter ecosystem strategies, this is the full `EngineState` of the trading system.
     ///
-    /// eg/ `EngineState<DefaultMarketState, DefaultStrategyState, DefaultRiskManagerState>`
+    /// eg/ `EngineState<DefaultInstrumentState, DefaultStrategyState, DefaultRiskManagerState>`
     type State;
 
     /// Generate algorithmic orders based on current system `State`.

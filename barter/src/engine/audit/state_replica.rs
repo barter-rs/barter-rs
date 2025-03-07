@@ -6,7 +6,7 @@ use crate::{
             AuditTick, DefaultAuditTick, EngineAudit, ProcessAudit, context::EngineContext,
             shutdown::ShutdownAudit,
         },
-        state::{EngineState, instrument::market_data::MarketDataState},
+        state::{EngineState, instrument::data::InstrumentDataState},
     },
     execution::AccountStreamEvent,
 };
@@ -29,18 +29,18 @@ pub struct StateReplicaManager<State> {
     pub state_replica: AuditTick<State, EngineContext>,
 }
 
-impl<MarketState, StrategyState, RiskState>
-    StateReplicaManager<EngineState<MarketState, StrategyState, RiskState>>
+impl<InstrumentData, StrategyState, RiskState>
+    StateReplicaManager<EngineState<InstrumentData, StrategyState, RiskState>>
 where
-    MarketState: MarketDataState,
+    InstrumentData: InstrumentDataState,
     StrategyState: for<'a> Processor<&'a AccountEvent>
-        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
+        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
     RiskState: for<'a> Processor<&'a AccountEvent>
-        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, MarketState::EventKind>>,
+        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
 {
     /// Construct a new `StateReplicaManager` using the provided `EngineState` snapshot as a seed.
     pub fn new(
-        snapshot: AuditTick<EngineState<MarketState, StrategyState, RiskState>, EngineContext>,
+        snapshot: AuditTick<EngineState<InstrumentData, StrategyState, RiskState>, EngineContext>,
     ) -> Self {
         Self {
             meta_start: EngineMeta {
@@ -59,7 +59,13 @@ where
     ) -> Result<(), String>
     where
         AuditIter: Iterator<
-            Item = DefaultAuditTick<MarketState, StrategyState, RiskState, OnDisable, OnDisconnect>,
+            Item = DefaultAuditTick<
+                InstrumentData,
+                StrategyState,
+                RiskState,
+                OnDisable,
+                OnDisconnect,
+            >,
         >,
         OnDisable: Debug,
         OnDisconnect: Debug,
@@ -123,7 +129,7 @@ where
     }
 
     /// Updates the internal `EngineState` using the provided `EngineEvent`.
-    pub fn update_from_event(&mut self, event: EngineEvent<MarketState::EventKind>) {
+    pub fn update_from_event(&mut self, event: EngineEvent<InstrumentData::MarketEventKind>) {
         match event {
             EngineEvent::Shutdown | EngineEvent::Command(_) => {
                 // No action required
@@ -158,13 +164,13 @@ where
     }
 
     /// Returns a reference to the `EngineState` replica.
-    pub fn replica_engine_state(&self) -> &EngineState<MarketState, StrategyState, RiskState> {
+    pub fn replica_engine_state(&self) -> &EngineState<InstrumentData, StrategyState, RiskState> {
         &self.state_replica.event
     }
 
     fn replica_engine_state_mut(
         &mut self,
-    ) -> &mut EngineState<MarketState, StrategyState, RiskState> {
+    ) -> &mut EngineState<InstrumentData, StrategyState, RiskState> {
         &mut self.state_replica.event
     }
 }
