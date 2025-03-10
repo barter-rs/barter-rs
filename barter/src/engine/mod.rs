@@ -38,6 +38,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::info;
+use crate::engine::buffer::RequestBuff;
 
 /// Defines how the [`Engine`] actions a [`Command`], and the associated outputs.
 pub mod action;
@@ -67,6 +68,9 @@ pub mod execution_tx;
 ///
 /// eg/ `ConnectivityStates`, `AssetStates`, `InstrumentStates`, `Position`, etc.
 pub mod state;
+
+// Todo
+mod buffer;
 
 /// Defines how a component processing an input Event and generates an appropriate Audit.
 pub trait Processor<Event> {
@@ -165,6 +169,7 @@ pub struct Engine<Clock, State, ExecutionTxs, Strategy, Risk> {
     pub execution_txs: ExecutionTxs,
     pub strategy: Strategy,
     pub risk: Risk,
+    buff: RequestBuff
 }
 
 /// Running [`Engine`] metadata.

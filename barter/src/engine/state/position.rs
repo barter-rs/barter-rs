@@ -11,6 +11,11 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::error;
 
+pub struct PositionManagerNew<InstrumentKey = InstrumentIndex> {
+    pub global: Option<Position<QuoteAsset, InstrumentKey>>,
+    pub by_strategy: Vec<Position<QuoteAsset, InstrumentKey>>
+}
+
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
 pub struct PositionManager<InstrumentKey = InstrumentIndex> {
     pub current: Option<Position<QuoteAsset, InstrumentKey>>,
