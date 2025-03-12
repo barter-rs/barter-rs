@@ -3,46 +3,57 @@ use std::marker::PhantomData;
 use super::http::{
     parser::BybitParser,
     requests::{
-        CancelOrderBody, CancelOrderRequest, GetOpenAndClosedOrders, GetOpenAndClosedOrdersParams,
-        GetOrderTradesParams, GetOrderTradesRequest, GetWalletBalanceParams,
-        GetWalletBalanceRequest, GetWalletBalanceResponseInner,
+        CancelOrderBody, CancelOrderRequest, CancelOrderResponse, GetOpenAndClosedOrders,
+        GetOpenAndClosedOrdersParams, GetOpenAndClosedOrdersResponse, GetOrderTradesParams,
+        GetOrderTradesRequest, GetWalletBalanceParams, GetWalletBalanceRequest,
+        GetWalletBalanceResponseInner, PlaceOrderResponse,
     },
     signer::{BybitRequestSigner, BybitSigner},
 };
 use super::servers::BybitServer;
 use super::types::AccountType;
-use super::websocket::{extract_event, subscribe, BybitPayload};
+use super::websocket::{BybitPayload, extract_event, subscribe};
 use barter_instrument::{
-    asset::{name::AssetNameExchange, QuoteAsset},
+    asset::{QuoteAsset, name::AssetNameExchange},
     exchange::ExchangeId,
     instrument::name::InstrumentNameExchange,
 };
 use barter_integration::{
-    channel::{mpsc_unbounded, Tx},
+    channel::{Tx, mpsc_unbounded},
     protocol::{
-        http::{private::encoder::HexEncoder, rest::client::RestClient},
-        websocket::{connect, WebSocketParser},
         StreamParser,
+        http::{private::encoder::HexEncoder, rest::client::RestClient},
+        websocket::{WebSocketParser, connect},
     },
 };
 use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use hmac::{Hmac, Mac};
 use itertools::Itertools;
+use rust_decimal::Decimal;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{debug, error, warn};
 
 use crate::{
+    InstrumentAccountSnapshot, UnindexedAccountEvent, UnindexedAccountSnapshot,
     balance::{AssetBalance, Balance},
-    client::ExecutionClient,
-    error::{ConnectivityError, UnindexedClientError, UnindexedOrderError},
+    client::{
+        ExecutionClient,
+        bybit::{
+            http::requests::{PlaceOrderBody, PlaceOrderRequest},
+            types::BybitOrderTimeInForce,
+        },
+    },
+    error::{ClientError, ConnectivityError, UnindexedClientError, UnindexedOrderError},
     order::{
+        Order, OrderKey,
         id::StrategyId,
+        request::{
+            OrderRequestCancel, OrderRequestOpen, OrderResponseCancel, UnindexedOrderResponseCancel,
+        },
         state::{Cancelled, Open},
-        Order, RequestCancel, RequestOpen,
     },
     trade::{AssetFees, Trade},
-    InstrumentAccountSnapshot, UnindexedAccountEvent, UnindexedAccountSnapshot,
 };
 
 use super::BybitConfig;
@@ -102,8 +113,8 @@ where
             .fetch_open_orders()
             .await?
             .into_iter()
-            .sorted_by(|a, b| a.instrument.cmp(&b.instrument))
-            .chunk_by(|order| order.instrument.clone());
+            .sorted_by(|a, b| a.key.instrument.cmp(&b.key.instrument))
+            .chunk_by(|order| order.key.instrument.clone());
 
         let instruments = orders_by_instrument
             .into_iter()
@@ -206,93 +217,106 @@ where
 
     async fn cancel_order(
         &self,
-        cancel_request: Order<ExchangeId, &InstrumentNameExchange, RequestCancel>,
-    ) -> Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedOrderError>> {
+        cancel_request: OrderRequestCancel<ExchangeId, &InstrumentNameExchange>,
+    ) -> UnindexedOrderResponseCancel {
         let request = CancelOrderRequest::new(CancelOrderBody {
             category: Server::CATEGORY,
-            instrument: cancel_request.instrument.clone(),
+            instrument: cancel_request.key.instrument.clone(),
             exchange_order_id: None,
-            client_order_id: Some(cancel_request.cid.clone()),
+            client_order_id: Some(cancel_request.key.cid.clone()),
         });
 
-        let state = self
-            .rest_client
-            .execute(request)
-            .await
+        let response: Result<(CancelOrderResponse, _), _> = self.rest_client.execute(request).await;
+        let state = response
             .map(|(response, _metric)| Cancelled {
                 id: response.result.exchange_order_id,
                 time_exchange: response.time,
             })
-            // TODO: How to go from UnindexedClientError to UnindexedOrderError?
-            .map_err(|_| {
-                UnindexedOrderError::Connectivity(ConnectivityError::Socket(
-                    "some error".to_string(),
-                ))
+            .map_err(|err| match err {
+                ClientError::Connectivity(connectivity_error) => {
+                    UnindexedOrderError::Connectivity(connectivity_error)
+                }
+                ClientError::Api(api_error) => UnindexedOrderError::Rejected(api_error),
+                _else => UnindexedOrderError::Rejected(crate::error::UnindexedApiError::Custom(
+                    _else.to_string(),
+                )),
             });
 
-        Order {
-            exchange: Self::EXCHANGE,
-            instrument: cancel_request.instrument.clone(),
-            strategy: cancel_request.strategy,
-            cid: cancel_request.cid,
-            side: cancel_request.side,
-            state,
-        }
+        let key = OrderKey {
+            exchange: cancel_request.key.exchange,
+            instrument: cancel_request.key.instrument.clone(),
+            strategy: cancel_request.key.strategy,
+            cid: cancel_request.key.cid,
+        };
+        OrderResponseCancel { key, state }
     }
 
     async fn open_order(
         &self,
-        open_request: Order<ExchangeId, &InstrumentNameExchange, RequestOpen>,
+        open_request: OrderRequestOpen<ExchangeId, &InstrumentNameExchange>,
     ) -> Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>> {
-        // let time_in_force = match open_request.state.time_in_force.try_into() {
-        //     Ok(time_in_force) => time_in_force,
-        //     Err(err) => {
-        //         return Order {
-        //             exchange: Self::EXCHANGE,
-        //             instrument: open_request.instrument.clone(),
-        //             strategy: open_request.strategy,
-        //             cid: open_request.cid,
-        //             side: open_request.side,
-        //             state: Err(err),
-        //         }
-        //     }
-        // };
+        let key = OrderKey {
+            exchange: open_request.key.exchange,
+            instrument: open_request.key.instrument.clone(),
+            strategy: open_request.key.strategy,
+            cid: open_request.key.cid.clone(),
+        };
 
-        // let request = PlaceOrderRequest::new(PlaceOrderBody {
-        //     category: Server::CATEGORY,
-        //     instrument: open_request.instrument.clone(),
-        //     client_order_id: Some(open_request.cid.clone()),
-        //     side: open_request.side,
-        //     kind: open_request.state.kind,
-        //     time_in_force,
-        //     quantity: open_request.state.quantity,
-        //     price: Some(open_request.state.price),
-        //     position_side: None,
-        //     reduce_only: None,
-        // });
+        let time_in_force: BybitOrderTimeInForce = match open_request.state.time_in_force.try_into()
+        {
+            Ok(time_in_force) => time_in_force,
+            Err(err) => {
+                return Order {
+                    key,
+                    side: open_request.state.side,
+                    price: open_request.state.price,
+                    quantity: open_request.state.quantity,
+                    kind: open_request.state.kind,
+                    time_in_force: open_request.state.time_in_force,
+                    state: Err(UnindexedOrderError::Rejected(err)),
+                };
+            }
+        };
 
-        // let state = self
-        //     .rest_client
-        //     .execute(request)
-        //     .await
-        //     .map(|(response, _metric)| Open {
-        //         id: response.result.exchange_order_id,
-        //         time_exchange: response.time,
-        //         price: open_request.state.price,
-        //         quantity: open_request.state.quantity,
-        //         filled_quantity: Decimal::ZERO,
-        //     })
-        //     .map_err(Into::into);
+        let request = PlaceOrderRequest::new(PlaceOrderBody {
+            category: Server::CATEGORY,
+            instrument: open_request.key.instrument.clone(),
+            client_order_id: Some(open_request.key.cid.clone()),
+            side: open_request.state.side,
+            kind: open_request.state.kind,
+            time_in_force,
+            quantity: open_request.state.quantity,
+            price: Some(open_request.state.price),
+            position_side: None,
+            reduce_only: None,
+        });
 
-        // Order {
-        //     exchange: Self::EXCHANGE,
-        //     instrument: open_request.instrument.clone(),
-        //     strategy: open_request.strategy,
-        //     cid: open_request.cid,
-        //     side: open_request.side,
-        //     state,
-        // }
-        todo!()
+        let response: Result<(PlaceOrderResponse, _), _> = self.rest_client.execute(request).await;
+        let state = response
+            .map(|(response, _metric)| Open {
+                id: response.result.exchange_order_id,
+                time_exchange: response.time,
+                filled_quantity: Decimal::ZERO,
+            })
+            .map_err(|err| match err {
+                ClientError::Connectivity(connectivity_error) => {
+                    UnindexedOrderError::Connectivity(connectivity_error)
+                }
+                ClientError::Api(api_error) => UnindexedOrderError::Rejected(api_error),
+                _else => UnindexedOrderError::Rejected(crate::error::UnindexedApiError::Custom(
+                    _else.to_string(),
+                )),
+            });
+
+        Order {
+            key,
+            side: open_request.state.side,
+            price: open_request.state.price,
+            quantity: open_request.state.quantity,
+            kind: open_request.state.kind,
+            time_in_force: open_request.state.time_in_force,
+            state,
+        }
     }
 
     async fn fetch_balances(
@@ -337,7 +361,8 @@ where
         let request = GetOpenAndClosedOrders::new(GetOpenAndClosedOrdersParams {
             category: Server::CATEGORY,
         });
-        let (response, _) = self.rest_client.execute(request).await?;
+        let (response, _): (GetOpenAndClosedOrdersResponse, _) =
+            self.rest_client.execute(request).await?;
 
         let orders = response
             .result
@@ -348,18 +373,23 @@ where
                     debug!("fetch_open_orders: filtered out an order without a client id");
                     return None;
                 };
-
-                Some(Order {
+                let key = OrderKey {
                     exchange: Self::EXCHANGE,
                     instrument: o.instrument,
                     strategy: StrategyId::unknown(),
                     cid,
+                };
+
+                Some(Order {
+                    key,
+                    price: o.price,
+                    quantity: o.quantity,
+                    kind: o.kind,
+                    time_in_force: o.time_in_force.into(),
                     side: o.side,
                     state: Open {
                         id: o.exchange_order_id,
                         time_exchange: response.time,
-                        price: o.price,
-                        quantity: o.quantity,
                         filled_quantity: o.filled_quantity,
                     },
                 })

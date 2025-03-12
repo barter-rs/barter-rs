@@ -1,13 +1,13 @@
 use std::borrow::Cow;
 
-use barter_instrument::{instrument::name::InstrumentNameExchange, Side};
+use barter_instrument::{Side, instrument::name::InstrumentNameExchange};
 use barter_integration::protocol::http::rest::RestRequest;
 use chrono::{DateTime, Utc};
 use derive_more::derive::Constructor;
 use reqwest::Method;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, skip_serializing_none, DisplayFromStr, TimestampMilliSeconds};
+use serde_with::{DisplayFromStr, TimestampMilliSeconds, serde_as, skip_serializing_none};
 
 use crate::{
     client::bybit::{

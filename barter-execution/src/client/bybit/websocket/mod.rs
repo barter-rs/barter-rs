@@ -1,8 +1,8 @@
-use barter_instrument::asset::name::AssetNameExchange;
+use barter_instrument::Side;
 use barter_instrument::asset::QuoteAsset;
+use barter_instrument::asset::name::AssetNameExchange;
 use barter_instrument::exchange::ExchangeId;
 use barter_instrument::instrument::name::InstrumentNameExchange;
-use barter_instrument::Side;
 use barter_integration::de::de_u64_epoch_ms_as_datetime_utc;
 use barter_integration::error::SocketError;
 use barter_integration::protocol::http::private::encoder::{Encoder, HexEncoder};
@@ -10,11 +10,11 @@ use barter_integration::protocol::websocket::{WebSocket, WsMessage};
 use chrono::{DateTime, Duration, Utc};
 use futures::{SinkExt, StreamExt};
 use hmac::{Hmac, Mac};
-use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::FromPrimitive;
 use serde::Deserialize;
 use serde_json::value::RawValue;
-use serde_with::{serde_as, DefaultOnError, DisplayFromStr};
+use serde_with::{DefaultOnError, DisplayFromStr, serde_as};
 use sha2::Sha256;
 
 use crate::order::id::{OrderId, StrategyId};

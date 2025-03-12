@@ -1,12 +1,12 @@
 use std::borrow::Cow;
 
 use ::serde::{Deserialize, Serialize};
-use barter_instrument::{instrument::name::InstrumentNameExchange, Side};
+use barter_instrument::{Side, instrument::name::InstrumentNameExchange};
 use barter_integration::protocol::http::rest::RestRequest;
 use derive_more::derive::Constructor;
 use reqwest::Method;
 use rust_decimal::Decimal;
-use serde_with::{serde_as, skip_serializing_none, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as, skip_serializing_none};
 
 use crate::{
     client::bybit::{
@@ -14,8 +14,8 @@ use crate::{
         types::{BybitOrderTimeInForce, BybitPositionSide, InstrumentCategory},
     },
     order::{
-        id::{ClientOrderId, OrderId},
         OrderKind,
+        id::{ClientOrderId, OrderId},
     },
 };
 
@@ -41,7 +41,7 @@ impl RestRequest for PlaceOrderRequest {
     }
 }
 
-type PlaceOrderResponse = BybitHttpResponse<PlaceOrderResponseInner>;
+pub type PlaceOrderResponse = BybitHttpResponse<PlaceOrderResponseInner>;
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct PlaceOrderResponseInner {

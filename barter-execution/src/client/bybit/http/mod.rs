@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DefaultOnError, TimestampMilliSeconds};
+use serde_with::{DefaultOnError, TimestampMilliSeconds, serde_as};
 
 use super::types::InstrumentCategory;
 

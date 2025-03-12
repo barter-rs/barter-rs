@@ -5,7 +5,7 @@ use barter_integration::protocol::http::rest::RestRequest;
 use reqwest::Method;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, skip_serializing_none, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as, skip_serializing_none};
 
 use crate::client::bybit::{
     http::{BybitHttpResponse, ResultList},
