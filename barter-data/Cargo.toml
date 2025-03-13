@@ -30,6 +30,7 @@ tokio-stream = { workspace = true, features = ["sync"] }
 futures = { workspace = true }
 futures-util = { workspace = true }
 async-trait = { workspace = true }
+pin-project = { workspace = true }
 
 # Protocol
 url = { workspace = true }
@@ -53,3 +54,4 @@ derive_more = { workspace = true }
 itertools = { workspace = true }
 vecmap-rs = { workspace = true }
 fnv = { workspace = true }
+databento = "0.20.0"
