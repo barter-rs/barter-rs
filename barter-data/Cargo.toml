@@ -31,6 +31,7 @@ futures = { workspace = true }
 futures-util = { workspace = true }
 async-trait = { workspace = true }
 pin-project = { workspace = true }
+time = { version = "0.3.39", features = ["macros"]}
 
 # Protocol
 url = { workspace = true }

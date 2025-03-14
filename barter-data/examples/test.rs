@@ -1,20 +1,26 @@
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::error::Error;
+use std::fmt::Display;
 use std::os::raw::c_char;
 use std::pin::Pin;
 use std::process::Output;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use chrono::DateTime;
-use databento::dbn::{Dataset, MboMsg, Metadata, Record, RecordRef, SType, Schema, TradeMsg};
+use databento::dbn::{Action, Dataset, MboMsg, Metadata, Record, RecordRef, SType, Schema, TradeMsg, Side as DbSide, SymbolIndex, pretty, UNDEF_PRICE, BidAskPair, Publisher};
 use databento::live::{Client, Subscription};
-use databento::{Error as DbError, LiveClient};
+use databento::{Error as DbError, HistoricalClient, LiveClient};
 use databento::dbn::Schema::Trades;
+use databento::historical::timeseries::{GetRangeParams, GetRangeToFileParams};
 use futures::{pin_mut, Stream, TryFuture};
 use futures_util::{stream, FutureExt, StreamExt};
 use pin_project::pin_project;
+use rust_decimal::Decimal;
+use rust_decimal::prelude::FromPrimitive;
+use serde::{Deserialize, Serialize};
 use smol_str::ToSmolStr;
+use time::macros::datetime;
 use tokio::sync::mpsc;
-use tokio::time;
 use barter_data::{
     event::DataKind,
     exchange::{
@@ -35,10 +41,11 @@ use tracing::instrument::WithSubscriber;
 use barter_data::books::{Level, OrderBook};
 use barter_data::error::DataError;
 use barter_data::event::MarketEvent;
+use barter_data::provider::databento::DatabentoSide;
 use barter_data::streams::consumer::{StreamKey, STREAM_RECONNECTION_POLICY};
 use barter_data::streams::reconnect::Event;
 use barter_data::streams::reconnect::stream::init_reconnecting_stream;
-use barter_data::subscription::book::OrderBookEvent;
+use barter_data::subscription::book::{OrderBookAction, OrderBookEvent, OrderBookUpdate};
 use barter_data::subscription::SubscriptionKind;
 use barter_data::subscription::trade::PublicTrade;
 use barter_instrument::asset::name::AssetNameInternal;
@@ -53,50 +60,109 @@ trait CustomDataProvider {
 }
 
 #[pin_project]
-struct BentoDataProvider {
+struct DatabentoProvider {
     #[pin]
     client: Client,
     initialised: bool,
+    buffer: VecDeque<MarketStreamResult<InstrumentIndex, DataKind>>,
 }
 
-impl BentoDataProvider {
+impl DatabentoProvider {
     pub fn new(client: Client) -> Self {
         Self {
             client,
             initialised: false,
+            buffer: VecDeque::new(),
         }
     }
-
 }
 
-pub fn transform_mb0(mbo: &MboMsg) -> Option<MarketEvent<InstrumentIndex, DataKind>> {
+pub fn transform_mb0(mbo: &MboMsg) -> Result<Option<MarketEvent<InstrumentIndex, DataKind>>, DataError> {
+
     let time_exchange = DateTime::from_timestamp_nanos(mbo.ts_recv as i64).to_utc();
 
-    dbg!(mbo.flags.is_snapshot(), mbo.action);
-    if mbo.flags.is_snapshot() && mbo.action.to_string() == "R" {
-        return Some(MarketEvent {
-            time_exchange: time_exchange.clone(),
-            time_received: chrono::Utc::now(),
-            exchange: ExchangeId::Other,
-            instrument: InstrumentIndex(0),
-            kind: DataKind::from(OrderBookEvent::Snapshot(
-                OrderBook::new::<Vec<_>, Vec<_>, Level>(mbo.sequence as u64, Some(time_exchange), vec![], vec![])
-            )),
-        })
+    // check if snapshot and create book here
+
+    if mbo.price == UNDEF_PRICE {
+        return Ok(None)
     }
 
-    None
+    let side = mbo.side()?;
+    let price = mbo.price_f64();
+
+    match mbo.action() {
+        Ok(Action::Add) => {
+            Ok(Some(MarketEvent {
+                time_exchange: time_exchange.clone(),
+                time_received: chrono::Utc::now(),
+                exchange: ExchangeId::Other,
+                instrument: InstrumentIndex(0),
+                kind: DataKind::from(OrderBookEvent::IncrementalUpdate(OrderBookUpdate {
+                    order_id: Some(mbo.order_id.to_string()),
+                    price: Decimal::from_f64(price).unwrap(),
+                    amount: Decimal::from(mbo.size),
+                    side: DatabentoSide::from(side).into(),
+                    sequence: mbo.sequence as u64,
+                    action: OrderBookAction::Add,
+                })),
+            }))
+        }
+        Ok(Action::Modify) => {
+            Ok(Some(MarketEvent {
+                time_exchange: time_exchange.clone(),
+                time_received: chrono::Utc::now(),
+                exchange: ExchangeId::Other,
+                instrument: InstrumentIndex(0),
+                kind: DataKind::from(OrderBookEvent::IncrementalUpdate(OrderBookUpdate {
+                    order_id: Some(mbo.order_id.to_string()),
+                    price: Decimal::from_f64(price).unwrap(),
+                    amount: Decimal::from(mbo.size),
+                    side: DatabentoSide::from(side).into(),
+                    sequence: mbo.sequence as u64,
+                    action: OrderBookAction::Modify,
+                })),
+            }))
+        },
+        Ok(Action::Cancel) => {
+            Ok(Some(MarketEvent {
+                time_exchange: time_exchange.clone(),
+                time_received: chrono::Utc::now(),
+                exchange: ExchangeId::Other,
+                instrument: InstrumentIndex(0),
+                kind: DataKind::from(OrderBookEvent::IncrementalUpdate(OrderBookUpdate {
+                    order_id: Some(mbo.order_id.to_string()),
+                    price: Decimal::from_f64(price).unwrap(),
+                    amount: Decimal::from(mbo.size),
+                    side: DatabentoSide::from(side).into(),
+                    sequence: mbo.sequence as u64,
+                    action: OrderBookAction::Cancel,
+                })),
+            }))
+        },
+        Ok(Action::Clear) => {
+            Ok(Some(MarketEvent {
+                time_exchange: time_exchange.clone(),
+                time_received: chrono::Utc::now(),
+                exchange: ExchangeId::Other,
+                instrument: InstrumentIndex(0),
+                kind: DataKind::from(OrderBookEvent::Clear),
+            }))
+        },
+        Ok(Action::Trade) | Ok(Action::Fill) | Ok(Action::None) => {
+            Ok(None)
+        }
+        Err(e) => {
+            Err(DataError::from(e))
+        }
+    }
 }
 
-pub fn transform(record_ref: RecordRef) -> Option<MarketEvent<InstrumentIndex, DataKind>> {
-    dbg!(record_ref);
+pub fn transform(record_ref: RecordRef) -> Result<Option<MarketEvent<InstrumentIndex, DataKind>>, DataError> {
     if let Some(mb0) = record_ref.get::<MboMsg>() {
+        dbg!(mb0);
         return transform_mb0(mb0);
     }
-    // } else if let Some(trade) = record_ref.get::<TradeMsg>() {
-    //     return transform_trade(trade);
-    // }
-    None
+    Ok(None)
 }
 
 fn transform_trade(trade: &TradeMsg) -> MarketEvent<InstrumentIndex, DataKind> {
@@ -115,7 +181,7 @@ fn transform_trade(trade: &TradeMsg) -> MarketEvent<InstrumentIndex, DataKind> {
     }
 }
 
-impl CustomDataProvider for BentoDataProvider {
+impl CustomDataProvider for DatabentoProvider {
     async fn init(&mut self) -> Result<(), DbError> {
         match self.client.start().await {
             Ok(_) => {
@@ -127,39 +193,45 @@ impl CustomDataProvider for BentoDataProvider {
     }
 }
 
-impl Stream for BentoDataProvider {
+impl Stream for DatabentoProvider {
     type Item = MarketStreamResult<InstrumentIndex, DataKind>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let mut binding = self.project();
-        let future = binding.client.next_record();
-        pin_mut!(future);
+        let mut this = self.project();
+        loop {
+            if let Some(output) = this.buffer.pop_front() {
+                return Poll::Ready(Some(MarketStreamResult::from(output)));
+            }
 
-        let input = match future.try_poll(cx) {
-            Poll::Ready(Ok(Some(record_ref))) => {
-                transform(record_ref)
-            },
-            Poll::Pending => return Poll::Pending,
-            _ => return Poll::Ready(None),
-        };
+            let future = this.client.next_record();
+            pin_mut!(future);
 
-        dbg!(&input);
+            let input = match future.try_poll(cx) {
+                Poll::Ready(Ok(Some(record_ref))) => {
+                    transform(record_ref)
+                },
+                Poll::Pending => return Poll::Pending,
+                _ => {
+                    return Poll::Ready(None)
+                },
+            };
 
-        Poll::Pending
+            if input.is_err() {
+                continue;
+            }
 
-        // match input {
-        //     None => {
-        //         Poll::Pending
-        //     },
-        //     Some(event) => {
-        //         Poll::Ready(Some(Event::Item(Ok(event))))
-        //     }
-        // }
+            match input.unwrap() {
+                Some(event) => {
+                    this.buffer.push_back(Event::Item(Ok(event)));
+                },
+                None => {
+                    continue;
+                }
+            }
+        }
     }
 }
 
-fn test_stream<S>(stream: S) -> S
-where S: Stream<Item = MarketStreamResult<InstrumentIndex, DataKind>>{stream}
 
 #[rustfmt::skip]
 #[tokio::main]
@@ -236,6 +308,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // while let Some(event) = stream.next().await {
     //     dbg!(event);
     // }
+    //
+    // let mut client = HistoricalClient::builder()
+    //     .key_from_env()?
+    //     .build()?;
+
+    // let path = "dbeq-basic-202505012.mbo.dbn.zst";
+
+    // let mut decoder = client
+    //     .timeseries()
+    //     .get_range_to_file(
+    //         &GetRangeToFileParams::builder()
+    //             .dataset(Dataset::DbeqBasic)
+    //             .date_time_range((
+    //                 datetime!(2025-03-11 00:00:00 UTC),
+    //                 datetime!(2025-03-13 23:00:00 UTC),
+    //             ))
+    //             .symbols("QQQ")
+    //             .schema(Schema::Mbo)
+    //             .path(path)
+    //             .build(),
+    //     )
+    //     .await?;
+    //
+    // let symbol_map = decoder.metadata().symbol_map()?;
+
+    // while let Some(mbo) = decoder.decode_record::<MboMsg>().await? {
+    //     let result = transform_mb0(mbo);
+    //     if mbo.flags.is_snapshot() {
+    //         dbg!(mbo);
+    //     }
+    //
+    //     ()
+    // }
 
     let mut client = LiveClient::builder()
         .key_from_env()?
@@ -248,26 +353,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .symbols(vec!["NVDA"])
             .schema(Schema::Mbo)
             .stype_in(SType::RawSymbol)
+            .use_snapshot()
             .build(),
     ).await.unwrap();
 
-    // client.subscribe(
-    //   Subscription::builder()
-    //     .symbols(vec!["QQQ"])
-    //     .schema(Schema::Trades)
-    //     .stype_in(SType::RawSymbol)
-    //     .build(),
-    // ).await.unwrap();
-
-    let mut provider = BentoDataProvider::new(client);
-
+    let mut provider = DatabentoProvider::new(client);
     let _ = provider.init().await?;
-
     while let Some(event) = provider.next().await {
         dbg!(event);
     }
-
-
 
     Ok(())
 
