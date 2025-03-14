@@ -4,9 +4,18 @@ use barter_integration::{error::SocketError, subscription::SubscriptionId};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+impl From<databento::dbn::Error> for DataError {
+    fn from(err: databento::dbn::Error) -> Self {
+        Self::DatabentoError(err.to_string())
+    }
+}
+
 /// All errors generated in `barter-data`.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
 pub enum DataError {
+    #[error("An error occurred: {0}")]
+    DatabentoError(String),
+
     #[error("failed to index market data Subscriptions: {0}")]
     Index(#[from] IndexError),
 

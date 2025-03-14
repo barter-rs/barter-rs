@@ -160,6 +160,7 @@ pub mod books;
 /// [`spot`](exchange::binance::spot::l2::BinanceSpotOrderBooksL2Transformer) and
 /// [`futures_usd`](exchange::binance::futures::l2::BinanceFuturesUsdOrderBooksL2Transformer).
 pub mod transformer;
+pub mod provider;
 
 /// Convenient type alias for an [`ExchangeStream`] utilising a tungstenite
 /// [`WebSocket`](barter_integration::protocol::websocket::WebSocket).
