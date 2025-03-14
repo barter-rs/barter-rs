@@ -67,7 +67,7 @@ impl OrderBook {
                 self.upsert_bids(update.bids);
                 self.upsert_asks(update.asks);
             }
-            OrderBookEvent::IncrementalUpdate(update) => {
+            OrderBookEvent::IncrementalUpdate(_update) => {
 
             },
             OrderBookEvent::Clear => {
