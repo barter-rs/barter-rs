@@ -31,6 +31,7 @@ use derive_more::Constructor;
 use itertools::Either;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use crate::engine::state::position::PositionManagerNew;
 
 /// Defines the state interface [`InstrumentDataState`] that can be implemented for custom
 /// instrument level data state.
@@ -134,17 +135,17 @@ impl<Market> InstrumentStates<Market> {
         }
     }
 
-    /// Return an `Iterator` of instrument `TearSheetGenerator`s, optionally filtered by the
-    /// provided `InstrumentFilter`.
-    pub fn tear_sheets<'a>(
-        &'a self,
-        filter: &'a InstrumentFilter,
-    ) -> impl Iterator<Item = &'a TearSheetGenerator>
-    where
-        Market: 'a,
-    {
-        self.filtered(filter).map(|state| &state.tear_sheet)
-    }
+    // /// Return an `Iterator` of instrument `TearSheetGenerator`s, optionally filtered by the
+    // /// provided `InstrumentFilter`.
+    // pub fn tear_sheets<'a>(
+    //     &'a self,
+    //     filter: &'a InstrumentFilter,
+    // ) -> impl Iterator<Item = &'a TearSheetGenerator>
+    // where
+    //     Market: 'a,
+    // {
+    //     self.filtered(filter).map(|state| &state.tear_sheet)
+    // }
 
     /// Return an `Iterator` of instrument `PositionManager`s, optionally filtered by the
     /// provided `InstrumentFilter`.
@@ -198,11 +199,12 @@ pub struct InstrumentState<
     /// Complete instrument definition.
     pub instrument: Instrument<ExchangeKey, AssetKey>,
 
-    /// TearSheet generator for summarising the trading performance associated with an Instrument.
-    pub tear_sheet: TearSheetGenerator,
+    // /// TearSheet generator for summarising the trading performance associated with an Instrument.
+    // pub tear_sheet: TearSheetGenerator,
 
     /// Current `PositionManager`.
-    pub position: PositionManager<InstrumentKey>,
+    // pub position: PositionManager<InstrumentKey>,
+    pub positions: PositionManagerNew<InstrumentKey>,
 
     /// Active orders and associated order management.
     pub orders: Orders<ExchangeKey, InstrumentKey>,
