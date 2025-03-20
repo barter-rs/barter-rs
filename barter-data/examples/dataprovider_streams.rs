@@ -22,8 +22,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     client.subscribe(
         Subscription::builder()
-            .symbols(vec!["QQQ"])
-            .schema(Schema::Mbo)
+            .symbols(vec!["NVDA"])
+            .schema(Schema::Mbp1)
             .stype_in(SType::RawSymbol)
             .use_snapshot()
             .build(),

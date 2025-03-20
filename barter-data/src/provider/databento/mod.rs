@@ -1,4 +1,4 @@
-mod transform;
+pub mod transform;
 
 use std::collections::VecDeque;
 use std::pin::Pin;
