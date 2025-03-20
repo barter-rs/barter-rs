@@ -10,7 +10,6 @@ use barter_data::provider::Provider;
 
 #[rustfmt::skip]
 #[tokio::main]
-#[cfg(feature = "databento")]
 async fn main() -> Result<(), Box<dyn Error>> {
     // Initialise INFO Tracing log subscriber
     init_logging();
