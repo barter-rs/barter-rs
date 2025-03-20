@@ -4,8 +4,16 @@ use barter_integration::{error::SocketError, subscription::SubscriptionId};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg(feature = "databento")]
 impl From<databento::dbn::Error> for DataError {
     fn from(err: databento::dbn::Error) -> Self {
+        Self::DatabentoError(err.to_string())
+    }
+}
+
+#[cfg(feature = "databento")]
+impl From<databento::Error> for DataError {
+    fn from(err: databento::Error) -> Self {
         Self::DatabentoError(err.to_string())
     }
 }

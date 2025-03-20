@@ -31,7 +31,6 @@ futures = { workspace = true }
 futures-util = { workspace = true }
 async-trait = { workspace = true }
 pin-project = { workspace = true }
-time = { version = "0.3.39", features = ["macros"]}
 
 # Protocol
 url = { workspace = true }
@@ -55,4 +54,10 @@ derive_more = { workspace = true }
 itertools = { workspace = true }
 vecmap-rs = { workspace = true }
 fnv = { workspace = true }
-databento = "0.20.0"
+
+# Features
+databento = { version = "0.20.0", optional = true }
+
+
+[features]
+databento = ["dep:databento"]
