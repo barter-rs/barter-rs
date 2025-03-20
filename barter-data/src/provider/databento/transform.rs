@@ -99,7 +99,7 @@ pub fn transform_mbo(mbo: &MboMsg) -> Result<Option<MarketEvent<InstrumentIndex,
         return Err(e);
     }
 
-    Ok(Some(MarketEvent::from(result.unwrap())))
+    Ok(Some(MarketEvent::from(result?)))
 }
 
 fn transform_mbp1(mbp1: &Mbp1Msg) -> Result<Option<MarketEvent<InstrumentIndex, DataKind>>, DataError> {
