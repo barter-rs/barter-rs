@@ -56,7 +56,6 @@ impl<InstrumentKey> TryFrom<(InstrumentKey, MboMsg)> for MarketEvent<InstrumentK
             Ok(Action::Add) => Ok(to_market_event(instrument, mbo, OrderBookAction::Add)),
             Ok(Action::Modify) => Ok(to_market_event(instrument, mbo, OrderBookAction::Modify)),
             Ok(Action::Cancel) => Ok(to_market_event(instrument, mbo, OrderBookAction::Cancel)),
-            Ok(Action::Trade) | Ok(Action::Fill) | Ok(Action::None) => Err(DataError::Generic("Unsupported action".to_string())),
             Err(e) => Err(DataError::from(e)),
             _ => {
                 Err(DataError::Generic("Unsupported action".to_string()))
