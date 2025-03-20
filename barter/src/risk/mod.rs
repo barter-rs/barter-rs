@@ -1,4 +1,4 @@
-use crate::engine::Processor;
+use crate::engine::{Processor, WithAudit};
 use barter_data::event::MarketEvent;
 use barter_execution::{
     AccountEvent,
@@ -147,14 +147,17 @@ impl<State, ExchangeKey, InstrumentKey> RiskManager<ExchangeKey, InstrumentKey>
 )]
 pub struct DefaultRiskManagerState;
 
+// Implement WithAudit for DefaultRiskManagerState
+impl WithAudit for DefaultRiskManagerState {
+    type Audit = ();
+}
+
 impl<ExchangeKey, AssetKey, InstrumentKey>
     Processor<&AccountEvent<ExchangeKey, AssetKey, InstrumentKey>> for DefaultRiskManagerState
 {
-    type Audit = ();
     fn process(&mut self, _: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) -> Self::Audit {}
 }
 
 impl<InstrumentKey, Kind> Processor<&MarketEvent<InstrumentKey, Kind>> for DefaultRiskManagerState {
-    type Audit = ();
     fn process(&mut self, _: &MarketEvent<InstrumentKey, Kind>) -> Self::Audit {}
 }

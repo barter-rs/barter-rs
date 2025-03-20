@@ -14,6 +14,8 @@ use barter_integration::collection::one_or_many::OneOrMany;
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 
+use super::WithAudit;
+
 /// Defines data structures that represent the context an `Engine` [`AuditTick`] was generated.
 pub mod context;
 
@@ -27,7 +29,7 @@ pub mod state_replica;
 
 /// Convenient type alias for the default `Engine` `AuditTick`.
 pub type DefaultAuditTick<
-    InstrumentData: InstrumentDataState,
+    InstrumentData: InstrumentDataState + WithAudit,
     StrategyState,
     RiskState,
     OnTradingDisabled,
@@ -36,7 +38,7 @@ pub type DefaultAuditTick<
     EngineAudit<
         EngineState<InstrumentData, StrategyState, RiskState>,
         EngineEvent<InstrumentData::MarketEventKind>,
-        EngineOutput<OnTradingDisabled, OnDisconnect>,
+        EngineOutput<OnTradingDisabled, OnDisconnect, InstrumentData::Audit>,
     >,
     EngineContext,
 >;
@@ -70,17 +72,20 @@ where
         AuditKind: From<Kind>;
 }
 
-impl<Audit, Clock, State, ExecutionTxs, Strategy, Risk> Auditor<Audit>
-    for Engine<Clock, State, ExecutionTxs, Strategy, Risk>
+impl<Audit, Clock, ExecutionTxs, Strategy, Risk, InstrumentData, StrategyState, RiskState> Auditor<Audit>
+    for Engine<Clock, EngineState<InstrumentData, StrategyState, RiskState>, ExecutionTxs, Strategy, Risk>
 where
-    Audit: From<State>,
+    Audit: From<EngineState<InstrumentData, StrategyState, RiskState>>,
     Clock: EngineClock,
-    State: Clone,
-    Strategy: OnTradingDisabled<Clock, State, ExecutionTxs, Risk>
-        + OnDisconnectStrategy<Clock, State, ExecutionTxs, Risk>,
+    EngineState<InstrumentData, StrategyState, RiskState>: Clone,
+    Strategy: OnTradingDisabled<Clock, EngineState<InstrumentData, StrategyState, RiskState>, ExecutionTxs, Risk>
+        + OnDisconnectStrategy<Clock, EngineState<InstrumentData, StrategyState, RiskState>, ExecutionTxs, Risk>,
+    InstrumentData: WithAudit + Clone,
+    StrategyState: Clone,
+    RiskState: Clone,
 {
-    type Snapshot = State;
-    type Output = EngineOutput<Strategy::OnTradingDisabled, Strategy::OnDisconnect>;
+    type Snapshot = EngineState<InstrumentData, StrategyState, RiskState>;
+    type Output = EngineOutput<Strategy::OnTradingDisabled, Strategy::OnDisconnect, InstrumentData::Audit>;
     type Shutdown<Event> = ShutdownAudit<Event, Self::Output>;
     type Context = EngineContext;
 
@@ -200,8 +205,8 @@ pub enum ProcessAudit<Event, Output> {
     ProcessWithOutput(Event, OneOrMany<Output>),
 }
 
-impl<Event, OnTradingDisabled, OnDisconnect>
-    ProcessAudit<Event, EngineOutput<OnTradingDisabled, OnDisconnect>>
+impl<Event, OnTradingDisabled, OnDisconnect, InstrumentDataChange>
+    ProcessAudit<Event, EngineOutput<OnTradingDisabled, OnDisconnect, InstrumentDataChange>>
 {
     pub fn with_command_output<E>(event: E, output: ActionOutput) -> Self
     where
@@ -244,7 +249,7 @@ impl<Event, OnTradingDisabled, OnDisconnect>
         }
     }
 
-    pub fn with_market_update<E>(event: E, account: UpdateFromMarketOutput<OnDisconnect>) -> Self
+    pub fn with_market_update<E>(event: E, account: UpdateFromMarketOutput<OnDisconnect, InstrumentDataChange>) -> Self
     where
         E: Into<Event>,
     {
@@ -253,6 +258,10 @@ impl<Event, OnTradingDisabled, OnDisconnect>
             UpdateFromMarketOutput::OnDisconnect(disconnect) => Self::ProcessWithOutput(
                 event.into(),
                 OneOrMany::One(EngineOutput::MarketDisconnect(disconnect)),
+            ),
+            UpdateFromMarketOutput::OnStateUpdate(state_update) => Self::ProcessWithOutput(
+                event.into(),
+                OneOrMany::One(EngineOutput::OnStateUpdate(state_update)),
             ),
         }
     }
@@ -288,23 +297,41 @@ impl<State, Event, Output> From<ProcessAudit<Event, Output>> for EngineAudit<Sta
     }
 }
 
-impl<State, OnTradingDisabled, OnDisconnect, MarketEventKind>
-    From<ShutdownAudit<EngineEvent<MarketEventKind>, EngineOutput<OnTradingDisabled, OnDisconnect>>>
+impl<State, OnTradingDisabled, OnDisconnect, MarketEventKind, InstrumentDataChange>
+    From<ShutdownAudit<EngineEvent<MarketEventKind>, EngineOutput<OnTradingDisabled, OnDisconnect, InstrumentDataChange>>>
     for EngineAudit<
         State,
         EngineEvent<MarketEventKind>,
-        EngineOutput<OnTradingDisabled, OnDisconnect>,
+        EngineOutput<OnTradingDisabled, OnDisconnect, InstrumentDataChange>,
     >
 {
     fn from(
         value: ShutdownAudit<
             EngineEvent<MarketEventKind>,
-            EngineOutput<OnTradingDisabled, OnDisconnect>,
+            EngineOutput<OnTradingDisabled, OnDisconnect, InstrumentDataChange>,
         >,
     ) -> Self {
         Self::Shutdown(value)
     }
 }
+
+// impl<OnTradingDisabled, OnDisconnect, MarketEventKind, InstrumentDataChange, Strategy, Risk>
+//     From<ShutdownAudit<EngineEvent<MarketEventKind>, EngineOutput<OnTradingDisabled, OnDisconnect, InstrumentDataChange>>>
+//     for EngineAudit<
+//         EngineState<InstrumentDataChange, Strategy, Risk>,
+//         EngineEvent<MarketEventKind>,
+//         EngineOutput<OnTradingDisabled, OnDisconnect, InstrumentDataChange>,
+//     >
+// {
+//     fn from(
+//         value: ShutdownAudit<
+//             EngineEvent<MarketEventKind>,
+//             EngineOutput<OnTradingDisabled, OnDisconnect, InstrumentDataChange>,
+//         >,
+//     ) -> Self {
+//         Self::Shutdown(value)
+//     }
+// }
 
 impl<State, Event, Output> From<&EngineAudit<State, Event, Output>>
     for Option<ShutdownAudit<Event, Output>>

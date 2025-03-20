@@ -1,6 +1,6 @@
 use crate::{
     engine::{
-        Engine, Processor,
+        Engine, Processor, WithAudit,
         state::{
             EngineState,
             instrument::{data::InstrumentDataState, filter::InstrumentFilter},
@@ -138,14 +138,21 @@ impl<Clock, State, ExecutionTxs, Risk> OnTradingDisabled<Clock, State, Execution
 )]
 pub struct DefaultStrategyState;
 
+// Implement WithAudit for DefaultStrategyState
+impl WithAudit for DefaultStrategyState {
+    type Audit = Vec<()>;
+}
+
 impl<ExchangeKey, AssetKey, InstrumentKey>
     Processor<&AccountEvent<ExchangeKey, AssetKey, InstrumentKey>> for DefaultStrategyState
 {
-    type Audit = ();
-    fn process(&mut self, _: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) -> Self::Audit {}
+    fn process(&mut self, _: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) -> Self::Audit {
+        vec![]
+    }
 }
 
 impl<InstrumentKey, Kind> Processor<&MarketEvent<InstrumentKey, Kind>> for DefaultStrategyState {
-    type Audit = ();
-    fn process(&mut self, _: &MarketEvent<InstrumentKey, Kind>) -> Self::Audit {}
+    fn process(&mut self, _: &MarketEvent<InstrumentKey, Kind>) -> Self::Audit {
+        vec![]
+    }
 }
