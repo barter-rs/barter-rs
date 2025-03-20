@@ -7,14 +7,14 @@ use thiserror::Error;
 #[cfg(feature = "databento")]
 impl From<databento::dbn::Error> for DataError {
     fn from(err: databento::dbn::Error) -> Self {
-        Self::DatabentoError(err.to_string())
+        Self::Generic(err.to_string())
     }
 }
 
 #[cfg(feature = "databento")]
 impl From<databento::Error> for DataError {
     fn from(err: databento::Error) -> Self {
-        Self::DatabentoError(err.to_string())
+        Self::Generic(err.to_string())
     }
 }
 
@@ -22,7 +22,7 @@ impl From<databento::Error> for DataError {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
 pub enum DataError {
     #[error("An error occurred: {0}")]
-    DatabentoError(String),
+    Generic(String),
 
     #[error("failed to index market data Subscriptions: {0}")]
     Index(#[from] IndexError),
