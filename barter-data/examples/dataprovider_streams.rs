@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     //         .build(),
     // ).await.unwrap();
 
-        client.subscribe(
+    client.subscribe(
         Subscription::builder()
             .symbols(vec!["NVDA"])
             .schema(Schema::Mbo)

@@ -98,7 +98,6 @@ pub fn transform_mbo(mbo: &MboMsg) -> Result<Option<MarketEvent<InstrumentIndex,
 }
 
 fn transform_mbp1(mbp1: &Mbp1Msg) -> Result<Option<MarketEvent<InstrumentIndex, DataKind>>, DataError> {
-    dbg!(mbp1);
     Ok(Some(MarketEvent::from(MarketEvent::from((InstrumentIndex(0), mbp1.clone())))))
 }
 
