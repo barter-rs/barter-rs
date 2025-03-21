@@ -20,12 +20,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .build()
         .await?;
 
-    client.subscribe(
+    // client.subscribe(
+    //     Subscription::builder()
+    //         .symbols(vec!["NVDA"])
+    //         .schema(Schema::Mbp1)
+    //         .stype_in(SType::RawSymbol)
+    //         .build(),
+    // ).await.unwrap();
+
+        client.subscribe(
         Subscription::builder()
-            .symbols(vec!["QQQ"])
+            .symbols(vec!["NVDA"])
             .schema(Schema::Mbo)
             .stype_in(SType::RawSymbol)
-            .use_snapshot()
             .build(),
     ).await.unwrap();
 

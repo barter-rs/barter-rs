@@ -8,6 +8,7 @@ use barter_instrument::Side;
 use databento::{dbn::Side as DbSide, live::Client};
 use futures::{pin_mut, Stream, TryFuture};
 use pin_project::pin_project;
+use tracing::error;
 use barter_instrument::instrument::InstrumentIndex;
 use crate::error::DataError;
 use crate::event::DataKind;
@@ -54,7 +55,8 @@ impl Stream for DatabentoProvider {
                 _ => return Poll::Ready(None)
             };
 
-            if input.is_err() {
+            if let Err(e) = input {
+                error!("Error processing record: {:?}", e);
                 continue;
             }
 

@@ -1,5 +1,5 @@
 use chrono::DateTime;
-use databento::dbn::{Action, MboMsg, Mbp1Msg, RecordRef, UNDEF_PRICE};
+use databento::dbn::{Action, ErrorMsg, MboMsg, Mbp1Msg, RecordRef, UNDEF_PRICE};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::FromPrimitive;
 use barter_instrument::exchange::ExchangeId;
@@ -9,7 +9,7 @@ use crate::books::Level;
 use crate::error::DataError;
 use crate::event::{DataKind, MarketEvent};
 use crate::provider::databento::DatabentoSide;
-use crate::subscription::book::{OrderBookAction, OrderBookEvent, OrderBookL1, OrderBookUpdate, OrderBooksL1};
+use crate::subscription::book::{OrderBookAction, OrderBookEvent, OrderBookL1, OrderBookUpdate};
 
 fn to_market_event<InstrumentKey>(instrument: InstrumentKey, mbo: MboMsg, action: OrderBookAction) -> MarketEvent<InstrumentKey, OrderBookEvent> {
     let time_exchange = DateTime::from_timestamp_nanos(mbo.ts_recv as i64).to_utc();
@@ -45,13 +45,6 @@ impl<InstrumentKey> TryFrom<(InstrumentKey, MboMsg)> for MarketEvent<InstrumentK
     type Error = DataError;
 
     fn try_from((instrument, mbo): (InstrumentKey, MboMsg)) -> Result<Self, Self::Error> {
-        let time_exchange = DateTime::from_timestamp_nanos(mbo.ts_recv as i64).to_utc();
-        let exchange = ExchangeId::Other;
-
-        if mbo.price == UNDEF_PRICE {
-            return Err(DataError::Generic("Unsupported price".to_string()));
-        }
-
         match mbo.action() {
             Ok(Action::Add) => Ok(to_market_event(instrument, mbo, OrderBookAction::Add)),
             Ok(Action::Modify) => Ok(to_market_event(instrument, mbo, OrderBookAction::Modify)),
@@ -93,11 +86,13 @@ impl<InstrumentKey> From<(InstrumentKey, Mbp1Msg)> for MarketEvent<InstrumentKey
 }
 
 pub fn transform_mbo(mbo: &MboMsg) -> Result<Option<MarketEvent<InstrumentIndex, DataKind>>, DataError> {
-    let result = MarketEvent::try_from((InstrumentIndex(0), mbo.clone()));
-
-    if let Err(e) = result {
-        return Err(e);
+    if mbo.price == UNDEF_PRICE {
+        return Ok(None);
     }
+
+    let result = MarketEvent::try_from(
+        (InstrumentIndex(0), mbo.clone()));
+
 
     Ok(Some(MarketEvent::from(result?)))
 }
@@ -108,6 +103,11 @@ fn transform_mbp1(mbp1: &Mbp1Msg) -> Result<Option<MarketEvent<InstrumentIndex, 
 }
 
 pub fn transform(record_ref: RecordRef<'_>) -> Result<Option<MarketEvent<InstrumentIndex, DataKind>>, DataError> {
+
+    if let Some(e) = record_ref.get::<ErrorMsg>() {
+        return Err(DataError::from(e.clone()));
+    }
+
     if let Some(mbo) = record_ref.get::<MboMsg>() {
         return transform_mbo(mbo);
     }

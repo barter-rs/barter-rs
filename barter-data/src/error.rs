@@ -5,6 +5,13 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[cfg(feature = "databento")]
+impl From<databento::dbn::record::ErrorMsg> for DataError {
+    fn from(err: databento::dbn::record::ErrorMsg) -> Self {
+        Self::Generic(err.err().unwrap().parse().unwrap())
+    }
+}
+
+#[cfg(feature = "databento")]
 impl From<databento::dbn::Error> for DataError {
     fn from(err: databento::dbn::Error) -> Self {
         Self::Generic(err.to_string())
