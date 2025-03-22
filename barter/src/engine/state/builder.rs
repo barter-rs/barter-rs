@@ -17,19 +17,19 @@ use tracing::debug;
 
 /// Builder utility for an [`EngineState`] instance.
 #[derive(Debug, Clone)]
-pub struct EngineStateBuilder<'a, Market, Strategy, Risk> {
+pub struct EngineStateBuilder<'a, InstrumentData, Strategy, Risk> {
     pub instruments: &'a IndexedInstruments,
     pub strategy: Option<Strategy>,
     pub risk: Option<Risk>,
     pub trading_state: Option<TradingState>,
     pub time_engine_start: Option<DateTime<Utc>>,
     pub balances: FnvHashMap<ExchangeAsset<AssetNameInternal>, Balance>,
-    phantom: PhantomData<Market>,
+    phantom: PhantomData<InstrumentData>,
 }
 
-impl<'a, Market, Strategy, Risk> EngineStateBuilder<'a, Market, Strategy, Risk>
+impl<'a, InstrumentData, Strategy, Risk> EngineStateBuilder<'a, InstrumentData, Strategy, Risk>
 where
-    Market: Default,
+    InstrumentData: Default,
     Strategy: Default,
     Risk: Default,
 {
@@ -117,7 +117,7 @@ where
     /// Use the builder data to generate the associated [`EngineState`].
     ///
     /// If optional data is not provided (eg/ Balances), default values are used (eg/ zero Balance).
-    pub fn build(self) -> EngineState<Market, Strategy, Risk> {
+    pub fn build(self) -> EngineState<InstrumentData, Strategy, Risk> {
         let Self {
             instruments,
             strategy,
@@ -150,7 +150,7 @@ where
             trading: trading_state.unwrap_or_default(),
             connectivity: generate_empty_indexed_connectivity_states(instruments),
             assets,
-            instruments: generate_empty_indexed_instrument_states::<Market>(
+            instruments: generate_empty_indexed_instrument_states::<InstrumentData>(
                 instruments,
                 time_engine_start,
             ),

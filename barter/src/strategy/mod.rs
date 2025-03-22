@@ -17,7 +17,7 @@ use barter_data::event::MarketEvent;
 use barter_execution::{
     AccountEvent,
     order::{
-        id::StrategyId,
+        id::{ClientOrderId, StrategyId},
         request::{OrderRequestCancel, OrderRequestOpen},
     },
 };
@@ -105,7 +105,9 @@ where
         AssetIndex: 'a,
         InstrumentIndex: 'a,
     {
-        close_open_positions_with_market_orders(&self.id, state, filter)
+        close_open_positions_with_market_orders(&self.id, state, filter, |_| {
+            ClientOrderId::random()
+        })
     }
 }
 
