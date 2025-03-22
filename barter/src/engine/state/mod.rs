@@ -229,21 +229,21 @@ impl<Market, Strategy, Risk> From<&EngineState<Market, Strategy, Risk>>
 
 /// Generates an indexed [`EngineState`] containing the provided `TradingState`, `Strategy` state,
 /// and `Risk` state. All other data is set to default values.
-pub fn generate_empty_indexed_engine_state<Market, Strategy, Risk>(
+pub fn generate_empty_indexed_engine_state<InstrumentData, Strategy, Risk>(
     trading_state: TradingState,
     instruments: &IndexedInstruments,
     time_engine_start: DateTime<Utc>,
     strategy: Strategy,
     risk: Risk,
-) -> EngineState<Market, Strategy, Risk>
+) -> EngineState<InstrumentData, Strategy, Risk>
 where
-    Market: Default,
+    InstrumentData: Default,
 {
     EngineState {
         trading: trading_state,
         connectivity: generate_empty_indexed_connectivity_states(instruments),
         assets: generate_empty_indexed_asset_states(instruments),
-        instruments: generate_empty_indexed_instrument_states::<Market>(
+        instruments: generate_empty_indexed_instrument_states::<InstrumentData>(
             instruments,
             time_engine_start,
         ),
