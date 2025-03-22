@@ -736,7 +736,9 @@ impl ClosePositionsStrategy for TestBuyAndHoldStrategy {
         AssetIndex: 'a,
         InstrumentIndex: 'a,
     {
-        close_open_positions_with_market_orders(&self.id, state, filter)
+        close_open_positions_with_market_orders(&self.id, state, filter, |state| {
+            ClientOrderId::new(state.key.to_string())
+        })
     }
 }
 
