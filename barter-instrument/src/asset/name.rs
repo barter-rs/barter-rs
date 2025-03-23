@@ -67,7 +67,7 @@ impl<'de> serde::de::Deserialize<'de> for AssetNameInternal {
     where
         D: serde::de::Deserializer<'de>,
     {
-        let name = <&str>::deserialize(deserializer)?;
+        let name = std::borrow::Cow::<'de, str>::deserialize(deserializer)?;
         Ok(AssetNameInternal::new(name))
     }
 }
@@ -129,7 +129,7 @@ impl<'de> serde::de::Deserialize<'de> for AssetNameExchange {
     where
         D: serde::de::Deserializer<'de>,
     {
-        let name = <&str>::deserialize(deserializer)?;
+        let name = std::borrow::Cow::<'de, str>::deserialize(deserializer)?;
         Ok(AssetNameExchange::new(name))
     }
 }
