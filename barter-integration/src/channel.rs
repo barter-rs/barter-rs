@@ -127,6 +127,16 @@ impl<ChannelTx> ChannelTxDroppable<ChannelTx> {
             state: ChannelState::Active(tx),
         }
     }
+
+    pub fn new_disabled() -> Self {
+        Self {
+            state: ChannelState::Disabled,
+        }
+    }
+
+    pub fn disable(&mut self) {
+        self.state = ChannelState::Disabled
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, Display)]
