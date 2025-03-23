@@ -41,7 +41,10 @@ use crate::{
     engine::{command::Command, state::trading::TradingState},
     execution::AccountStreamEvent,
 };
-use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
+use barter_data::{
+    event::{DataKind, MarketEvent},
+    streams::consumer::MarketStreamEvent,
+};
 use barter_execution::AccountEvent;
 use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use chrono::{DateTime, Utc};
@@ -102,7 +105,7 @@ pub struct Timed<T> {
 /// Note that the `Engine` can be configured to process custom events.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
 pub enum EngineEvent<
-    MarketKind,
+    MarketKind = DataKind,
     ExchangeKey = ExchangeIndex,
     AssetKey = AssetIndex,
     InstrumentKey = InstrumentIndex,
