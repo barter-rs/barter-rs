@@ -20,11 +20,12 @@ use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use futures::stream::BoxStream;
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio_stream::{StreamExt, wrappers::BroadcastStream};
 use tracing::error;
 
-#[derive(Debug, Clone, Constructor)]
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 pub struct MockExecutionConfig {
     pub mocked_exchange: ExchangeId,
     pub initial_state: UnindexedAccountSnapshot,
