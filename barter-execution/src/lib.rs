@@ -134,6 +134,7 @@ pub struct InstrumentAccountSnapshot<
     InstrumentKey = InstrumentIndex,
 > {
     pub instrument: InstrumentKey,
+    #[serde(default = "Vec::new")]
     pub orders: Vec<OrderSnapshot<ExchangeKey, AssetKey, InstrumentKey>>,
 }
 
