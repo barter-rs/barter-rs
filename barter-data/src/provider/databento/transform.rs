@@ -1,5 +1,5 @@
 use chrono::DateTime;
-use databento::dbn::{Action, ErrorMsg, MboMsg, Mbp1Msg, RecordRef, UNDEF_PRICE};
+use databento::dbn::{Action, ErrorMsg, MboMsg, Mbp1Msg, RecordRef, TradeMsg, UNDEF_PRICE};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::FromPrimitive;
 use barter_instrument::exchange::ExchangeId;
@@ -10,6 +10,7 @@ use crate::error::DataError;
 use crate::event::{DataKind, MarketEvent};
 use crate::provider::databento::DatabentoSide;
 use crate::subscription::book::{OrderBookAction, OrderBookEvent, OrderBookL1, OrderBookUpdate};
+use crate::subscription::trade::PublicTrade;
 
 fn to_market_event<InstrumentKey>(instrument: InstrumentKey, mbo: MboMsg, action: OrderBookAction) -> MarketEvent<InstrumentKey, OrderBookEvent> {
     let time_exchange = DateTime::from_timestamp_nanos(mbo.ts_recv as i64).to_utc();
@@ -37,6 +38,28 @@ impl From<(MboMsg, OrderBookAction)> for OrderBookUpdate {
             side: Side::from(DatabentoSide::from(side)),
             sequence: mbo.sequence as u64,
             action,
+        }
+    }
+}
+
+impl<InstrumentKey> From<(InstrumentKey, TradeMsg)> for MarketEvent<InstrumentKey, PublicTrade> {
+    fn from((instrument, trade): (InstrumentKey, TradeMsg)) -> Self {
+        let time_exchange = DateTime::from_timestamp_nanos(
+            trade.ts_recv as i64).to_utc();
+        let exchange = ExchangeId::Other;
+        let side = Side::from(DatabentoSide::from(trade.side().unwrap()));
+
+        MarketEvent {
+            time_exchange,
+            time_received: time_exchange.clone(),
+            exchange,
+            instrument,
+            kind: PublicTrade {
+                id: trade.sequence.to_string(),
+                price: trade.price_f64(),
+                amount: trade.size as f64,
+                side,
+            },
         }
     }
 }
@@ -107,6 +130,10 @@ pub fn transform(record_ref: RecordRef<'_>) -> Result<Option<MarketEvent<Instrum
         return Err(DataError::from(e.clone()));
     }
 
+    if let Some(trade) = record_ref.get::<TradeMsg>() {
+        return transform_trade(trade);
+    }
+
     if let Some(mbo) = record_ref.get::<MboMsg>() {
         return transform_mbo(mbo);
     }
@@ -116,6 +143,12 @@ pub fn transform(record_ref: RecordRef<'_>) -> Result<Option<MarketEvent<Instrum
     }
 
     Ok(None)
+}
+
+fn transform_trade(p0: &TradeMsg) -> Result<Option<MarketEvent<InstrumentIndex, DataKind>>, DataError> {
+    let trade = MarketEvent::from(
+        (InstrumentIndex(0), p0.clone()));
+    Ok(Some(MarketEvent::from(trade)))
 }
 
 #[cfg(test)]
@@ -198,6 +231,53 @@ mod tests {
                         sequence: mbo.sequence as u64,
                         action: OrderBookAction::Add,
                     }),
+                },
+            },
+        ];
+
+        for test_case in test_cases {
+            let result = MarketEvent::try_from(test_case.input).unwrap();
+            assert_eq!(result, test_case.expected);
+        }
+    }
+
+    #[test]
+    fn test_trademsg_to_public_trade() {
+        let mbo = TradeMsg {
+            hd: RecordHeader::default::<MboMsg>(rtype::MBO),
+            price: 100_000_000_000,
+            size: 100,
+            flags: FlagSet::default(),
+            action: Action::Trade as c_char,
+            side: databento::dbn::Side::Bid as c_char,
+            ts_recv: UNDEF_TIMESTAMP,
+            ts_in_delta: 0,
+            sequence: 100,
+            depth: 0,
+        };
+
+        let instrument = InstrumentIndex(0);
+        let time = DateTime::from_timestamp_nanos(u64::MAX as i64).to_utc();
+
+        struct TestCase {
+            input: (InstrumentIndex, TradeMsg),
+            expected: MarketEvent<InstrumentIndex, PublicTrade>,
+        }
+
+        let test_cases = vec![
+            TestCase {
+                input: (instrument, mbo.clone()),
+                expected:  MarketEvent {
+                    time_exchange: time,
+                    time_received: time,
+                    exchange: ExchangeId::Other,
+                    instrument,
+                    kind: PublicTrade {
+                        id: "100".to_string(),
+                        price: 100.00,
+                        amount: 100.0,
+                        side: Side::Buy,
+                    },
                 },
             },
         ];
