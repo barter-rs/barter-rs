@@ -1,4 +1,4 @@
-use crate::{EngineEvent, engine::Processor};
+use crate::{EngineEvent, engine::{Processor, WithAudit}};
 use barter_data::streams::consumer::MarketStreamEvent;
 use chrono::{DateTime, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
@@ -25,6 +25,11 @@ pub trait TimeExchange {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct LiveClock;
 
+// Implement WithAudit for LiveClock
+impl WithAudit for LiveClock {
+    type Audit = ();
+}
+
 impl EngineClock for LiveClock {
     fn time(&self) -> DateTime<Utc> {
         Utc::now()
@@ -32,7 +37,6 @@ impl EngineClock for LiveClock {
 }
 
 impl<Event> Processor<&Event> for LiveClock {
-    type Audit = ();
 
     fn process(&mut self, _: &Event) -> Self::Audit {}
 }
@@ -44,6 +48,11 @@ impl<Event> Processor<&Event> for LiveClock {
 pub struct HistoricalClock {
     time_exchange_last: DateTime<Utc>,
     time_live_last_event: DateTime<Utc>,
+}
+
+// Implement WithAudit for HistoricalClock
+impl WithAudit for HistoricalClock {
+    type Audit = ();
 }
 
 impl HistoricalClock {
@@ -74,7 +83,6 @@ impl<Event> Processor<&Event> for HistoricalClock
 where
     Event: Debug + TimeExchange,
 {
-    type Audit = ();
 
     fn process(&mut self, event: &Event) -> Self::Audit {
         let Some(time_event_exchange) = event.time_exchange() else {

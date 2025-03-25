@@ -1,4 +1,4 @@
-use crate::{Timed, engine::Processor};
+use crate::{Timed, engine::{Processor, WithAudit}};
 use barter_data::{
     event::{DataKind, MarketEvent},
     subscription::book::OrderBookL1,
@@ -58,6 +58,11 @@ pub struct DefaultInstrumentMarketData {
     pub last_traded_price: Option<Timed<Decimal>>,
 }
 
+// Implement WithAudit for DefaultInstrumentMarketData
+impl WithAudit for DefaultInstrumentMarketData {
+    type Audit = ();
+}
+
 impl InstrumentDataState for DefaultInstrumentMarketData {
     type MarketEventKind = DataKind;
 
@@ -71,8 +76,6 @@ impl InstrumentDataState for DefaultInstrumentMarketData {
 impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>>
     for DefaultInstrumentMarketData
 {
-    type Audit = ();
-
     fn process(&mut self, event: &MarketEvent<InstrumentKey, DataKind>) -> Self::Audit {
         match &event.kind {
             DataKind::Trade(trade) => {

@@ -32,7 +32,7 @@ use crate::{
 use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
 use barter_execution::AccountEvent;
 use barter_instrument::{asset::QuoteAsset, exchange::ExchangeIndex, instrument::InstrumentIndex};
-use barter_integration::channel::{ChannelTxDroppable, Tx};
+use barter_integration::{channel::{ChannelTxDroppable, Tx}, collection::one_or_many::OneOrMany};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -68,9 +68,14 @@ pub mod execution_tx;
 /// eg/ `ConnectivityStates`, `AssetStates`, `InstrumentStates`, `Position`, etc.
 pub mod state;
 
-/// Defines how a component processing an input Event and generates an appropriate Audit.
-pub trait Processor<Event> {
-    type Audit;
+/// Defines a type that has an associated Audit type.
+pub trait WithAudit {
+    /// The type of audit data produced by this type.
+    type Audit: Debug;
+}
+
+/// Defines how a component processes an input Event and generates an appropriate Audit.
+pub trait Processor<Event>: WithAudit {
     fn process(&mut self, event: Event) -> Self::Audit;
 }
 
@@ -138,7 +143,7 @@ pub fn process_with_audit<Event, Engine>(
 ) -> AuditTick<Engine::Audit, EngineContext>
 where
     Engine: Processor<Event> + Auditor<Engine::Audit, Context = EngineContext>,
-    Engine::Audit: From<Engine::Snapshot> + From<<Engine as Processor<Event>>::Audit>,
+    Engine::Audit: From<Engine::Snapshot> + From<<Engine as WithAudit>::Audit>,
 {
     let output = engine.process(event);
     engine.audit(output)
@@ -177,6 +182,39 @@ pub struct EngineMeta {
 }
 
 impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
+    WithAudit for Engine<
+        Clock,
+        EngineState<InstrumentData, StrategyState, RiskState>,
+        ExecutionTxs,
+        Strategy,
+        Risk,
+    >
+where
+    InstrumentData: InstrumentDataState + WithAudit,
+    Strategy: OnTradingDisabled<
+            Clock,
+            EngineState<InstrumentData, StrategyState, RiskState>,
+            ExecutionTxs,
+            Risk,
+        > + OnDisconnectStrategy<
+            Clock,
+            EngineState<InstrumentData, StrategyState, RiskState>,
+            ExecutionTxs,
+            Risk,
+        >,
+        StrategyState: Debug,
+        RiskState: Debug,
+        Strategy::OnTradingDisabled: Debug,
+        Strategy::OnDisconnect: Debug,
+{
+    type Audit = EngineAudit<
+        EngineState<InstrumentData, StrategyState, RiskState>,
+        EngineEvent<InstrumentData::MarketEventKind>,
+        EngineOutput<Strategy::OnTradingDisabled, Strategy::OnDisconnect, InstrumentData::Audit>,
+    >;
+}
+
+impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
     Processor<EngineEvent<InstrumentData::MarketEventKind>>
     for Engine<
         Clock,
@@ -206,13 +244,11 @@ where
         > + AlgoStrategy<State = EngineState<InstrumentData, StrategyState, RiskState>>
         + ClosePositionsStrategy<State = EngineState<InstrumentData, StrategyState, RiskState>>,
     Risk: RiskManager<State = EngineState<InstrumentData, StrategyState, RiskState>>,
+    StrategyState: Debug,
+    RiskState: Debug,
+    Strategy::OnTradingDisabled: Debug,
+    Strategy::OnDisconnect: Debug,
 {
-    type Audit = EngineAudit<
-        EngineState<InstrumentData, StrategyState, RiskState>,
-        EngineEvent<InstrumentData::MarketEventKind>,
-        EngineOutput<Strategy::OnTradingDisabled, Strategy::OnDisconnect>,
-    >;
-
     fn process(&mut self, event: EngineEvent<InstrumentData::MarketEventKind>) -> Self::Audit {
         self.clock.process(&event);
 
@@ -365,7 +401,7 @@ impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Ri
     pub fn update_from_market_stream(
         &mut self,
         event: &MarketStreamEvent<InstrumentIndex, InstrumentData::MarketEventKind>,
-    ) -> UpdateFromMarketOutput<Strategy::OnDisconnect>
+    ) -> UpdateFromMarketOutput<Strategy::OnDisconnect, InstrumentData::Audit>
     where
         InstrumentData: InstrumentDataState,
         StrategyState:
@@ -388,8 +424,11 @@ impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Ri
                 UpdateFromMarketOutput::OnDisconnect(Strategy::on_disconnect(self, *exchange))
             }
             MarketStreamEvent::Item(event) => {
-                self.state.update_from_market(event);
-                UpdateFromMarketOutput::None
+                let res = self.state.update_from_market(event);
+                match res {
+                    Some(x)=> UpdateFromMarketOutput::OnStateUpdate(x),
+                    None => UpdateFromMarketOutput::None,
+                }
             }
         }
     }
@@ -448,11 +487,17 @@ where
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub enum StateUpdate<OnInstrumentStateUpdate> {
+    OnInstrumentStateUpdate(OnInstrumentStateUpdate),
+}
+
 /// Output produced by [`Engine`] operations, used to construct an `Engine` [`EngineAudit`].
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub enum EngineOutput<
     OnTradingDisabled,
     OnDisconnect,
+    OnInstrumentStateUpdate,
     ExchangeKey = ExchangeIndex,
     InstrumentKey = InstrumentIndex,
 > {
@@ -462,6 +507,7 @@ pub enum EngineOutput<
     PositionExit(PositionExited<QuoteAsset, InstrumentKey>),
     MarketDisconnect(OnDisconnect),
     AlgoOrders(GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>),
+    OnStateUpdate(OneOrMany<StateUpdate<OnInstrumentStateUpdate>>),
 }
 
 /// Output produced by the [`Engine`] updating from an [`TradingState`], used to construct
@@ -484,30 +530,31 @@ pub enum UpdateFromAccountOutput<OnDisconnect, InstrumentKey = InstrumentIndex> 
 /// Output produced by the [`Engine`] updating from an [`MarketStreamEvent`], used to construct
 /// an `Engine` [`EngineAudit`].
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
-pub enum UpdateFromMarketOutput<OnDisconnect> {
+pub enum UpdateFromMarketOutput<OnDisconnect, OnInstrumentUpdate> {
     None,
     OnDisconnect(OnDisconnect),
+    OnStateUpdate(OneOrMany<StateUpdate<OnInstrumentUpdate>>),
 }
 
-impl<OnTradingDisabled, OnDisconnect> From<ActionOutput>
-    for EngineOutput<OnTradingDisabled, OnDisconnect>
+impl<OnTradingDisabled, OnDisconnect, T> From<ActionOutput>
+    for EngineOutput<OnTradingDisabled, OnDisconnect, T>
 {
     fn from(value: ActionOutput) -> Self {
         Self::Commanded(value)
     }
 }
 
-impl<OnTradingDisabled, OnDisconnect> From<PositionExited<QuoteAsset>>
-    for EngineOutput<OnTradingDisabled, OnDisconnect>
+impl<OnTradingDisabled, OnDisconnect, T> From<PositionExited<QuoteAsset>>
+    for EngineOutput<OnTradingDisabled, OnDisconnect, T>
 {
     fn from(value: PositionExited<QuoteAsset>) -> Self {
         Self::PositionExit(value)
     }
 }
 
-impl<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
+impl<OnTradingDisabled, OnDisconnect, T, ExchangeKey, InstrumentKey>
     From<GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>>
-    for EngineOutput<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
+    for EngineOutput<OnTradingDisabled, OnDisconnect, T, ExchangeKey, InstrumentKey>
 {
     fn from(value: GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>) -> Self {
         Self::AlgoOrders(value)

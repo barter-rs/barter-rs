@@ -30,6 +30,8 @@ use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+use super::StateUpdate;
+
 /// Asset-centric state and associated state management logic.
 pub mod asset;
 
@@ -167,7 +169,7 @@ impl<InstrumentData, Strategy, Risk> EngineState<InstrumentData, Strategy, Risk>
     pub fn update_from_market(
         &mut self,
         event: &MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>,
-    ) where
+    ) -> Option<OneOrMany<StateUpdate<InstrumentData::Audit>>> where
         InstrumentData: InstrumentDataState,
         Strategy:
             for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
@@ -178,9 +180,26 @@ impl<InstrumentData, Strategy, Risk> EngineState<InstrumentData, Strategy, Risk>
 
         let instrument_state = self.instruments.instrument_index_mut(&event.instrument);
 
-        instrument_state.data.process(event);
+        let mut state_changes = vec![];
+        let instrument_audit = instrument_state.data.process(event);
+        state_changes.push(
+            StateUpdate::OnInstrumentStateUpdate(instrument_audit)
+        );
         self.strategy.process(event);
         self.risk.process(event);
+
+        if(state_changes.len() > 0) {
+            if state_changes.len() == 1 {
+                let val = state_changes.pop().unwrap();
+                return Some(OneOrMany::One(val));
+            }
+            else {
+                return Some(OneOrMany::Many(state_changes));
+            }
+        }
+        else {
+            return None;
+        }
     }
 }
 
