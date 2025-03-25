@@ -154,12 +154,31 @@ fn transform_trade(p0: &TradeMsg) -> Result<Option<MarketEvent<InstrumentIndex, 
 #[cfg(test)]
 mod tests {
     use std::ffi::c_char;
-    use databento::dbn::{rtype, FlagSet, RecordHeader, UNDEF_TIMESTAMP};
+    use databento::dbn::{rtype, BidAskPair, FlagSet, RecordHeader, UNDEF_TIMESTAMP};
     use super::*;
 
     #[test]
     fn test_mbp1_to_orderbook_l1() {
-        let mbp1 = Mbp1Msg::default();
+        let mbp1 = Mbp1Msg {
+            hd: RecordHeader::default::<Mbp1Msg>(rtype::MBP_1),
+            price: 0,
+            size: 0,
+            action: 0,
+            side: 0,
+            flags: Default::default(),
+            levels: [BidAskPair {
+                bid_px: 100_000_000_000,
+                ask_px: 101_000_000_000,
+                bid_sz: 100,
+                ask_sz: 100,
+                bid_ct: 0,
+                ask_ct: 0,
+            }],
+            ts_recv: UNDEF_TIMESTAMP,
+            ts_in_delta: 0,
+            sequence: 0,
+            depth: 0,
+        };
         let instrument = InstrumentIndex(0);
         let time = DateTime::from_timestamp_nanos(u64::MAX as i64).to_utc();
 
@@ -178,8 +197,14 @@ mod tests {
                     instrument,
                     kind: OrderBookL1 {
                         last_update_time: time,
-                        best_bid: None,
-                        best_ask: None,
+                        best_bid: Some(Level {
+                            price: Decimal::from_f64(100.00).unwrap(),
+                            amount: Decimal::from(100),
+                        }),
+                        best_ask: Some(Level {
+                            price: Decimal::from_f64(101.00).unwrap(),
+                            amount: Decimal::from(100),
+                        }),
                     }
                 },
             },
@@ -196,7 +221,7 @@ mod tests {
         let mbo = MboMsg {
             hd: RecordHeader::default::<MboMsg>(rtype::MBO),
             order_id: 0,
-            price: 100,
+            price: 100_000_000_000,
             size: 100,
             flags: FlagSet::default(),
             channel_id: 0,
@@ -225,7 +250,7 @@ mod tests {
                     instrument,
                     kind: OrderBookEvent::IncrementalUpdate(OrderBookUpdate {
                         order_id: Some(mbo.order_id.to_string()),
-                        price: Decimal::from_f64(mbo.price_f64()).unwrap(),
+                        price: Decimal::from_f64(100.00).unwrap(),
                         amount: Decimal::from(mbo.size),
                         side: Side::Buy,
                         sequence: mbo.sequence as u64,
