@@ -48,6 +48,7 @@ type ExecutionInitFutures = Vec<Pin<Box<dyn Future<Output = Result<(), Execution
 /// - Combines all exchange account streams into a unified [`AccountStreamEvent`] `Stream`.
 #[allow(missing_debug_implementations)]
 pub struct ExecutionBuilder<'a> {
+    runtime_handle: tokio::runtime::Handle,
     merged_channel: Channel<AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>>,
     instruments: &'a IndexedInstruments,
     channels: FnvHashMap<
@@ -62,8 +63,30 @@ pub struct ExecutionBuilder<'a> {
 
 impl<'a> ExecutionBuilder<'a> {
     /// Construct a new `ExecutionBuilder` using the provided `IndexedInstruments`.
+    ///
+    /// A runtime handle is created via [`tokio::runtime::Handle::current`] that is used to
+    /// spawn tasks required by the `ExecutionBuilder` (eg/ MockExchange.run()).
     pub fn new(instruments: &'a IndexedInstruments) -> Self {
         Self {
+            runtime_handle: tokio::runtime::Handle::current(),
+            merged_channel: Channel::default(),
+            instruments,
+            channels: FnvHashMap::default(),
+            futures: Vec::default(),
+        }
+    }
+
+    /// Construct a new `ExecutionBuilder` using the provided `tokio::runtime::Handle` and
+    /// `IndexedInstruments`.
+    ///
+    /// Tasks required by the `ExecutionBuilder` (eg/ MockExchange.run()) are spawned using the
+    /// provided `tokio::runtime::Handle`.
+    pub fn new_with_runtime(
+        runtime_handle: tokio::runtime::Handle,
+        instruments: &'a IndexedInstruments,
+    ) -> Self {
+        Self {
+            runtime_handle,
             merged_channel: Channel::default(),
             instruments,
             channels: FnvHashMap::default(),
@@ -111,7 +134,7 @@ impl<'a> ExecutionBuilder<'a> {
 
         let exchange = MockExchange::new(config, request_rx, event_tx, instruments);
 
-        tokio::spawn(exchange.run());
+        self.runtime_handle.spawn(exchange.run());
     }
 
     /// Adds an [`ExecutionManager`] for a live exchange.
@@ -152,6 +175,7 @@ impl<'a> ExecutionBuilder<'a> {
         }
 
         let merged_tx = self.merged_channel.tx.clone();
+        let runtime_handle = self.runtime_handle.clone();
 
         self.futures.push(Box::pin(async move {
             // Initialise ExecutionManager
@@ -164,8 +188,8 @@ impl<'a> ExecutionBuilder<'a> {
             )
             .await?;
 
-            tokio::spawn(manager.run());
-            tokio::spawn(account_stream.forward_to(merged_tx));
+            runtime_handle.spawn(manager.run());
+            runtime_handle.spawn(account_stream.forward_to(merged_tx));
 
             Ok(())
         }));
