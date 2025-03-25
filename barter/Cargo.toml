@@ -29,6 +29,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter", "json", "regi
 
 # Async
 tokio = { workspace = true, features = ["sync"] }
+tokio-stream = { workspace = true }
 futures = { workspace = true }
 pin-project = { workspace = true }
 

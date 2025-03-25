@@ -33,41 +33,47 @@ use barter_instrument::{
 };
 use barter_integration::channel::{Channel, UnboundedTx, mpsc_unbounded};
 use fnv::FnvHashMap;
-use futures::Stream;
-use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+use std::{pin::Pin, sync::Arc, time::Duration};
 use tokio::sync::{broadcast, mpsc};
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
-type ExecutionInitFutures = Vec<Pin<Box<dyn Future<Output = Result<(), ExecutionError>>>>>;
+type ExecutionTx = UnboundedTx<ExecutionRequest<ExchangeIndex, InstrumentIndex>>;
+type ExecutionInitFuture =
+    Pin<Box<dyn Future<Output = Result<(RunFuture, RunFuture), ExecutionError>> + Send>>;
+type RunFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
-/// Builder for adding and initialising [`ExecutionManager`]s.
+/// Full execution infrastructure builder.
+///
+/// Add Mock and Live [`ExecutionClient`] configurations and let the builder set up the required
+/// infrastructure.
+///
+/// Once you have added all the configurations, call [`ExecutionBuilder::build`] to return the
+/// full [`ExecutionBuild`]. Then calling [`ExecutionBuild::init`] will then initialise
+/// the built infrastructure.
 ///
 /// Handles:
-/// - Initialising mock execution managers (mocks a specific exchange internally via the [`MockExchange`]).
-/// - Initialising live execution managers, setting up an external connection to each exchange.
+/// - Building mock execution managers (mocks a specific exchange internally via the [`MockExchange`]).
+/// - Building live execution managers, setting up an external connection to each exchange.
 /// - Constructs a [`MultiExchangeTxMap`] with an entry for each mock/live execution manager.
 /// - Combines all exchange account streams into a unified [`AccountStreamEvent`] `Stream`.
 #[allow(missing_debug_implementations)]
 pub struct ExecutionBuilder<'a> {
-    merged_channel: Channel<AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>>,
     instruments: &'a IndexedInstruments,
-    channels: FnvHashMap<
-        ExchangeId,
-        (
-            ExchangeIndex,
-            UnboundedTx<ExecutionRequest<ExchangeIndex, InstrumentIndex>>,
-        ),
-    >,
-    futures: ExecutionInitFutures,
+    execution_txs: FnvHashMap<ExchangeId, (ExchangeIndex, ExecutionTx)>,
+    merged_channel: Channel<AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>>,
+    mock_exchange_futures: Vec<RunFuture>,
+    execution_init_futures: Vec<ExecutionInitFuture>,
 }
 
 impl<'a> ExecutionBuilder<'a> {
     /// Construct a new `ExecutionBuilder` using the provided `IndexedInstruments`.
     pub fn new(instruments: &'a IndexedInstruments) -> Self {
         Self {
-            merged_channel: Channel::default(),
             instruments,
-            channels: FnvHashMap::default(),
-            futures: Vec::default(),
+            execution_txs: FnvHashMap::default(),
+            merged_channel: Channel::default(),
+            mock_exchange_futures: Vec::default(),
+            execution_init_futures: Vec::default(),
         }
     }
 
@@ -76,26 +82,26 @@ impl<'a> ExecutionBuilder<'a> {
     ///
     /// The provided [`MockExecutionConfig`] is used to configure the [`MockExchange`] and provide
     /// the initial account state.
-    pub fn add_mock(self, config: MockExecutionConfig) -> Result<Self, BarterError> {
+    pub fn add_mock(mut self, config: MockExecutionConfig) -> Result<Self, BarterError> {
         const ACCOUNT_STREAM_CAPACITY: usize = 256;
         const DUMMY_EXECUTION_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
 
-        let mocked_exchange = config.mocked_exchange;
-
         let (request_tx, request_rx) = mpsc::unbounded_channel();
-
         let (event_tx, event_rx) = broadcast::channel(ACCOUNT_STREAM_CAPACITY);
 
-        // Run MockExchange
-        self.init_mock_exchange(config, request_rx, event_tx);
+        let mock_execution_client_config = MockExecutionClientConfig {
+            mocked_exchange: config.mocked_exchange,
+            request_tx,
+            event_rx,
+        };
+
+        // Register MockExchange init Future
+        let mock_exchange_future = self.init_mock_exchange(config, request_rx, event_tx);
+        self.mock_exchange_futures.push(mock_exchange_future);
 
         self.add_execution::<MockExecution>(
-            mocked_exchange,
-            MockExecutionClientConfig {
-                mocked_exchange,
-                request_tx,
-                event_rx,
-            },
+            mock_execution_client_config.mocked_exchange,
+            mock_execution_client_config,
             DUMMY_EXECUTION_REQUEST_TIMEOUT,
         )
     }
@@ -105,13 +111,10 @@ impl<'a> ExecutionBuilder<'a> {
         config: MockExecutionConfig,
         request_rx: mpsc::UnboundedReceiver<MockExchangeRequest>,
         event_tx: broadcast::Sender<UnindexedAccountEvent>,
-    ) {
+    ) -> RunFuture {
         let instruments =
             generate_mock_exchange_instruments(self.instruments, config.mocked_exchange);
-
-        let exchange = MockExchange::new(config, request_rx, event_tx, instruments);
-
-        tokio::spawn(exchange.run());
+        Box::pin(MockExchange::new(config, request_rx, event_tx, instruments).run())
     }
 
     /// Adds an [`ExecutionManager`] for a live exchange.
@@ -123,6 +126,7 @@ impl<'a> ExecutionBuilder<'a> {
     where
         Client: ExecutionClient + Send + Sync + 'static,
         Client::AccountStream: Send,
+        Client::Config: Send,
     {
         self.add_execution::<Client>(Client::EXCHANGE, config, request_timeout)
     }
@@ -136,13 +140,14 @@ impl<'a> ExecutionBuilder<'a> {
     where
         Client: ExecutionClient + Send + Sync + 'static,
         Client::AccountStream: Send,
+        Client::Config: Send,
     {
         let instrument_map = generate_execution_instrument_map(self.instruments, exchange)?;
 
         let (execution_tx, execution_rx) = mpsc_unbounded();
 
         if self
-            .channels
+            .execution_txs
             .insert(exchange, (instrument_map.exchange.key, execution_tx))
             .is_some()
         {
@@ -153,7 +158,7 @@ impl<'a> ExecutionBuilder<'a> {
 
         let merged_tx = self.merged_channel.tx.clone();
 
-        self.futures.push(Box::pin(async move {
+        self.execution_init_futures.push(Box::pin(async move {
             // Initialise ExecutionManager
             let (manager, account_stream) = ExecutionManager::init(
                 execution_rx.into_stream(),
@@ -164,34 +169,26 @@ impl<'a> ExecutionBuilder<'a> {
             )
             .await?;
 
-            tokio::spawn(manager.run());
-            tokio::spawn(account_stream.forward_to(merged_tx));
+            let manager_future: RunFuture = Box::pin(manager.run());
+            let stream_future: RunFuture = Box::pin(account_stream.forward_to(merged_tx));
 
-            Ok(())
+            Ok((manager_future, stream_future))
         }));
 
         Ok(self)
     }
 
-    /// Awaits initialisation of all mock and live [`ExecutionManager`]s added to the
-    /// [`ExecutionBuilder`].
+    /// Consume this `ExecutionBuilder` and build a full [`ExecutionBuild`] containing all the
+    /// [`ExecutionManager`] (mock & live) and [`MockExchange`] futures.
     ///
-    /// This method:
-    /// - Initialises all [`ExecutionManager`]s asynchronously.
-    /// - Constructs an indexed [`MultiExchangeTxMap`] containing the execution request transmitters
-    ///   for every exchange.
-    /// - Combines all exchange account streams into a unified [`AccountStreamEvent`] `Stream`.
-    pub async fn init(
-        mut self,
-    ) -> Result<
-        (
-            MultiExchangeTxMap<UnboundedTx<ExecutionRequest<ExchangeIndex, InstrumentIndex>>>,
-            impl Stream<Item = AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>> + use<>,
-        ),
-        BarterError,
-    > {
-        // Await ExecutionManager::init futures and ensure success
-        futures::future::try_join_all(self.futures).await?;
+    /// **For most users, calling [`ExecutionBuild::init`] after this is satisfactory.**
+    ///
+    /// If you want more control over what runtime drives the futures to completion, you can
+    /// de-structure the `ExecutionBuild` and handle accordingly.
+    pub async fn build(mut self) -> Result<ExecutionBuild, BarterError> {
+        // Await ExecutionManager build futures and ensure success
+        let manager_run_futures =
+            futures::future::try_join_all(self.execution_init_futures).await?;
 
         // Construct indexed ExecutionTx map
         let execution_tx_map = self
@@ -201,7 +198,7 @@ impl<'a> ExecutionBuilder<'a> {
             .map(|exchange| {
                 // If IndexedInstruments execution not used for execution, add None to map
                 let Some((added_execution_exchange_index, added_execution_exchange_tx)) =
-                    self.channels.remove(&exchange.value)
+                    self.execution_txs.remove(&exchange.value)
                 else {
                     return (exchange.value, None);
                 };
@@ -218,7 +215,52 @@ impl<'a> ExecutionBuilder<'a> {
 
         let account_stream = self.merged_channel.rx.into_stream();
 
-        Ok((execution_tx_map, account_stream))
+        Ok(ExecutionBuild {
+            manager_run_futures,
+            mock_exchange_run_futures: self.mock_exchange_futures,
+            execution_tx_map,
+            account_stream,
+        })
+    }
+}
+
+/// Container holding execution infrastructure components ready to be initialised.
+///
+/// Call [`ExecutionBuild::init`] to run all the required execution component futures on tokio
+/// tasks - returns the [`MultiExchangeTxMap`] and multi-exchange [`AccountStreamEvent`] stream.
+#[allow(missing_debug_implementations)]
+pub struct ExecutionBuild {
+    pub manager_run_futures: Vec<(RunFuture, RunFuture)>,
+    pub mock_exchange_run_futures: Vec<RunFuture>,
+    pub execution_tx_map: MultiExchangeTxMap<ExecutionTx>,
+    pub account_stream: UnboundedReceiverStream<AccountStreamEvent>,
+}
+
+impl ExecutionBuild {
+    /// Initialise all execution infrastructure components by spawning all futures onto the
+    /// current tokio runtime.
+    ///
+    /// Returns the [`MultiExchangeTxMap`] and multi-exchange [`AccountStreamEvent`] stream.
+    pub fn init(
+        self,
+    ) -> (
+        MultiExchangeTxMap,
+        UnboundedReceiverStream<AccountStreamEvent>,
+    ) {
+        self.mock_exchange_run_futures
+            .into_iter()
+            .for_each(|mock_exchange_run_future| {
+                tokio::spawn(mock_exchange_run_future);
+            });
+
+        self.manager_run_futures.into_iter().for_each(
+            |(manager_run_future, account_event_forward_future)| {
+                tokio::spawn(manager_run_future);
+                tokio::spawn(account_event_forward_future);
+            },
+        );
+
+        (self.execution_tx_map, self.account_stream)
     }
 }
 
