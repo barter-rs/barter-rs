@@ -31,7 +31,7 @@ pub trait InstrumentDataState<
         + for<'a> Processor<&'a AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>,
 {
     /// [`MarketEvent<_, EventKind>`](MarketEvent) expected by this instrument data state.
-    type MarketEventKind: Debug + Clone + Send;
+    type MarketEventKind: Debug + Clone + Send + 'static;
 
     /// Latest price for an instrument, if available.
     ///
