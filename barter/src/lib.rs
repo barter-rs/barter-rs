@@ -50,6 +50,7 @@ use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::
 use chrono::{DateTime, Utc};
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
+use shutdown::Shutdown;
 
 /// Algorithmic trading `Engine`, and entry points for processing input `Events`.
 ///
@@ -78,6 +79,12 @@ pub mod statistic;
 /// Strategy interfaces for generating algorithmic orders, closing positions, and performing
 /// `Engine` actions on disconnect / trading disabled.
 pub mod strategy;
+
+/// Utilities for initialising and interacting with a full trading system.
+pub mod system;
+
+/// Traits and types related to component shutdowns.
+pub mod shutdown;
 
 /// A timed value.
 #[derive(
@@ -110,11 +117,19 @@ pub enum EngineEvent<
     AssetKey = AssetIndex,
     InstrumentKey = InstrumentIndex,
 > {
-    Shutdown,
+    Shutdown(Shutdown),
     Command(Command<ExchangeKey, AssetKey, InstrumentKey>),
     TradingStateUpdate(TradingState),
     Account(AccountStreamEvent<ExchangeKey, AssetKey, InstrumentKey>),
     Market(MarketStreamEvent<InstrumentKey, MarketKind>),
+}
+
+impl<MarketKind, ExchangeKey, AssetKey, InstrumentKey>
+    EngineEvent<MarketKind, ExchangeKey, AssetKey, InstrumentKey>
+{
+    pub fn shutdown() -> Self {
+        Self::Shutdown(Shutdown)
+    }
 }
 
 impl<MarketKind, ExchangeKey, AssetKey, InstrumentKey>

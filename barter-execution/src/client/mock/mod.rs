@@ -25,7 +25,9 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio_stream::{StreamExt, wrappers::BroadcastStream};
 use tracing::error;
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
 pub struct MockExecutionConfig {
     pub mocked_exchange: ExchangeId,
     pub initial_state: UnindexedAccountSnapshot,

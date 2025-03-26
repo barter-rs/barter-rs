@@ -131,7 +131,7 @@ where
     /// Updates the internal `EngineState` using the provided `EngineEvent`.
     pub fn update_from_event(&mut self, event: EngineEvent<InstrumentData::MarketEventKind>) {
         match event {
-            EngineEvent::Shutdown | EngineEvent::Command(_) => {
+            EngineEvent::Shutdown(_) | EngineEvent::Command(_) => {
                 // No action required
             }
             EngineEvent::TradingStateUpdate(trading_state) => {

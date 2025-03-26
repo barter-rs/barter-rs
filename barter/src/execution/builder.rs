@@ -2,9 +2,10 @@ use crate::{
     engine::execution_tx::MultiExchangeTxMap,
     error::BarterError,
     execution::{
-        AccountStreamEvent, error::ExecutionError, manager::ExecutionManager,
+        AccountStreamEvent, Execution, error::ExecutionError, manager::ExecutionManager,
         request::ExecutionRequest,
     },
+    shutdown::AsyncShutdown,
 };
 use barter_data::streams::{
     consumer::STREAM_RECONNECTION_POLICY, reconnect::stream::ReconnectingStream,
@@ -33,9 +34,12 @@ use barter_instrument::{
 };
 use barter_integration::channel::{Channel, UnboundedTx, mpsc_unbounded};
 use fnv::FnvHashMap;
-use futures::{FutureExt, Stream};
+use futures::{FutureExt, future::try_join_all};
 use std::{pin::Pin, sync::Arc, time::Duration};
-use tokio::sync::{broadcast, mpsc};
+use tokio::{
+    sync::{broadcast, mpsc},
+    task::{JoinError, JoinHandle},
+};
 
 type ExecutionInitFuture =
     Pin<Box<dyn Future<Output = Result<(RunFuture, RunFuture), ExecutionError>> + Send>>;
@@ -214,8 +218,10 @@ impl<'a> ExecutionBuilder<'a> {
         ExecutionBuild {
             execution_tx_map,
             account_channel: self.merged_channel,
-            mock_exchange_run_futures: self.mock_exchange_futures,
-            execution_init_futures: self.execution_init_futures,
+            futures: ExecutionBuildFutures {
+                mock_exchange_run_futures: self.mock_exchange_futures,
+                execution_init_futures: self.execution_init_futures,
+            },
         }
     }
 }
@@ -227,9 +233,8 @@ impl<'a> ExecutionBuilder<'a> {
 #[allow(missing_debug_implementations)]
 pub struct ExecutionBuild {
     pub execution_tx_map: MultiExchangeTxMap,
-    pub account_channel: Channel<AccountStreamEvent<ExchangeIndex, AssetIndex, InstrumentIndex>>,
-    pub mock_exchange_run_futures: Vec<RunFuture>,
-    pub execution_init_futures: Vec<ExecutionInitFuture>,
+    pub account_channel: Channel<AccountStreamEvent>,
+    pub futures: ExecutionBuildFutures,
 }
 
 impl ExecutionBuild {
@@ -239,9 +244,7 @@ impl ExecutionBuild {
     /// - Spawns [`MockExchange`] runners tokio tasks.
     /// - Initialises all [`ExecutionManager`]s and their AccountStreams.
     /// - Returns the `MultiExchangeTxMap` and multi-exchange AccountStream.
-    pub async fn init(
-        self,
-    ) -> Result<(MultiExchangeTxMap, impl Stream<Item = AccountStreamEvent>), BarterError> {
+    pub async fn init(self) -> Result<Execution, BarterError> {
         self.init_internal(tokio::runtime::Handle::current()).await
     }
 
@@ -257,32 +260,121 @@ impl ExecutionBuild {
     pub async fn init_with_runtime(
         self,
         runtime: tokio::runtime::Handle,
-    ) -> Result<(MultiExchangeTxMap, impl Stream<Item = AccountStreamEvent>), BarterError> {
+    ) -> Result<Execution, BarterError> {
         self.init_internal(runtime).await
     }
 
     async fn init_internal(
         self,
         runtime: tokio::runtime::Handle,
-    ) -> Result<(MultiExchangeTxMap, impl Stream<Item = AccountStreamEvent>), BarterError> {
-        self.mock_exchange_run_futures
+    ) -> Result<Execution, BarterError> {
+        let handles = self.futures.init_with_runtime(runtime).await?;
+
+        Ok(Execution {
+            execution_txs: self.execution_tx_map,
+            account_channel: self.account_channel,
+            handles,
+        })
+    }
+}
+
+#[allow(missing_debug_implementations)]
+pub struct ExecutionBuildFutures {
+    pub mock_exchange_run_futures: Vec<RunFuture>,
+    pub execution_init_futures: Vec<ExecutionInitFuture>,
+}
+
+impl ExecutionBuildFutures {
+    /// Initialises all execution components on the current tokio runtime.
+    ///
+    /// This method:
+    /// - Spawns [`MockExchange`] runner tokio tasks.
+    /// - Initialises all [`ExecutionManager`]s and their AccountStreams.
+    /// - Spawns tokio tasks to forward AccountStreams to multi-exchange AccountStream
+    pub async fn init(self) -> Result<ExecutionHandles, BarterError> {
+        self.init_internal(tokio::runtime::Handle::current()).await
+    }
+
+    /// Initialises all execution components on the provided tokio runtime.
+    ///
+    /// Use this method if you want more control over which tokio runtime handles running
+    /// execution components.
+    ///
+    /// This method:
+    /// - Spawns [`MockExchange`] runner tokio tasks.
+    /// - Initialises all [`ExecutionManager`]s and their AccountStreams.
+    /// - Spawns tokio tasks to forward AccountStreams to multi-exchange AccountStream
+    pub async fn init_with_runtime(
+        self,
+        runtime: tokio::runtime::Handle,
+    ) -> Result<ExecutionHandles, BarterError> {
+        self.init_internal(runtime).await
+    }
+
+    async fn init_internal(
+        self,
+        runtime: tokio::runtime::Handle,
+    ) -> Result<ExecutionHandles, BarterError> {
+        let mock_exchanges = self
+            .mock_exchange_run_futures
             .into_iter()
-            .for_each(|mock_exchange_run_future| {
-                runtime.spawn(mock_exchange_run_future);
-            });
+            .map(|mock_exchange_run_future| runtime.spawn(mock_exchange_run_future))
+            .collect();
 
         // Await ExecutionManager build futures and ensure success
-        futures::future::try_join_all(self.execution_init_futures)
-            .await?
+        let (managers, account_to_engines) =
+            futures::future::try_join_all(self.execution_init_futures)
+                .await?
+                .into_iter()
+                .map(|(manager_run_future, account_event_forward_future)| {
+                    (
+                        runtime.spawn(manager_run_future),
+                        runtime.spawn(account_event_forward_future),
+                    )
+                })
+                .unzip();
+
+        Ok(ExecutionHandles {
+            mock_exchanges,
+            managers,
+            account_to_engines,
+        })
+    }
+}
+
+#[allow(missing_debug_implementations)]
+pub struct ExecutionHandles {
+    pub mock_exchanges: Vec<JoinHandle<()>>,
+    pub managers: Vec<JoinHandle<()>>,
+    pub account_to_engines: Vec<JoinHandle<()>>,
+}
+
+impl AsyncShutdown for ExecutionHandles {
+    type Result = Result<(), JoinError>;
+
+    async fn shutdown(&mut self) -> Self::Result {
+        let handles = self
+            .mock_exchanges
+            .drain(..)
+            .chain(self.managers.drain(..))
+            .chain(self.account_to_engines.drain(..));
+
+        try_join_all(handles).await?;
+        Ok(())
+    }
+}
+
+impl IntoIterator for ExecutionHandles {
+    type Item = JoinHandle<()>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.mock_exchanges
             .into_iter()
-            .for_each(|(manager_run_future, account_event_forward_future)| {
-                runtime.spawn(manager_run_future);
-                runtime.spawn(account_event_forward_future);
-            });
-
-        let account_stream = self.account_channel.rx.into_stream();
-
-        Ok((self.execution_tx_map, account_stream))
+            .chain(self.managers)
+            .chain(self.account_to_engines)
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 }
 
