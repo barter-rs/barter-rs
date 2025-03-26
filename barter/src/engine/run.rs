@@ -1,7 +1,10 @@
-use crate::engine::{
-    Processor,
-    audit::{AuditTick, Auditor, context::EngineContext, shutdown::ShutdownAudit},
-    process_with_audit,
+use crate::{
+    engine::{
+        Processor,
+        audit::{AuditTick, Auditor, context::EngineContext, shutdown::ShutdownAudit},
+        process_with_audit,
+    },
+    shutdown::SyncShutdown,
 };
 use barter_integration::channel::{ChannelTxDroppable, Tx};
 use futures::{Stream, StreamExt};
@@ -23,7 +26,8 @@ pub fn sync_run<Events, Engine>(
 where
     Events: Iterator,
     Events::Item: Debug + Clone,
-    Engine: Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext>,
+    Engine:
+        Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext> + SyncShutdown,
     Engine::Audit: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item, Engine::Output>>,
     Engine::Output: Debug + Clone,
     Option<ShutdownAudit<Events::Item, Engine::Output>>: for<'a> From<&'a Engine::Audit>,
@@ -52,6 +56,9 @@ where
     };
 
     info!(?shutdown_audit, "Engine shutting down");
+
+    let _ = engine.shutdown();
+
     shutdown_audit
 }
 
@@ -73,7 +80,8 @@ pub fn sync_run_with_audit<Events, Engine, AuditTx>(
 where
     Events: Iterator,
     Events::Item: Debug + Clone,
-    Engine: Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext>,
+    Engine:
+        Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext> + SyncShutdown,
     Engine::Audit: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item, Engine::Output>>,
     Engine::Output: Debug + Clone,
     AuditTx: Tx<Item = AuditTick<Engine::Audit, EngineContext>>,
@@ -109,6 +117,9 @@ where
     audit_tx.send(engine.audit(shutdown_audit.clone()));
 
     info!(?shutdown_audit, "Engine shutting down");
+
+    let _ = engine.shutdown();
+
     shutdown_audit
 }
 
@@ -128,7 +139,8 @@ pub async fn async_run<Events, Engine>(
 where
     Events: Stream + Unpin,
     Events::Item: Debug + Clone,
-    Engine: Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext>,
+    Engine:
+        Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext> + SyncShutdown,
     Engine::Audit: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item, Engine::Output>>,
     Engine::Output: Debug + Clone,
     Option<ShutdownAudit<Events::Item, Engine::Output>>: for<'a> From<&'a Engine::Audit>,
@@ -157,6 +169,9 @@ where
     };
 
     info!(?shutdown_audit, "Engine shutting down");
+
+    let _ = engine.shutdown();
+
     shutdown_audit
 }
 
@@ -178,7 +193,8 @@ pub async fn async_run_with_audit<Events, Engine, AuditTx>(
 where
     Events: Stream + Unpin,
     Events::Item: Debug + Clone,
-    Engine: Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext>,
+    Engine:
+        Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext> + SyncShutdown,
     Engine::Audit: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item, Engine::Output>>,
     Engine::Output: Debug + Clone,
     AuditTx: Tx<Item = AuditTick<Engine::Audit, EngineContext>>,
@@ -218,5 +234,8 @@ where
     audit_tx.send(engine.audit(shutdown_audit.clone()));
 
     info!(?shutdown_audit, "Engine shutting down");
+
+    let _ = engine.shutdown();
+
     shutdown_audit
 }

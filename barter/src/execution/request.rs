@@ -11,6 +11,9 @@ use std::{
 /// Represents an `Engine` request to the `ExecutionManager`.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, From)]
 pub enum ExecutionRequest<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
+    /// Request `ExecutionManager` shutdown.
+    Shutdown,
+
     /// Request to cancel an existing `Order`.
     Cancel(OrderRequestCancel<ExchangeKey, InstrumentKey>),
 

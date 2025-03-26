@@ -20,6 +20,9 @@ pub enum BarterError {
 
     #[error("execution: {0}")]
     Execution(#[from] ExecutionError),
+
+    #[error("JoinError: {0}")]
+    JoinError(String),
 }
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
 #[error("RxDropped")]
@@ -34,5 +37,11 @@ impl<T> From<tokio::sync::mpsc::error::SendError<T>> for RxDropped {
 impl<T> From<tokio::sync::mpsc::error::SendError<T>> for BarterError {
     fn from(_: tokio::sync::mpsc::error::SendError<T>) -> Self {
         Self::ExecutionRxDropped(RxDropped)
+    }
+}
+
+impl From<tokio::task::JoinError> for BarterError {
+    fn from(value: tokio::task::JoinError) -> Self {
+        Self::JoinError(format!("{value:?}"))
     }
 }
