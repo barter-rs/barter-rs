@@ -1,6 +1,6 @@
 use crate::Unrecoverable;
 use derive_more::{Constructor, Display};
-use futures::Sink;
+use futures::{Sink, Stream};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
@@ -113,6 +113,14 @@ impl<T> Iterator for UnboundedRx<T> {
 impl<T> UnboundedRx<T> {
     pub fn into_stream(self) -> tokio_stream::wrappers::UnboundedReceiverStream<T> {
         tokio_stream::wrappers::UnboundedReceiverStream::new(self.rx)
+    }
+}
+
+impl<T> Stream for UnboundedRx<T> {
+    type Item = T;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.rx.poll_recv(cx)
     }
 }
 

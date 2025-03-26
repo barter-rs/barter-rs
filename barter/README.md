@@ -31,10 +31,11 @@ comprehensive documentation of other Barter libraries.**
 ## Overview
 Barter core is a Rust framework for building professional grade live-trading, paper-trading and back-testing systems. The
 central Engine facilitates executing on many exchanges simultaneously, and offers the flexibility to run most types of
-trading strategies.  It allows turning algorithmic order generation on/off and can action Commands issued from external
+trading strategies. It allows turning algorithmic order generation on/off and can action Commands issued from external
 processes (eg/ CloseAllPositions, OpenOrders, CancelOrders, etc.)
 
 At a high-level, it provides a few major components:
+* `SystemBuilder` for constructing and initialising a full trading `System`.
 * `Engine` with plug and play `Strategy` and `RiskManager` components.
 * Centralised cache friendly `EngineState` management with O(1) constant lookups using indexed data structures.  
 * `Strategy` interfaces for customising Engine behavior (AlgoStrategy, ClosePositionsStrategy, OnDisconnectStrategy, etc.).

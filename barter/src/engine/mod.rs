@@ -18,8 +18,9 @@ use crate::{
             trading::TradingState,
         },
     },
-    execution::AccountStreamEvent,
+    execution::{AccountStreamEvent, request::ExecutionRequest},
     risk::RiskManager,
+    shutdown::SyncShutdown,
     statistic::summary::TradingSummaryGenerator,
     strategy::{
         algo::AlgoStrategy, close_positions::ClosePositionsStrategy,
@@ -29,6 +30,7 @@ use crate::{
 use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
 use barter_execution::AccountEvent;
 use barter_instrument::{asset::QuoteAsset, exchange::ExchangeIndex, instrument::InstrumentIndex};
+use barter_integration::channel::Tx;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -161,7 +163,7 @@ where
         self.clock.process(&event);
 
         let process_audit = match &event {
-            EngineEvent::Shutdown => return EngineAudit::shutdown_commanded(event),
+            EngineEvent::Shutdown(_) => return EngineAudit::shutdown_commanded(event),
             EngineEvent::Command(command) => {
                 let output = self.action(command);
 
@@ -198,6 +200,26 @@ where
         } else {
             EngineAudit::from(process_audit)
         }
+    }
+}
+
+impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Risk> SyncShutdown
+    for Engine<
+        Clock,
+        EngineState<InstrumentData, StrategyState, RiskState>,
+        ExecutionTxs,
+        Strategy,
+        Risk,
+    >
+where
+    ExecutionTxs: ExecutionTxMap,
+{
+    type Result = ();
+
+    fn shutdown(&mut self) -> Self::Result {
+        self.execution_txs.iter().for_each(|execution_tx| {
+            let _send_result = execution_tx.send(ExecutionRequest::Shutdown);
+        });
     }
 }
 
