@@ -119,6 +119,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             MOCK_EXCHANGE_ROUND_TRIP_LATENCY_MS,
             MOCK_EXCHANGE_FEES_PERCENT,
         ))?
+        .build()
         .init()
         .await?;
     tokio::spawn(account_stream.forward_to(feed_tx.clone()));
