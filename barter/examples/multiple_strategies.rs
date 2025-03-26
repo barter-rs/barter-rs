@@ -5,7 +5,7 @@ use barter::{
         audit::EngineAudit,
         clock::{EngineClock, LiveClock},
         command::Command,
-        run,
+        run::sync_run_with_audit,
         state::{
             EngineState,
             instrument::{
@@ -407,7 +407,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Run synchronous Engine on blocking task
     let engine_task = tokio::task::spawn_blocking(move || {
-        let shutdown_audit = run(
+        let shutdown_audit = sync_run_with_audit(
             &mut feed_rx,
             &mut engine,
             &mut ChannelTxDroppable::new(audit_tx),
