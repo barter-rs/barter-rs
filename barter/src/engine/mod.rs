@@ -34,6 +34,7 @@ use barter_execution::AccountEvent;
 use barter_instrument::{asset::QuoteAsset, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::channel::{ChannelTxDroppable, Tx};
 use chrono::{DateTime, Utc};
+use futures::{Stream, StreamExt};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -106,6 +107,53 @@ where
     // Run Engine process loop until shutdown
     let shutdown_audit = loop {
         let Some(event) = feed.next() else {
+            audit_tx.send(engine.audit(ShutdownAudit::FeedEnded));
+            break ShutdownAudit::FeedEnded;
+        };
+
+        // Process Event with AuditTick generation
+        let audit = process_with_audit(engine, event);
+
+        // Check if AuditTick indicates shutdown is required
+        let shutdown = Option::<ShutdownAudit<Events::Item, Engine::Output>>::from(&audit.event);
+
+        // Send AuditTick to AuditManager
+        audit_tx.send(audit);
+
+        if let Some(shutdown) = shutdown {
+            break shutdown;
+        }
+    };
+
+    // Send Shutdown audit
+    audit_tx.send(engine.audit(shutdown_audit.clone()));
+
+    info!(?shutdown_audit, "Engine shutting down");
+    shutdown_audit
+}
+
+pub async fn run_async<Events, Engine, AuditTx>(
+    feed: &mut Events,
+    engine: &mut Engine,
+    audit_tx: &mut ChannelTxDroppable<AuditTx>,
+) -> ShutdownAudit<Events::Item, Engine::Output>
+where
+    Events: Stream + Unpin,
+    Events::Item: Debug + Clone,
+    Engine: Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext>,
+    Engine::Audit: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item, Engine::Output>>,
+    Engine::Output: Debug + Clone,
+    AuditTx: Tx<Item = AuditTick<Engine::Audit, EngineContext>>,
+    Option<ShutdownAudit<Events::Item, Engine::Output>>: for<'a> From<&'a Engine::Audit>,
+{
+    info!("Engine running");
+
+    // Send initial Engine State snapshot
+    audit_tx.send(engine.audit(engine.snapshot()));
+
+    // Run Engine process loop until shutdown
+    let shutdown_audit = loop {
+        let Some(event) = feed.next().await else {
             audit_tx.send(engine.audit(ShutdownAudit::FeedEnded));
             break ShutdownAudit::FeedEnded;
         };

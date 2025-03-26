@@ -4,7 +4,10 @@ use barter_instrument::{
     index::error::IndexError,
     instrument::InstrumentIndex,
 };
-use barter_integration::{channel::Tx, collection::FnvIndexMap};
+use barter_integration::{
+    channel::{Tx, UnboundedTx},
+    collection::FnvIndexMap,
+};
 use std::fmt::Debug;
 
 /// Collection of [`ExecutionRequest`] [`Tx`]s for each
@@ -30,7 +33,9 @@ pub trait ExecutionTxMap<ExchangeKey = ExchangeIndex, InstrumentKey = Instrument
 ///
 /// **Without this optional transmitter the [`ExchangeIndex`]s would not be valid.**.
 #[derive(Debug)]
-pub struct MultiExchangeTxMap<Tx>(FnvIndexMap<ExchangeId, Option<Tx>>);
+pub struct MultiExchangeTxMap<Tx = UnboundedTx<ExecutionRequest>>(
+    FnvIndexMap<ExchangeId, Option<Tx>>,
+);
 
 impl<Tx> FromIterator<(ExchangeId, Option<Tx>)> for MultiExchangeTxMap<Tx> {
     fn from_iter<Iter>(iter: Iter) -> Self

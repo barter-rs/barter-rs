@@ -79,6 +79,8 @@ pub mod statistic;
 /// `Engine` actions on disconnect / trading disabled.
 pub mod strategy;
 
+pub mod system;
+
 /// A timed value.
 #[derive(
     Debug,
