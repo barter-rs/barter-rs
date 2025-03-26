@@ -238,6 +238,9 @@ where
             tokio::select! {
                 // Process Engine ExecutionRequests
                 request = self.request_stream.next() => match request {
+                    Some(ExecutionRequest::Shutdown) | None => {
+                        break;
+                    }
                     Some(ExecutionRequest::Cancel(request)) => {
                         // Panic since the system is set up incorrectly, so it's foolish to continue
                         let client_request = self
@@ -268,9 +271,6 @@ where
                             request,
                         ))
                     }
-                    None => {
-                        return
-                    },
                 },
 
                 // Process next ExecutionRequest::Cancel response
@@ -281,7 +281,7 @@ where
                                 Ok(indexed_event) => indexed_event,
                                 Err(error) => {
                                     warn!(
-                                        exchange = ?self.indexer.map.exchange,
+                                        exchange = %self.indexer.map.exchange.value,
                                         ?error,
                                         "ExecutionManager filtering cancel response due to unrecognised index"
                                     );
@@ -307,7 +307,7 @@ where
                                 Ok(indexed_event) => indexed_event,
                                 Err(error) => {
                                     warn!(
-                                        exchange = ?self.indexer.map.exchange,
+                                        exchange = %self.indexer.map.exchange.value,
                                         ?error,
                                         "ExecutionManager filtering open response due to unrecognised index"
                                     );
@@ -327,6 +327,11 @@ where
 
             }
         }
+
+        info!(
+            exchange = %self.indexer.map.exchange.value,
+            "ExecutionManager shutting down"
+        )
     }
 
     fn process_cancel_response(

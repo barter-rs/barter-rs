@@ -31,7 +31,7 @@ use smol_str::ToSmolStr;
 use std::fmt::Debug;
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio_stream::{StreamExt, wrappers::BroadcastStream};
-use tracing::error;
+use tracing::{error, info};
 
 pub mod account;
 pub mod request;
@@ -117,6 +117,8 @@ impl MockExchange {
                 }
             }
         }
+
+        info!(exchange = %self.exchange, "MockExchange shutting down");
     }
 
     fn update_time_exchange(&mut self, time_request: DateTime<Utc>) {
