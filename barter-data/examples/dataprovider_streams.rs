@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     client.subscribe(
         Subscription::builder()
             .symbols(vec!["NVDA"])
-            .schema(Schema::Mbo)
+            .schema(Schema::Mbp10)
             .stype_in(SType::RawSymbol)
             .build(),
     ).await.unwrap();
