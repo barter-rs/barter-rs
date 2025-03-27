@@ -3,7 +3,8 @@ use barter_data::{
     event::{DataKind, MarketEvent},
     subscription::book::OrderBookL1,
 };
-use barter_instrument::instrument::InstrumentIndex;
+use barter_execution::AccountEvent;
+use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use derive_more::Constructor;
 use rust_decimal::{Decimal, prelude::FromPrimitive};
 use serde::{Deserialize, Serialize};
@@ -11,20 +12,23 @@ use std::fmt::Debug;
 
 /// Defines a state object for tracking and managing custom instrument level data.
 ///
-/// Implementations must handle market event processing and provide logic for accessing the latest
-/// instrument market price.
+/// Implementations must handle market event & account event processing, as well as logic for
+/// determining the latest instrument market price.
 ///
 /// This trait enables users to define their own instrument level data, and specify the type of
 /// [`MarketEvent`] that is required to update it. The custom instrument data could include
 /// market data, strategy-specific data, risk-specific data, or any other instrument level data.
 ///
 /// For an example, see the [`DefaultInstrumentMarketData`] implementation.
-pub trait InstrumentDataState<InstrumentKey = InstrumentIndex>
-where
+pub trait InstrumentDataState<
+    ExchangeKey = ExchangeIndex,
+    AssetKey = AssetIndex,
+    InstrumentKey = InstrumentIndex,
+> where
     Self: Debug
         + Clone
-        + Send
-        + for<'a> Processor<&'a MarketEvent<InstrumentKey, Self::MarketEventKind>>,
+        + for<'a> Processor<&'a MarketEvent<InstrumentKey, Self::MarketEventKind>>
+        + for<'a> Processor<&'a AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>,
 {
     /// [`MarketEvent<_, EventKind>`](MarketEvent) expected by this instrument data state.
     type MarketEventKind: Debug + Clone + Send;
@@ -91,4 +95,12 @@ impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>>
             _ => {}
         }
     }
+}
+
+impl<ExchangeKey, AssetKey, InstrumentKey>
+    Processor<&AccountEvent<ExchangeKey, AssetKey, InstrumentKey>> for DefaultInstrumentMarketData
+{
+    type Audit = ();
+
+    fn process(&mut self, _: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) -> Self::Audit {}
 }

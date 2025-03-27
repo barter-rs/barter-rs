@@ -79,11 +79,11 @@ pub struct TradingSummaryGenerator {
 impl TradingSummaryGenerator {
     /// Initialise a [`TradingSummaryGenerator`] from a `risk_free_return` value, and initial
     /// indexed state.
-    pub fn init<Market>(
+    pub fn init<InstrumentData>(
         risk_free_return: Decimal,
         time_engine_start: DateTime<Utc>,
         time_engine_now: DateTime<Utc>,
-        instruments: &InstrumentStates<Market>,
+        instruments: &InstrumentStates<InstrumentData>,
         assets: &AssetStates,
     ) -> Self {
         Self {

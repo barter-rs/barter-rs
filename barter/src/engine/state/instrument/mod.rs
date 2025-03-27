@@ -56,11 +56,11 @@ pub struct InstrumentStates<
     >,
 );
 
-impl<Market> InstrumentStates<Market> {
+impl<InstrumentData> InstrumentStates<InstrumentData> {
     /// Return a reference to the `InstrumentState` associated with an `InstrumentIndex`.
     ///
     /// Panics if `InstrumentState` associated with the `InstrumentIndex` does not exist.
-    pub fn instrument_index(&self, key: &InstrumentIndex) -> &InstrumentState<Market> {
+    pub fn instrument_index(&self, key: &InstrumentIndex) -> &InstrumentState<InstrumentData> {
         self.0
             .get_index(key.index())
             .map(|(_key, state)| state)
@@ -70,7 +70,10 @@ impl<Market> InstrumentStates<Market> {
     /// Return a mutable reference to the `InstrumentState` associated with an `InstrumentIndex`.
     ///
     /// Panics if `InstrumentState` associated with the `InstrumentIndex` does not exist.
-    pub fn instrument_index_mut(&mut self, key: &InstrumentIndex) -> &mut InstrumentState<Market> {
+    pub fn instrument_index_mut(
+        &mut self,
+        key: &InstrumentIndex,
+    ) -> &mut InstrumentState<InstrumentData> {
         self.0
             .get_index_mut(key.index())
             .map(|(_key, state)| state)
@@ -80,7 +83,7 @@ impl<Market> InstrumentStates<Market> {
     /// Return a reference to the `InstrumentState` associated with an `InstrumentNameInternal`.
     ///
     /// Panics if `InstrumentState` associated with the `InstrumentNameInternal` does not exist.
-    pub fn instrument(&self, key: &InstrumentNameInternal) -> &InstrumentState<Market> {
+    pub fn instrument(&self, key: &InstrumentNameInternal) -> &InstrumentState<InstrumentData> {
         self.0
             .get(key)
             .unwrap_or_else(|| panic!("InstrumentStates does not contain: {key}"))
@@ -90,28 +93,97 @@ impl<Market> InstrumentStates<Market> {
     /// `InstrumentNameInternal`.
     ///
     /// Panics if `InstrumentState` associated with the `InstrumentNameInternal` does not exist.
-    pub fn instrument_mut(&mut self, key: &InstrumentNameInternal) -> &mut InstrumentState<Market> {
+    pub fn instrument_mut(
+        &mut self,
+        key: &InstrumentNameInternal,
+    ) -> &mut InstrumentState<InstrumentData> {
         self.0
             .get_mut(key)
             .unwrap_or_else(|| panic!("InstrumentStates does not contain: {key}"))
     }
 
-    /// Return an `Iterator` of all `InstrumentState`s being tracked, optionally filtered by the
-    /// provided `InstrumentFilter`.
+    /// Return an `Iterator` of references to `InstrumentState`s being tracked, optionally filtered
+    /// by the provided `InstrumentFilter`.
     pub fn instruments<'a>(
         &'a self,
         filter: &'a InstrumentFilter,
-    ) -> impl Iterator<Item = &'a InstrumentState<Market>> {
+    ) -> impl Iterator<Item = &'a InstrumentState<InstrumentData>> {
         self.filtered(filter)
+    }
+
+    /// Return an `Iterator` of mutable references to `InstrumentState`s being tracked, optionally
+    /// filtered by the provided `InstrumentFilter`.
+    pub fn instruments_mut<'a>(
+        &'a mut self,
+        filter: &'a InstrumentFilter,
+    ) -> impl Iterator<Item = &'a mut InstrumentState<InstrumentData>> {
+        self.filtered_mut(filter)
+    }
+
+    /// Return an `Iterator` of references to instrument `TearSheetGenerator`s, optionally
+    /// filtered by the provided `InstrumentFilter`.
+    pub fn tear_sheets<'a>(
+        &'a self,
+        filter: &'a InstrumentFilter,
+    ) -> impl Iterator<Item = &'a TearSheetGenerator>
+    where
+        InstrumentData: 'a,
+    {
+        self.filtered(filter).map(|state| &state.tear_sheet)
+    }
+
+    /// Return an `Iterator` of references to instrument `PositionManager`s, optionally
+    /// filtered by the provided `InstrumentFilter`.
+    pub fn positions<'a>(
+        &'a self,
+        filter: &'a InstrumentFilter,
+    ) -> impl Iterator<Item = &'a PositionManager>
+    where
+        InstrumentData: 'a,
+    {
+        self.filtered(filter).map(|state| &state.position)
+    }
+
+    /// Return an `Iterator` of references to instrument `Orders`, optionally filtered by the
+    /// provided `InstrumentFilter`.
+    pub fn orders<'a>(&'a self, filter: &'a InstrumentFilter) -> impl Iterator<Item = &'a Orders>
+    where
+        InstrumentData: 'a,
+    {
+        self.filtered(filter).map(|state| &state.orders)
+    }
+
+    /// Return an `Iterator` of references to custom instrument level data state, optionally
+    /// filtered by the provided `InstrumentFilter`.
+    pub fn instrument_datas<'a>(
+        &'a self,
+        filter: &'a InstrumentFilter,
+    ) -> impl Iterator<Item = &'a InstrumentData>
+    where
+        InstrumentData: 'a,
+    {
+        self.filtered(filter).map(|state| &state.data)
+    }
+
+    /// Return an `Iterator` of mutable references to custom instrument level data state,
+    /// optionally filtered by the provided `InstrumentFilter`.
+    pub fn instrument_datas_mut<'a>(
+        &'a mut self,
+        filter: &'a InstrumentFilter,
+    ) -> impl Iterator<Item = &'a mut InstrumentData>
+    where
+        InstrumentData: 'a,
+    {
+        self.filtered_mut(filter).map(|state| &mut state.data)
     }
 
     /// Return a filtered `Iterator` of `InstrumentState`s based on the provided `InstrumentFilter`.
     fn filtered<'a>(
         &'a self,
         filter: &'a InstrumentFilter,
-    ) -> impl Iterator<Item = &'a InstrumentState<Market>>
+    ) -> impl Iterator<Item = &'a InstrumentState<InstrumentData>>
     where
-        Market: 'a,
+        InstrumentData: 'a,
     {
         use filter::InstrumentFilter::*;
         match filter {
@@ -134,49 +206,34 @@ impl<Market> InstrumentStates<Market> {
         }
     }
 
-    /// Return an `Iterator` of instrument `TearSheetGenerator`s, optionally filtered by the
+    /// Return a filtered `Iterator` of mutable `InstrumentState`s based on the
     /// provided `InstrumentFilter`.
-    pub fn tear_sheets<'a>(
-        &'a self,
+    fn filtered_mut<'a>(
+        &'a mut self,
         filter: &'a InstrumentFilter,
-    ) -> impl Iterator<Item = &'a TearSheetGenerator>
+    ) -> impl Iterator<Item = &'a mut InstrumentState<InstrumentData>>
     where
-        Market: 'a,
+        InstrumentData: 'a,
     {
-        self.filtered(filter).map(|state| &state.tear_sheet)
-    }
-
-    /// Return an `Iterator` of instrument `PositionManager`s, optionally filtered by the
-    /// provided `InstrumentFilter`.
-    pub fn positions<'a>(
-        &'a self,
-        filter: &'a InstrumentFilter,
-    ) -> impl Iterator<Item = &'a PositionManager>
-    where
-        Market: 'a,
-    {
-        self.filtered(filter).map(|state| &state.position)
-    }
-
-    /// Return an `Iterator` of all instrument `Orders`s, optionally filtered by the
-    /// provided `InstrumentFilter`.
-    pub fn orders<'a>(&'a self, filter: &'a InstrumentFilter) -> impl Iterator<Item = &'a Orders>
-    where
-        Market: 'a,
-    {
-        self.filtered(filter).map(|state| &state.orders)
-    }
-
-    /// Return an `Iterator` of all user defined instrument level data state, optionally filtered
-    /// by the provided `InstrumentFilter`.
-    pub fn instrument_datas<'a>(
-        &'a self,
-        filter: &'a InstrumentFilter,
-    ) -> impl Iterator<Item = &'a Market>
-    where
-        Market: 'a,
-    {
-        self.filtered(filter).map(|state| &state.data)
+        use filter::InstrumentFilter::*;
+        match filter {
+            None => Either::Left(Either::Left(self.0.values_mut())),
+            Exchanges(exchanges) => Either::Left(Either::Right(
+                self.0
+                    .values_mut()
+                    .filter(|state| exchanges.contains(&state.instrument.exchange)),
+            )),
+            Instruments(instruments) => Either::Right(Either::Right(
+                self.0
+                    .values_mut()
+                    .filter(|state| instruments.contains(&state.key)),
+            )),
+            Underlyings(underlying) => Either::Right(Either::Left(
+                self.0
+                    .values_mut()
+                    .filter(|state| underlying.contains(&state.instrument.underlying)),
+            )),
+        }
     }
 }
 
@@ -283,7 +340,7 @@ impl<InstrumentData, ExchangeKey, AssetKey, InstrumentKey>
         &mut self,
         event: &MarketEvent<InstrumentKey, InstrumentData::MarketEventKind>,
     ) where
-        InstrumentData: InstrumentDataState<InstrumentKey>,
+        InstrumentData: InstrumentDataState<ExchangeKey, AssetKey, InstrumentKey>,
     {
         self.data.process(event);
 
@@ -359,12 +416,12 @@ where
 }
 
 /// Generates an indexed [`InstrumentStates`] containing default instrument state data.
-pub fn generate_empty_indexed_instrument_states<Market>(
+pub fn generate_empty_indexed_instrument_states<InstrumentData>(
     instruments: &IndexedInstruments,
     time_engine_start: DateTime<Utc>,
-) -> InstrumentStates<Market, ExchangeIndex, AssetIndex, InstrumentIndex>
+) -> InstrumentStates<InstrumentData>
 where
-    Market: Default,
+    InstrumentData: Default,
 {
     InstrumentStates(
         instruments
@@ -372,6 +429,7 @@ where
             .iter()
             .map(|instrument| {
                 let exchange_index = instrument.value.exchange.key;
+
                 (
                     instrument.value.name_internal.clone(),
                     InstrumentState::new(
@@ -380,7 +438,7 @@ where
                         TearSheetGenerator::init(time_engine_start),
                         PositionManager::default(),
                         Orders::default(),
-                        Market::default(),
+                        InstrumentData::default(),
                     ),
                 )
             })
