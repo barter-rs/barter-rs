@@ -1,20 +1,19 @@
 use std::borrow::Cow;
 
 use ::serde::{Deserialize, Serialize};
+use barter_instrument::{instrument::name::InstrumentNameExchange, Side};
 use barter_integration::protocol::http::rest::RestRequest;
 use derive_more::derive::Constructor;
 use reqwest::Method;
+use rust_decimal::Decimal;
 use serde_with::{serde_as, skip_serializing_none, DisplayFromStr};
 
 use crate::{
     client::bybit::{
         http::BybitHttpResponse,
-        types::{
-            BybitOrderSide, BybitOrderTimeInForce, BybitOrderType, BybitPositionSide,
-            InstrumentCategory,
-        },
+        types::{BybitOrderTimeInForce, BybitPositionSide, InstrumentCategory},
     },
-    order::OrderId,
+    order::{ClientOrderId, OrderId, OrderKind},
 };
 
 /// https://bybit-exchange.github.io/docs/v5/order/create-order
@@ -47,7 +46,7 @@ pub struct PlaceOrderResponseInner {
     pub exchange_order_id: OrderId,
 
     #[serde(rename = "orderLinkId")]
-    pub client_order_id: String,
+    pub client_order_id: ClientOrderId,
 }
 
 #[serde_as]
@@ -58,30 +57,30 @@ pub struct PlaceOrderBody {
     pub category: InstrumentCategory,
 
     #[serde(rename = "symbol")]
-    pub symbol: String,
+    pub symbol: InstrumentNameExchange,
 
     #[serde(rename = "side")]
-    pub side: BybitOrderSide,
+    pub side: Side,
 
     #[serde(rename = "orderType")]
-    pub kind: BybitOrderType,
+    pub kind: OrderKind,
 
     #[serde(rename = "timeInForce")]
     pub time_in_force: BybitOrderTimeInForce,
 
     #[serde_as(as = "DisplayFromStr")]
     #[serde(rename = "qty")]
-    pub quantity: f64,
+    pub quantity: Decimal,
 
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(rename = "price")]
-    pub price: Option<f64>,
+    pub price: Option<Decimal>,
 
     #[serde(rename = "positionIdx")]
     pub position_side: Option<BybitPositionSide>,
 
     #[serde(rename = "orderLinkId")]
-    pub client_order_id: Option<String>,
+    pub client_order_id: Option<ClientOrderId>,
 
     #[serde(rename = "reduceOnly")]
     pub reduce_only: Option<bool>,
@@ -119,7 +118,7 @@ mod tests {
                 time: DateTime::from_str("2022-12-28T07:18:38.471Z").unwrap(),
                 result: PlaceOrderResponseInner {
                     exchange_order_id: OrderId::new("1321003749386327552"),
-                    client_order_id: "test-client-id".into(),
+                    client_order_id: ClientOrderId::new("test-client-id"),
                 },
             };
 

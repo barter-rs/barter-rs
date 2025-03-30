@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
-use serde_with::{serde_as, TimestampMilliSeconds};
+use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DefaultOnError, TimestampMilliSeconds};
+
+use super::types::InstrumentCategory;
 
 pub mod parser;
 pub mod requests;
@@ -22,4 +24,19 @@ pub struct BybitHttpResponse<T> {
 
     #[serde(rename = "result")]
     pub result: T,
+}
+
+/// Generic response from Bybit used for the list of results.
+#[serde_as]
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ResultList<T> {
+    #[serde(rename = "list")]
+    pub list: Vec<T>,
+
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "nextPageCursor")]
+    pub next_page_cursor: Option<String>,
+
+    #[serde(rename = "category")]
+    pub category: Option<InstrumentCategory>,
 }

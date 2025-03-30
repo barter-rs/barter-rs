@@ -1,3 +1,6 @@
+use barter_instrument::asset::name::AssetNameExchange;
+use barter_instrument::asset::QuoteAsset;
+use barter_instrument::exchange::ExchangeId;
 use barter_instrument::instrument::name::InstrumentNameExchange;
 use barter_instrument::Side;
 use barter_integration::de::de_u64_epoch_ms_as_datetime_utc;
@@ -7,14 +10,17 @@ use barter_integration::protocol::websocket::{WebSocket, WsMessage};
 use chrono::{DateTime, Duration, Utc};
 use futures::SinkExt;
 use hmac::{Hmac, Mac};
+use rust_decimal::prelude::FromPrimitive;
+use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::value::RawValue;
 use serde_with::{serde_as, DefaultOnError, DisplayFromStr};
 use sha2::Sha256;
+use tracing::error;
 
-use crate::order::OrderId;
-use crate::trade::TradeId;
-use crate::ApiCredentials;
+use crate::order::{Cancelled, ClientOrderId, Open, Order, OrderId, StrategyId};
+use crate::trade::{AssetFees, Trade, TradeId};
+use crate::{AccountEvent, AccountEventKind, ApiCredentials, UnindexedAccountEvent};
 
 use super::types::{BybitOrderStatus, BybitPositionSide, ExecutionType, InstrumentCategory};
 
@@ -165,4 +171,112 @@ fn generate_auth_message(api_key: &str, api_secret: &str) -> WsMessage {
         })
         .to_string(),
     )
+}
+
+pub async fn extract_event(
+    payload: BybitPayload,
+    _assets: &[AssetNameExchange],
+    instruments: &[InstrumentNameExchange],
+) -> Result<Option<UnindexedAccountEvent>, ()> {
+    let event = match payload.topic.as_str() {
+        "order" => {
+            let order = serde_json::from_str::<OrderUpdateData>(payload.data.get()).unwrap();
+
+            instruments
+                .contains(&order.symbol)
+                .then(|| to_unified_order(order, payload.timestamp))
+        }
+        "execution" => {
+            let execution = serde_json::from_str::<OrderExecutionData>(payload.data.get()).unwrap();
+
+            instruments
+                .contains(&execution.symbol)
+                .then(|| to_unified_execution(execution, payload.timestamp))
+                .flatten()
+        }
+        // TODO: Add balance and position updates
+        _ => {
+            error!(?payload, "message from unknown topic received");
+            None
+        }
+    };
+
+    Ok(event)
+}
+
+fn to_unified_order(order: OrderUpdateData, time_exchange: DateTime<Utc>) -> UnindexedAccountEvent {
+    let kind = match order.status {
+        BybitOrderStatus::New
+        | BybitOrderStatus::PartiallyFilled
+        | BybitOrderStatus::Untriggered => {
+            AccountEventKind::OrderOpened::<ExchangeId, AssetNameExchange, InstrumentNameExchange>(
+                Order {
+                    exchange: ExchangeId::BybitSpot,
+                    instrument: order.symbol,
+                    strategy: StrategyId::unknown(),
+                    cid: ClientOrderId::new(order.client_order_id.unwrap()),
+                    side: order.side,
+                    state: Ok(Open {
+                        id: order.exchange_order_id,
+                        time_exchange,
+                        price: Decimal::from_f64(order.original_price).unwrap(),
+                        // TODO: We should probably also add an average price
+                        quantity: Decimal::from_f64(order.original_quantity).unwrap(),
+                        filled_quantity: Decimal::from_f64(order.cumulative_executed_quantity)
+                            .unwrap(),
+                    }),
+                },
+            )
+        }
+        BybitOrderStatus::Rejected
+        | BybitOrderStatus::PartiallyFilledCanceled
+        | BybitOrderStatus::Filled
+        | BybitOrderStatus::Cancelled
+        | BybitOrderStatus::Triggered
+        | BybitOrderStatus::Deactivated => {
+            AccountEventKind::OrderCancelled::<ExchangeId, AssetNameExchange, InstrumentNameExchange>(
+                Order {
+                    exchange: ExchangeId::BybitSpot,
+                    instrument: order.symbol,
+                    strategy: StrategyId::unknown(),
+                    cid: ClientOrderId::new(order.client_order_id.unwrap()),
+                    side: order.side,
+                    state: Ok(Cancelled {
+                        id: order.exchange_order_id,
+                        time_exchange,
+                    }),
+                },
+            )
+        }
+    };
+
+    AccountEvent {
+        exchange: ExchangeId::BybitSpot,
+        kind,
+    }
+}
+
+pub fn to_unified_execution(
+    execution: OrderExecutionData,
+    time_exchange: DateTime<Utc>,
+) -> Option<UnindexedAccountEvent> {
+    Some(AccountEvent {
+        exchange: ExchangeId::BybitSpot,
+        kind: AccountEventKind::Trade(Trade {
+            id: execution.trade_id,
+            order_id: execution.exchange_order_id,
+            instrument: execution.symbol,
+            strategy: StrategyId::unknown(),
+            time_exchange,
+            // TODO: Handle side
+            side: todo!(),
+            price: Decimal::from_f64(execution.exec_price)?,
+            quantity: Decimal::from_f64(execution.exec_qty)?,
+            // TODO: Handle fees
+            fees: AssetFees {
+                asset: QuoteAsset,
+                fees: todo!(),
+            },
+        }),
+    })
 }

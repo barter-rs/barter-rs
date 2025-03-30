@@ -42,6 +42,7 @@ thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["raw_value"] }
 serde_with = { version = "3.12.0", features = ["chrono"] }
+serde_repr = { version = "0.1.19" }
 serde_urlencoded = { workspace = true }
 
 # Cryptographic Signatures
