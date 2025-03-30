@@ -29,7 +29,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter", "json", "registry"]}
 
 # Async
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, features = ["sync", "fs"] }
 futures = { workspace = true }
 pin-project = { workspace = true }
 
@@ -50,3 +50,4 @@ chrono = { workspace = true, features = ["serde"]}
 derive_more = { workspace = true, features = ["constructor", "from", "display"]}
 prettytable-rs = "0.10.0"
 itertools = { workspace = true }
+
