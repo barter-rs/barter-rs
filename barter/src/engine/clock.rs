@@ -3,7 +3,7 @@ use barter_data::streams::consumer::MarketStreamEvent;
 use chrono::{DateTime, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, ops::Add};
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 
 /// Defines how an [`Engine`](super::Engine) will determine the current time.
 ///
@@ -82,6 +82,7 @@ where
             return;
         };
 
+        // Input event is more recent
         if time_event_exchange >= self.time_exchange_last {
             debug!(
                 ?event,
@@ -91,11 +92,37 @@ where
             );
             self.time_exchange_last = time_event_exchange;
             self.time_live_last_event = Utc::now();
-        } else {
+            return;
+        };
+
+        // Input event is older, so log at varying degrees of severity
+        let time_diff_secs = time_event_exchange
+            .signed_duration_since(self.time_exchange_last)
+            .num_seconds()
+            .abs();
+
+        if time_diff_secs < 1 {
+            debug!(
+                ?event,
+                time_exchange_last_current = ?self.time_exchange_last,
+                time_update = ?time_event_exchange,
+                time_diff_secs,
+                "HistoricalClock received out-of-order events"
+            );
+        } else if time_diff_secs < 30 {
             warn!(
                 ?event,
                 time_exchange_last_current = ?self.time_exchange_last,
                 time_update = ?time_event_exchange,
+                time_diff_secs,
+                "HistoricalClock received out-of-order events"
+            );
+        } else {
+            error!(
+                ?event,
+                time_exchange_last_current = ?self.time_exchange_last,
+                time_update = ?time_event_exchange,
+                time_diff_secs,
                 "HistoricalClock received out-of-order events"
             );
         }
