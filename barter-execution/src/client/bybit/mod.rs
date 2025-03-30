@@ -11,7 +11,7 @@ mod websocket;
 
 #[derive(Debug, Clone)]
 pub struct BybitConfig {
-    credentials: ApiCredentials,
+    pub credentials: ApiCredentials,
 }
 
 pub type BybitSpot = BybitClient<SpotServer>;

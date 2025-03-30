@@ -8,7 +8,7 @@ use barter_integration::error::SocketError;
 use barter_integration::protocol::http::private::encoder::{Encoder, HexEncoder};
 use barter_integration::protocol::websocket::{WebSocket, WsMessage};
 use chrono::{DateTime, Duration, Utc};
-use futures::SinkExt;
+use futures::{SinkExt, StreamExt};
 use hmac::{Hmac, Mac};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
@@ -16,19 +16,19 @@ use serde::Deserialize;
 use serde_json::value::RawValue;
 use serde_with::{serde_as, DefaultOnError, DisplayFromStr};
 use sha2::Sha256;
-use tracing::error;
 
 use crate::order::id::{OrderId, StrategyId};
-use crate::order::Order;
 use crate::trade::{AssetFees, Trade, TradeId};
 use crate::{AccountEvent, AccountEventKind, ApiCredentials, UnindexedAccountEvent};
 
 use super::types::{BybitOrderStatus, BybitPositionSide, InstrumentCategory};
 
+mod subscription;
+
 #[derive(Debug, Deserialize)]
 pub struct BybitPayload {
     #[serde(alias = "topic")]
-    pub topic: String,
+    pub topic: BybitPayloadTopic,
 
     #[serde(
         alias = "creationTime",
@@ -38,6 +38,13 @@ pub struct BybitPayload {
 
     #[serde(rename = "data")]
     pub data: Box<RawValue>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BybitPayloadTopic {
+    Order,
+    Execution,
 }
 
 #[serde_as]
@@ -142,6 +149,8 @@ pub async fn subscribe(
     stream.send(sub_message).await?;
 
     // TODO: Validate the response
+    stream.next().await;
+    stream.next().await;
 
     Ok(())
 }
@@ -176,26 +185,21 @@ pub async fn extract_event(
     _assets: &[AssetNameExchange],
     instruments: &[InstrumentNameExchange],
 ) -> Result<Option<UnindexedAccountEvent>, ()> {
-    let event = match payload.topic.as_str() {
-        "order" => {
+    let event = match payload.topic {
+        BybitPayloadTopic::Order => {
             let order = serde_json::from_str::<OrderUpdateData>(payload.data.get()).unwrap();
 
             instruments
                 .contains(&order.symbol)
                 .then(|| to_unified_order(order, payload.timestamp))
         }
-        "execution" => {
+        BybitPayloadTopic::Execution => {
             let execution = serde_json::from_str::<OrderExecutionData>(payload.data.get()).unwrap();
 
             instruments
                 .contains(&execution.symbol)
                 .then(|| to_unified_execution(execution, payload.timestamp))
                 .flatten()
-        }
-        // TODO: Add balance and position updates
-        _ => {
-            error!(?payload, "message from unknown topic received");
-            None
         }
     };
 

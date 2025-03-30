@@ -88,10 +88,15 @@ where
 
     async fn account_snapshot(
         &self,
-        _: &[AssetNameExchange],
+        assets: &[AssetNameExchange],
         instruments: &[InstrumentNameExchange],
     ) -> Result<UnindexedAccountSnapshot, UnindexedClientError> {
-        let balances = self.fetch_balances().await?;
+        let balances = self
+            .fetch_balances()
+            .await?
+            .into_iter()
+            .filter(|balance| assets.contains(&balance.asset))
+            .collect();
 
         let orders_by_instrument = self
             .fetch_open_orders()
@@ -218,7 +223,12 @@ where
                 id: response.result.exchange_order_id,
                 time_exchange: response.time,
             })
-            .map_err(Into::into);
+            // TODO: How to go from UnindexedClientError to UnindexedOrderError?
+            .map_err(|_| {
+                UnindexedOrderError::Connectivity(ConnectivityError::Socket(
+                    "some error".to_string(),
+                ))
+            });
 
         Order {
             exchange: Self::EXCHANGE,
