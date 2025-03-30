@@ -2,11 +2,28 @@ use crate::books::Level;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+use super::message::BybitPayload;
+
 /// Level 1 OrderBook types.
 pub mod l1;
 
-/// Level 2 OrderBook types.
-pub mod l2;
+/// Terse type alias for an [`BybitOrderBook`](BybitOrderBook) orderbook WebSocket message.
+pub type BybitOrderBook = BybitPayload<BybitOrderBookInner>;
+
+#[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
+pub struct BybitOrderBookInner {
+    #[serde(rename = "b")]
+    pub bids: Vec<BybitLevel>,
+
+    #[serde(rename = "a")]
+    pub asks: Vec<BybitLevel>,
+
+    #[serde(rename = "u")]
+    pub update_id: u64,
+
+    #[serde(rename = "seq")]
+    pub sequence: u64,
+}
 
 /// [`Bybit`](super::Bybit) OrderBook level.
 ///

@@ -11,7 +11,7 @@ use serde::{
     de::{Error, Unexpected},
 };
 
-use super::book::l2::BybitOrderBook;
+use super::book::BybitOrderBook;
 
 /// [`Bybit`](super::Bybit) websocket message.
 #[derive(Debug, Serialize, Deserialize)]

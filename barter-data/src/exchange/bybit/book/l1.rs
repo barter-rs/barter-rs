@@ -7,7 +7,7 @@ use crate::{
     subscription::book::OrderBookL1,
 };
 
-use super::l2::BybitOrderBook;
+use super::BybitOrderBook;
 
 impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BybitMessage)>
     for MarketIter<InstrumentKey, OrderBookL1>

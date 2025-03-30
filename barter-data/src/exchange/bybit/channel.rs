@@ -1,11 +1,7 @@
 use crate::{
     Identifier,
     exchange::bybit::Bybit,
-    subscription::{
-        Subscription,
-        book::{OrderBooksL1, OrderBooksL2},
-        trade::PublicTrades,
-    },
+    subscription::{Subscription, book::OrderBooksL1, trade::PublicTrades},
 };
 use serde::Serialize;
 
@@ -46,14 +42,6 @@ impl<Server, Instrument> Identifier<BybitChannel>
 {
     fn id(&self) -> BybitChannel {
         BybitChannel::ORDER_BOOK_L1
-    }
-}
-
-impl<Server, Instrument> Identifier<BybitChannel>
-    for Subscription<Bybit<Server>, Instrument, OrderBooksL2>
-{
-    fn id(&self) -> BybitChannel {
-        BybitChannel::ORDER_BOOK_L2
     }
 }
 
