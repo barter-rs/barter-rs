@@ -72,18 +72,6 @@ pub enum BybitPositionSide {
     Short = 2,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-pub enum ExecutionType {
-    Trade,
-    AdlTrade,
-    Funding,
-    BustTrade,
-    Delivery,
-    Settle,
-    BlockTrade,
-    MovePosition,
-}
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub enum BybitOrderStatus {
     // Open status

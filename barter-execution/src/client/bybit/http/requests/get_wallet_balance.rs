@@ -69,7 +69,7 @@ pub struct GetWalletBalanceCoin {
     pub locked_balance: Decimal,
 
     #[serde(rename = "coin")]
-    pub symbol: AssetNameExchange,
+    pub asset: AssetNameExchange,
 }
 
 #[cfg(test)]

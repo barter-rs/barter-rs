@@ -53,7 +53,7 @@ pub struct CancelOrderBody {
     pub category: InstrumentCategory,
 
     #[serde(rename = "symbol")]
-    pub symbol: InstrumentNameExchange,
+    pub instrument: InstrumentNameExchange,
 
     #[serde(rename = "orderId")]
     pub exchange_order_id: Option<OrderId>,

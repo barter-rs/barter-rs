@@ -22,7 +22,7 @@ use crate::order::{Cancelled, ClientOrderId, Open, Order, OrderId, StrategyId};
 use crate::trade::{AssetFees, Trade, TradeId};
 use crate::{AccountEvent, AccountEventKind, ApiCredentials, UnindexedAccountEvent};
 
-use super::types::{BybitOrderStatus, BybitPositionSide, ExecutionType, InstrumentCategory};
+use super::types::{BybitOrderStatus, BybitPositionSide, InstrumentCategory};
 
 #[derive(Debug, Deserialize)]
 pub struct BybitPayload {
@@ -113,9 +113,6 @@ pub struct OrderExecutionData {
     #[serde_as(as = "DisplayFromStr")]
     #[serde(rename = "execQty")]
     pub exec_qty: f64,
-
-    #[serde(rename = "execType")]
-    pub exec_type: ExecutionType,
 
     #[serde_as(as = "DisplayFromStr")]
     #[serde(rename = "orderQty")]
