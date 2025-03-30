@@ -9,7 +9,7 @@ use serde_with::{serde_as, skip_serializing_none};
 
 use crate::{
     client::bybit::{http::BybitHttpResponse, types::InstrumentCategory},
-    order::{ClientOrderId, OrderId},
+    order::id::{ClientOrderId, OrderId},
 };
 
 /// https://bybit-exchange.github.io/docs/v5/order/cancel-order

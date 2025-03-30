@@ -5,7 +5,7 @@ use super::http::{
     requests::{
         CancelOrderBody, CancelOrderRequest, GetOpenAndClosedOrders, GetOpenAndClosedOrdersParams,
         GetOrderTradesParams, GetOrderTradesRequest, GetWalletBalanceParams,
-        GetWalletBalanceRequest, GetWalletBalanceResponseInner, PlaceOrderBody, PlaceOrderRequest,
+        GetWalletBalanceRequest, GetWalletBalanceResponseInner,
     },
     signer::{BybitRequestSigner, BybitSigner},
 };
@@ -29,15 +29,18 @@ use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use hmac::{Hmac, Mac};
 use itertools::Itertools;
-use rust_decimal::Decimal;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{debug, error, warn};
 
 use crate::{
     balance::{AssetBalance, Balance},
     client::ExecutionClient,
-    error::{ConnectivityError, UnindexedClientError},
-    order::{Cancelled, Open, Order, RequestCancel, RequestOpen, StrategyId},
+    error::{ConnectivityError, UnindexedClientError, UnindexedOrderError},
+    order::{
+        id::StrategyId,
+        state::{Cancelled, Open},
+        Order, RequestCancel, RequestOpen,
+    },
     trade::{AssetFees, Trade},
     InstrumentAccountSnapshot, UnindexedAccountEvent, UnindexedAccountSnapshot,
 };
@@ -199,7 +202,7 @@ where
     async fn cancel_order(
         &self,
         cancel_request: Order<ExchangeId, &InstrumentNameExchange, RequestCancel>,
-    ) -> Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedClientError>> {
+    ) -> Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedOrderError>> {
         let request = CancelOrderRequest::new(CancelOrderBody {
             category: Server::CATEGORY,
             instrument: cancel_request.instrument.clone(),
@@ -230,55 +233,56 @@ where
     async fn open_order(
         &self,
         open_request: Order<ExchangeId, &InstrumentNameExchange, RequestOpen>,
-    ) -> Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedClientError>> {
-        let time_in_force = match open_request.state.time_in_force.try_into() {
-            Ok(time_in_force) => time_in_force,
-            Err(err) => {
-                return Order {
-                    exchange: Self::EXCHANGE,
-                    instrument: open_request.instrument.clone(),
-                    strategy: open_request.strategy,
-                    cid: open_request.cid,
-                    side: open_request.side,
-                    state: Err(err),
-                }
-            }
-        };
+    ) -> Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>> {
+        // let time_in_force = match open_request.state.time_in_force.try_into() {
+        //     Ok(time_in_force) => time_in_force,
+        //     Err(err) => {
+        //         return Order {
+        //             exchange: Self::EXCHANGE,
+        //             instrument: open_request.instrument.clone(),
+        //             strategy: open_request.strategy,
+        //             cid: open_request.cid,
+        //             side: open_request.side,
+        //             state: Err(err),
+        //         }
+        //     }
+        // };
 
-        let request = PlaceOrderRequest::new(PlaceOrderBody {
-            category: Server::CATEGORY,
-            instrument: open_request.instrument.clone(),
-            client_order_id: Some(open_request.cid.clone()),
-            side: open_request.side,
-            kind: open_request.state.kind,
-            time_in_force,
-            quantity: open_request.state.quantity,
-            price: Some(open_request.state.price),
-            position_side: None,
-            reduce_only: None,
-        });
+        // let request = PlaceOrderRequest::new(PlaceOrderBody {
+        //     category: Server::CATEGORY,
+        //     instrument: open_request.instrument.clone(),
+        //     client_order_id: Some(open_request.cid.clone()),
+        //     side: open_request.side,
+        //     kind: open_request.state.kind,
+        //     time_in_force,
+        //     quantity: open_request.state.quantity,
+        //     price: Some(open_request.state.price),
+        //     position_side: None,
+        //     reduce_only: None,
+        // });
 
-        let state = self
-            .rest_client
-            .execute(request)
-            .await
-            .map(|(response, _metric)| Open {
-                id: response.result.exchange_order_id,
-                time_exchange: response.time,
-                price: open_request.state.price,
-                quantity: open_request.state.quantity,
-                filled_quantity: Decimal::ZERO,
-            })
-            .map_err(Into::into);
+        // let state = self
+        //     .rest_client
+        //     .execute(request)
+        //     .await
+        //     .map(|(response, _metric)| Open {
+        //         id: response.result.exchange_order_id,
+        //         time_exchange: response.time,
+        //         price: open_request.state.price,
+        //         quantity: open_request.state.quantity,
+        //         filled_quantity: Decimal::ZERO,
+        //     })
+        //     .map_err(Into::into);
 
-        Order {
-            exchange: Self::EXCHANGE,
-            instrument: open_request.instrument.clone(),
-            strategy: open_request.strategy,
-            cid: open_request.cid,
-            side: open_request.side,
-            state,
-        }
+        // Order {
+        //     exchange: Self::EXCHANGE,
+        //     instrument: open_request.instrument.clone(),
+        //     strategy: open_request.strategy,
+        //     cid: open_request.cid,
+        //     side: open_request.side,
+        //     state,
+        // }
+        todo!()
     }
 
     async fn fetch_balances(

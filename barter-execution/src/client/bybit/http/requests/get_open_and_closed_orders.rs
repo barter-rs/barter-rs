@@ -13,7 +13,7 @@ use crate::{
         http::{BybitHttpResponse, ResultList},
         types::InstrumentCategory,
     },
-    order::{ClientOrderId, OrderId},
+    order::id::{ClientOrderId, OrderId},
 };
 
 /// https://bybit-exchange.github.io/docs/v5/order/open-order

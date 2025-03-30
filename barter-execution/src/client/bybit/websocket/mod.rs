@@ -18,7 +18,8 @@ use serde_with::{serde_as, DefaultOnError, DisplayFromStr};
 use sha2::Sha256;
 use tracing::error;
 
-use crate::order::{Cancelled, ClientOrderId, Open, Order, OrderId, StrategyId};
+use crate::order::id::{OrderId, StrategyId};
+use crate::order::Order;
 use crate::trade::{AssetFees, Trade, TradeId};
 use crate::{AccountEvent, AccountEventKind, ApiCredentials, UnindexedAccountEvent};
 
@@ -206,24 +207,25 @@ fn to_unified_order(order: OrderUpdateData, time_exchange: DateTime<Utc>) -> Uni
         BybitOrderStatus::New
         | BybitOrderStatus::PartiallyFilled
         | BybitOrderStatus::Untriggered => {
-            AccountEventKind::OrderOpened::<ExchangeId, AssetNameExchange, InstrumentNameExchange>(
-                Order {
-                    exchange: ExchangeId::BybitSpot,
-                    instrument: order.symbol,
-                    strategy: StrategyId::unknown(),
-                    cid: ClientOrderId::new(order.client_order_id.unwrap()),
-                    side: order.side,
-                    state: Ok(Open {
-                        id: order.exchange_order_id,
-                        time_exchange,
-                        price: Decimal::from_f64(order.original_price).unwrap(),
-                        // TODO: We should probably also add an average price
-                        quantity: Decimal::from_f64(order.original_quantity).unwrap(),
-                        filled_quantity: Decimal::from_f64(order.cumulative_executed_quantity)
-                            .unwrap(),
-                    }),
-                },
-            )
+            // AccountEventKind::OrderOpened::<ExchangeId, AssetNameExchange, InstrumentNameExchange>(
+            //     Order {
+            //         exchange: ExchangeId::BybitSpot,
+            //         instrument: order.symbol,
+            //         strategy: StrategyId::unknown(),
+            //         cid: ClientOrderId::new(order.client_order_id.unwrap()),
+            //         side: order.side,
+            //         state: Ok(Open {
+            //             id: order.exchange_order_id,
+            //             time_exchange,
+            //             price: Decimal::from_f64(order.original_price).unwrap(),
+            //             // TODO: We should probably also add an average price
+            //             quantity: Decimal::from_f64(order.original_quantity).unwrap(),
+            //             filled_quantity: Decimal::from_f64(order.cumulative_executed_quantity)
+            //                 .unwrap(),
+            //         }),
+            //     },
+            // )
+            todo!()
         }
         BybitOrderStatus::Rejected
         | BybitOrderStatus::PartiallyFilledCanceled
@@ -231,19 +233,20 @@ fn to_unified_order(order: OrderUpdateData, time_exchange: DateTime<Utc>) -> Uni
         | BybitOrderStatus::Cancelled
         | BybitOrderStatus::Triggered
         | BybitOrderStatus::Deactivated => {
-            AccountEventKind::OrderCancelled::<ExchangeId, AssetNameExchange, InstrumentNameExchange>(
-                Order {
-                    exchange: ExchangeId::BybitSpot,
-                    instrument: order.symbol,
-                    strategy: StrategyId::unknown(),
-                    cid: ClientOrderId::new(order.client_order_id.unwrap()),
-                    side: order.side,
-                    state: Ok(Cancelled {
-                        id: order.exchange_order_id,
-                        time_exchange,
-                    }),
-                },
-            )
+            // AccountEventKind::OrderCancelled::<ExchangeId, AssetNameExchange, InstrumentNameExchange>(
+            //     Order {
+            //         exchange: ExchangeId::BybitSpot,
+            //         instrument: order.symbol,
+            //         strategy: StrategyId::unknown(),
+            //         cid: ClientOrderId::new(order.client_order_id.unwrap()),
+            //         side: order.side,
+            //         state: Ok(Cancelled {
+            //             id: order.exchange_order_id,
+            //             time_exchange,
+            //         }),
+            //     },
+            // )
+            todo!()
         }
     };
 
