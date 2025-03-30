@@ -83,6 +83,9 @@ pub mod strategy;
 /// Utilities for initialising and interacting with a full trading system.
 pub mod system;
 
+/// Backtesting utilities.
+pub mod backtest;
+
 /// Traits and types related to component shutdowns.
 pub mod shutdown;
 
