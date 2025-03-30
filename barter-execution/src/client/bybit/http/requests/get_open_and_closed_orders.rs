@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use barter_instrument::{instrument::name::InstrumentNameExchange, Side};
+use barter_instrument::{Side, instrument::name::InstrumentNameExchange};
 use barter_integration::protocol::http::rest::RestRequest;
 use derive_more::derive::Constructor;
 use reqwest::Method;
@@ -11,9 +11,12 @@ use serde_with::{serde_as, skip_serializing_none};
 use crate::{
     client::bybit::{
         http::{BybitHttpResponse, ResultList},
-        types::InstrumentCategory,
+        types::{BybitOrderTimeInForce, InstrumentCategory},
     },
-    order::id::{ClientOrderId, OrderId},
+    order::{
+        OrderKind,
+        id::{ClientOrderId, OrderId},
+    },
 };
 
 /// https://bybit-exchange.github.io/docs/v5/order/open-order
@@ -62,6 +65,12 @@ pub struct GetOpenAndClosedOrdersResponseInner {
 
     #[serde(rename = "side")]
     pub side: Side,
+
+    #[serde(rename = "orderType")]
+    pub kind: OrderKind,
+
+    #[serde(rename = "timeInForce")]
+    pub time_in_force: BybitOrderTimeInForce,
 
     #[serde(rename = "price")]
     pub price: Decimal,

@@ -34,7 +34,7 @@ impl RestRequest for CancelOrderRequest {
     }
 }
 
-type CancelOrderResponse = BybitHttpResponse<CancelOrderResponseInner>;
+pub type CancelOrderResponse = BybitHttpResponse<CancelOrderResponseInner>;
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct CancelOrderResponseInner {

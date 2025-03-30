@@ -7,7 +7,7 @@ use reqwest::Method;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_with::formats::CommaSeparator;
-use serde_with::{serde_as, skip_serializing_none, DisplayFromStr, StringWithSeparator};
+use serde_with::{DisplayFromStr, StringWithSeparator, serde_as, skip_serializing_none};
 
 use crate::client::bybit::http::{BybitHttpResponse, ResultList};
 use crate::client::bybit::types::AccountType;

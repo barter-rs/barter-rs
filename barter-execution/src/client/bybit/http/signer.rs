@@ -1,7 +1,7 @@
 use barter_integration::{
     error::SocketError,
     protocol::http::{
-        private::{encoder::HexEncoder, RequestSigner, Signer},
+        private::{RequestSigner, Signer, encoder::HexEncoder},
         rest::RestRequest,
     },
 };
