@@ -147,3 +147,19 @@ impl<ExchangeKey, AssetKey, InstrumentKey> AccountSnapshot<ExchangeKey, AssetKey
         self.instruments.iter().map(|snapshot| &snapshot.instrument)
     }
 }
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize, Constructor)]
+pub struct ApiCredentials {
+    pub key: String,
+    pub secret: String,
+}
+
+impl std::fmt::Debug for ApiCredentials {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ApiCredentials")
+            .field("key", &self.key)
+            .field("secret", &"***")
+            .finish()
+    }
+}
