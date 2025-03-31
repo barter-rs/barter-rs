@@ -105,6 +105,7 @@ impl<InstrumentData, Strategy, Risk> EngineState<InstrumentData, Strategy, Risk>
         event: &AccountEvent,
     ) -> Option<PositionExited<QuoteAsset>>
     where
+        InstrumentData: for<'a> Processor<&'a AccountEvent>,
         Strategy: for<'a> Processor<&'a AccountEvent>,
         Risk: for<'a> Processor<&'a AccountEvent>,
     {
@@ -119,9 +120,12 @@ impl<InstrumentData, Strategy, Risk> EngineState<InstrumentData, Strategy, Risk>
                         .update_from_balance(Snapshot(balance))
                 }
                 for instrument in &snapshot.instruments {
-                    self.instruments
-                        .instrument_index_mut(&instrument.instrument)
-                        .update_from_account_snapshot(instrument)
+                    let instrument_state = self
+                        .instruments
+                        .instrument_index_mut(&instrument.instrument);
+
+                    instrument_state.update_from_account_snapshot(instrument);
+                    instrument_state.data.process(event);
                 }
                 None
             }
@@ -132,21 +136,29 @@ impl<InstrumentData, Strategy, Risk> EngineState<InstrumentData, Strategy, Risk>
                 None
             }
             AccountEventKind::OrderSnapshot(order) => {
-                self.instruments
-                    .instrument_index_mut(&order.0.key.instrument)
-                    .update_from_order_snapshot(order.as_ref());
+                let instrument_state = self
+                    .instruments
+                    .instrument_index_mut(&order.value().key.instrument);
+
+                instrument_state.update_from_order_snapshot(order.as_ref());
+                instrument_state.data.process(event);
                 None
             }
             AccountEventKind::OrderCancelled(response) => {
-                self.instruments
-                    .instrument_index_mut(&response.key.instrument)
-                    .update_from_cancel_response(response);
+                let instrument_state = self
+                    .instruments
+                    .instrument_index_mut(&response.key.instrument);
+
+                instrument_state.update_from_cancel_response(response);
+                instrument_state.data.process(event);
                 None
             }
-            AccountEventKind::Trade(trade) => self
-                .instruments
-                .instrument_index_mut(&trade.instrument)
-                .update_from_trade(trade),
+            AccountEventKind::Trade(trade) => {
+                let instrument_state = self.instruments.instrument_index_mut(&trade.instrument);
+
+                instrument_state.data.process(event);
+                instrument_state.update_from_trade(trade)
+            }
         };
 
         // Update any user provided Strategy & Risk State
