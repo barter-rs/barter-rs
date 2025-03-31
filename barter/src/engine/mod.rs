@@ -299,6 +299,7 @@ impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Ri
         event: &AccountStreamEvent,
     ) -> UpdateFromAccountOutput<Strategy::OnDisconnect>
     where
+        InstrumentData: for<'a> Processor<&'a AccountEvent>,
         StrategyState: for<'a> Processor<&'a AccountEvent>,
         RiskState: for<'a> Processor<&'a AccountEvent>,
         Strategy: OnDisconnectStrategy<
