@@ -41,12 +41,16 @@ use crate::{
     engine::{command::Command, state::trading::TradingState},
     execution::AccountStreamEvent,
 };
-use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
+use barter_data::{
+    event::{DataKind, MarketEvent},
+    streams::consumer::MarketStreamEvent,
+};
 use barter_execution::AccountEvent;
 use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use chrono::{DateTime, Utc};
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
+use shutdown::Shutdown;
 
 /// Algorithmic trading `Engine`, and entry points for processing input `Events`.
 ///
@@ -76,6 +80,15 @@ pub mod statistic;
 /// `Engine` actions on disconnect / trading disabled.
 pub mod strategy;
 
+/// Utilities for initialising and interacting with a full trading system.
+pub mod system;
+
+/// Backtesting utilities.
+pub mod backtest;
+
+/// Traits and types related to component shutdowns.
+pub mod shutdown;
+
 /// A timed value.
 #[derive(
     Debug,
@@ -102,16 +115,24 @@ pub struct Timed<T> {
 /// Note that the `Engine` can be configured to process custom events.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
 pub enum EngineEvent<
-    MarketKind,
+    MarketKind = DataKind,
     ExchangeKey = ExchangeIndex,
     AssetKey = AssetIndex,
     InstrumentKey = InstrumentIndex,
 > {
-    Shutdown,
+    Shutdown(Shutdown),
     Command(Command<ExchangeKey, AssetKey, InstrumentKey>),
     TradingStateUpdate(TradingState),
     Account(AccountStreamEvent<ExchangeKey, AssetKey, InstrumentKey>),
     Market(MarketStreamEvent<InstrumentKey, MarketKind>),
+}
+
+impl<MarketKind, ExchangeKey, AssetKey, InstrumentKey>
+    EngineEvent<MarketKind, ExchangeKey, AssetKey, InstrumentKey>
+{
+    pub fn shutdown() -> Self {
+        Self::Shutdown(Shutdown)
+    }
 }
 
 impl<MarketKind, ExchangeKey, AssetKey, InstrumentKey>

@@ -1,3 +1,4 @@
+use crate::{engine::execution_tx::MultiExchangeTxMap, execution::builder::ExecutionHandles};
 use barter_data::streams::reconnect;
 use barter_execution::AccountEvent;
 use barter_instrument::{
@@ -5,6 +6,7 @@ use barter_instrument::{
     exchange::{ExchangeId, ExchangeIndex},
     instrument::InstrumentIndex,
 };
+use barter_integration::channel::Channel;
 
 /// Provides an execution manager builder for ergonomically initialising multiple execution links
 /// to mock and live exchanges.
@@ -27,3 +29,11 @@ pub type AccountStreamEvent<
     AssetKey = AssetIndex,
     InstrumentKey = InstrumentIndex,
 > = reconnect::Event<ExchangeId, AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>;
+
+// Todo:
+#[allow(missing_debug_implementations)]
+pub struct Execution {
+    pub execution_txs: MultiExchangeTxMap,
+    pub account_channel: Channel<AccountStreamEvent>,
+    pub handles: ExecutionHandles,
+}

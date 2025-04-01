@@ -1,6 +1,6 @@
 [package]
 name = "barter"
-version = "0.10.0"
+version = "0.11.0"
 edition = "2024"
 authors = ["JustAStream <justastream.code@gmail.com>"]
 license = "MIT"
@@ -49,3 +49,4 @@ chrono = { workspace = true, features = ["serde"]}
 derive_more = { workspace = true, features = ["constructor", "from", "display"]}
 prettytable-rs = "0.10.0"
 itertools = { workspace = true }
+

@@ -1,6 +1,6 @@
 use crate::Unrecoverable;
 use derive_more::{Constructor, Display};
-use futures::Sink;
+use futures::{Sink, Stream};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
@@ -116,6 +116,14 @@ impl<T> UnboundedRx<T> {
     }
 }
 
+impl<T> Stream for UnboundedRx<T> {
+    type Item = T;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.rx.poll_recv(cx)
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct ChannelTxDroppable<ChannelTx> {
     pub state: ChannelState<ChannelTx>,
@@ -126,6 +134,16 @@ impl<ChannelTx> ChannelTxDroppable<ChannelTx> {
         Self {
             state: ChannelState::Active(tx),
         }
+    }
+
+    pub fn new_disabled() -> Self {
+        Self {
+            state: ChannelState::Disabled,
+        }
+    }
+
+    pub fn disable(&mut self) {
+        self.state = ChannelState::Disabled
     }
 }
 

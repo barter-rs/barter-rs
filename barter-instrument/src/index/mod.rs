@@ -44,14 +44,15 @@ impl IndexedInstruments {
     /// could invalidate existing index lookup tables).
     ///
     /// For incremental initialisation, see the [`IndexedInstrumentsBuilder`].
-    pub fn new<Iter>(instruments: Iter) -> Self
+    pub fn new<Iter, I>(instruments: Iter) -> Self
     where
-        Iter: IntoIterator<Item = Instrument<ExchangeId, Asset>>,
+        Iter: IntoIterator<Item = I>,
+        I: Into<Instrument<ExchangeId, Asset>>,
     {
         instruments
             .into_iter()
             .fold(Self::builder(), |builder, instrument| {
-                builder.add_instrument(instrument)
+                builder.add_instrument(instrument.into())
             })
             .build()
     }
@@ -169,6 +170,18 @@ impl IndexedInstruments {
     }
 }
 
+impl<I> FromIterator<I> for IndexedInstruments
+where
+    I: Into<Instrument<ExchangeId, Asset>>,
+{
+    fn from_iter<Iter>(iter: Iter) -> Self
+    where
+        Iter: IntoIterator<Item = I>,
+    {
+        Self::new(iter)
+    }
+}
+
 fn find_exchange_by_exchange_id(
     haystack: &[Keyed<ExchangeIndex, ExchangeId>],
     needle: &ExchangeId,
@@ -217,7 +230,7 @@ mod tests {
     #[test]
     fn test_indexed_instruments_new() {
         // Test creating empty IndexedInstruments
-        let empty = IndexedInstruments::new(std::iter::empty());
+        let empty = IndexedInstruments::new(std::iter::empty::<Instrument<ExchangeId, Asset>>());
         assert!(empty.exchanges().is_empty());
         assert!(empty.assets().is_empty());
         assert!(empty.instruments().is_empty());
