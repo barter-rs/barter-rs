@@ -1,9 +1,14 @@
 use chrono::DateTime;
-use databento::dbn::{Action, ErrorMsg, MboMsg, Mbp10Msg, Mbp1Msg, RecordRef, TradeMsg, UNDEF_PRICE};
+use databento::dbn::{Action, ErrorMsg, MboMsg, Mbp10Msg, Mbp1Msg, PitSymbolMap, RecordRef, SymbolIndex, SymbolMapping, TradeMsg, UNDEF_PRICE};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::FromPrimitive;
+use smol_str::SmolStr;
+use barter_instrument::asset::name::AssetNameInternal;
 use barter_instrument::exchange::ExchangeId;
+use barter_instrument::index::IndexedInstruments;
 use barter_instrument::instrument::InstrumentIndex;
+use barter_instrument::instrument::market_data::kind::MarketDataInstrumentKind;
+use barter_instrument::instrument::market_data::MarketDataInstrument;
 use barter_instrument::Side;
 use crate::books::{Level, OrderBook};
 use crate::error::DataError;
@@ -187,56 +192,70 @@ impl<InstrumentKey> From<(InstrumentKey, Mbp1Msg)> for MarketEvent<InstrumentKey
     }
 }
 
-pub fn transform_mbo(mbo: &MboMsg) -> Result<Option<MarketEvent<InstrumentIndex, DataKind>>, DataError> {
+pub fn transform_mbo<InstrumentKey>(
+    mbo: &MboMsg,
+    instrument: InstrumentKey
+) -> Result<Option<MarketEvent<InstrumentKey, DataKind>>, DataError> {
     if mbo.price == UNDEF_PRICE {
         return Ok(None);
     }
 
     let result = MarketEvent::try_from(
-        (InstrumentIndex(0), mbo.clone()));
+        (instrument, mbo.clone()));
 
     Ok(Some(MarketEvent::from(result?)))
 }
 
-fn transform_mbp1(mbp1: &Mbp1Msg) -> Result<Option<MarketEvent<InstrumentIndex, DataKind>>, DataError> {
-    Ok(Some(MarketEvent::from(MarketEvent::from((InstrumentIndex(0), mbp1.clone())))))
+fn transform_mbp1<InstrumentKey>(
+    mbp1: &Mbp1Msg,
+    instrument: InstrumentKey,
+) -> Result<Option<MarketEvent<InstrumentKey, DataKind>>, DataError> {
+    Ok(Some(MarketEvent::from(MarketEvent::from((instrument, mbp1.clone())))))
 }
 
-fn transform_mbp10(mbp10: &Mbp10Msg) -> Result<Option<MarketEvent<InstrumentIndex, DataKind>>, DataError> {
+fn transform_mbp10<InstrumentKey>(
+    mbp10: &Mbp10Msg,
+    instrument: InstrumentKey
+) -> Result<Option<MarketEvent<InstrumentKey, DataKind>>, DataError> {
     let result = MarketEvent::try_from(
-        (InstrumentIndex(0), mbp10.clone()));
+        (instrument, mbp10.clone()));
 
     Ok(Some(MarketEvent::from(result?)))
 }
 
-pub fn transform(record_ref: RecordRef<'_>) -> Result<Option<MarketEvent<InstrumentIndex, DataKind>>, DataError> {
+pub fn transform(record_ref: RecordRef<'_>, symbol_mapping: &PitSymbolMap) -> Result<Option<MarketEvent<MarketDataInstrument, DataKind>>, DataError> {
+    let symbol = symbol_mapping.get_for_rec(&record_ref);
+    let market_instrument = MarketDataInstrument::from((symbol.unwrap().as_str(), "_", MarketDataInstrumentKind::Spot));
 
     if let Some(e) = record_ref.get::<ErrorMsg>() {
         return Err(DataError::from(e.clone()));
     }
 
     if let Some(trade) = record_ref.get::<TradeMsg>() {
-        return transform_trade(trade);
+        return transform_trade(trade, market_instrument);
     }
 
     if let Some(mbo) = record_ref.get::<MboMsg>() {
-        return transform_mbo(mbo);
+        return transform_mbo(mbo, market_instrument);
     }
 
     if let Some(mbp1) = record_ref.get::<Mbp1Msg>() {
-        return transform_mbp1(mbp1);
+        return transform_mbp1(mbp1, market_instrument);
     }
 
     if let Some(mbp10) = record_ref.get::<Mbp10Msg>() {
-        return transform_mbp10(mbp10);
+        return transform_mbp10(mbp10, market_instrument);
     }
 
     Ok(None)
 }
 
-fn transform_trade(p0: &TradeMsg) -> Result<Option<MarketEvent<InstrumentIndex, DataKind>>, DataError> {
+fn transform_trade<InstrumentKey>(
+    p0: &TradeMsg,
+    instrument: InstrumentKey
+) -> Result<Option<MarketEvent<InstrumentKey, DataKind>>, DataError> {
     let trade = MarketEvent::from(
-        (InstrumentIndex(0), p0.clone()));
+        (instrument, p0.clone()));
     Ok(Some(MarketEvent::from(trade)))
 }
 

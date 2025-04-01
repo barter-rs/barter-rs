@@ -6,10 +6,12 @@ use std::task::{Context, Poll};
 use async_trait::async_trait;
 use barter_instrument::Side;
 use databento::{dbn::Side as DbSide, live::Client};
+use databento::dbn::PitSymbolMap;
 use futures::{pin_mut, Stream, TryFuture};
 use pin_project::pin_project;
 use tracing::error;
 use barter_instrument::instrument::InstrumentIndex;
+use barter_instrument::instrument::market_data::MarketDataInstrument;
 use crate::error::DataError;
 use crate::event::DataKind;
 use crate::provider::databento::transform::transform;
@@ -23,7 +25,8 @@ pub struct DatabentoProvider {
     #[pin]
     client: Client,
     initialised: bool,
-    buffer: VecDeque<MarketStreamResult<InstrumentIndex, DataKind>>,
+    buffer: VecDeque<MarketStreamResult<MarketDataInstrument, DataKind>>,
+    symbol_map: PitSymbolMap
 }
 
 impl DatabentoProvider {
@@ -32,12 +35,13 @@ impl DatabentoProvider {
             client,
             initialised: false,
             buffer: VecDeque::new(),
+            symbol_map: PitSymbolMap::new()
         }
     }
 }
 
 impl Stream for DatabentoProvider {
-    type Item = MarketStreamResult<InstrumentIndex, DataKind>;
+    type Item = MarketStreamResult<MarketDataInstrument, DataKind>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
@@ -50,7 +54,10 @@ impl Stream for DatabentoProvider {
             pin_mut!(future);
 
             let input = match future.try_poll(cx) {
-                Poll::Ready(Ok(Some(record_ref))) => transform(record_ref),
+                Poll::Ready(Ok(Some(record_ref))) => {
+                    this.symbol_map.on_record(record_ref);
+                    transform(record_ref, &this.symbol_map)
+                },
                 Poll::Pending => return Poll::Pending,
                 _ => return Poll::Ready(None)
             };
