@@ -52,7 +52,7 @@ impl<InstrumentKey> From<(InstrumentKey, TradeMsg)> for MarketEvent<InstrumentKe
     fn from((instrument, trade): (InstrumentKey, TradeMsg)) -> Self {
         let time_exchange = DateTime::from_timestamp_nanos(
             trade.ts_recv as i64).to_utc();
-        let exchange = ExchangeId::Other;
+        let exchange = ExchangeId::Databento;
         let side = Side::from(DatabentoSide::from(trade.side().unwrap()));
 
         MarketEvent {
@@ -90,7 +90,7 @@ impl<InstrumentKey> TryFrom<(InstrumentKey, MboMsg)> for MarketEvent<InstrumentK
         }
 
         let time_exchange = DateTime::from_timestamp_nanos(mbo.ts_recv as i64).to_utc();
-        let exchange = ExchangeId::Other;
+        let exchange = ExchangeId::Databento;
 
         Ok(MarketEvent {
             time_exchange,
@@ -124,7 +124,7 @@ impl<InstrumentKey> TryFrom<(InstrumentKey, Mbp10Msg)> for MarketEvent<Instrumen
         }
 
         let time_exchange = DateTime::from_timestamp_nanos(mbp10.ts_recv as i64).to_utc();
-        let exchange = ExchangeId::Other;
+        let exchange = ExchangeId::Databento;
 
         let (bids, asks): (Vec<Option<Level>>, Vec<Option<Level>>) = mbp10.levels.iter()
             .map(|bap| {
@@ -166,7 +166,7 @@ impl<InstrumentKey> From<(InstrumentKey, Mbp1Msg)> for MarketEvent<InstrumentKey
         let tob = mbp1.levels.get(0).unwrap();
 
         let time_exchange = DateTime::from_timestamp_nanos(mbp1.ts_recv as i64).to_utc();
-        let exchange = ExchangeId::Other;
+        let exchange = ExchangeId::Databento;
         let kind = OrderBookL1 {
             last_update_time: time_exchange,
             best_bid: Decimal::from_f64(tob.bid_px_f64()).map(|price| Level {
@@ -298,7 +298,7 @@ mod tests {
                 expected:  MarketEvent {
                     time_exchange: time,
                     time_received: time,
-                    exchange: ExchangeId::Other,
+                    exchange: ExchangeId::Databento,
                     instrument,
                     kind: OrderBookL1 {
                         last_update_time: time,
@@ -351,7 +351,7 @@ mod tests {
                 expected:  MarketEvent {
                     time_exchange: time,
                     time_received: time,
-                    exchange: ExchangeId::Other,
+                    exchange: ExchangeId::Databento,
                     instrument,
                     kind: OrderBookEvent::IncrementalUpdate(OrderBookUpdate {
                         order_id: Some(mbo.order_id.to_string()),
@@ -433,7 +433,7 @@ mod tests {
                 expected:  MarketEvent {
                     time_exchange: time,
                     time_received: time,
-                    exchange: ExchangeId::Other,
+                    exchange: ExchangeId::Databento,
                     instrument,
                     kind: OrderBookEvent::Update(OrderBook::new(
                         0,
@@ -502,7 +502,7 @@ mod tests {
                 expected:  MarketEvent {
                     time_exchange: time,
                     time_received: time,
-                    exchange: ExchangeId::Other,
+                    exchange: ExchangeId::Databento,
                     instrument,
                     kind: PublicTrade {
                         id: "100".to_string(),
