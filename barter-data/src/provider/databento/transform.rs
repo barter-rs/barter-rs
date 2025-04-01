@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::DateTime;
 use databento::dbn::{Action, ErrorMsg, MboMsg, Mbp10Msg, Mbp1Msg, RecordRef, TradeMsg, UNDEF_PRICE};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::FromPrimitive;
@@ -9,7 +9,7 @@ use crate::books::{Level, OrderBook};
 use crate::error::DataError;
 use crate::event::{DataKind, MarketEvent};
 use crate::provider::databento::DatabentoSide;
-use crate::subscription::book::{OrderBookAction, OrderBookEvent, OrderBookL1, OrderBookUpdate, OrderBooksL2};
+use crate::subscription::book::{OrderBookAction, OrderBookEvent, OrderBookL1, OrderBookUpdate};
 use crate::subscription::trade::PublicTrade;
 
 impl From<(MboMsg, OrderBookAction)> for OrderBookUpdate {
