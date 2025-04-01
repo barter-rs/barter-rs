@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use barter_instrument::Side;
 
 /// Barter [`Subscription`](super::Subscription) [`SubscriptionKind`] that yields [`OrderBookL1`]
 /// market events.
@@ -109,7 +110,27 @@ impl std::fmt::Display for OrderBooksL3 {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+pub struct OrderBookUpdate {
+    pub order_id: Option<String>,
+    pub price: Decimal,
+    pub amount: Decimal,
+    pub side: Side,
+    pub sequence: u64,
+    pub action: OrderBookAction
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+pub enum OrderBookAction {
+    Add,
+    Modify,
+    Cancel
+}
+
+
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
 pub enum OrderBookEvent {
+    IncrementalUpdate(OrderBookUpdate),
     Snapshot(OrderBook),
     Update(OrderBook),
+    Clear,
 }

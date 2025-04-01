@@ -203,34 +203,8 @@ where
     }
 }
 
-impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Risk> SyncShutdown
-    for Engine<
-        Clock,
-        EngineState<InstrumentData, StrategyState, RiskState>,
-        ExecutionTxs,
-        Strategy,
-        Risk,
-    >
-where
-    ExecutionTxs: ExecutionTxMap,
-{
-    type Result = ();
-
-    fn shutdown(&mut self) -> Self::Result {
-        self.execution_txs.iter().for_each(|execution_tx| {
-            let _send_result = execution_tx.send(ExecutionRequest::Shutdown);
-        });
-    }
-}
-
-impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
-    Engine<
-        Clock,
-        EngineState<InstrumentData, StrategyState, RiskState>,
-        ExecutionTxs,
-        Strategy,
-        Risk,
-    >
+impl<Clock, MarketState, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
+    Engine<Clock, EngineState<MarketState, StrategyState, RiskState>, ExecutionTxs, Strategy, Risk>
 {
     /// Action an `Engine` [`Command`], producing an [`ActionOutput`] of work done.
     pub fn action(&mut self, command: &Command) -> ActionOutput
