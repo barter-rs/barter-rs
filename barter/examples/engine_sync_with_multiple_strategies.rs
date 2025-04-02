@@ -71,10 +71,29 @@ struct MultiStrategyCustomInstrumentData {
     strategy_b: StrategyCustomInstrumentData,
 }
 
+impl MultiStrategyCustomInstrumentData {
+    pub fn init(time_engine_start: DateTime<Utc>) -> Self {
+        Self {
+            market_data: DefaultInstrumentMarketData::default(),
+            strategy_a: StrategyCustomInstrumentData::init(time_engine_start),
+            strategy_b: StrategyCustomInstrumentData::init(time_engine_start),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct StrategyCustomInstrumentData {
     tear: TearSheetGenerator,
     position: PositionManager,
+}
+
+impl StrategyCustomInstrumentData {
+    pub fn init(time_engine_start: DateTime<Utc>) -> Self {
+        Self {
+            tear: TearSheetGenerator::init(time_engine_start),
+            position: PositionManager::default(),
+        }
+    }
 }
 
 impl AlgoStrategy for MultiStrategy {
@@ -312,9 +331,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         DefaultStrategy::default(),
         DefaultRiskManager::default(),
         market_stream,
+        DefaultGlobalData::default(),
+        || MultiStrategyCustomInstrumentData::init(Utc::now()),
     );
 
-    // Construct SystemBuild:
+    // Build & run System:
     // See SystemBuilder for all configuration options
     let mut system = SystemBuilder::new(args)
         // Engine feed in Sync mode (Iterator input)
@@ -324,25 +345,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Engine starts with TradingState::Disabled
         .trading_state(TradingState::Disabled)
         // Build System, but don't start spawning tasks yet
-        .build::<EngineEvent, DefaultGlobalData, MultiStrategyCustomInstrumentData>()?;
-
-    // Update MultiStrategyCustomInstrumentData tear sheets to correct start time - initially
-    // each TearSheetGenerator was initialised with the default DateTime<Utc>::MIN_UTC.
-    let time_engine_start = system.engine.time();
-    let _ = system
-        .engine
-        .state
-        .instruments
-        .instrument_datas_mut(&InstrumentFilter::None)
-        .map(|state| {
-            state.strategy_a.tear.time_engine_start = time_engine_start;
-            state.strategy_a.tear.time_engine_now = time_engine_start;
-            state.strategy_b.tear.time_engine_start = time_engine_start;
-            state.strategy_b.tear.time_engine_now = time_engine_start;
-        });
-
-    // Run SystemBuild:
-    let mut system = system
+        .build::<EngineEvent, _>()?
         // Init System, spawning component tasks on the current runtime
         .init_with_runtime(tokio::runtime::Handle::current())
         .await?;

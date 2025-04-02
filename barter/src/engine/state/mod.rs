@@ -78,14 +78,15 @@ pub struct EngineState<GlobalData, InstrumentData> {
 
 impl<GlobalData, InstrumentData> EngineState<GlobalData, InstrumentData> {
     /// Construct an [`EngineStateBuilder`] to assist with `EngineState` initialisation.
-    pub fn builder(
+    pub fn builder<FnInstrumentData>(
         instruments: &IndexedInstruments,
-    ) -> EngineStateBuilder<'_, GlobalData, InstrumentData>
+        global: GlobalData,
+        instrument_data_init: FnInstrumentData,
+    ) -> EngineStateBuilder<'_, GlobalData, FnInstrumentData>
     where
-        GlobalData: Default,
-        InstrumentData: Default,
+        FnInstrumentData: FnMut() -> InstrumentData,
     {
-        EngineStateBuilder::new(instruments)
+        EngineStateBuilder::new(instruments, global, instrument_data_init)
     }
 
     /// Updates the internal state from an `AccountEvent`.

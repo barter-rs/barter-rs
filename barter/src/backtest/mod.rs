@@ -3,7 +3,6 @@
 /// This module provides tools for running historical simulations of trading strategies
 /// using market data, and analyzing the performance of these simulations.
 use crate::{
-    EngineEvent,
     backtest::{
         market_data::BacktestMarketData,
         summary::{BacktestSummary, MultiBacktestSummary},
@@ -12,7 +11,7 @@ use crate::{
         Processor,
         clock::HistoricalClock,
         execution_tx::MultiExchangeTxMap,
-        state::{EngineState, instrument::data::InstrumentDataState, trading::TradingState},
+        state::{EngineState, instrument::data::InstrumentDataState},
     },
     error::BarterError,
     risk::RiskManager,
@@ -21,10 +20,12 @@ use crate::{
         algo::AlgoStrategy, close_positions::ClosePositionsStrategy,
         on_disconnect::OnDisconnectStrategy, on_trading_disabled::OnTradingDisabled,
     },
-    system::{
-        builder::{EngineFeedMode, SystemArgs, SystemBuilder},
-        config::ExecutionConfig,
-    },
+    system::{builder::EngineFeedMode, config::ExecutionConfig},
+};
+use crate::{
+    engine::Engine,
+    execution::builder::{ExecutionBuild, ExecutionBuilder},
+    system::builder::{AuditMode, SystemBuild},
 };
 use barter_data::event::MarketEvent;
 use barter_execution::AccountEvent;
@@ -46,7 +47,7 @@ pub mod summary;
 /// Contains shared inputs like instruments, execution configurations,
 /// market data, and summary time intervals.
 #[derive(Debug, Clone)]
-pub struct BacktestArgsConstant<MarketData, SummaryInterval> {
+pub struct BacktestArgsConstant<MarketData, SummaryInterval, State> {
     /// Set of trading instruments indexed by unique identifiers.
     pub instruments: IndexedInstruments,
     /// Exchange execution configurations.
@@ -55,6 +56,8 @@ pub struct BacktestArgsConstant<MarketData, SummaryInterval> {
     pub market_data: MarketData,
     /// Time interval for aggregating and reporting summary statistics.
     pub summary_interval: SummaryInterval,
+    /// EngineState.
+    pub engine_state: State,
 }
 
 /// Configuration for variables that can change between individual backtests.
@@ -83,7 +86,9 @@ pub async fn run_backtests<
     GlobalData,
     InstrumentData,
 >(
-    args_constant: Arc<BacktestArgsConstant<MarketData, SummaryInterval>>,
+    args_constant: Arc<
+        BacktestArgsConstant<MarketData, SummaryInterval, EngineState<GlobalData, InstrumentData>>,
+    >,
     args_dynamic_iter: impl IntoIterator<Item = BacktestArgsDynamic<Strategy, Risk>>,
 ) -> Result<MultiBacktestSummary<SummaryInterval>, BarterError>
 where
@@ -144,7 +149,9 @@ where
 ///
 /// Simulates a trading strategy using historical market data and generates performance metrics.
 pub async fn backtest<MarketData, SummaryInterval, Strategy, Risk, GlobalData, InstrumentData>(
-    args_constant: Arc<BacktestArgsConstant<MarketData, SummaryInterval>>,
+    args_constant: Arc<
+        BacktestArgsConstant<MarketData, SummaryInterval, EngineState<GlobalData, InstrumentData>>,
+    >,
     args_dynamic: BacktestArgsDynamic<Strategy, Risk>,
 ) -> Result<BacktestSummary<SummaryInterval>, BarterError>
 where
@@ -177,7 +184,6 @@ where
         Risk,
     >>::OnDisconnect: Debug + Clone + Send,
     Risk: RiskManager<State = EngineState<GlobalData, InstrumentData>> + Send + 'static,
-    InstrumentData: InstrumentDataState + Default + Send + 'static,
     GlobalData: for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>
         + for<'a> Processor<&'a AccountEvent>
         + Debug
@@ -185,24 +191,50 @@ where
         + Default
         + Send
         + 'static,
+    InstrumentData: InstrumentDataState + Send + 'static,
 {
-    let (clock, market_stream) = args_constant.market_data.generate().await?;
+    let clock = args_constant
+        .market_data
+        .time_first_event()
+        .await
+        .map(HistoricalClock::new)?;
+    let market_stream = args_constant.market_data.stream().await?;
 
-    let system_args = SystemArgs {
-        instruments: &args_constant.instruments,
-        executions: args_constant.executions.clone(),
+    // Build Execution infrastructure
+    let ExecutionBuild {
+        execution_tx_map,
+        account_channel,
+        futures,
+    } = args_constant
+        .executions
+        .clone()
+        .into_iter()
+        .try_fold(
+            ExecutionBuilder::new(&args_constant.instruments),
+            |builder, config| match config {
+                ExecutionConfig::Mock(mock_config) => builder.add_mock(mock_config),
+            },
+        )?
+        .build();
+
+    let engine = Engine::new(
         clock,
-        strategy: args_dynamic.strategy,
-        risk: args_dynamic.risk,
-        market_stream,
-    };
+        args_constant.engine_state.clone(),
+        execution_tx_map,
+        args_dynamic.strategy,
+        args_dynamic.risk,
+    );
 
-    let system = SystemBuilder::new(system_args)
-        .engine_feed_mode(EngineFeedMode::Stream)
-        .trading_state(TradingState::Enabled)
-        .build::<EngineEvent<InstrumentData::MarketEventKind>, GlobalData, InstrumentData>()?
-        .init()
-        .await?;
+    let system = SystemBuild::new(
+        engine,
+        EngineFeedMode::Stream,
+        AuditMode::Disabled,
+        market_stream,
+        account_channel,
+        futures,
+    )
+    .init()
+    .await?;
 
     let (engine, _shutdown_audit) = system.shutdown().await?;
 
