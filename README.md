@@ -184,7 +184,7 @@ Your contribution will allow me to dedicate more time to Barter, accelerating fe
 *Your name, logo and website link could be here*
 
 ### Current Supporters
-*Your name could be here*
+Archie Skeoch
 
 ---
 **Thank you to all our sponsors and supporters! 🫶**
