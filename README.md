@@ -59,7 +59,7 @@ and back-testing systems. It is made up of several easy-to-use, extensible crate
 * See [here][barter-examples] for the compilable example including imports.
 * See sub-crates for further examples of each library.
 
-#### Engine With Live Market Data & Mock Execution
+#### Paper Trading With Live Market Data & Mock Execution
 
 ```rust,no_run
 const FILE_PATH_SYSTEM_CONFIG: &str = "barter/examples/config/system_config.json";
@@ -79,7 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Construct IndexedInstruments
     let instruments = IndexedInstruments::new(instruments);
 
-    // Initialise MarketData Stream & forward to Engine feed
+    // Initialise MarketData Stream
     let market_stream = init_indexed_multi_exchange_market_stream(
         &instruments,
         &[SubKind::PublicTrades, SubKind::OrderBooksL1],
@@ -97,6 +97,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Build & run full system:
+    // See SystemBuilder for all configuration options
     let mut system = SystemBuilder::new(args)
         // Engine feed in Sync mode (Iterator input)
         .engine_feed_mode(EngineFeedMode::Iterator)

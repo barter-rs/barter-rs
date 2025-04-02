@@ -64,6 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Build & run full system:
+    // See SystemBuilder for all configuration options
     let system = SystemBuilder::new(args)
         // Engine feed in Async mode (Stream input)
         .engine_feed_mode(EngineFeedMode::Stream)
