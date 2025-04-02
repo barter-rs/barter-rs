@@ -78,13 +78,6 @@ impl Stream for DatabentoProvider {
     }
 }
 
-#[derive(Debug)]
-pub enum DatabentoSide {
-    Buy,
-    Sell,
-    None
-}
-
 #[async_trait]
 impl Provider for DatabentoProvider {
     async fn init(&mut self) -> Result<(), DataError> {
@@ -96,6 +89,13 @@ impl Provider for DatabentoProvider {
             Err(e) => Err(DataError::from(e)),
         }
     }
+}
+
+#[derive(Debug)]
+pub enum DatabentoSide {
+    Buy,
+    Sell,
+    None
 }
 
 
