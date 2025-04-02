@@ -16,9 +16,15 @@ use crate::{
     system::{System, SystemAuxillaryHandles, config::ExecutionConfig},
 };
 use barter_data::streams::reconnect::stream::ReconnectingStream;
-use barter_instrument::index::IndexedInstruments;
+use barter_execution::balance::Balance;
+use barter_instrument::{
+    Keyed,
+    asset::{ExchangeAsset, name::AssetNameInternal},
+    index::IndexedInstruments,
+};
 use barter_integration::channel::{Channel, ChannelTxDroppable, mpsc_unbounded};
 use derive_more::Constructor;
+use fnv::FnvHashMap;
 use futures::Stream;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
@@ -55,7 +61,7 @@ pub enum AuditMode {
 /// Contains all the required components to build and initialise a full Barter trading system,
 /// including the `Engine` and all supporting infrastructure.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Constructor)]
-pub struct SystemArgs<'a, Clock, Strategy, Risk, MarketStream> {
+pub struct SystemArgs<'a, Clock, Strategy, Risk, MarketStream, GlobalData, FnInstrumentData> {
     /// Indexed collection of instruments the system will track.
     pub instruments: &'a IndexedInstruments,
 
@@ -75,36 +81,40 @@ pub struct SystemArgs<'a, Clock, Strategy, Risk, MarketStream> {
 
     /// `Stream` of `MarketStreamEvent`s.
     pub market_stream: MarketStream,
+
+    /// `EngineState` `GlobalData`
+    pub global_data: GlobalData,
+
+    /// Closure used when building the `EngineState` to initialise every
+    /// instrument's `InstrumentDataState`.
+    pub instrument_data_init: FnInstrumentData,
 }
 
 /// Builder for constructing a full Barter trading system.
 #[derive(Debug)]
-pub struct SystemBuilder<'a, Clock, Strategy, Risk, MarketStream> {
-    /// Required arguments for system construction
-    args: SystemArgs<'a, Clock, Strategy, Risk, MarketStream>,
-
-    /// Optional mode for engine event processing
+pub struct SystemBuilder<'a, Clock, Strategy, Risk, MarketStream, GlobalData, FnInstrumentData> {
+    args: SystemArgs<'a, Clock, Strategy, Risk, MarketStream, GlobalData, FnInstrumentData>,
     engine_feed_mode: Option<EngineFeedMode>,
-
-    /// Optional mode for engine auditing
     audit_mode: Option<AuditMode>,
-
-    /// Optional initial trading state (enabled/disabled)
     trading_state: Option<TradingState>,
+    balances: FnvHashMap<ExchangeAsset<AssetNameInternal>, Balance>,
 }
 
-impl<'a, Clock, Strategy, Risk, MarketStream>
-    SystemBuilder<'a, Clock, Strategy, Risk, MarketStream>
+impl<'a, Clock, Strategy, Risk, MarketStream, GlobalData, FnInstrumentData>
+    SystemBuilder<'a, Clock, Strategy, Risk, MarketStream, GlobalData, FnInstrumentData>
 {
     /// Create a new `SystemBuilder` with the provided `SystemArguments`.
     ///
     /// Initialises a builder with default values for optional configurations.
-    pub fn new(config: SystemArgs<'a, Clock, Strategy, Risk, MarketStream>) -> Self {
+    pub fn new(
+        config: SystemArgs<'a, Clock, Strategy, Risk, MarketStream, GlobalData, FnInstrumentData>,
+    ) -> Self {
         Self {
             args: config,
             engine_feed_mode: None,
             audit_mode: None,
             trading_state: None,
+            balances: FnvHashMap::default(),
         }
     }
 
@@ -138,12 +148,32 @@ impl<'a, Clock, Strategy, Risk, MarketStream>
         }
     }
 
+    /// Optionally provide initial exchange asset `Balance`s.
+    ///
+    /// Useful for back-test scenarios where seeding EngineState with initial `Balance`s is
+    /// required.
+    ///
+    /// Note the internal implementation uses a `HashMap`, so duplicate
+    /// `ExchangeAsset<AssetNameInternal>` keys are overwritten.
+    pub fn balances<BalanceIter, KeyedBalance>(mut self, balances: BalanceIter) -> Self
+    where
+        BalanceIter: IntoIterator<Item = KeyedBalance>,
+        KeyedBalance: Into<Keyed<ExchangeAsset<AssetNameInternal>, Balance>>,
+    {
+        self.balances.extend(balances.into_iter().map(|keyed| {
+            let Keyed { key, value } = keyed.into();
+
+            (key, value)
+        }));
+        self
+    }
+
     /// Build the [`SystemBuild`] with the configured builder settings.
     ///
     /// This constructs all the system components but does not start any tasks or streams.
     ///
     /// Initialise the `SystemBuild` instance to start the system.
-    pub fn build<Event, GlobalData, InstrumentData>(
+    pub fn build<Event, InstrumentData>(
         self,
     ) -> Result<
         SystemBuild<
@@ -161,8 +191,7 @@ impl<'a, Clock, Strategy, Risk, MarketStream>
     >
     where
         Clock: EngineClock,
-        GlobalData: Default,
-        InstrumentData: Default,
+        FnInstrumentData: FnMut() -> InstrumentData,
     {
         let Self {
             args:
@@ -173,12 +202,16 @@ impl<'a, Clock, Strategy, Risk, MarketStream>
                     strategy,
                     risk,
                     market_stream,
+                    global_data,
+                    instrument_data_init,
                 },
             engine_feed_mode,
             audit_mode,
             trading_state,
+            balances,
         } = self;
 
+        // Default if not provided
         let engine_feed_mode = engine_feed_mode.unwrap_or_default();
         let audit_mode = audit_mode.unwrap_or_default();
         let trading_state = trading_state.unwrap_or_default();
@@ -187,7 +220,7 @@ impl<'a, Clock, Strategy, Risk, MarketStream>
         let execution = executions
             .into_iter()
             .try_fold(
-                ExecutionBuilder::new(&instruments),
+                ExecutionBuilder::new(instruments),
                 |builder, config| match config {
                     ExecutionConfig::Mock(mock_config) => builder.add_mock(mock_config),
                 },
@@ -195,9 +228,14 @@ impl<'a, Clock, Strategy, Risk, MarketStream>
             .build();
 
         // Build EngineState
-        let state = EngineStateBuilder::new(&instruments)
+        let state = EngineStateBuilder::new(instruments, global_data, instrument_data_init)
             .time_engine_start(clock.time())
             .trading_state(trading_state)
+            .balances(
+                balances
+                    .into_iter()
+                    .map(|(key, value)| Keyed::new(key, value)),
+            )
             .build();
 
         // Construct Engine
@@ -259,6 +297,26 @@ where
     MarketStream: Stream + Send + 'static,
     Option<ShutdownAudit<Event, Engine::Output>>: for<'a> From<&'a Engine::Audit>,
 {
+    /// Construct a new `SystemBuild` from the provided components.
+    pub fn new(
+        engine: Engine,
+        engine_feed_mode: EngineFeedMode,
+        audit_mode: AuditMode,
+        market_stream: MarketStream,
+        account_channel: Channel<AccountStreamEvent>,
+        execution_build_futures: ExecutionBuildFutures,
+    ) -> Self {
+        Self {
+            engine,
+            engine_feed_mode,
+            audit_mode,
+            market_stream,
+            account_channel,
+            execution_build_futures,
+            phantom_event: Default::default(),
+        }
+    }
+
     /// Initialise the system using the current tokio runtime.
     ///
     /// Spawns all necessary tasks and returns the running `System` instance.

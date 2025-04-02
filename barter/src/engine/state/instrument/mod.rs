@@ -415,13 +415,18 @@ where
     }
 }
 
-/// Generates an indexed [`InstrumentStates`] containing default instrument state data.
-pub fn generate_empty_indexed_instrument_states<InstrumentData>(
+/// Generates an indexed [`InstrumentStates`]. Uses default values for
+pub fn generate_indexed_instrument_states<FnPosMan, FnOrders, FnInsData, InstrumentData>(
     instruments: &IndexedInstruments,
     time_engine_start: DateTime<Utc>,
+    position_manager_init: FnPosMan,
+    orders_init: FnOrders,
+    mut instrument_data_init: FnInsData,
 ) -> InstrumentStates<InstrumentData>
 where
-    InstrumentData: Default,
+    FnPosMan: Fn() -> PositionManager,
+    FnOrders: Fn() -> Orders,
+    FnInsData: FnMut() -> InstrumentData,
 {
     InstrumentStates(
         instruments
@@ -436,9 +441,9 @@ where
                         instrument.key,
                         instrument.value.clone().map_exchange_key(exchange_index),
                         TearSheetGenerator::init(time_engine_start),
-                        PositionManager::default(),
-                        Orders::default(),
-                        InstrumentData::default(),
+                        position_manager_init(),
+                        orders_init(),
+                        instrument_data_init(),
                     ),
                 )
             })
