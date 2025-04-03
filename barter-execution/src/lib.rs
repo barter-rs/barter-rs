@@ -34,6 +34,7 @@ use barter_instrument::{
     instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
 use barter_integration::snapshot::Snapshot;
+use chrono::{DateTime, Utc};
 use derive_more::{Constructor, From};
 use order::state::OrderState;
 use serde::{Deserialize, Serialize};
@@ -139,6 +140,18 @@ pub struct InstrumentAccountSnapshot<
 }
 
 impl<ExchangeKey, AssetKey, InstrumentKey> AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey> {
+    pub fn time_most_recent(&self) -> Option<DateTime<Utc>> {
+        let order_times = self.instruments.iter().flat_map(|instrument| {
+            instrument
+                .orders
+                .iter()
+                .filter_map(|order| order.state.time_exchange())
+        });
+        let balance_times = self.balances.iter().map(|balance| balance.time_exchange);
+
+        order_times.chain(balance_times).max()
+    }
+
     pub fn assets(&self) -> impl Iterator<Item = &AssetKey> {
         self.balances.iter().map(|balance| &balance.asset)
     }
