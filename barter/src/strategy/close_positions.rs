@@ -38,7 +38,7 @@ pub trait ClosePositionsStrategy<
     ///
     /// For Barter ecosystem strategies, this is the full `EngineState` of the trading system.
     ///
-    /// eg/ `EngineState<DefaultInstrumentState, DefaultStrategyState, DefaultRiskManagerState>`
+    /// eg/ `EngineState<DefaultGlobalData, DefaultInstrumentMarketData>`
     type State;
 
     /// Generate orders based on current system `State`.
@@ -60,9 +60,9 @@ pub trait ClosePositionsStrategy<
 ///
 /// This function finds all open positions and generates equal but opposite `Side` market orders
 /// that will neutralise the position.
-pub fn close_open_positions_with_market_orders<'a, InstrumentData, StrategyState, RiskState>(
+pub fn close_open_positions_with_market_orders<'a, GlobalData, InstrumentData>(
     strategy_id: &'a StrategyId,
-    state: &'a EngineState<InstrumentData, StrategyState, RiskState>,
+    state: &'a EngineState<GlobalData, InstrumentData>,
     filter: &'a InstrumentFilter,
     gen_cid: impl Fn(&InstrumentState<InstrumentData>) -> ClientOrderId + Copy + 'a,
 ) -> (

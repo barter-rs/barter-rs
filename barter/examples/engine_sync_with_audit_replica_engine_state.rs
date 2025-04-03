@@ -4,14 +4,15 @@ use barter::{
         audit::{Auditor, state_replica::StateReplicaManager},
         clock::LiveClock,
         state::{
+            global::DefaultGlobalData,
             instrument::{data::DefaultInstrumentMarketData, filter::InstrumentFilter},
             trading::TradingState,
         },
     },
     logging::init_logging,
-    risk::{DefaultRiskManager, DefaultRiskManagerState},
+    risk::DefaultRiskManager,
     statistic::time::Daily,
-    strategy::{DefaultStrategy, DefaultStrategyState},
+    strategy::DefaultStrategy,
     system::{
         builder::{AuditMode, EngineFeedMode, SystemArgs, SystemBuilder},
         config::SystemConfig,
@@ -67,15 +68,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut system = SystemBuilder::new(args)
         // Engine feed in Sync mode (Iterator input)
         .engine_feed_mode(EngineFeedMode::Iterator)
-
         // Audit feed is enabled (Engine sends audits)
         .audit_mode(AuditMode::Enabled)
-
         // Engine starts with TradingState::Disabled
         .trading_state(TradingState::Disabled)
-
         // Build System, but don't start spawning tasks yet
-        .build::<EngineEvent, DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>()?;
+        .build::<EngineEvent, DefaultGlobalData, DefaultInstrumentMarketData>()?;
 
     // Construct StateReplicaManager w/ initial EngineState
     let mut state_replica_manager =

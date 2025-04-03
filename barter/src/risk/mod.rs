@@ -1,9 +1,4 @@
-use crate::engine::Processor;
-use barter_data::event::MarketEvent;
-use barter_execution::{
-    AccountEvent,
-    order::request::{OrderRequestCancel, OrderRequestOpen},
-};
+use barter_execution::order::request::{OrderRequestCancel, OrderRequestOpen};
 use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::Unrecoverable;
 use derive_more::{Constructor, Display, From};
@@ -137,24 +132,4 @@ impl<State, ExchangeKey, InstrumentKey> RiskManager<ExchangeKey, InstrumentKey>
             std::iter::empty(),
         )
     }
-}
-
-/// Empty risk manager state.
-///
-/// *THIS IS FOR DEMONSTRATION PURPOSES ONLY, NEVER USE FOR REAL TRADING OR IN PRODUCTION*.
-#[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize,
-)]
-pub struct DefaultRiskManagerState;
-
-impl<ExchangeKey, AssetKey, InstrumentKey>
-    Processor<&AccountEvent<ExchangeKey, AssetKey, InstrumentKey>> for DefaultRiskManagerState
-{
-    type Audit = ();
-    fn process(&mut self, _: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) -> Self::Audit {}
-}
-
-impl<InstrumentKey, Kind> Processor<&MarketEvent<InstrumentKey, Kind>> for DefaultRiskManagerState {
-    type Audit = ();
-    fn process(&mut self, _: &MarketEvent<InstrumentKey, Kind>) -> Self::Audit {}
 }

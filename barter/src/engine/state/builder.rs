@@ -17,21 +17,19 @@ use tracing::debug;
 
 /// Builder utility for an [`EngineState`] instance.
 #[derive(Debug, Clone)]
-pub struct EngineStateBuilder<'a, InstrumentData, Strategy, Risk> {
+pub struct EngineStateBuilder<'a, GlobalData, InstrumentData> {
     pub instruments: &'a IndexedInstruments,
-    pub strategy: Option<Strategy>,
-    pub risk: Option<Risk>,
+    pub global_data: Option<GlobalData>,
     pub trading_state: Option<TradingState>,
     pub time_engine_start: Option<DateTime<Utc>>,
     pub balances: FnvHashMap<ExchangeAsset<AssetNameInternal>, Balance>,
     phantom: PhantomData<InstrumentData>,
 }
 
-impl<'a, InstrumentData, Strategy, Risk> EngineStateBuilder<'a, InstrumentData, Strategy, Risk>
+impl<'a, GlobalData, InstrumentData> EngineStateBuilder<'a, GlobalData, InstrumentData>
 where
+    GlobalData: Default,
     InstrumentData: Default,
-    Strategy: Default,
-    Risk: Default,
 {
     /// Construct a new `EngineStateBuilder` with a layout derived from [`IndexedInstruments`].
     ///
@@ -44,8 +42,7 @@ where
             instruments,
             time_engine_start: None,
             trading_state: None,
-            strategy: None,
-            risk: None,
+            global_data: None,
             balances: FnvHashMap::default(),
             phantom: PhantomData,
         }
@@ -74,22 +71,12 @@ where
         }
     }
 
-    /// Optionally provide the initial `StrategyState`.
+    /// Optionally provide the initial `GlobalData`.
     ///
-    /// Defaults to `StrategyState::default()`.
-    pub fn strategy(self, value: Strategy) -> Self {
+    /// Defaults to `GlobalData::default()`.
+    pub fn global_data(self, value: GlobalData) -> Self {
         Self {
-            strategy: Some(value),
-            ..self
-        }
-    }
-
-    /// Optionally provide the initial `RiskState`.
-    ///
-    /// Defaults to `RiskState::default()`.
-    pub fn risk(self, value: Risk) -> Self {
-        Self {
-            risk: Some(value),
+            global_data: Some(value),
             ..self
         }
     }
@@ -117,11 +104,10 @@ where
     /// Use the builder data to generate the associated [`EngineState`].
     ///
     /// If optional data is not provided (eg/ Balances), default values are used (eg/ zero Balance).
-    pub fn build(self) -> EngineState<InstrumentData, Strategy, Risk> {
+    pub fn build(self) -> EngineState<GlobalData, InstrumentData> {
         let Self {
             instruments,
-            strategy,
-            risk,
+            global_data,
             time_engine_start,
             trading_state,
             balances,
@@ -148,14 +134,13 @@ where
 
         EngineState {
             trading: trading_state.unwrap_or_default(),
+            global: global_data.unwrap_or_default(),
             connectivity: generate_empty_indexed_connectivity_states(instruments),
             assets,
             instruments: generate_empty_indexed_instrument_states::<InstrumentData>(
                 instruments,
                 time_engine_start,
             ),
-            strategy: strategy.unwrap_or_default(),
-            risk: risk.unwrap_or_default(),
         }
     }
 }

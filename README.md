@@ -109,7 +109,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .trading_state(TradingState::Disabled)
 
         // Build System, but don't start spawning tasks yet
-        .build::<EngineEvent, DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>()?
+        .build::<EngineEvent, DefaultGlobalData, DefaultInstrumentMarketData>()?
 
         // Init System, spawning component tasks on the current runtime
         .init_with_runtime(tokio::runtime::Handle::current())

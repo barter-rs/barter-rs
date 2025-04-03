@@ -16,6 +16,7 @@ use barter::{
             EngineState,
             asset::AssetStates,
             connectivity::Health,
+            global::DefaultGlobalData,
             instrument::{
                 data::{DefaultInstrumentMarketData, InstrumentDataState},
                 filter::InstrumentFilter,
@@ -25,9 +26,8 @@ use barter::{
         },
     },
     execution::{AccountStreamEvent, request::ExecutionRequest},
-    risk::{DefaultRiskManager, DefaultRiskManagerState},
+    risk::DefaultRiskManager,
     strategy::{
-        DefaultStrategyState,
         algo::AlgoStrategy,
         close_positions::{ClosePositionsStrategy, close_open_positions_with_market_orders},
         on_disconnect::OnDisconnectStrategy,
@@ -654,8 +654,7 @@ struct TestBuyAndHoldStrategy {
 }
 
 impl AlgoStrategy for TestBuyAndHoldStrategy {
-    type State =
-        EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>;
+    type State = EngineState<DefaultGlobalData, DefaultInstrumentMarketData>;
 
     fn generate_algo_orders(
         &self,
@@ -720,8 +719,7 @@ fn gen_order_id(instrument: usize) -> OrderId {
 }
 
 impl ClosePositionsStrategy for TestBuyAndHoldStrategy {
-    type State =
-        EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>;
+    type State = EngineState<DefaultGlobalData, DefaultInstrumentMarketData>;
 
     fn close_positions_requests<'a>(
         &'a self,
@@ -747,11 +745,9 @@ struct OnDisconnectOutput;
 impl
     OnDisconnectStrategy<
         HistoricalClock,
-        EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
+        EngineState<DefaultGlobalData, DefaultInstrumentMarketData>,
         MultiExchangeTxMap<UnboundedTx<ExecutionRequest>>,
-        DefaultRiskManager<
-            EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
-        >,
+        DefaultRiskManager<EngineState<DefaultGlobalData, DefaultInstrumentMarketData>>,
     > for TestBuyAndHoldStrategy
 {
     type OnDisconnect = OnDisconnectOutput;
@@ -759,16 +755,10 @@ impl
     fn on_disconnect(
         _: &mut Engine<
             HistoricalClock,
-            EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
+            EngineState<DefaultGlobalData, DefaultInstrumentMarketData>,
             MultiExchangeTxMap<UnboundedTx<ExecutionRequest>>,
             Self,
-            DefaultRiskManager<
-                EngineState<
-                    DefaultInstrumentMarketData,
-                    DefaultStrategyState,
-                    DefaultRiskManagerState,
-                >,
-            >,
+            DefaultRiskManager<EngineState<DefaultGlobalData, DefaultInstrumentMarketData>>,
         >,
         _: ExchangeId,
     ) -> Self::OnDisconnect {
@@ -781,11 +771,9 @@ struct OnTradingDisabledOutput;
 impl
     OnTradingDisabled<
         HistoricalClock,
-        EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
+        EngineState<DefaultGlobalData, DefaultInstrumentMarketData>,
         MultiExchangeTxMap<UnboundedTx<ExecutionRequest>>,
-        DefaultRiskManager<
-            EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
-        >,
+        DefaultRiskManager<EngineState<DefaultGlobalData, DefaultInstrumentMarketData>>,
     > for TestBuyAndHoldStrategy
 {
     type OnTradingDisabled = OnTradingDisabledOutput;
@@ -793,16 +781,10 @@ impl
     fn on_trading_disabled(
         _: &mut Engine<
             HistoricalClock,
-            EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
+            EngineState<DefaultGlobalData, DefaultInstrumentMarketData>,
             MultiExchangeTxMap<UnboundedTx<ExecutionRequest>>,
             Self,
-            DefaultRiskManager<
-                EngineState<
-                    DefaultInstrumentMarketData,
-                    DefaultStrategyState,
-                    DefaultRiskManagerState,
-                >,
-            >,
+            DefaultRiskManager<EngineState<DefaultGlobalData, DefaultInstrumentMarketData>>,
         >,
     ) -> Self::OnTradingDisabled {
         OnTradingDisabledOutput
@@ -814,12 +796,10 @@ fn build_engine(
     execution_tx: UnboundedTx<ExecutionRequest>,
 ) -> Engine<
     HistoricalClock,
-    EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
+    EngineState<DefaultGlobalData, DefaultInstrumentMarketData>,
     MultiExchangeTxMap<UnboundedTx<ExecutionRequest>>,
     TestBuyAndHoldStrategy,
-    DefaultRiskManager<
-        EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
-    >,
+    DefaultRiskManager<EngineState<DefaultGlobalData, DefaultInstrumentMarketData>>,
 > {
     let instruments = IndexedInstruments::builder()
         .add_instrument(Instrument::spot(
@@ -852,19 +832,16 @@ fn build_engine(
 
     let clock = HistoricalClock::new(STARTING_TIMESTAMP);
 
-    let state = EngineState::<
-        DefaultInstrumentMarketData,
-        DefaultStrategyState,
-        DefaultRiskManagerState,
-    >::builder(&instruments)
-    .time_engine_start(STARTING_TIMESTAMP)
-    .trading_state(trading_state)
-    .balances([
-        (ExchangeId::BinanceSpot, "usdt", STARTING_BALANCE_USDT),
-        (ExchangeId::BinanceSpot, "btc", STARTING_BALANCE_BTC),
-        (ExchangeId::BinanceSpot, "eth", STARTING_BALANCE_ETH),
-    ])
-    .build();
+    let state =
+        EngineState::<DefaultGlobalData, DefaultInstrumentMarketData>::builder(&instruments)
+            .time_engine_start(STARTING_TIMESTAMP)
+            .trading_state(trading_state)
+            .balances([
+                (ExchangeId::BinanceSpot, "usdt", STARTING_BALANCE_USDT),
+                (ExchangeId::BinanceSpot, "btc", STARTING_BALANCE_BTC),
+                (ExchangeId::BinanceSpot, "eth", STARTING_BALANCE_ETH),
+            ])
+            .build();
 
     let initial_account = FnvHashMap::from(&state);
     assert_eq!(initial_account.len(), 1);
