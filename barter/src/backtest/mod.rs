@@ -212,7 +212,7 @@ where
         .try_fold(
             ExecutionBuilder::new(&args_constant.instruments),
             |builder, config| match config {
-                ExecutionConfig::Mock(mock_config) => builder.add_mock(mock_config),
+                ExecutionConfig::Mock(mock_config) => builder.add_mock(mock_config, clock.clone()),
             },
         )?
         .build();
