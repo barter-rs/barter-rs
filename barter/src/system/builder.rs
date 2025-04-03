@@ -143,13 +143,13 @@ impl<'a, Clock, Strategy, Risk, MarketStream>
     /// This constructs all the system components but does not start any tasks or streams.
     ///
     /// Initialise the `SystemBuild` instance to start the system.
-    pub fn build<Event, InstrumentData, StrategyState, RiskState>(
+    pub fn build<Event, GlobalData, InstrumentData>(
         self,
     ) -> Result<
         SystemBuild<
             Engine<
                 Clock,
-                EngineState<InstrumentData, StrategyState, RiskState>,
+                EngineState<GlobalData, InstrumentData>,
                 MultiExchangeTxMap,
                 Strategy,
                 Risk,
@@ -161,9 +161,8 @@ impl<'a, Clock, Strategy, Risk, MarketStream>
     >
     where
         Clock: EngineClock,
+        GlobalData: Default,
         InstrumentData: Default,
-        StrategyState: Default,
-        RiskState: Default,
     {
         let Self {
             args:

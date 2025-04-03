@@ -27,14 +27,13 @@ pub mod state_replica;
 
 /// Convenient type alias for the default `Engine` `AuditTick`.
 pub type DefaultAuditTick<
+    GlobalData,
     InstrumentData: InstrumentDataState,
-    StrategyState,
-    RiskState,
     OnTradingDisabled,
     OnDisconnect,
 > = AuditTick<
     EngineAudit<
-        EngineState<InstrumentData, StrategyState, RiskState>,
+        EngineState<GlobalData, InstrumentData>,
         EngineEvent<InstrumentData::MarketEventKind>,
         EngineOutput<OnTradingDisabled, OnDisconnect>,
     >,
@@ -274,10 +273,10 @@ impl<Event, Output> ProcessAudit<Event, Output> {
     }
 }
 
-impl<Market, Strategy, Risk, Event, Output> From<EngineState<Market, Strategy, Risk>>
-    for EngineAudit<EngineState<Market, Strategy, Risk>, Event, Output>
+impl<GlobalData, InstrumentData, Event, Output> From<EngineState<GlobalData, InstrumentData>>
+    for EngineAudit<EngineState<GlobalData, InstrumentData>, Event, Output>
 {
-    fn from(value: EngineState<Market, Strategy, Risk>) -> Self {
+    fn from(value: EngineState<GlobalData, InstrumentData>) -> Self {
         Self::Snapshot(value)
     }
 }

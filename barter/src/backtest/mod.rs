@@ -80,9 +80,8 @@ pub async fn run_backtests<
     SummaryInterval,
     Strategy,
     Risk,
+    GlobalData,
     InstrumentData,
-    StrategyState,
-    RiskState,
 >(
     args_constant: Arc<BacktestArgsConstant<MarketData, SummaryInterval>>,
     args_dynamic_iter: impl IntoIterator<Item = BacktestArgsDynamic<Strategy, Risk>>,
@@ -90,49 +89,41 @@ pub async fn run_backtests<
 where
     MarketData: BacktestMarketData<Kind = InstrumentData::MarketEventKind>,
     SummaryInterval: TimeInterval,
-    Strategy: AlgoStrategy<State = EngineState<InstrumentData, StrategyState, RiskState>>
-        + ClosePositionsStrategy<State = EngineState<InstrumentData, StrategyState, RiskState>>
+    Strategy: AlgoStrategy<State = EngineState<GlobalData, InstrumentData>>
+        + ClosePositionsStrategy<State = EngineState<GlobalData, InstrumentData>>
         + OnTradingDisabled<
             HistoricalClock,
-            EngineState<InstrumentData, StrategyState, RiskState>,
+            EngineState<GlobalData, InstrumentData>,
             MultiExchangeTxMap,
             Risk,
         > + OnDisconnectStrategy<
             HistoricalClock,
-            EngineState<InstrumentData, StrategyState, RiskState>,
+            EngineState<GlobalData, InstrumentData>,
             MultiExchangeTxMap,
             Risk,
         > + Send
         + 'static,
     <Strategy as OnTradingDisabled<
         HistoricalClock,
-        EngineState<InstrumentData, StrategyState, RiskState>,
+        EngineState<GlobalData, InstrumentData>,
         MultiExchangeTxMap,
         Risk,
     >>::OnTradingDisabled: Debug + Clone + Send,
     <Strategy as OnDisconnectStrategy<
         HistoricalClock,
-        EngineState<InstrumentData, StrategyState, RiskState>,
+        EngineState<GlobalData, InstrumentData>,
         MultiExchangeTxMap,
         Risk,
     >>::OnDisconnect: Debug + Clone + Send,
-    Risk:
-        RiskManager<State = EngineState<InstrumentData, StrategyState, RiskState>> + Send + 'static,
+    Risk: RiskManager<State = EngineState<GlobalData, InstrumentData>> + Send + 'static,
+    GlobalData: for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>
+        + for<'a> Processor<&'a AccountEvent>
+        + Debug
+        + Clone
+        + Default
+        + Send
+        + 'static,
     InstrumentData: InstrumentDataState + Default + Send + 'static,
-    StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>
-        + for<'a> Processor<&'a AccountEvent>
-        + Debug
-        + Clone
-        + Default
-        + Send
-        + 'static,
-    RiskState: for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>
-        + for<'a> Processor<&'a AccountEvent>
-        + Debug
-        + Clone
-        + Default
-        + Send
-        + 'static,
 {
     let time_start = std::time::Instant::now();
 
@@ -152,58 +143,42 @@ where
 /// Run a single backtest with the given parameters.
 ///
 /// Simulates a trading strategy using historical market data and generates performance metrics.
-pub async fn backtest<
-    MarketData,
-    SummaryInterval,
-    Strategy,
-    Risk,
-    InstrumentData,
-    StrategyState,
-    RiskState,
->(
+pub async fn backtest<MarketData, SummaryInterval, Strategy, Risk, GlobalData, InstrumentData>(
     args_constant: Arc<BacktestArgsConstant<MarketData, SummaryInterval>>,
     args_dynamic: BacktestArgsDynamic<Strategy, Risk>,
 ) -> Result<BacktestSummary<SummaryInterval>, BarterError>
 where
     MarketData: BacktestMarketData<Kind = InstrumentData::MarketEventKind>,
     SummaryInterval: TimeInterval,
-    Strategy: AlgoStrategy<State = EngineState<InstrumentData, StrategyState, RiskState>>
-        + ClosePositionsStrategy<State = EngineState<InstrumentData, StrategyState, RiskState>>
+    Strategy: AlgoStrategy<State = EngineState<GlobalData, InstrumentData>>
+        + ClosePositionsStrategy<State = EngineState<GlobalData, InstrumentData>>
         + OnTradingDisabled<
             HistoricalClock,
-            EngineState<InstrumentData, StrategyState, RiskState>,
+            EngineState<GlobalData, InstrumentData>,
             MultiExchangeTxMap,
             Risk,
         > + OnDisconnectStrategy<
             HistoricalClock,
-            EngineState<InstrumentData, StrategyState, RiskState>,
+            EngineState<GlobalData, InstrumentData>,
             MultiExchangeTxMap,
             Risk,
         > + Send
         + 'static,
     <Strategy as OnTradingDisabled<
         HistoricalClock,
-        EngineState<InstrumentData, StrategyState, RiskState>,
+        EngineState<GlobalData, InstrumentData>,
         MultiExchangeTxMap,
         Risk,
     >>::OnTradingDisabled: Debug + Clone + Send,
     <Strategy as OnDisconnectStrategy<
         HistoricalClock,
-        EngineState<InstrumentData, StrategyState, RiskState>,
+        EngineState<GlobalData, InstrumentData>,
         MultiExchangeTxMap,
         Risk,
     >>::OnDisconnect: Debug + Clone + Send,
-    Risk:
-        RiskManager<State = EngineState<InstrumentData, StrategyState, RiskState>> + Send + 'static,
+    Risk: RiskManager<State = EngineState<GlobalData, InstrumentData>> + Send + 'static,
     InstrumentData: InstrumentDataState + Default + Send + 'static,
-    StrategyState: for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>
-        + for<'a> Processor<&'a AccountEvent>
-        + Debug
-        + Clone
-        + Default
-        + Send
-        + 'static,
-    RiskState: for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>
+    GlobalData: for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>
         + for<'a> Processor<&'a AccountEvent>
         + Debug
         + Clone
@@ -225,7 +200,7 @@ where
     let system = SystemBuilder::new(system_args)
         .engine_feed_mode(EngineFeedMode::Stream)
         .trading_state(TradingState::Enabled)
-        .build::<EngineEvent<InstrumentData::MarketEventKind>, InstrumentData, StrategyState, RiskState>()?
+        .build::<EngineEvent<InstrumentData::MarketEventKind>, GlobalData, InstrumentData>()?
         .init()
         .await?;
 

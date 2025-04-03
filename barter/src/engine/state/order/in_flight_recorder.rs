@@ -35,8 +35,8 @@ pub trait InFlightRequestRecorder<ExchangeKey, InstrumentKey> {
     fn record_in_flight_open(&mut self, request: &OrderRequestOpen<ExchangeKey, InstrumentKey>);
 }
 
-impl<Market, Strategy, Risk> InFlightRequestRecorder<ExchangeIndex, InstrumentIndex>
-    for EngineState<Market, Strategy, Risk>
+impl<GlobalData, InstrumentData> InFlightRequestRecorder<ExchangeIndex, InstrumentIndex>
+    for EngineState<GlobalData, InstrumentData>
 {
     fn record_in_flight_cancel(
         &mut self,

@@ -122,39 +122,23 @@ pub struct EngineMeta {
     pub sequence: Sequence,
 }
 
-impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
+impl<Clock, GlobalData, InstrumentData, ExecutionTxs, Strategy, Risk>
     Processor<EngineEvent<InstrumentData::MarketEventKind>>
-    for Engine<
-        Clock,
-        EngineState<InstrumentData, StrategyState, RiskState>,
-        ExecutionTxs,
-        Strategy,
-        Risk,
-    >
+    for Engine<Clock, EngineState<GlobalData, InstrumentData>, ExecutionTxs, Strategy, Risk>
 where
     Clock: EngineClock + for<'a> Processor<&'a EngineEvent<InstrumentData::MarketEventKind>>,
     InstrumentData: InstrumentDataState,
-    StrategyState: for<'a> Processor<&'a AccountEvent>
-        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
-    RiskState: for<'a> Processor<&'a AccountEvent>
+    GlobalData: for<'a> Processor<&'a AccountEvent>
         + for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
     ExecutionTxs: ExecutionTxMap<ExchangeIndex, InstrumentIndex>,
-    Strategy: OnTradingDisabled<
-            Clock,
-            EngineState<InstrumentData, StrategyState, RiskState>,
-            ExecutionTxs,
-            Risk,
-        > + OnDisconnectStrategy<
-            Clock,
-            EngineState<InstrumentData, StrategyState, RiskState>,
-            ExecutionTxs,
-            Risk,
-        > + AlgoStrategy<State = EngineState<InstrumentData, StrategyState, RiskState>>
-        + ClosePositionsStrategy<State = EngineState<InstrumentData, StrategyState, RiskState>>,
-    Risk: RiskManager<State = EngineState<InstrumentData, StrategyState, RiskState>>,
+    Strategy: OnTradingDisabled<Clock, EngineState<GlobalData, InstrumentData>, ExecutionTxs, Risk>
+        + OnDisconnectStrategy<Clock, EngineState<GlobalData, InstrumentData>, ExecutionTxs, Risk>
+        + AlgoStrategy<State = EngineState<GlobalData, InstrumentData>>
+        + ClosePositionsStrategy<State = EngineState<GlobalData, InstrumentData>>,
+    Risk: RiskManager<State = EngineState<GlobalData, InstrumentData>>,
 {
     type Audit = EngineAudit<
-        EngineState<InstrumentData, StrategyState, RiskState>,
+        EngineState<GlobalData, InstrumentData>,
         EngineEvent<InstrumentData::MarketEventKind>,
         EngineOutput<Strategy::OnTradingDisabled, Strategy::OnDisconnect>,
     >;
@@ -203,14 +187,8 @@ where
     }
 }
 
-impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Risk> SyncShutdown
-    for Engine<
-        Clock,
-        EngineState<InstrumentData, StrategyState, RiskState>,
-        ExecutionTxs,
-        Strategy,
-        Risk,
-    >
+impl<Clock, GlobalData, InstrumentData, ExecutionTxs, Strategy, Risk> SyncShutdown
+    for Engine<Clock, EngineState<GlobalData, InstrumentData>, ExecutionTxs, Strategy, Risk>
 where
     ExecutionTxs: ExecutionTxMap,
 {
@@ -223,21 +201,14 @@ where
     }
 }
 
-impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Risk>
-    Engine<
-        Clock,
-        EngineState<InstrumentData, StrategyState, RiskState>,
-        ExecutionTxs,
-        Strategy,
-        Risk,
-    >
+impl<Clock, GlobalData, InstrumentData, ExecutionTxs, Strategy, Risk>
+    Engine<Clock, EngineState<GlobalData, InstrumentData>, ExecutionTxs, Strategy, Risk>
 {
     /// Action an `Engine` [`Command`], producing an [`ActionOutput`] of work done.
     pub fn action(&mut self, command: &Command) -> ActionOutput
     where
         ExecutionTxs: ExecutionTxMap,
-        Strategy:
-            ClosePositionsStrategy<State = EngineState<InstrumentData, StrategyState, RiskState>>,
+        Strategy: ClosePositionsStrategy<State = EngineState<GlobalData, InstrumentData>>,
         Risk: RiskManager,
     {
         match &command {
@@ -276,12 +247,8 @@ impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Ri
         update: TradingState,
     ) -> Option<Strategy::OnTradingDisabled>
     where
-        Strategy: OnTradingDisabled<
-                Clock,
-                EngineState<InstrumentData, StrategyState, RiskState>,
-                ExecutionTxs,
-                Risk,
-            >,
+        Strategy:
+            OnTradingDisabled<Clock, EngineState<GlobalData, InstrumentData>, ExecutionTxs, Risk>,
     {
         self.state
             .trading
@@ -300,14 +267,8 @@ impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Ri
     ) -> UpdateFromAccountOutput<Strategy::OnDisconnect>
     where
         InstrumentData: for<'a> Processor<&'a AccountEvent>,
-        StrategyState: for<'a> Processor<&'a AccountEvent>,
-        RiskState: for<'a> Processor<&'a AccountEvent>,
-        Strategy: OnDisconnectStrategy<
-                Clock,
-                EngineState<InstrumentData, StrategyState, RiskState>,
-                ExecutionTxs,
-                Risk,
-            >,
+        GlobalData: for<'a> Processor<&'a AccountEvent>,
+        Strategy: OnDisconnectStrategy<Clock, EngineState<GlobalData, InstrumentData>, ExecutionTxs, Risk>,
     {
         match event {
             AccountStreamEvent::Reconnecting(exchange) => {
@@ -335,16 +296,9 @@ impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Ri
     ) -> UpdateFromMarketOutput<Strategy::OnDisconnect>
     where
         InstrumentData: InstrumentDataState,
-        StrategyState:
+        GlobalData:
             for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
-        RiskState:
-            for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
-        Strategy: OnDisconnectStrategy<
-                Clock,
-                EngineState<InstrumentData, StrategyState, RiskState>,
-                ExecutionTxs,
-                Risk,
-            >,
+        Strategy: OnDisconnectStrategy<Clock, EngineState<GlobalData, InstrumentData>, ExecutionTxs, Risk>,
     {
         match event {
             MarketStreamEvent::Reconnecting(exchange) => {

@@ -3,14 +3,15 @@ use barter::{
     engine::{
         clock::HistoricalClock,
         state::{
+            global::DefaultGlobalData,
             instrument::{data::DefaultInstrumentMarketData, filter::InstrumentFilter},
             trading::TradingState,
         },
     },
     logging::init_logging,
-    risk::{DefaultRiskManager, DefaultRiskManagerState},
+    risk::DefaultRiskManager,
     statistic::time::Daily,
-    strategy::{DefaultStrategy, DefaultStrategyState},
+    strategy::DefaultStrategy,
     system::{
         builder::{AuditMode, EngineFeedMode, SystemArgs, SystemBuilder},
         config::SystemConfig,
@@ -68,16 +69,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let system = SystemBuilder::new(args)
         // Engine feed in Async mode (Stream input)
         .engine_feed_mode(EngineFeedMode::Stream)
-
         // Audit feed is disabled (Engine does not send audits)
         .audit_mode(AuditMode::Disabled)
-
         // Engine starts with TradingState::Enabled
         .trading_state(TradingState::Enabled)
-
         // Build System, but don't start spawning tasks yet
-        .build::<EngineEvent, DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>()?
-
+        .build::<EngineEvent, DefaultGlobalData, DefaultInstrumentMarketData>()?
         // Init System, spawning component tasks on the current runtime
         .init_with_runtime(tokio::runtime::Handle::current())
         .await?;

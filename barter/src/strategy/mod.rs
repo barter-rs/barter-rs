@@ -1,6 +1,6 @@
 use crate::{
     engine::{
-        Engine, Processor,
+        Engine,
         state::{
             EngineState,
             instrument::{data::InstrumentDataState, filter::InstrumentFilter},
@@ -13,20 +13,15 @@ use crate::{
         on_trading_disabled::OnTradingDisabled,
     },
 };
-use barter_data::event::MarketEvent;
-use barter_execution::{
-    AccountEvent,
-    order::{
-        id::{ClientOrderId, StrategyId},
-        request::{OrderRequestCancel, OrderRequestOpen},
-    },
+use barter_execution::order::{
+    id::{ClientOrderId, StrategyId},
+    request::{OrderRequestCancel, OrderRequestOpen},
 };
 use barter_instrument::{
     asset::AssetIndex,
     exchange::{ExchangeId, ExchangeIndex},
     instrument::InstrumentIndex,
 };
-use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 /// Defines a strategy interface for generating algorithmic open and cancel order requests based
@@ -85,12 +80,12 @@ impl<State, ExchangeKey, InstrumentKey> AlgoStrategy<ExchangeKey, InstrumentKey>
     }
 }
 
-impl<InstrumentData, StrategyState, RiskState> ClosePositionsStrategy
-    for DefaultStrategy<EngineState<InstrumentData, StrategyState, RiskState>>
+impl<GlobalData, InstrumentData> ClosePositionsStrategy
+    for DefaultStrategy<EngineState<GlobalData, InstrumentData>>
 where
     InstrumentData: InstrumentDataState,
 {
-    type State = EngineState<InstrumentData, StrategyState, RiskState>;
+    type State = EngineState<GlobalData, InstrumentData>;
 
     fn close_positions_requests<'a>(
         &'a self,
@@ -132,22 +127,4 @@ impl<Clock, State, ExecutionTxs, Risk> OnTradingDisabled<Clock, State, Execution
         _: &mut Engine<Clock, State, ExecutionTxs, Self, Risk>,
     ) -> Self::OnTradingDisabled {
     }
-}
-
-/// Empty strategy state that can be used for strategies that require no specific global state.
-#[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize,
-)]
-pub struct DefaultStrategyState;
-
-impl<ExchangeKey, AssetKey, InstrumentKey>
-    Processor<&AccountEvent<ExchangeKey, AssetKey, InstrumentKey>> for DefaultStrategyState
-{
-    type Audit = ();
-    fn process(&mut self, _: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) -> Self::Audit {}
-}
-
-impl<InstrumentKey, Kind> Processor<&MarketEvent<InstrumentKey, Kind>> for DefaultStrategyState {
-    type Audit = ();
-    fn process(&mut self, _: &MarketEvent<InstrumentKey, Kind>) -> Self::Audit {}
 }

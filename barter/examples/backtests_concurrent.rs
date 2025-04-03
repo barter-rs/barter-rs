@@ -2,10 +2,12 @@ use barter::{
     backtest::{
         BacktestArgsConstant, BacktestArgsDynamic, market_data::MarketDataInMemory, run_backtests,
     },
-    engine::state::{EngineState, instrument::data::DefaultInstrumentMarketData},
-    risk::{DefaultRiskManager, DefaultRiskManagerState},
+    engine::state::{
+        EngineState, global::DefaultGlobalData, instrument::data::DefaultInstrumentMarketData,
+    },
+    risk::DefaultRiskManager,
     statistic::time::Daily,
-    strategy::{DefaultStrategy, DefaultStrategyState},
+    strategy::DefaultStrategy,
     system::config::SystemConfig,
 };
 use barter_data::streams::consumer::MarketStreamEvent;
@@ -62,12 +64,8 @@ async fn main() {
     let dynamic_arg = BacktestArgsDynamic {
         id: SmolStr::default(),
         risk_free_return,
-        strategy: DefaultStrategy::<
-            EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
-        >::default(),
-        risk: DefaultRiskManager::<
-            EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
-        >::default(),
+        strategy: DefaultStrategy::<EngineState<DefaultGlobalData, DefaultInstrumentMarketData>>::default(),
+        risk: DefaultRiskManager::<EngineState<DefaultGlobalData, DefaultInstrumentMarketData>>::default(),
     };
 
     // Generate dummy iterator of cloned dynamic arguments
