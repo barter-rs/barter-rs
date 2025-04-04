@@ -169,7 +169,7 @@ impl<InstrumentData, Strategy, Risk> EngineState<InstrumentData, Strategy, Risk>
     pub fn update_from_market(
         &mut self,
         event: &MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>,
-    ) -> Option<OneOrMany<StateUpdate<InstrumentData::Audit>>> where
+    ) -> Vec<StateUpdate<InstrumentData::Audit>> where
         InstrumentData: InstrumentDataState,
         Strategy:
             for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
@@ -188,18 +188,7 @@ impl<InstrumentData, Strategy, Risk> EngineState<InstrumentData, Strategy, Risk>
         self.strategy.process(event);
         self.risk.process(event);
 
-        if(state_changes.len() > 0) {
-            if state_changes.len() == 1 {
-                let val = state_changes.pop().unwrap();
-                return Some(OneOrMany::One(val));
-            }
-            else {
-                return Some(OneOrMany::Many(state_changes));
-            }
-        }
-        else {
-            return None;
-        }
+        return state_changes;
     }
 }
 

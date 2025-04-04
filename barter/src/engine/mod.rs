@@ -97,7 +97,7 @@ pub fn run<Events, Engine, AuditTx>(
 where
     Events: Iterator,
     Events::Item: Debug + Clone,
-    Engine: Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext>,
+    Engine: Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext> ,
     Engine::Audit: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item, Engine::Output>>,
     Engine::Output: Debug + Clone,
     AuditTx: Tx<Item = AuditTick<Engine::Audit, EngineContext>>,
@@ -425,10 +425,7 @@ impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Ri
             }
             MarketStreamEvent::Item(event) => {
                 let res = self.state.update_from_market(event);
-                match res {
-                    Some(x)=> UpdateFromMarketOutput::OnStateUpdate(x),
-                    None => UpdateFromMarketOutput::None,
-                }
+                UpdateFromMarketOutput::OnStateUpdate(res)
             }
         }
     }
@@ -507,7 +504,7 @@ pub enum EngineOutput<
     PositionExit(PositionExited<QuoteAsset, InstrumentKey>),
     MarketDisconnect(OnDisconnect),
     AlgoOrders(GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>),
-    OnStateUpdate(OneOrMany<StateUpdate<OnInstrumentStateUpdate>>),
+    OnStateUpdate(Vec<StateUpdate<OnInstrumentStateUpdate>>),
 }
 
 /// Output produced by the [`Engine`] updating from an [`TradingState`], used to construct
@@ -533,7 +530,7 @@ pub enum UpdateFromAccountOutput<OnDisconnect, InstrumentKey = InstrumentIndex> 
 pub enum UpdateFromMarketOutput<OnDisconnect, OnInstrumentUpdate> {
     None,
     OnDisconnect(OnDisconnect),
-    OnStateUpdate(OneOrMany<StateUpdate<OnInstrumentUpdate>>),
+    OnStateUpdate(Vec<StateUpdate<OnInstrumentUpdate>>),
 }
 
 impl<OnTradingDisabled, OnDisconnect, T> From<ActionOutput>

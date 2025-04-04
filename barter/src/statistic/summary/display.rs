@@ -4,6 +4,7 @@ use crate::statistic::{
 };
 use prettytable::{Cell, Row, Table};
 use rust_decimal::Decimal;
+use std::str::FromStr;
 
 impl<Interval> TradingSummary<Interval>
 where
@@ -296,6 +297,8 @@ fn format_ratio(value: Decimal) -> String {
         "∞".to_string()
     } else if value == Decimal::MIN {
         "-∞".to_string()
+    } else if value.abs() > Decimal::from(1_000_000) || (value != Decimal::ZERO && value.abs() < Decimal::from_str("0.0001").unwrap()) {
+        format!("{:.4e}", value)
     } else {
         format!("{:.4}", value)
     }
