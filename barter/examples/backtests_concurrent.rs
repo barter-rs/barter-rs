@@ -26,8 +26,8 @@ use std::{
 
 const CONFIG_PATH: &str = "barter/examples/config/backtest_config.json";
 const FILE_PATH_MARKET_DATA_INDEXED: &str =
-    "barter/examples/data/binance_spot_trades_l1_btcusdt_ethusdt_solusdt.json";
-const NUM_BACKTESTS: usize = 1;
+    "barter/examples/data/binance_spot_trades_l1_btcusdt_ethusdt_solusdt_copy.json";
+const NUM_BACKTESTS: usize = 100000;
 
 #[derive(Deserialize)]
 pub struct Config {

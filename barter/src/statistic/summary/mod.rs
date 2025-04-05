@@ -86,9 +86,6 @@ impl TradingSummaryGenerator {
         instruments: &InstrumentStates<InstrumentData>,
         assets: &AssetStates,
     ) -> Self {
-        println!("TradingSummaryGenerator: TimeEngineStart: {time_engine_start}");
-        println!("TradingSummaryGenerator: TimeEngineNow: {time_engine_start}");
-
         Self {
             risk_free_return,
             time_engine_start,
