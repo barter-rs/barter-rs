@@ -323,7 +323,7 @@ impl<Clock, GlobalData, InstrumentData, ExecutionTxs, Strategy, Risk>
         TradingSummaryGenerator::init(
             risk_free_return,
             self.meta.time_start,
-            self.clock.time(),
+            self.time(),
             &self.state.instruments,
             &self.state.assets,
         )

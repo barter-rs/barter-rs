@@ -61,6 +61,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         DefaultStrategy::default(),
         DefaultRiskManager::default(),
         market_stream,
+        DefaultGlobalData::default(),
+        DefaultInstrumentMarketData::default,
     );
 
     // Construct SystemBuild:
@@ -73,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Engine starts with TradingState::Disabled
         .trading_state(TradingState::Disabled)
         // Build System, but don't start spawning tasks yet
-        .build::<EngineEvent, DefaultGlobalData, DefaultInstrumentMarketData>()?;
+        .build::<EngineEvent, _>()?;
 
     // Construct StateReplicaManager w/ initial EngineState
     let mut state_replica_manager =

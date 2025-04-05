@@ -41,7 +41,7 @@ where
     Engine::Audit: From<Engine::Snapshot>,
 {
     /// Task handle for the running `Engine`.
-    engine: JoinHandle<(Engine, ShutdownAudit<Event, Engine::Output>)>,
+    pub engine: JoinHandle<(Engine, ShutdownAudit<Event, Engine::Output>)>,
 
     /// Handles to auxiliary system components (execution components, event forwarding, etc.).
     pub handles: SystemAuxillaryHandles,
@@ -85,6 +85,45 @@ where
         let (engine, shutdown_audit) = self.engine.await?;
 
         self.handles.abort();
+
+        Ok((engine, shutdown_audit))
+    }
+
+    /// Shutdown a backtesting `System` gracefully after the `Stream` of `MarketStreamEvent`s has
+    /// ended.
+    ///
+    /// **Note that for live & paper-trading this market stream will never end, so use
+    /// System::shutdown() for that use case**.
+    pub async fn shutdown_after_backtest(
+        self,
+    ) -> Result<(Engine, ShutdownAudit<Event, Engine::Output>), JoinError>
+    where
+        Event: From<Shutdown>,
+    {
+        let Self {
+            engine,
+            handles:
+                SystemAuxillaryHandles {
+                    mut execution,
+                    market_to_engine,
+                    account_to_engine,
+                },
+            feed_tx,
+            audit_rx: _,
+        } = self;
+
+        // Wait for MarketStream to finish forwarding to Engine before initiating Shutdown
+        market_to_engine.await?;
+
+        feed_tx
+            .send(Shutdown)
+            .expect("Engine cannot drop Feed receiver");
+        drop(feed_tx);
+
+        let (engine, shutdown_audit) = engine.await?;
+
+        account_to_engine.abort();
+        execution.shutdown().await?;
 
         Ok((engine, shutdown_audit))
     }

@@ -30,7 +30,7 @@ pub type AccountStreamEvent<
     InstrumentKey = InstrumentIndex,
 > = reconnect::Event<ExchangeId, AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>;
 
-// Todo:
+// Todo: todo
 #[allow(missing_debug_implementations)]
 pub struct Execution {
     pub execution_txs: MultiExchangeTxMap,
