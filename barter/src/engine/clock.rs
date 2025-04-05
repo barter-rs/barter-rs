@@ -147,16 +147,17 @@ where
 impl<MarketEventKind> TimeExchange for EngineEvent<MarketEventKind> {
     fn time_exchange(&self) -> Option<DateTime<Utc>> {
         match self {
-            EngineEvent::Market(MarketStreamEvent::Item(event)) => Some(event.time_exchange),
-            EngineEvent::Account(AccountStreamEvent::Item(event)) => match &event.kind {
+            Self::Market(MarketStreamEvent::Item(event)) => Some(event.time_exchange),
+            Self::Account(AccountStreamEvent::Item(event)) => match &event.kind {
+                AccountEventKind::Snapshot(snapshot) => snapshot.time_most_recent(),
                 AccountEventKind::BalanceSnapshot(balance) => Some(balance.0.time_exchange),
-                AccountEventKind::Trade(trade) => Some(trade.time_exchange),
+                AccountEventKind::OrderSnapshot(order) => order.0.state.time_exchange(),
                 AccountEventKind::OrderCancelled(response) => response
                     .state
                     .as_ref()
                     .map(|cancelled| cancelled.time_exchange)
                     .ok(),
-                _ => None,
+                AccountEventKind::Trade(trade) => Some(trade.time_exchange),
             },
             _ => None,
         }

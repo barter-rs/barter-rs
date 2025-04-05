@@ -56,6 +56,8 @@ async fn main() {
     let market_data = MarketDataInMemory::new(Arc::new(market_events));
     let time_engine_start = market_data.time_first_event().await.unwrap();
 
+    println!("TimeEngineStart: {time_engine_start}");
+
     // Construct EngineState
     let engine_state = EngineStateBuilder::new(
         &instruments,

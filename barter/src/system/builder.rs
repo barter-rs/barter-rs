@@ -222,7 +222,9 @@ impl<'a, Clock, Strategy, Risk, MarketStream, GlobalData, FnInstrumentData>
             .try_fold(
                 ExecutionBuilder::new(instruments),
                 |builder, config| match config {
-                    ExecutionConfig::Mock(mock_config) => builder.add_mock(mock_config, clock.clone()),
+                    ExecutionConfig::Mock(mock_config) => {
+                        builder.add_mock(mock_config, clock.clone())
+                    }
                 },
             )?
             .build();

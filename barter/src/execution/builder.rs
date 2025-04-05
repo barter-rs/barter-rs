@@ -1,5 +1,5 @@
 use crate::{
-    engine::execution_tx::MultiExchangeTxMap,
+    engine::{clock::EngineClock, execution_tx::MultiExchangeTxMap},
     error::BarterError,
     execution::{
         AccountStreamEvent, Execution, error::ExecutionError, manager::ExecutionManager,
@@ -40,7 +40,6 @@ use tokio::{
     sync::{broadcast, mpsc},
     task::{JoinError, JoinHandle},
 };
-use crate::engine::clock::{EngineClock};
 
 type ExecutionInitFuture =
     Pin<Box<dyn Future<Output = Result<(RunFuture, RunFuture), ExecutionError>> + Send>>;
