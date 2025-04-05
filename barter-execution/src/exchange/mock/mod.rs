@@ -71,7 +71,6 @@ impl MockExchange {
 
     pub async fn run(mut self) {
         while let Some(request) = self.request_rx.recv().await {
-            println!("MockExchange: {request:?}");
             self.update_time_exchange(request.time_request);
 
             match request.kind {

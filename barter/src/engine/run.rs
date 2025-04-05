@@ -172,6 +172,13 @@ where
 
     let _ = engine.shutdown();
 
+    // Todo: finish processing events
+    while let Some(event) = feed.next().await {
+        println!("Post-shutdown event: {event:?}");
+        // Process Event with AuditTick generation
+        let audit = process_with_audit(engine, event);
+    }
+
     shutdown_audit
 }
 

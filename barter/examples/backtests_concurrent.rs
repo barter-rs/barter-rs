@@ -26,7 +26,7 @@ use std::{
 
 const CONFIG_PATH: &str = "barter/examples/config/backtest_config.json";
 const FILE_PATH_MARKET_DATA_INDEXED: &str =
-    "barter/examples/data/binance_spot_trades_l1_btcusdt_ethusdt_solusdt_copy.json";
+    "barter/examples/data/binance_spot_trades_l1_btcusdt_ethusdt_solusdt.json";
 const NUM_BACKTESTS: usize = 1;
 
 #[derive(Deserialize)]
@@ -55,8 +55,6 @@ async fn main() {
     let market_events = market_data_from_file(FILE_PATH_MARKET_DATA_INDEXED);
     let market_data = MarketDataInMemory::new(Arc::new(market_events));
     let time_engine_start = market_data.time_first_event().await.unwrap();
-
-    println!("TimeEngineStart: {time_engine_start}");
 
     // Construct EngineState
     let engine_state = EngineStateBuilder::new(

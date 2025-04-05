@@ -144,7 +144,7 @@ where
     }
 }
 
-impl<MarketEventKind> TimeExchange for EngineEvent<MarketEventKind> {
+impl<MarketEventKind: Debug> TimeExchange for EngineEvent<MarketEventKind> {
     fn time_exchange(&self) -> Option<DateTime<Utc>> {
         match self {
             Self::Market(MarketStreamEvent::Item(event)) => Some(event.time_exchange),

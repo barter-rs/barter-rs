@@ -41,7 +41,7 @@ where
     Engine::Audit: From<Engine::Snapshot>,
 {
     /// Task handle for the running `Engine`.
-    engine: JoinHandle<(Engine, ShutdownAudit<Event, Engine::Output>)>,
+    pub engine: JoinHandle<(Engine, ShutdownAudit<Event, Engine::Output>)>,
 
     /// Handles to auxiliary system components (execution components, event forwarding, etc.).
     pub handles: SystemAuxillaryHandles,
@@ -59,6 +59,43 @@ where
     Engine::Audit: From<Engine::Snapshot>,
     Event: Debug + Clone + Send,
 {
+    /// Todo: Await for the `Engine` to finish processing `Event`s.
+    pub async fn engine(
+        mut self,
+    ) -> Result<(Engine, ShutdownAudit<Event, Engine::Output>), JoinError>
+    where
+        Event: From<Shutdown>,
+    {
+        let Self {
+            engine,
+            handles:
+                SystemAuxillaryHandles {
+                    mut execution,
+                    market_to_engine,
+                    account_to_engine,
+                },
+            feed_tx,
+            audit_rx: _,
+        } = self;
+
+        // Wait for MarketStream to finish forwarding to Engine
+        market_to_engine.await?;
+
+        feed_tx.send(Shutdown).unwrap();
+
+        drop(feed_tx);
+
+        let (engine, shutdown_audit) = engine.await?;
+        println!("engine.await finished");
+
+        account_to_engine.await?;
+        println!("market_to_engine aborted");
+
+        execution.shutdown().await?;
+
+        Ok((engine, shutdown_audit))
+    }
+
     /// Shutdown the `System` gracefully.
     pub async fn shutdown(
         mut self,
