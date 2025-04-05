@@ -40,6 +40,7 @@ use tokio::{
     sync::{broadcast, mpsc},
     task::{JoinError, JoinHandle},
 };
+use crate::engine::clock::{EngineClock};
 
 type ExecutionInitFuture =
     Pin<Box<dyn Future<Output = Result<(RunFuture, RunFuture), ExecutionError>> + Send>>;
@@ -85,7 +86,14 @@ impl<'a> ExecutionBuilder<'a> {
     ///
     /// The provided [`MockExecutionConfig`] is used to configure the [`MockExchange`] and provide
     /// the initial account state.
-    pub fn add_mock(mut self, config: MockExecutionConfig) -> Result<Self, BarterError> {
+    pub fn add_mock<Clock>(
+        mut self,
+        config: MockExecutionConfig,
+        clock: Clock,
+    ) -> Result<Self, BarterError>
+    where
+        Clock: EngineClock + Clone + Send + Sync + 'static,
+    {
         const ACCOUNT_STREAM_CAPACITY: usize = 256;
         const DUMMY_EXECUTION_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
 
@@ -94,6 +102,7 @@ impl<'a> ExecutionBuilder<'a> {
 
         let mock_execution_client_config = MockExecutionClientConfig {
             mocked_exchange: config.mocked_exchange,
+            clock: move || clock.time(),
             request_tx,
             event_rx,
         };
@@ -102,7 +111,7 @@ impl<'a> ExecutionBuilder<'a> {
         let mock_exchange_future = self.init_mock_exchange(config, request_rx, event_tx);
         self.mock_exchange_futures.push(mock_exchange_future);
 
-        self.add_execution::<MockExecution>(
+        self.add_execution::<MockExecution<_>>(
             mock_execution_client_config.mocked_exchange,
             mock_execution_client_config,
             DUMMY_EXECUTION_REQUEST_TIMEOUT,
