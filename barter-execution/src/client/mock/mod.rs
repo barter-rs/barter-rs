@@ -2,7 +2,7 @@ use crate::{
     UnindexedAccountEvent, UnindexedAccountSnapshot,
     balance::AssetBalance,
     client::ExecutionClient,
-    error::{UnindexedClientError, UnindexedOrderError},
+    error::{ConnectivityError, UnindexedClientError, UnindexedOrderError},
     exchange::mock::request::MockExchangeRequest,
     order::{
         Order, OrderEvent, OrderKey,
@@ -101,13 +101,17 @@ impl ExecutionClient for MockExecution {
                 self.time_request(),
                 response_tx,
             ))
-            .expect("MockExchange is offline - failed to send request");
+            .map_err(|_| {
+                UnindexedClientError::Connectivity(ConnectivityError::ExchangeOffline(
+                    self.mocked_exchange,
+                ))
+            })?;
 
-        let snapshot = response_rx
-            .await
-            .expect("MockExchange if offline - failed to receive response");
-
-        Ok(snapshot)
+        response_rx.await.map_err(|_| {
+            UnindexedClientError::Connectivity(ConnectivityError::ExchangeOffline(
+                self.mocked_exchange,
+            ))
+        })
     }
 
     async fn account_stream(
@@ -177,13 +181,17 @@ impl ExecutionClient for MockExecution {
                 self.time_request(),
                 response_tx,
             ))
-            .expect("MockExchange is offline - failed to send request");
+            .map_err(|_| {
+                UnindexedClientError::Connectivity(ConnectivityError::ExchangeOffline(
+                    self.mocked_exchange,
+                ))
+            })?;
 
-        let balances = response_rx
-            .await
-            .expect("MockExchange if offline - failed to receive response");
-
-        Ok(balances)
+        response_rx.await.map_err(|_| {
+            UnindexedClientError::Connectivity(ConnectivityError::ExchangeOffline(
+                self.mocked_exchange,
+            ))
+        })
     }
 
     async fn fetch_open_orders(
@@ -196,13 +204,17 @@ impl ExecutionClient for MockExecution {
                 self.time_request(),
                 response_tx,
             ))
-            .expect("MockExchange is offline - failed to send request");
+            .map_err(|_| {
+                UnindexedClientError::Connectivity(ConnectivityError::ExchangeOffline(
+                    self.mocked_exchange,
+                ))
+            })?;
 
-        let open_orders = response_rx
-            .await
-            .expect("MockExchange if offline - failed to receive response");
-
-        Ok(open_orders)
+        response_rx.await.map_err(|_| {
+            UnindexedClientError::Connectivity(ConnectivityError::ExchangeOffline(
+                self.mocked_exchange,
+            ))
+        })
     }
 
     async fn fetch_trades(
@@ -217,13 +229,17 @@ impl ExecutionClient for MockExecution {
                 response_tx,
                 time_since,
             ))
-            .expect("MockExchange is offline - failed to send request");
+            .map_err(|_| {
+                UnindexedClientError::Connectivity(ConnectivityError::ExchangeOffline(
+                    self.mocked_exchange,
+                ))
+            })?;
 
-        let trades = response_rx
-            .await
-            .expect("MockExchange if offline - failed to receive response");
-
-        Ok(trades)
+        response_rx.await.map_err(|_| {
+            UnindexedClientError::Connectivity(ConnectivityError::ExchangeOffline(
+                self.mocked_exchange,
+            ))
+        })
     }
 }
 
