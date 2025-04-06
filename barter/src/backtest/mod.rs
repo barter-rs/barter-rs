@@ -236,7 +236,7 @@ where
     .init()
     .await?;
 
-    let (engine, _shutdown_audit) = system.shutdown().await?;
+    let (engine, _shutdown_audit) = system.shutdown_after_backtest().await?;
 
     let trading_summary = engine
         .trading_summary_generator(args_dynamic.risk_free_return)

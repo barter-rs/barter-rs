@@ -30,7 +30,10 @@ pub type AccountStreamEvent<
     InstrumentKey = InstrumentIndex,
 > = reconnect::Event<ExchangeId, AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>;
 
-// Todo:
+/// Initialised [`ExecutionBuild`](builder::ExecutionBuild).
+///
+/// Contains execution component task handles as well as
+/// [`ExecutionRequest`](request::ExecutionRequest) and [`AccountStreamEvent`] channels.
 #[allow(missing_debug_implementations)]
 pub struct Execution {
     pub execution_txs: MultiExchangeTxMap,
