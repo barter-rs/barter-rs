@@ -11,11 +11,17 @@ description = "Framework for building high-performance live-trading, paper-tradi
 keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
+[[bench]]
+name = "backtest"
+path = "benches/backtest/mod.rs"
+harness = false
+
 [dev-dependencies]
 rust_decimal_macros = { workspace = true }
 serde_json = { workspace = true }
 spin_sleep = { workspace = true }
 tokio = { workspace = true, features = ["fs"]}
+criterion = { workspace = true }
 
 [dependencies]
 # Barter Ecosystem
