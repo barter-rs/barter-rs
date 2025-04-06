@@ -1,9 +1,15 @@
-use crate::{Timed, engine::Processor};
+use crate::{
+    Timed,
+    engine::{Processor, state::order::in_flight_recorder::InFlightRequestRecorder},
+};
 use barter_data::{
     event::{DataKind, MarketEvent},
     subscription::book::OrderBookL1,
 };
-use barter_execution::AccountEvent;
+use barter_execution::{
+    AccountEvent,
+    order::request::{OrderRequestCancel, OrderRequestOpen},
+};
 use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use derive_more::Constructor;
 use rust_decimal::{Decimal, prelude::FromPrimitive};
@@ -28,7 +34,8 @@ pub trait InstrumentDataState<
     Self: Debug
         + Clone
         + for<'a> Processor<&'a MarketEvent<InstrumentKey, Self::MarketEventKind>>
-        + for<'a> Processor<&'a AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>,
+        + for<'a> Processor<&'a AccountEvent<ExchangeKey, AssetKey, InstrumentKey>>
+        + InFlightRequestRecorder<ExchangeKey, InstrumentKey>,
 {
     /// [`MarketEvent<_, EventKind>`](MarketEvent) expected by this instrument data state.
     type MarketEventKind: Debug + Clone + Send;
@@ -103,4 +110,12 @@ impl<ExchangeKey, AssetKey, InstrumentKey>
     type Audit = ();
 
     fn process(&mut self, _: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) -> Self::Audit {}
+}
+
+impl<ExchangeKey, InstrumentKey> InFlightRequestRecorder<ExchangeKey, InstrumentKey>
+    for DefaultInstrumentMarketData
+{
+    fn record_in_flight_cancel(&mut self, _: &OrderRequestCancel<ExchangeKey, InstrumentKey>) {}
+
+    fn record_in_flight_open(&mut self, _: &OrderRequestOpen<ExchangeKey, InstrumentKey>) {}
 }

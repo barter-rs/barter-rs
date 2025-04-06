@@ -11,6 +11,7 @@ use barter::{
                 data::{DefaultInstrumentMarketData, InstrumentDataState},
                 filter::InstrumentFilter,
             },
+            order::in_flight_recorder::InFlightRequestRecorder,
             position::PositionManager,
             trading::TradingState,
         },
@@ -291,6 +292,12 @@ impl Processor<&AccountEvent> for MultiStrategyCustomInstrumentData {
                 .inspect(|closed| self.strategy_b.tear.update_from_position(closed));
         }
     }
+}
+
+impl InFlightRequestRecorder for MultiStrategyCustomInstrumentData {
+    fn record_in_flight_cancel(&mut self, _: &OrderRequestCancel<ExchangeIndex, InstrumentIndex>) {}
+
+    fn record_in_flight_open(&mut self, _: &OrderRequestOpen<ExchangeIndex, InstrumentIndex>) {}
 }
 
 impl Default for StrategyCustomInstrumentData {
