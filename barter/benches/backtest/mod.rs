@@ -13,6 +13,7 @@ use barter::{
                 data::{DefaultInstrumentMarketData, InstrumentDataState},
                 filter::InstrumentFilter,
             },
+            order::in_flight_recorder::InFlightRequestRecorder,
             trading::TradingState,
         },
     },
@@ -436,6 +437,12 @@ impl Processor<&AccountEvent> for LoseMoneyInstrumentData {
     type Audit = ();
 
     fn process(&mut self, _: &AccountEvent) -> Self::Audit {}
+}
+
+impl InFlightRequestRecorder for LoseMoneyInstrumentData {
+    fn record_in_flight_cancel(&mut self, _: &OrderRequestCancel<ExchangeIndex, InstrumentIndex>) {}
+
+    fn record_in_flight_open(&mut self, _: &OrderRequestOpen<ExchangeIndex, InstrumentIndex>) {}
 }
 
 fn args_constant(

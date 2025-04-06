@@ -35,6 +35,7 @@ pub trait CancelOrders<
 impl<Clock, GlobalData, InstrumentData, ExecutionTxs, Strategy, Risk> CancelOrders
     for Engine<Clock, EngineState<GlobalData, InstrumentData>, ExecutionTxs, Strategy, Risk>
 where
+    InstrumentData: InFlightRequestRecorder,
     ExecutionTxs: ExecutionTxMap,
 {
     fn cancel_orders(
