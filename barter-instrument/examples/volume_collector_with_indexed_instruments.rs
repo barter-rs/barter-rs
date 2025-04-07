@@ -1,6 +1,6 @@
 use barter_instrument::{
-    Underlying,
-    asset::{AssetIndex, ExchangeAsset, name::AssetNameInternal},
+    Keyed, Underlying,
+    asset::{Asset, AssetIndex, ExchangeAsset, name::AssetNameInternal},
     exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
     instrument::{Instrument, InstrumentIndex, name::InstrumentNameInternal},
@@ -12,23 +12,26 @@ type VolumeSum = Decimal;
 type FnvIndexMap<K, V> = indexmap::IndexMap<K, V, fnv::FnvBuildHasher>;
 
 #[derive(Debug, Clone, PartialEq)]
-struct VolumeCollector<K> {
+struct VolumeCollector<K, V> {
     key: K,
+    value: V,
     sum_of_volume: VolumeSum,
 }
 
-impl<K> VolumeCollector<K> {
-    pub fn new(key: K) -> Self {
+impl<K, V> VolumeCollector<K, V> {
+    pub fn new(key: K, value: V) -> Self {
         Self {
             key,
+            value,
             sum_of_volume: Decimal::zero(),
         }
     }
 }
 
-type InstrumentVolumeCollector = VolumeCollector<InstrumentIndex>;
-type ExchangeVolumeCollector = VolumeCollector<ExchangeIndex>;
-type AssetVolumeCollector = VolumeCollector<AssetIndex>;
+type InstrumentVolumeCollector =
+    VolumeCollector<InstrumentIndex, Instrument<Keyed<ExchangeIndex, ExchangeId>, AssetIndex>>;
+type ExchangeVolumeCollector = VolumeCollector<ExchangeIndex, ExchangeId>;
+type AssetVolumeCollector = VolumeCollector<AssetIndex, ExchangeAsset<Asset>>;
 
 // `indexed_instruments` - Reference to IndexedInstruments containing what instruments,
 // exchanges and assets are being tracked.
@@ -41,7 +44,7 @@ fn generate_instrument_volume_collectors(
         .map(|instrument| {
             (
                 instrument.value.name_internal.clone(),
-                InstrumentVolumeCollector::new(instrument.key),
+                InstrumentVolumeCollector::new(instrument.key, instrument.value.clone()),
             )
         })
         .collect()
@@ -59,7 +62,7 @@ fn generate_asset_volume_collectors(
                     asset.value.exchange,
                     asset.value.asset.name_internal.clone(),
                 ),
-                AssetVolumeCollector::new(asset.key),
+                AssetVolumeCollector::new(asset.key, asset.value.clone()),
             )
         })
         .collect()
@@ -71,7 +74,12 @@ fn generate_exchange_volume_collectors(
     indexed_instruments
         .exchanges()
         .iter()
-        .map(|exchange| (exchange.value, ExchangeVolumeCollector::new(exchange.key)))
+        .map(|exchange| {
+            (
+                exchange.value,
+                ExchangeVolumeCollector::new(exchange.key, exchange.value),
+            )
+        })
         .collect()
 }
 

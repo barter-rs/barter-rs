@@ -20,7 +20,8 @@ pub mod error;
 /// The indexed collection is useful for creating efficient O(1) constant lookup state management
 /// systems where the state is keyed on an instrument, asset, or exchange.
 ///
-/// For example uses cases, see the central `barter` crate `EngineState` design.
+/// For example use cases, refer to the central `barter` crate's `EngineState` design and the `
+/// volume_collector_with_indexed_instruments` example in this crate.
 ///
 /// # Index Relationships
 /// - `ExchangeIndex`: Unique index for each [`ExchangeId`] added during initialisation.
