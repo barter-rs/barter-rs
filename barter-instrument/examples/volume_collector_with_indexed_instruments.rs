@@ -33,8 +33,6 @@ type InstrumentVolumeCollector =
 type ExchangeVolumeCollector = VolumeCollector<ExchangeIndex, ExchangeId>;
 type AssetVolumeCollector = VolumeCollector<AssetIndex, ExchangeAsset<Asset>>;
 
-// `indexed_instruments` - Reference to IndexedInstruments containing what instruments,
-// exchanges and assets are being tracked.
 fn generate_instrument_volume_collectors(
     indexed_instruments: &IndexedInstruments,
 ) -> FnvIndexMap<InstrumentNameInternal, InstrumentVolumeCollector> {
