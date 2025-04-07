@@ -14,7 +14,7 @@ members = [
 barter-integration = { path = "./barter-integration", version = "0.9.1" }
 barter-instrument = { path = "./barter-instrument", version = "0.3.1" }
 barter-data = { path = "./barter-data", version = "0.10.0" }
-barter-execution = { path = "./barter-execution", version = "0.5.2" }
+barter-execution = { path = "./barter-execution", version = "0.5.3" }
 barter-macro = { path = "./barter-macro", version = "0.2.0" }
 
 # Logging
