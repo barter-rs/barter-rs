@@ -1,8 +1,9 @@
-use crate::{EngineEvent, engine::Processor};
+use crate::{EngineEvent, engine::Processor, execution::AccountStreamEvent};
 use barter_data::streams::consumer::MarketStreamEvent;
-use chrono::{DateTime, TimeDelta, Utc};
+use barter_execution::AccountEventKind;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, ops::Add};
+use std::{fmt::Debug, ops::Add, sync::Arc};
 use tracing::{debug, error, warn};
 
 /// Defines how an [`Engine`](super::Engine) will determine the current time.
@@ -40,8 +41,13 @@ impl<Event> Processor<&Event> for LiveClock {
 /// Historical `Clock` using processed event timestamps to estimate current historical time.
 ///
 /// Note that this cannot be initialised without a starting `last_exchange_timestamp`.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub struct HistoricalClock {
+    inner: Arc<parking_lot::RwLock<HistoricalClockInner>>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+struct HistoricalClockInner {
     time_exchange_last: DateTime<Utc>,
     time_live_last_event: DateTime<Utc>,
 }
@@ -50,22 +56,28 @@ impl HistoricalClock {
     /// Construct a new `HistoricalClock` using the provided `last_exchange_time` as a seed.
     pub fn new(last_exchange_time: DateTime<Utc>) -> Self {
         Self {
-            time_exchange_last: last_exchange_time,
-            time_live_last_event: Utc::now(),
+            inner: Arc::new(parking_lot::RwLock::new(HistoricalClockInner {
+                time_exchange_last: last_exchange_time,
+                time_live_last_event: Utc::now(),
+            })),
         }
-    }
-
-    fn delta_since_last_event_live_time(&self) -> TimeDelta {
-        Utc::now().signed_duration_since(self.time_live_last_event)
     }
 }
 
 impl EngineClock for HistoricalClock {
     fn time(&self) -> DateTime<Utc> {
+        let lock = self.inner.read();
+        let time_live_last_event = lock.time_live_last_event;
+        let time_exchange_last = lock.time_exchange_last;
+        drop(lock);
+
+        let delta_since_last_event_live_time =
+            Utc::now().signed_duration_since(time_live_last_event);
+
         // Edge case: only add TimeDelta if it's positive to handle out of order updates
-        match self.delta_since_last_event_live_time() {
-            delta if delta.num_milliseconds() >= 0 => self.time_exchange_last.add(delta),
-            _ => self.time_exchange_last,
+        match delta_since_last_event_live_time {
+            delta if delta.num_milliseconds() >= 0 => time_exchange_last.add(delta),
+            _ => time_exchange_last,
         }
     }
 }
@@ -82,29 +94,32 @@ where
             return;
         };
 
+        // Obtain lock
+        let mut lock = self.inner.write();
+
         // Input event is more recent
-        if time_event_exchange >= self.time_exchange_last {
+        if time_event_exchange >= lock.time_exchange_last {
             debug!(
                 ?event,
-                time_exchange_last_current = ?self.time_exchange_last,
+                time_exchange_last_current = ?lock.time_exchange_last,
                 time_update = ?time_event_exchange,
                 "HistoricalClock updating based on input event time_exchange"
             );
-            self.time_exchange_last = time_event_exchange;
-            self.time_live_last_event = Utc::now();
+            lock.time_exchange_last = time_event_exchange;
+            lock.time_live_last_event = Utc::now();
             return;
         };
 
         // Input event is older, so log at varying degrees of severity
         let time_diff_secs = time_event_exchange
-            .signed_duration_since(self.time_exchange_last)
+            .signed_duration_since(lock.time_exchange_last)
             .num_seconds()
             .abs();
 
         if time_diff_secs < 1 {
             debug!(
                 ?event,
-                time_exchange_last_current = ?self.time_exchange_last,
+                time_exchange_last_current = ?lock.time_exchange_last,
                 time_update = ?time_event_exchange,
                 time_diff_secs,
                 "HistoricalClock received out-of-order events"
@@ -112,7 +127,7 @@ where
         } else if time_diff_secs < 30 {
             warn!(
                 ?event,
-                time_exchange_last_current = ?self.time_exchange_last,
+                time_exchange_last_current = ?lock.time_exchange_last,
                 time_update = ?time_event_exchange,
                 time_diff_secs,
                 "HistoricalClock received out-of-order events"
@@ -120,7 +135,7 @@ where
         } else {
             error!(
                 ?event,
-                time_exchange_last_current = ?self.time_exchange_last,
+                time_exchange_last_current = ?lock.time_exchange_last,
                 time_update = ?time_event_exchange,
                 time_diff_secs,
                 "HistoricalClock received out-of-order events"
@@ -129,11 +144,21 @@ where
     }
 }
 
-impl<MarketEventKind> TimeExchange for EngineEvent<MarketEventKind> {
+impl<MarketEventKind: Debug> TimeExchange for EngineEvent<MarketEventKind> {
     fn time_exchange(&self) -> Option<DateTime<Utc>> {
         match self {
-            // Todo: add AccountEvent once MockExchange has engine_clock integration
-            EngineEvent::Market(MarketStreamEvent::Item(event)) => Some(event.time_exchange),
+            Self::Market(MarketStreamEvent::Item(event)) => Some(event.time_exchange),
+            Self::Account(AccountStreamEvent::Item(event)) => match &event.kind {
+                AccountEventKind::Snapshot(snapshot) => snapshot.time_most_recent(),
+                AccountEventKind::BalanceSnapshot(balance) => Some(balance.0.time_exchange),
+                AccountEventKind::OrderSnapshot(order) => order.0.state.time_exchange(),
+                AccountEventKind::OrderCancelled(response) => response
+                    .state
+                    .as_ref()
+                    .map(|cancelled| cancelled.time_exchange)
+                    .ok(),
+                AccountEventKind::Trade(trade) => Some(trade.time_exchange),
+            },
             _ => None,
         }
     }
@@ -144,6 +169,7 @@ mod tests {
     use super::*;
     use barter_data::event::MarketEvent;
     use barter_instrument::{exchange::ExchangeId, instrument::InstrumentIndex};
+    use chrono::TimeDelta;
 
     fn market_event(time_exchange: DateTime<Utc>) -> EngineEvent<()> {
         EngineEvent::Market(MarketStreamEvent::Item(MarketEvent {
@@ -264,9 +290,11 @@ mod tests {
             }
 
             assert_eq!(
-                clock.time_exchange_last, test.expected_time_exchange_last,
+                clock.inner.read().time_exchange_last,
+                test.expected_time_exchange_last,
                 "TC{} ({}) failed - incorrect time_exchange_last",
-                index, test.name
+                index,
+                test.name
             );
         }
     }

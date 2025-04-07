@@ -1,5 +1,4 @@
 use barter::{
-    EngineEvent,
     engine::{
         audit::EngineAudit,
         clock::LiveClock,
@@ -61,6 +60,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         DefaultStrategy::default(),
         DefaultRiskManager::default(),
         market_stream,
+        DefaultGlobalData::default(),
+        DefaultInstrumentMarketData::default,
     );
 
     // Build & run full system:
@@ -73,7 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Engine starts with TradingState::Disabled
         .trading_state(TradingState::Disabled)
         // Build System, but don't start spawning tasks yet
-        .build::<EngineEvent, DefaultGlobalData, DefaultInstrumentMarketData>()?
+        .build()?
         // Init System, spawning component tasks on the current runtime
         .init_with_runtime(tokio::runtime::Handle::current())
         .await?;

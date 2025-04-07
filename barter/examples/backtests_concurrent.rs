@@ -1,9 +1,12 @@
 use barter::{
     backtest::{
-        BacktestArgsConstant, BacktestArgsDynamic, market_data::MarketDataInMemory, run_backtests,
+        BacktestArgsConstant, BacktestArgsDynamic,
+        market_data::{BacktestMarketData, MarketDataInMemory},
+        run_backtests,
     },
     engine::state::{
-        EngineState, global::DefaultGlobalData, instrument::data::DefaultInstrumentMarketData,
+        EngineState, builder::EngineStateBuilder, global::DefaultGlobalData,
+        instrument::data::DefaultInstrumentMarketData, trading::TradingState,
     },
     risk::DefaultRiskManager,
     statistic::time::Daily,
@@ -51,6 +54,17 @@ async fn main() {
     // Initialise MarketData
     let market_events = market_data_from_file(FILE_PATH_MARKET_DATA_INDEXED);
     let market_data = MarketDataInMemory::new(Arc::new(market_events));
+    let time_engine_start = market_data.time_first_event().await.unwrap();
+
+    // Construct EngineState
+    let engine_state = EngineStateBuilder::new(
+        &instruments,
+        DefaultGlobalData::default(),
+        DefaultInstrumentMarketData::default,
+    )
+    .time_engine_start(time_engine_start)
+    .trading_state(TradingState::Enabled)
+    .build();
 
     // Construct constant backtest arguments
     let args_constant = Arc::new(BacktestArgsConstant {
@@ -58,6 +72,7 @@ async fn main() {
         executions,
         market_data,
         summary_interval: Daily,
+        engine_state,
     });
 
     // Define dummy dynamic backtest arguments

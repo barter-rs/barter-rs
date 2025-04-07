@@ -207,6 +207,7 @@ impl<Clock, GlobalData, InstrumentData, ExecutionTxs, Strategy, Risk>
     /// Action an `Engine` [`Command`], producing an [`ActionOutput`] of work done.
     pub fn action(&mut self, command: &Command) -> ActionOutput
     where
+        InstrumentData: InFlightRequestRecorder,
         ExecutionTxs: ExecutionTxMap,
         Strategy: ClosePositionsStrategy<State = EngineState<GlobalData, InstrumentData>>,
         Risk: RiskManager,
@@ -323,7 +324,7 @@ impl<Clock, GlobalData, InstrumentData, ExecutionTxs, Strategy, Risk>
         TradingSummaryGenerator::init(
             risk_free_return,
             self.meta.time_start,
-            self.clock.time(),
+            self.time(),
             &self.state.instruments,
             &self.state.assets,
         )

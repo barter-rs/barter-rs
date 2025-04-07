@@ -51,18 +51,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let time_now = Utc::now();
 
     // Construct EngineState from IndexedInstruments and hard-coded exchange asset Balances
-    let state =
-        EngineState::<DefaultGlobalData, DefaultInstrumentMarketData>::builder(&instruments)
-            .time_engine_start(time_now)
-            // Note: you may want to start to engine with TradingState::Disabled and turn on later
-            .trading_state(TradingState::Enabled)
-            .balances([
-                (EXCHANGE, "usdt", STARTING_BALANCE_USDT),
-                (EXCHANGE, "btc", STARTING_BALANCE_BTC),
-                (EXCHANGE, "eth", STARTING_BALANCE_ETH),
-            ])
-            // Note: can add other initial data via this builder (eg/ exchange asset balances)
-            .build();
+    let state = EngineState::builder(
+        &instruments,
+        DefaultGlobalData::default(),
+        DefaultInstrumentMarketData::default,
+    )
+    .time_engine_start(time_now)
+    // Note: you may want to start to engine with TradingState::Disabled and turn on later
+    .trading_state(TradingState::Enabled)
+    .balances([
+        (EXCHANGE, "usdt", STARTING_BALANCE_USDT),
+        (EXCHANGE, "btc", STARTING_BALANCE_BTC),
+        (EXCHANGE, "eth", STARTING_BALANCE_ETH),
+    ])
+    // Note: can add other initial data via this builder (eg/ exchange asset balances)
+    .build();
 
     // Initialise TradingSummaryGenerator for all indexed instruments & assets
     // Note: EngineState already contains Instrument & Asset TearSheets
