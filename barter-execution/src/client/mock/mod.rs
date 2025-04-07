@@ -155,17 +155,35 @@ where
     ) -> UnindexedOrderResponseCancel {
         let (response_tx, response_rx) = oneshot::channel();
 
-        self.request_tx
-            .send(MockExchangeRequest::cancel_order(
-                self.time_request(),
-                response_tx,
-                into_owned_request(request),
-            ))
-            .expect("MockExchange is offline - failed to send request");
+        let key = OrderKey {
+            exchange: request.key.exchange,
+            instrument: request.key.instrument.clone(),
+            strategy: request.key.strategy.clone(),
+            cid: request.key.cid.clone(),
+        };
 
-        response_rx
-            .await
-            .expect("MockExchange if offline - failed to receive response")
+        if let Err(_) = self.request_tx.send(MockExchangeRequest::cancel_order(
+            self.time_request(),
+            response_tx,
+            into_owned_request(request),
+        )) {
+            return UnindexedOrderResponseCancel {
+                key,
+                state: Err(UnindexedOrderError::Connectivity(
+                    ConnectivityError::ExchangeOffline(self.mocked_exchange),
+                )),
+            };
+        }
+
+        match response_rx.await {
+            Ok(response) => response,
+            Err(_) => UnindexedOrderResponseCancel {
+                key,
+                state: Err(UnindexedOrderError::Connectivity(
+                    ConnectivityError::ExchangeOffline(self.mocked_exchange),
+                )),
+            },
+        }
     }
 
     async fn open_order(
@@ -174,17 +192,40 @@ where
     ) -> Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>> {
         let (response_tx, response_rx) = oneshot::channel();
 
-        self.request_tx
-            .send(MockExchangeRequest::open_order(
-                self.time_request(),
-                response_tx,
-                into_owned_request(request),
-            ))
-            .expect("MockExchange is offline - failed to send request");
+        let request = into_owned_request(request);
 
-        response_rx
-            .await
-            .expect("MockExchange if offline - failed to receive response")
+        if let Err(_) = self.request_tx.send(MockExchangeRequest::open_order(
+            self.time_request(),
+            response_tx,
+            request.clone(),
+        )) {
+            return Order {
+                key: request.key,
+                side: request.state.side,
+                price: request.state.price,
+                quantity: request.state.quantity,
+                kind: request.state.kind,
+                time_in_force: request.state.time_in_force,
+                state: Err(UnindexedOrderError::Connectivity(
+                    ConnectivityError::ExchangeOffline(self.mocked_exchange),
+                )),
+            };
+        }
+
+        match response_rx.await {
+            Ok(response) => response,
+            Err(_) => Order {
+                key: request.key,
+                side: request.state.side,
+                price: request.state.price,
+                quantity: request.state.quantity,
+                kind: request.state.kind,
+                time_in_force: request.state.time_in_force,
+                state: Err(UnindexedOrderError::Connectivity(
+                    ConnectivityError::ExchangeOffline(self.mocked_exchange),
+                )),
+            },
+        }
     }
 
     async fn fetch_balances(
