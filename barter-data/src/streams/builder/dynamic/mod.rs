@@ -24,7 +24,7 @@ use crate::{
     },
     subscription::{
         SubKind, Subscription,
-        book::{OrderBookEvent, OrderBookL1, OrderBooksL1},
+        book::{OrderBookEvent, OrderBookL1, OrderBooksL1, OrderBooksL2},
         liquidation::{Liquidation, Liquidations},
         trade::{PublicTrade, PublicTrades},
     },
@@ -84,8 +84,10 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
         Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
         Subscription<BinanceSpot, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
+        Subscription<BinanceSpot, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
         Subscription<BinanceFuturesUsd, Instrument, PublicTrades>: Identifier<BinanceMarket>,
         Subscription<BinanceFuturesUsd, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
+        Subscription<BinanceFuturesUsd, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
         Subscription<BinanceFuturesUsd, Instrument, Liquidations>: Identifier<BinanceMarket>,
         Subscription<Bitfinex, Instrument, PublicTrades>: Identifier<BitfinexMarket>,
         Subscription<Bitmex, Instrument, PublicTrades>: Identifier<BitmexMarket>,
@@ -162,6 +164,26 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                             ))
                                         })
                                     }
+                                    (ExchangeId::BinanceSpot, SubKind::OrderBooksL2) => {
+                                        init_market_stream(
+                                            STREAM_RECONNECTION_POLICY,
+                                            subs.into_iter()
+                                                .map(|sub| {
+                                                    Subscription::new(
+                                                        BinanceSpot::default(),
+                                                        sub.instrument,
+                                                        OrderBooksL2,
+                                                    )
+                                                })
+                                                .collect(),
+                                        )
+                                        .await
+                                        .map(|stream| {
+                                            tokio::spawn(stream.forward_to(
+                                                txs.l2s.get(&exchange).unwrap().clone(),
+                                            ))
+                                        })
+                                    }
                                     (ExchangeId::BinanceFuturesUsd, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
@@ -199,6 +221,26 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         .map(|stream| {
                                             tokio::spawn(stream.forward_to(
                                                 txs.l1s.get(&exchange).unwrap().clone(),
+                                            ))
+                                        })
+                                    }
+                                    (ExchangeId::BinanceFuturesUsd, SubKind::OrderBooksL2) => {
+                                        init_market_stream(
+                                            STREAM_RECONNECTION_POLICY,
+                                            subs.into_iter()
+                                                .map(|sub| {
+                                                    Subscription::<_, Instrument, _>::new(
+                                                        BinanceFuturesUsd::default(),
+                                                        sub.instrument,
+                                                        OrderBooksL2,
+                                                    )
+                                                })
+                                                .collect(),
+                                        )
+                                        .await
+                                        .map(|stream| {
+                                            tokio::spawn(stream.forward_to(
+                                                txs.l2s.get(&exchange).unwrap().clone(),
                                             ))
                                         })
                                     }
@@ -728,9 +770,7 @@ where
                     }
                 }
                 SubKind::OrderBooksL2 => {
-                    if let (None, None) =
-                        (txs.l2s.get(&sub.exchange), rxs.trades.get(&sub.exchange))
-                    {
+                    if let (None, None) = (txs.l2s.get(&sub.exchange), rxs.l2s.get(&sub.exchange)) {
                         let (tx, rx) = mpsc_unbounded();
                         txs.l2s.insert(sub.exchange, tx);
                         rxs.l2s.insert(sub.exchange, rx);

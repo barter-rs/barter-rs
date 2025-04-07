@@ -236,7 +236,7 @@ where
         } else {
             Err(SocketError::Unsupported {
                 entity: self.exchange.to_string(),
-                item: self.instrument.kind().to_string(),
+                item: format!("({}, {})", self.instrument.kind(), self.kind),
             })
         }
     }
@@ -254,8 +254,12 @@ pub fn exchange_supports_instrument_kind_sub_kind(
     use SubKind::*;
 
     match (exchange_id, instrument_kind, sub_kind) {
-        (BinanceSpot, Spot, PublicTrades | OrderBooksL1) => true,
-        (BinanceFuturesUsd, Perpetual, PublicTrades | OrderBooksL1 | Liquidations) => true,
+        (BinanceSpot, Spot, PublicTrades | OrderBooksL1 | OrderBooksL2) => true,
+        (
+            BinanceFuturesUsd,
+            Perpetual,
+            PublicTrades | OrderBooksL1 | OrderBooksL2 | Liquidations,
+        ) => true,
         (Bitfinex, Spot, PublicTrades) => true,
         (Bitmex, Perpetual, PublicTrades) => true,
         (BybitSpot, Spot, PublicTrades) => true,
