@@ -162,11 +162,15 @@ where
             cid: request.key.cid.clone(),
         };
 
-        if let Err(_) = self.request_tx.send(MockExchangeRequest::cancel_order(
-            self.time_request(),
-            response_tx,
-            into_owned_request(request),
-        )) {
+        if self
+            .request_tx
+            .send(MockExchangeRequest::cancel_order(
+                self.time_request(),
+                response_tx,
+                into_owned_request(request),
+            ))
+            .is_err()
+        {
             return UnindexedOrderResponseCancel {
                 key,
                 state: Err(UnindexedOrderError::Connectivity(
@@ -194,11 +198,15 @@ where
 
         let request = into_owned_request(request);
 
-        if let Err(_) = self.request_tx.send(MockExchangeRequest::open_order(
-            self.time_request(),
-            response_tx,
-            request.clone(),
-        )) {
+        if self
+            .request_tx
+            .send(MockExchangeRequest::open_order(
+                self.time_request(),
+                response_tx,
+                request.clone(),
+            ))
+            .is_err()
+        {
             return Order {
                 key: request.key,
                 side: request.state.side,
