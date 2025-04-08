@@ -2,7 +2,6 @@
 #![warn(
     unused,
     clippy::cognitive_complexity,
-    unused_crate_dependencies,
     unused_extern_crates,
     clippy::unused_self,
     clippy::useless_let_if_seq,
@@ -11,7 +10,6 @@
     rust_2024_compatibility
 )]
 #![allow(clippy::type_complexity, clippy::too_many_arguments, type_alias_bounds)]
-
 //! # Barter
 //! Barter core is a Rust framework for building high-performance live-trading, paper-trading and back-testing systems.
 //! * **Fast**: Written in native Rust. Minimal allocations. Data-oriented state management system with direct index lookups.
