@@ -6,19 +6,21 @@ use barter::{
         clock::LiveClock,
         state::{
             EngineState,
+            global::DefaultGlobalData,
             instrument::{
                 data::{DefaultInstrumentMarketData, InstrumentDataState},
                 filter::InstrumentFilter,
             },
+            order::in_flight_recorder::InFlightRequestRecorder,
             position::PositionManager,
             trading::TradingState,
         },
     },
     logging::init_logging,
-    risk::{DefaultRiskManager, DefaultRiskManagerState},
+    risk::DefaultRiskManager,
     statistic::{summary::instrument::TearSheetGenerator, time::Daily},
     strategy::{
-        DefaultStrategy, DefaultStrategyState,
+        DefaultStrategy,
         algo::AlgoStrategy,
         close_positions::{ClosePositionsStrategy, build_ioc_market_order_to_close_position},
         on_disconnect::OnDisconnectStrategy,
@@ -70,18 +72,33 @@ struct MultiStrategyCustomInstrumentData {
     strategy_b: StrategyCustomInstrumentData,
 }
 
+impl MultiStrategyCustomInstrumentData {
+    pub fn init(time_engine_start: DateTime<Utc>) -> Self {
+        Self {
+            market_data: DefaultInstrumentMarketData::default(),
+            strategy_a: StrategyCustomInstrumentData::init(time_engine_start),
+            strategy_b: StrategyCustomInstrumentData::init(time_engine_start),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct StrategyCustomInstrumentData {
     tear: TearSheetGenerator,
     position: PositionManager,
 }
 
+impl StrategyCustomInstrumentData {
+    pub fn init(time_engine_start: DateTime<Utc>) -> Self {
+        Self {
+            tear: TearSheetGenerator::init(time_engine_start),
+            position: PositionManager::default(),
+        }
+    }
+}
+
 impl AlgoStrategy for MultiStrategy {
-    type State = EngineState<
-        MultiStrategyCustomInstrumentData,
-        DefaultStrategyState,
-        DefaultRiskManagerState,
-    >;
+    type State = EngineState<DefaultGlobalData, MultiStrategyCustomInstrumentData>;
 
     fn generate_algo_orders(
         &self,
@@ -101,11 +118,7 @@ impl AlgoStrategy for MultiStrategy {
 }
 
 impl ClosePositionsStrategy for MultiStrategy {
-    type State = EngineState<
-        MultiStrategyCustomInstrumentData,
-        DefaultStrategyState,
-        DefaultRiskManagerState,
-    >;
+    type State = EngineState<DefaultGlobalData, MultiStrategyCustomInstrumentData>;
 
     fn close_positions_requests<'a>(
         &'a self,
@@ -206,11 +219,7 @@ impl StrategyA {
 }
 
 impl AlgoStrategy for StrategyA {
-    type State = EngineState<
-        MultiStrategyCustomInstrumentData,
-        DefaultStrategyState,
-        DefaultRiskManagerState,
-    >;
+    type State = EngineState<DefaultGlobalData, MultiStrategyCustomInstrumentData>;
 
     fn generate_algo_orders(
         &self,
@@ -230,11 +239,7 @@ impl StrategyB {
 }
 
 impl AlgoStrategy for StrategyB {
-    type State = EngineState<
-        MultiStrategyCustomInstrumentData,
-        DefaultStrategyState,
-        DefaultRiskManagerState,
-    >;
+    type State = EngineState<DefaultGlobalData, MultiStrategyCustomInstrumentData>;
 
     fn generate_algo_orders(
         &self,
@@ -289,6 +294,12 @@ impl Processor<&AccountEvent> for MultiStrategyCustomInstrumentData {
     }
 }
 
+impl InFlightRequestRecorder for MultiStrategyCustomInstrumentData {
+    fn record_in_flight_cancel(&mut self, _: &OrderRequestCancel<ExchangeIndex, InstrumentIndex>) {}
+
+    fn record_in_flight_open(&mut self, _: &OrderRequestOpen<ExchangeIndex, InstrumentIndex>) {}
+}
+
 impl Default for StrategyCustomInstrumentData {
     fn default() -> Self {
         Self {
@@ -312,7 +323,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Construct IndexedInstruments
     let instruments = IndexedInstruments::new(instruments);
 
-    // Initialise MarketData Stream & forward to Engine feed
+    // Initialise MarketData Stream
     let market_stream = init_indexed_multi_exchange_market_stream(
         &instruments,
         &[SubKind::PublicTrades, SubKind::OrderBooksL1],
@@ -327,39 +338,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         DefaultStrategy::default(),
         DefaultRiskManager::default(),
         market_stream,
+        DefaultGlobalData::default(),
+        || MultiStrategyCustomInstrumentData::init(Utc::now()),
     );
 
-    // Construct SystemBuild:
+    // Build & run System:
+    // See SystemBuilder for all configuration options
     let mut system = SystemBuilder::new(args)
         // Engine feed in Sync mode (Iterator input)
         .engine_feed_mode(EngineFeedMode::Iterator)
-
         // Audit feed is enabled (Engine sends audits)
         .audit_mode(AuditMode::Enabled)
-
         // Engine starts with TradingState::Disabled
         .trading_state(TradingState::Disabled)
-
         // Build System, but don't start spawning tasks yet
-        .build::<EngineEvent, MultiStrategyCustomInstrumentData, DefaultStrategyState, DefaultRiskManagerState>()?;
-
-    // Update MultiStrategyCustomInstrumentData tear sheets to correct start time - initially
-    // each TearSheetGenerator was initialised with the default DateTime<Utc>::MIN_UTC.
-    let time_engine_start = system.engine.time();
-    let _ = system
-        .engine
-        .state
-        .instruments
-        .instrument_datas_mut(&InstrumentFilter::None)
-        .map(|state| {
-            state.strategy_a.tear.time_engine_start = time_engine_start;
-            state.strategy_a.tear.time_engine_now = time_engine_start;
-            state.strategy_b.tear.time_engine_start = time_engine_start;
-            state.strategy_b.tear.time_engine_now = time_engine_start;
-        });
-
-    // Run SystemBuild:
-    let mut system = system
+        .build::<EngineEvent, _>()?
         // Init System, spawning component tasks on the current runtime
         .init_with_runtime(tokio::runtime::Handle::current())
         .await?;

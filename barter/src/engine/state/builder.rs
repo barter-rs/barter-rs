@@ -1,7 +1,8 @@
 use crate::engine::state::{
     EngineState, asset::generate_empty_indexed_asset_states,
     connectivity::generate_empty_indexed_connectivity_states,
-    instrument::generate_empty_indexed_instrument_states, trading::TradingState,
+    instrument::generate_indexed_instrument_states, order::Orders, position::PositionManager,
+    trading::TradingState,
 };
 use barter_execution::balance::{AssetBalance, Balance};
 use barter_instrument::{
@@ -12,42 +13,39 @@ use barter_instrument::{
 use barter_integration::snapshot::Snapshot;
 use chrono::{DateTime, Utc};
 use fnv::FnvHashMap;
-use std::marker::PhantomData;
 use tracing::debug;
 
 /// Builder utility for an [`EngineState`] instance.
 #[derive(Debug, Clone)]
-pub struct EngineStateBuilder<'a, InstrumentData, Strategy, Risk> {
-    pub instruments: &'a IndexedInstruments,
-    pub strategy: Option<Strategy>,
-    pub risk: Option<Risk>,
-    pub trading_state: Option<TradingState>,
-    pub time_engine_start: Option<DateTime<Utc>>,
-    pub balances: FnvHashMap<ExchangeAsset<AssetNameInternal>, Balance>,
-    phantom: PhantomData<InstrumentData>,
+pub struct EngineStateBuilder<'a, GlobalData, FnInstrumentData> {
+    instruments: &'a IndexedInstruments,
+    trading_state: Option<TradingState>,
+    time_engine_start: Option<DateTime<Utc>>,
+    global: GlobalData,
+    balances: FnvHashMap<ExchangeAsset<AssetNameInternal>, Balance>,
+    instrument_data_init: FnInstrumentData,
 }
 
-impl<'a, InstrumentData, Strategy, Risk> EngineStateBuilder<'a, InstrumentData, Strategy, Risk>
-where
-    InstrumentData: Default,
-    Strategy: Default,
-    Risk: Default,
-{
+impl<'a, GlobalData, FnInstrumentData> EngineStateBuilder<'a, GlobalData, FnInstrumentData> {
     /// Construct a new `EngineStateBuilder` with a layout derived from [`IndexedInstruments`].
     ///
-    /// Note that the rest of the [`EngineState`] data can be generated from defaults.
+    /// Note that the rest of the [`EngineState`] data can be generated from defaults if that
+    /// is all that is needed.
     ///
     /// Note that `ConnectivityStates` will be generated with
     /// [`generate_empty_indexed_connectivity_states`], defaulting to `Health::Reconnecting`.
-    pub fn new(instruments: &'a IndexedInstruments) -> Self {
+    pub fn new(
+        instruments: &'a IndexedInstruments,
+        global: GlobalData,
+        instrument_data_init: FnInstrumentData,
+    ) -> Self {
         Self {
             instruments,
             time_engine_start: None,
             trading_state: None,
-            strategy: None,
-            risk: None,
+            global,
             balances: FnvHashMap::default(),
-            phantom: PhantomData,
+            instrument_data_init,
         }
     }
 
@@ -70,26 +68,6 @@ where
     pub fn time_engine_start(self, value: DateTime<Utc>) -> Self {
         Self {
             time_engine_start: Some(value),
-            ..self
-        }
-    }
-
-    /// Optionally provide the initial `StrategyState`.
-    ///
-    /// Defaults to `StrategyState::default()`.
-    pub fn strategy(self, value: Strategy) -> Self {
-        Self {
-            strategy: Some(value),
-            ..self
-        }
-    }
-
-    /// Optionally provide the initial `RiskState`.
-    ///
-    /// Defaults to `RiskState::default()`.
-    pub fn risk(self, value: Risk) -> Self {
-        Self {
-            risk: Some(value),
             ..self
         }
     }
@@ -117,22 +95,28 @@ where
     /// Use the builder data to generate the associated [`EngineState`].
     ///
     /// If optional data is not provided (eg/ Balances), default values are used (eg/ zero Balance).
-    pub fn build(self) -> EngineState<InstrumentData, Strategy, Risk> {
+    pub fn build<InstrumentData>(self) -> EngineState<GlobalData, InstrumentData>
+    where
+        FnInstrumentData: FnMut() -> InstrumentData,
+    {
         let Self {
             instruments,
-            strategy,
-            risk,
             time_engine_start,
             trading_state,
+            global,
             balances,
-            phantom: _,
+            instrument_data_init,
         } = self;
 
-        // Default to Utc::now if time_engine_start not provided
+        // Default if not provided
         let time_engine_start = time_engine_start.unwrap_or_else(|| {
             debug!("EngineStateBuilder using Utc::now as time_engine_start default");
             Utc::now()
         });
+        let trading = trading_state.unwrap_or_default();
+
+        // Construct empty ConnectivityStates
+        let connectivity = generate_empty_indexed_connectivity_states(instruments);
 
         // Update empty AssetStates from provided exchange asset Balances
         let mut assets = generate_empty_indexed_asset_states(instruments);
@@ -146,16 +130,21 @@ where
                 }))
         }
 
+        // Generate empty InstrumentStates using provided FnInstrumentData etc.
+        let instruments = generate_indexed_instrument_states(
+            instruments,
+            time_engine_start,
+            PositionManager::default,
+            Orders::default,
+            instrument_data_init,
+        );
+
         EngineState {
-            trading: trading_state.unwrap_or_default(),
-            connectivity: generate_empty_indexed_connectivity_states(instruments),
+            trading,
+            global,
+            connectivity,
             assets,
-            instruments: generate_empty_indexed_instrument_states::<InstrumentData>(
-                instruments,
-                time_engine_start,
-            ),
-            strategy: strategy.unwrap_or_default(),
-            risk: risk.unwrap_or_default(),
+            instruments,
         }
     }
 }

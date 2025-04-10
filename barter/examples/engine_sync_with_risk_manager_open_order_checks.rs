@@ -4,6 +4,7 @@ use barter::{
         clock::LiveClock,
         state::{
             EngineState,
+            global::DefaultGlobalData,
             instrument::{
                 data::{DefaultInstrumentMarketData, InstrumentDataState},
                 filter::InstrumentFilter,
@@ -13,14 +14,14 @@ use barter::{
     },
     logging::init_logging,
     risk::{
-        DefaultRiskManager, DefaultRiskManagerState, RiskApproved, RiskManager, RiskRefused,
+        DefaultRiskManager, RiskApproved, RiskManager, RiskRefused,
         check::{
             CheckHigherThan, RiskCheck,
             util::{calculate_abs_percent_difference, calculate_quote_notional},
         },
     },
     statistic::time::Daily,
-    strategy::{DefaultStrategy, DefaultStrategyState},
+    strategy::DefaultStrategy,
     system::{
         builder::{AuditMode, EngineFeedMode, SystemArgs, SystemBuilder},
         config::SystemConfig,
@@ -73,12 +74,9 @@ impl<State> Default for CustomRiskManager<State> {
 }
 
 impl RiskManager
-    for CustomRiskManager<
-        EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>,
-    >
+    for CustomRiskManager<EngineState<DefaultGlobalData, DefaultInstrumentMarketData>>
 {
-    type State =
-        EngineState<DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>;
+    type State = EngineState<DefaultGlobalData, DefaultInstrumentMarketData>;
 
     fn check(
         &self,
@@ -206,7 +204,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Construct IndexedInstruments
     let instruments = IndexedInstruments::new(instruments);
 
-    // Initialise MarketData Stream & forward to Engine feed
+    // Initialise MarketData Stream
     let market_stream = init_indexed_multi_exchange_market_stream(
         &instruments,
         &[SubKind::PublicTrades, SubKind::OrderBooksL1],
@@ -221,22 +219,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         DefaultStrategy::default(),
         DefaultRiskManager::default(),
         market_stream,
+        DefaultGlobalData::default(),
+        DefaultInstrumentMarketData::default,
     );
 
     // Build & run full system:
+    // See SystemBuilder for all configuration options
     let system = SystemBuilder::new(args)
         // Engine feed in Sync mode (Iterator input)
         .engine_feed_mode(EngineFeedMode::Iterator)
-
         // Audit feed is disabled (Engine does not send audits)
         .audit_mode(AuditMode::Disabled)
-
         // Engine starts with TradingState::Enabled
         .trading_state(TradingState::Enabled)
-
         // Build System, but don't start spawning tasks yet
-        .build::<EngineEvent, DefaultInstrumentMarketData, DefaultStrategyState, DefaultRiskManagerState>()?
-
+        .build::<EngineEvent, _>()?
         // Init System, spawning component tasks on the current runtime
         .init_with_runtime(tokio::runtime::Handle::current())
         .await?;

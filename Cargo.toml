@@ -13,8 +13,8 @@ members = [
 # Barter Ecosystem
 barter-integration = { path = "./barter-integration", version = "0.9.1" }
 barter-instrument = { path = "./barter-instrument", version = "0.3.1" }
-barter-data = { path = "./barter-data", version = "0.10.0" }
-barter-execution = { path = "./barter-execution", version = "0.5.1" }
+barter-data = { path = "./barter-data", version = "0.10.1" }
+barter-execution = { path = "./barter-execution", version = "0.5.3" }
 barter-macro = { path = "./barter-macro", version = "0.2.0" }
 
 # Logging
@@ -70,4 +70,4 @@ itertools = { version = "0.14.0" }
 rust_decimal_macros = { version = "1.29.1" }
 bytes = { version = "1.5.0" }
 spin_sleep = { version = "1.3.0 "}
-
+criterion = { version = "0.5.1" }

@@ -32,15 +32,10 @@ pub trait CancelOrders<
     ) -> SendRequestsOutput<RequestCancel, ExchangeKey, InstrumentKey>;
 }
 
-impl<Clock, InstrumentData, StrategyState, RiskState, ExecutionTxs, Strategy, Risk> CancelOrders
-    for Engine<
-        Clock,
-        EngineState<InstrumentData, StrategyState, RiskState>,
-        ExecutionTxs,
-        Strategy,
-        Risk,
-    >
+impl<Clock, GlobalData, InstrumentData, ExecutionTxs, Strategy, Risk> CancelOrders
+    for Engine<Clock, EngineState<GlobalData, InstrumentData>, ExecutionTxs, Strategy, Risk>
 where
+    InstrumentData: InFlightRequestRecorder,
     ExecutionTxs: ExecutionTxMap,
 {
     fn cancel_orders(

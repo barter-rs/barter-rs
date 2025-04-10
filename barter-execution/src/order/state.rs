@@ -40,6 +40,22 @@ impl<AssetKey, InstrumentKey> OrderState<AssetKey, InstrumentKey> {
     pub fn expired() -> Self {
         Self::Inactive(InactiveOrderState::Expired)
     }
+
+    pub fn time_exchange(&self) -> Option<DateTime<Utc>> {
+        match self {
+            Self::Active(active) => match active {
+                ActiveOrderState::OpenInFlight(_) => None,
+                ActiveOrderState::Open(state) => Some(state.time_exchange),
+                ActiveOrderState::CancelInFlight(state) => {
+                    state.order.as_ref().map(|order| order.time_exchange)
+                }
+            },
+            Self::Inactive(inactive) => match inactive {
+                InactiveOrderState::Cancelled(state) => Some(state.time_exchange),
+                _ => None,
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]

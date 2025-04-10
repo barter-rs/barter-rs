@@ -29,18 +29,15 @@ pub struct StateReplicaManager<State> {
     pub state_replica: AuditTick<State, EngineContext>,
 }
 
-impl<InstrumentData, StrategyState, RiskState>
-    StateReplicaManager<EngineState<InstrumentData, StrategyState, RiskState>>
+impl<GlobalData, InstrumentData> StateReplicaManager<EngineState<GlobalData, InstrumentData>>
 where
     InstrumentData: InstrumentDataState,
-    StrategyState: for<'a> Processor<&'a AccountEvent>
-        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
-    RiskState: for<'a> Processor<&'a AccountEvent>
+    GlobalData: for<'a> Processor<&'a AccountEvent>
         + for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
 {
     /// Construct a new `StateReplicaManager` using the provided `EngineState` snapshot as a seed.
     pub fn new(
-        snapshot: AuditTick<EngineState<InstrumentData, StrategyState, RiskState>, EngineContext>,
+        snapshot: AuditTick<EngineState<GlobalData, InstrumentData>, EngineContext>,
     ) -> Self {
         Self {
             meta_start: EngineMeta {
@@ -58,15 +55,8 @@ where
         feed: &mut AuditIter,
     ) -> Result<(), String>
     where
-        AuditIter: Iterator<
-            Item = DefaultAuditTick<
-                InstrumentData,
-                StrategyState,
-                RiskState,
-                OnDisable,
-                OnDisconnect,
-            >,
-        >,
+        AuditIter:
+            Iterator<Item = DefaultAuditTick<GlobalData, InstrumentData, OnDisable, OnDisconnect>>,
         OnDisable: Debug,
         OnDisconnect: Debug,
     {
@@ -164,13 +154,11 @@ where
     }
 
     /// Returns a reference to the `EngineState` replica.
-    pub fn replica_engine_state(&self) -> &EngineState<InstrumentData, StrategyState, RiskState> {
+    pub fn replica_engine_state(&self) -> &EngineState<GlobalData, InstrumentData> {
         &self.state_replica.event
     }
 
-    fn replica_engine_state_mut(
-        &mut self,
-    ) -> &mut EngineState<InstrumentData, StrategyState, RiskState> {
+    fn replica_engine_state_mut(&mut self) -> &mut EngineState<GlobalData, InstrumentData> {
         &mut self.state_replica.event
     }
 }
