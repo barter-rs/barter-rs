@@ -1,12 +1,15 @@
 use crate::{
     engine::{
         Processor,
-        audit::{AuditTick, Auditor, context::EngineContext, shutdown::ShutdownAudit},
+        audit::{AuditTick, Auditor, context::EngineContext},
         process_with_audit,
     },
     shutdown::SyncShutdown,
 };
-use barter_integration::channel::{ChannelTxDroppable, Tx};
+use barter_integration::{
+    FeedEnded, Terminal,
+    channel::{ChannelTxDroppable, Tx},
+};
 use futures::{Stream, StreamExt};
 use std::fmt::Debug;
 use tracing::info;
@@ -19,18 +22,13 @@ use tracing::info;
 /// # Arguments
 /// * `Events` - `Iterator` of events for the `Engine` to process.
 /// * `Engine` - Event processor that produces audit events as output.
-pub fn sync_run<Events, Engine>(
-    feed: &mut Events,
-    engine: &mut Engine,
-) -> ShutdownAudit<Events::Item, Engine::Output>
+pub fn sync_run<Events, Engine>(feed: &mut Events, engine: &mut Engine) -> Engine::Audit
 where
     Events: Iterator,
     Events::Item: Debug + Clone,
     Engine:
         Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext> + SyncShutdown,
-    Engine::Audit: From<ShutdownAudit<Events::Item, Engine::Output>>,
-    Engine::Output: Debug + Clone,
-    Option<ShutdownAudit<Events::Item, Engine::Output>>: for<'a> From<&'a Engine::Audit>,
+    Engine::Audit: From<FeedEnded> + Terminal + Debug,
 {
     info!(
         feed_mode = "sync",
@@ -41,25 +39,27 @@ where
     // Run Engine process loop until shutdown
     let shutdown_audit = loop {
         let Some(event) = feed.next() else {
-            break ShutdownAudit::FeedEnded;
+            break engine.audit(FeedEnded);
         };
 
         // Process Event with AuditTick generation
         let audit = process_with_audit(engine, event);
 
         // Check if AuditTick indicates shutdown is required
-        let shutdown = Option::<ShutdownAudit<Events::Item, Engine::Output>>::from(&audit.event);
-
-        if let Some(shutdown) = shutdown {
-            break shutdown;
+        if audit.event.is_terminal() {
+            break audit;
         }
     };
 
-    info!(?shutdown_audit, "Engine shutting down");
+    info!(
+        shutdown_audit = ?shutdown_audit.event,
+        context = ?shutdown_audit.context,
+        "Engine shutting down"
+    );
 
     let _ = engine.shutdown();
 
-    shutdown_audit
+    shutdown_audit.event
 }
 
 /// Synchronous `Engine` runner that processes input `Events` and forwards audits to the provided
@@ -76,48 +76,47 @@ pub fn sync_run_with_audit<Events, Engine, AuditTx>(
     feed: &mut Events,
     engine: &mut Engine,
     audit_tx: &mut ChannelTxDroppable<AuditTx>,
-) -> ShutdownAudit<Events::Item, Engine::Output>
+) -> Engine::Audit
 where
     Events: Iterator,
     Events::Item: Debug + Clone,
     Engine:
         Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext> + SyncShutdown,
-    Engine::Audit: From<ShutdownAudit<Events::Item, Engine::Output>>,
-    Engine::Output: Debug + Clone,
+    Engine::Audit: From<FeedEnded> + Terminal + Debug + Clone,
     AuditTx: Tx<Item = AuditTick<Engine::Audit, EngineContext>>,
-    Option<ShutdownAudit<Events::Item, Engine::Output>>: for<'a> From<&'a Engine::Audit>,
 {
     info!(feed_mode = "sync", audit_mode = "enabled", "Engine running");
 
     // Run Engine process loop until shutdown
     let shutdown_audit = loop {
         let Some(event) = feed.next() else {
-            audit_tx.send(engine.audit(ShutdownAudit::FeedEnded));
-            break ShutdownAudit::FeedEnded;
+            break engine.audit(FeedEnded);
         };
 
         // Process Event with AuditTick generation
         let audit = process_with_audit(engine, event);
 
         // Check if AuditTick indicates shutdown is required
-        let shutdown = Option::<ShutdownAudit<Events::Item, Engine::Output>>::from(&audit.event);
+        if audit.event.is_terminal() {
+            break audit;
+        }
 
         // Send AuditTick to AuditManager
         audit_tx.send(audit);
-
-        if let Some(shutdown) = shutdown {
-            break shutdown;
-        }
     };
 
     // Send Shutdown audit
-    audit_tx.send(engine.audit(shutdown_audit.clone()));
+    audit_tx.send(shutdown_audit.clone());
 
-    info!(?shutdown_audit, "Engine shutting down");
+    info!(
+        shutdown_audit = ?shutdown_audit.event,
+        context = ?shutdown_audit.context,
+        "Engine shutting down"
+    );
 
     let _ = engine.shutdown();
 
-    shutdown_audit
+    shutdown_audit.event
 }
 
 /// Asynchronous `Engine` runner that processes input `Events`.
@@ -129,18 +128,13 @@ where
 /// * `Events` - `Stream` of events for the `Engine` to process.
 /// * `Engine` - Event processor that produces audit events as output.
 /// * `AuditTx` - Channel for sending produced audit events.
-pub async fn async_run<Events, Engine>(
-    feed: &mut Events,
-    engine: &mut Engine,
-) -> ShutdownAudit<Events::Item, Engine::Output>
+pub async fn async_run<Events, Engine>(feed: &mut Events, engine: &mut Engine) -> Engine::Audit
 where
     Events: Stream + Unpin,
     Events::Item: Debug + Clone,
     Engine:
         Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext> + SyncShutdown,
-    Engine::Audit: From<ShutdownAudit<Events::Item, Engine::Output>>,
-    Engine::Output: Debug + Clone,
-    Option<ShutdownAudit<Events::Item, Engine::Output>>: for<'a> From<&'a Engine::Audit>,
+    Engine::Audit: From<FeedEnded> + Terminal + Debug,
 {
     info!(
         feed_mode = "async",
@@ -151,25 +145,27 @@ where
     // Run Engine process loop until shutdown
     let shutdown_audit = loop {
         let Some(event) = feed.next().await else {
-            break ShutdownAudit::FeedEnded;
+            break engine.audit(FeedEnded);
         };
 
         // Process Event with AuditTick generation
         let audit = process_with_audit(engine, event);
 
         // Check if AuditTick indicates shutdown is required
-        let shutdown = Option::<ShutdownAudit<Events::Item, Engine::Output>>::from(&audit.event);
-
-        if let Some(shutdown) = shutdown {
-            break shutdown;
+        if audit.event.is_terminal() {
+            break audit;
         }
     };
 
-    info!(?shutdown_audit, "Engine shutting down");
+    info!(
+        shutdown_audit = ?shutdown_audit.event,
+        context = ?shutdown_audit.context,
+        "Engine shutting down"
+    );
 
     let _ = engine.shutdown();
 
-    shutdown_audit
+    shutdown_audit.event
 }
 
 /// Asynchronous `Engine` runner that processes input `Events` and forwards audits to the provided
@@ -186,16 +182,14 @@ pub async fn async_run_with_audit<Events, Engine, AuditTx>(
     feed: &mut Events,
     engine: &mut Engine,
     audit_tx: &mut ChannelTxDroppable<AuditTx>,
-) -> ShutdownAudit<Events::Item, Engine::Output>
+) -> Engine::Audit
 where
     Events: Stream + Unpin,
     Events::Item: Debug + Clone,
     Engine:
         Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext> + SyncShutdown,
-    Engine::Audit: From<ShutdownAudit<Events::Item, Engine::Output>>,
-    Engine::Output: Debug + Clone,
+    Engine::Audit: From<FeedEnded> + Terminal + Debug + Clone,
     AuditTx: Tx<Item = AuditTick<Engine::Audit, EngineContext>>,
-    Option<ShutdownAudit<Events::Item, Engine::Output>>: for<'a> From<&'a Engine::Audit>,
 {
     info!(
         feed_mode = "async",
@@ -206,30 +200,31 @@ where
     // Run Engine process loop until shutdown
     let shutdown_audit = loop {
         let Some(event) = feed.next().await else {
-            audit_tx.send(engine.audit(ShutdownAudit::FeedEnded));
-            break ShutdownAudit::FeedEnded;
+            break engine.audit(FeedEnded);
         };
 
         // Process Event with AuditTick generation
         let audit = process_with_audit(engine, event);
 
         // Check if AuditTick indicates shutdown is required
-        let shutdown = Option::<ShutdownAudit<Events::Item, Engine::Output>>::from(&audit.event);
+        if audit.event.is_terminal() {
+            break audit;
+        }
 
         // Send AuditTick to AuditManager
         audit_tx.send(audit);
-
-        if let Some(shutdown) = shutdown {
-            break shutdown;
-        }
     };
 
     // Send Shutdown audit
-    audit_tx.send(engine.audit(shutdown_audit.clone()));
+    audit_tx.send(shutdown_audit.clone());
 
-    info!(?shutdown_audit, "Engine shutting down");
+    info!(
+        shutdown_audit = ?shutdown_audit.event,
+        context = ?shutdown_audit.context,
+        "Engine shutting down"
+    );
 
     let _ = engine.shutdown();
 
-    shutdown_audit
+    shutdown_audit.event
 }

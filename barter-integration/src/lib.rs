@@ -27,7 +27,7 @@
 //! Both core abstractions provide the robust glue you need to conveniently translate between server & client data models.
 
 use crate::error::SocketError;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// All [`Error`](std::error::Error)s generated in Barter-Integration.
 pub mod error;
@@ -85,3 +85,14 @@ pub trait Transformer {
 pub trait Unrecoverable {
     fn is_unrecoverable(&self) -> bool;
 }
+
+/// Trait that communicates if something is terminal (eg/ requires shutdown or restart).
+pub trait Terminal {
+    fn is_terminal(&self) -> bool;
+}
+
+/// Indicates an `Iterator` or `Stream` has ended.
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Deserialize, Serialize,
+)]
+pub struct FeedEnded;

@@ -7,7 +7,7 @@
 use crate::{
     engine::{
         Processor,
-        audit::{AuditTick, Auditor, context::EngineContext, shutdown::ShutdownAudit},
+        audit::{AuditTick, Auditor, context::EngineContext},
         command::Command,
         state::{instrument::filter::InstrumentFilter, trading::TradingState},
     },
@@ -41,7 +41,7 @@ where
     Engine: Processor<Event> + Auditor<Engine::Audit, Context = EngineContext>,
 {
     /// Task handle for the running `Engine`.
-    pub engine: JoinHandle<(Engine, ShutdownAudit<Event, Engine::Output>)>,
+    pub engine: JoinHandle<(Engine, Engine::Audit)>,
 
     /// Handles to auxiliary system components (execution components, event forwarding, etc.).
     pub handles: SystemAuxillaryHandles,
@@ -60,9 +60,7 @@ where
     Event: Debug + Clone + Send,
 {
     /// Shutdown the `System` gracefully.
-    pub async fn shutdown(
-        mut self,
-    ) -> Result<(Engine, ShutdownAudit<Event, Engine::Output>), JoinError>
+    pub async fn shutdown(mut self) -> Result<(Engine, Engine::Audit), JoinError>
     where
         Event: From<Shutdown>,
     {
@@ -76,7 +74,7 @@ where
     }
 
     /// Shutdown the `System` ungracefully.
-    pub async fn abort(self) -> Result<(Engine, ShutdownAudit<Event, Engine::Output>), JoinError>
+    pub async fn abort(self) -> Result<(Engine, Engine::Audit), JoinError>
     where
         Event: From<Shutdown>,
     {
@@ -94,9 +92,7 @@ where
     ///
     /// **Note that for live & paper-trading this market stream will never end, so use
     /// System::shutdown() for that use case**.
-    pub async fn shutdown_after_backtest(
-        self,
-    ) -> Result<(Engine, ShutdownAudit<Event, Engine::Output>), JoinError>
+    pub async fn shutdown_after_backtest(self) -> Result<(Engine, Engine::Audit), JoinError>
     where
         Event: From<Shutdown>,
     {

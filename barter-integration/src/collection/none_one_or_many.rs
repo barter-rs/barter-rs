@@ -27,7 +27,12 @@ impl<T> NoneOneOrMany<T> {
         }
     }
 
-    pub fn extend(self, other: Self) -> Self {
+    pub fn extend<Iter>(self, other: Iter) -> Self
+    where
+        Iter: IntoIterator<Item = T>,
+    {
+        let other = Self::from_iter(other);
+
         use NoneOneOrMany::*;
         match (self, other) {
             (None, right) => right,

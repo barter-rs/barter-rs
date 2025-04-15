@@ -84,7 +84,6 @@ pub fn process_with_audit<Event, Engine>(
 ) -> AuditTick<Engine::Audit, EngineContext>
 where
     Engine: Processor<Event> + Auditor<Engine::Audit, Context = EngineContext>,
-    Engine::Audit: From<<Engine as Processor<Event>>::Audit>,
 {
     let output = engine.process(event);
     engine.audit(output)
@@ -146,19 +145,19 @@ where
         self.clock.process(&event);
 
         let process_audit = match &event {
-            EngineEvent::Shutdown(_) => return EngineAudit::shutdown_commanded(event),
+            EngineEvent::Shutdown(_) => return EngineAudit::process(event),
             EngineEvent::Command(command) => {
                 let output = self.action(command);
 
                 if let Some(unrecoverable) = output.unrecoverable_errors() {
-                    return EngineAudit::shutdown_on_err(event, unrecoverable, output);
+                    return EngineAudit::process_with_output_and_errs(event, unrecoverable, output);
                 } else {
-                    ProcessAudit::with_command_output(event, output)
+                    ProcessAudit::with_output(event, output)
                 }
             }
             EngineEvent::TradingStateUpdate(trading_state) => {
-                let output = self.update_from_trading_state_update(*trading_state);
-                ProcessAudit::with_trading_state_update(event, output)
+                let trading_disabled = self.update_from_trading_state_update(*trading_state);
+                ProcessAudit::with_trading_state_update(event, trading_disabled)
             }
             EngineEvent::Account(account) => {
                 let output = self.update_from_account_stream(account);
@@ -176,9 +175,9 @@ where
             if output.is_empty() {
                 EngineAudit::from(process_audit)
             } else if let Some(unrecoverable) = output.unrecoverable_errors() {
-                EngineAudit::shutdown_on_err_with_process(process_audit, unrecoverable)
+                EngineAudit::Process(process_audit.add_errors(unrecoverable))
             } else {
-                EngineAudit::from(process_audit.add_additional(output))
+                EngineAudit::from(process_audit.add_output(output))
             }
         } else {
             EngineAudit::from(process_audit)
@@ -410,18 +409,20 @@ pub enum UpdateFromMarketOutput<OnDisconnect> {
     OnDisconnect(OnDisconnect),
 }
 
-impl<OnTradingDisabled, OnDisconnect> From<ActionOutput>
-    for EngineOutput<OnTradingDisabled, OnDisconnect>
+impl<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
+    From<ActionOutput<ExchangeKey, InstrumentKey>>
+    for EngineOutput<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
 {
-    fn from(value: ActionOutput) -> Self {
+    fn from(value: ActionOutput<ExchangeKey, InstrumentKey>) -> Self {
         Self::Commanded(value)
     }
 }
 
-impl<OnTradingDisabled, OnDisconnect> From<PositionExited<QuoteAsset>>
-    for EngineOutput<OnTradingDisabled, OnDisconnect>
+impl<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
+    From<PositionExited<QuoteAsset, InstrumentKey>>
+    for EngineOutput<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
 {
-    fn from(value: PositionExited<QuoteAsset>) -> Self {
+    fn from(value: PositionExited<QuoteAsset, InstrumentKey>) -> Self {
         Self::PositionExit(value)
     }
 }
