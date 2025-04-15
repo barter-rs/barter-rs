@@ -28,7 +28,7 @@ where
     Events::Item: Debug + Clone,
     Engine:
         Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext> + SyncShutdown,
-    Engine::Audit: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item, Engine::Output>>,
+    Engine::Audit: From<ShutdownAudit<Events::Item, Engine::Output>>,
     Engine::Output: Debug + Clone,
     Option<ShutdownAudit<Events::Item, Engine::Output>>: for<'a> From<&'a Engine::Audit>,
 {
@@ -82,15 +82,12 @@ where
     Events::Item: Debug + Clone,
     Engine:
         Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext> + SyncShutdown,
-    Engine::Audit: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item, Engine::Output>>,
+    Engine::Audit: From<ShutdownAudit<Events::Item, Engine::Output>>,
     Engine::Output: Debug + Clone,
     AuditTx: Tx<Item = AuditTick<Engine::Audit, EngineContext>>,
     Option<ShutdownAudit<Events::Item, Engine::Output>>: for<'a> From<&'a Engine::Audit>,
 {
     info!(feed_mode = "sync", audit_mode = "enabled", "Engine running");
-
-    // Send initial Engine State snapshot
-    audit_tx.send(engine.audit(engine.snapshot()));
 
     // Run Engine process loop until shutdown
     let shutdown_audit = loop {
@@ -141,7 +138,7 @@ where
     Events::Item: Debug + Clone,
     Engine:
         Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext> + SyncShutdown,
-    Engine::Audit: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item, Engine::Output>>,
+    Engine::Audit: From<ShutdownAudit<Events::Item, Engine::Output>>,
     Engine::Output: Debug + Clone,
     Option<ShutdownAudit<Events::Item, Engine::Output>>: for<'a> From<&'a Engine::Audit>,
 {
@@ -195,7 +192,7 @@ where
     Events::Item: Debug + Clone,
     Engine:
         Processor<Events::Item> + Auditor<Engine::Audit, Context = EngineContext> + SyncShutdown,
-    Engine::Audit: From<Engine::Snapshot> + From<ShutdownAudit<Events::Item, Engine::Output>>,
+    Engine::Audit: From<ShutdownAudit<Events::Item, Engine::Output>>,
     Engine::Output: Debug + Clone,
     AuditTx: Tx<Item = AuditTick<Engine::Audit, EngineContext>>,
     Option<ShutdownAudit<Events::Item, Engine::Output>>: for<'a> From<&'a Engine::Audit>,
@@ -205,9 +202,6 @@ where
         audit_mode = "enabled",
         "Engine running"
     );
-
-    // Send initial Engine State snapshot
-    audit_tx.send(engine.audit(engine.snapshot()));
 
     // Run Engine process loop until shutdown
     let shutdown_audit = loop {

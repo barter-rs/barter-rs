@@ -22,7 +22,10 @@ use barter_instrument::{
     asset::{ExchangeAsset, name::AssetNameInternal},
     index::IndexedInstruments,
 };
-use barter_integration::channel::{Channel, ChannelTxDroppable, mpsc_unbounded};
+use barter_integration::{
+    channel::{Channel, ChannelTxDroppable, mpsc_unbounded},
+    snapshot::SnapUpdates,
+};
 use derive_more::Constructor;
 use fnv::FnvHashMap;
 use futures::Stream;
@@ -288,12 +291,7 @@ where
         + SyncShutdown
         + Send
         + 'static,
-    Engine::Audit: From<Engine::Snapshot>
-        + From<ShutdownAudit<Event, Engine::Output>>
-        + Debug
-        + Clone
-        + Send
-        + 'static,
+    Engine::Audit: From<ShutdownAudit<Event, Engine::Output>> + Debug + Clone + Send + 'static,
     Engine::Output: Debug + Clone + Send + 'static,
     Event: From<MarketStream::Item> + From<AccountStreamEvent> + Debug + Clone + Send + 'static,
     MarketStream: Stream + Send + 'static,
@@ -368,11 +366,16 @@ where
         let account_to_engine = runtime.spawn(account_stream.forward_to(feed_tx.clone()));
 
         // Run Engine in configured mode
-        let (engine, audit_rx) = match (engine_feed_mode, audit_mode) {
+        let (engine, audit) = match (engine_feed_mode, audit_mode) {
             (EngineFeedMode::Iterator, AuditMode::Enabled) => {
                 // Initialise Audit channel
                 let (audit_tx, audit_rx) = mpsc_unbounded();
                 let mut audit_tx = ChannelTxDroppable::new(audit_tx);
+
+                let audit = SnapUpdates {
+                    snapshot: engine.audit_snapshot(),
+                    updates: audit_rx,
+                };
 
                 let handle = runtime.spawn_blocking(move || {
                     let shutdown_audit =
@@ -381,7 +384,7 @@ where
                     (engine, shutdown_audit)
                 });
 
-                (handle, Some(audit_rx))
+                (handle, Some(audit))
             }
             (EngineFeedMode::Iterator, AuditMode::Disabled) => {
                 let handle = runtime.spawn_blocking(move || {
@@ -396,13 +399,18 @@ where
                 let (audit_tx, audit_rx) = mpsc_unbounded();
                 let mut audit_tx = ChannelTxDroppable::new(audit_tx);
 
+                let audit = SnapUpdates {
+                    snapshot: engine.audit_snapshot(),
+                    updates: audit_rx,
+                };
+
                 let handle = runtime.spawn(async move {
                     let shutdown_audit =
                         async_run_with_audit(&mut feed_rx, &mut engine, &mut audit_tx).await;
                     (engine, shutdown_audit)
                 });
 
-                (handle, Some(audit_rx))
+                (handle, Some(audit))
             }
             (EngineFeedMode::Stream, AuditMode::Disabled) => {
                 let handle = runtime.spawn(async move {
@@ -422,7 +430,7 @@ where
                 account_to_engine,
             },
             feed_tx,
-            audit_rx,
+            audit,
         })
     }
 }

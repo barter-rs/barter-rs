@@ -1,7 +1,7 @@
 use barter::{
     EngineEvent,
     engine::{
-        audit::{Auditor, state_replica::StateReplicaManager},
+        audit::state_replica::StateReplicaManager,
         clock::LiveClock,
         state::{
             global::DefaultGlobalData,
@@ -23,6 +23,7 @@ use barter_data::{
     subscription::SubKind,
 };
 use barter_instrument::index::IndexedInstruments;
+use barter_integration::snapshot::SnapUpdates;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use std::{fs::File, io::BufReader, time::Duration};
@@ -75,25 +76,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Engine starts with TradingState::Disabled
         .trading_state(TradingState::Disabled)
         // Build System, but don't start spawning tasks yet
-        .build::<EngineEvent, _>()?;
-
-    // Construct StateReplicaManager w/ initial EngineState
-    let mut state_replica_manager =
-        StateReplicaManager::new(system.engine.audit(system.engine.state.clone()));
-
-    // Init System:
-    let mut system = system
+        .build::<EngineEvent, _>()?
         // Init System, spawning component tasks on the current runtime
         .init_with_runtime(tokio::runtime::Handle::current())
         .await?;
 
-    // Take ownership of Engine audit receiver
-    let mut audit_rx = system.audit_rx.take().unwrap();
+    // Take ownership of the Engine audit snapshot with updates
+    let SnapUpdates {
+        snapshot: audit_snapshot,
+        updates: audit_updates,
+    } = system.audit.take().unwrap();
+
+    // Construct StateReplicaManager w/ initial EngineState
+    let mut state_replica_manager = StateReplicaManager::new(audit_snapshot, audit_updates);
 
     // Run synchronous AuditReplicaStateManager on blocking task
     let state_replica_task = tokio::task::spawn_blocking(move || {
-        state_replica_manager.run(&mut audit_rx).unwrap();
-        (state_replica_manager, audit_rx)
+        state_replica_manager.run().unwrap();
+        state_replica_manager
     });
 
     // Enable trading

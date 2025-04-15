@@ -84,7 +84,7 @@ pub fn process_with_audit<Event, Engine>(
 ) -> AuditTick<Engine::Audit, EngineContext>
 where
     Engine: Processor<Event> + Auditor<Engine::Audit, Context = EngineContext>,
-    Engine::Audit: From<Engine::Snapshot> + From<<Engine as Processor<Event>>::Audit>,
+    Engine::Audit: From<<Engine as Processor<Event>>::Audit>,
 {
     let output = engine.process(event);
     engine.audit(output)
@@ -138,7 +138,6 @@ where
     Risk: RiskManager<State = EngineState<GlobalData, InstrumentData>>,
 {
     type Audit = EngineAudit<
-        EngineState<GlobalData, InstrumentData>,
         EngineEvent<InstrumentData::MarketEventKind>,
         EngineOutput<Strategy::OnTradingDisabled, Strategy::OnDisconnect>,
     >;
