@@ -162,9 +162,9 @@ impl<Event, Output> EngineAudit<Event, Output> {
 )]
 /// Represents [`AuditTick`] types that are generated when an `Engine` processes an `Event`.
 pub struct ProcessAudit<Event, Output> {
-    event: Event,
-    outputs: NoneOneOrMany<Output>,
-    errors: NoneOneOrMany<UnrecoverableEngineError>,
+    pub event: Event,
+    pub outputs: NoneOneOrMany<Output>,
+    pub errors: NoneOneOrMany<UnrecoverableEngineError>,
 }
 
 impl<Event, Output> Terminal for ProcessAudit<Event, Output>
