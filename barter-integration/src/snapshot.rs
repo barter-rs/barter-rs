@@ -35,3 +35,11 @@ impl<T> Snapshot<T> {
         Snapshot(op(item))
     }
 }
+
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
+pub struct SnapUpdates<Snapshot, Updates> {
+    pub snapshot: Snapshot,
+    pub updates: Updates,
+}

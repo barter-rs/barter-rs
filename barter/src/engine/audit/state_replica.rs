@@ -24,39 +24,40 @@ pub const AUDIT_REPLICA_STATE_UPDATE_SPAN_NAME: &str = "audit_replica_state_upda
 ///
 /// Useful for supporting non-hot path trading system components such as UIs, web apps, etc.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
-pub struct StateReplicaManager<State> {
+pub struct StateReplicaManager<State, Updates> {
     pub meta_start: EngineMeta,
     pub state_replica: AuditTick<State, EngineContext>,
+    pub updates: Updates,
 }
 
-impl<GlobalData, InstrumentData> StateReplicaManager<EngineState<GlobalData, InstrumentData>>
-where
-    InstrumentData: InstrumentDataState,
-    GlobalData: for<'a> Processor<&'a AccountEvent>
-        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
-{
+impl<State, Updates> StateReplicaManager<State, Updates> {
     /// Construct a new `StateReplicaManager` using the provided `EngineState` snapshot as a seed.
-    pub fn new(
-        snapshot: AuditTick<EngineState<GlobalData, InstrumentData>, EngineContext>,
-    ) -> Self {
+    pub fn new(snapshot: AuditTick<State>, updates: Updates) -> Self {
         Self {
             meta_start: EngineMeta {
                 time_start: snapshot.context.time,
                 sequence: snapshot.context.sequence,
             },
             state_replica: snapshot,
+            updates,
         }
     }
+}
 
+impl<GlobalData, InstrumentData, Updates>
+    StateReplicaManager<EngineState<GlobalData, InstrumentData>, Updates>
+where
+    InstrumentData: InstrumentDataState,
+    GlobalData: for<'a> Processor<&'a AccountEvent>
+        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
+{
     /// Run the `StateReplicaManager`, managing a replica of an `EngineState` instance by processing
     /// AuditStream events produced by an `Engine`.
-    pub fn run<AuditIter, OnDisable, OnDisconnect>(
-        &mut self,
-        feed: &mut AuditIter,
-    ) -> Result<(), String>
+    pub fn run<OnDisable, OnDisconnect>(&mut self) -> Result<(), String>
     where
-        AuditIter:
-            Iterator<Item = DefaultAuditTick<GlobalData, InstrumentData, OnDisable, OnDisconnect>>,
+        Updates: Iterator<
+            Item = DefaultAuditTick<InstrumentData::MarketEventKind, OnDisable, OnDisconnect>,
+        >,
         OnDisable: Debug,
         OnDisconnect: Debug,
     {
@@ -67,7 +68,7 @@ where
         let audit_span_guard = audit_span.enter();
 
         let shutdown_audit = loop {
-            let Some(audit) = feed.next() else {
+            let Some(audit) = self.updates.next() else {
                 break ShutdownAudit::FeedEnded;
             };
 
@@ -78,10 +79,6 @@ where
             }
 
             let shutdown_audit = match audit.event {
-                EngineAudit::Snapshot(snapshot) => {
-                    self.state_replica.event = snapshot;
-                    None
-                }
                 EngineAudit::Process(ProcessAudit::Process(event)) => {
                     self.update_from_event(event);
                     None
