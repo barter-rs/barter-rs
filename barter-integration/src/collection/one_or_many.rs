@@ -1,3 +1,4 @@
+use crate::collection::none_one_or_many::NoneOneOrMany;
 use itertools::Either;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -132,6 +133,16 @@ impl<T> From<Vec<T>> for OneOrMany<T> {
             0 => panic!("Cannot create OneOrMany from empty Vec"),
             1 => OneOrMany::One(items.remove(0)),
             _ => OneOrMany::Many(items),
+        }
+    }
+}
+
+impl<T> From<NoneOneOrMany<T>> for Option<OneOrMany<T>> {
+    fn from(value: NoneOneOrMany<T>) -> Self {
+        match value {
+            NoneOneOrMany::None => None,
+            NoneOneOrMany::One(value) => Some(OneOrMany::One(value)),
+            NoneOneOrMany::Many(values) => Some(OneOrMany::Many(values)),
         }
     }
 }
