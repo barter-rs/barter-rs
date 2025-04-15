@@ -47,6 +47,7 @@ use barter_data::{
 };
 use barter_execution::AccountEvent;
 use barter_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
+use barter_integration::Terminal;
 use chrono::{DateTime, Utc};
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
@@ -125,6 +126,14 @@ pub enum EngineEvent<
     TradingStateUpdate(TradingState),
     Account(AccountStreamEvent<ExchangeKey, AssetKey, InstrumentKey>),
     Market(MarketStreamEvent<InstrumentKey, MarketKind>),
+}
+
+impl<MarketKind, ExchangeKey, AssetKey, InstrumentKey> Terminal
+    for EngineEvent<MarketKind, ExchangeKey, AssetKey, InstrumentKey>
+{
+    fn is_terminal(&self) -> bool {
+        matches!(self, Self::Shutdown(_))
+    }
 }
 
 impl<MarketKind, ExchangeKey, AssetKey, InstrumentKey>

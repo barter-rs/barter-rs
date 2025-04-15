@@ -1,6 +1,5 @@
 use barter::{
     engine::{
-        audit::EngineAudit,
         clock::LiveClock,
         state::{
             global::DefaultGlobalData,
@@ -22,6 +21,7 @@ use barter_data::{
     subscription::SubKind,
 };
 use barter_instrument::index::IndexedInstruments;
+use barter_integration::Terminal;
 use futures::StreamExt;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -89,7 +89,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut audit_stream = audit.updates.into_stream();
         while let Some(audit) = audit_stream.next().await {
             debug!(?audit, "AuditStream consumed AuditTick");
-            if let EngineAudit::Shutdown(_) = audit.event {
+            if audit.event.is_terminal() {
                 break;
             }
         }

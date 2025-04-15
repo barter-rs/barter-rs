@@ -1,7 +1,7 @@
 use crate::{
     engine::{
         Engine, Processor,
-        audit::{Auditor, context::EngineContext, shutdown::ShutdownAudit},
+        audit::{Auditor, context::EngineContext},
         clock::EngineClock,
         execution_tx::MultiExchangeTxMap,
         run::{async_run, async_run_with_audit, sync_run, sync_run_with_audit},
@@ -23,6 +23,7 @@ use barter_instrument::{
     index::IndexedInstruments,
 };
 use barter_integration::{
+    FeedEnded, Terminal,
     channel::{Channel, ChannelTxDroppable, mpsc_unbounded},
     snapshot::SnapUpdates,
 };
@@ -291,11 +292,9 @@ where
         + SyncShutdown
         + Send
         + 'static,
-    Engine::Audit: From<ShutdownAudit<Event, Engine::Output>> + Debug + Clone + Send + 'static,
-    Engine::Output: Debug + Clone + Send + 'static,
+    Engine::Audit: From<FeedEnded> + Terminal + Debug + Clone + Send + 'static,
     Event: From<MarketStream::Item> + From<AccountStreamEvent> + Debug + Clone + Send + 'static,
     MarketStream: Stream + Send + 'static,
-    Option<ShutdownAudit<Event, Engine::Output>>: for<'a> From<&'a Engine::Audit>,
 {
     /// Construct a new `SystemBuild` from the provided components.
     pub fn new(
