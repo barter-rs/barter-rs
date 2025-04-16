@@ -16,6 +16,8 @@ pub mod name;
 )]
 pub struct AssetId(pub u64);
 
+/// Unique index for each [`ExchangeAsset`] used in the Engine.
+
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
@@ -33,6 +35,10 @@ impl std::fmt::Display for AssetIndex {
     }
 }
 
+/// A generic Asset model representing an asset on a specific exchange.
+/// This struct is widely used throughout the system and provides various functionalities.
+/// The `Asset` type is flexible and can represent different asset-related identifiers,
+/// such as [`Asset`] or [`AssetNameInternal`], depending on the use case
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct ExchangeAsset<Asset> {
     pub exchange: ExchangeId,
@@ -63,6 +69,8 @@ where
     }
 }
 
+/// Defines the type that links [`AssetNameInternal`] and [`AssetNameExchange`],
+/// representing a corresponding asset.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct Asset {
     pub name_internal: AssetNameInternal,
@@ -102,6 +110,7 @@ impl Asset {
     }
 }
 
+/// Defines the type of [`Asset`] being traded on a specific market.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display)]
 #[serde(rename_all = "snake_case")]
 pub enum AssetKind {
