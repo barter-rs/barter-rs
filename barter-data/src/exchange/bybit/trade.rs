@@ -7,6 +7,8 @@ use barter_instrument::{Side, exchange::ExchangeId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use super::message::BybitMessage;
+
 /// Terse type alias for an [`BybitTrade`](BybitTradeInner) real-time trades WebSocket message.
 pub type BybitTrade = BybitPayload<Vec<BybitTradeInner>>;
 
@@ -49,6 +51,17 @@ pub struct BybitTradeInner {
     pub id: String,
 }
 
+impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, BybitMessage)>
+    for MarketIter<InstrumentKey, PublicTrade>
+{
+    fn from((exchange_id, instrument, message): (ExchangeId, InstrumentKey, BybitMessage)) -> Self {
+        match message {
+            BybitMessage::Trade(trade) => Self::from((exchange_id, instrument, trade)),
+            _ => Self(vec![]),
+        }
+    }
+}
+
 impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, BybitTrade)>
     for MarketIter<InstrumentKey, PublicTrade>
 {
@@ -81,6 +94,8 @@ mod tests {
     use super::*;
 
     mod de {
+        use crate::exchange::bybit::message::BybitPayloadKind;
+
         use super::*;
         use barter_integration::{
             de::datetime_utc_from_epoch_duration, error::SocketError, subscription::SubscriptionId,
@@ -227,7 +242,7 @@ mod tests {
                     "#,
                     expected: Ok(BybitTrade {
                         subscription_id: SubscriptionId("publicTrade|BTCUSDT".to_smolstr()),
-                        r#type: "snapshot".to_string(),
+                        kind: Some(BybitPayloadKind::Snapshot),
                         time: datetime_utc_from_epoch_duration(Duration::from_millis(
                             1672304486868,
                         )),
