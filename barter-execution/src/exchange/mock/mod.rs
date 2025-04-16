@@ -11,7 +11,7 @@ use crate::{
         Order, OrderKind, UnindexedOrder,
         id::OrderId,
         request::{OrderRequestCancel, OrderRequestOpen},
-        state::{Cancelled, Open},
+        state::{Cancelled, FullyFilled, Open},
     },
     trade::{AssetFees, Trade, TradeId},
 };
@@ -107,12 +107,16 @@ impl MockExchange {
                     response_tx,
                     request,
                 } => {
-                    let (response, notifications) = self.open_order(request);
-                    self.respond_with_latency(response_tx, response);
+                    let (response, notifications, fully_filled) = self.open_order(request);
+                    self.respond_with_latency(response_tx, response.clone());
 
                     if let Some(notifications) = notifications {
                         self.account.ack_trade(notifications.trade.clone());
                         self.send_notifications_with_latency(notifications);
+                    }
+
+                    if let Some(fully_filled) = fully_filled {
+                        self.account.record_filled_order(fully_filled);
                     }
                 }
             }
@@ -150,7 +154,13 @@ impl MockExchange {
             .cloned()
             .map(UnindexedOrder::from);
 
-        let orders_all = orders_open.chain(orders_cancelled);
+        let orders_filled = self
+            .account
+            .orders_filled()
+            .cloned()
+            .map(UnindexedOrder::from);
+
+        let orders_all = orders_open.chain(orders_cancelled).chain(orders_filled);
         let orders_all = orders_all.sorted_unstable_by_key(|order| order.key.instrument.clone());
         let orders_by_instrument = orders_all.chunk_by(|order| order.key.instrument.clone());
 
@@ -256,14 +266,15 @@ impl MockExchange {
     ) -> (
         Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>,
         Option<OpenOrderNotifications>,
+        Option<Order<ExchangeId, InstrumentNameExchange, FullyFilled>>,
     ) {
         if let Err(error) = self.validate_order_kind_supported(request.state.kind) {
-            return (build_open_order_err_response(request, error), None);
+            return (build_open_order_err_response(request, error), None, None);
         }
 
         let underlying = match self.find_instrument_data(&request.key.instrument) {
             Ok(instrument) => instrument.underlying.clone(),
-            Err(error) => return (build_open_order_err_response(request, error), None),
+            Err(error) => return (build_open_order_err_response(request, error), None, None),
         };
 
         let time_exchange = self.time_exchange();
@@ -339,7 +350,7 @@ impl MockExchange {
 
         let (balance_snapshot, fees) = match balance_change_result {
             Ok((balance_snapshot, fees)) => (Snapshot(balance_snapshot), fees),
-            Err(error) => return (build_open_order_err_response(request, error), None),
+            Err(error) => return (build_open_order_err_response(request, error), None, None),
         };
 
         let order_id = self.order_id_sequence_fetch_add();
@@ -364,8 +375,8 @@ impl MockExchange {
             trade: Trade {
                 id: trade_id,
                 order_id: order_id.clone(),
-                instrument: request.key.instrument,
-                strategy: request.key.strategy,
+                instrument: request.key.instrument.clone(),
+                strategy: request.key.strategy.clone(),
                 time_exchange: self.time_exchange(),
                 side: request.state.side,
                 price: request.state.price,
@@ -374,7 +385,17 @@ impl MockExchange {
             },
         };
 
-        (order_response, Some(notifications))
+        let fully_filled = Order {
+            key: request.key.clone(),
+            side: request.state.side,
+            price: request.state.price,
+            quantity: request.state.quantity,
+            kind: request.state.kind,
+            time_in_force: request.state.time_in_force,
+            state: FullyFilled::new(self.time_exchange()),
+        };
+
+        (order_response, Some(notifications), Some(fully_filled))
     }
 
     pub fn validate_order_kind_supported(
