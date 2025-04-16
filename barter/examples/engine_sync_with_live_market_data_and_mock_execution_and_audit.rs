@@ -1,6 +1,5 @@
 use barter::{
     engine::{
-        audit::EngineAudit,
         clock::LiveClock,
         state::{
             global::DefaultGlobalData,
@@ -22,6 +21,7 @@ use barter_data::{
     subscription::SubKind,
 };
 use barter_instrument::index::IndexedInstruments;
+use barter_integration::Terminal;
 use futures::StreamExt;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -79,17 +79,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init_with_runtime(tokio::runtime::Handle::current())
         .await?;
 
-    // Take ownership of Engine audit receiver
-    let audit_rx = system.audit_rx.take().unwrap();
+    // Take ownership of the Engine audit snapshot with updates
+    let audit = system.audit.take().unwrap();
 
     // Run dummy asynchronous AuditStream consumer
     // Note: you probably want to use this Stream to replicate EngineState, or persist events, etc.
     //  --> eg/ see examples/engine_sync_with_audit_replica_engine_state
     let audit_task = tokio::spawn(async move {
-        let mut audit_stream = audit_rx.into_stream();
+        let mut audit_stream = audit.updates.into_stream();
         while let Some(audit) = audit_stream.next().await {
             debug!(?audit, "AuditStream consumed AuditTick");
-            if let EngineAudit::Shutdown(_) = audit.event {
+            if audit.event.is_terminal() {
                 break;
             }
         }

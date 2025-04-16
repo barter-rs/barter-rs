@@ -7,7 +7,7 @@
 use crate::{
     engine::{
         Processor,
-        audit::{AuditTick, Auditor, context::EngineContext, shutdown::ShutdownAudit},
+        audit::{AuditTick, Auditor, context::EngineContext},
         command::Command,
         state::{instrument::filter::InstrumentFilter, trading::TradingState},
     },
@@ -18,6 +18,7 @@ use barter_execution::order::request::{OrderRequestCancel, OrderRequestOpen};
 use barter_integration::{
     channel::{Tx, UnboundedRx, UnboundedTx},
     collection::one_or_many::OneOrMany,
+    snapshot::SnapUpdates,
 };
 use std::fmt::Debug;
 use tokio::task::{JoinError, JoinHandle};
@@ -38,10 +39,9 @@ pub mod config;
 pub struct System<Engine, Event>
 where
     Engine: Processor<Event> + Auditor<Engine::Audit, Context = EngineContext>,
-    Engine::Audit: From<Engine::Snapshot>,
 {
     /// Task handle for the running `Engine`.
-    pub engine: JoinHandle<(Engine, ShutdownAudit<Event, Engine::Output>)>,
+    pub engine: JoinHandle<(Engine, Engine::Audit)>,
 
     /// Handles to auxiliary system components (execution components, event forwarding, etc.).
     pub handles: SystemAuxillaryHandles,
@@ -49,20 +49,18 @@ where
     /// Transmitter for sending events to the `Engine`.
     pub feed_tx: UnboundedTx<Event>,
 
-    /// Optional receiver for engine audit events (present when audit sending is enabled).
-    pub audit_rx: Option<UnboundedRx<AuditTick<Engine::Audit, EngineContext>>>,
+    /// Optional audit snapshot with updates (present when audit sending is enabled).
+    pub audit:
+        Option<SnapUpdates<AuditTick<Engine::Snapshot>, UnboundedRx<AuditTick<Engine::Audit>>>>,
 }
 
 impl<Engine, Event> System<Engine, Event>
 where
     Engine: Processor<Event> + Auditor<Engine::Audit, Context = EngineContext>,
-    Engine::Audit: From<Engine::Snapshot>,
     Event: Debug + Clone + Send,
 {
     /// Shutdown the `System` gracefully.
-    pub async fn shutdown(
-        mut self,
-    ) -> Result<(Engine, ShutdownAudit<Event, Engine::Output>), JoinError>
+    pub async fn shutdown(mut self) -> Result<(Engine, Engine::Audit), JoinError>
     where
         Event: From<Shutdown>,
     {
@@ -76,7 +74,7 @@ where
     }
 
     /// Shutdown the `System` ungracefully.
-    pub async fn abort(self) -> Result<(Engine, ShutdownAudit<Event, Engine::Output>), JoinError>
+    pub async fn abort(self) -> Result<(Engine, Engine::Audit), JoinError>
     where
         Event: From<Shutdown>,
     {
@@ -94,9 +92,7 @@ where
     ///
     /// **Note that for live & paper-trading this market stream will never end, so use
     /// System::shutdown() for that use case**.
-    pub async fn shutdown_after_backtest(
-        self,
-    ) -> Result<(Engine, ShutdownAudit<Event, Engine::Output>), JoinError>
+    pub async fn shutdown_after_backtest(self) -> Result<(Engine, Engine::Audit), JoinError>
     where
         Event: From<Shutdown>,
     {
@@ -109,7 +105,7 @@ where
                     account_to_engine,
                 },
             feed_tx,
-            audit_rx: _,
+            audit: _,
         } = self;
 
         // Wait for MarketStream to finish forwarding to Engine before initiating Shutdown
@@ -172,14 +168,15 @@ where
         self.send(trading_state)
     }
 
-    /// Take ownership of the audit channel receiver if present.
+    /// Take ownership of the audit snapshot with updates component if present.
     ///
     /// Note that by this will not be present if the `System` was built in
     /// [`AuditMode::Disabled`] (default).
-    pub fn take_audit_rx(
+    pub fn take_audit(
         &mut self,
-    ) -> Option<UnboundedRx<AuditTick<Engine::Audit, EngineContext>>> {
-        self.audit_rx.take()
+    ) -> Option<SnapUpdates<AuditTick<Engine::Snapshot>, UnboundedRx<AuditTick<Engine::Audit>>>>
+    {
+        self.audit.take()
     }
 
     /// Send an `Event` to the `Engine`.

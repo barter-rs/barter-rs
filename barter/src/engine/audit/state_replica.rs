@@ -1,11 +1,8 @@
 use crate::{
     EngineEvent,
     engine::{
-        EngineMeta, Processor,
-        audit::{
-            AuditTick, DefaultAuditTick, EngineAudit, ProcessAudit, context::EngineContext,
-            shutdown::ShutdownAudit,
-        },
+        EngineMeta, EngineOutput, Processor,
+        audit::{AuditTick, EngineAudit, context::EngineContext},
         state::{EngineState, instrument::data::InstrumentDataState},
     },
     execution::AccountStreamEvent,
@@ -13,6 +10,7 @@ use crate::{
 use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
 use barter_execution::AccountEvent;
 use barter_instrument::instrument::InstrumentIndex;
+use barter_integration::Terminal;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::{info, info_span};
@@ -24,39 +22,45 @@ pub const AUDIT_REPLICA_STATE_UPDATE_SPAN_NAME: &str = "audit_replica_state_upda
 ///
 /// Useful for supporting non-hot path trading system components such as UIs, web apps, etc.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
-pub struct StateReplicaManager<State> {
+pub struct StateReplicaManager<State, Updates> {
     pub meta_start: EngineMeta,
     pub state_replica: AuditTick<State, EngineContext>,
+    pub updates: Updates,
 }
 
-impl<GlobalData, InstrumentData> StateReplicaManager<EngineState<GlobalData, InstrumentData>>
-where
-    InstrumentData: InstrumentDataState,
-    GlobalData: for<'a> Processor<&'a AccountEvent>
-        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
-{
+impl<State, Updates> StateReplicaManager<State, Updates> {
     /// Construct a new `StateReplicaManager` using the provided `EngineState` snapshot as a seed.
-    pub fn new(
-        snapshot: AuditTick<EngineState<GlobalData, InstrumentData>, EngineContext>,
-    ) -> Self {
+    pub fn new(snapshot: AuditTick<State>, updates: Updates) -> Self {
         Self {
             meta_start: EngineMeta {
                 time_start: snapshot.context.time,
                 sequence: snapshot.context.sequence,
             },
             state_replica: snapshot,
+            updates,
         }
     }
+}
 
+impl<GlobalData, InstrumentData, Updates>
+    StateReplicaManager<EngineState<GlobalData, InstrumentData>, Updates>
+where
+    InstrumentData: InstrumentDataState,
+    GlobalData: for<'a> Processor<&'a AccountEvent>
+        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
+{
     /// Run the `StateReplicaManager`, managing a replica of an `EngineState` instance by processing
     /// AuditStream events produced by an `Engine`.
-    pub fn run<AuditIter, OnDisable, OnDisconnect>(
-        &mut self,
-        feed: &mut AuditIter,
-    ) -> Result<(), String>
+    pub fn run<OnDisable, OnDisconnect>(&mut self) -> Result<(), String>
     where
-        AuditIter:
-            Iterator<Item = DefaultAuditTick<GlobalData, InstrumentData, OnDisable, OnDisconnect>>,
+        Updates: Iterator<
+            Item = AuditTick<
+                EngineAudit<
+                    EngineEvent<InstrumentData::MarketEventKind>,
+                    EngineOutput<OnDisable, OnDisconnect>,
+                >,
+            >,
+        >,
         OnDisable: Debug,
         OnDisconnect: Debug,
     {
@@ -67,41 +71,33 @@ where
         let audit_span_guard = audit_span.enter();
 
         let shutdown_audit = loop {
-            let Some(audit) = feed.next() else {
-                break ShutdownAudit::FeedEnded;
+            let Some(AuditTick {
+                event: EngineAudit::Process(audit),
+                context,
+            }) = self.updates.next()
+            else {
+                break "FeedEnded";
             };
 
-            if self.state_replica.context.sequence >= audit.context.sequence {
+            if self.state_replica.context.sequence >= context.sequence {
                 continue;
             } else {
-                self.validate_and_update_context(audit.context)?;
+                self.validate_and_update_context(context)?;
             }
 
-            let shutdown_audit = match audit.event {
-                EngineAudit::Snapshot(snapshot) => {
-                    self.state_replica.event = snapshot;
-                    None
-                }
-                EngineAudit::Process(ProcessAudit::Process(event)) => {
-                    self.update_from_event(event);
-                    None
-                }
-                EngineAudit::Process(ProcessAudit::ProcessWithOutput(event, _)) => {
-                    self.update_from_event(event);
-                    None
-                }
-                EngineAudit::Shutdown(shutdown) => Some(shutdown),
-            };
+            let shutdown = audit.is_terminal();
 
-            if let Some(shutdown_audit) = shutdown_audit {
-                break shutdown_audit;
+            self.update_from_event(audit.event);
+
+            if shutdown {
+                break "EngineEvent::Shutdown";
             }
         };
 
         // End Tracing Span used to filter duplicate EngineState update logs
         drop(audit_span_guard);
 
-        info!(?shutdown_audit, "AuditManager stopped");
+        info!(%shutdown_audit, "AuditManager stopped");
 
         Ok(())
     }
