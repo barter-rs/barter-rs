@@ -86,6 +86,10 @@ impl MockExchange {
                     let orders_open = self.account.orders_open().cloned().collect();
                     self.respond_with_latency(response_tx, orders_open);
                 }
+                MockExchangeRequestKind::FetchOrdersFullyFilled { response_tx } => {
+                    let orders_fully_filled = self.account.orders_filled().cloned().collect();
+                    self.respond_with_latency(response_tx, orders_fully_filled);
+                }
                 MockExchangeRequestKind::FetchTrades {
                     response_tx,
                     time_since,

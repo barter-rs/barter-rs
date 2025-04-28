@@ -5,7 +5,7 @@ use crate::{
     order::{
         Order,
         request::{OrderRequestCancel, OrderRequestOpen, UnindexedOrderResponseCancel},
-        state::Open,
+        state::{FullyFilled, Open},
     },
     trade::Trade,
 };
@@ -55,6 +55,16 @@ impl MockExchangeRequest {
         Self::new(
             time_request,
             MockExchangeRequestKind::FetchOrdersOpen { response_tx },
+        )
+    }
+
+    pub fn fetch_orders_fully_filled(
+        time_request: DateTime<Utc>,
+        response_tx: oneshot::Sender<Vec<Order<ExchangeId, InstrumentNameExchange, FullyFilled>>>,
+    ) -> Self {
+        Self::new(
+            time_request,
+            MockExchangeRequestKind::FetchOrdersFullyFilled { response_tx },
         )
     }
 
@@ -113,6 +123,9 @@ pub enum MockExchangeRequestKind {
     },
     FetchOrdersOpen {
         response_tx: oneshot::Sender<Vec<Order<ExchangeId, InstrumentNameExchange, Open>>>,
+    },
+    FetchOrdersFullyFilled {
+        response_tx: oneshot::Sender<Vec<Order<ExchangeId, InstrumentNameExchange, FullyFilled>>>,
     },
     FetchTrades {
         response_tx: oneshot::Sender<Vec<Trade<QuoteAsset, InstrumentNameExchange>>>,
