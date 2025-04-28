@@ -7,7 +7,7 @@ use crate::{
     order::{
         Order, OrderEvent, OrderKey,
         request::{OrderRequestCancel, OrderRequestOpen, UnindexedOrderResponseCancel},
-        state::Open,
+        state::{FullyFilled, Open},
     },
     trade::Trade,
 };
@@ -266,6 +266,30 @@ where
 
         self.request_tx
             .send(MockExchangeRequest::fetch_orders_open(
+                self.time_request(),
+                response_tx,
+            ))
+            .map_err(|_| {
+                UnindexedClientError::Connectivity(ConnectivityError::ExchangeOffline(
+                    self.mocked_exchange,
+                ))
+            })?;
+
+        response_rx.await.map_err(|_| {
+            UnindexedClientError::Connectivity(ConnectivityError::ExchangeOffline(
+                self.mocked_exchange,
+            ))
+        })
+    }
+
+    async fn fetch_fully_filled_orders(
+        &self,
+    ) -> Result<Vec<Order<ExchangeId, InstrumentNameExchange, FullyFilled>>, UnindexedClientError>
+    {
+        let (response_tx, response_rx) = oneshot::channel();
+
+        self.request_tx
+            .send(MockExchangeRequest::fetch_orders_fully_filled(
                 self.time_request(),
                 response_tx,
             ))
