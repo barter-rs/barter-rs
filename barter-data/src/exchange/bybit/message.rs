@@ -1,10 +1,9 @@
+use std::fmt::Debug;
+
 use crate::{
     Identifier,
-    event::MarketIter,
     exchange::bybit::{channel::BybitChannel, subscription::BybitResponse, trade::BybitTrade},
-    subscription::trade::PublicTrade,
 };
-use barter_instrument::exchange::ExchangeId;
 use barter_integration::subscription::SubscriptionId;
 use chrono::{DateTime, Utc};
 use serde::{
@@ -12,12 +11,15 @@ use serde::{
     de::{Error, Unexpected},
 };
 
-/// [`Bybit`](super::Bybit) websocket message supports both [`BybitTrade`] and [`BybitResponse`].
+use super::book::BybitOrderBookMessage;
+
+/// [`Bybit`](super::Bybit) websocket message.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BybitMessage {
     Response(BybitResponse),
     Trade(BybitTrade),
+    Orderbook(BybitOrderBookMessage),
 }
 
 /// ### Raw Payload Examples
@@ -48,14 +50,23 @@ pub struct BybitPayload<T> {
     pub subscription_id: SubscriptionId,
 
     #[serde(rename = "type")]
-    pub r#type: String,
+    pub kind: Option<BybitPayloadKind>,
 
     #[serde(
         alias = "ts",
         deserialize_with = "barter_integration::de::de_u64_epoch_ms_as_datetime_utc"
     )]
     pub time: DateTime<Utc>,
+
     pub data: T,
+}
+
+/// Bybit payload kind
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BybitPayloadKind {
+    Snapshot,
+    Delta,
 }
 
 /// Deserialize a [`BybitPayload`] "s" (eg/ "publicTrade.BTCUSDT") as the associated
@@ -74,6 +85,14 @@ where
             "{}|{market}",
             BybitChannel::TRADES.0
         ))),
+        (Some("orderbook"), Some("1"), Some(market)) => Ok(SubscriptionId::from(format!(
+            "{}|{market}",
+            BybitChannel::ORDER_BOOK_L1.0,
+        ))),
+        (Some("orderbook"), Some("50"), Some(market)) => Ok(SubscriptionId::from(format!(
+            "{}|{market}",
+            BybitChannel::ORDER_BOOK_L2.0,
+        ))),
         _ => Err(Error::invalid_value(
             Unexpected::Str(input),
             &"invalid message type expected pattern: <type>.<symbol>",
@@ -85,18 +104,8 @@ impl Identifier<Option<SubscriptionId>> for BybitMessage {
     fn id(&self) -> Option<SubscriptionId> {
         match self {
             BybitMessage::Trade(trade) => Some(trade.subscription_id.clone()),
+            BybitMessage::Orderbook(book) => Some(book.subscription_id.clone()),
             _ => None,
-        }
-    }
-}
-
-impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, BybitMessage)>
-    for MarketIter<InstrumentKey, PublicTrade>
-{
-    fn from((exchange_id, instrument, message): (ExchangeId, InstrumentKey, BybitMessage)) -> Self {
-        match message {
-            BybitMessage::Response(_) => Self(vec![]),
-            BybitMessage::Trade(trade) => Self::from((exchange_id, instrument, trade)),
         }
     }
 }
