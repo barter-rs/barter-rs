@@ -7,8 +7,6 @@ use barter_instrument::{Side, exchange::ExchangeId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::message::BybitMessage;
-
 /// Terse type alias for an [`BybitTrade`](BybitTradeInner) real-time trades WebSocket message.
 pub type BybitTrade = BybitPayload<Vec<BybitTradeInner>>;
 
@@ -49,17 +47,6 @@ pub struct BybitTradeInner {
 
     #[serde(rename = "i")]
     pub id: String,
-}
-
-impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, BybitMessage)>
-    for MarketIter<InstrumentKey, PublicTrade>
-{
-    fn from((exchange_id, instrument, message): (ExchangeId, InstrumentKey, BybitMessage)) -> Self {
-        match message {
-            BybitMessage::Trade(trade) => Self::from((exchange_id, instrument, trade)),
-            _ => Self(vec![]),
-        }
-    }
 }
 
 impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, BybitTrade)>
@@ -242,7 +229,7 @@ mod tests {
                     "#,
                     expected: Ok(BybitTrade {
                         subscription_id: SubscriptionId("publicTrade|BTCUSDT".to_smolstr()),
-                        kind: Some(BybitPayloadKind::Snapshot),
+                        kind: BybitPayloadKind::Snapshot,
                         time: datetime_utc_from_epoch_duration(Duration::from_millis(
                             1672304486868,
                         )),

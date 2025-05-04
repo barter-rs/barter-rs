@@ -1,26 +1,12 @@
 use std::fmt::Debug;
 
-use crate::{
-    Identifier,
-    exchange::bybit::{channel::BybitChannel, subscription::BybitResponse, trade::BybitTrade},
-};
+use crate::{Identifier, exchange::bybit::channel::BybitChannel};
 use barter_integration::subscription::SubscriptionId;
 use chrono::{DateTime, Utc};
 use serde::{
     Deserialize, Serialize,
     de::{Error, Unexpected},
 };
-
-use super::book::BybitOrderBookMessage;
-
-/// [`Bybit`](super::Bybit) websocket message.
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BybitMessage {
-    Response(BybitResponse),
-    Trade(BybitTrade),
-    Orderbook(BybitOrderBookMessage),
-}
 
 /// ### Raw Payload Examples
 /// See docs: <https://bybit-exchange.github.io/docs/v5/websocket/public/trade>
@@ -50,7 +36,7 @@ pub struct BybitPayload<T> {
     pub subscription_id: SubscriptionId,
 
     #[serde(rename = "type")]
-    pub kind: Option<BybitPayloadKind>,
+    pub kind: BybitPayloadKind,
 
     #[serde(
         alias = "ts",
@@ -100,23 +86,17 @@ where
     }
 }
 
-impl Identifier<Option<SubscriptionId>> for BybitMessage {
+impl<T> Identifier<Option<SubscriptionId>> for BybitPayload<T> {
     fn id(&self) -> Option<SubscriptionId> {
-        match self {
-            BybitMessage::Trade(trade) => Some(trade.subscription_id.clone()),
-            BybitMessage::Orderbook(book) => Some(book.subscription_id.clone()),
-            _ => None,
-        }
+        self.subscription_id.clone().into()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     mod de {
-        use super::*;
-        use crate::exchange::bybit::subscription::BybitReturnMessage;
+        use crate::exchange::bybit::subscription::{BybitResponse, BybitReturnMessage};
         use barter_integration::error::SocketError;
 
         #[test]

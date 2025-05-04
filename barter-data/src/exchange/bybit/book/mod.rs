@@ -1,12 +1,9 @@
 use crate::{
-    Identifier,
     books::{Level, OrderBook},
-    error::DataError,
     event::{MarketEvent, MarketIter},
     subscription::book::OrderBookEvent,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::subscription::SubscriptionId;
 use chrono::Utc;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -37,12 +34,6 @@ pub struct BybitOrderBookInner {
     pub sequence: u64,
 }
 
-impl Identifier<Option<SubscriptionId>> for BybitOrderBookMessage {
-    fn id(&self) -> Option<SubscriptionId> {
-        Some(self.subscription_id.clone())
-    }
-}
-
 impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BybitOrderBookMessage)>
     for MarketIter<InstrumentKey, OrderBookEvent>
 {
@@ -57,15 +48,8 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BybitOrderBookMessage)>
         );
 
         let kind = match message.kind {
-            Some(kind) => match kind {
-                BybitPayloadKind::Snapshot => OrderBookEvent::Snapshot(orderbook),
-                BybitPayloadKind::Delta => OrderBookEvent::Update(orderbook),
-            },
-            None => {
-                return Self(vec![Err(DataError::MalformedData(
-                    "`kind` is missing from the orderbook message".to_string(),
-                ))]);
-            }
+            BybitPayloadKind::Snapshot => OrderBookEvent::Snapshot(orderbook),
+            BybitPayloadKind::Delta => OrderBookEvent::Update(orderbook),
         };
 
         Self(vec![Ok(MarketEvent {

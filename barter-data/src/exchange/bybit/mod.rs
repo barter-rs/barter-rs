@@ -2,10 +2,7 @@ use crate::{
     ExchangeWsStream, NoInitialSnapshots,
     exchange::{
         Connector, ExchangeServer, PingInterval, StreamSelector,
-        bybit::{
-            channel::BybitChannel, market::BybitMarket, message::BybitMessage,
-            subscription::BybitResponse,
-        },
+        bybit::{channel::BybitChannel, market::BybitMarket, subscription::BybitResponse},
         subscription::ExchangeSub,
     },
     instrument::InstrumentData,
@@ -19,10 +16,11 @@ use crate::{
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
-use book::l2::BybitOrderBooksL2Transformer;
+use book::{BybitOrderBookMessage, l2::BybitOrderBooksL2Transformer};
 use serde::de::{Error, Unexpected};
 use std::{fmt::Debug, marker::PhantomData, time::Duration};
 use tokio::time;
+use trade::BybitTrade;
 use url::Url;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
@@ -124,7 +122,7 @@ where
 {
     type SnapFetcher = NoInitialSnapshots;
     type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BybitMessage>>;
+        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BybitTrade>>;
 }
 
 impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL1> for Bybit<Server>
@@ -133,8 +131,9 @@ where
     Server: ExchangeServer + Debug + Send + Sync,
 {
     type SnapFetcher = NoInitialSnapshots;
-    type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, OrderBooksL1, BybitMessage>>;
+    type Stream = ExchangeWsStream<
+        StatelessTransformer<Self, Instrument::Key, OrderBooksL1, BybitOrderBookMessage>,
+    >;
 }
 
 impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL2> for Bybit<Server>

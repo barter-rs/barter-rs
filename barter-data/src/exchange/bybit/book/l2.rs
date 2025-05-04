@@ -18,6 +18,7 @@ use async_trait::async_trait;
 use barter_integration::{Transformer, protocol::websocket::WsMessage};
 use derive_more::Constructor;
 use tokio::sync::mpsc::UnboundedSender;
+use tracing::debug;
 
 use super::BybitOrderBookMessage;
 
@@ -77,15 +78,9 @@ where
             Err(unidentifiable) => return vec![Err(DataError::from(unidentifiable))],
         };
 
-        let Some(kind) = input.kind else {
-            return vec![Err(DataError::MalformedData(
-                "`kind` is missing from the orderbook message".to_string(),
-            ))];
-        };
-
         // Initialize a sequencer when snapshot received from the exchange. We
         // return immediately because the snapshot message is always valid.
-        if matches!(kind, BybitPayloadKind::Snapshot) {
+        if matches!(input.kind, BybitPayloadKind::Snapshot) {
             instrument.sequencer.replace(BybitOrderBookL2Sequencer {
                 last_update_id: input.data.update_id,
             });
@@ -100,6 +95,7 @@ where
 
         // Could happen if we receive an update message before the snapshot
         let Some(sequencer) = &mut instrument.sequencer else {
+            debug!("Update message received before initial Snapshot");
             return vec![];
         };
 

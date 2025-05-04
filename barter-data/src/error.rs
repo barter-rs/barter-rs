@@ -41,11 +41,6 @@ pub enum DataError {
         prev_last_update_id: u64,
         first_update_id: u64,
     },
-
-    /// The error occurs when data received from the exchange does not conform
-    /// to our expectations.
-    #[error("MalformedData: {0}")]
-    MalformedData(String),
 }
 
 impl DataError {
@@ -53,7 +48,7 @@ impl DataError {
     #[allow(clippy::match_like_matches_macro)]
     pub fn is_terminal(&self) -> bool {
         match self {
-            DataError::InvalidSequence { .. } | DataError::MalformedData(_) => true,
+            DataError::InvalidSequence { .. } => true,
             _ => false,
         }
     }
