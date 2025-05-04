@@ -81,6 +81,8 @@ mod tests {
     use super::*;
 
     mod de {
+        use crate::exchange::bybit::message::BybitPayloadKind;
+
         use super::*;
         use barter_integration::{
             de::datetime_utc_from_epoch_duration, error::SocketError, subscription::SubscriptionId,
@@ -227,7 +229,7 @@ mod tests {
                     "#,
                     expected: Ok(BybitTrade {
                         subscription_id: SubscriptionId("publicTrade|BTCUSDT".to_smolstr()),
-                        r#type: "snapshot".to_string(),
+                        kind: BybitPayloadKind::Snapshot,
                         time: datetime_utc_from_epoch_duration(Duration::from_millis(
                             1672304486868,
                         )),
