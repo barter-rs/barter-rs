@@ -1,9 +1,8 @@
 use derive_more::Constructor;
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
-
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+    Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Constructor,
 )]
 pub struct InstrumentSpec<AssetKey> {
     pub price: InstrumentSpecPrice,
@@ -11,16 +10,18 @@ pub struct InstrumentSpec<AssetKey> {
     pub notional: InstrumentSpecNotional,
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+    Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Constructor,
 )]
 pub struct InstrumentSpecPrice {
     pub min: Decimal,
     pub tick_size: Decimal,
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+    Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Constructor,
 )]
 pub struct InstrumentSpecQuantity<AssetKey> {
     pub unit: OrderQuantityUnits<AssetKey>,
@@ -28,15 +29,17 @@ pub struct InstrumentSpecQuantity<AssetKey> {
     pub increment: Decimal,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum OrderQuantityUnits<AssetKey> {
     Asset(AssetKey),
     Contract,
     Quote,
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+    Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Constructor
 )]
 pub struct InstrumentSpecNotional {
     pub min: Decimal,

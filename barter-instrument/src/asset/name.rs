@@ -1,5 +1,4 @@
 use derive_more::Display;
-use serde::Serialize;
 use smol_str::{SmolStr, StrExt};
 use std::borrow::Borrow;
 
@@ -9,7 +8,8 @@ use std::borrow::Borrow;
 /// This may or may not be different from an execution's representation.
 ///
 /// For example, some exchanges may refer to "btc" as "xbt".
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Display)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Display)]
 pub struct AssetNameInternal(SmolStr);
 
 impl AssetNameInternal {
@@ -61,7 +61,7 @@ impl AsRef<str> for AssetNameInternal {
         self.0.as_ref()
     }
 }
-
+#[cfg(feature = "serde")]
 impl<'de> serde::de::Deserialize<'de> for AssetNameInternal {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -76,7 +76,8 @@ impl<'de> serde::de::Deserialize<'de> for AssetNameInternal {
 ///
 /// For example: `AssetNameExchange("XBT")`, which is distinct from the internal representation
 /// of the asset, such as `AssetIndex(1)` or `AssetNameInternal("btc")`.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Display)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Display)]
 pub struct AssetNameExchange(SmolStr);
 
 impl AssetNameExchange {
@@ -124,6 +125,7 @@ impl AsRef<str> for AssetNameExchange {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<'de> serde::de::Deserialize<'de> for AssetNameExchange {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

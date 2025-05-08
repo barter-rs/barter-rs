@@ -1,5 +1,4 @@
 use derive_more::{Constructor, Display};
-use serde::{Deserialize, Serialize};
 
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
@@ -26,10 +25,11 @@ impl std::fmt::Display for ExchangeIndex {
 ///
 /// For example, BinanceSpot and BinanceFuturesUsd have distinct APIs, and are therefore
 /// represented as unique variants.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename = "execution", rename_all = "snake_case"))]
 #[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display,
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Display,
 )]
-#[serde(rename = "execution", rename_all = "snake_case")]
 pub enum ExchangeId {
     Other,
     Simulated,
@@ -66,7 +66,7 @@ pub enum ExchangeId {
     GateioSpot,
     Gemini,
     Hitbtc,
-    #[serde(alias = "huobi")]
+    #[cfg_attr(feature = "serde", serde(alias = "huobi"))]
     Htx,
     Kraken,
     Kucoin,
@@ -126,6 +126,7 @@ impl ExchangeId {
     }
 }
 
+// #[cfg(feature = "serde")]
 #[cfg(test)]
 mod tests {
     use super::*;
