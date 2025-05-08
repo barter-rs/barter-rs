@@ -5,7 +5,6 @@ use crate::instrument::{
     },
 };
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
 
 /// Defines an [`PerpetualContract`].
 pub mod perpetual;
@@ -17,8 +16,9 @@ pub mod future;
 pub mod option;
 
 /// [`Instrument`](super::Instrument) kind, one of `Spot`, `Perpetual`, `Future` and `Option`.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum InstrumentKind<AssetKey> {
     Spot,
     Perpetual(PerpetualContract<AssetKey>),

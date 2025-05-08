@@ -1,6 +1,5 @@
 use crate::{asset::name::AssetNameExchange, exchange::ExchangeId};
 use derive_more::Display;
-use serde::Serialize;
 use smol_str::{SmolStr, StrExt, format_smolstr};
 use std::borrow::Borrow;
 
@@ -8,7 +7,8 @@ use std::borrow::Borrow;
 /// across all exchanges.
 ///
 /// Note: Binance btc_usdt spot is not considered the same instrument as Bitfinex btc_usdt spot.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Display)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Display)]
 pub struct InstrumentNameInternal(pub SmolStr);
 
 impl InstrumentNameInternal {
@@ -90,7 +90,7 @@ impl AsRef<str> for InstrumentNameInternal {
         self.0.as_ref()
     }
 }
-
+#[cfg(feature = "serde")]
 impl<'de> serde::de::Deserialize<'de> for InstrumentNameInternal {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -107,7 +107,8 @@ impl<'de> serde::de::Deserialize<'de> for InstrumentNameInternal {
 /// For example: `InstrumentNameExchange("XBT-USDT")`, which is distinct from the internal
 /// representation of the instrument, such as `InstrumentIndex(1)` or
 /// `InstrumentNameInternal("btc_usdt"`.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Display)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Display)]
 pub struct InstrumentNameExchange(SmolStr);
 
 impl InstrumentNameExchange {
@@ -155,6 +156,7 @@ impl AsRef<str> for InstrumentNameExchange {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<'de> serde::de::Deserialize<'de> for InstrumentNameExchange {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
