@@ -1,8 +1,7 @@
 use derive_more::{Constructor, Display};
 
-#[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
-)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Constructor)]
 pub struct ExchangeIndex(pub usize);
 
 impl ExchangeIndex {
@@ -26,10 +25,11 @@ impl std::fmt::Display for ExchangeIndex {
 /// For example, BinanceSpot and BinanceFuturesUsd have distinct APIs, and are therefore
 /// represented as unique variants.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename = "execution", rename_all = "snake_case"))]
-#[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Display,
+#[cfg_attr(
+    feature = "serde",
+    serde(rename = "execution", rename_all = "snake_case")
 )]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Display)]
 pub enum ExchangeId {
     Other,
     Simulated,
@@ -126,7 +126,7 @@ impl ExchangeId {
     }
 }
 
-// #[cfg(feature = "serde")]
+#[cfg(feature = "serde")]
 #[cfg(test)]
 mod tests {
     use super::*;
