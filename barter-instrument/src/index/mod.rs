@@ -5,7 +5,6 @@ use crate::{
     index::{builder::IndexedInstrumentsBuilder, error::IndexError},
     instrument::{Instrument, InstrumentIndex, name::InstrumentNameInternal},
 };
-use serde::{Deserialize, Serialize};
 
 pub mod builder;
 
@@ -26,7 +25,8 @@ pub mod error;
 /// - `ExchangeIndex`: Unique index for each [`ExchangeId`] added during initialisation.
 /// - `InstrumentIndex`: Unique identifier for each [`Instrument`] added during initialisation.
 /// - `AssetIndex`: Unique identifier for each [`ExchangeAsset`] added during initialisation.
-#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct IndexedInstruments {
     exchanges: Vec<Keyed<ExchangeIndex, ExchangeId>>,
     assets: Vec<Keyed<AssetIndex, ExchangeAsset<Asset>>>,

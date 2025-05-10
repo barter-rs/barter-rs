@@ -1,6 +1,4 @@
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
-
 /// `PerpetualContract` specification containing all the information needed to fully identify a
 /// perpetual instrument.
 ///
@@ -10,7 +8,8 @@ use serde::{Deserialize, Serialize};
 /// # Fields
 /// * `contract_size` - Multiplier that determines how many of the underlying asset the contract represents.
 /// * `settlement_asset` - Asset used for settlement.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct PerpetualContract<AssetKey> {
     pub contract_size: Decimal,
     pub settlement_asset: AssetKey,
