@@ -43,7 +43,7 @@ and back-testing systems. It is made up of several easy-to-use, extensible crate
 Reach out via mail@jackbot.app
 
 ## Jackbot Sensor is Open Source 
-Jackbot Terminal sensors are opensource to build trust on users they are using best in class code to execute their order. No trust needed they can verify the code of their sensors being ran on the cloud.
+Jackbot Terminal sensors are opensource to build trust with users. Here they can atest the code executing their order on the cloud.
 
 ## Contributing
 If you use Jackbot Terminal and is a coder and want more exchange support or a new exchange that want exposure in the terminal send out a pull request and we are happy to integrate you into the project.
