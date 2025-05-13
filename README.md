@@ -1,37 +1,22 @@
-# Barter
-Barter is an algorithmic trading ecosystem of Rust libraries for building high-performance live-trading, paper-trading 
+# Jackbot Sensor
+Based on Barter is an algorithmic trading ecosystem of Rust libraries for building high-performance live-trading, paper-trading 
 and back-testing systems.
 * **Fast**: Written in native Rust. Minimal allocations. Data-oriented state management system with direct index lookups.
 * **Robust**: Strongly typed. Thread safe. Extensive test coverage.
 * **Customisable**: Plug and play Strategy and RiskManager components that facilitates most trading strategies (MarketMaking, StatArb, HFT, etc.).
 * **Scalable**: Multithreaded architecture with modular design. Leverages Tokio for I/O. Memory efficient data structures.  
 
-**See: [`Barter`], [`Barter-Data`], [`Barter-Instrument`], [`Barter-Execution`] & [`Barter-Integration`] for 
-comprehensive documentation and examples for each library.**
-
-[![Crates.io][crates-badge]][crates-url]
-[![MIT licensed][mit-badge]][mit-url]
-[![Discord chat][discord-badge]][discord-url]
-
-[crates-badge]: https://img.shields.io/crates/v/barter.svg
-[crates-url]: https://crates.io/crates/barter
-
-[mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
-[mit-url]: https://github.com/barter-rs/barter-rs/blob/develop/LICENSE
-
-[discord-badge]: https://img.shields.io/discord/910237311332151317.svg?logo=discord&style=flat-square
-[discord-url]: https://discord.gg/wE7RqhnQMV
-
-[`Barter`]: https://crates.io/crates/barter
-[`Barter-Instrument`]: https://crates.io/crates/barter-instrument
-[`Barter-Data`]: https://crates.io/crates/barter-data
-[`Barter-Execution`]: https://crates.io/crates/barter-execution
-[`Barter-Integration`]: https://crates.io/crates/barter-integration
-[API Documentation]: https://docs.rs/barter/latest/barter/
-[Chat]: https://discord.gg/wE7RqhnQMV
+I expands Barter to support the exchanges of the Jackbot Terminal project:
+* Binance (Great reference implementation on Barter)
+* Bitget
+* Bybit 
+* Coinbase
+* Kraken
+* Kucoin
+* OKX
 
 ## Overview
-Barter is an algorithmic trading ecosystem of Rust libraries for building high-performance live-trading, paper-trading 
+Jackbot Sensor is an algorithmic trading ecosystem of Rust libraries for building high-performance live-trading, paper-trading 
 and back-testing systems. It is made up of several easy-to-use, extensible crates:
 * **Barter**: Algorithmic trading Engine with feature rich state management system.
 * **Barter-Instrument**: Exchange, Instrument and Asset data structures and utilities. 
@@ -43,168 +28,36 @@ and back-testing systems. It is made up of several easy-to-use, extensible crate
 - Stream public market data from financial venues via the [`Barter-Data`] library. 
 - Stream private account data, execute orders (live or mock)** via the [`Barter-Execution`] library.
 - Plug and play Strategy and RiskManager components that facilitate most trading strategies. 
-- Backtest utilities for efficiently running thousands of concurrent backtests.
 - Flexible Engine that facilitates trading strategies that execute on many exchanges simultaneously.
 - Use mock MarketStream or Execution components to enable back-testing on a near-identical trading system as live-trading.  
 - Centralised cache friendly state management system with O(1) constant lookups using indexed data structures.
-- Robust Order management system - use stand-alone or with Barter. 
+- Robust Order management system
 - Trading summaries with comprehensive performance metrics (PnL, Sharpe, Sortino, Drawdown, etc.).
 - Turn on/off algorithmic trading from an external process (eg/ UI, Telegram, etc.) whilst still processing market/account data. 
 - Issue Engine Commands from an external process (eg/ UI, Telegram, etc.) to initiate actions (CloseAllPositions, OpenOrders, CancelOrders, etc.).
 - EngineState replica manager that processes the Engine AuditStream to facilitate non-hot path monitoring components (eg/ UI, Telegram, etc.).
-
-[barter-examples]: https://github.com/barter-rs/barter-rs/tree/develop/barter/examples
-
-## Examples
-* See [here][barter-examples] for the compilable example including imports.
-* See sub-crates for further examples of each library.
-
-#### Paper Trading With Live Market Data & Mock Execution
-
-```rust,no_run
-const FILE_PATH_SYSTEM_CONFIG: &str = "barter/examples/config/system_config.json";
-const RISK_FREE_RETURN: Decimal = dec!(0.05);
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialise Tracing
-    init_logging();
-
-    // Load SystemConfig
-    let SystemConfig {
-        instruments,
-        executions,
-    } = load_config()?;
-
-    // Construct IndexedInstruments
-    let instruments = IndexedInstruments::new(instruments);
-
-    // Initialise MarketData Stream
-    let market_stream = init_indexed_multi_exchange_market_stream(
-        &instruments,
-        &[SubKind::PublicTrades, SubKind::OrderBooksL1],
-    )
-    .await?;
-
-    // Construct System Args
-    let args = SystemArgs::new(
-        &instruments,
-        executions,
-        LiveClock,
-        DefaultStrategy::default(),
-        DefaultRiskManager::default(),
-        market_stream,
-    );
-
-    // Build & run full system:
-    // See SystemBuilder for all configuration options
-    let mut system = SystemBuilder::new(args)
-        // Engine feed in Sync mode (Iterator input)
-        .engine_feed_mode(EngineFeedMode::Iterator)
-
-        // Audit feed is enabled (Engine sends audits)
-        .audit_mode(AuditMode::Enabled)
-
-        // Engine starts with TradingState::Disabled
-        .trading_state(TradingState::Disabled)
-
-        // Build System, but don't start spawning tasks yet
-        .build::<EngineEvent, DefaultGlobalData, DefaultInstrumentMarketData>()?
-
-        // Init System, spawning component tasks on the current runtime
-        .init_with_runtime(tokio::runtime::Handle::current())
-        .await?;
-
-    // Take ownership of Engine audit receiver
-    let audit_rx = system.audit_rx.take().unwrap();
-
-    // Run dummy asynchronous AuditStream consumer
-    // Note: you probably want to use this Stream to replicate EngineState, or persist events, etc.
-    //  --> eg/ see examples/engine_sync_with_audit_replica_engine_state
-    let audit_task = tokio::spawn(async move {
-        let mut audit_stream = audit_rx.into_stream();
-        while let Some(audit) = audit_stream.next().await {
-            debug!(?audit, "AuditStream consumed AuditTick");
-            if let EngineAudit::Shutdown(_) = audit.event {
-                break;
-            }
-        }
-        audit_stream
-    });
-
-    // Enable trading
-    system.trading_state(TradingState::Enabled);
-
-    // Let the example run for 5 seconds...
-    tokio::time::sleep(Duration::from_secs(5)).await;
-
-    // Before shutting down, CancelOrders and then ClosePositions
-    system.cancel_orders(InstrumentFilter::None);
-    system.close_positions(InstrumentFilter::None);
-
-    // Shutdown
-    let (engine, _shutdown_audit) = system.shutdown().await?;
-    let _audit_stream = audit_task.await?;
-
-    // Generate TradingSummary<Daily>
-    let trading_summary = engine
-        .trading_summary_generator(RISK_FREE_RETURN)
-        .generate(Daily);
-
-    // Print TradingSummary<Daily> to terminal (could save in a file, send somewhere, etc.)
-    trading_summary.print_summary();
-
-    Ok(())
-}
-
-fn load_config() -> Result<SystemConfig, Box<dyn std::error::Error>> {
-    let file = File::open(FILE_PATH_SYSTEM_CONFIG)?;
-    let reader = BufReader::new(file);
-    let config = serde_json::from_reader(reader)?;
-    Ok(config)
-}
-```
+- S3 data harvesting using parquet + iceberg for preserving data for later utilziation to build even better algos.
+- Jackpot orderbook representation. Composed of a special kind of order sent from (UI, Telegram, etc.) that is not placeble in the current exchange orderbook because it is too out of money.
 
 ## Getting Help
-Firstly, see if the answer to your question can be found in the [API Documentation]. If the answer is not there, I'd be
-happy to help via [Chat] and try answer your question via Discord.
+Reach out via mail@jackbot.app
 
-## Support Barter Development
-Help us advance Barter's capabilities by becoming a sponsor (or supporting me with a tip!).
-
-Your contribution will allow me to dedicate more time to Barter, accelerating feature development and improvements.
-
-**Please email *justastream.code@gmail.com* for all inquiries**
-
-### Sponsorship Tiers
-* 🥇 **Sponsor** - Your name, logo, and website link will be displayed below.
-* 🥈 **Supporter** - Your name listed as supporter.
-
-### Current Sponsors
-*Your name, logo and website link could be here*
-
-### Current Supporters
-*Your name could be here*
-
----
-**Thank you to all our sponsors and supporters! 🫶**
+## Jackbot Sensor is Open Source 
+Jackbot Terminal sensors are opensource to build trust on users they are using best in class code to execute their order. No trust needed they can verify the code of their sensors being ran on the cloud.
 
 ## Contributing
-Thanks in advance for helping to develop the Barter ecosystem! Please do not hesitate to get touch via the Discord [Chat] to discuss development,
-new features, and the future roadmap.
+If you use Jackbot Terminal and is a coder and want more exchange support or a new exchange that want exposure in the terminal send out a pull request and we are happy to integrate you into the project.
 
 ### Licence
-This project is licensed under the [MIT license].
-
-[MIT license]: https://github.com/barter-rs/barter-rs/blob/develop/LICENSE
+This project is licensed under the MIT license.
 
 ### Contribution License Agreement
 
-Any contribution you intentionally submit for inclusion in Barter workspace crates shall be:
+Any contribution you intentionally submit for inclusion in Jackbot Tterminal shall be:
 1. Licensed under MIT
 2. Subject to all disclaimers and limitations of liability stated below
 3. Provided without any additional terms or conditions
-4. Submitted with the understanding that the educational-only purpose and risk warnings apply
+4. Submitted with the understanding that the risk warnings apply and you're the sole responsible of the usage of this sensors loss made are yours and no one elses but also are the profits.
 
 By submitting a contribution, you certify that you have the right to do so under these terms.
 
@@ -212,13 +65,10 @@ By submitting a contribution, you certify that you have the right to do so under
 
 PLEASE READ THIS DISCLAIMER CAREFULLY BEFORE USING THE SOFTWARE. BY ACCESSING OR USING THE SOFTWARE, YOU ACKNOWLEDGE AND AGREE TO BE BOUND BY THE TERMS HEREIN.
 
-1. EDUCATIONAL PURPOSE
-   This software and related documentation ("Software") are provided solely for educational and research purposes. The Software is not intended, designed, tested, verified or certified for commercial deployment, live trading, or production use of any kind.
-
-2. NO FINANCIAL ADVICE
+1. NO FINANCIAL ADVICE
    Nothing contained in the Software constitutes financial, investment, legal, or tax advice. No aspect of the Software should be relied upon for trading decisions or financial planning. Users are strongly advised to consult qualified professionals for investment guidance specific to their circumstances.
 
-3. ASSUMPTION OF RISK
+2. ASSUMPTION OF RISK
    Trading in financial markets, including but not limited to cryptocurrencies, securities, derivatives, and other financial instruments, carries substantial risk of loss. Users acknowledge that:
    a) They may lose their entire investment;
    b) Past performance does not indicate future results;
