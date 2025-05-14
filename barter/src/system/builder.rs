@@ -16,7 +16,7 @@ use crate::{
     system::{System, SystemAuxillaryHandles, config::ExecutionConfig},
 };
 use barter_data::streams::reconnect::stream::ReconnectingStream;
-use barter_execution::balance::Balance;
+use barter_execution::{balance::Balance, client::bybit::BybitSpot};
 use barter_instrument::{
     Keyed,
     asset::{ExchangeAsset, name::AssetNameInternal},
@@ -31,7 +31,10 @@ use derive_more::Constructor;
 use fnv::FnvHashMap;
 use futures::Stream;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, marker::PhantomData, time::Duration};
+
+/// Default execution request timeout
+const EXECUTION_REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Defines how the `Engine` processes input events.
 ///
@@ -228,6 +231,9 @@ impl<'a, Clock, Strategy, Risk, MarketStream, GlobalData, FnInstrumentData>
                 |builder, config| match config {
                     ExecutionConfig::Mock(mock_config) => {
                         builder.add_mock(mock_config, clock.clone())
+                    }
+                    ExecutionConfig::BybitSpot(config) => {
+                        builder.add_live::<BybitSpot>(config, EXECUTION_REQUEST_TIMEOUT)
                     }
                 },
             )?
