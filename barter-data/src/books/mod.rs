@@ -2,7 +2,7 @@ use crate::subscription::book::OrderBookEvent;
 use chrono::{DateTime, Utc};
 use derive_more::Display;
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use tracing::debug;
 
@@ -16,8 +16,8 @@ pub mod map;
 /// Normalised Barter [`OrderBook`] snapshot.
 #[derive(Clone, PartialEq, Eq, Debug, Default, Deserialize, Serialize)]
 pub struct OrderBook {
-    pub sequence: u64,
-    pub time_engine: Option<DateTime<Utc>>,
+    sequence: u64,
+    time_engine: Option<DateTime<Utc>>,
     bids: OrderBookSide<Bids>,
     asks: OrderBookSide<Asks>,
 }
@@ -45,6 +45,16 @@ impl OrderBook {
         }
     }
 
+    /// Current `u64` sequence number associated with the [`OrderBook`].
+    pub fn sequence(&self) -> u64 {
+        self.sequence
+    }
+
+    /// Current engine time associated with the [`OrderBook`].
+    pub fn time_engine(&self) -> Option<DateTime<Utc>> {
+        self.time_engine
+    }
+
     /// Generate a sorted [`OrderBook`] snapshot with a maximum depth.
     pub fn snapshot(&self, depth: usize) -> Self {
         Self {
@@ -56,28 +66,28 @@ impl OrderBook {
     }
 
     /// Update the local [`OrderBook`] from a new [`OrderBookEvent`].
-    pub fn update(&mut self, event: OrderBookEvent) {
+    pub fn update(&mut self, event: &OrderBookEvent) {
         match event {
             OrderBookEvent::Snapshot(snapshot) => {
-                *self = snapshot;
+                *self = snapshot.clone();
             }
             OrderBookEvent::Update(update) => {
                 self.sequence = update.sequence;
                 self.time_engine = update.time_engine;
-                self.upsert_bids(update.bids);
-                self.upsert_asks(update.asks);
+                self.upsert_bids(&update.bids);
+                self.upsert_asks(&update.asks);
             }
         }
     }
 
     /// Update the local [`OrderBook`] by upserting the levels in an [`OrderBookSide`].
-    pub fn upsert_bids(&mut self, update: OrderBookSide<Bids>) {
-        self.bids.upsert(update.levels)
+    fn upsert_bids(&mut self, update: &OrderBookSide<Bids>) {
+        self.bids.upsert(&update.levels)
     }
 
     /// Update the local [`OrderBook`] by upserting the levels in an [`OrderBookSide`].
-    pub fn upsert_asks(&mut self, update: OrderBookSide<Asks>) {
-        self.asks.upsert(update.levels)
+    fn upsert_asks(&mut self, update: &OrderBookSide<Asks>) {
+        self.asks.upsert(&update.levels)
     }
 
     /// Return a reference to this [`OrderBook`]s bids.
@@ -94,7 +104,7 @@ impl OrderBook {
     ///
     /// See Docs: <https://www.quantstart.com/articles/high-frequency-trading-ii-limit-order-book>
     pub fn mid_price(&self) -> Option<Decimal> {
-        match (self.bids.levels.first(), self.asks.levels.first()) {
+        match (self.bids.best(), self.asks.best()) {
             (Some(best_bid), Some(best_ask)) => Some(mid_price(best_bid.price, best_ask.price)),
             (Some(best_bid), None) => Some(best_bid.price),
             (None, Some(best_ask)) => Some(best_ask.price),
@@ -107,7 +117,7 @@ impl OrderBook {
     ///
     /// See Docs: <https://www.quantstart.com/articles/high-frequency-trading-ii-limit-order-book>
     pub fn volume_weighed_mid_price(&self) -> Option<Decimal> {
-        match (self.bids.levels.first(), self.asks.levels.first()) {
+        match (self.bids.best(), self.asks.best()) {
             (Some(best_bid), Some(best_ask)) => {
                 Some(volume_weighted_mid_price(*best_bid, *best_ask))
             }
@@ -118,7 +128,7 @@ impl OrderBook {
     }
 }
 
-/// Normalised Barter [`Level`]s for one `Side` ( of the [`OrderBook`].
+/// Normalised Barter [`Level`]s for one `Side` of the [`OrderBook`].
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
 pub struct OrderBookSide<Side> {
     #[serde(skip_serializing)]
@@ -134,15 +144,6 @@ pub struct Bids;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Display)]
 pub struct Asks;
 
-impl Serialize for Asks {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str("asks")
-    }
-}
-
 impl OrderBookSide<Bids> {
     /// Construct a new [`OrderBookSide<Bids>`] from the provided [`Level`]s.
     pub fn bids<Iter, L>(levels: Iter) -> Self
@@ -157,13 +158,12 @@ impl OrderBookSide<Bids> {
     }
 
     /// Upsert bid [`Level`]s into this [`OrderBookSide<Bids>`].
-    pub fn upsert<Iter, L>(&mut self, levels: Iter)
+    pub fn upsert<L>(&mut self, levels: &[L])
     where
-        Iter: IntoIterator<Item = L>,
-        L: Into<Level>,
+        L: Into<Level> + Copy,
     {
-        levels.into_iter().for_each(|upsert| {
-            let upsert = upsert.into();
+        levels.iter().for_each(|upsert| {
+            let upsert: Level = (*upsert).into();
             self.upsert_single(upsert, |existing| {
                 existing.price.cmp(&upsert.price).reverse()
             })
@@ -185,13 +185,12 @@ impl OrderBookSide<Asks> {
     }
 
     /// Upsert ask [`Level`]s into this [`OrderBookSide<Asks>`].
-    pub fn upsert<Iter, L>(&mut self, levels: Iter)
+    pub fn upsert<L>(&mut self, levels: &[L])
     where
-        Iter: IntoIterator<Item = L>,
-        L: Into<Level>,
+        L: Into<Level> + Copy,
     {
         levels.into_iter().for_each(|upsert| {
-            let upsert = upsert.into();
+            let upsert = (*upsert).into();
             self.upsert_single(upsert, |existing| existing.price.cmp(&upsert.price))
         })
     }
@@ -201,6 +200,11 @@ impl<Side> OrderBookSide<Side>
 where
     Side: std::fmt::Display + std::fmt::Debug,
 {
+    /// Get best [`Level`] on the [`OrderBookSide`].
+    pub fn best(&self) -> Option<&Level> {
+        self.levels.first()
+    }
+
     /// Return a reference to the [`OrderBookSide`] levels.
     pub fn levels(&self) -> &[Level] {
         &self.levels
