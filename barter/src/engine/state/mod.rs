@@ -20,7 +20,7 @@ use barter_instrument::{
     asset::{AssetIndex, QuoteAsset},
     exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
-    instrument::InstrumentIndex,
+    instrument::{InstrumentIndex, name::InstrumentNameInternal},
 };
 use barter_integration::{collection::one_or_many::OneOrMany, snapshot::Snapshot};
 use derive_more::Constructor;
@@ -84,7 +84,7 @@ impl<GlobalData, InstrumentData> EngineState<GlobalData, InstrumentData> {
         instrument_data_init: FnInstrumentData,
     ) -> EngineStateBuilder<'_, GlobalData, FnInstrumentData>
     where
-        FnInstrumentData: FnMut() -> InstrumentData,
+        FnInstrumentData: FnMut(InstrumentNameInternal) -> InstrumentData,
     {
         EngineStateBuilder::new(instruments, global, instrument_data_init)
     }

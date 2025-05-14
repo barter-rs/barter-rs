@@ -464,11 +464,9 @@ fn args_constant(
     let time_engine_start = DateTime::<Utc>::from_str("2025-03-25T23:07:00.773674205Z").unwrap();
 
     // Construct EngineState
-    let engine_state = EngineStateBuilder::new(
-        &instruments,
-        DefaultGlobalData::default(),
-        LoseMoneyInstrumentData::default,
-    )
+    let engine_state = EngineStateBuilder::new(&instruments, DefaultGlobalData::default(), |_| {
+        LoseMoneyInstrumentData::default()
+    })
     .time_engine_start(time_engine_start)
     .trading_state(TradingState::Enabled)
     .build();
