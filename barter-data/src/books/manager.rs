@@ -60,7 +60,7 @@ where
             };
 
             let mut book_lock = book.write();
-            book_lock.update(event.kind);
+            book_lock.update(&event.kind);
         }
     }
 }
