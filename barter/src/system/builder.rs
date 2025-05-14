@@ -21,6 +21,7 @@ use barter_instrument::{
     Keyed,
     asset::{ExchangeAsset, name::AssetNameInternal},
     index::IndexedInstruments,
+    instrument::name::InstrumentNameInternal,
 };
 use barter_integration::{
     FeedEnded, Terminal,
@@ -195,7 +196,7 @@ impl<'a, Clock, Strategy, Risk, MarketStream, GlobalData, FnInstrumentData>
     >
     where
         Clock: EngineClock + Clone + Send + Sync + 'static,
-        FnInstrumentData: FnMut() -> InstrumentData,
+        FnInstrumentData: FnMut(InstrumentNameInternal) -> InstrumentData,
     {
         let Self {
             args:

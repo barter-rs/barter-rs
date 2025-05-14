@@ -253,6 +253,7 @@ pub struct InstrumentState<
     pub key: InstrumentKey,
 
     /// Complete instrument definition.
+    /// TODO: Rename to `info`
     pub instrument: Instrument<ExchangeKey, AssetKey>,
 
     /// TearSheet generator for summarising the trading performance associated with an Instrument.
@@ -426,7 +427,7 @@ pub fn generate_indexed_instrument_states<FnPosMan, FnOrders, FnInsData, Instrum
 where
     FnPosMan: Fn() -> PositionManager,
     FnOrders: Fn() -> Orders,
-    FnInsData: FnMut() -> InstrumentData,
+    FnInsData: FnMut(InstrumentNameInternal) -> InstrumentData,
 {
     InstrumentStates(
         instruments
@@ -443,7 +444,8 @@ where
                         TearSheetGenerator::init(time_engine_start),
                         position_manager_init(),
                         orders_init(),
-                        instrument_data_init(),
+                        // TODO: Check if clone is needed here.
+                        instrument_data_init(instrument.value.name_internal.clone()),
                     ),
                 )
             })
