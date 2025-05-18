@@ -43,9 +43,6 @@ pub mod trade;
 /// Orderbook types for OneTrading.
 pub mod book;
 
-#[cfg(test)]
-mod tests;
-
 /// [`OneTrading`] server base url.
 pub const BASE_URL_ONETRADING: &str = "wss://streams.onetrading.com/ws";
 
