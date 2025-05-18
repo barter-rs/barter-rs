@@ -60,14 +60,14 @@ async fn test_onetrading_public_trades() {
     let builder = Streams::<PublicTrades>::builder()
         .subscribe([
             (
-                OneTrading::default(),
+                OneTrading,
                 TEST_INSTRUMENTS[0].base,
                 TEST_INSTRUMENTS[0].quote,
                 TEST_INSTRUMENTS[0].kind.clone(),
                 PublicTrades,
             ),
             (
-                OneTrading::default(),
+                OneTrading,
                 TEST_INSTRUMENTS[1].base,
                 TEST_INSTRUMENTS[1].quote,
                 TEST_INSTRUMENTS[1].kind.clone(),
@@ -92,8 +92,7 @@ async fn test_onetrading_public_trades() {
         Ok(Some(event)) => {
             assert!(
                 matches!(event, Event::Item(MarketEvent { .. })),
-                "Expected MarketEvent, got {:?}",
-                event
+                "Expected MarketEvent, got {event:?}"
             );
         }
         Ok(None) => panic!("OneTrading stream ended without producing events"),
@@ -119,24 +118,23 @@ async fn test_onetrading_l1() {
     let builder = Streams::<OrderBooksL1>::builder()
         .subscribe([
             (
-                OneTrading::default(),
-                TEST_INSTRUMENTS[0].0,
-                TEST_INSTRUMENTS[0].1,
-                TEST_INSTRUMENTS[0].2,
+                OneTrading,
+                TEST_INSTRUMENTS[0].base,
+                TEST_INSTRUMENTS[0].quote,
+                TEST_INSTRUMENTS[0].kind.clone(),
                 OrderBooksL1,
             ),
             (
-                OneTrading::default(),
-                TEST_INSTRUMENTS[1].0,
-                TEST_INSTRUMENTS[1].1,
-                TEST_INSTRUMENTS[1].2,
+                OneTrading,
+                TEST_INSTRUMENTS[1].base,
+                TEST_INSTRUMENTS[1].quote,
+                TEST_INSTRUMENTS[1].kind.clone(),
                 OrderBooksL1,
             ),
         ]);
     
     // Apply timeout to initialization to avoid hanging on connection issues
-    let init_result = timeout(TIMEOUT_DURATION, builder.init()).await;
-    let streams = match init_result {
+    let mut streams = match timeout(TIMEOUT_DURATION, builder.init()).await {
         Ok(result) => result.expect("Failed to initialize OneTrading streams"),
         Err(_) => panic!("Timeout reached while connecting to OneTrading API"),
     };
@@ -147,17 +145,12 @@ async fn test_onetrading_l1() {
         .expect("Failed to select OneTrading stream")
         .with_error_handler(|error| warn!(?error, "OneTrading MarketStream error"));
 
-    // Set a timeout to ensure the test doesn't run indefinitely
-    let result = timeout(TIMEOUT_DURATION, onetrading_stream.next()).await;
-
     // Check if we received an event within the timeout period
-    match result {
+    match timeout(TIMEOUT_DURATION, onetrading_stream.next()).await {
         Ok(Some(event)) => {
-            info!("Received OneTrading L1 orderbook event: {:?}", event);
             assert!(
                 matches!(event, Event::Item(MarketEvent { .. })),
-                "Expected MarketEvent, got {:?}",
-                event
+                "Expected MarketEvent, got {event:?}"
             );
         }
         Ok(None) => panic!("OneTrading stream ended without producing events"),
@@ -167,13 +160,13 @@ async fn test_onetrading_l1() {
                 "Timeout reached waiting for OneTrading L1 orderbook event - this is expected in test environments"
             );
         }
-    }
+    };
 }
 
 /// Test that verifies OneTrading L2 orderbook stream can connect and receive data
 /// for multiple instruments.
 #[tokio::test]
-async fn test_onetrading_orderbook_l2() {
+async fn test_onetrading_l2() {
     // Initialize logging for tests
     init_test_logging();
 
@@ -183,24 +176,23 @@ async fn test_onetrading_orderbook_l2() {
     let builder = Streams::<OrderBooksL2>::builder()
         .subscribe([
             (
-                OneTrading::default(),
-                TEST_INSTRUMENTS[0].0,
-                TEST_INSTRUMENTS[0].1,
-                TEST_INSTRUMENTS[0].2,
+                OneTrading,
+                TEST_INSTRUMENTS[0].base,
+                TEST_INSTRUMENTS[0].quote,
+                TEST_INSTRUMENTS[0].kind.clone(),
                 OrderBooksL2,
             ),
             (
-                OneTrading::default(),
-                TEST_INSTRUMENTS[1].0,
-                TEST_INSTRUMENTS[1].1,
-                TEST_INSTRUMENTS[1].2,
+                OneTrading,
+                TEST_INSTRUMENTS[1].base,
+                TEST_INSTRUMENTS[1].quote,
+                TEST_INSTRUMENTS[1].kind.clone(),
                 OrderBooksL2,
             ),
         ]);
     
     // Apply timeout to initialization to avoid hanging on connection issues
-    let init_result = timeout(TIMEOUT_DURATION, builder.init()).await;
-    let streams = match init_result {
+    let mut streams = match timeout(TIMEOUT_DURATION, builder.init()).await {
         Ok(result) => result.expect("Failed to initialize OneTrading streams"),
         Err(_) => panic!("Timeout reached while connecting to OneTrading API"),
     };
@@ -211,25 +203,20 @@ async fn test_onetrading_orderbook_l2() {
         .expect("Failed to select OneTrading stream")
         .with_error_handler(|error| warn!(?error, "OneTrading MarketStream error"));
 
-    // Set a timeout to ensure the test doesn't run indefinitely
-    let result = timeout(TIMEOUT_DURATION, onetrading_stream.next()).await;
-
     // Check if we received an event within the timeout period
-    match result {
+    match timeout(TIMEOUT_DURATION, onetrading_stream.next()).await {
         Ok(Some(event)) => {
-            info!("Received OneTrading L2 OrderBook event: {:?}", event);
             assert!(
                 matches!(event, Event::Item(MarketEvent { .. })),
-                "Expected MarketEvent, got {:?}",
-                event
+                "Expected MarketEvent, got {event:?}"
             );
         }
         Ok(None) => panic!("OneTrading stream ended without producing events"),
         Err(_) => {
             // Test can pass even with timeout since we're just testing that the stream connects properly
             info!(
-                "Timeout reached waiting for OneTrading L2 OrderBook event - this is expected in test environments"
+                "Timeout reached waiting for OneTrading L2 orderbook event - this is expected in test environments"
             );
         }
-    }
+    };
 }

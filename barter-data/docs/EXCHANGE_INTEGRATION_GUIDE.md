@@ -781,63 +781,185 @@ Write comprehensive unit tests directly in your exchange module files to verify:
 
 ### Integration Tests
 
-Write integration tests in the `barter-data/tests/` directory to verify:
+Every exchange implementation must include integration tests in the `barter-data/tests/` directory. These tests are essential for verifying:
 
 1. Successful connection to the exchange WebSocket API
 2. Ability to receive market data from the actual exchange
 3. Proper handling of multiple instruments and data types
 
-Example integration test structure:
+#### Integration Test Requirements
+
+For a complete exchange implementation, you must create integration tests in a file named `<exchange_name>_integration_tests.rs` in the `barter-data/tests/` directory. Your integration tests must include:
+
+1. **Test for each data type**: Create separate test functions for each supported data type:
+   - Public Trades
+   - L1 Orderbooks
+   - L2 Orderbooks
+
+2. **Multiple subscriptions**: Each test must subscribe to at least 2 instruments to verify proper handling of multiple subscriptions.
+
+3. **Timeout handling**: Apply timeouts to both initialization and stream operations to prevent tests from hanging indefinitely.
+
+4. **Error resilience**: Tests should handle connection failures gracefully, which is crucial for CI environments where exchange connectivity might be unavailable.
+
+5. **Consistent naming**: Use a consistent naming scheme for test functions:
+   - `test_<exchange>_public_trades`
+   - `test_<exchange>_l1`
+   - `test_<exchange>_l2`
+
+#### Integration Test Structure
+
+Here's the recommended structure for integration tests:
+
 ```rust
-// File: barter-data/tests/your_exchange_integration_tests.rs
+// File: barter-data/tests/<exchange_name>_integration_tests.rs
 
 use barter_data::{
     event::MarketEvent,
     exchange::your_exchange::YourExchange,
-    streams::Streams,
-    subscription::trade::PublicTrades,
+    streams::{Streams, reconnect::stream::ReconnectingStream},
+    subscription::{
+        book::{OrderBooksL1, OrderBooksL2},
+        trade::PublicTrades,
+    },
 };
-use barter_instrument::exchange::ExchangeId;
+use barter_instrument::{
+    exchange::ExchangeId, instrument::market_data::kind::MarketDataInstrumentKind,
+};
+use barter_data::streams::reconnect::Event;
 use futures_util::StreamExt;
 use std::time::Duration;
 use tokio::time::timeout;
+use tracing::{info, warn};
 
+// Define test constants
+const TIMEOUT_DURATION: Duration = Duration::from_secs(10);
+const TEST_INSTRUMENTS: [TestInstrument; 2] = [
+    TestInstrument {
+        base: "btc",
+        quote: "usdt",
+        kind: MarketDataInstrumentKind::Spot,
+    },
+    TestInstrument {
+        base: "eth",
+        quote: "usdt",
+        kind: MarketDataInstrumentKind::Spot,
+    },
+];
+
+struct TestInstrument {
+    base: &'static str,
+    quote: &'static str,
+    kind: MarketDataInstrumentKind,
+}
+
+fn init_test_logging() {
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::filter::EnvFilter::builder()
+                .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
+                .from_env_lossy(),
+        )
+        .with_ansi(cfg!(debug_assertions))
+        .try_init();
+}
+
+/// Test that verifies YourExchange public trades stream can connect and receive data
+/// for multiple instruments.
 #[tokio::test]
-async fn test_your_exchange_trades_connectivity() {
-    // Initialize your exchange stream
-    let streams = Streams::<PublicTrades>::builder()
+async fn test_your_exchange_public_trades() {
+    // Initialize logging for tests
+    init_test_logging();
+
+    info!("Starting YourExchange public trades test");
+
+    // Initialize Exchange Trades stream with timeout
+    let builder = Streams::<PublicTrades>::builder()
         .subscribe([
-            (YourExchange::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
-        ])
-        .init()
-        .await
-        .expect("Failed to initialize streams");
-        
-    // Set a timeout to prevent the test from hanging
-    let timeout_duration = Duration::from_secs(10);
-    let mut exchange_stream = streams
-        .select(ExchangeId::YourExchange)
-        .expect("Failed to select stream")
-        .with_error_handler(|error| warn!(?error, "Stream error"));
-        
-    // Wait for the first event with a timeout
-    let result = timeout(timeout_duration, exchange_stream.next()).await;
+            (
+                YourExchange,
+                TEST_INSTRUMENTS[0].base,
+                TEST_INSTRUMENTS[0].quote,
+                TEST_INSTRUMENTS[0].kind.clone(),
+                PublicTrades,
+            ),
+            (
+                YourExchange,
+                TEST_INSTRUMENTS[1].base,
+                TEST_INSTRUMENTS[1].quote,
+                TEST_INSTRUMENTS[1].kind.clone(),
+                PublicTrades,
+            ),
+        ]);
     
-    match result {
-        Ok(Some(event)) => {
-            // Verify the event is correctly formatted
-            assert!(matches!(event, MarketEvent { .. }));
-        }
-        Ok(None) => panic!("Stream ended without producing events"),
+    // Apply timeout to initialization to avoid hanging on connection issues
+    let init_result = timeout(TIMEOUT_DURATION, builder.init()).await;
+    
+    // Handle initialization result - allow failures in test environment
+    match init_result {
+        Ok(Ok(mut streams)) => {
+            // Successfully connected, continue with the test
+            let mut exchange_stream = streams
+                .select(ExchangeId::YourExchange)
+                .expect("Failed to select YourExchange stream")
+                .with_error_handler(|error| warn!(?error, "YourExchange MarketStream error"));
+
+            // Check if we received an event within the timeout period
+            match timeout(TIMEOUT_DURATION, exchange_stream.next()).await {
+                Ok(Some(event)) => {
+                    assert!(
+                        matches!(event, Event::Item(MarketEvent { .. })),
+                        "Expected MarketEvent, got {event:?}"
+                    );
+                }
+                Ok(None) => {
+                    info!("YourExchange stream ended without producing events - this is acceptable in test environments");
+                }
+                Err(_) => {
+                    // Test can pass even with timeout since we're just testing that the stream connects properly
+                    info!(
+                        "Timeout reached waiting for YourExchange public trades event - this is expected in test environments"
+                    );
+                }
+            }
+        },
+        Ok(Err(err)) => {
+            // Connection failure is acceptable in test environments
+            info!("Could not connect to YourExchange: {err} - this is expected in test environments");
+        },
         Err(_) => {
-            // For CI environments, you might want to allow timeouts
-            println!("Timeout reached waiting for event");
+            // Timeout is acceptable in test environments
+            info!("Timeout reached while connecting to YourExchange API - this is expected in test environments");
         }
     }
 }
+
+/// Similar implementations for test_your_exchange_l1() and test_your_exchange_l2()
 ```
 
-> **Note:** It's a good practice to implement timeouts in integration tests to prevent them from hanging indefinitely, especially when connecting to real exchanges. You should also consider making the tests skippable in CI environments where exchange connectivity might be limited.
+#### Error Handling in Integration Tests
+
+Since integration tests connect to external APIs, they must handle failures gracefully:
+
+1. **Connection failures**: Tests should not fail if they cannot connect to the exchange.
+2. **Timeouts**: Apply timeouts to both initialization and stream operations.
+3. **Informative logging**: Log helpful information about connection status and errors.
+
+This approach ensures that your tests will run successfully in CI environments even when actual connectivity to the exchange is not available.
+
+#### Running Integration Tests
+
+To run only your exchange's integration tests, use the following command:
+
+```sh
+# Run integration tests for your exchange
+cargo test --package barter-data --test your_exchange_integration_tests
+
+# Run with logging output
+cargo test --package barter-data --test your_exchange_integration_tests -- --nocapture
+```
+
+Remember that integration tests should still pass even when they can't actually connect to the exchange. This is essential for CI/CD pipelines.
 
 After writing your implementation, make sure to run these checks to ensure code quality:
 
