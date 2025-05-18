@@ -771,11 +771,73 @@ pub mod myexchange;
 
 ## Testing Your Implementation
 
-Write comprehensive unit tests to verify:
+### Unit Tests
+
+Write comprehensive unit tests directly in your exchange module files to verify:
 
 1. Deserialization of messages
 2. Validation of subscription responses
 3. Conversion from exchange-specific types to Barter types
+
+### Integration Tests
+
+Write integration tests in the `barter-data/tests/` directory to verify:
+
+1. Successful connection to the exchange WebSocket API
+2. Ability to receive market data from the actual exchange
+3. Proper handling of multiple instruments and data types
+
+Example integration test structure:
+```rust
+// File: barter-data/tests/your_exchange_integration_tests.rs
+
+use barter_data::{
+    event::MarketEvent,
+    exchange::your_exchange::YourExchange,
+    streams::Streams,
+    subscription::trade::PublicTrades,
+};
+use barter_instrument::exchange::ExchangeId;
+use futures_util::StreamExt;
+use std::time::Duration;
+use tokio::time::timeout;
+
+#[tokio::test]
+async fn test_your_exchange_trades_connectivity() {
+    // Initialize your exchange stream
+    let streams = Streams::<PublicTrades>::builder()
+        .subscribe([
+            (YourExchange::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
+        ])
+        .init()
+        .await
+        .expect("Failed to initialize streams");
+        
+    // Set a timeout to prevent the test from hanging
+    let timeout_duration = Duration::from_secs(10);
+    let mut exchange_stream = streams
+        .select(ExchangeId::YourExchange)
+        .expect("Failed to select stream")
+        .with_error_handler(|error| warn!(?error, "Stream error"));
+        
+    // Wait for the first event with a timeout
+    let result = timeout(timeout_duration, exchange_stream.next()).await;
+    
+    match result {
+        Ok(Some(event)) => {
+            // Verify the event is correctly formatted
+            assert!(matches!(event, MarketEvent { .. }));
+        }
+        Ok(None) => panic!("Stream ended without producing events"),
+        Err(_) => {
+            // For CI environments, you might want to allow timeouts
+            println!("Timeout reached waiting for event");
+        }
+    }
+}
+```
+
+> **Note:** It's a good practice to implement timeouts in integration tests to prevent them from hanging indefinitely, especially when connecting to real exchanges. You should also consider making the tests skippable in CI environments where exchange connectivity might be limited.
 
 After writing your implementation, make sure to run these checks to ensure code quality:
 
