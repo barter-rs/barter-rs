@@ -65,7 +65,7 @@ where
     match s {
         "BUY" => Ok(Side::Buy),
         "SELL" => Ok(Side::Sell),
-        _ => Err(serde::de::Error::custom(format!("unknown side: {}", s))),
+        _ => Err(serde::de::Error::custom(format!("unknown side: {s}"))),
     }
 }
 

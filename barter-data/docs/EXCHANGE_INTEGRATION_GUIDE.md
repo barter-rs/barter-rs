@@ -259,6 +259,29 @@ use barter_instrument::{
 use serde::{Deserialize, Serialize};
 use smol_str::{SmolStr, StrExt, format_smolstr};
 
+/// Type that defines how to translate a Barter [`Subscription`] into a [`MyExchange`]
+/// market that can be subscribed to.
+///
+/// MyExchange uses a format where the base and quote currencies are joined with an underscore
+/// and uppercase: `BASE_QUOTE`.
+///
+/// # Examples
+///
+/// ```
+/// use barter_data::exchange::myexchange::market::MyExchangeMarket;
+/// use smol_str::SmolStr;
+///
+/// // Directly create a MyExchange market
+/// let btc_eur = MyExchangeMarket(SmolStr::new("BTC_EUR"));
+///
+/// // Using the from_base_quote_internal method with AssetNameInternal
+/// use barter_instrument::asset::name::AssetNameInternal;
+/// let base = AssetNameInternal::from("BTC");
+/// let quote = AssetNameInternal::from("EUR");
+///
+/// let market = MyExchangeMarket::from_base_quote_internal(&base, &quote);
+/// assert_eq!(market.as_ref(), "BTC_EUR");
+/// ```
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub struct MyExchangeMarket(pub SmolStr);
 
@@ -267,7 +290,7 @@ impl<Kind> Identifier<MyExchangeMarket>
     for Subscription<MyExchange, MarketDataInstrument, Kind>
 {
     fn id(&self) -> MyExchangeMarket {
-        myexchange_market(&self.instrument.base, &self.instrument.quote)
+        MyExchangeMarket::from_base_quote_internal(&self.instrument.base, &self.instrument.quote)
     }
 }
 
@@ -275,7 +298,10 @@ impl<InstrumentKey, Kind> Identifier<MyExchangeMarket>
     for Subscription<MyExchange, Keyed<InstrumentKey, MarketDataInstrument>, Kind>
 {
     fn id(&self) -> MyExchangeMarket {
-        myexchange_market(&self.instrument.value.base, &self.instrument.value.quote)
+        MyExchangeMarket::from_base_quote_internal(
+            &self.instrument.value.base,
+            &self.instrument.value.quote
+        )
     }
 }
 
@@ -293,10 +319,30 @@ impl AsRef<str> for MyExchangeMarket {
     }
 }
 
-// Format market symbol according to exchange's requirements
-fn myexchange_market(base: &AssetNameInternal, quote: &AssetNameInternal) -> MyExchangeMarket {
-    // Format according to exchange requirements (e.g., BTC_EUR)
-    MyExchangeMarket(format_smolstr!("{}_{}", base, quote).to_uppercase_smolstr())
+impl MyExchangeMarket {
+    /// Creates a new [`MyExchangeMarket`] from base and quote asset names.
+    ///
+    /// Formats the market symbol according to MyExchange's convention: `BASE_QUOTE`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use barter_instrument::asset::name::AssetNameInternal;
+    /// use barter_data::exchange::myexchange::market::MyExchangeMarket;
+    ///
+    /// let base = AssetNameInternal::from("btc");
+    /// let quote = AssetNameInternal::from("eur");
+    ///
+    /// let market = MyExchangeMarket::from_base_quote_internal(&base, &quote);
+    /// assert_eq!(market.as_ref(), "BTC_EUR"); // Note: converted to uppercase
+    /// ```
+    pub fn from_base_quote_internal(
+        base: &AssetNameInternal,
+        quote: &AssetNameInternal,
+    ) -> Self {
+        // Format according to exchange requirements (e.g., BTC_EUR)
+        Self(format_smolstr!("{}_{}", base, quote).to_uppercase_smolstr())
+    }
 }
 ```
 
@@ -481,7 +527,7 @@ where
     match s {
         "BUY" => Ok(Side::Buy),
         "SELL" => Ok(Side::Sell),
-        _ => Err(serde::de::Error::custom(format!("unknown side: {}", s))),
+        _ => Err(serde::de::Error::custom(format!("unknown side: {s}"))),
     }
 }
 
@@ -731,6 +777,35 @@ Write comprehensive unit tests to verify:
 2. Validation of subscription responses
 3. Conversion from exchange-specific types to Barter types
 
+After writing your implementation, make sure to run these checks to ensure code quality:
+
+### 1. Run Rustfmt to ensure consistent code formatting
+
+Always format your code using nightly rustfmt before submitting:
+
+```sh
+# Format code with nightly rustfmt
+cargo +nightly fmt
+
+# Check if code is properly formatted
+cargo +nightly fmt -- --check
+```
+
+### 2. Run Clippy to catch common mistakes and ensure high code quality
+
+```sh
+# Run Clippy on your implementation
+cargo clippy --package barter-data -- -W clippy::all
+
+# Apply automatic fixes (when possible)
+cargo clippy --fix --package barter-data -- -W clippy::all
+```
+
+Some common Clippy fixes include:
+- Using more efficient string formatting: `format!("value: {value}")` instead of `format!("value: {}", value)`
+- Removing unnecessary `clone()` calls
+- Using more idiomatic Rust patterns
+
 For example:
 
 ```rust
@@ -810,7 +885,11 @@ while let Some(event) = stream.next().await {
 
 ## Best Practices
 
-1. **Documentation**: Add documentation for all public types and functions, including examples of raw JSON payloads.
+1. **Documentation**: 
+   - Add rustdoc documentation for all public types and functions
+   - Include examples in the rustdoc that show how to use each component
+   - Provide raw JSON payload examples for message structures
+   - Use the triple backtick syntax for code examples: ```rust ... ```
 
 2. **Error Handling**: Add proper error handling and validation for all deserialized data.
 
@@ -824,7 +903,11 @@ while let Some(event) = stream.next().await {
 
 7. **Prefer Iterator API**: Use Rust's Iterator API (`map`, `filter`, `collect`, etc.) instead of imperative loops for data transformation. This leads to more concise, readable, and often more efficient code.
 
-8. **Follow Existing Patterns**: Always follow the established patterns in the codebase for consistency.
+8. **Code Formatting**: Always format your code with `cargo +nightly fmt` before submitting to ensure consistent code style across the project.
+
+9. **Run Clippy**: Always run `cargo clippy` on your code to catch common mistakes and ensure high code quality. Follow Clippy suggestions to improve your code.
+
+10. **Follow Existing Patterns**: Always follow the established patterns in the codebase for consistency.
 
 ## Example Exchange References
 
@@ -834,6 +917,17 @@ For more complex examples, refer to these existing implementations:
 - **Bybit**: `barter-data/src/exchange/bybit/`
 - **OneTrading**: `barter-data/src/exchange/onetrading/`
 - **OKX**: `barter-data/src/exchange/okx/`
+
+## Quality Checklist Before Contributing
+
+Before submitting your exchange implementation, go through this checklist:
+
+1. ✅ Code compiles with no errors
+2. ✅ All tests pass
+3. ✅ Code is formatted with `cargo +nightly fmt`
+4. ✅ Clippy reports no warnings with `cargo clippy --package barter-data -- -W clippy::all`
+5. ✅ Documentation is comprehensive and up-to-date
+6. ✅ Implementation follows the patterns established in this guide
 
 ## Contributing
 
