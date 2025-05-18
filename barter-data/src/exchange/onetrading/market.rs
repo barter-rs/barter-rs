@@ -13,9 +13,7 @@ use smol_str::{SmolStr, StrExt, format_smolstr};
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub struct OneTradingMarket(pub SmolStr);
 
-impl<Kind> Identifier<OneTradingMarket>
-    for Subscription<OneTrading, MarketDataInstrument, Kind>
-{
+impl<Kind> Identifier<OneTradingMarket> for Subscription<OneTrading, MarketDataInstrument, Kind> {
     fn id(&self) -> OneTradingMarket {
         onetrading_market(&self.instrument.base, &self.instrument.quote)
     }

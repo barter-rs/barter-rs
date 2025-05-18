@@ -37,53 +37,67 @@ pub type OneTradingOrderBookL1Message = OneTradingPayload<OneTradingBookTickerDa
 pub struct OneTradingBookTickerData {
     /// Instrument identifier
     pub instrument: String,
-    
+
     /// Best bid price
-    #[serde(rename = "bestBidPrice", deserialize_with = "barter_integration::de::de_str")]
-    pub best_bid_price: f64,
-    
-    /// Best bid amount
-    #[serde(rename = "bestBidAmount", deserialize_with = "barter_integration::de::de_str")]
-    pub best_bid_amount: f64,
-    
-    /// Best ask price
-    #[serde(rename = "bestAskPrice", deserialize_with = "barter_integration::de::de_str")]
-    pub best_ask_price: f64,
-    
-    /// Best ask amount
-    #[serde(rename = "bestAskAmount", deserialize_with = "barter_integration::de::de_str")]
-    pub best_ask_amount: f64,
-    
-    /// Timestamp in nanoseconds
     #[serde(
-        deserialize_with = "barter_integration::de::de_u64_epoch_ms_as_datetime_utc"
+        rename = "bestBidPrice",
+        deserialize_with = "barter_integration::de::de_str"
     )]
+    pub best_bid_price: f64,
+
+    /// Best bid amount
+    #[serde(
+        rename = "bestBidAmount",
+        deserialize_with = "barter_integration::de::de_str"
+    )]
+    pub best_bid_amount: f64,
+
+    /// Best ask price
+    #[serde(
+        rename = "bestAskPrice",
+        deserialize_with = "barter_integration::de::de_str"
+    )]
+    pub best_ask_price: f64,
+
+    /// Best ask amount
+    #[serde(
+        rename = "bestAskAmount",
+        deserialize_with = "barter_integration::de::de_str"
+    )]
+    pub best_ask_amount: f64,
+
+    /// Timestamp in nanoseconds
+    #[serde(deserialize_with = "barter_integration::de::de_u64_epoch_ms_as_datetime_utc")]
     pub timestamp: chrono::DateTime<Utc>,
 }
 
 impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, OneTradingOrderBookL1Message)>
     for MarketIter<InstrumentKey, OrderBookL1>
 {
-    fn from((exchange, instrument, message): (ExchangeId, InstrumentKey, OneTradingOrderBookL1Message)) -> Self {
-        Self(
-            vec![Ok(MarketEvent {
-                time_exchange: message.data.timestamp,
-                time_received: Utc::now(),
-                exchange,
-                instrument: instrument.clone(),
-                kind: OrderBookL1 {
-                    last_update_time: message.data.timestamp,
-                    best_bid: Some(Level {
-                        price: Decimal::from_f64_retain(message.data.best_bid_price).unwrap_or_default(),
-                        amount: Decimal::from_f64_retain(message.data.best_bid_amount).unwrap_or_default(),
-                    }),
-                    best_ask: Some(Level {
-                        price: Decimal::from_f64_retain(message.data.best_ask_price).unwrap_or_default(),
-                        amount: Decimal::from_f64_retain(message.data.best_ask_amount).unwrap_or_default(),
-                    }),
-                },
-            })]
-        )
+    fn from(
+        (exchange, instrument, message): (ExchangeId, InstrumentKey, OneTradingOrderBookL1Message),
+    ) -> Self {
+        Self(vec![Ok(MarketEvent {
+            time_exchange: message.data.timestamp,
+            time_received: Utc::now(),
+            exchange,
+            instrument: instrument.clone(),
+            kind: OrderBookL1 {
+                last_update_time: message.data.timestamp,
+                best_bid: Some(Level {
+                    price: Decimal::from_f64_retain(message.data.best_bid_price)
+                        .unwrap_or_default(),
+                    amount: Decimal::from_f64_retain(message.data.best_bid_amount)
+                        .unwrap_or_default(),
+                }),
+                best_ask: Some(Level {
+                    price: Decimal::from_f64_retain(message.data.best_ask_price)
+                        .unwrap_or_default(),
+                    amount: Decimal::from_f64_retain(message.data.best_ask_amount)
+                        .unwrap_or_default(),
+                }),
+            },
+        })])
     }
 }
 
@@ -114,27 +128,34 @@ mod tests {
         }"#;
 
         let book_ticker: Result<OneTradingOrderBookL1Message, _> = serde_json::from_str(json);
-        assert!(book_ticker.is_ok(), "Failed to deserialize book ticker: {:?}", book_ticker.err());
-        
+        assert!(
+            book_ticker.is_ok(),
+            "Failed to deserialize book ticker: {:?}",
+            book_ticker.err()
+        );
+
         let book_ticker = book_ticker.unwrap();
         assert_eq!(book_ticker.kind, "BOOK_TICKER");
-        assert_eq!(book_ticker.subscription_id, SubscriptionId("BOOK_TICKER|BTC_EUR".to_smolstr()));
-        
+        assert_eq!(
+            book_ticker.subscription_id,
+            SubscriptionId("BOOK_TICKER|BTC_EUR".to_smolstr())
+        );
+
         // Verify the timestamp conversion
         let expected_time = Utc.timestamp_nanos(1732051274299000000);
         assert_eq!(book_ticker.time, expected_time);
-        
+
         // Verify the book ticker data
         assert_eq!(book_ticker.data.instrument, "BTC_EUR");
         assert_eq!(book_ticker.data.best_bid_price, 51200.5);
         assert_eq!(book_ticker.data.best_bid_amount, 0.12345);
         assert_eq!(book_ticker.data.best_ask_price, 51210.0);
         assert_eq!(book_ticker.data.best_ask_amount, 0.09876);
-        
+
         let expected_timestamp = Utc.timestamp_nanos(1732051274298000000);
         assert_eq!(book_ticker.data.timestamp, expected_timestamp);
     }
-    
+
     #[test]
     fn test_onetrading_book_ticker_conversion() {
         // Create a sample book ticker
@@ -151,20 +172,23 @@ mod tests {
                 timestamp: Utc.timestamp_nanos(1732051274298000000),
             },
         };
-        
+
         // Test conversion to MarketIter
-        let market_iter: MarketIter<String, OrderBookL1> = 
+        let market_iter: MarketIter<String, OrderBookL1> =
             (ExchangeId::OneTrading, "BTC_EUR".to_string(), book_ticker).into();
-        
+
         // Verify the converted data
         let events = market_iter.0;
         assert_eq!(events.len(), 1);
-        
+
         let event = events[0].as_ref().unwrap();
         assert_eq!(event.exchange, ExchangeId::OneTrading);
         assert_eq!(event.instrument, "BTC_EUR");
-        assert_eq!(event.time_exchange, Utc.timestamp_nanos(1732051274298000000));
-        
+        assert_eq!(
+            event.time_exchange,
+            Utc.timestamp_nanos(1732051274298000000)
+        );
+
         let orderbook = &event.kind;
         assert_eq!(orderbook.bid.price, 51200.5);
         assert_eq!(orderbook.bid.amount, 0.12345);

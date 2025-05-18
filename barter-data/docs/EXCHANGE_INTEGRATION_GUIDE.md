@@ -127,17 +127,15 @@ impl Connector for MyExchange {
 
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
         // Format the subscription request according to the exchange's API
-        // This example formats a typical JSON-based subscription
-        let mut channels = Vec::new();
-        
-        for sub in exchange_subs {
-            let channel_obj = json!({
-                "name": sub.channel.as_ref(),
-                "instrument": sub.market.as_ref()
-            });
-            
-            channels.push(channel_obj);
-        }
+        // Transform subscriptions into channel objects using Iterator API
+        let channels = exchange_subs.into_iter()
+            .map(|sub| {
+                json!({
+                    "name": sub.channel.as_ref(),
+                    "instrument": sub.market.as_ref()
+                })
+            })
+            .collect::<Vec<_>>();
         
         vec![WsMessage::text(
             json!({
@@ -824,7 +822,9 @@ while let Some(event) = stream.next().await {
 
 6. **String Deserialization**: Always use `&str` instead of `String` when deserializing to avoid unnecessary allocations (e.g., `<&str>::deserialize(deserializer)?` instead of `String::deserialize(deserializer)?`).
 
-7. **Follow Existing Patterns**: Always follow the established patterns in the codebase for consistency.
+7. **Prefer Iterator API**: Use Rust's Iterator API (`map`, `filter`, `collect`, etc.) instead of imperative loops for data transformation. This leads to more concise, readable, and often more efficient code.
+
+8. **Follow Existing Patterns**: Always follow the established patterns in the codebase for consistency.
 
 ## Example Exchange References
 

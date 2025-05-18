@@ -14,18 +14,18 @@ pub struct OneTradingPayload<T> {
     /// Message type identifier
     #[serde(rename = "type")]
     pub kind: String,
-    
+
     /// Channel name (e.g. PRICE_TICKS, ORDERBOOK, BOOK_TICKER)
     #[serde(alias = "channel", deserialize_with = "de_message_subscription_id")]
     pub subscription_id: SubscriptionId,
-    
+
     /// Timestamp in nanoseconds
     #[serde(
         alias = "time",
         deserialize_with = "barter_integration::de::de_u64_epoch_ms_as_datetime_utc"
     )]
     pub time: DateTime<Utc>,
-    
+
     /// Message data
     pub data: T,
 }
@@ -44,7 +44,7 @@ where
     }
 
     let channel_info = ChannelInfo::deserialize(deserializer)?;
-    
+
     // Map the channel name to our internal channel constants
     let channel_name = match channel_info.name {
         "PRICE_TICKS" => OneTradingChannel::TRADES.0,
@@ -54,14 +54,13 @@ where
             return Err(Error::invalid_value(
                 Unexpected::Str(channel_info.name),
                 &"expected one of: PRICE_TICKS, BOOK_TICKER, ORDERBOOK",
-            ))
+            ));
         }
     };
 
     Ok(SubscriptionId::from(format!(
         "{}|{}",
-        channel_name,
-        channel_info.instrument
+        channel_name, channel_info.instrument
     )))
 }
 

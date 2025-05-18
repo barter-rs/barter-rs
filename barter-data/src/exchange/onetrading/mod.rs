@@ -1,5 +1,6 @@
 use self::{
-    channel::OneTradingChannel, market::OneTradingMarket, subscription::OneTradingResponse, trade::OneTradingTrade,
+    channel::OneTradingChannel, market::OneTradingMarket, subscription::OneTradingResponse,
+    trade::OneTradingTrade,
 };
 use crate::{
     ExchangeWsStream, NoInitialSnapshots,
@@ -7,7 +8,7 @@ use crate::{
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
     subscription::{
-        Map, 
+        Map,
         book::{OrderBooksL1, OrderBooksL2},
         trade::PublicTrades,
     },
@@ -92,18 +93,17 @@ impl Connector for OneTrading {
     }
 
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
-        // Group subscriptions by channel to properly format for OneTrading API
-        let mut channels = Vec::new();
-        
-        for sub in exchange_subs {
-            let channel_obj = json!({
-                "name": sub.channel.as_ref(),
-                "instrument": sub.market.as_ref()
-            });
-            
-            channels.push(channel_obj);
-        }
-        
+        // Transform subscriptions into channel objects using Iterator API
+        let channels = exchange_subs
+            .into_iter()
+            .map(|sub| {
+                json!({
+                    "name": sub.channel.as_ref(),
+                    "instrument": sub.market.as_ref()
+                })
+            })
+            .collect::<Vec<_>>();
+
         vec![WsMessage::text(
             json!({
                 "type": "SUBSCRIBE",
@@ -124,8 +124,9 @@ where
     Instrument: InstrumentData,
 {
     type SnapFetcher = NoInitialSnapshots;
-    type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, OneTradingTrade>>;
+    type Stream = ExchangeWsStream<
+        StatelessTransformer<Self, Instrument::Key, PublicTrades, OneTradingTrade>,
+    >;
 }
 
 impl<Instrument> StreamSelector<Instrument, OrderBooksL1> for OneTrading
@@ -134,7 +135,12 @@ where
 {
     type SnapFetcher = NoInitialSnapshots;
     type Stream = ExchangeWsStream<
-        StatelessTransformer<Self, Instrument::Key, OrderBooksL1, book::OneTradingOrderBookL1Message>,
+        StatelessTransformer<
+            Self,
+            Instrument::Key,
+            OrderBooksL1,
+            book::OneTradingOrderBookL1Message,
+        >,
     >;
 }
 
@@ -144,6 +150,11 @@ where
 {
     type SnapFetcher = NoInitialSnapshots;
     type Stream = ExchangeWsStream<
-        StatelessTransformer<Self, Instrument::Key, OrderBooksL2, book::OneTradingOrderBookL2Message>,
+        StatelessTransformer<
+            Self,
+            Instrument::Key,
+            OrderBooksL2,
+            book::OneTradingOrderBookL2Message,
+        >,
     >;
 }
