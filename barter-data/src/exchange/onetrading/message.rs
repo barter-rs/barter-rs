@@ -38,21 +38,21 @@ where
     D: serde::de::Deserializer<'de>,
 {
     #[derive(Deserialize)]
-    struct ChannelInfo {
-        name: String,
-        instrument: String,
+    struct ChannelInfo<'a> {
+        name: &'a str,
+        instrument: &'a str,
     }
 
     let channel_info = ChannelInfo::deserialize(deserializer)?;
     
     // Map the channel name to our internal channel constants
-    let channel_name = match channel_info.name.as_str() {
+    let channel_name = match channel_info.name {
         "PRICE_TICKS" => OneTradingChannel::TRADES.0,
         "BOOK_TICKER" => OneTradingChannel::ORDER_BOOK_L1.0,
         "ORDERBOOK" => OneTradingChannel::ORDER_BOOK_L2.0,
         _ => {
             return Err(Error::invalid_value(
-                Unexpected::Str(&channel_info.name),
+                Unexpected::Str(channel_info.name),
                 &"expected one of: PRICE_TICKS, BOOK_TICKER, ORDERBOOK",
             ))
         }

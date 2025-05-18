@@ -341,21 +341,21 @@ where
 {
     // Implement according to exchange's message format
     #[derive(Deserialize)]
-    struct ChannelInfo {
-        name: String,
-        instrument: String,
+    struct ChannelInfo<'a> {
+        name: &'a str,
+        instrument: &'a str,
     }
 
     let channel_info = ChannelInfo::deserialize(deserializer)?;
     
     // Map the channel name to internal channel constants
-    let channel_name = match channel_info.name.as_str() {
+    let channel_name = match channel_info.name {
         "PRICE_TICKS" => MyExchangeChannel::TRADES.0,
         "BOOK_TICKER" => MyExchangeChannel::ORDER_BOOK_L1.0,
         "ORDERBOOK" => MyExchangeChannel::ORDER_BOOK_L2.0,
         _ => {
             return Err(Error::invalid_value(
-                Unexpected::Str(&channel_info.name),
+                Unexpected::Str(channel_info.name),
                 &"expected one of: PRICE_TICKS, BOOK_TICKER, ORDERBOOK",
             ))
         }
@@ -479,8 +479,8 @@ pub fn de_side<'de, D>(deserializer: D) -> Result<Side, D::Error>
 where
     D: serde::de::Deserializer<'de>,
 {
-    let s = String::deserialize(deserializer)?;
-    match s.as_str() {
+    let s = <&str>::deserialize(deserializer)?;
+    match s {
         "BUY" => Ok(Side::Buy),
         "SELL" => Ok(Side::Sell),
         _ => Err(serde::de::Error::custom(format!("unknown side: {}", s))),
@@ -548,17 +548,17 @@ pub type MyExchangeOrderBookL1Message = MyExchangePayload<MyExchangeBookTickerDa
 pub struct MyExchangeBookTickerData {
     pub instrument: String,
     
-    #[serde(deserialize_with = "barter_integration::de::de_str")]
-    pub bestBidPrice: f64,
+    #[serde(rename = "bestBidPrice", deserialize_with = "barter_integration::de::de_str")]
+    pub best_bid_price: f64,
     
-    #[serde(deserialize_with = "barter_integration::de::de_str")]
-    pub bestBidAmount: f64,
+    #[serde(rename = "bestBidAmount", deserialize_with = "barter_integration::de::de_str")]
+    pub best_bid_amount: f64,
     
-    #[serde(deserialize_with = "barter_integration::de::de_str")]
-    pub bestAskPrice: f64,
+    #[serde(rename = "bestAskPrice", deserialize_with = "barter_integration::de::de_str")]
+    pub best_ask_price: f64,
     
-    #[serde(deserialize_with = "barter_integration::de::de_str")]
-    pub bestAskAmount: f64,
+    #[serde(rename = "bestAskAmount", deserialize_with = "barter_integration::de::de_str")]
+    pub best_ask_amount: f64,
     
     #[serde(
         deserialize_with = "barter_integration::de::de_u64_epoch_ms_as_datetime_utc"
@@ -580,12 +580,12 @@ impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, MyExchangeOrderBookL
                 kind: OrderBookL1 {
                     last_update_time: message.data.timestamp,
                     best_bid: Some(Level {
-                        price: Decimal::from_f64_retain(message.data.bestBidPrice).unwrap_or_default(),
-                        amount: Decimal::from_f64_retain(message.data.bestBidAmount).unwrap_or_default(),
+                        price: Decimal::from_f64_retain(message.data.best_bid_price).unwrap_or_default(),
+                        amount: Decimal::from_f64_retain(message.data.best_bid_amount).unwrap_or_default(),
                     }),
                     best_ask: Some(Level {
-                        price: Decimal::from_f64_retain(message.data.bestAskPrice).unwrap_or_default(),
-                        amount: Decimal::from_f64_retain(message.data.bestAskAmount).unwrap_or_default(),
+                        price: Decimal::from_f64_retain(message.data.best_ask_price).unwrap_or_default(),
+                        amount: Decimal::from_f64_retain(message.data.best_ask_amount).unwrap_or_default(),
                     }),
                 },
             })]
@@ -638,7 +638,7 @@ fn de_orderbook_levels<'de, D>(deserializer: D) -> Result<Vec<Level>, D::Error>
 where
     D: serde::de::Deserializer<'de>,
 {
-    let string_pairs: Vec<Vec<String>> = Vec::deserialize(deserializer)?;
+    let string_pairs: Vec<Vec<&str>> = Vec::deserialize(deserializer)?;
     
     string_pairs
         .into_iter()
@@ -805,7 +805,10 @@ while let Some(event) = stream.next().await {
 
 4. **OrderBook Construction**: Make sure to use the correct `OrderBook::new()` constructor with all required parameters.
 
-5. **Field Naming Conventions**: While Rust prefers snake_case naming, it's often better to match the exchange API's field names in your structs and use serde attributes to handle any discrepancies.
+5. **Field Naming Conventions**: 
+   - Always use snake_case for struct field names to follow Rust conventions
+   - Use `#[serde(rename = "camelCaseFieldName")]` attributes to map between your snake_case fields and the API's camelCase/PascalCase field names
+   - Example: `#[serde(rename = "bestBidPrice")] pub best_bid_price: f64`
 
 ## Best Practices
 
@@ -819,7 +822,9 @@ while let Some(event) = stream.next().await {
 
 5. **Decimal Precision**: Use the `Decimal` type for price and amount values to maintain precision.
 
-6. **Follow Existing Patterns**: Always follow the established patterns in the codebase for consistency.
+6. **String Deserialization**: Always use `&str` instead of `String` when deserializing to avoid unnecessary allocations (e.g., `<&str>::deserialize(deserializer)?` instead of `String::deserialize(deserializer)?`).
+
+7. **Follow Existing Patterns**: Always follow the established patterns in the codebase for consistency.
 
 ## Example Exchange References
 

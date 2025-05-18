@@ -63,8 +63,8 @@ pub fn de_side<'de, D>(deserializer: D) -> Result<Side, D::Error>
 where
     D: serde::de::Deserializer<'de>,
 {
-    let s = String::deserialize(deserializer)?;
-    match s.as_str() {
+    let s = <&str>::deserialize(deserializer)?;
+    match s {
         "BUY" => Ok(Side::Buy),
         "SELL" => Ok(Side::Sell),
         _ => Err(serde::de::Error::custom(format!("unknown side: {}", s))),

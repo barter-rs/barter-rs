@@ -39,20 +39,20 @@ pub struct OneTradingBookTickerData {
     pub instrument: String,
     
     /// Best bid price
-    #[serde(deserialize_with = "barter_integration::de::de_str")]
-    pub bestBidPrice: f64,
+    #[serde(rename = "bestBidPrice", deserialize_with = "barter_integration::de::de_str")]
+    pub best_bid_price: f64,
     
     /// Best bid amount
-    #[serde(deserialize_with = "barter_integration::de::de_str")]
-    pub bestBidAmount: f64,
+    #[serde(rename = "bestBidAmount", deserialize_with = "barter_integration::de::de_str")]
+    pub best_bid_amount: f64,
     
     /// Best ask price
-    #[serde(deserialize_with = "barter_integration::de::de_str")]
-    pub bestAskPrice: f64,
+    #[serde(rename = "bestAskPrice", deserialize_with = "barter_integration::de::de_str")]
+    pub best_ask_price: f64,
     
     /// Best ask amount
-    #[serde(deserialize_with = "barter_integration::de::de_str")]
-    pub bestAskAmount: f64,
+    #[serde(rename = "bestAskAmount", deserialize_with = "barter_integration::de::de_str")]
+    pub best_ask_amount: f64,
     
     /// Timestamp in nanoseconds
     #[serde(
@@ -74,12 +74,12 @@ impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, OneTradingOrderBookL
                 kind: OrderBookL1 {
                     last_update_time: message.data.timestamp,
                     best_bid: Some(Level {
-                        price: Decimal::from_f64_retain(message.data.bestBidPrice).unwrap_or_default(),
-                        amount: Decimal::from_f64_retain(message.data.bestBidAmount).unwrap_or_default(),
+                        price: Decimal::from_f64_retain(message.data.best_bid_price).unwrap_or_default(),
+                        amount: Decimal::from_f64_retain(message.data.best_bid_amount).unwrap_or_default(),
                     }),
                     best_ask: Some(Level {
-                        price: Decimal::from_f64_retain(message.data.bestAskPrice).unwrap_or_default(),
-                        amount: Decimal::from_f64_retain(message.data.bestAskAmount).unwrap_or_default(),
+                        price: Decimal::from_f64_retain(message.data.best_ask_price).unwrap_or_default(),
+                        amount: Decimal::from_f64_retain(message.data.best_ask_amount).unwrap_or_default(),
                     }),
                 },
             })]
@@ -126,10 +126,10 @@ mod tests {
         
         // Verify the book ticker data
         assert_eq!(book_ticker.data.instrument, "BTC_EUR");
-        assert_eq!(book_ticker.data.bestBidPrice, 51200.5);
-        assert_eq!(book_ticker.data.bestBidAmount, 0.12345);
-        assert_eq!(book_ticker.data.bestAskPrice, 51210.0);
-        assert_eq!(book_ticker.data.bestAskAmount, 0.09876);
+        assert_eq!(book_ticker.data.best_bid_price, 51200.5);
+        assert_eq!(book_ticker.data.best_bid_amount, 0.12345);
+        assert_eq!(book_ticker.data.best_ask_price, 51210.0);
+        assert_eq!(book_ticker.data.best_ask_amount, 0.09876);
         
         let expected_timestamp = Utc.timestamp_nanos(1732051274298000000);
         assert_eq!(book_ticker.data.timestamp, expected_timestamp);
@@ -144,10 +144,10 @@ mod tests {
             time: Utc.timestamp_nanos(1732051274299000000),
             data: OneTradingBookTickerData {
                 instrument: "BTC_EUR".to_string(),
-                bestBidPrice: 51200.5,
-                bestBidAmount: 0.12345,
-                bestAskPrice: 51210.0,
-                bestAskAmount: 0.09876,
+                best_bid_price: 51200.5,
+                best_bid_amount: 0.12345,
+                best_ask_price: 51210.0,
+                best_ask_amount: 0.09876,
                 timestamp: Utc.timestamp_nanos(1732051274298000000),
             },
         };

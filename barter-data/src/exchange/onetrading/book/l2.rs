@@ -65,7 +65,7 @@ fn de_orderbook_levels<'de, D>(deserializer: D) -> Result<Vec<Level>, D::Error>
 where
     D: serde::de::Deserializer<'de>,
 {
-    let string_pairs: Vec<Vec<String>> = Vec::deserialize(deserializer)?;
+    let string_pairs: Vec<Vec<&str>> = Vec::deserialize(deserializer)?;
     
     string_pairs
         .into_iter()
