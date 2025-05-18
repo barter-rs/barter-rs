@@ -53,7 +53,7 @@ impl StreamParser for WebSocketParser {
                 WsMessage::Close(close_frame) => process_close_frame(close_frame),
                 WsMessage::Frame(frame) => process_frame(frame),
             },
-            Err(ws_err) => Some(Err(SocketError::WebSocket(ws_err))),
+            Err(ws_err) => Some(Err(SocketError::WebSocket(Box::new(ws_err)))),
         }
     }
 }
@@ -120,7 +120,7 @@ pub fn process_pong<ExchangeMessage>(pong: Bytes) -> Option<Result<ExchangeMessa
 pub fn process_close_frame<ExchangeMessage>(
     close_frame: Option<CloseFrame>,
 ) -> Option<Result<ExchangeMessage, SocketError>> {
-    let close_frame = format!("{:?}", close_frame);
+    let close_frame = format!("{close_frame:?}");
     debug!(payload = %close_frame, "received CloseFrame WebSocket message");
     Some(Err(SocketError::Terminated(close_frame)))
 }
@@ -129,7 +129,7 @@ pub fn process_close_frame<ExchangeMessage>(
 pub fn process_frame<ExchangeMessage>(
     frame: Frame,
 ) -> Option<Result<ExchangeMessage, SocketError>> {
-    let frame = format!("{:?}", frame);
+    let frame = format!("{frame:?}");
     debug!(payload = %frame, "received unexpected Frame WebSocket message");
     None
 }
@@ -143,7 +143,7 @@ where
     connect_async(request)
         .await
         .map(|(websocket, _)| websocket)
-        .map_err(SocketError::WebSocket)
+        .map_err(|error| SocketError::WebSocket(Box::new(error)))
 }
 
 /// Determine whether a [`WsError`] indicates the [`WebSocket`] has disconnected.

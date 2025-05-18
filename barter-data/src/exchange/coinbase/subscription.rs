@@ -56,8 +56,7 @@ impl Validator for CoinbaseSubResponse {
         match &self {
             CoinbaseSubResponse::Subscribed { .. } => Ok(self),
             CoinbaseSubResponse::Error { reason } => Err(SocketError::Subscribe(format!(
-                "received failure subscription response: {}",
-                reason
+                "received failure subscription response: {reason}",
             ))),
         }
     }

@@ -44,40 +44,31 @@ where
             match (minutes, hours, days) {
                 // Less than 1 hour - show minutes
                 (minutes, _, _) if minutes < 60 => {
-                    format!("(Trading Duration: {} Minutes)", minutes)
+                    format!("(Trading Duration: {minutes} Minutes)")
                 }
 
                 // Between 1 hour and 24 hours - show hours and minutes
                 (minutes, hours, _) if hours < 24 => {
                     let remaining_minutes = minutes % 60;
-                    format!(
-                        "(Trading Duration: {} Hour(s) & {} Minutes)",
-                        hours, remaining_minutes
-                    )
+                    format!("(Trading Duration: {hours} Hour(s) & {remaining_minutes} Minutes)")
                 }
 
                 // Between 1 day and 7 days - show days and hours
                 (_, hours, days) if days <= 7 => {
                     let remaining_hours = hours % 24;
-                    format!(
-                        "(Trading Duration: {} Day(s) & {} Hour(s))",
-                        days, remaining_hours
-                    )
+                    format!("(Trading Duration: {days} Day(s) & {remaining_hours} Hour(s))")
                 }
 
                 // Between 1 week and 4 weeks - show weeks and days
                 (_, _, days) if days <= 28 => {
                     let weeks = days / 7;
                     let remaining_days = days % 7;
-                    format!(
-                        "(Trading Duration: {} Week(s) & {} Day(s))",
-                        weeks, remaining_days
-                    )
+                    format!("(Trading Duration: {weeks} Week(s) & {remaining_days} Day(s))")
                 }
 
                 // More than 4 weeks - show only days with ~ indicator
                 (_, _, days) => {
-                    format!("(Trading Duration: ~{} Days)", days)
+                    format!("(Trading Duration: ~{days} Days)")
                 }
             }
         })
@@ -118,7 +109,7 @@ where
 
         // Add metric rows
         self.add_instrument_metric_row(&mut table, "PnL", |ts| format!("{:.2}", ts.pnl));
-        self.add_instrument_metric_row(&mut table, &format!("Return {}", interval), |ts| {
+        self.add_instrument_metric_row(&mut table, &format!("Return {interval}"), |ts| {
             format!(
                 "{:.2}%",
                 ts.pnl_return
@@ -127,13 +118,13 @@ where
                     .unwrap()
             )
         });
-        self.add_instrument_metric_row(&mut table, &format!("Sharpe {}", interval), |ts| {
+        self.add_instrument_metric_row(&mut table, &format!("Sharpe {interval}"), |ts| {
             format_ratio(ts.sharpe_ratio.value)
         });
-        self.add_instrument_metric_row(&mut table, &format!("Sortino {}", interval), |ts| {
+        self.add_instrument_metric_row(&mut table, &format!("Sortino {interval}"), |ts| {
             format_ratio(ts.sortino_ratio.value)
         });
-        self.add_instrument_metric_row(&mut table, &format!("Calmar {}", interval), |ts| {
+        self.add_instrument_metric_row(&mut table, &format!("Calmar {interval}"), |ts| {
             format_ratio(ts.calmar_ratio.value)
         });
         self.add_instrument_metric_row(&mut table, "PnL Drawdown", |ts| {
@@ -297,6 +288,6 @@ fn format_ratio(value: Decimal) -> String {
     } else if value == Decimal::MIN {
         "-∞".to_string()
     } else {
-        format!("{:.4}", value)
+        format!("{value:.4}")
     }
 }

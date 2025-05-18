@@ -397,7 +397,7 @@ impl MockExchange {
         self.instruments.get(instrument).ok_or_else(|| {
             ApiError::InstrumentInvalid(
                 instrument.clone(),
-                format!("MockExchange is not set-up for managing: {}", instrument),
+                format!("MockExchange is not set-up for managing: {instrument}"),
             )
         })
     }

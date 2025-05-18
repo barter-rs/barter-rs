@@ -190,8 +190,7 @@ fn find_exchange_by_exchange_id(
         .iter()
         .find_map(|indexed| (indexed.value == *needle).then_some(indexed.key))
         .ok_or(IndexError::ExchangeIndex(format!(
-            "Exchange: {} is not present in indexed instrument exchanges: {:?}",
-            needle, haystack
+            "Exchange: {needle} is not present in indexed instrument exchanges: {haystack:?}"
         )))
 }
 
@@ -208,8 +207,7 @@ fn find_asset_by_exchange_and_name_internal(
                 .then_some(indexed.key)
         })
         .ok_or(IndexError::AssetIndex(format!(
-            "Asset: ({}, {}) is not present in indexed instrument assets: {:?}",
-            needle_exchange, needle_name, haystack
+            "Asset: ({needle_exchange}, {needle_name}) is not present in indexed instrument assets: {haystack:?}"
         )))
 }
 

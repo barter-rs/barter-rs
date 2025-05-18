@@ -72,7 +72,7 @@ impl SubscriptionValidator for BitfinexWebSocketSubValidator {
                 // If timeout reached, return SubscribeError
                 _ = tokio::time::sleep(timeout) => {
                     break Err(SocketError::Subscribe(
-                        format!("subscription validation timeout reached: {:?}", timeout)
+                        format!("subscription validation timeout reached: {timeout:?}")
                     ))
                 },
                 // Parse incoming messages and determine subscription outcomes
