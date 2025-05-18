@@ -46,11 +46,11 @@ impl IndexedInstrumentsBuilder {
 
         // Add Instrument OrderQuantityUnits if it's defined in asset units
         // --> likely a duplicate asset, but if so will be filtered during Self::build()
-        if let Some(spec) = instrument.spec.as_ref() {
-            if let OrderQuantityUnits::Asset(asset) = &spec.quantity.unit {
-                self.assets
-                    .push(ExchangeAsset::new(instrument.exchange, asset.clone()));
-            }
+        if let Some(spec) = instrument.spec.as_ref()
+            && let OrderQuantityUnits::Asset(asset) = &spec.quantity.unit
+        {
+            self.assets
+                .push(ExchangeAsset::new(instrument.exchange, asset.clone()));
         }
 
         // Add Instrument
