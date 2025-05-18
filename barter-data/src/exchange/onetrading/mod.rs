@@ -44,7 +44,7 @@ pub mod trade;
 pub mod book;
 
 /// [`OneTrading`] server base url.
-pub const BASE_URL_ONETRADING: &str = "wss://streams.onetrading.com/ws";
+pub const BASE_URL_ONETRADING: &str = "wss://streams.fast.onetrading.com";
 
 /// [`OneTrading`] server [`PingInterval`] duration.
 pub const PING_INTERVAL_ONETRADING: Duration = Duration::from_secs(30);
