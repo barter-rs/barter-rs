@@ -73,6 +73,7 @@ pub enum ExchangeId {
     Liquid,
     Mexc,
     Okx,
+    OneTrading,
     Poloniex,
 }
 
@@ -121,6 +122,7 @@ impl ExchangeId {
             ExchangeId::Liquid => "liquid",
             ExchangeId::Mexc => "mexc",
             ExchangeId::Okx => "okx",
+            ExchangeId::OneTrading => "one_trading",
             ExchangeId::Poloniex => "poloniex",
         }
     }

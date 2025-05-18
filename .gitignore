@@ -5,3 +5,5 @@ Cargo.lock
 # IDE
 .idea/
 *.iml
+
+**/.claude/settings.local.json
