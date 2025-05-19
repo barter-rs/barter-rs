@@ -57,6 +57,7 @@ pub enum ExchangeId {
     Coinbase,
     CoinbaseInternational,
     Cryptocom,
+    Databento,
     Deribit,
     GateioFuturesBtc,
     GateioFuturesUsd,
@@ -80,6 +81,9 @@ impl ExchangeId {
     /// Return the &str representation of this [`ExchangeId`]
     pub fn as_str(&self) -> &'static str {
         match self {
+            //third party data providers
+            ExchangeId::Databento => "databento",
+            // exchanges
             ExchangeId::Other => "other",
             ExchangeId::Simulated => "simulated",
             ExchangeId::Mock => "mock",
