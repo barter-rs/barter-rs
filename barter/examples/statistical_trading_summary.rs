@@ -51,11 +51,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let time_now = Utc::now();
 
     // Construct EngineState from IndexedInstruments and hard-coded exchange asset Balances
-    let state = EngineState::builder(
-        &instruments,
-        DefaultGlobalData::default(),
-        DefaultInstrumentMarketData::default,
-    )
+    let state = EngineState::builder(&instruments, DefaultGlobalData::default(), |_| {
+        DefaultInstrumentMarketData::default()
+    })
     .time_engine_start(time_now)
     // Note: you may want to start to engine with TradingState::Disabled and turn on later
     .trading_state(TradingState::Enabled)

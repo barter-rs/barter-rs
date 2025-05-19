@@ -9,6 +9,7 @@ use barter_instrument::{
     Keyed,
     asset::{ExchangeAsset, name::AssetNameInternal},
     index::IndexedInstruments,
+    instrument::name::InstrumentNameInternal,
 };
 use barter_integration::snapshot::Snapshot;
 use chrono::{DateTime, Utc};
@@ -97,7 +98,7 @@ impl<'a, GlobalData, FnInstrumentData> EngineStateBuilder<'a, GlobalData, FnInst
     /// If optional data is not provided (eg/ Balances), default values are used (eg/ zero Balance).
     pub fn build<InstrumentData>(self) -> EngineState<GlobalData, InstrumentData>
     where
-        FnInstrumentData: FnMut() -> InstrumentData,
+        FnInstrumentData: FnMut(InstrumentNameInternal) -> InstrumentData,
     {
         let Self {
             instruments,
