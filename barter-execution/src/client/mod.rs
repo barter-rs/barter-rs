@@ -47,12 +47,12 @@ where
     fn cancel_order(
         &self,
         request: OrderRequestCancel<ExchangeId, &InstrumentNameExchange>,
-    ) -> impl Future<Output = UnindexedOrderResponseCancel> + Send;
+    ) -> impl Future<Output = Option<UnindexedOrderResponseCancel>> + Send;
 
     fn cancel_orders<'a>(
         &self,
         requests: impl IntoIterator<Item = OrderRequestCancel<ExchangeId, &'a InstrumentNameExchange>>,
-    ) -> impl Stream<Item = UnindexedOrderResponseCancel> {
+    ) -> impl Stream<Item = Option<UnindexedOrderResponseCancel>> {
         futures::stream::FuturesUnordered::from_iter(
             requests
                 .into_iter()
@@ -64,14 +64,17 @@ where
         &self,
         request: OrderRequestOpen<ExchangeId, &InstrumentNameExchange>,
     ) -> impl Future<
-        Output = Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>,
+        Output = Option<
+            Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>,
+        >,
     > + Send;
 
     fn open_orders<'a>(
         &self,
         requests: impl IntoIterator<Item = OrderRequestOpen<ExchangeId, &'a InstrumentNameExchange>>,
-    ) -> impl Stream<Item = Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>>
-    {
+    ) -> impl Stream<
+        Item = Option<Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>>,
+    > {
         futures::stream::FuturesUnordered::from_iter(
             requests.into_iter().map(|request| self.open_order(request)),
         )
