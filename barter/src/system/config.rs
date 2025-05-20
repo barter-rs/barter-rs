@@ -2,7 +2,7 @@
 ///
 /// Provides data structures for configuring various aspects of a trading system,
 /// including instruments and execution components.
-use barter_execution::client::mock::MockExecutionConfig;
+use barter_execution::{client::mock::MockExecutionConfig, ApiCredentials};
 use barter_instrument::{
     Underlying,
     asset::{Asset, name::AssetNameExchange},
@@ -60,10 +60,12 @@ pub struct InstrumentConfig {
 /// Represents different types of execution configurations,
 /// currently only supporting mock execution for backtesting.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
-#[serde(untagged)]
+#[serde(tag = "type")]
 pub enum ExecutionConfig {
     /// Mock execution configuration for backtesting
     Mock(MockExecutionConfig),
+    /// Bybit config
+    BybitSpot(ApiCredentials),
 }
 
 impl From<InstrumentConfig> for Instrument<ExchangeId, Asset> {
