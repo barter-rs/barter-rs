@@ -68,7 +68,7 @@ impl SnapshotFetcher<BybitSpot, OrderBooksL2> for BybitSpotOrderBooksL2SnapshotF
                 let time = chrono::DateTime::from_timestamp_millis(timestamp)
                     .unwrap_or_else(|| Utc::now());
 
-                let order_book = book_data.normalize(time);
+                let order_book = book_data.canonicalize(time);
 
                 Ok(MarketEvent::from((
                     ExchangeId::BybitSpot,
@@ -141,7 +141,7 @@ where
         let time_exchange = input.time;
 
         // Create the OrderBook
-        let order_book = input.data.normalize(time_exchange);
+        let order_book = input.data.canonicalize(time_exchange);
 
         // Use 'type' field to determine if this is a snapshot or update
         let event_type = if input.r#type == "snapshot" {
