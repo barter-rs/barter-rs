@@ -24,6 +24,7 @@ pub const STREAM_RECONNECTION_POLICY: ReconnectionBackoffPolicy = ReconnectionBa
     backoff_ms_initial: 125,
     backoff_multiplier: 2,
     backoff_ms_max: 60000,
+    jitter_ms: 250,
 };
 
 /// Convenient type alias for a [`MarketEvent`] [`Result`] consumed via a

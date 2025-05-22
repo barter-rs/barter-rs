@@ -4,6 +4,7 @@ use derive_more::Constructor;
 use futures::Stream;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
+use rand::Rng;
 use std::{convert, fmt::Debug, future, future::Future};
 use tracing::{error, info, warn};
 
@@ -41,9 +42,11 @@ where
                             ?error,
                             "failed to re-initialise Stream"
                         );
-                        let sleep_fut = state.generate_sleep_future();
+                        let sleep_duration = state.generate_sleep_duration();
+                        let sleep_fut = tokio::time::sleep(sleep_duration);
                         state.multiply_backoff();
                         futures::future::Either::Right(Box::pin(async move {
+                            info!(?stream_key, ?sleep_duration, "waiting before reconnect attempt");
                             sleep_fut.await;
                             Some(Err(error))
                         }))
@@ -171,6 +174,11 @@ pub struct ReconnectionBackoffPolicy {
 
     /// Maximum possible backoff duration between reconnection attempts.
     pub backoff_ms_max: u64,
+
+    /// Random jitter in milliseconds to apply on top of the calculated backoff
+    /// duration. A random value in the range `[0, jitter_ms]` will be added to
+    /// each reconnection delay.
+    pub jitter_ms: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
@@ -199,8 +207,75 @@ impl ReconnectionState {
         self.backoff_ms_current = next_capped;
     }
 
+    fn generate_sleep_duration(&self) -> std::time::Duration {
+        let jitter = if self.policy.jitter_ms > 0 {
+            use rand::Rng;
+            let mut rng = rand::thread_rng();
+            rng.gen_range(0..=self.policy.jitter_ms)
+        } else {
+            0
+        };
+
+        std::time::Duration::from_millis(self.backoff_ms_current + jitter)
+    }
+
     fn generate_sleep_future(&self) -> tokio::time::Sleep {
-        let sleep_duration = std::time::Duration::from_millis(self.backoff_ms_current);
-        tokio::time::sleep(sleep_duration)
+        tokio::time::sleep(self.generate_sleep_duration())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+    use futures_util::StreamExt;
+    use tokio_stream::StreamExt as TokioStreamExt;
+    use std::time::Duration;
+    use jackbot_instrument::exchange::ExchangeId;
+
+    #[tokio::test]
+    async fn test_generate_sleep_duration_jitter() {
+        let policy = ReconnectionBackoffPolicy::new(100, 2, 1000, 50);
+        let mut state = ReconnectionState::from(policy.clone());
+
+        for _ in 0..3 {
+            let dur = state.generate_sleep_duration();
+            assert!(dur >= Duration::from_millis(state.backoff_ms_current));
+            assert!(dur <= Duration::from_millis(state.backoff_ms_current + policy.jitter_ms));
+            state.multiply_backoff();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_reconnecting_stream_reconnects() {
+        tokio::time::pause();
+
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let init = {
+            let attempts = attempts.clone();
+            move || {
+                let attempts = attempts.clone();
+                async move {
+                    let count = attempts.fetch_add(1, Ordering::SeqCst);
+                    if count == 0 {
+                        Ok(tokio_stream::iter(vec![Ok(1), Err(())]))
+                    } else {
+                        Ok(tokio_stream::iter(vec![Ok(2)]))
+                    }
+                }
+            }
+        };
+
+        let policy = ReconnectionBackoffPolicy { backoff_ms_initial: 0, backoff_multiplier: 1, backoff_ms_max: 0, jitter_ms: 0 };
+        let stream = init_reconnecting_stream(init).await.unwrap()
+            .with_reconnect_backoff(policy, StreamKey::new_general("test", ExchangeId::BinanceSpot))
+            .with_termination_on_error(|_| true, StreamKey::new_general("test", ExchangeId::BinanceSpot))
+            .with_reconnection_events(());
+
+        let collected: Vec<_> = stream.take(3).collect().await;
+        assert_eq!(attempts.load(Ordering::SeqCst), 2);
+        assert_eq!(collected[0], Event::Item(Ok(1)));
+        assert_eq!(collected[1], Event::Reconnecting(()));
+        assert_eq!(collected[2], Event::Item(Ok(2)));
     }
 }
