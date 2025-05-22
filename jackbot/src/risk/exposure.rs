@@ -9,6 +9,7 @@ use jackbot_integration::collection::one_or_many::OneOrMany;
 use jackbot_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex, Side};
 use jackbot_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use rust_decimal::Decimal;
+use jackbot_risk::volatility::VolatilityScaler;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
@@ -38,6 +39,10 @@ impl Default for ExposureLimits {
 #[derive(Debug, Clone)]
 pub struct ExposureRiskManager<State> {
     pub limits: ExposureLimits,
+    /// Optional volatility scaler used to adjust limits.
+    pub scaler: Option<jackbot_risk::volatility::VolatilityScaler>,
+    /// Per instrument volatility values.
+    pub volatilities: HashMap<InstrumentIndex, Decimal>,
     phantom: PhantomData<State>,
 }
 
@@ -45,6 +50,8 @@ impl<State> Default for ExposureRiskManager<State> {
     fn default() -> Self {
         Self {
             limits: ExposureLimits::default(),
+            scaler: None,
+            volatilities: HashMap::new(),
             phantom: PhantomData,
         }
     }
@@ -85,7 +92,17 @@ where
             let underlying = inst_state.instrument.underlying.base;
             let current = exposures.entry(underlying).or_insert(Decimal::ZERO);
 
-            if *current + notional > self.limits.max_notional_per_underlying {
+            let mut limit = self.limits.max_notional_per_underlying;
+            if let Some(scaler) = &self.scaler {
+                let vol = self
+                    .volatilities
+                    .get(&open.key.instrument)
+                    .copied()
+                    .unwrap_or(scaler.base_volatility);
+                limit = scaler.adjust_risk(limit, vol);
+            }
+
+            if *current + notional > limit {
                 refused_opens.push(RiskRefused::new(open, "exposure limit"));
                 continue;
             }

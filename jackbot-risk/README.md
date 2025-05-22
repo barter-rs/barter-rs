@@ -25,3 +25,10 @@ let size = scaler.adjust_position(dec!(10), dec!(0.04));
 assert_eq!(size, dec!(5));
 ```
 
+```rust
+use jackbot_risk::stress::stress_test_pnl;
+
+let pnl = stress_test_pnl(&state, dec!(-0.3));
+println!("PNL after 30% drop: {:?}", pnl);
+```
+
