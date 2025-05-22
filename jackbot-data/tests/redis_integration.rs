@@ -128,6 +128,7 @@ fn test_mexc_store_methods() {
 
 #[test]
 
+
 fn test_query_methods() {
     use jackbot_data::books::{OrderBook, Level};
     use jackbot_data::subscription::book::OrderBookEvent;
@@ -144,6 +145,7 @@ fn test_query_methods() {
     assert_eq!(store.get_deltas(ExchangeId::BinanceSpot, "BTC_USDT", 1).len(), 1);
     assert_eq!(store.get_trades(ExchangeId::BinanceSpot, "BTC_USDT", 1).len(), 1);
 }
+
 
 fn test_cryptocom_store_methods() {
     use jackbot_data::exchange::cryptocom::spot::l2::CryptocomOrderBookL2;
@@ -209,3 +211,4 @@ fn test_gateio_store_methods() {
     assert!(store.get_snapshot(ExchangeId::Gateio, "BTC_USDT").is_some());
     assert_eq!(store.delta_len(ExchangeId::Gateio, "BTC_USDT"), 2);
 }
+

@@ -570,9 +570,9 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - [x] S3 Integration (upload, partitioning, retention)
 - [x] Iceberg Table Management (registration, schema evolution, query support)
 - [x] Snapshot Scheduling (configurable, robust)
-- [ ] MEXC: Integrate snapshot logic for order book and trades
-- [ ] Gate.io: Integrate snapshot logic for order book and trades
-- [ ] Crypto.com: Integrate snapshot logic for order book and trades
+- [x] MEXC: Integrate snapshot logic for order book and trades
+- [x] Gate.io: Integrate snapshot logic for order book and trades
+- [x] Crypto.com: Integrate snapshot logic for order book and trades
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.

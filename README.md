@@ -63,9 +63,9 @@ A detailed feature matrix is maintained in [docs/IMPLEMENTATION_STATUS.md](docs/
 
 - **L2 Order Books**
   - Completed: Binance (Spot & Futures), Coinbase (Spot), Kraken (Spot & Futures), Bybit (Spot & Futures)
-  - Partial: OKX (Spot & Futures), Kucoin (Spot), Gate.io (Spot & Futures), Crypto.com (Spot & Futures)
+  - Partial: OKX (Spot & Futures), Kucoin (Spot)
   - Pending: Kucoin (Futures), Hyperliquid, Bitget
-  - New: MEXC (Spot & Futures), Gate.io (Spot & Futures) and Crypto.com (Spot & Futures) with Redis order book support
+  - New: MEXC (Spot & Futures), Gate.io, and Crypto.com with Redis snapshot integration
 - **Canonical Order Book** implemented across Binance, Bybit, OKX, Coinbase, and Kraken (Futures).
 - **Trade Streams & Execution**: planned and under active development.
 
