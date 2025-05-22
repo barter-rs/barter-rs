@@ -4,6 +4,7 @@ use crate::{
     books::{Canonicalizer, Level, OrderBook},
     event::{MarketEvent, MarketIter},
     exchange::{subscription::ExchangeSub},
+    redis_store::RedisStore,
     subscription::book::{OrderBookEvent, OrderBooksL2},
 };
 use chrono::{DateTime, Utc};
@@ -35,6 +36,20 @@ impl Canonicalizer for MexcOrderBookL2 {
         let bids = self.bids.iter().map(|(p, a)| Level::new(*p, *a));
         let asks = self.asks.iter().map(|(p, a)| Level::new(*p, *a));
         OrderBook::new(0, Some(timestamp), bids, asks)
+    }
+}
+
+impl MexcOrderBookL2 {
+    /// Persist this order book snapshot to the provided [`RedisStore`].
+    pub fn store_snapshot<Store: RedisStore>(&self, store: &Store) {
+        let snapshot = self.canonicalize(self.time);
+        store.store_snapshot(ExchangeId::Mexc, self.subscription_id.as_ref(), &snapshot);
+    }
+
+    /// Persist this order book update to the provided [`RedisStore`].
+    pub fn store_delta<Store: RedisStore>(&self, store: &Store) {
+        let delta = OrderBookEvent::Update(self.canonicalize(self.time));
+        store.store_delta(ExchangeId::Mexc, self.subscription_id.as_ref(), &delta);
     }
 }
 
