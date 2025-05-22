@@ -22,7 +22,7 @@ use url::Url;
 
 pub mod book;
 pub mod channel;
-/// Futures market modules for Kucoin (stub; not yet implemented).
+/// Futures market modules for Kucoin.
 pub mod futures;
 pub mod liquidation;
 pub mod market;

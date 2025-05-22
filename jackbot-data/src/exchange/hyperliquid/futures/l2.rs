@@ -67,6 +67,7 @@ where
 mod tests {
     use super::*;
     use rust_decimal_macros::dec;
+    use crate::books::Level;
 
     #[test]
     fn test_hyperliquid_futures_order_book_l2() {
@@ -74,5 +75,8 @@ mod tests {
         let book: HyperliquidFuturesOrderBookL2 = serde_json::from_str(input).unwrap();
         assert_eq!(book.bids[0], (dec!(30000.0), dec!(1.0)));
         assert_eq!(book.asks[0], (dec!(30010.0), dec!(2.0)));
+        let canonical = book.canonicalize(book.time);
+        assert_eq!(canonical.bids().levels()[0], Level::new(dec!(30000.0), dec!(1.0)));
+        assert_eq!(canonical.asks().levels()[0], Level::new(dec!(30010.0), dec!(2.0)));
     }
 }
