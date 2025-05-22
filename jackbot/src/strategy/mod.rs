@@ -40,6 +40,9 @@ pub mod on_disconnect;
 /// `TradingState` gets set to `TradingState::Disabled`.
 pub mod on_trading_disabled;
 
+/// Advanced execution algorithms such as TWAP/VWAP slicing and always maker.
+pub mod advanced_orders;
+
 /// Naive implementation of all strategy interfaces.
 ///
 /// *THIS IS FOR DEMONSTRATION PURPOSES ONLY, NEVER USE FOR REAL TRADING OR IN PRODUCTION*.
