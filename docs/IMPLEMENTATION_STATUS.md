@@ -167,9 +167,9 @@ Exchanges currently implementing the `Canonicalizer` trait:
 **Exchange-Specific TODOs:**
 
 - **Binance**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Bitget**
   - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
