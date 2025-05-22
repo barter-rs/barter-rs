@@ -56,7 +56,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, GateioFuturesOrderBookL2)>
     for MarketIter<InstrumentKey, OrderBookEvent>
 {
     fn from((exchange_id, instrument, book): (ExchangeId, InstrumentKey, GateioFuturesOrderBookL2)) -> Self {
-        let order_book = book.canonicalize(book.time);
+der_book = book.canonicalize(book.time);
         Self(vec![Ok(MarketEvent {
             time_exchange: book.time,
             time_received: Utc::now(),

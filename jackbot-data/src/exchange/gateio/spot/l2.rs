@@ -1,4 +1,3 @@
-//! Level 2 order book types for Gate.io spot.
 use crate::{
     Identifier,
     books::{Canonicalizer, Level, OrderBook},
@@ -57,6 +56,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, GateioOrderBookL2)>
 {
     fn from((exchange_id, instrument, book): (ExchangeId, InstrumentKey, GateioOrderBookL2)) -> Self {
         let order_book = book.canonicalize(book.time);
+
         Self(vec![Ok(MarketEvent {
             time_exchange: book.time,
             time_received: Utc::now(),

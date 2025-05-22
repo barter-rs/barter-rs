@@ -3,6 +3,7 @@ use crate::{
     Identifier,
     books::{Canonicalizer, Level, OrderBook},
     event::{MarketEvent, MarketIter},
+    redis_store::RedisStore,
     subscription::book::{OrderBookEvent, OrderBooksL2},
 };
 use chrono::{DateTime, Utc};
@@ -69,6 +70,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, CryptocomFuturesOrderBookL2
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::redis_store::InMemoryStore;
     use rust_decimal_macros::dec;
 
     #[test]
@@ -77,5 +79,22 @@ mod tests {
         let book: CryptocomFuturesOrderBookL2 = serde_json::from_str(input).unwrap();
         assert_eq!(book.bids[0], (dec!(30000.0), dec!(1.0)));
         assert_eq!(book.asks[0], (dec!(30010.0), dec!(2.0)));
+    }
+
+    #[test]
+    fn test_store_methods() {
+        let store = InMemoryStore::new();
+        let book = CryptocomFuturesOrderBookL2 {
+            subscription_id: "BTC_USDT".into(),
+            time: Utc::now(),
+            bids: vec![(dec!(30000.0), dec!(1.0))],
+            asks: vec![(dec!(30010.0), dec!(2.0))],
+        };
+        book.store_snapshot(&store);
+        assert!(store.get_snapshot_json(ExchangeId::Cryptocom, "BTC_USDT").is_some());
+
+        let delta_book = CryptocomFuturesOrderBookL2 { time: Utc::now(), ..book };
+        delta_book.store_delta(&store);
+        assert_eq!(store.delta_len(ExchangeId::Cryptocom, "BTC_USDT"), 1);
     }
 }

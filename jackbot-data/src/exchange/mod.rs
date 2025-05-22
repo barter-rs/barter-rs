@@ -20,6 +20,12 @@ pub mod bybit;
 /// `Coinbase` [`Connector`] and [`StreamSelector`] implementations.
 pub mod coinbase;
 
+/// `Crypto.com` [`Connector`] and [`StreamSelector`] implementations.
+pub mod cryptocom;
+
+/// `Gate.io` [`Connector`] and [`StreamSelector`] implementations.
+pub mod gateio;
+
 /// `Kraken` [`Connector`] and [`StreamSelector`] implementations.
 pub mod kraken;
 
