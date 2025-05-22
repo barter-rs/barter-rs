@@ -25,6 +25,19 @@ let size = scaler.adjust_position(dec!(10), dec!(0.04));
 assert_eq!(size, dec!(5));
 ```
 
+Volatility adjustment can also be applied directly through the `ExposureRiskManager`.
+
+```rust
+use jackbot_risk::{volatility::VolatilityScaler, exposure::{ExposureRiskManager, ExposureLimits}};
+use jackbot_instrument::instrument::InstrumentIndex;
+use rust_decimal_macros::dec;
+
+let mut manager: ExposureRiskManager<()> = ExposureRiskManager::default();
+manager.limits = ExposureLimits { max_notional_per_underlying: dec!(1000), ..Default::default() };
+manager.scaler = Some(VolatilityScaler::new(dec!(0.02), dec!(0.5), dec!(2)));
+manager.volatilities.insert(InstrumentIndex(0), dec!(0.04));
+```
+
 ```rust
 use jackbot_risk::stress::stress_test_pnl;
 

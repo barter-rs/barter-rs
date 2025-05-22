@@ -317,3 +317,64 @@ fn test_volatility_scaler_blocks_order() {
     let refused: Vec<_> = refused_opens.into_iter().collect();
     assert_eq!(refused.len(), 1);
 }
+
+#[test]
+fn test_volatility_scaler_adjusts_quantity() {
+    let instruments = jackbot_instrument::index::IndexedInstruments::builder()
+        .add_instrument(Instrument::spot(
+            ExchangeId::BinanceSpot,
+            "binance_spot_btc_usdt",
+            "BTCUSDT",
+            Underlying::new("btc", "usdt"),
+            None,
+        ))
+        .build();
+
+    let mut state: EngineState<DefaultGlobalData, DefaultInstrumentMarketData> = EngineState::builder(
+        &instruments,
+        DefaultGlobalData::default(),
+        DefaultInstrumentMarketData::default,
+    )
+    .time_engine_start(Utc::now())
+    .build();
+
+    let inst_key = InstrumentIndex(0);
+    let mut inst_state = state.instruments.instrument_index_mut(&inst_key);
+    inst_state.data.last_traded_price = Some(Jackbot::Timed::new(dec!(100), Utc::now()));
+    drop(inst_state);
+
+    let limits = ExposureLimits {
+        max_notional_per_underlying: dec!(1000),
+        max_drawdown_percent: dec!(1),
+        correlation_limits: HashMap::new(),
+    };
+    let mut risk: ExposureRiskManager<EngineState<_, _>> = ExposureRiskManager {
+        limits,
+        scaler: Some(VolatilityScaler::new(dec!(0.02), dec!(0.5), dec!(2))),
+        volatilities: HashMap::new(),
+        phantom: std::marker::PhantomData,
+    };
+    risk.volatilities.insert(inst_key, dec!(0.04));
+
+    let open = OrderRequestOpen {
+        key: OrderKey {
+            exchange: ExchangeIndex(0),
+            instrument: inst_key,
+            strategy: StrategyId::new("s1"),
+            cid: ClientOrderId::new("c1"),
+        },
+        state: RequestOpen {
+            side: jackbot_instrument::Side::Buy,
+            price: dec!(100),
+            quantity: dec!(2),
+            kind: OrderKind::Market,
+            time_in_force: TimeInForce::ImmediateOrCancel,
+        },
+    };
+
+    let (_, approved_opens, _, _) =
+        risk.check(&state, std::iter::empty::<OrderRequestOpen>(), vec![open]);
+    let approved: Vec<_> = approved_opens.into_iter().collect();
+    assert_eq!(approved.len(), 1);
+    assert_eq!(approved[0].0.state.quantity, dec!(1));
+}
