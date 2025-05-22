@@ -1,5 +1,6 @@
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
+use rust_decimal::Decimal;
 use thiserror::Error;
 
 /// Utilities to assist with RiskManager checks.
@@ -66,4 +67,41 @@ pub struct CheckFailHigherThan<T> {
 
     /// The input value that caused the check to fail.
     pub input: T,
+}
+
+/// Risk check ensuring the potential loss of an order does not exceed a limit.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, Constructor)]
+pub struct CheckLossLimit {
+    /// Maximum allowed loss.
+    pub limit: Decimal,
+}
+
+/// Error returned when a [`CheckLossLimit`] validation fails.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, Constructor, Error)]
+#[error("CheckLossLimitFailed: loss {loss} > limit {limit}")]
+pub struct CheckFailLossLimit {
+    /// Configured loss limit.
+    pub limit: Decimal,
+    /// Calculated potential loss of the order.
+    pub loss: Decimal,
+}
+
+impl RiskCheck for CheckLossLimit {
+    type Input = Decimal;
+    type Error = CheckFailLossLimit;
+
+    fn name() -> &'static str {
+        "CheckLossLimit"
+    }
+
+    fn check(&self, input: &Self::Input) -> Result<(), Self::Error> {
+        if *input <= self.limit {
+            Ok(())
+        } else {
+            Err(CheckFailLossLimit {
+                limit: self.limit,
+                loss: *input,
+            })
+        }
+    }
 }

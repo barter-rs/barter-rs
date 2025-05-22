@@ -60,6 +60,9 @@ pub mod stream;
 
 pub mod snapshot;
 
+/// API rate limiting utilities with adaptive backoff and priority queueing.
+pub mod rate_limit;
+
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.
 pub trait Validator {
