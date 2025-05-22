@@ -604,17 +604,60 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Exchange-Specific TODOs:**
 
-- [ ] Binance: Implement/refactor user WebSocket for spot/futures (balance, trading events)
-- [ ] Bitget: Implement/refactor user WebSocket for spot/futures (balance, trading events)
-- [ ] Bybit: Implement/refactor user WebSocket for spot/futures (balance, trading events)
-- [ ] Coinbase: Implement/refactor user WebSocket for spot/futures (balance, trading events)
-- [ ] Kraken: Implement/refactor user WebSocket for spot/futures (balance, trading events)
-- [ ] Kucoin: Implement/refactor user WebSocket for spot/futures (balance, trading events)
-- [ ] OKX: Implement/refactor user WebSocket for spot/futures (balance, trading events)
-- [ ] Hyperliquid: Implement/refactor user WebSocket for spot/futures (balance, trading events)
-- [ ] MEXC: Implement/refactor user WebSocket for spot/futures (balance, trading events)
-- [ ] Gate.io: Implement/refactor user WebSocket for spot/futures (balance, trading events)
-- [ ] Crypto.com: Implement/refactor user WebSocket for spot/futures (balance, trading events)
+- **Binance**
+  - [ ] Implement authentication and connection management (spot/futures).
+  - [ ] Implement event handling for balances, orders, and positions.
+  - [ ] Add/extend tests for all user WebSocket logic.
+
+- **Bitget**
+  - [ ] Implement authentication and connection management (spot/futures).
+  - [ ] Implement event handling for balances, orders, and positions.
+  - [ ] Add/extend tests for all user WebSocket logic.
+
+- **Bybit**
+  - [ ] Implement authentication and connection management (spot/futures).
+  - [ ] Implement event handling for balances, orders, and positions.
+  - [ ] Add/extend tests for all user WebSocket logic.
+
+- **Coinbase**
+  - [ ] Implement authentication and connection management (spot/futures).
+  - [ ] Implement event handling for balances, orders, and positions.
+  - [ ] Add/extend tests for all user WebSocket logic.
+
+- **Kraken**
+  - [ ] Implement authentication and connection management (spot/futures).
+  - [ ] Implement event handling for balances, orders, and positions.
+  - [ ] Add/extend tests for all user WebSocket logic.
+
+- **Kucoin**
+  - [ ] Implement authentication and connection management (spot/futures).
+  - [ ] Implement event handling for balances, orders, and positions.
+  - [ ] Add/extend tests for all user WebSocket logic.
+
+- **OKX**
+  - [ ] Implement authentication and connection management (spot/futures).
+  - [ ] Implement event handling for balances, orders, and positions.
+  - [ ] Add/extend tests for all user WebSocket logic.
+
+- **Hyperliquid**
+  - [ ] Implement authentication and connection management (spot/futures).
+  - [ ] Implement event handling for balances, orders, and positions.
+  - [ ] Add/extend tests for all user WebSocket logic.
+
+- **MEXC**
+  - [ ] Implement authentication and connection management (spot/futures).
+  - [ ] Implement event handling for balances, orders, and positions.
+  - [ ] Add/extend tests for all user WebSocket logic.
+
+- **Gate.io**
+  - [ ] Implement authentication and connection management (spot/futures).
+  - [ ] Implement event handling for balances, orders, and positions.
+  - [ ] Add/extend tests for all user WebSocket logic.
+
+- **Crypto.com**
+  - [ ] Implement authentication and connection management (spot/futures).
+  - [ ] Implement event handling for balances, orders, and positions.
+  - [ ] Add/extend tests for all user WebSocket logic.
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.
