@@ -38,9 +38,10 @@ use std::{fmt::Debug, sync::Arc};
 /// Defines the interface and implementations for different types of market data sources
 /// that can be used in backtests.
 pub mod market_data;
-
-/// Contains data structures for representing backtest results and metrics.
+pub mod data_loader;
+pub mod order_book_replay;
 pub mod summary;
+pub mod simulation;
 
 /// Configuration for constants used across all backtests in a batch.
 ///
