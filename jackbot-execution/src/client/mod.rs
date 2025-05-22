@@ -19,7 +19,13 @@ use futures::Stream;
 use std::future::Future;
 
 pub mod binance;
+pub mod cryptocom;
+pub mod gateio;
+pub mod mexc;
 pub mod mock;
+pub mod mexc;
+pub mod gateio;
+pub mod cryptocom;
 
 pub trait ExecutionClient
 where

@@ -1,5 +1,3 @@
-// GateIo Order Book L2 stub
-
 use crate::{
     Identifier,
     books::{Canonicalizer, Level, OrderBook},
@@ -71,8 +69,6 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, GateIoOrderBookL2)>
         })])
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {

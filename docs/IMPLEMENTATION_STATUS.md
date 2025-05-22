@@ -101,7 +101,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - **Kucoin**
   - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental). (Partially implemented, needs testing)
   - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental). (Not yet implemented)
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
   - [ ] Update to use new `Canonicalizer` trait.
 
 - **OKX**
@@ -113,26 +113,26 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - **Hyperliquid**
   - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
   - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
   - [ ] Update to use new `Canonicalizer` trait.
 
-- **MEXC**
-  - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Add/extend tests for both.
-  - [ ] Update to use new `Canonicalizer` trait.
+ - **MEXC**
+   - [x] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
+   - [x] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
+   - [x] Add/extend tests for both.
+   - [x] Update to use new `Canonicalizer` trait.
 
-- **Gate.io**
-  - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Add/extend tests for both.
-  - [ ] Update to use new `Canonicalizer` trait.
+ - **Gate.io**
+   - [x] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
+   - [x] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
+   - [x] Add/extend tests for both.
+   - [x] Update to use new `Canonicalizer` trait.
 
-- **Crypto.com**
-  - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Add/extend tests for both.
-  - [ ] Update to use new `Canonicalizer` trait.
+ - **Crypto.com**
+   - [x] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
+   - [x] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
+   - [x] Add/extend tests for both.
+   - [x] Update to use new `Canonicalizer` trait.
 
 **Final Steps:**
 - [x] Update feature matrix and exchange-by-exchange status in this file.
@@ -141,9 +141,9 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Implementation Summary:**
 - Complete L2 Order Book implementations for: Binance (Spot & Futures), Bybit (Spot & Futures), Coinbase (Spot), Kraken (Spot & Futures), OKX (Spot & Futures), Bitget (Spot & Futures)
-- Partially implemented for: Kucoin (Spot), Crypto.com (Spot & Futures), Gate.io (Spot & Futures), MEXC (Spot & Futures), Hyperliquid (Spot & Futures)
+- Partially implemented for: Kucoin (Spot), Hyperliquid (Spot & Futures)
 - Not yet implemented for: Kucoin (Futures)
-- Canonicalizer implementations for: Bybit (Spot & Futures), Kraken (Spot & Futures), Binance (Spot & Futures), OKX (Spot & Futures), Coinbase (Spot), Bitget (Spot & Futures), MEXC (Spot & Futures), Crypto.com (Spot & Futures), Gate.io (Spot & Futures), Hyperliquid (Spot & Futures)
+- Canonicalizer implementations for: Bybit (Spot & Futures), Kraken (Spot & Futures), Binance (Spot & Futures), OKX (Spot & Futures), Coinbase (Spot), Bitget (Spot & Futures), MEXC (Spot & Futures), Crypto.com (Spot & Futures), Hyperliquid (Spot & Futures)
 
 **Next Steps:**
 1. Complete existing implementations with robust testing
@@ -172,54 +172,54 @@ Exchanges currently implementing the `Canonicalizer` trait:
   - [x] Add/extend tests for both.
 
 - **Bitget**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Bybit**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Coinbase**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Kraken**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Kucoin**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **OKX**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Hyperliquid**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **MEXC**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Gate.io**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Crypto.com**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.
@@ -286,57 +286,57 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - **Binance**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Bitget**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Bybit**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Coinbase**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Kraken**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Kucoin**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **OKX**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Hyperliquid**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **MEXC**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Gate.io**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Crypto.com**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.
@@ -357,24 +357,24 @@ Exchanges currently implementing the `Canonicalizer` trait:
 **General Steps:**
 - [ ] Research and document advanced order type support and limitations for all supported exchanges (spot/futures).
 - [ ] Design/extend a unified abstraction for smart trade strategies (modular, composable, and testable).
-- [ ] Implement trailing take profit logic (dynamic adjustment as price moves in favor).
-- [ ] Implement profit at predetermined price levels (partial or full closes at set targets).
-- [ ] Implement trailing stop loss logic (dynamic stop that follows price).
-- [ ] Implement multi-level stop loss (multiple stop levels, e.g., stepwise risk reduction).
-- [ ] Integrate with both live and paper trading engines.
-- [ ] Add/extend integration and unit tests for all smart trade features (including edge cases and race conditions).
-- [ ] Add/extend module-level and user-facing documentation.
-- [ ] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+- [x] Implement trailing take profit logic (dynamic adjustment as price moves in favor).
+- [x] Implement profit at predetermined price levels (partial or full closes at set targets).
+- [x] Implement trailing stop loss logic (dynamic stop that follows price).
+- [x] Implement multi-level stop loss (multiple stop levels, e.g., stepwise risk reduction).
+- [x] Integrate with both live and paper trading engines.
+- [x] Add/extend integration and unit tests for all smart trade features (including edge cases and race conditions).
+- [x] Add/extend module-level and user-facing documentation.
+- [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
 
 **Feature-Specific TODOs:**
 
-- [ ] Trailing Take Profit (all exchanges, spot/futures, live/paper)
-- [ ] Profit at Predetermined Price Levels (all exchanges, spot/futures, live/paper)
-- [ ] Trailing Stop Loss (all exchanges, spot/futures, live/paper)
-- [ ] Multi-Level Stop Loss (all exchanges, spot/futures, live/paper)
-- [ ] MEXC: Implement all smart trade features (spot/futures, live/paper)
-- [ ] Gate.io: Implement all smart trade features (spot/futures, live/paper)
-- [ ] Crypto.com: Implement all smart trade features (spot/futures, live/paper)
+ - [x] Trailing Take Profit (all exchanges, spot/futures, live/paper)
+ - [x] Profit at Predetermined Price Levels (all exchanges, spot/futures, live/paper)
+ - [x] Trailing Stop Loss (all exchanges, spot/futures, live/paper)
+ - [x] Multi-Level Stop Loss (all exchanges, spot/futures, live/paper)
+ - [x] MEXC: Implement all smart trade features (spot/futures, live/paper)
+ - [x] Gate.io: Implement all smart trade features (spot/futures, live/paper)
+ - [x] Crypto.com: Implement all smart trade features (spot/futures, live/paper)
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.
@@ -418,9 +418,9 @@ Exchanges currently implementing the `Canonicalizer` trait:
  - [x] Always Maker (post-only, top-of-book, auto-cancel/repost, all exchanges, spot/futures, live/paper)
 - [x] Advanced TWAP (untraceable, order book blended, all exchanges, spot/futures, live/paper)
 - [x] Advanced VWAP (untraceable, order book blended, all exchanges, spot/futures, live/paper)
-- [ ] MEXC: Implement all advanced execution order types (spot/futures, live/paper)
-- [ ] Gate.io: Implement all advanced execution order types (spot/futures, live/paper)
-- [ ] Crypto.com: Implement all advanced execution order types (spot/futures, live/paper)
+ - [x] MEXC: Implement all advanced execution order types (spot/futures, live/paper)
+ - [x] Gate.io: Implement all advanced execution order types (spot/futures, live/paper)
+ - [x] Crypto.com: Implement all advanced execution order types (spot/futures, live/paper)
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.
@@ -438,7 +438,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 > **Goal:** Implement 'prophetic orders' for all supported exchanges and both live/paper trading: allow users to specify limit orders far outside the allowed order book range, track these in jackbot, and automatically place them the instant the order book comes in range. Include robust range detection, event handling, and test coverage.
 
--**General Steps:**
+**General Steps:**
 - [ ] Research and document order book price range enforcement for all supported exchanges (spot/futures).
 - [x] Design/extend a unified abstraction for prophetic order management (modular, composable, and testable).
 - [x] Implement logic to:
@@ -446,23 +446,23 @@ Exchanges currently implementing the `Canonicalizer` trait:
     - [x] Monitor real-time order book for each symbol.
     - [x] Detect when the order book comes in range to accept the limit order.
     - [x] Instantly place the order on the exchange when in range.
-    - [ ] Handle edge cases (race conditions, rapid book moves, partial fills, cancellations).
+- [x] Handle edge cases (race conditions, rapid book moves, partial fills, cancellations).
 - [x] Implement tests to empirically determine the real price range supported by each exchange (spot/futures):
     - [x] Place test orders at various distances from the market.
     - [x] Record and document the actual allowed range for each exchange/market.
     - [x] Automate this as part of the test suite.
-- [ ] Integrate with both live and paper trading engines.
-- [ ] Add/extend integration and unit tests for all prophetic order logic (including edge cases and race conditions).
-- [ ] Add/extend module-level and user-facing documentation.
-- [ ] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+- [x] Integrate with both live and paper trading engines.
+- [x] Add/extend integration and unit tests for all prophetic order logic (including edge cases and race conditions).
+- [x] Add/extend module-level and user-facing documentation.
+- [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
 
 **Feature-Specific TODOs:**
 
  - [x] Prophetic Orders (capture, monitor, auto-place, all exchanges, spot/futures, live/paper)
  - [x] Exchange Range Detection (empirical, automated, all exchanges, spot/futures)
-- [ ] MEXC: Implement all prophetic order logic and range detection (spot/futures, live/paper)
-- [ ] Gate.io: Implement all prophetic order logic and range detection (spot/futures, live/paper)
-- [ ] Crypto.com: Implement all prophetic order logic and range detection (spot/futures, live/paper)
+- [x] MEXC: Implement all prophetic order logic and range detection (spot/futures, live/paper)
+- [x] Gate.io: Implement all prophetic order logic and range detection (spot/futures, live/paper)
+- [x] Crypto.com: Implement all prophetic order logic and range detection (spot/futures, live/paper)
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.
@@ -475,27 +475,29 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 > **Goal:** Implement 'jackpot orders' for all supported exchanges and both live/paper trading: allow users to place high leverage (e.g., x100, x200) long or short bets with strictly controlled loss (ticket size), using isolated margin high leverage perpetual orders. Ensure robust abstraction, risk management, event handling, and test coverage.
 
-**General Steps:**
-- [ ] Research and document isolated margin and high leverage perpetual order support for all supported exchanges (spot/futures).
-- [ ] Design/extend a unified abstraction for jackpot order management (modular, composable, and testable).
+-**General Steps:**
+- [x] Research and document isolated margin and high leverage perpetual order support for all supported exchanges (spot/futures).
+- [x] Design/extend a unified abstraction for jackpot order management (modular, composable, and testable).
 - [ ] Implement logic to:
     - [x] Allow users to specify leverage (e.g., x100, x200), direction (long/short), and ticket size (max loss).
     - [x] Place isolated margin high leverage perpetual orders (long or short) on supported exchanges.
     - [x] Monitor position and enforce strict loss control (auto-close/liquidate at ticket loss threshold).
-    - [ ] Handle edge cases (exchange liquidation, margin calls, slippage, rapid price moves).
-    - [ ] Provide clear user feedback and risk warnings.
-- [ ] Integrate with both live and paper trading engines.
-- [ ] Add/extend integration and unit tests for all jackpot order logic (including edge cases and race conditions).
-- [ ] Add/extend module-level and user-facing documentation.
-- [ ] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+     - [x] Handle edge cases (exchange liquidation, margin calls, slippage, rapid price moves).
+     - [x] Provide clear user feedback and risk warnings.
+ - [x] Integrate with both live and paper trading engines.
+ - [x] Add/extend integration and unit tests for all jackpot order logic (including edge cases and race conditions).
+ - [x] Add/extend module-level and user-facing documentation.
+ - [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+
 
 **Feature-Specific TODOs:**
 
 - [x] Jackpot Orders (high leverage, controlled loss, all exchanges, futures/perpetuals, live/paper)
 - [x] Risk Control & Monitoring (auto-close, ticket enforcement, all exchanges)
-- [ ] MEXC: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
-- [ ] Gate.io: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
-- [ ] Crypto.com: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
+ - [x] MEXC: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
+ - [x] Gate.io: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
+ - [x] Crypto.com: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
+
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.
@@ -512,7 +514,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 > **Goal:** Implement a Redis-backed, real-time representation of all order book and trade data being fetched for all supported exchanges and markets. Ensure efficient, consistent, and scalable storage and retrieval for downstream consumers and analytics.
 
--**General Steps:**
+**General Steps:**
 - [x] Design a Redis schema for storing order book snapshots, deltas, and trade events (multi-exchange, multi-market).
 - [x] Implement efficient serialization/deserialization for order book and trade data (e.g., JSON, MessagePack, or binary).
 - [x] Integrate Redis updates into the order book and trade WebSocket handlers for all exchanges/markets.

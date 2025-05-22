@@ -57,12 +57,14 @@ pub enum ExchangeId {
     Cryptocom,
     Deribit,
     Gemini,
+    GateIo,
     Hitbtc,
     #[serde(alias = "huobi")]
     Htx,
     Kraken,
     Kucoin,
     Liquid,
+    Gateio,
     Mexc,
     GateIo,
     Okx,
@@ -100,11 +102,13 @@ impl ExchangeId {
             ExchangeId::Cryptocom => "cryptocom",
             ExchangeId::Deribit => "deribit",
             ExchangeId::Gemini => "gemini",
+            ExchangeId::GateIo => "gate_io",
             ExchangeId::Hitbtc => "hitbtc",
             ExchangeId::Htx => "htx", // huobi alias
             ExchangeId::Kraken => "kraken",
             ExchangeId::Kucoin => "kucoin",
             ExchangeId::Liquid => "liquid",
+            ExchangeId::Gateio => "gateio",
             ExchangeId::Mexc => "mexc",
             ExchangeId::GateIo => "gate_io",
             ExchangeId::Okx => "okx",
@@ -127,6 +131,10 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<ExchangeId>(r#""huobi""#).unwrap(),
             ExchangeId::Htx
+        );
+        assert_eq!(
+            serde_json::from_str::<ExchangeId>(r#""gateio""#).unwrap(),
+            ExchangeId::Gateio
         );
     }
 }
