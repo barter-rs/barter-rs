@@ -12,6 +12,7 @@ use crate::{
         on_disconnect::OnDisconnectStrategy,
         on_trading_disabled::OnTradingDisabled,
     },
+    strategy::framework,
 };
 use jackbot_execution::order::{
     id::{ClientOrderId, StrategyId},
@@ -39,6 +40,15 @@ pub mod on_disconnect;
 /// Defines a strategy interface enables custom [`Engine`] to be performed in the event that the
 /// `TradingState` gets set to `TradingState::Disabled`.
 pub mod on_trading_disabled;
+
+/// Strategy trait combining the core strategy interfaces.
+pub mod framework;
+
+/// Registry for storing and retrieving strategies by [`StrategyId`].
+pub mod registry;
+
+/// Loadable strategy configuration.
+pub mod config;
 
 /// Naive implementation of all strategy interfaces.
 ///
@@ -126,5 +136,13 @@ impl<Clock, State, ExecutionTxs, Risk> OnTradingDisabled<Clock, State, Execution
     fn on_trading_disabled(
         _: &mut Engine<Clock, State, ExecutionTxs, Self, Risk>,
     ) -> Self::OnTradingDisabled {
+    }
+}
+
+impl<State> framework::Strategy for DefaultStrategy<State> {
+    type State = State;
+
+    fn id(&self) -> StrategyId {
+        self.id.clone()
     }
 }

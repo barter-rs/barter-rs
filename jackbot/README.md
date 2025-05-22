@@ -4,6 +4,7 @@ Jackbot core is a Rust framework for building high-performance live-trading, pap
 * **Robust**: Strongly typed. Thread safe. Extensive test coverage.
 * **Customisable**: Plug and play Strategy and RiskManager components that facilitates most trading strategies (MarketMaking, StatArb, HFT, etc.).
 * **Scalable**: Multithreaded architecture with modular design. Leverages Tokio for I/O. Memory efficient data structures.
+* **Market Making**: Built-in two-sided quoting with inventory skew, spread optimisation and risk controls.
 
 ## Overview
 Jackbot core is a Rust framework for building professional grade live-trading, paper-trading and back-testing systems. The

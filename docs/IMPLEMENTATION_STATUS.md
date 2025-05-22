@@ -737,12 +737,12 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **General Steps:**
 - [ ] Design a unified order book aggregation abstraction for multi-exchange market views.
-- [ ] Implement efficient real-time aggregation of order books across exchanges (weighted by liquidity, fees, and latency).
-- [ ] Create arbitrage opportunity detection algorithms (triangular, spatial, cross-exchange, futures basis).
-- [ ] Implement risk controls and execution constraints (minimum profit thresholds, maximum exposure, correlation checks).
-- [ ] Add execution routing with smart order splitting and latency management.
+- [x] Implement efficient real-time aggregation of order books across exchanges (weighted by liquidity, fees, and latency).
+- [x] Create arbitrage opportunity detection algorithms (triangular, spatial, cross-exchange, futures basis).
+- [x] Implement risk controls and execution constraints (minimum profit thresholds, maximum exposure, correlation checks).
+- [x] Add execution routing with smart order splitting and latency management.
 - [ ] Implement position tracking and risk monitoring across exchanges.
-- [ ] Add visualization and real-time monitoring of arbitrage opportunities.
+- [x] Add visualization and real-time monitoring of arbitrage opportunities.
 - [ ] Support configurable execution strategies for different arbitrage types.
 - [ ] Add/extend integration and unit tests for all arbitrage components.
 - [ ] Add/extend module-level and user-facing documentation.
@@ -750,11 +750,11 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Feature-Specific TODOs:**
 
-- [ ] Multi-Exchange Order Book Aggregation (spot/futures, all supported exchanges)
-- [ ] Arbitrage Opportunity Detection (cross-exchange, triangular, futures basis)
-- [ ] Risk Management Framework (exposure limits, correlation checks, worst-case analysis)
-- [ ] Smart Execution Routing (latency-aware, fee-optimized)
-- [ ] Real-time Monitoring and Visualization
+- [x] Multi-Exchange Order Book Aggregation (spot/futures, all supported exchanges)
+- [x] Arbitrage Opportunity Detection (cross-exchange, triangular, futures basis)
+- [x] Risk Management Framework (exposure limits, correlation checks, worst-case analysis)
+- [x] Smart Execution Routing (latency-aware, fee-optimized)
+- [x] Real-time Monitoring and Visualization
 - [ ] Configurable Arbitrage Strategies (parameters, thresholds, execution tactics)
 - [ ] Performance Metrics and Reporting (realized opportunities, missed opportunities, execution quality)
 
@@ -843,28 +843,28 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **General Steps:**
 - [ ] Design a unified market making abstraction with configurable parameters and strategies.
-- [ ] Implement efficient two-sided quote management (bid/ask placement, monitoring, adjustment).
-- [ ] Create inventory management and skew adjustment algorithms.
-- [ ] Implement spread optimization based on volatility, competition, and flow toxicity.
+- [x] Implement efficient two-sided quote management (bid/ask placement, monitoring, adjustment).
+- [x] Create inventory management and skew adjustment algorithms.
+- [x] Implement spread optimization based on volatility, competition, and flow toxicity.
 - [ ] Add adverse selection detection and mitigation tactics.
 - [ ] Implement quote refresh and positioning strategies (layering, reactive, predictive).
-- [ ] Create performance tracking and PnL attribution (spread capture, inventory, funding).
-- [ ] Add risk controls and circuit breakers for market conditions and inventory extremes.
-- [ ] Implement visualization and monitoring of market making activities.
-- [ ] Add/extend integration and unit tests for all market making components.
-- [ ] Add/extend module-level and user-facing documentation.
-- [ ] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+- [x] Create performance tracking and PnL attribution (spread capture, inventory, funding).
+- [x] Add risk controls and circuit breakers for market conditions and inventory extremes.
+- [x] Implement visualization and monitoring of market making activities.
+- [x] Add/extend integration and unit tests for all market making components.
+- [x] Add/extend module-level and user-facing documentation.
+- [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
 
 **Feature-Specific TODOs:**
 
-- [ ] Two-Sided Quote Management (all exchanges, spot/futures)
-- [ ] Inventory Management and Skew Adjustment
-- [ ] Spread Optimization Algorithms
+- [x] Two-Sided Quote Management (all exchanges, spot/futures)
+- [x] Inventory Management and Skew Adjustment
+- [x] Spread Optimization Algorithms
 - [ ] Adverse Selection Detection and Mitigation
 - [ ] Quote Refresh and Positioning Strategies
-- [ ] Performance Tracking and PnL Attribution
-- [ ] Risk Controls and Circuit Breakers
-- [ ] Visualization and Monitoring Tools
+- [x] Performance Tracking and PnL Attribution
+- [x] Risk Controls and Circuit Breakers
+- [x] Visualization and Monitoring Tools
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.
