@@ -438,7 +438,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 > **Goal:** Implement 'prophetic orders' for all supported exchanges and both live/paper trading: allow users to specify limit orders far outside the allowed order book range, track these in jackbot, and automatically place them the instant the order book comes in range. Include robust range detection, event handling, and test coverage.
 
--**General Steps:**
+**General Steps:**
 - [ ] Research and document order book price range enforcement for all supported exchanges (spot/futures).
 - [x] Design/extend a unified abstraction for prophetic order management (modular, composable, and testable).
 - [x] Implement logic to:
@@ -512,7 +512,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 > **Goal:** Implement a Redis-backed, real-time representation of all order book and trade data being fetched for all supported exchanges and markets. Ensure efficient, consistent, and scalable storage and retrieval for downstream consumers and analytics.
 
--**General Steps:**
+**General Steps:**
 - [x] Design a Redis schema for storing order book snapshots, deltas, and trade events (multi-exchange, multi-market).
 - [x] Implement efficient serialization/deserialization for order book and trade data (e.g., JSON, MessagePack, or binary).
 - [x] Integrate Redis updates into the order book and trade WebSocket handlers for all exchanges/markets.
