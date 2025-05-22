@@ -471,15 +471,17 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 ## 🚧 TODO: Jackpot Orders (High Leverage Bets with Controlled Loss)
 
+**Status:** Initial support for isolated high-leverage orders with strict loss limits has been implemented. Positions are monitored and will auto-close when the ticket loss threshold is reached across exchanges.
+
 > **Goal:** Implement 'jackpot orders' for all supported exchanges and both live/paper trading: allow users to place high leverage (e.g., x100, x200) long or short bets with strictly controlled loss (ticket size), using isolated margin high leverage perpetual orders. Ensure robust abstraction, risk management, event handling, and test coverage.
 
 **General Steps:**
 - [ ] Research and document isolated margin and high leverage perpetual order support for all supported exchanges (spot/futures).
 - [ ] Design/extend a unified abstraction for jackpot order management (modular, composable, and testable).
 - [ ] Implement logic to:
-    - [ ] Allow users to specify leverage (e.g., x100, x200), direction (long/short), and ticket size (max loss).
-    - [ ] Place isolated margin high leverage perpetual orders (long or short) on supported exchanges.
-    - [ ] Monitor position and enforce strict loss control (auto-close/liquidate at ticket loss threshold).
+    - [x] Allow users to specify leverage (e.g., x100, x200), direction (long/short), and ticket size (max loss).
+    - [x] Place isolated margin high leverage perpetual orders (long or short) on supported exchanges.
+    - [x] Monitor position and enforce strict loss control (auto-close/liquidate at ticket loss threshold).
     - [ ] Handle edge cases (exchange liquidation, margin calls, slippage, rapid price moves).
     - [ ] Provide clear user feedback and risk warnings.
 - [ ] Integrate with both live and paper trading engines.
@@ -489,8 +491,8 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Feature-Specific TODOs:**
 
-- [ ] Jackpot Orders (high leverage, controlled loss, all exchanges, futures/perpetuals, live/paper)
-- [ ] Risk Control & Monitoring (auto-close, ticket enforcement, all exchanges)
+- [x] Jackpot Orders (high leverage, controlled loss, all exchanges, futures/perpetuals, live/paper)
+- [x] Risk Control & Monitoring (auto-close, ticket enforcement, all exchanges)
 - [ ] MEXC: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
 - [ ] Gate.io: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
 - [ ] Crypto.com: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)

@@ -60,3 +60,18 @@ pub fn calculate_delta(
         Side::Sell => -delta,
     }
 }
+
+/// Calculate the potential loss for an order using isolated leverage.
+///
+/// Returns `None` if overflow occurs or leverage is zero.
+pub fn calculate_potential_loss(
+    quantity: Decimal,
+    price: Decimal,
+    leverage: Decimal,
+) -> Option<Decimal> {
+    if leverage.is_zero() {
+        return None;
+    }
+
+    calculate_quote_notional(quantity, price, Decimal::ONE)?.checked_div(leverage)
+}
