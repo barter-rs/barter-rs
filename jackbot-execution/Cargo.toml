@@ -42,3 +42,7 @@ chrono = { workspace = true, features = ["serde"]}
 itertools = { workspace = true }
 derive_more = { workspace = true, features = ["constructor", "from", "display"]}
 
+
+[dev-dependencies]
+rust_decimal_macros = { workspace = true }
+

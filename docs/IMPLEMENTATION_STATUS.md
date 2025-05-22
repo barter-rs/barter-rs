@@ -851,8 +851,8 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - [x] Implement efficient two-sided quote management (bid/ask placement, monitoring, adjustment).
 - [x] Create inventory management and skew adjustment algorithms.
 - [x] Implement spread optimization based on volatility, competition, and flow toxicity.
-- [ ] Add adverse selection detection and mitigation tactics.
-- [ ] Implement quote refresh and positioning strategies (layering, reactive, predictive).
+- [x] Add adverse selection detection and mitigation tactics.
+- [x] Implement quote refresh and positioning strategies (layering, reactive, predictive).
 - [x] Create performance tracking and PnL attribution (spread capture, inventory, funding).
 - [x] Add risk controls and circuit breakers for market conditions and inventory extremes.
 - [x] Implement visualization and monitoring of market making activities.
@@ -865,8 +865,8 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - [x] Two-Sided Quote Management (all exchanges, spot/futures)
 - [x] Inventory Management and Skew Adjustment
 - [x] Spread Optimization Algorithms
-- [ ] Adverse Selection Detection and Mitigation
-- [ ] Quote Refresh and Positioning Strategies
+- [x] Adverse Selection Detection and Mitigation
+- [x] Quote Refresh and Positioning Strategies
 - [x] Performance Tracking and PnL Attribution
 - [x] Risk Controls and Circuit Breakers
 - [x] Visualization and Monitoring Tools
