@@ -10,7 +10,7 @@ use crate::{
     order::{
         Order, OrderKind, UnindexedOrder,
         id::OrderId,
-        request::{OrderRequestCancel, OrderRequestOpen},
+        request::{OrderRequestCancel, OrderRequestOpen, UnindexedOrderResponseCancel},
         state::{Cancelled, Open},
     },
     trade::{AssetFees, Trade, TradeId},
@@ -93,15 +93,9 @@ impl MockExchange {
                     let trades = self.account.trades(time_since).cloned().collect();
                     self.respond_with_latency(response_tx, trades);
                 }
-                MockExchangeRequestKind::CancelOrder {
-                    response_tx: _,
-                    request,
-                } => {
-                    error!(
-                        exchange = %self.exchange,
-                        ?request,
-                        "MockExchange received cancel request but only Market orders are supported"
-                    );
+                MockExchangeRequestKind::CancelOrder { response_tx, request } => {
+                    let response = self.cancel_order(request);
+                    self.respond_with_latency(response_tx, response);
                 }
                 MockExchangeRequestKind::OpenOrder {
                     response_tx,
@@ -245,9 +239,14 @@ impl MockExchange {
 
     pub fn cancel_order(
         &mut self,
-        _: OrderRequestCancel<ExchangeId, InstrumentNameExchange>,
-    ) -> Order<ExchangeId, InstrumentNameExchange, Result<Cancelled, UnindexedOrderError>> {
-        unimplemented!()
+        request: OrderRequestCancel<ExchangeId, InstrumentNameExchange>,
+    ) -> UnindexedOrderResponseCancel {
+        UnindexedOrderResponseCancel {
+            key: request.key,
+            state: Err(UnindexedOrderError::Rejected(ApiError::OrderRejected(
+                "MockExchange does not support order cancellation".to_owned(),
+            ))),
+        }
     }
 
     pub fn open_order(
