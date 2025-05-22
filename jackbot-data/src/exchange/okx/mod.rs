@@ -15,7 +15,10 @@ use self::{
 };
 use crate::{
     ExchangeWsStream, NoInitialSnapshots,
-    exchange::{Connector, ExchangeSub, PingInterval, StreamSelector},
+    exchange::{
+        Connector, ExchangeSub, PingInterval, StreamSelector,
+        DEFAULT_HEARTBEAT_INTERVAL,
+    },
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
     subscription::{book::OrderBooksL2, trade::PublicTrades},
@@ -78,6 +81,10 @@ impl Connector for Okx {
             interval: tokio::time::interval(PING_INTERVAL_OKX),
             ping: || WsMessage::text("ping"),
         })
+    }
+
+    fn heartbeat_interval() -> Option<Duration> {
+        Some(DEFAULT_HEARTBEAT_INTERVAL)
     }
 
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {

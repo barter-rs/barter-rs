@@ -691,12 +691,12 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 - [x] Binance: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures). (Heartbeat tracking, exponential backoff, and metrics added)
 - [ ] Bitget: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
-- [ ] Bybit: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
-- [ ] Coinbase: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
-- [ ] Kraken: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
-- [ ] Kucoin: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
-- [ ] OKX: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
-- [ ] Hyperliquid: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
+- [x] Bybit: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
+- [x] Coinbase: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
+- [x] Kraken: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
+- [x] Kucoin: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
+- [x] OKX: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
+- [x] Hyperliquid: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
 - [ ] MEXC: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
 - [ ] Gate.io: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
 - [ ] Crypto.com: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
