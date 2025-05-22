@@ -154,18 +154,62 @@ fn exceeds_drawdown(pos: Option<&crate::engine::state::position::Position<jackbo
     dd > limit
 }
 
-/// Generate a simple textual dashboard summarising exposures.
+fn current_positions<GlobalData, InstrumentData>(
+    state: &EngineState<GlobalData, InstrumentData>,
+) -> HashMap<InstrumentIndex, Decimal>
+where
+    InstrumentData: InstrumentDataState,
+{
+    let mut map = HashMap::new();
+    for inst_state in state.instruments.instruments(&InstrumentFilter::None) {
+        if let Some(pos) = &inst_state.position.current {
+            if let Some(price) = inst_state.data.price() {
+                if let Some(notional) = crate::risk::check::util::calculate_quote_notional(
+                    pos.quantity_abs,
+                    price,
+                    inst_state.instrument.kind.contract_size(),
+                ) {
+                    map.insert(inst_state.key, notional);
+                }
+            }
+        }
+    }
+    map
+}
+
+/// Generate a textual dashboard summarising positions, exposures, and alerts.
 pub fn generate_dashboard<GlobalData, InstrumentData>(
     state: &EngineState<GlobalData, InstrumentData>,
+    alerts: &[jackbot_risk::alert::RiskViolation<InstrumentIndex>],
 ) -> String
 where
     InstrumentData: InstrumentDataState,
 {
     let exposures = current_exposures(state);
-    let mut lines = vec!["--- Exposure Dashboard ---".to_string()];
-    for (asset, value) in exposures {
-        lines.push(format!("{asset:?}: {value}"));
+    let positions = current_positions(state);
+
+    let mut lines = vec!["--- Risk Dashboard ---".to_string()];
+    if !positions.is_empty() {
+        lines.push("Positions:".to_string());
+        for (inst, value) in positions {
+            lines.push(format!("{inst:?}: {value}"));
+        }
     }
+
+    if !exposures.is_empty() {
+        lines.push("Exposure:".to_string());
+        for (asset, value) in exposures {
+            lines.push(format!("{asset:?}: {value}"));
+        }
+    }
+
+    if !alerts.is_empty() {
+        lines.push("Alerts:".to_string());
+        for alert in alerts {
+            lines.push(format!("{alert:?}"));
+        }
+    }
+
     lines.join("\n")
 }
 

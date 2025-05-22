@@ -22,6 +22,7 @@ use chrono::{Utc, DateTime};
 use rust_decimal_macros::dec;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
+use jackbot_risk::alert::RiskViolation;
 
 #[test]
 fn test_exposure_risk_manager_blocks_excess_exposure() {
@@ -147,4 +148,52 @@ fn test_mitigation_actions_drawdown() {
         },
         _ => panic!("unexpected command"),
     }
+}
+
+#[test]
+fn test_generate_dashboard_outputs_data() {
+    let instruments = jackbot_instrument::index::IndexedInstruments::builder()
+        .add_instrument(Instrument::spot(
+            ExchangeId::BinanceSpot,
+            "binance_spot_btc_usdt",
+            "BTCUSDT",
+            Underlying::new("btc", "usdt"),
+            None,
+        ))
+        .build();
+
+    let mut state: EngineState<DefaultGlobalData, DefaultInstrumentMarketData> = EngineState::builder(
+        &instruments,
+        DefaultGlobalData::default(),
+        DefaultInstrumentMarketData::default,
+    )
+    .time_engine_start(Utc::now())
+    .build();
+
+    let inst_key = InstrumentIndex(0);
+    let mut inst_state = state.instruments.instrument_index_mut(&inst_key);
+    inst_state.data.last_traded_price = Some(Jackbot::Timed::new(dec!(100), Utc::now()));
+
+    let trade = Trade {
+        id: TradeId::new("t1"),
+        order_id: OrderId::new("o1"),
+        instrument: inst_key,
+        strategy: StrategyId::new("s1"),
+        time_exchange: Utc::now(),
+        side: jackbot_instrument::Side::Buy,
+        price: dec!(100),
+        quantity: dec!(1),
+        fees: AssetFees::quote_fees(dec!(0)),
+    };
+    inst_state.update_from_trade(&trade);
+    drop(inst_state);
+
+    let alerts = vec![RiskViolation::ExposureLimit { instrument: inst_key, exposure: dec!(200), limit: dec!(100) }];
+
+    let dashboard = generate_dashboard(&state, &alerts);
+
+    assert!(dashboard.contains("Risk Dashboard"));
+    assert!(dashboard.contains("Positions:"));
+    assert!(dashboard.contains("Exposure:"));
+    assert!(dashboard.contains("Alerts:"));
 }

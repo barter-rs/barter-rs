@@ -818,7 +818,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
  - [x] Implement correlation-based exposure management for related instruments.
  - [ ] Add volatility-adjusted position sizing and risk scaling.
  - [ ] Implement automated risk mitigation actions (partial/full closeouts, hedging).
- - [ ] Create real-time risk dashboards and monitoring.
+- [x] Create real-time risk dashboards and monitoring.
  - [x] Add alerting and notification for risk threshold violations.
  - [ ] Implement stress testing and scenario analysis tools.
  - [x] Add/extend integration and unit tests for all risk management components.
