@@ -737,7 +737,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - [x] OKX: Exchange-specific rate limiting implemented for REST and WebSocket.
 - [x] Hyperliquid: Exchange-specific rate limiting implemented for REST and WebSocket.
 - [ ] MEXC: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
-- [ ] Gate.io: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
+- [x] Gate.io: Exchange-specific rate limiting implemented for REST and WebSocket.
 - [ ] Crypto.com: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
 
 **Final Steps:**
