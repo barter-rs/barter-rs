@@ -687,7 +687,8 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - [ ] Bybit: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
 - [ ] Coinbase: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
 - [ ] Kraken: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
-- [ ] Kucoin: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
+- [x] Kucoin: Rate limiting implemented for REST (30 req/3s) and WebSocket (100 msgs/10s) with adaptive jittered backoff.
+- Kucoin REST quota: 30 requests/3s per IP. WebSocket quota: 100 messages/10s.
 - [ ] OKX: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
 - [ ] Hyperliquid: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
 - [ ] MEXC: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
