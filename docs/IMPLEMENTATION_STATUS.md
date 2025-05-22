@@ -101,7 +101,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - **Kucoin**
   - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental). (Partially implemented, needs testing)
   - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental). (Not yet implemented)
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
   - [ ] Update to use new `Canonicalizer` trait.
 
 - **OKX**
@@ -113,25 +113,25 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - **Hyperliquid**
   - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
   - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
   - [ ] Update to use new `Canonicalizer` trait.
 
 - **MEXC**
   - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
   - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
   - [ ] Update to use new `Canonicalizer` trait.
 
 - **Gate.io**
   - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
   - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
   - [ ] Update to use new `Canonicalizer` trait.
 
 - **Crypto.com**
   - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
   - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
   - [ ] Update to use new `Canonicalizer` trait.
 
 **Final Steps:**
@@ -172,54 +172,54 @@ Exchanges currently implementing the `Canonicalizer` trait:
   - [x] Add/extend tests for both.
 
 - **Bitget**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Bybit**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Coinbase**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Kraken**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Kucoin**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **OKX**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Hyperliquid**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **MEXC**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Gate.io**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Crypto.com**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.
@@ -286,57 +286,57 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - **Binance**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Bitget**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Bybit**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Coinbase**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Kraken**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Kucoin**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **OKX**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Hyperliquid**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **MEXC**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Gate.io**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Crypto.com**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.
