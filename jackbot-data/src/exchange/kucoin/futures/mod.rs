@@ -1,5 +1,6 @@
 //! Futures market modules for Kucoin.
-//
-// Not yet implemented. This is a stub for future expansion.
+//!
+//! Currently provides Level 2 order book message types and trades.
 
+pub mod l2;
 pub mod trade;
