@@ -15,6 +15,8 @@ use jackbot_data::books::aggregator::OrderBookAggregator;
 use rand::prelude::*;
 use rust_decimal::Decimal;
 use tokio::time::{sleep, Duration};
+use crate::advanced::OrderExecutionStrategy;
+use async_trait::async_trait;
 
 /// Generate VWAP (volume-weighted average price) order slice quantities with randomised weights.
 /// The provided `volumes` slice defines relative volume weights for each slice.
@@ -49,6 +51,17 @@ where
     pub client: C,
     pub aggregator: OrderBookAggregator,
     rng: R,
+}
+
+/// Parameters controlling VWAP execution behaviour.
+#[derive(Debug, Clone)]
+pub struct VwapConfig {
+    /// Relative volume weights for each slice.
+    pub volumes: Vec<Decimal>,
+    /// Randomness applied to slice weighting.
+    pub randomness: f64,
+    /// Base delay between order slices.
+    pub base_delay: Duration,
 }
 
 impl<C, R> VwapScheduler<C, R>
@@ -105,6 +118,30 @@ where
             results.push(res);
         }
         results
+    }
+}
+
+#[async_trait]
+impl<C, R> OrderExecutionStrategy for VwapScheduler<C, R>
+where
+    C: ExecutionClient + Clone + Send + Sync,
+    R: Rng + Clone + Send + Sync,
+{
+    type Config = VwapConfig;
+
+    async fn execute(
+        &mut self,
+        request: OrderRequestOpen<ExchangeId, &InstrumentNameExchange>,
+        config: Self::Config,
+    ) -> Vec<Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>> {
+        VwapScheduler::execute(
+            self,
+            request,
+            &config.volumes,
+            config.randomness,
+            config.base_delay,
+        )
+        .await
     }
 }
 

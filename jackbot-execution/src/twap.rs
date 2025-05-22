@@ -15,6 +15,8 @@ use jackbot_data::books::aggregator::OrderBookAggregator;
 use rand::prelude::*;
 use rust_decimal::Decimal;
 use tokio::time::{sleep, Duration};
+use crate::advanced::OrderExecutionStrategy;
+use async_trait::async_trait;
 
 /// Generate TWAP (time-weighted average price) order slice quantities with randomised weights.
 /// The returned quantities will sum to `total_quantity`.
@@ -46,6 +48,17 @@ where
     pub client: C,
     pub aggregator: OrderBookAggregator,
     rng: R,
+}
+
+/// Parameters controlling TWAP execution behaviour.
+#[derive(Debug, Clone, Copy)]
+pub struct TwapConfig {
+    /// Number of order slices to generate.
+    pub slices: usize,
+    /// Randomness applied to slice weighting.
+    pub randomness: f64,
+    /// Base delay between order slices.
+    pub base_delay: Duration,
 }
 
 impl<C, R> TwapScheduler<C, R>
@@ -99,6 +112,30 @@ where
             results.push(res);
         }
         results
+    }
+}
+
+#[async_trait]
+impl<C, R> OrderExecutionStrategy for TwapScheduler<C, R>
+where
+    C: ExecutionClient + Clone + Send + Sync,
+    R: Rng + Clone + Send + Sync,
+{
+    type Config = TwapConfig;
+
+    async fn execute(
+        &mut self,
+        request: OrderRequestOpen<ExchangeId, &InstrumentNameExchange>,
+        config: Self::Config,
+    ) -> Vec<Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>> {
+        TwapScheduler::execute(
+            self,
+            request,
+            config.slices,
+            config.randomness,
+            config.base_delay,
+        )
+        .await
     }
 }
 

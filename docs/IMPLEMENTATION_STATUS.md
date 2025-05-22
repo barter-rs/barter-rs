@@ -394,7 +394,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **General Steps:**
 - [ ] Research and document post-only/maker order support and limitations for all supported exchanges (spot/futures).
-- [ ] Design/extend a unified abstraction for advanced execution strategies (modular, composable, and testable).
+ - [x] Design/extend a unified abstraction for advanced execution strategies (modular, composable, and testable).
 - [ ] Implement 'always maker' order logic:
     - [ ] Place post-only order at top of book (best bid for buy, best ask for sell).
     - [ ] Auto-cancel after 3 seconds if not filled, and repost at new top of book.

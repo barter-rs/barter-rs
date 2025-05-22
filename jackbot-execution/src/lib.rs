@@ -53,6 +53,9 @@ pub mod smart_router;
 /// Market making utilities including flow analysis and quote refresh logic.
 pub mod market_making;
 
+/// Unified trait for advanced order execution strategies.
+pub mod advanced;
+
 /// Time-weighted average price execution.
 pub mod twap;
 
