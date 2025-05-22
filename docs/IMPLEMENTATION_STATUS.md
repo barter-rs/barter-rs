@@ -314,7 +314,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
   - [x] Add/extend tests for both.
 
 - **OKX**
-  - [ ] Implement/refactor live trading adapter (spot/futures).
+  - [x] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
   - [x] Add/extend tests for both.
 

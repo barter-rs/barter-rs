@@ -22,6 +22,7 @@ pub mod binance;
 pub mod cryptocom;
 pub mod gateio;
 pub mod mexc;
+pub mod okx;
 pub mod mock;
 pub mod mexc;
 pub mod gateio;
