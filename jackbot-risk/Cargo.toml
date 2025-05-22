@@ -1,0 +1,19 @@
+[package]
+name = "jackbot-risk"
+version = "0.1.0"
+edition = "2024"
+authors = ["JustAStream <justastream.code@gmail.com>"]
+license = "MIT"
+documentation = "https://docs.rs/jackbot-risk"
+repository = "https://github.com/jackbot-rs/jackbot-rs"
+readme = "README.md"
+description = "Risk management utilities for Jackbot trading systems."
+keywords = ["trading", "risk", "crypto", "stocks", "investment"]
+categories = ["accessibility", "simulation"]
+
+[dependencies]
+jackbot-instrument = { workspace = true }
+rust_decimal = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+derive_more = { workspace = true, features = ["constructor"] }
+parking_lot = { workspace = true }

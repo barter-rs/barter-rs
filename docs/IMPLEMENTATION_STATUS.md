@@ -812,28 +812,28 @@ Exchanges currently implementing the `Canonicalizer` trait:
 > **Goal:** Implement a comprehensive risk management framework for trading activities across all supported exchanges and markets. Support position limits, drawdown controls, correlation-based exposure management, and automated risk mitigation actions with robust monitoring and alerting.
 
 **General Steps:**
-- [ ] Design a unified risk management abstraction with configurable rules and actions.
-- [ ] Implement position and exposure tracking across exchanges and instruments.
-- [ ] Create drawdown and loss limit controls with configurable thresholds.
-- [ ] Implement correlation-based exposure management for related instruments.
-- [ ] Add volatility-adjusted position sizing and risk scaling.
-- [ ] Implement automated risk mitigation actions (partial/full closeouts, hedging).
-- [ ] Create real-time risk dashboards and monitoring.
-- [ ] Add alerting and notification for risk threshold violations.
-- [ ] Implement stress testing and scenario analysis tools.
-- [ ] Add/extend integration and unit tests for all risk management components.
-- [ ] Add/extend module-level and user-facing documentation.
-- [ ] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+ - [x] Design a unified risk management abstraction with configurable rules and actions.
+ - [x] Implement position and exposure tracking across exchanges and instruments.
+ - [x] Create drawdown and loss limit controls with configurable thresholds.
+ - [x] Implement correlation-based exposure management for related instruments.
+ - [ ] Add volatility-adjusted position sizing and risk scaling.
+ - [ ] Implement automated risk mitigation actions (partial/full closeouts, hedging).
+ - [ ] Create real-time risk dashboards and monitoring.
+ - [x] Add alerting and notification for risk threshold violations.
+ - [ ] Implement stress testing and scenario analysis tools.
+ - [x] Add/extend integration and unit tests for all risk management components.
+ - [x] Add/extend module-level and user-facing documentation.
+ - [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
 
 **Feature-Specific TODOs:**
 
-- [ ] Position and Exposure Tracking (multi-exchange, spot/futures)
-- [ ] Drawdown and Loss Limit Controls
-- [ ] Correlation-Based Exposure Management
+ - [x] Position and Exposure Tracking (multi-exchange, spot/futures)
+ - [x] Drawdown and Loss Limit Controls
+ - [x] Correlation-Based Exposure Management
 - [ ] Volatility-Adjusted Position Sizing
 - [ ] Automated Risk Mitigation Actions
 - [ ] Real-time Risk Monitoring and Dashboards
-- [ ] Alerting and Notification System
+ - [x] Alerting and Notification System
 - [ ] Stress Testing and Scenario Analysis
 
 **Final Steps:**
