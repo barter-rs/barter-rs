@@ -9,6 +9,7 @@ members = [
     "jackbot-instrument",
     "jackbot-risk",
     "jackbot-snapshot"
+    "jackbot-strategy",
 ]
 
 [workspace.dependencies]
@@ -19,6 +20,8 @@ jackbot-data = { path = "./jackbot-data", version = "0.10.1" }
 jackbot-execution = { path = "./jackbot-execution", version = "0.5.3" }
 jackbot-macro = { path = "./jackbot-macro", version = "0.2.0" }
 jackbot-risk = { path = "./jackbot-risk", version = "0.1.0" }
+jackbot-strategy = { path = "./jackbot-strategy", version = "0.1.0" }
+
 
 # Logging
 tracing = { version = "0.1.41" }

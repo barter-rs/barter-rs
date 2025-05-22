@@ -49,6 +49,8 @@ pub mod order;
 pub mod trade;
 /// Smart execution routing with basic exposure tracking.
 pub mod smart_router;
+/// Time-weighted average price execution.
+pub mod twap;
 
 /// Convenient type alias for an [`AccountEvent`] keyed with [`ExchangeId`],
 /// [`AssetNameExchange`], and [`InstrumentNameExchange`].

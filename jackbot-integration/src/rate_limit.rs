@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use rand::Rng;
 use tokio::sync::{Mutex, oneshot};
 
 /// Priority levels for rate limited operations.
@@ -22,6 +23,7 @@ struct Inner {
     last_refill: Instant,
     base_interval: Duration,
     max_interval: Duration,
+    jitter: Duration,
     high: VecDeque<Waiter>,
     normal: VecDeque<Waiter>,
     low: VecDeque<Waiter>,
@@ -62,6 +64,11 @@ pub struct RateLimiter {
 impl RateLimiter {
     /// Construct a new [`RateLimiter`] allowing `capacity` operations every `interval`.
     pub fn new(capacity: usize, interval: Duration) -> Self {
+        Self::new_with_jitter(capacity, interval, Duration::from_millis(0))
+    }
+
+    /// Construct a new [`RateLimiter`] with configurable jitter applied on backoff.
+    pub fn new_with_jitter(capacity: usize, interval: Duration, jitter: Duration) -> Self {
         Self {
             inner: Arc::new(Mutex::new(Inner {
                 capacity,
@@ -70,6 +77,7 @@ impl RateLimiter {
                 last_refill: Instant::now(),
                 base_interval: interval,
                 max_interval: interval * 16,
+                jitter,
                 high: VecDeque::new(),
                 normal: VecDeque::new(),
                 low: VecDeque::new(),
@@ -109,8 +117,14 @@ impl RateLimiter {
     /// Report a rate limit violation to trigger backoff.
     pub async fn report_violation(&self) {
         let mut inner = self.inner.lock().await;
-        let next = inner.interval * 2;
-        inner.interval = std::cmp::min(next, inner.max_interval);
+        let mut rng = rand::thread_rng();
+        let jitter_ms = if inner.jitter.is_zero() {
+            0
+        } else {
+            rng.gen_range(0..=inner.jitter.as_millis() as u64)
+        };
+        let next = inner.interval * 2 + Duration::from_millis(jitter_ms);
+        inner.interval = std::cmp::min(next, inner.max_interval + inner.jitter);
     }
 
     /// Reset the current backoff to the base interval.
@@ -164,5 +178,21 @@ mod tests {
         let start = Instant::now();
         rl.acquire(Priority::Normal).await;
         assert!(start.elapsed() >= Duration::from_millis(60));
+    }
+
+    #[tokio::test]
+    async fn test_backoff_jitter() {
+        let rl = RateLimiter::new_with_jitter(
+            1,
+            Duration::from_millis(20),
+            Duration::from_millis(20),
+        );
+        rl.acquire(Priority::Normal).await;
+        rl.report_violation().await; // interval 40-60ms
+        let start = Instant::now();
+        rl.acquire(Priority::Normal).await;
+        let elapsed = start.elapsed();
+        assert!(elapsed >= Duration::from_millis(40));
+        assert!(elapsed <= Duration::from_millis(60));
     }
 }

@@ -95,18 +95,19 @@ use crate::{
     transformer::ExchangeTransformer,
 };
 use async_trait::async_trait;
-use futures::{SinkExt, Stream, StreamExt};
+use futures::{SinkExt, Stream, StreamExt, stream::BoxStream};
+use tokio_stream::StreamExt as TokioStreamExt;
 use jackbot_instrument::exchange::ExchangeId;
 use jackbot_integration::{
     Transformer,
     error::SocketError,
     protocol::{
         StreamParser,
-        websocket::{WebSocketParser, WsMessage, WsSink, WsStream},
+        websocket::{WebSocketParser, WsMessage, WsSink, WsStream, WsError},
     },
     stream::ExchangeStream,
 };
-use std::{collections::VecDeque, future::Future};
+use std::{collections::VecDeque, future::Future, io};
 use tokio::sync::mpsc;
 use tracing::{debug, error, warn};
 
@@ -161,7 +162,7 @@ pub mod transformer;
 
 /// Convenient type alias for an [`ExchangeStream`] utilising a tungstenite
 /// [`WebSocket`](jackbot_integration::protocol::websocket::WebSocket).
-pub type ExchangeWsStream<Transformer> = ExchangeStream<WebSocketParser, WsStream, Transformer>;
+pub type ExchangeWsStream<Transformer> = ExchangeStream<WebSocketParser, BoxStream<'static, Result<WsMessage, WsError>>, Transformer>;
 
 /// Defines a generic identification type for the implementor.
 pub trait Identifier<T> {
@@ -211,7 +212,7 @@ pub trait SnapshotFetcher<Exchange, Kind> {
 
 #[async_trait]
 impl<Exchange, Instrument, Kind, Transformer> MarketStream<Exchange, Instrument, Kind>
-    for ExchangeWsStream<Transformer>
+    for ExchangeStream<WebSocketParser, BoxStream<'static, Result<WsMessage, WsError>>, Transformer>
 where
     Exchange: Connector + Send + Sync,
     Instrument: InstrumentData,
@@ -239,6 +240,22 @@ where
 
         // Split WebSocket into WsStream & WsSink components
         let (ws_sink, ws_stream) = websocket.split();
+
+        // Apply optional heartbeat timeout monitoring
+        let ws_stream = if let Some(timeout) = Exchange::heartbeat_interval() {
+            ws_stream
+                .timeout(timeout)
+                .map(|result| match result {
+                    Ok(msg) => msg,
+                    Err(_) => Err(WsError::Io(io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        "heartbeat timeout",
+                    ))),
+                })
+                .boxed()
+        } else {
+            ws_stream.boxed()
+        };
 
         // Spawn task to distribute Transformer messages (eg/ custom pongs) to the exchange
         let (ws_sink_tx, ws_sink_rx) = mpsc::unbounded_channel();

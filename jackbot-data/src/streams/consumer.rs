@@ -70,6 +70,12 @@ where
         "MarketStream with auto reconnect initialising"
     );
 
+    use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+    use tokio::time::Instant;
+
+    let reconnects = Arc::new(AtomicUsize::new(0));
+    let start = Instant::now();
+
     Ok(init_reconnecting_stream(move || {
         let subscriptions = subscriptions.clone();
         async move { Exchange::Stream::init::<Exchange::SnapFetcher>(&subscriptions).await }
@@ -77,7 +83,14 @@ where
     .await?
     .with_reconnect_backoff(policy, stream_key)
     .with_termination_on_error(|error| error.is_terminal(), stream_key)
-    .with_reconnection_events(exchange))
+    .with_reconnection_events(exchange)
+    .inspect(move |event| {
+        if let reconnect::Event::Reconnecting(_) = event {
+            let count = reconnects.fetch_add(1, Ordering::SeqCst) + 1;
+            let uptime = start.elapsed().as_secs();
+            info!(%exchange, ?stream_key, ?count, uptime, "reconnecting market stream");
+        }
+    }))
 }
 
 #[derive(
