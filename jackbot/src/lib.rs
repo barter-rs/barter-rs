@@ -87,6 +87,9 @@ pub mod system;
 /// Backtesting utilities.
 pub mod backtest;
 
+/// Market making utilities including two-sided quoting and performance tracking.
+pub mod market_maker;
+
 /// Traits and types related to component shutdowns.
 pub mod shutdown;
 
