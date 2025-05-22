@@ -706,33 +706,33 @@ Exchanges currently implementing the `Canonicalizer` trait:
 > **Goal:** Implement a high-performance, data-accurate backtesting framework for testing trading strategies against historical order book and trade data. Support both replay-based and event-driven simulations across all supported exchanges and markets.
 
 **General Steps:**
-- [ ] Design a unified backtesting abstraction with clear interfaces for data sources, strategy inputs, and simulation outputs.
-- [ ] Implement data loading and preprocessing from Parquet/S3 historical sources.
-- [ ] Create accurate order book replay functionality (preserving event ordering, timestamps).
-- [ ] Implement realistic market simulation with configurable latency, slippage, and fees.
-- [ ] Add paper trading engine integration for strategy execution in backtests.
-- [ ] Implement performance metrics calculation and reporting (P&L, Sharpe, drawdown, etc.).
-- [ ] Add visualization and charting capabilities for backtest results.
-- [ ] Support parallel backtesting for parameter optimization and Monte Carlo simulations.
+- [x] Design a unified backtesting abstraction with clear interfaces for data sources, strategy inputs, and simulation outputs.
+- [x] Implement data loading and preprocessing from Parquet/S3 historical sources.
+- [x] Create accurate order book replay functionality (preserving event ordering, timestamps).
+- [x] Implement realistic market simulation with configurable latency, slippage, and fees.
+- [x] Add paper trading engine integration for strategy execution in backtests.
+- [x] Implement performance metrics calculation and reporting (P&L, Sharpe, drawdown, etc.).
+- [x] Add visualization and charting capabilities for backtest results.
+- [x] Support parallel backtesting for parameter optimization and Monte Carlo simulations.
 - [ ] Add/extend integration and unit tests for backtesting framework components.
-- [ ] Add/extend module-level and user-facing documentation.
-- [ ] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+- [x] Add/extend module-level and user-facing documentation.
+- [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
 
 **Feature-Specific TODOs:**
 
-- [ ] Historical Data Loading Framework (Parquet, S3, multi-exchange, spot/futures)
-- [ ] Order Book Replay Engine (timestamp-preserving, accurate sequencing)
-- [ ] Market Simulation (realistic order execution, fees, slippage)
+- [x] Historical Data Loading Framework (Parquet, S3, multi-exchange, spot/futures)
+- [x] Order Book Replay Engine (timestamp-preserving, accurate sequencing)
+- [x] Market Simulation (realistic order execution, fees, slippage)
 - [ ] Strategy Interface (event-driven, configurable parameters)
-- [ ] Performance Metrics (P&L, risk measures, trade statistics)
-- [ ] Visualization and Reporting (charts, tables, exports)
-- [ ] Parameter Optimization (grid search, genetic algorithms)
-- [ ] Multi-Exchange Simulation (cross-exchange strategies, arbitrage)
+- [x] Performance Metrics (P&L, risk measures, trade statistics)
+- [x] Visualization and Reporting (charts, tables, exports)
+- [x] Parameter Optimization (grid search, genetic algorithms)
+- [x] Multi-Exchange Simulation (cross-exchange strategies, arbitrage)
 
 **Final Steps:**
-- [ ] Update feature matrix and exchange-by-exchange status in this file.
+- [x] Update feature matrix and exchange-by-exchange status in this file.
 - [ ] Ensure all backtesting components function correctly with test strategies.
-- [ ] Document any limitations or assumptions in the simulation model.
+- [x] Document any limitations or assumptions in the simulation model.
 
 ---
 
