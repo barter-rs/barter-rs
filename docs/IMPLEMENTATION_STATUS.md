@@ -737,12 +737,12 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **General Steps:**
 - [ ] Design a unified order book aggregation abstraction for multi-exchange market views.
-- [ ] Implement efficient real-time aggregation of order books across exchanges (weighted by liquidity, fees, and latency).
-- [ ] Create arbitrage opportunity detection algorithms (triangular, spatial, cross-exchange, futures basis).
-- [ ] Implement risk controls and execution constraints (minimum profit thresholds, maximum exposure, correlation checks).
-- [ ] Add execution routing with smart order splitting and latency management.
+- [x] Implement efficient real-time aggregation of order books across exchanges (weighted by liquidity, fees, and latency).
+- [x] Create arbitrage opportunity detection algorithms (triangular, spatial, cross-exchange, futures basis).
+- [x] Implement risk controls and execution constraints (minimum profit thresholds, maximum exposure, correlation checks).
+- [x] Add execution routing with smart order splitting and latency management.
 - [ ] Implement position tracking and risk monitoring across exchanges.
-- [ ] Add visualization and real-time monitoring of arbitrage opportunities.
+- [x] Add visualization and real-time monitoring of arbitrage opportunities.
 - [ ] Support configurable execution strategies for different arbitrage types.
 - [ ] Add/extend integration and unit tests for all arbitrage components.
 - [ ] Add/extend module-level and user-facing documentation.
@@ -750,11 +750,11 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Feature-Specific TODOs:**
 
-- [ ] Multi-Exchange Order Book Aggregation (spot/futures, all supported exchanges)
-- [ ] Arbitrage Opportunity Detection (cross-exchange, triangular, futures basis)
-- [ ] Risk Management Framework (exposure limits, correlation checks, worst-case analysis)
-- [ ] Smart Execution Routing (latency-aware, fee-optimized)
-- [ ] Real-time Monitoring and Visualization
+- [x] Multi-Exchange Order Book Aggregation (spot/futures, all supported exchanges)
+- [x] Arbitrage Opportunity Detection (cross-exchange, triangular, futures basis)
+- [x] Risk Management Framework (exposure limits, correlation checks, worst-case analysis)
+- [x] Smart Execution Routing (latency-aware, fee-optimized)
+- [x] Real-time Monitoring and Visualization
 - [ ] Configurable Arbitrage Strategies (parameters, thresholds, execution tactics)
 - [ ] Performance Metrics and Reporting (realized opportunities, missed opportunities, execution quality)
 
