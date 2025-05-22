@@ -844,7 +844,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 ---
 
-## 🚧 TODO: Market Making Engine
+## Market Making Engine
 
 > **Goal:** Implement a high-performance market making engine for providing liquidity across all supported exchanges and markets. Support advanced features like inventory management, skew adjustment, spread optimization, and adverse selection mitigation with robust risk controls and performance tracking.
 
@@ -874,9 +874,9 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - [x] Visualization and Monitoring Tools
 
 **Final Steps:**
-- [ ] Update feature matrix and exchange-by-exchange status in this file.
-- [ ] Ensure all market making components function correctly with test configurations.
-- [ ] Document the market making framework, parameters, and strategy examples.
+- [x] Update feature matrix and exchange-by-exchange status in this file.
+- [x] Ensure all market making components function correctly with test configurations.
+- [x] Document the market making framework, parameters, and strategy examples. See [MARKET_MAKING_ENGINE.md](MARKET_MAKING_ENGINE.md) for details.
 
 #
 ---
