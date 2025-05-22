@@ -141,9 +141,9 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Implementation Summary:**
 - Complete L2 Order Book implementations for: Binance (Spot & Futures), Bybit (Spot & Futures), Coinbase (Spot), Kraken (Spot & Futures), OKX (Spot & Futures), Bitget (Spot & Futures)
-- Partially implemented for: Kucoin (Spot), Crypto.com (Spot & Futures), MEXC (Spot & Futures), Hyperliquid (Spot & Futures)
-- Not yet implemented for: Kucoin (Futures), Gate.io
-- Canonicalizer implementations for: Bybit (Spot & Futures), Kraken (Spot & Futures), Binance (Spot & Futures), OKX (Spot & Futures), Coinbase (Spot), Bitget (Spot & Futures), MEXC (Spot & Futures), Crypto.com (Spot & Futures), Hyperliquid (Spot & Futures)
+- Partially implemented for: Kucoin (Spot), Crypto.com (Spot & Futures), Gate.io (Spot & Futures), MEXC (Spot & Futures), Hyperliquid (Spot & Futures)
+- Not yet implemented for: Kucoin (Futures)
+- Canonicalizer implementations for: Bybit (Spot & Futures), Kraken (Spot & Futures), Binance (Spot & Futures), OKX (Spot & Futures), Coinbase (Spot), Bitget (Spot & Futures), MEXC (Spot & Futures), Crypto.com (Spot & Futures), Gate.io (Spot & Futures), Hyperliquid (Spot & Futures)
 
 **Next Steps:**
 1. Complete existing implementations with robust testing
@@ -520,10 +520,10 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - Snapshot keys use the pattern `jb:<exchange>:<instrument>:snapshot`.
 - Delta lists use `jb:<exchange>:<instrument>:deltas` and trades are stored under `jb:<exchange>:<instrument>:trades`.
 - All writes are performed via Redis pipelines with `.atomic()` to guarantee consistency.
-- [ ] Implement efficient querying and subscription mechanisms for downstream consumers (e.g., pub/sub, streams, sorted sets).
-- [ ] Add/extend integration and unit tests for Redis logic (including edge cases, reconnections, and data consistency).
-- [ ] Add/extend module-level and user-facing documentation.
-- [ ] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+- [x] Implement efficient querying and subscription mechanisms for downstream consumers (e.g., pub/sub, streams, sorted sets).
+- [x] Add/extend integration and unit tests for Redis logic (including edge cases, reconnections, and data consistency).
+- [x] Add/extend module-level and user-facing documentation.
+- [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
 
 **Feature-Specific TODOs:**
 
@@ -533,8 +533,8 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - [ ] Efficient Delta/Update Handling
 - [ ] Downstream Consumer API (pub/sub, streams, etc.)
 - [x] MEXC: Integrate Redis for order book and trades
-- [ ] Gate.io: Integrate Redis for order book and trades
-- [ ] Crypto.com: Integrate Redis for order book and trades
+- [x] Gate.io: Integrate Redis for order book and trades
+- [x] Crypto.com: Integrate Redis for order book and trades
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.

@@ -46,7 +46,7 @@ async fn test_store_snapshot_and_delta() {
 
     manager.run().await;
 
-    assert!(store.get_snapshot(ExchangeId::BinanceSpot, &instrument.to_string()).is_some());
+    assert!(store.get_snapshot_json(ExchangeId::BinanceSpot, &instrument.to_string()).is_some());
     assert_eq!(store.delta_len(ExchangeId::BinanceSpot, &instrument.to_string()), 1);
 }
 
@@ -89,7 +89,7 @@ async fn test_reconnect_overwrites_snapshot() {
 
     manager.run().await;
 
-    assert!(store.get_snapshot(ExchangeId::BinanceSpot, &instrument.to_string()).is_some());
+    assert!(store.get_snapshot_json(ExchangeId::BinanceSpot, &instrument.to_string()).is_some());
     assert_eq!(store.delta_len(ExchangeId::BinanceSpot, &instrument.to_string()), 1);
 }
 
@@ -107,7 +107,7 @@ fn test_mexc_store_methods() {
         asks: vec![(dec!(30010.0), dec!(2.0))],
     };
     spot_book.store_snapshot(&store);
-    assert!(store.get_snapshot(ExchangeId::Mexc, "BTC_USDT").is_some());
+    assert!(store.get_snapshot_json(ExchangeId::Mexc, "BTC_USDT").is_some());
 
     let delta_book = MexcOrderBookL2 { time: Utc::now(), ..spot_book };
     delta_book.store_delta(&store);
@@ -122,6 +122,25 @@ fn test_mexc_store_methods() {
     fut_book.store_snapshot(&store);
     fut_book.store_delta(&store);
 
-    assert!(store.get_snapshot(ExchangeId::Mexc, "BTC_USDT").is_some());
+    assert!(store.get_snapshot_json(ExchangeId::Mexc, "BTC_USDT").is_some());
     assert_eq!(store.delta_len(ExchangeId::Mexc, "BTC_USDT"), 2);
 }
+
+#[test]
+fn test_query_methods() {
+    use jackbot_data::books::{OrderBook, Level};
+    use jackbot_data::subscription::book::OrderBookEvent;
+
+    let store = InMemoryStore::new();
+    let snapshot = OrderBook::new(0, None, [Level::new(dec!(1), dec!(1))].into_iter(), []);
+    store.store_snapshot(ExchangeId::BinanceSpot, "BTC_USDT", &snapshot);
+    let delta = OrderBookEvent::Update(OrderBook::new(0, None, [], []));
+    store.store_delta(ExchangeId::BinanceSpot, "BTC_USDT", &delta);
+    store.store_trade(ExchangeId::BinanceSpot, "BTC_USDT", &jackbot_data::subscription::trade::PublicTrade {
+        id: "1".into(), price: 1.0, amount: 1.0, side: jackbot_instrument::Side::Buy });
+
+    assert!(store.get_snapshot(ExchangeId::BinanceSpot, "BTC_USDT").is_some());
+    assert_eq!(store.get_deltas(ExchangeId::BinanceSpot, "BTC_USDT", 1).len(), 1);
+    assert_eq!(store.get_trades(ExchangeId::BinanceSpot, "BTC_USDT", 1).len(), 1);
+}
+
