@@ -792,7 +792,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 **Feature-Specific TODOs:**
 
 - [x] Strategy Interface Definition (inputs, outputs, events, lifecycle)
-- [ ] Technical Analysis Library (indicators, patterns, signals)
+ - [x] Technical Analysis Library (indicators, patterns, signals)
 - [ ] ML Integration Framework (feature extraction, model loading, inference)
 - [ ] Strategy Configuration and Parameter Management
 - [ ] Backtest Runner and Performance Evaluation

@@ -20,15 +20,17 @@ and `remove` helpers so strategies can be discovered dynamically.
 
 ## Technical Analysis Library
 
-The `technical` module implements a few basic indicators used across example
-strategies:
+The [`jackbot-ta`](../jackbot-ta/) crate provides reusable building blocks for
+technical analysis. Indicators are implemented as structs with incremental
+`update` methods, and pattern helpers drive simple signal generators.
 
-- `sma` – Simple moving average
-- `ema` – Exponential moving average
-- `rsi` – Relative strength index
+- `SimpleMovingAverage` – Rolling mean of the last *n* values
+- `ExponentialMovingAverage` – Weighted moving average giving more weight to
+  recent prices
+- `CrossOverSignal` – Emits buy or sell signals when two data series cross
 
-These functions operate on `f64` slices and return a `Vec<f64>` containing the
-indicator values.
+These utilities operate on [`rust_decimal::Decimal`](https://docs.rs/rust_decimal/) values for
+precision and can be integrated directly into strategies.
 
 ## Machine Learning Model Integration
 
