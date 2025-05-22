@@ -1,5 +1,6 @@
 use Jackbot::smart_trade::{
-    TrailingTakeProfit, ProfitTarget, TrailingStop, MultiLevelStop, SmartTradeSignal,
+    TrailingTakeProfit, ProfitTarget, TrailingStop, MultiLevelStop, MultiLevelTakeProfit,
+    SmartTradeSignal,
 };
 use rust_decimal_macros::dec;
 
@@ -38,4 +39,14 @@ fn test_multi_level_stop() {
     assert_eq!(ms.update(dec!(89)), Some(SmartTradeSignal::StopLevel(0, dec!(89))));
     assert_eq!(ms.update(dec!(79)), Some(SmartTradeSignal::StopLevel(1, dec!(79))));
     assert_eq!(ms.update(dec!(70)), None);
+}
+
+#[test]
+fn test_multi_level_take_profit() {
+    let mut mtp = MultiLevelTakeProfit::new(vec![dec!(110), dec!(120)]);
+    assert_eq!(mtp.update(dec!(100)), None);
+    assert_eq!(mtp.update(dec!(110)), Some(SmartTradeSignal::TakeProfit(dec!(110))));
+    assert_eq!(mtp.update(dec!(115)), None);
+    assert_eq!(mtp.update(dec!(120)), Some(SmartTradeSignal::TakeProfit(dec!(120))));
+    assert_eq!(mtp.update(dec!(130)), None);
 }
