@@ -230,14 +230,12 @@ Exchanges currently implementing the `Canonicalizer` trait:
 ## L2 Order Book Sequencer Abstraction (In Progress)
 
 - **New file:** `jackbot-data/src/books/l2_sequencer.rs` defines a generic `L2Sequencer` trait and a `HasUpdateIds` trait for L2 update types.
-- **Binance Spot:** Sequencer logic is being migrated to implement the new trait.
-- **Binance Futures:** Will be migrated next.
+- **Binance Spot:** Sequencer logic now implements the new trait.
+- **Binance Futures:** Sequencer logic now implements the new trait.
 - **Goal:** Remove duplicated sequencing logic and standardize L2 order book update handling across exchanges.
 
 ## Next Steps
-- Refactor `binance/spot/l2.rs` and `binance/futures/l2.rs` to use the new trait.
-- Implement `HasUpdateIds` for their update types.
-- Expand tests to cover the new abstraction.
+- Expand tests for any remaining exchanges to cover the new abstraction.
 
 ## Other Exchanges
 - OKX, Bybit, Kraken, etc. do not currently require sequencing logic, but can opt-in to the new trait if needed in the future.
