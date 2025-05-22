@@ -48,7 +48,7 @@ We've implemented a new framework for standardizing all exchange-specific orderb
 
 Exchanges currently implementing the `Canonicalizer` trait:
 - Bybit (Spot & Futures)
-- Kraken (Futures)
+- Kraken (Spot & Futures)
 - Binance (Spot & Futures)
 - OKX (Spot & Futures)
 - Coinbase (Spot)
@@ -95,8 +95,8 @@ Exchanges currently implementing the `Canonicalizer` trait:
   - [x] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental). (Complete with tests)
   - [x] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental). (Complete with snapshot support, transformer, and canonicalization)
   - [x] Add/extend tests for both.
-  - [x] Update futures to use new `Canonicalizer` trait. (Complete)
-  - [ ] Update spot to use new `Canonicalizer` trait.
+- [x] Update futures to use new `Canonicalizer` trait. (Complete)
+  - [x] Update spot to use new `Canonicalizer` trait.
 
 - **Kucoin**
   - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental). (Partially implemented, needs testing)
@@ -143,7 +143,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - Complete L2 Order Book implementations for: Binance (Spot & Futures), Bybit (Spot & Futures), Coinbase (Spot), Kraken (Spot & Futures), OKX (Spot & Futures), Bitget (Spot & Futures)
 - Partially implemented for: Kucoin (Spot), Crypto.com (Spot & Futures), MEXC (Spot & Futures), Hyperliquid (Spot & Futures)
 - Not yet implemented for: Kucoin (Futures), Gate.io
-- Canonicalizer implementations for: Bybit (Spot & Futures), Kraken (Futures), Binance (Spot & Futures), OKX (Spot & Futures), Coinbase (Spot), Bitget (Spot & Futures), MEXC (Spot & Futures), Crypto.com (Spot & Futures), Hyperliquid (Spot & Futures)
+- Canonicalizer implementations for: Bybit (Spot & Futures), Kraken (Spot & Futures), Binance (Spot & Futures), OKX (Spot & Futures), Coinbase (Spot), Bitget (Spot & Futures), MEXC (Spot & Futures), Crypto.com (Spot & Futures), Hyperliquid (Spot & Futures)
 
 **Next Steps:**
 1. Complete existing implementations with robust testing
