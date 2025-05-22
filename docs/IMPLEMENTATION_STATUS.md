@@ -510,11 +510,14 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 > **Goal:** Implement a Redis-backed, real-time representation of all order book and trade data being fetched for all supported exchanges and markets. Ensure efficient, consistent, and scalable storage and retrieval for downstream consumers and analytics.
 
-**General Steps:**
-- [ ] Design a Redis schema for storing order book snapshots, deltas, and trade events (multi-exchange, multi-market).
-- [ ] Implement efficient serialization/deserialization for order book and trade data (e.g., JSON, MessagePack, or binary).
-- [ ] Integrate Redis updates into the order book and trade WebSocket handlers for all exchanges/markets.
-- [ ] Ensure atomicity and consistency of updates (e.g., use Redis transactions or Lua scripts for multi-key updates).
+-**General Steps:**
+- [x] Design a Redis schema for storing order book snapshots, deltas, and trade events (multi-exchange, multi-market).
+- [x] Implement efficient serialization/deserialization for order book and trade data (e.g., JSON, MessagePack, or binary).
+- [x] Integrate Redis updates into the order book and trade WebSocket handlers for all exchanges/markets.
+- [x] Ensure atomicity and consistency of updates (e.g., use Redis transactions or Lua scripts for multi-key updates).
+- Snapshot keys use the pattern `jb:<exchange>:<instrument>:snapshot`.
+- Delta lists use `jb:<exchange>:<instrument>:deltas` and trades are stored under `jb:<exchange>:<instrument>:trades`.
+- All writes are performed via Redis pipelines with `.atomic()` to guarantee consistency.
 - [ ] Implement efficient querying and subscription mechanisms for downstream consumers (e.g., pub/sub, streams, sorted sets).
 - [ ] Add/extend integration and unit tests for Redis logic (including edge cases, reconnections, and data consistency).
 - [ ] Add/extend module-level and user-facing documentation.
