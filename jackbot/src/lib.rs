@@ -81,6 +81,9 @@ pub mod statistic;
 /// `Engine` actions on disconnect / trading disabled.
 pub mod strategy;
 
+/// Smart trade utilities (trailing take profit, profit targets, trailing stops, multi-level stops).
+pub mod smart_trade;
+
 /// Utilities for initialising and interacting with a full trading system.
 pub mod system;
 
