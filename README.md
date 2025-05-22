@@ -83,6 +83,10 @@ simulation with the `MockExchange` and against real venues.
 Orders can be split according to observed volume patterns and dispatched using
 order book analytics, allowing more discrete participation in the market.
 
+## Multi-Exchange Aggregation
+
+`jackbot-data` exposes an `OrderBookAggregator` for combining order books across exchanges with custom weights. Together with the `PositionTracker` and `StrategyConfig` utilities, this enables configurable arbitrage strategies. See [Multi-Exchange Aggregation and Arbitrage Framework](docs/MULTI_EXCHANGE_ARBITRAGE.md) for more details.
+
 
 ## Contributing
 

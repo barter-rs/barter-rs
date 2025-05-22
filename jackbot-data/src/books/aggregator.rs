@@ -1,4 +1,4 @@
-use super::OrderBook;
+use super::{Level, OrderBook};
 use jackbot_instrument::exchange::ExchangeId;
 use parking_lot::RwLock;
 use rust_decimal::Decimal;
@@ -7,8 +7,12 @@ use tracing::info;
 
 #[derive(Clone)]
 pub struct ExchangeBook {
+    /// Exchange identifier for this book.
     pub exchange: ExchangeId,
+    /// Shared reference to the associated order book.
     pub book: Arc<RwLock<OrderBook>>,
+    /// Weight applied to this book when aggregating volumes.
+    pub weight: Decimal,
 }
 
 #[derive(Clone, Default)]
@@ -32,6 +36,58 @@ impl OrderBookAggregator {
 
     pub fn add_book(&mut self, book: ExchangeBook) {
         self.books.push(book);
+    }
+
+    /// Aggregate order books from all exchanges into a single `OrderBook` snapshot.
+    /// `depth` controls how many levels to take from each side after aggregation.
+    pub fn aggregate(&self, depth: usize) -> OrderBook {
+        use itertools::Itertools;
+
+        let mut bids: Vec<(Decimal, Decimal)> = Vec::new();
+        let mut asks: Vec<(Decimal, Decimal)> = Vec::new();
+        for eb in &self.books {
+            let book = eb.book.read();
+            bids.extend(
+                book
+                    .bids()
+                    .levels()
+                    .iter()
+                    .map(|lvl| (lvl.price, lvl.amount * eb.weight)),
+            );
+            asks.extend(
+                book
+                    .asks()
+                    .levels()
+                    .iter()
+                    .map(|lvl| (lvl.price, lvl.amount * eb.weight)),
+            );
+        }
+
+        let mut merged_bids: Vec<Level> = bids
+            .into_iter()
+            .into_group_map_by(|(price, _)| *price)
+            .into_iter()
+            .map(|(price, entries)| {
+                let amount: Decimal = entries.into_iter().map(|(_, amt)| amt).sum();
+                Level::new(price, amount)
+            })
+            .collect();
+        merged_bids.sort_by(|a, b| b.price.cmp(&a.price));
+        merged_bids.truncate(depth);
+
+        let mut merged_asks: Vec<Level> = asks
+            .into_iter()
+            .into_group_map_by(|(price, _)| *price)
+            .into_iter()
+            .map(|(price, entries)| {
+                let amount: Decimal = entries.into_iter().map(|(_, amt)| amt).sum();
+                Level::new(price, amount)
+            })
+            .collect();
+        merged_asks.sort_by(|a, b| a.price.cmp(&b.price));
+        merged_asks.truncate(depth);
+
+        OrderBook::new(0, None, merged_bids, merged_asks)
     }
 
     pub fn best_bid(&self) -> Option<(ExchangeId, Decimal)> {
@@ -115,8 +171,8 @@ mod tests {
         let book_b = build_book(dec!(12), dec!(13));
 
         let agg = OrderBookAggregator::new([
-            ExchangeBook { exchange: ExchangeId::BinanceSpot, book: book_a },
-            ExchangeBook { exchange: ExchangeId::Coinbase, book: book_b },
+            ExchangeBook { exchange: ExchangeId::BinanceSpot, book: book_a, weight: Decimal::ONE },
+            ExchangeBook { exchange: ExchangeId::Coinbase, book: book_b, weight: Decimal::ONE },
         ]);
 
         let opp = agg.detect_arbitrage(dec!(0)).expect("should detect");
@@ -132,10 +188,25 @@ mod tests {
         let book_b = build_book(dec!(11.4), dec!(12));
 
         let agg = OrderBookAggregator::new([
-            ExchangeBook { exchange: ExchangeId::BinanceSpot, book: book_a },
-            ExchangeBook { exchange: ExchangeId::Coinbase, book: book_b },
+            ExchangeBook { exchange: ExchangeId::BinanceSpot, book: book_a, weight: Decimal::ONE },
+            ExchangeBook { exchange: ExchangeId::Coinbase, book: book_b, weight: Decimal::ONE },
         ]);
 
         assert!(agg.detect_arbitrage(dec!(0.5)).is_none());
+    }
+
+    #[test]
+    fn aggregates_books_by_weight() {
+        let book_a = build_book(dec!(10), dec!(11));
+        let book_b = build_book(dec!(12), dec!(13));
+
+        let agg = OrderBookAggregator::new([
+            ExchangeBook { exchange: ExchangeId::BinanceSpot, book: book_a, weight: dec!(2) },
+            ExchangeBook { exchange: ExchangeId::Coinbase, book: book_b, weight: Decimal::ONE },
+        ]);
+
+        let merged = agg.aggregate(1);
+        assert_eq!(merged.bids().levels()[0].amount, dec!(3));
+        assert_eq!(merged.asks().levels()[0].amount, dec!(3));
     }
 }
