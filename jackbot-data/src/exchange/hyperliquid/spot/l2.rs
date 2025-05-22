@@ -5,6 +5,7 @@ use crate::{
     books::{Canonicalizer, Level, OrderBook},
     event::{MarketEvent, MarketIter},
     exchange::{hyperliquid::channel::HyperliquidChannel, subscription::ExchangeSub},
+    redis_store::RedisStore,
     subscription::book::{OrderBookEvent, OrderBooksL2},
 };
 use chrono::{DateTime, Utc};
@@ -40,6 +41,20 @@ impl Canonicalizer for HyperliquidOrderBookL2 {
     }
 }
 
+impl HyperliquidOrderBookL2 {
+    /// Persist this order book snapshot to the provided [`RedisStore`].
+    pub fn store_snapshot<Store: RedisStore>(&self, store: &Store) {
+        let snapshot = self.canonicalize(self.time);
+        store.store_snapshot(ExchangeId::Hyperliquid, self.subscription_id.as_ref(), &snapshot);
+    }
+
+    /// Persist this order book update to the provided [`RedisStore`].
+    pub fn store_delta<Store: RedisStore>(&self, store: &Store) {
+        let delta = OrderBookEvent::Update(self.canonicalize(self.time));
+        store.store_delta(ExchangeId::Hyperliquid, self.subscription_id.as_ref(), &delta);
+    }
+}
+
 impl<InstrumentKey> From<(ExchangeId, InstrumentKey, HyperliquidOrderBookL2)>
     for MarketIter<InstrumentKey, OrderBookEvent>
 {
@@ -71,7 +86,7 @@ where
 mod tests {
     use super::*;
     use rust_decimal_macros::dec;
-    use crate::books::Level;
+    use crate::{books::Level, redis_store::InMemoryStore};
 
     #[test]
     fn test_hyperliquid_order_book_l2() {
@@ -82,5 +97,22 @@ mod tests {
         let canonical = book.canonicalize(book.time);
         assert_eq!(canonical.bids().levels()[0], Level::new(dec!(30000.0), dec!(1.0)));
         assert_eq!(canonical.asks().levels()[0], Level::new(dec!(30010.0), dec!(2.0)));
+    }
+
+    #[test]
+    fn test_store_methods() {
+        let store = InMemoryStore::new();
+        let book = HyperliquidOrderBookL2 {
+            subscription_id: "BTC".into(),
+            time: Utc::now(),
+            bids: vec![(dec!(30000.0), dec!(1.0))],
+            asks: vec![(dec!(30010.0), dec!(2.0))],
+        };
+        book.store_snapshot(&store);
+        assert!(store.get_snapshot(ExchangeId::Hyperliquid, "BTC").is_some());
+
+        let delta_book = HyperliquidOrderBookL2 { time: Utc::now(), ..book };
+        delta_book.store_delta(&store);
+        assert_eq!(store.delta_len(ExchangeId::Hyperliquid, "BTC"), 1);
     }
 }
