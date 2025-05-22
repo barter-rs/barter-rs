@@ -259,3 +259,125 @@ impl HasUpdateIds for BinanceSpotOrderBookL2Update {
         self.last_update_id
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::books::Level;
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_de_binance_spot_order_book_l2_update() {
+        let input = r#"{
+            "e": "depthUpdate",
+            "E": 1571889248277,
+            "s": "BTCUSDT",
+            "U": 157,
+            "u": 160,
+            "b": [["0.0024", "10"]],
+            "a": [["0.0026", "100"]]
+        }"#;
+
+        assert_eq!(
+            serde_json::from_str::<BinanceSpotOrderBookL2Update>(input).unwrap(),
+            BinanceSpotOrderBookL2Update {
+                subscription_id: SubscriptionId::from("@depth@100ms|BTCUSDT"),
+                time_exchange: DateTime::from_timestamp_millis(1571889248277).unwrap(),
+                first_update_id: 157,
+                last_update_id: 160,
+                bids: vec![BinanceLevel { price: dec!(0.0024), amount: dec!(10) }],
+                asks: vec![BinanceLevel { price: dec!(0.0026), amount: dec!(100) }],
+            }
+        );
+    }
+
+    #[test]
+    fn test_sequencer_is_first_update() {
+        let tests = vec![
+            (BinanceSpotOrderBookL2Sequencer::new(10), true),
+            (
+                BinanceSpotOrderBookL2Sequencer {
+                    updates_processed: 1,
+                    last_update_id: 100,
+                    prev_last_update_id: 99,
+                },
+                false,
+            ),
+        ];
+
+        for (seq, expected) in tests {
+            assert_eq!(seq.is_first_update(), expected);
+        }
+    }
+
+    #[test]
+    fn test_sequencer_validate_first_update() {
+        let mut sequencer = BinanceSpotOrderBookL2Sequencer::new(100);
+        let valid = BinanceSpotOrderBookL2Update {
+            subscription_id: SubscriptionId::from("id"),
+            time_exchange: Default::default(),
+            first_update_id: 100,
+            last_update_id: 101,
+            bids: vec![],
+            asks: vec![],
+        };
+        assert!(sequencer.validate_first_update(&valid).is_ok());
+
+        let invalid = BinanceSpotOrderBookL2Update { last_update_id: 90, ..valid.clone() };
+        assert!(sequencer.validate_first_update(&invalid).is_err());
+    }
+
+    #[test]
+    fn test_sequencer_validate_next_update() {
+        let sequencer = BinanceSpotOrderBookL2Sequencer {
+            updates_processed: 10,
+            last_update_id: 100,
+            prev_last_update_id: 100,
+        };
+        let ok_update = BinanceSpotOrderBookL2Update {
+            subscription_id: SubscriptionId::from("id"),
+            time_exchange: Default::default(),
+            first_update_id: 101,
+            last_update_id: 110,
+            bids: vec![],
+            asks: vec![],
+        };
+        assert!(sequencer.validate_next_update(&ok_update).is_ok());
+
+        let bad_update = BinanceSpotOrderBookL2Update { first_update_id: 105, ..ok_update };
+        assert!(sequencer.validate_next_update(&bad_update).is_err());
+    }
+
+    #[test]
+    fn test_update_order_book_with_sequenced_updates() {
+        let mut sequencer = BinanceSpotOrderBookL2Sequencer {
+            updates_processed: 100,
+            last_update_id: 100,
+            prev_last_update_id: 99,
+        };
+        let mut book = OrderBook::new(100, None, vec![Level::new(80, 1)], vec![Level::new(120, 1)]);
+
+        let update = BinanceSpotOrderBookL2Update {
+            subscription_id: SubscriptionId::from("id"),
+            time_exchange: Default::default(),
+            first_update_id: 101,
+            last_update_id: 110,
+            bids: vec![BinanceLevel { price: dec!(80), amount: dec!(0) }],
+            asks: vec![BinanceLevel { price: dec!(130), amount: dec!(1) }],
+        };
+
+        if let Some(valid_update) = sequencer.validate_sequence(update).unwrap() {
+            let event = OrderBookEvent::Update(OrderBook::new(
+                valid_update.last_update_id,
+                None,
+                valid_update.bids,
+                valid_update.asks,
+            ));
+            book.update(event);
+        }
+
+        assert_eq!(book.sequence, 110);
+        assert!(book.bids().levels().is_empty());
+        assert_eq!(book.asks().levels()[1].price, dec!(130));
+    }
+}
