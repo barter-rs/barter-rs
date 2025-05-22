@@ -75,3 +75,6 @@ Please read our contribution guidelines before submitting pull requests.
 ## License
 
 [Include your license information here] 
+## Snapshotting Redis Data to S3
+
+The `jackbot-snapshot` crate provides a lightweight demonstration of extracting cached data from Redis, serialising it to Parquet, uploading it to S3 and managing files with a simplified Iceberg table. A `SnapshotScheduler` can be run to periodically persist data for later analytics.

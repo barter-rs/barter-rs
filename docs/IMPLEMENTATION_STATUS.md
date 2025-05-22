@@ -552,15 +552,15 @@ Exchanges currently implementing the `Canonicalizer` trait:
 > **Goal:** Implement a mechanism to periodically save snapshots of cached order book and trade data from Redis to S3 in Parquet format, using Apache Iceberg for data lake management. Ensure scalable, queryable, and cost-efficient historical data storage for analytics and research.
 
 **General Steps:**
-- [ ] Design a snapshot schema for order book and trade data (columnar, analytics-friendly).
-- [ ] Implement efficient extraction of data from Redis (batch, streaming, or point-in-time snapshot).
-- [ ] Serialize and write data to Parquet format (using appropriate libraries for Rust or via ETL pipeline).
-- [ ] Integrate with S3 for scalable, reliable storage (handle credentials, retries, partitioning).
-- [ ] Register and manage Parquet files with Apache Iceberg for data lake organization and queryability.
-- [ ] Implement snapshot scheduling (periodic, on-demand, or event-driven).
-- [ ] Add/extend integration and unit tests for snapshot, S3, and Iceberg logic (including edge cases, failures, and recovery).
-- [ ] Add/extend module-level and user-facing documentation.
-- [ ] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+- [x] Design a snapshot schema for order book and trade data (columnar, analytics-friendly).
+- [x] Implement efficient extraction of data from Redis (batch, streaming, or point-in-time snapshot).
+- [x] Serialize and write data to Parquet format (using appropriate libraries for Rust or via ETL pipeline).
+- [x] Integrate with S3 for scalable, reliable storage (handle credentials, retries, partitioning).
+- [x] Register and manage Parquet files with Apache Iceberg for data lake organization and queryability.
+- [x] Implement snapshot scheduling (periodic, on-demand, or event-driven).
+- [x] Add/extend integration and unit tests for snapshot, S3, and Iceberg logic (including edge cases, failures, and recovery).
+- [x] Add/extend module-level and user-facing documentation.
+- [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
 
 **Feature-Specific TODOs:**
 
