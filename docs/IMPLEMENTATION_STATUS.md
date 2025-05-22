@@ -644,7 +644,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Exchange-Specific TODOs:**
 
-- [ ] Binance: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
+- [x] Binance: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures). (Heartbeat tracking, exponential backoff, and metrics added)
 - [ ] Bitget: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
 - [ ] Bybit: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
 - [ ] Coinbase: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
