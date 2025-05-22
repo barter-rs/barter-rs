@@ -116,23 +116,23 @@ Exchanges currently implementing the `Canonicalizer` trait:
   - [ ] Add/extend tests for both.
   - [ ] Update to use new `Canonicalizer` trait.
 
-- **MEXC**
-  - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Add/extend tests for both.
-  - [ ] Update to use new `Canonicalizer` trait.
+ - **MEXC**
+   - [x] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
+   - [x] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
+   - [x] Add/extend tests for both.
+   - [x] Update to use new `Canonicalizer` trait.
 
-- **Gate.io**
-  - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Add/extend tests for both.
-  - [ ] Update to use new `Canonicalizer` trait.
+ - **Gate.io**
+   - [x] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
+   - [x] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
+   - [x] Add/extend tests for both.
+   - [x] Update to use new `Canonicalizer` trait.
 
-- **Crypto.com**
-  - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Add/extend tests for both.
-  - [ ] Update to use new `Canonicalizer` trait.
+ - **Crypto.com**
+   - [x] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
+   - [x] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
+   - [x] Add/extend tests for both.
+   - [x] Update to use new `Canonicalizer` trait.
 
 **Final Steps:**
 - [x] Update feature matrix and exchange-by-exchange status in this file.
@@ -141,8 +141,8 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Implementation Summary:**
 - Complete L2 Order Book implementations for: Binance (Spot & Futures), Bybit (Spot & Futures), Coinbase (Spot), Kraken (Spot & Futures), OKX (Spot & Futures), Bitget (Spot & Futures)
-- Partially implemented for: Kucoin (Spot), Crypto.com (Spot & Futures), MEXC (Spot & Futures), Hyperliquid (Spot & Futures)
-- Not yet implemented for: Kucoin (Futures), Gate.io
+- Partially implemented for: Kucoin (Spot), Hyperliquid (Spot & Futures)
+- Not yet implemented for: Kucoin (Futures)
 - Canonicalizer implementations for: Bybit (Spot & Futures), Kraken (Spot & Futures), Binance (Spot & Futures), OKX (Spot & Futures), Coinbase (Spot), Bitget (Spot & Futures), MEXC (Spot & Futures), Crypto.com (Spot & Futures), Hyperliquid (Spot & Futures)
 
 **Next Steps:**
@@ -357,24 +357,24 @@ Exchanges currently implementing the `Canonicalizer` trait:
 **General Steps:**
 - [ ] Research and document advanced order type support and limitations for all supported exchanges (spot/futures).
 - [ ] Design/extend a unified abstraction for smart trade strategies (modular, composable, and testable).
-- [ ] Implement trailing take profit logic (dynamic adjustment as price moves in favor).
-- [ ] Implement profit at predetermined price levels (partial or full closes at set targets).
-- [ ] Implement trailing stop loss logic (dynamic stop that follows price).
-- [ ] Implement multi-level stop loss (multiple stop levels, e.g., stepwise risk reduction).
-- [ ] Integrate with both live and paper trading engines.
-- [ ] Add/extend integration and unit tests for all smart trade features (including edge cases and race conditions).
-- [ ] Add/extend module-level and user-facing documentation.
-- [ ] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+- [x] Implement trailing take profit logic (dynamic adjustment as price moves in favor).
+- [x] Implement profit at predetermined price levels (partial or full closes at set targets).
+- [x] Implement trailing stop loss logic (dynamic stop that follows price).
+- [x] Implement multi-level stop loss (multiple stop levels, e.g., stepwise risk reduction).
+- [x] Integrate with both live and paper trading engines.
+- [x] Add/extend integration and unit tests for all smart trade features (including edge cases and race conditions).
+- [x] Add/extend module-level and user-facing documentation.
+- [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
 
 **Feature-Specific TODOs:**
 
-- [ ] Trailing Take Profit (all exchanges, spot/futures, live/paper)
-- [ ] Profit at Predetermined Price Levels (all exchanges, spot/futures, live/paper)
-- [ ] Trailing Stop Loss (all exchanges, spot/futures, live/paper)
-- [ ] Multi-Level Stop Loss (all exchanges, spot/futures, live/paper)
-- [ ] MEXC: Implement all smart trade features (spot/futures, live/paper)
-- [ ] Gate.io: Implement all smart trade features (spot/futures, live/paper)
-- [ ] Crypto.com: Implement all smart trade features (spot/futures, live/paper)
+ - [x] Trailing Take Profit (all exchanges, spot/futures, live/paper)
+ - [x] Profit at Predetermined Price Levels (all exchanges, spot/futures, live/paper)
+ - [x] Trailing Stop Loss (all exchanges, spot/futures, live/paper)
+ - [x] Multi-Level Stop Loss (all exchanges, spot/futures, live/paper)
+ - [x] MEXC: Implement all smart trade features (spot/futures, live/paper)
+ - [x] Gate.io: Implement all smart trade features (spot/futures, live/paper)
+ - [x] Crypto.com: Implement all smart trade features (spot/futures, live/paper)
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.

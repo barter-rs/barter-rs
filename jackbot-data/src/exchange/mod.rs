@@ -20,6 +20,12 @@ pub mod bybit;
 /// `Coinbase` [`Connector`] and [`StreamSelector`] implementations.
 pub mod coinbase;
 
+/// `Crypto.com` [`Connector`] and [`StreamSelector`] implementations.
+pub mod cryptocom;
+
+/// `Gate.io` [`Connector`] and [`StreamSelector`] implementations.
+pub mod gateio;
+
 /// `Kraken` [`Connector`] and [`StreamSelector`] implementations.
 pub mod kraken;
 
@@ -28,6 +34,9 @@ pub mod okx;
 
 /// `Hyperliquid` [`Connector`] and [`StreamSelector`] implementations.
 pub mod hyperliquid;
+
+/// `MEXC` [`Connector`] and [`StreamSelector`] implementations.
+pub mod mexc;
 
 /// Defines the generic [`ExchangeSub`] containing a market and channel combination used by an
 /// exchange [`Connector`] to build [`WsMessage`] subscription payloads.
