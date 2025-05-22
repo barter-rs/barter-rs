@@ -4,7 +4,10 @@ use self::{
 };
 use crate::{
     ExchangeWsStream, NoInitialSnapshots,
-    exchange::{Connector, ExchangeSub, StreamSelector},
+    exchange::{
+        Connector, ExchangeSub, StreamSelector, PingInterval,
+        DEFAULT_PING_INTERVAL, DEFAULT_HEARTBEAT_INTERVAL,
+    },
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
     subscription::{book::OrderBooksL2, trade::PublicTrades},
@@ -16,6 +19,7 @@ use jackbot_integration::{error::SocketError, protocol::websocket::WsMessage};
 use jackbot_macro::{DeExchange, SerExchange};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::time::Duration;
 use url::Url;
 
 /// OrderBook types for [`Coinbase`].
@@ -72,6 +76,13 @@ impl Connector for Coinbase {
         Url::parse(BASE_URL_COINBASE).map_err(SocketError::UrlParse)
     }
 
+    fn ping_interval() -> Option<PingInterval> {
+        Some(PingInterval {
+            interval: tokio::time::interval(DEFAULT_PING_INTERVAL),
+            ping: || WsMessage::text("ping"),
+        })
+    }
+
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
         exchange_subs
             .into_iter()
@@ -86,6 +97,10 @@ impl Connector for Coinbase {
                 )
             })
             .collect()
+    }
+
+    fn heartbeat_interval() -> Option<Duration> {
+        Some(DEFAULT_HEARTBEAT_INTERVAL)
     }
 }
 

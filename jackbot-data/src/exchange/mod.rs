@@ -37,6 +37,15 @@ pub mod subscription;
 /// `Subscription` requests.
 pub const DEFAULT_SUBSCRIPTION_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Default interval between custom WebSocket pings when an exchange requires
+/// application-level heartbeats.
+pub const DEFAULT_PING_INTERVAL: Duration = Duration::from_secs(30);
+
+/// Default heartbeat interval used to detect stalled WebSocket connections.
+/// If no messages are received within this duration, the connection is
+/// considered unhealthy and will be re-established.
+pub const DEFAULT_HEARTBEAT_INTERVAL: Duration = Duration::from_secs(90);
+
 /// Defines the [`MarketStream`] kind associated with an exchange
 /// `Subscription` [`SubscriptionKind`].
 ///

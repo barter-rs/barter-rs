@@ -8,7 +8,10 @@ use self::{
 };
 use crate::{
     ExchangeWsStream, NoInitialSnapshots,
-    exchange::{Connector, ExchangeSub, StreamSelector},
+    exchange::{
+        Connector, ExchangeSub, StreamSelector, PingInterval,
+        DEFAULT_PING_INTERVAL, DEFAULT_HEARTBEAT_INTERVAL,
+    },
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
     subscription::trade::PublicTrades,
@@ -18,6 +21,7 @@ use jackbot_instrument::exchange::ExchangeId;
 use jackbot_integration::{error::SocketError, protocol::websocket::WsMessage};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::time::Duration;
 use url::Url;
 
 pub mod book;
@@ -50,6 +54,13 @@ impl Connector for Kucoin {
         Url::parse(BASE_URL_KUCOIN).map_err(SocketError::UrlParse)
     }
 
+    fn ping_interval() -> Option<PingInterval> {
+        Some(PingInterval {
+            interval: tokio::time::interval(DEFAULT_PING_INTERVAL),
+            ping: || WsMessage::text("ping"),
+        })
+    }
+
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
         // Kucoin expects a subscription message per market/channel
         exchange_subs
@@ -69,6 +80,10 @@ impl Connector for Kucoin {
                 )
             })
             .collect()
+    }
+
+    fn heartbeat_interval() -> Option<Duration> {
+        Some(DEFAULT_HEARTBEAT_INTERVAL)
     }
 }
 
