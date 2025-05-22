@@ -13,6 +13,9 @@ pub mod liquidation;
 /// L2 order book implementation
 pub mod l2;
 
+/// Trade types.
+pub mod trade;
+
 /// [`BybitPerpetualsUsd`] WebSocket server base url.
 ///
 /// See docs: <https://bybit-exchange.github.io/docs/v5/ws/connect>

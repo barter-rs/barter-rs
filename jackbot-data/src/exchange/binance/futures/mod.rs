@@ -17,6 +17,8 @@ use std::fmt::{Display, Formatter};
 
 /// Level 2 OrderBook types.
 pub mod l2;
+/// Trade types.
+pub mod trade;
 
 /// Liquidation types.
 pub mod liquidation;
