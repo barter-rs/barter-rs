@@ -16,6 +16,9 @@ pub mod map;
 /// Canonical (standardized) representation for orderbook data.
 pub mod canonical;
 
+/// Aggregates order books across multiple exchanges to detect simple arbitrage opportunities.
+pub mod aggregator;
+
 /// Normalised Jackbot [`OrderBook`] snapshot.
 #[derive(Clone, PartialEq, Eq, Debug, Default, Deserialize, Serialize)]
 pub struct OrderBook {
