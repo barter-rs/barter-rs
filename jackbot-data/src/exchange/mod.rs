@@ -126,6 +126,13 @@ where
     fn subscription_timeout() -> Duration {
         DEFAULT_SUBSCRIPTION_TIMEOUT
     }
+
+    /// Defines the expected maximum duration between inbound WebSocket messages
+    /// before the connection is considered unhealthy. Returning `None` disables
+    /// heartbeat tracking for the exchange.
+    fn heartbeat_interval() -> Option<Duration> {
+        None
+    }
 }
 
 /// Used when an execution has servers different
