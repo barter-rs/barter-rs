@@ -67,6 +67,13 @@ A detailed feature matrix is maintained in [docs/IMPLEMENTATION_STATUS.md](docs/
 - **Canonical Order Book** implemented across Binance, Bybit, OKX, Coinbase, and Kraken (Futures).
 - **Trade Streams & Execution**: planned and under active development.
 
+## TWAP Execution
+
+`jackbot-execution` now includes a `twap` module capable of slicing large orders
+into randomized chunks and scheduling them based on order book analytics from
+`jackbot-data`. This enables discrete time-weighted execution both in
+simulation with the `MockExchange` and against real venues.
+
 
 ## Contributing
 
