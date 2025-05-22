@@ -862,10 +862,10 @@ Exchanges currently implementing the `Canonicalizer` trait:
  - [x] Create drawdown and loss limit controls with configurable thresholds.
  - [x] Implement correlation-based exposure management for related instruments.
  - [ ] Add volatility-adjusted position sizing and risk scaling.
- - [ ] Implement automated risk mitigation actions (partial/full closeouts, hedging).
- - [ ] Create real-time risk dashboards and monitoring.
+ - [x] Implement automated risk mitigation actions (partial/full closeouts, hedging).
+ - [x] Create real-time risk dashboards and monitoring.
  - [x] Add alerting and notification for risk threshold violations.
- - [ ] Implement stress testing and scenario analysis tools.
+ - [x] Implement stress testing and scenario analysis tools.
  - [x] Add/extend integration and unit tests for all risk management components.
  - [x] Add/extend module-level and user-facing documentation.
  - [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
@@ -878,9 +878,9 @@ Exchanges currently implementing the `Canonicalizer` trait:
  - [x] Automated Risk Mitigation Actions
  - [x] Volatility-Adjusted Position Sizing
 
-- [ ] Real-time Risk Monitoring and Dashboards
+ - [x] Real-time Risk Monitoring and Dashboards
  - [x] Alerting and Notification System
-- [ ] Stress Testing and Scenario Analysis
+ - [x] Stress Testing and Scenario Analysis
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.
