@@ -141,6 +141,9 @@ pub mod instrument;
 /// a collection of sorted local Instrument [`OrderBook`](books::OrderBook)s
 pub mod books;
 
+/// Redis storage utilities for snapshots, deltas, and trades.
+pub mod redis_store;
+
 /// Generic [`ExchangeTransformer`] implementations used by [`MarketStream`]s to translate exchange
 /// specific types to normalised Jackbot types.
 ///

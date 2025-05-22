@@ -3,7 +3,7 @@ use jackbot_data::streams::consumer::MarketStreamEvent;
 use jackbot_instrument::instrument::InstrumentIndex;
 use chrono::{DateTime, Utc};
 use futures::Stream;
-use std::sync::Arc;
+use std::{future::Future, sync::Arc};
 
 /// Interface that provides the backtest MarketStream and associated [`HistoricalClock`].
 pub trait BacktestMarketData {
@@ -72,5 +72,15 @@ impl<Kind> MarketDataInMemory<Kind> {
             time_first_event,
             events,
         }
+    }
+
+    /// Create a new in-memory market data source using a [`DataLoader`].
+    pub async fn from_loader<L>(loader: L) -> Result<Self, JackbotError>
+    where
+        L: crate::backtest::data_loader::DataLoader<Kind = Kind> + Send,
+        Kind: Clone + Sync + Send + 'static,
+    {
+        let events = loader.load().await?;
+        Ok(Self::new(Arc::new(events)))
     }
 }

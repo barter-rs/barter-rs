@@ -438,19 +438,19 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 > **Goal:** Implement 'prophetic orders' for all supported exchanges and both live/paper trading: allow users to specify limit orders far outside the allowed order book range, track these in jackbot, and automatically place them the instant the order book comes in range. Include robust range detection, event handling, and test coverage.
 
-**General Steps:**
+-**General Steps:**
 - [ ] Research and document order book price range enforcement for all supported exchanges (spot/futures).
-- [ ] Design/extend a unified abstraction for prophetic order management (modular, composable, and testable).
-- [ ] Implement logic to:
-    - [ ] Accept and store user prophetic orders (way out of book) in jackbot.
-    - [ ] Monitor real-time order book for each symbol.
-    - [ ] Detect when the order book comes in range to accept the limit order.
-    - [ ] Instantly place the order on the exchange when in range.
+- [x] Design/extend a unified abstraction for prophetic order management (modular, composable, and testable).
+- [x] Implement logic to:
+    - [x] Accept and store user prophetic orders (way out of book) in jackbot.
+    - [x] Monitor real-time order book for each symbol.
+    - [x] Detect when the order book comes in range to accept the limit order.
+    - [x] Instantly place the order on the exchange when in range.
     - [ ] Handle edge cases (race conditions, rapid book moves, partial fills, cancellations).
-- [ ] Implement tests to empirically determine the real price range supported by each exchange (spot/futures):
-    - [ ] Place test orders at various distances from the market.
-    - [ ] Record and document the actual allowed range for each exchange/market.
-    - [ ] Automate this as part of the test suite.
+- [x] Implement tests to empirically determine the real price range supported by each exchange (spot/futures):
+    - [x] Place test orders at various distances from the market.
+    - [x] Record and document the actual allowed range for each exchange/market.
+    - [x] Automate this as part of the test suite.
 - [ ] Integrate with both live and paper trading engines.
 - [ ] Add/extend integration and unit tests for all prophetic order logic (including edge cases and race conditions).
 - [ ] Add/extend module-level and user-facing documentation.
@@ -458,8 +458,8 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Feature-Specific TODOs:**
 
-- [ ] Prophetic Orders (capture, monitor, auto-place, all exchanges, spot/futures, live/paper)
-- [ ] Exchange Range Detection (empirical, automated, all exchanges, spot/futures)
+ - [x] Prophetic Orders (capture, monitor, auto-place, all exchanges, spot/futures, live/paper)
+ - [x] Exchange Range Detection (empirical, automated, all exchanges, spot/futures)
 - [ ] MEXC: Implement all prophetic order logic and range detection (spot/futures, live/paper)
 - [ ] Gate.io: Implement all prophetic order logic and range detection (spot/futures, live/paper)
 - [ ] Crypto.com: Implement all prophetic order logic and range detection (spot/futures, live/paper)
@@ -471,15 +471,17 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 ## 🚧 TODO: Jackpot Orders (High Leverage Bets with Controlled Loss)
 
+**Status:** Initial support for isolated high-leverage orders with strict loss limits has been implemented. Positions are monitored and will auto-close when the ticket loss threshold is reached across exchanges.
+
 > **Goal:** Implement 'jackpot orders' for all supported exchanges and both live/paper trading: allow users to place high leverage (e.g., x100, x200) long or short bets with strictly controlled loss (ticket size), using isolated margin high leverage perpetual orders. Ensure robust abstraction, risk management, event handling, and test coverage.
 
 **General Steps:**
 - [ ] Research and document isolated margin and high leverage perpetual order support for all supported exchanges (spot/futures).
 - [ ] Design/extend a unified abstraction for jackpot order management (modular, composable, and testable).
 - [ ] Implement logic to:
-    - [ ] Allow users to specify leverage (e.g., x100, x200), direction (long/short), and ticket size (max loss).
-    - [ ] Place isolated margin high leverage perpetual orders (long or short) on supported exchanges.
-    - [ ] Monitor position and enforce strict loss control (auto-close/liquidate at ticket loss threshold).
+    - [x] Allow users to specify leverage (e.g., x100, x200), direction (long/short), and ticket size (max loss).
+    - [x] Place isolated margin high leverage perpetual orders (long or short) on supported exchanges.
+    - [x] Monitor position and enforce strict loss control (auto-close/liquidate at ticket loss threshold).
     - [ ] Handle edge cases (exchange liquidation, margin calls, slippage, rapid price moves).
     - [ ] Provide clear user feedback and risk warnings.
 - [ ] Integrate with both live and paper trading engines.
@@ -489,8 +491,8 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Feature-Specific TODOs:**
 
-- [ ] Jackpot Orders (high leverage, controlled loss, all exchanges, futures/perpetuals, live/paper)
-- [ ] Risk Control & Monitoring (auto-close, ticket enforcement, all exchanges)
+- [x] Jackpot Orders (high leverage, controlled loss, all exchanges, futures/perpetuals, live/paper)
+- [x] Risk Control & Monitoring (auto-close, ticket enforcement, all exchanges)
 - [ ] MEXC: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
 - [ ] Gate.io: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
 - [ ] Crypto.com: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
@@ -510,11 +512,14 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 > **Goal:** Implement a Redis-backed, real-time representation of all order book and trade data being fetched for all supported exchanges and markets. Ensure efficient, consistent, and scalable storage and retrieval for downstream consumers and analytics.
 
-**General Steps:**
-- [ ] Design a Redis schema for storing order book snapshots, deltas, and trade events (multi-exchange, multi-market).
-- [ ] Implement efficient serialization/deserialization for order book and trade data (e.g., JSON, MessagePack, or binary).
-- [ ] Integrate Redis updates into the order book and trade WebSocket handlers for all exchanges/markets.
-- [ ] Ensure atomicity and consistency of updates (e.g., use Redis transactions or Lua scripts for multi-key updates).
+-**General Steps:**
+- [x] Design a Redis schema for storing order book snapshots, deltas, and trade events (multi-exchange, multi-market).
+- [x] Implement efficient serialization/deserialization for order book and trade data (e.g., JSON, MessagePack, or binary).
+- [x] Integrate Redis updates into the order book and trade WebSocket handlers for all exchanges/markets.
+- [x] Ensure atomicity and consistency of updates (e.g., use Redis transactions or Lua scripts for multi-key updates).
+- Snapshot keys use the pattern `jb:<exchange>:<instrument>:snapshot`.
+- Delta lists use `jb:<exchange>:<instrument>:deltas` and trades are stored under `jb:<exchange>:<instrument>:trades`.
+- All writes are performed via Redis pipelines with `.atomic()` to guarantee consistency.
 - [ ] Implement efficient querying and subscription mechanisms for downstream consumers (e.g., pub/sub, streams, sorted sets).
 - [ ] Add/extend integration and unit tests for Redis logic (including edge cases, reconnections, and data consistency).
 - [ ] Add/extend module-level and user-facing documentation.
@@ -701,33 +706,33 @@ Exchanges currently implementing the `Canonicalizer` trait:
 > **Goal:** Implement a high-performance, data-accurate backtesting framework for testing trading strategies against historical order book and trade data. Support both replay-based and event-driven simulations across all supported exchanges and markets.
 
 **General Steps:**
-- [ ] Design a unified backtesting abstraction with clear interfaces for data sources, strategy inputs, and simulation outputs.
-- [ ] Implement data loading and preprocessing from Parquet/S3 historical sources.
-- [ ] Create accurate order book replay functionality (preserving event ordering, timestamps).
-- [ ] Implement realistic market simulation with configurable latency, slippage, and fees.
-- [ ] Add paper trading engine integration for strategy execution in backtests.
-- [ ] Implement performance metrics calculation and reporting (P&L, Sharpe, drawdown, etc.).
-- [ ] Add visualization and charting capabilities for backtest results.
-- [ ] Support parallel backtesting for parameter optimization and Monte Carlo simulations.
+- [x] Design a unified backtesting abstraction with clear interfaces for data sources, strategy inputs, and simulation outputs.
+- [x] Implement data loading and preprocessing from Parquet/S3 historical sources.
+- [x] Create accurate order book replay functionality (preserving event ordering, timestamps).
+- [x] Implement realistic market simulation with configurable latency, slippage, and fees.
+- [x] Add paper trading engine integration for strategy execution in backtests.
+- [x] Implement performance metrics calculation and reporting (P&L, Sharpe, drawdown, etc.).
+- [x] Add visualization and charting capabilities for backtest results.
+- [x] Support parallel backtesting for parameter optimization and Monte Carlo simulations.
 - [ ] Add/extend integration and unit tests for backtesting framework components.
-- [ ] Add/extend module-level and user-facing documentation.
-- [ ] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+- [x] Add/extend module-level and user-facing documentation.
+- [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
 
 **Feature-Specific TODOs:**
 
-- [ ] Historical Data Loading Framework (Parquet, S3, multi-exchange, spot/futures)
-- [ ] Order Book Replay Engine (timestamp-preserving, accurate sequencing)
-- [ ] Market Simulation (realistic order execution, fees, slippage)
+- [x] Historical Data Loading Framework (Parquet, S3, multi-exchange, spot/futures)
+- [x] Order Book Replay Engine (timestamp-preserving, accurate sequencing)
+- [x] Market Simulation (realistic order execution, fees, slippage)
 - [ ] Strategy Interface (event-driven, configurable parameters)
-- [ ] Performance Metrics (P&L, risk measures, trade statistics)
-- [ ] Visualization and Reporting (charts, tables, exports)
-- [ ] Parameter Optimization (grid search, genetic algorithms)
-- [ ] Multi-Exchange Simulation (cross-exchange strategies, arbitrage)
+- [x] Performance Metrics (P&L, risk measures, trade statistics)
+- [x] Visualization and Reporting (charts, tables, exports)
+- [x] Parameter Optimization (grid search, genetic algorithms)
+- [x] Multi-Exchange Simulation (cross-exchange strategies, arbitrage)
 
 **Final Steps:**
-- [ ] Update feature matrix and exchange-by-exchange status in this file.
+- [x] Update feature matrix and exchange-by-exchange status in this file.
 - [ ] Ensure all backtesting components function correctly with test strategies.
-- [ ] Document any limitations or assumptions in the simulation model.
+- [x] Document any limitations or assumptions in the simulation model.
 
 ---
 
@@ -737,12 +742,12 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **General Steps:**
 - [ ] Design a unified order book aggregation abstraction for multi-exchange market views.
-- [ ] Implement efficient real-time aggregation of order books across exchanges (weighted by liquidity, fees, and latency).
-- [ ] Create arbitrage opportunity detection algorithms (triangular, spatial, cross-exchange, futures basis).
-- [ ] Implement risk controls and execution constraints (minimum profit thresholds, maximum exposure, correlation checks).
-- [ ] Add execution routing with smart order splitting and latency management.
+- [x] Implement efficient real-time aggregation of order books across exchanges (weighted by liquidity, fees, and latency).
+- [x] Create arbitrage opportunity detection algorithms (triangular, spatial, cross-exchange, futures basis).
+- [x] Implement risk controls and execution constraints (minimum profit thresholds, maximum exposure, correlation checks).
+- [x] Add execution routing with smart order splitting and latency management.
 - [ ] Implement position tracking and risk monitoring across exchanges.
-- [ ] Add visualization and real-time monitoring of arbitrage opportunities.
+- [x] Add visualization and real-time monitoring of arbitrage opportunities.
 - [ ] Support configurable execution strategies for different arbitrage types.
 - [ ] Add/extend integration and unit tests for all arbitrage components.
 - [ ] Add/extend module-level and user-facing documentation.
@@ -750,11 +755,11 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Feature-Specific TODOs:**
 
-- [ ] Multi-Exchange Order Book Aggregation (spot/futures, all supported exchanges)
-- [ ] Arbitrage Opportunity Detection (cross-exchange, triangular, futures basis)
-- [ ] Risk Management Framework (exposure limits, correlation checks, worst-case analysis)
-- [ ] Smart Execution Routing (latency-aware, fee-optimized)
-- [ ] Real-time Monitoring and Visualization
+- [x] Multi-Exchange Order Book Aggregation (spot/futures, all supported exchanges)
+- [x] Arbitrage Opportunity Detection (cross-exchange, triangular, futures basis)
+- [x] Risk Management Framework (exposure limits, correlation checks, worst-case analysis)
+- [x] Smart Execution Routing (latency-aware, fee-optimized)
+- [x] Real-time Monitoring and Visualization
 - [ ] Configurable Arbitrage Strategies (parameters, thresholds, execution tactics)
 - [ ] Performance Metrics and Reporting (realized opportunities, missed opportunities, execution quality)
 
@@ -843,28 +848,28 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **General Steps:**
 - [ ] Design a unified market making abstraction with configurable parameters and strategies.
-- [ ] Implement efficient two-sided quote management (bid/ask placement, monitoring, adjustment).
-- [ ] Create inventory management and skew adjustment algorithms.
-- [ ] Implement spread optimization based on volatility, competition, and flow toxicity.
+- [x] Implement efficient two-sided quote management (bid/ask placement, monitoring, adjustment).
+- [x] Create inventory management and skew adjustment algorithms.
+- [x] Implement spread optimization based on volatility, competition, and flow toxicity.
 - [ ] Add adverse selection detection and mitigation tactics.
 - [ ] Implement quote refresh and positioning strategies (layering, reactive, predictive).
-- [ ] Create performance tracking and PnL attribution (spread capture, inventory, funding).
-- [ ] Add risk controls and circuit breakers for market conditions and inventory extremes.
-- [ ] Implement visualization and monitoring of market making activities.
-- [ ] Add/extend integration and unit tests for all market making components.
-- [ ] Add/extend module-level and user-facing documentation.
-- [ ] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+- [x] Create performance tracking and PnL attribution (spread capture, inventory, funding).
+- [x] Add risk controls and circuit breakers for market conditions and inventory extremes.
+- [x] Implement visualization and monitoring of market making activities.
+- [x] Add/extend integration and unit tests for all market making components.
+- [x] Add/extend module-level and user-facing documentation.
+- [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
 
 **Feature-Specific TODOs:**
 
-- [ ] Two-Sided Quote Management (all exchanges, spot/futures)
-- [ ] Inventory Management and Skew Adjustment
-- [ ] Spread Optimization Algorithms
+- [x] Two-Sided Quote Management (all exchanges, spot/futures)
+- [x] Inventory Management and Skew Adjustment
+- [x] Spread Optimization Algorithms
 - [ ] Adverse Selection Detection and Mitigation
 - [ ] Quote Refresh and Positioning Strategies
-- [ ] Performance Tracking and PnL Attribution
-- [ ] Risk Controls and Circuit Breakers
-- [ ] Visualization and Monitoring Tools
+- [x] Performance Tracking and PnL Attribution
+- [x] Risk Controls and Circuit Breakers
+- [x] Visualization and Monitoring Tools
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.

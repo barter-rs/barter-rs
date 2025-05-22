@@ -1,5 +1,7 @@
 # Jackbot Development Environment Setup
 
+Jackbot Terminal is the fastest, battle tested power horse in the same cloud region of exchanges for minimum latency. Written in Rust for security and performance. Institutional grade trading meets great engineering.
+
 This repository contains scripts to set up the development environment for the Jackbot project on Ubuntu.
 
 ## Getting Started
@@ -54,6 +56,17 @@ After installing the dependencies:
 ## Project Structure
 
 For details on the project structure and implementation status, see [IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
+## Feature Matrix (Summary)
+
+A detailed feature matrix is maintained in [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md). At a glance:
+
+- **L2 Order Books**
+  - Completed: Binance (Spot & Futures), Coinbase (Spot), Kraken (Spot & Futures), Bybit (Spot & Futures)
+  - Partial: OKX (Spot & Futures), Kucoin (Spot)
+  - Pending: Kucoin (Futures), Gate.io, Crypto.com, MEXC, Hyperliquid, Bitget
+- **Canonical Order Book** implemented across Binance, Bybit, OKX, Coinbase, and Kraken (Futures).
+- **Trade Streams & Execution**: planned and under active development.
+
 
 ## Contributing
 
@@ -65,3 +78,4 @@ Please read our contribution guidelines before submitting pull requests.
 ## Snapshotting Redis Data to S3
 
 The `jackbot-snapshot` crate demonstrates extracting multi-exchange order book and trade data from Redis, serializing it to Parquet, uploading snapshots to a partitioned S3 layout, and tracking them with a minimal Iceberg table. A configurable `SnapshotScheduler` handles periodic persistence and retention cleanup.
+

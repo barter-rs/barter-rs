@@ -81,11 +81,28 @@ pub mod statistic;
 /// `Engine` actions on disconnect / trading disabled.
 pub mod strategy;
 
+/// Smart trade utilities (trailing take profit, profit targets, trailing stops, multi-level stops).
+pub mod smart_trade;
+
 /// Utilities for initialising and interacting with a full trading system.
 pub mod system;
 
 /// Backtesting utilities.
 pub mod backtest;
+
+
+/// Market making utilities including two-sided quoting and performance tracking.
+pub mod market_maker;
+
+/// Lightweight A/B testing utilities built on top of the backtester.
+pub mod ab_testing;
+
+/// Basic technical analysis indicators.
+pub mod technical;
+
+/// Simple machine learning model trait and implementations.
+pub mod ml;
+
 
 /// Traits and types related to component shutdowns.
 pub mod shutdown;

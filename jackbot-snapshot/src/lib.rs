@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
     time::{Duration, SystemTime},
+
 };
 use tokio::sync::Mutex;
 use tokio::time;
@@ -38,7 +39,6 @@ impl FakeRedis {
     }
 }
 
-/// Serialize records to a pseudo-Parquet (newline-delimited JSON) file.
 pub fn write_parquet(records: &[DataRecord], path: &Path) -> io::Result<()> {
     let mut file = File::create(path)?;
     for record in records {
@@ -151,6 +151,7 @@ mod tests {
     #[tokio::test]
     async fn test_snapshot_once() {
         let redis = Arc::new(FakeRedis::default());
+
         redis
             .insert(DataRecord {
                 exchange: "exch".into(),

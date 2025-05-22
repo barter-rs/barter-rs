@@ -17,7 +17,6 @@ async fn test_scheduler_multiple_snapshots() {
     let meta = dir.join("meta_integration.json");
     let cfg = SnapshotConfig { interval: Duration::from_millis(1), retention: Duration::from_secs(0) };
     let scheduler = SnapshotScheduler::new(redis, s3_root.clone(), meta.clone(), cfg);
-
     // Take two snapshots manually
     scheduler.snapshot_once().await.unwrap();
     scheduler.snapshot_once().await.unwrap();
