@@ -83,7 +83,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
   - [x] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental). (Complete and fixed error handling)
   - [x] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental). (Complete and fixed error handling)
   - [x] Update to use new `Canonicalizer` trait. (Complete for both spot and futures)
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both. (Sequencing, snapshots, canonicalization)
 
 - **Coinbase**
   - [x] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental). (Complete and tested)
