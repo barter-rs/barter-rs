@@ -484,18 +484,20 @@ Exchanges currently implementing the `Canonicalizer` trait:
     - [x] Monitor position and enforce strict loss control (auto-close/liquidate at ticket loss threshold).
      - [x] Handle edge cases (exchange liquidation, margin calls, slippage, rapid price moves).
      - [x] Provide clear user feedback and risk warnings.
-- [x] Integrate with both live and paper trading engines.
-- [x] Add/extend integration and unit tests for all jackpot order logic (including edge cases and race conditions).
-- [x] Add/extend module-level and user-facing documentation.
-- [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+ - [x] Integrate with both live and paper trading engines.
+ - [x] Add/extend integration and unit tests for all jackpot order logic (including edge cases and race conditions).
+ - [x] Add/extend module-level and user-facing documentation.
+ - [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+
 
 **Feature-Specific TODOs:**
 
 - [x] Jackpot Orders (high leverage, controlled loss, all exchanges, futures/perpetuals, live/paper)
 - [x] Risk Control & Monitoring (auto-close, ticket enforcement, all exchanges)
-- [x] MEXC: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
-- [x] Gate.io: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
-- [x] Crypto.com: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
+ - [x] MEXC: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
+ - [x] Gate.io: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
+ - [x] Crypto.com: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
+
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.

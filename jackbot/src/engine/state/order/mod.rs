@@ -18,6 +18,7 @@ use tracing::{debug, error, warn};
 pub mod in_flight_recorder;
 pub mod manager;
 pub mod prophetic;
+pub mod jackpot;
 
 /// Synchronous order manager that tracks the lifecycle of active exchange orders.
 ///
