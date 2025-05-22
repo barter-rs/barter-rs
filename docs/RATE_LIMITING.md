@@ -23,6 +23,7 @@ Rate limit modules are implemented for:
 - Bitget
 - Bybit
 - Coinbase
+- Gate.io
 - Hyperliquid
 - Kraken
 - OKX
