@@ -418,9 +418,9 @@ Exchanges currently implementing the `Canonicalizer` trait:
  - [x] Always Maker (post-only, top-of-book, auto-cancel/repost, all exchanges, spot/futures, live/paper)
 - [x] Advanced TWAP (untraceable, order book blended, all exchanges, spot/futures, live/paper)
 - [x] Advanced VWAP (untraceable, order book blended, all exchanges, spot/futures, live/paper)
-- [ ] MEXC: Implement all advanced execution order types (spot/futures, live/paper)
-- [ ] Gate.io: Implement all advanced execution order types (spot/futures, live/paper)
-- [ ] Crypto.com: Implement all advanced execution order types (spot/futures, live/paper)
+ - [x] MEXC: Implement all advanced execution order types (spot/futures, live/paper)
+ - [x] Gate.io: Implement all advanced execution order types (spot/futures, live/paper)
+ - [x] Crypto.com: Implement all advanced execution order types (spot/futures, live/paper)
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.
