@@ -101,7 +101,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - **Kucoin**
   - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental). (Partially implemented, needs testing)
   - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental). (Not yet implemented)
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
   - [ ] Update to use new `Canonicalizer` trait.
 
 - **OKX**
@@ -113,7 +113,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - **Hyperliquid**
   - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
   - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
   - [ ] Update to use new `Canonicalizer` trait.
 
  - **MEXC**
@@ -172,54 +172,54 @@ Exchanges currently implementing the `Canonicalizer` trait:
   - [x] Add/extend tests for both.
 
 - **Bitget**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Bybit**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Coinbase**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Kraken**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Kucoin**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **OKX**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Hyperliquid**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **MEXC**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Gate.io**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Crypto.com**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.
@@ -286,57 +286,57 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - **Binance**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Bitget**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Bybit**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Coinbase**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Kraken**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Kucoin**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **OKX**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Hyperliquid**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **MEXC**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Gate.io**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 - **Crypto.com**
   - [ ] Implement/refactor live trading adapter (spot/futures).
   - [ ] Implement/refactor paper trading adapter (spot/futures).
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both.
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.
@@ -438,7 +438,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 > **Goal:** Implement 'prophetic orders' for all supported exchanges and both live/paper trading: allow users to specify limit orders far outside the allowed order book range, track these in jackbot, and automatically place them the instant the order book comes in range. Include robust range detection, event handling, and test coverage.
 
--**General Steps:**
+**General Steps:**
 - [ ] Research and document order book price range enforcement for all supported exchanges (spot/futures).
 - [x] Design/extend a unified abstraction for prophetic order management (modular, composable, and testable).
 - [x] Implement logic to:
@@ -512,7 +512,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 > **Goal:** Implement a Redis-backed, real-time representation of all order book and trade data being fetched for all supported exchanges and markets. Ensure efficient, consistent, and scalable storage and retrieval for downstream consumers and analytics.
 
--**General Steps:**
+**General Steps:**
 - [x] Design a Redis schema for storing order book snapshots, deltas, and trade events (multi-exchange, multi-market).
 - [x] Implement efficient serialization/deserialization for order book and trade data (e.g., JSON, MessagePack, or binary).
 - [x] Integrate Redis updates into the order book and trade WebSocket handlers for all exchanges/markets.
