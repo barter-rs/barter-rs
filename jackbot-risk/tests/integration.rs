@@ -3,6 +3,7 @@ use jackbot_risk::{
     exposure::ExposureTracker,
     drawdown::DrawdownTracker,
     correlation::CorrelationMatrix,
+    volatility::VolatilityScaler,
 };
 use jackbot_instrument::instrument::InstrumentIndex;
 use rust_decimal_macros::dec;
@@ -33,4 +34,11 @@ fn correlation_alert_triggered() {
     let alerts = VecAlertHook::default();
     corr.check_limit(InstrumentIndex(0), InstrumentIndex(1), dec!(50), &alerts);
     assert!(matches!(alerts.alerts.lock().pop().unwrap(), RiskViolation::CorrelationLimit { .. }));
+}
+
+#[test]
+fn volatility_scaler_adjusts_position() {
+    let scaler = VolatilityScaler::new(dec!(0.02), dec!(0.5), dec!(2));
+    let adjusted = scaler.adjust_position(dec!(10), dec!(0.04));
+    assert_eq!(adjusted, dec!(5));
 }
