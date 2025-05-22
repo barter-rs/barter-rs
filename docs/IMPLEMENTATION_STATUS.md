@@ -111,10 +111,10 @@ Exchanges currently implementing the `Canonicalizer` trait:
   - [x] Update to use new `Canonicalizer` trait.
 
 - **Hyperliquid**
-  - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
+  - [x] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
   - [ ] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental).
   - [x] Add/extend tests for both.
-  - [ ] Update to use new `Canonicalizer` trait.
+  - [x] Update to use new `Canonicalizer` trait.
 
  - **MEXC**
    - [x] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental).
