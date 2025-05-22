@@ -8,7 +8,7 @@ members = [
     "jackbot-macro",
     "jackbot-instrument",
     "jackbot-risk",
-    "jackbot-snapshot"
+    "jackbot-snapshot",
     "jackbot-strategy",
 ]
 
