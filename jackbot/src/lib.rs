@@ -87,6 +87,15 @@ pub mod system;
 /// Backtesting utilities.
 pub mod backtest;
 
+/// Lightweight A/B testing utilities built on top of the backtester.
+pub mod ab_testing;
+
+/// Basic technical analysis indicators.
+pub mod technical;
+
+/// Simple machine learning model trait and implementations.
+pub mod ml;
+
 /// Traits and types related to component shutdowns.
 pub mod shutdown;
 
