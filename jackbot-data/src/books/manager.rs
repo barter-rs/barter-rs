@@ -23,20 +23,23 @@ use std::{
     sync::Arc,
 };
 use tracing::warn;
+use crate::redis_store::RedisStore;
 
 /// Maintains a set of local L2 [`OrderBook`]s by applying streamed [`OrderBookEvent`]s to the
 /// associated [`OrderBook`] in the [`OrderBookMap`].
 #[derive(Debug)]
-pub struct OrderBookL2Manager<St, BookMap> {
+pub struct OrderBookL2Manager<St, BookMap, Store> {
     pub stream: St,
     pub books: BookMap,
+    pub store: Store,
 }
 
-impl<St, BookMap> OrderBookL2Manager<St, BookMap>
+impl<St, BookMap, Store> OrderBookL2Manager<St, BookMap, Store>
 where
     St: Stream<Item = MarketStreamEvent<BookMap::Key, OrderBookEvent>> + Unpin,
     BookMap: OrderBookMap,
-    BookMap::Key: Debug,
+    BookMap::Key: Debug + Display,
+    Store: RedisStore,
 {
     /// Manage local L2 [`OrderBook`]s.
     pub async fn run(mut self) {
@@ -60,7 +63,18 @@ where
             };
 
             let mut book_lock = book.write();
-            book_lock.update(event.kind);
+            match event.kind {
+                OrderBookEvent::Snapshot(ref snap) => {
+                    self.store
+                        .store_snapshot(event.exchange, &event.instrument.to_string(), snap);
+                    book_lock.update(OrderBookEvent::Snapshot(snap.clone()));
+                }
+                OrderBookEvent::Update(ref delta) => {
+                    self.store
+                        .store_delta(event.exchange, &event.instrument.to_string(), delta);
+                    book_lock.update(OrderBookEvent::Update(delta.clone()));
+                }
+            }
         }
     }
 }
@@ -69,12 +83,14 @@ where
 /// [`Subscription`]s.
 ///
 /// See `examples/order_books_l2_manager` for how to use this initialisation paradigm.
-pub async fn init_multi_order_book_l2_manager<SubBatchIter, SubIter, Sub, Exchange, Instrument>(
+pub async fn init_multi_order_book_l2_manager<SubBatchIter, SubIter, Sub, Exchange, Instrument, Store>(
     subscription_batches: SubBatchIter,
+    store: Store,
 ) -> Result<
     OrderBookL2Manager<
         impl Stream<Item = MarketStreamEvent<Instrument::Key, OrderBookEvent>>,
         impl OrderBookMap<Key = Instrument::Key>,
+        Store,
     >,
     DataError,
 >
@@ -87,6 +103,7 @@ where
     Instrument::Key: Eq + Hash + Send + 'static,
     Subscription<Exchange, Instrument, OrderBooksL2>:
         Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
+    Store: RedisStore + Clone,
 {
     // Generate Streams from provided OrderBooksL2 Subscription batches
     let (stream_builder, books) = subscription_batches.into_iter().fold(
@@ -122,5 +139,6 @@ where
     Ok(OrderBookL2Manager {
         stream,
         books: OrderBookMapMulti::new(books),
+        store,
     })
 }
