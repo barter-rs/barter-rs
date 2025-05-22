@@ -57,6 +57,7 @@ After installing the dependencies:
 ## Project Structure
 
 For details on the project structure and implementation status, see [IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
+Documentation for the API rate limiter lives in [RATE_LIMITING.md](docs/RATE_LIMITING.md).
 ## Feature Matrix (Summary)
 
 A detailed feature matrix is maintained in [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md). At a glance:

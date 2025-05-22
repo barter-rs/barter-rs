@@ -40,6 +40,9 @@ pub mod subscription;
 /// Public trade types for [`Coinbase`].
 pub mod trade;
 
+/// Rate limiting utilities for Coinbase.
+pub mod rate_limit;
+
 /// [`Coinbase`] server base url.
 ///
 /// See docs: <https://docs.cloud.coinbase.com/exchange/docs/websocket-overview>

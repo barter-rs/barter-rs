@@ -43,6 +43,9 @@ pub mod subscription;
 /// Public trade types for [`Kraken`].
 pub mod trade;
 
+/// Rate limiting utilities for Kraken.
+pub mod rate_limit;
+
 /// Futures market modules for Kraken (stub; not yet implemented).
 pub mod futures;
 /// Spot market modules for Kraken.

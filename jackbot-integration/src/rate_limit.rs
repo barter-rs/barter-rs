@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use rand::Rng;
 use tokio::sync::{Mutex, oneshot};
+use tracing::{debug, warn};
 
 /// Priority levels for rate limited operations.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -95,6 +96,7 @@ impl RateLimiter {
                     inner.tokens -= 1;
                     None
                 } else {
+                    debug!("rate limit reached - waiting for permit");
                     let (tx, rx) = oneshot::channel();
                     let waiter = Waiter { tx };
                     match priority {
@@ -125,12 +127,17 @@ impl RateLimiter {
         };
         let next = inner.interval * 2 + Duration::from_millis(jitter_ms);
         inner.interval = std::cmp::min(next, inner.max_interval + inner.jitter);
+        warn!(
+            "Rate limit violation - increasing backoff to {} ms",
+            inner.interval.as_millis()
+        );
     }
 
     /// Reset the current backoff to the base interval.
     pub async fn reset_backoff(&self) {
         let mut inner = self.inner.lock().await;
         inner.interval = inner.base_interval;
+        debug!("Resetting rate limit backoff to base interval");
     }
 }
 

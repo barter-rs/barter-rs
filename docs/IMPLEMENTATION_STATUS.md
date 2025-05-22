@@ -727,15 +727,15 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Exchange-Specific TODOs:**
 
-- [ ] Binance: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
-- [ ] Bitget: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
-- [ ] Bybit: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
-- [ ] Coinbase: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
-- [ ] Kraken: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
+- [x] Binance: Exchange-specific rate limiting implemented for REST and WebSocket.
+- [x] Bitget: Exchange-specific rate limiting implemented for REST and WebSocket.
+- [x] Bybit: Exchange-specific rate limiting implemented for REST and WebSocket.
+- [x] Coinbase: Exchange-specific rate limiting implemented for REST and WebSocket.
+- [x] Kraken: Exchange-specific rate limiting implemented for REST and WebSocket.
 - [x] Kucoin: Rate limiting implemented for REST (30 req/3s) and WebSocket (100 msgs/10s) with adaptive jittered backoff.
 - Kucoin REST quota: 30 requests/3s per IP. WebSocket quota: 100 messages/10s.
-- [ ] OKX: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
-- [ ] Hyperliquid: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
+- [x] OKX: Exchange-specific rate limiting implemented for REST and WebSocket.
+- [x] Hyperliquid: Exchange-specific rate limiting implemented for REST and WebSocket.
 - [ ] MEXC: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
 - [ ] Gate.io: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
 - [ ] Crypto.com: Implement/refactor rate limiting for REST/WebSocket (spot/futures).

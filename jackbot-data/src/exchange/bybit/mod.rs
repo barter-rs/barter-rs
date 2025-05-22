@@ -51,6 +51,9 @@ pub mod subscription;
 /// [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
 pub mod trade;
 
+/// Rate limiting utilities for Bybit.
+pub mod rate_limit;
+
 /// Generic [`Bybit<Server>`](Bybit) execution.
 ///
 /// ### Notes
