@@ -1,0 +1,23 @@
+[package]
+name = "jackbot-macro"
+version = "0.2.0"
+authors = ["JustAStream"]
+edition = "2024"
+license = "MIT"
+documentation = "https://docs.rs/jackbot-macro/"
+repository = "https://github.com/jackbot-rs/jackbot-rs"
+description = "Jackbot ecosystem macros"
+keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
+categories = ["accessibility", "simulation"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+# Macro
+proc-macro2 = "1.0.49"
+syn = "1.0.107"
+quote = "1.0.23"
+
+# Misc
+convert_case = "0.6.0"

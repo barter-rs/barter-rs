@@ -1,0 +1,60 @@
+[package]
+name = "Jackbot"
+version = "0.12.2"
+edition = "2024"
+authors = ["JustAStream <justastream.code@gmail.com>"]
+license = "MIT"
+documentation = "https://docs.rs/Jackbot"
+repository = "https://github.com/jackbot-rs/jackbot-rs"
+readme = "README.md"
+description = "Framework for building high-performance live-trading, paper-trading and back-testing systems"
+keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
+categories = ["accessibility", "simulation"]
+
+[[bench]]
+name = "backtest"
+path = "benches/backtest/mod.rs"
+harness = false
+
+[dev-dependencies]
+rust_decimal_macros = { workspace = true }
+serde_json = { workspace = true }
+spin_sleep = { workspace = true }
+tokio = { workspace = true, features = ["fs"]}
+criterion = { workspace = true }
+
+[dependencies]
+# Jackbot Ecosystem
+jackbot-integration = { workspace = true }
+jackbot-instrument = { workspace = true }
+jackbot-data = { workspace = true }
+jackbot-execution = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json", "registry"]}
+
+# Async
+tokio = { workspace = true, features = ["sync"] }
+futures = { workspace = true }
+pin-project = { workspace = true }
+
+# Error
+thiserror = { workspace = true }
+
+# SerDe
+serde = { workspace = true, features = ["derive"] }
+
+# Data Structures
+smol_str = { workspace = true }
+rust_decimal = { workspace = true }
+fnv = { workspace = true }
+indexmap = { workspace = true, features = ["serde"]}
+
+# Misc
+chrono = { workspace = true, features = ["serde"]}
+derive_more = { workspace = true, features = ["constructor", "from", "display"]}
+prettytable-rs = "0.10.0"
+itertools = { workspace = true }
+parking_lot = { workspace = true }
+

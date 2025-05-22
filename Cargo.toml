@@ -1,21 +1,21 @@
 [workspace]
 resolver = "3"
 members = [
-    "barter",
-    "barter-data",
-    "barter-execution",
-    "barter-integration",
-    "barter-macro", 
-    "barter-instrument"
+    "jackbot",
+    "jackbot-data",
+    "jackbot-execution",
+    "jackbot-integration",
+    "jackbot-macro", 
+    "jackbot-instrument"
 ]
 
 [workspace.dependencies]
-# Barter Ecosystem
-barter-integration = { path = "./barter-integration", version = "0.9.1" }
-barter-instrument = { path = "./barter-instrument", version = "0.3.1" }
-barter-data = { path = "./barter-data", version = "0.10.1" }
-barter-execution = { path = "./barter-execution", version = "0.5.3" }
-barter-macro = { path = "./barter-macro", version = "0.2.0" }
+# Jackbot Ecosystem
+jackbot-integration = { path = "./jackbot-integration", version = "0.9.1" }
+jackbot-instrument = { path = "./jackbot-instrument", version = "0.3.1" }
+jackbot-data = { path = "./jackbot-data", version = "0.10.1" }
+jackbot-execution = { path = "./jackbot-execution", version = "0.5.3" }
+jackbot-macro = { path = "./jackbot-macro", version = "0.2.0" }
 
 # Logging
 tracing = { version = "0.1.41" }

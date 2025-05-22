@@ -1,0 +1,44 @@
+[package]
+name = "jackbot-execution"
+version = "0.5.3"
+edition = "2024"
+authors = ["JustAStream <justastream.code@gmail.com>"]
+license = "MIT"
+documentation = "https://docs.rs/jackbot-execution/"
+repository = "https://github.com/jackbot-rs/jackbot-rs"
+readme = "README.md"
+description = "Stream private account data from financial venues, and execute (live or mock) orders."
+keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
+categories = ["accessibility", "simulation"]
+
+
+[dependencies]
+# Jackbot Ecosystem
+jackbot-integration = { workspace = true }
+jackbot-instrument = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Async
+tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
+tokio-stream = { workspace = true, features = ["sync"] }
+futures = { workspace = true }
+
+# Data Structures
+smol_str = { workspace = true }
+fnv = { workspace = true }
+rust_decimal = { workspace = true }
+
+# Error
+thiserror = { workspace = true }
+
+# SerDe
+serde = { workspace = true, features = ["derive"] }
+
+# Misc
+rand = { workspace = true }
+chrono = { workspace = true, features = ["serde"]}
+itertools = { workspace = true }
+derive_more = { workspace = true, features = ["constructor", "from", "display"]}
+

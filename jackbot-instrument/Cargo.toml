@@ -1,0 +1,29 @@
+[package]
+name = "jackbot-instrument"
+version = "0.3.1"
+edition = "2024"
+authors = ["JustAStream <justastream.code@gmail.com>"]
+license = "MIT"
+documentation = "https://docs.rs/jackbot-instrument"
+repository = "https://github.com/jackbot-rs/jackbot-rs"
+readme = "README.md"
+description = "Core Jackbot Exchange, Instrument and Asset data structures and associated utilities."
+keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
+categories = ["accessibility", "simulation"]
+
+[dev-dependencies]
+rust_decimal_macros = { workspace = true }
+serde_json = { workspace = true }
+
+[dependencies]
+# SerDe
+serde = { workspace = true, features = ["derive"] }
+
+# Data Structures
+smol_str = { workspace = true, features = ["serde"]}
+rust_decimal = { workspace = true }
+
+# Misc
+chrono = { workspace = true, features = ["serde"] }
+derive_more = { workspace = true, features = ["display"] }
+thiserror = { workspace = true }
