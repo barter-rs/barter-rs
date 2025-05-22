@@ -3,7 +3,7 @@
 use crate::{
     Identifier, SnapshotFetcher,
     books::{
-        Level, OrderBook,
+        Canonicalizer, Level, OrderBook,
         l2_sequencer::{HasUpdateIds, L2Sequencer},
     },
     error::DataError,
@@ -126,30 +126,36 @@ pub struct BitgetOrderBookL2Snapshot {
     pub timestamp: u64,
 }
 
+impl Canonicalizer for BitgetOrderBookL2Snapshot {
+    fn canonicalize(&self, timestamp: DateTime<Utc>) -> OrderBook {
+        let bids = self
+            .bids
+            .iter()
+            .map(|(p, a)| Level::new(*p, *a));
+        let asks = self
+            .asks
+            .iter()
+            .map(|(p, a)| Level::new(*p, *a));
+
+        OrderBook::new(self.timestamp, Some(timestamp), bids, asks)
+    }
+}
+
 impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BitgetOrderBookL2Snapshot)>
     for MarketEvent<InstrumentKey, OrderBookEvent>
 {
     fn from(
         (exchange_id, instrument, snapshot): (ExchangeId, InstrumentKey, BitgetOrderBookL2Snapshot),
     ) -> Self {
-        let bids = snapshot
-            .bids
-            .iter()
-            .map(|(p, a)| Level::new(*p, *a))
-            .collect();
-        let asks = snapshot
-            .asks
-            .iter()
-            .map(|(p, a)| Level::new(*p, *a))
-            .collect();
-        let sequence = snapshot.timestamp; // Using timestamp as sequence
+        let time_exchange = Utc::now();
+        let order_book = snapshot.canonicalize(time_exchange);
 
         Self {
-            time_exchange: Utc::now(), // No exchange time in snapshot, using received time
+            time_exchange,
             time_received: Utc::now(),
             exchange: exchange_id,
             instrument,
-            kind: OrderBookEvent::Snapshot(OrderBook::new(sequence, None, bids, asks)),
+            kind: OrderBookEvent::Snapshot(order_book),
         }
     }
 }
@@ -258,27 +264,33 @@ impl Identifier<Option<SubscriptionId>> for BitgetOrderBookL2Update {
     }
 }
 
+impl Canonicalizer for BitgetOrderBookL2Update {
+    fn canonicalize(&self, timestamp: DateTime<Utc>) -> OrderBook {
+        let bids = self
+            .bids
+            .iter()
+            .map(|(p, a)| Level::new(*p, *a));
+        let asks = self
+            .asks
+            .iter()
+            .map(|(p, a)| Level::new(*p, *a));
+
+        OrderBook::new(self.timestamp, Some(timestamp), bids, asks)
+    }
+}
+
 impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BitgetOrderBookL2Update)>
     for MarketIter<InstrumentKey, OrderBookEvent>
 {
     fn from(
         (exchange_id, instrument, update): (ExchangeId, InstrumentKey, BitgetOrderBookL2Update),
     ) -> Self {
-        let bids = update
-            .bids
-            .iter()
-            .map(|(p, a)| Level::new(*p, *a))
-            .collect();
-        let asks = update
-            .asks
-            .iter()
-            .map(|(p, a)| Level::new(*p, *a))
-            .collect();
+        let order_book = update.canonicalize(update.time);
 
         let event = if update.action == "snapshot" {
-            OrderBookEvent::Snapshot(OrderBook::new(update.timestamp, None, bids, asks))
+            OrderBookEvent::Snapshot(order_book)
         } else {
-            OrderBookEvent::Update(OrderBook::new(update.timestamp, None, bids, asks))
+            OrderBookEvent::Update(order_book)
         };
 
         Self(vec![Ok(MarketEvent {

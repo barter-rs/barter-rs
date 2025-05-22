@@ -47,6 +47,8 @@ pub mod indexer;
 pub mod map;
 pub mod order;
 pub mod trade;
+/// Smart execution routing with basic exposure tracking.
+pub mod smart_router;
 
 /// Convenient type alias for an [`AccountEvent`] keyed with [`ExchangeId`],
 /// [`AssetNameExchange`], and [`InstrumentNameExchange`].

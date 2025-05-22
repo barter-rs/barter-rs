@@ -1,5 +1,6 @@
 //! Futures market types and operations for Bitget exchange
 pub mod l2;
+pub mod trade;
 
 use jackbot_instrument::exchange::ExchangeId;
 

@@ -1,0 +1,67 @@
+//! Level 2 order book types for Crypto.com futures.
+use crate::{
+    Identifier,
+    books::{Canonicalizer, Level, OrderBook},
+    event::{MarketEvent, MarketIter},
+    subscription::book::{OrderBookEvent, OrderBooksL2},
+};
+use chrono::{DateTime, Utc};
+use jackbot_instrument::exchange::ExchangeId;
+use jackbot_integration::subscription::SubscriptionId;
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
+pub struct CryptocomFuturesOrderBookL2 {
+    #[serde(alias = "instrument_name")]
+    pub subscription_id: SubscriptionId,
+    #[serde(default = "Utc::now")]
+    pub time: DateTime<Utc>,
+    #[serde(alias = "bids")]
+    pub bids: Vec<(Decimal, Decimal)>,
+    #[serde(alias = "asks")]
+    pub asks: Vec<(Decimal, Decimal)>,
+}
+
+impl Identifier<Option<SubscriptionId>> for CryptocomFuturesOrderBookL2 {
+    fn id(&self) -> Option<SubscriptionId> {
+        Some(self.subscription_id.clone())
+    }
+}
+
+impl Canonicalizer for CryptocomFuturesOrderBookL2 {
+    fn canonicalize(&self, timestamp: DateTime<Utc>) -> OrderBook {
+        let bids = self.bids.iter().map(|(p, a)| Level::new(*p, *a));
+        let asks = self.asks.iter().map(|(p, a)| Level::new(*p, *a));
+        OrderBook::new(0, Some(timestamp), bids, asks)
+    }
+}
+
+impl<InstrumentKey> From<(ExchangeId, InstrumentKey, CryptocomFuturesOrderBookL2)>
+    for MarketIter<InstrumentKey, OrderBookEvent>
+{
+    fn from((exchange_id, instrument, book): (ExchangeId, InstrumentKey, CryptocomFuturesOrderBookL2)) -> Self {
+        let order_book = book.canonicalize(book.time);
+        Self(vec![Ok(MarketEvent {
+            time_exchange: book.time,
+            time_received: Utc::now(),
+            exchange: exchange_id,
+            instrument,
+            kind: OrderBookEvent::Update(order_book),
+        })])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_cryptocom_futures_order_book_l2() {
+        let input = r#"{\"instrument_name\":\"BTC_USDT\",\"bids\":[[\"30000.0\",\"1.0\"]],\"asks\":[[\"30010.0\",\"2.0\"]]}"#;
+        let book: CryptocomFuturesOrderBookL2 = serde_json::from_str(input).unwrap();
+        assert_eq!(book.bids[0], (dec!(30000.0), dec!(1.0)));
+        assert_eq!(book.asks[0], (dec!(30010.0), dec!(2.0)));
+    }
+}

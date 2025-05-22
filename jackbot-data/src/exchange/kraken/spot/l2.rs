@@ -1,7 +1,7 @@
 use super::super::KrakenChannel;
 use crate::{
     Identifier,
-    books::{Level, OrderBook},
+    books::{Canonicalizer, Level, OrderBook},
     event::{MarketEvent, MarketIter},
     subscription::book::OrderBookEvent,
 };
@@ -39,6 +39,104 @@ pub struct KrakenOrderBookL2(
     pub String, // Channel name (e.g., "book-25")
     pub String, // Market (e.g., "XBT/USD")
 );
+
+impl Canonicalizer for KrakenOrderBookL2 {
+    fn canonicalize(&self, _timestamp: DateTime<Utc>) -> OrderBook {
+        let mut bids = Vec::new();
+        let mut asks = Vec::new();
+        let mut latest_time = Utc::now();
+
+        if let Some(snapshot_asks) = &self.1.as_ {
+            for ask in snapshot_asks {
+                if let (Ok(price), Ok(amount), Ok(epoch_seconds)) = (
+                    ask[0].parse::<Decimal>(),
+                    ask[1].parse::<Decimal>(),
+                    ask[2].parse::<f64>(),
+                ) {
+                    let seconds = epoch_seconds.trunc() as i64;
+                    let nanos = ((epoch_seconds.fract() * 1_000_000_000.0).round() as u32).min(999_999_999);
+                    if let Some(timestamp) = DateTime::from_timestamp(seconds, nanos) {
+                        if timestamp > latest_time {
+                            latest_time = timestamp;
+                        }
+
+                        if !amount.is_zero() {
+                            asks.push(Level { price, amount });
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(snapshot_bids) = &self.1.bs {
+            for bid in snapshot_bids {
+                if let (Ok(price), Ok(amount), Ok(epoch_seconds)) = (
+                    bid[0].parse::<Decimal>(),
+                    bid[1].parse::<Decimal>(),
+                    bid[2].parse::<f64>(),
+                ) {
+                    let seconds = epoch_seconds.trunc() as i64;
+                    let nanos = ((epoch_seconds.fract() * 1_000_000_000.0).round() as u32).min(999_999_999);
+                    if let Some(timestamp) = DateTime::from_timestamp(seconds, nanos) {
+                        if timestamp > latest_time {
+                            latest_time = timestamp;
+                        }
+
+                        if !amount.is_zero() {
+                            bids.push(Level { price, amount });
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(ask_updates) = &self.1.a {
+            for ask in ask_updates {
+                if let (Ok(price), Ok(amount), Ok(epoch_seconds)) = (
+                    ask[0].parse::<Decimal>(),
+                    ask[1].parse::<Decimal>(),
+                    ask[2].parse::<f64>(),
+                ) {
+                    let seconds = epoch_seconds.trunc() as i64;
+                    let nanos = ((epoch_seconds.fract() * 1_000_000_000.0).round() as u32).min(999_999_999);
+                    if let Some(timestamp) = DateTime::from_timestamp(seconds, nanos) {
+                        if timestamp > latest_time {
+                            latest_time = timestamp;
+                        }
+
+                        if !amount.is_zero() {
+                            asks.push(Level { price, amount });
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(bid_updates) = &self.1.b {
+            for bid in bid_updates {
+                if let (Ok(price), Ok(amount), Ok(epoch_seconds)) = (
+                    bid[0].parse::<Decimal>(),
+                    bid[1].parse::<Decimal>(),
+                    bid[2].parse::<f64>(),
+                ) {
+                    let seconds = epoch_seconds.trunc() as i64;
+                    let nanos = ((epoch_seconds.fract() * 1_000_000_000.0).round() as u32).min(999_999_999);
+                    if let Some(timestamp) = DateTime::from_timestamp(seconds, nanos) {
+                        if timestamp > latest_time {
+                            latest_time = timestamp;
+                        }
+
+                        if !amount.is_zero() {
+                            bids.push(Level { price, amount });
+                        }
+                    }
+                }
+            }
+        }
+
+        OrderBook::new(0, Some(latest_time), bids, asks)
+    }
+}
 
 /// [`Kraken`](super::super::Kraken) L2 OrderBook data structure.
 ///
@@ -85,118 +183,16 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, KrakenOrderBookL2)>
     fn from(
         (exchange_id, instrument, orderbook): (ExchangeId, InstrumentKey, KrakenOrderBookL2),
     ) -> Self {
-        // Create the order book state
-        let mut bids = Vec::new();
-        let mut asks = Vec::new();
-        let mut latest_time = Utc::now();
-
-        // Process snapshot if available
-        if let Some(snapshot_asks) = &orderbook.1.as_ {
-            for ask in snapshot_asks {
-                if let (Ok(price), Ok(amount), Ok(epoch_seconds)) = (
-                    ask[0].parse::<Decimal>(),
-                    ask[1].parse::<Decimal>(),
-                    ask[2].parse::<f64>(),
-                ) {
-                    let seconds = epoch_seconds.trunc() as i64;
-                    let nanos =
-                        ((epoch_seconds.fract() * 1_000_000_000.0).round() as u32).min(999_999_999);
-                    if let Some(timestamp) = DateTime::from_timestamp(seconds, nanos) {
-                        if timestamp > latest_time {
-                            latest_time = timestamp;
-                        }
-
-                        if !amount.is_zero() {
-                            asks.push(Level { price, amount });
-                        }
-                    }
-                }
-            }
-        }
-
-        if let Some(snapshot_bids) = &orderbook.1.bs {
-            for bid in snapshot_bids {
-                if let (Ok(price), Ok(amount), Ok(epoch_seconds)) = (
-                    bid[0].parse::<Decimal>(),
-                    bid[1].parse::<Decimal>(),
-                    bid[2].parse::<f64>(),
-                ) {
-                    let seconds = epoch_seconds.trunc() as i64;
-                    let nanos =
-                        ((epoch_seconds.fract() * 1_000_000_000.0).round() as u32).min(999_999_999);
-                    if let Some(timestamp) = DateTime::from_timestamp(seconds, nanos) {
-                        if timestamp > latest_time {
-                            latest_time = timestamp;
-                        }
-
-                        if !amount.is_zero() {
-                            bids.push(Level { price, amount });
-                        }
-                    }
-                }
-            }
-        }
-
-        // Process ask updates if available
-        if let Some(ask_updates) = &orderbook.1.a {
-            for ask in ask_updates {
-                if let (Ok(price), Ok(amount), Ok(epoch_seconds)) = (
-                    ask[0].parse::<Decimal>(),
-                    ask[1].parse::<Decimal>(),
-                    ask[2].parse::<f64>(),
-                ) {
-                    let seconds = epoch_seconds.trunc() as i64;
-                    let nanos =
-                        ((epoch_seconds.fract() * 1_000_000_000.0).round() as u32).min(999_999_999);
-                    if let Some(timestamp) = DateTime::from_timestamp(seconds, nanos) {
-                        if timestamp > latest_time {
-                            latest_time = timestamp;
-                        }
-
-                        if !amount.is_zero() {
-                            asks.push(Level { price, amount });
-                        }
-                    }
-                }
-            }
-        }
-
-        // Process bid updates if available
-        if let Some(bid_updates) = &orderbook.1.b {
-            for bid in bid_updates {
-                if let (Ok(price), Ok(amount), Ok(epoch_seconds)) = (
-                    bid[0].parse::<Decimal>(),
-                    bid[1].parse::<Decimal>(),
-                    bid[2].parse::<f64>(),
-                ) {
-                    let seconds = epoch_seconds.trunc() as i64;
-                    let nanos =
-                        ((epoch_seconds.fract() * 1_000_000_000.0).round() as u32).min(999_999_999);
-                    if let Some(timestamp) = DateTime::from_timestamp(seconds, nanos) {
-                        if timestamp > latest_time {
-                            latest_time = timestamp;
-                        }
-
-                        if !amount.is_zero() {
-                            bids.push(Level { price, amount });
-                        }
-                    }
-                }
-            }
-        }
-
-        // Create the OrderBook
-        let orderbook_obj = OrderBook::new(0, Some(latest_time), bids, asks);
+        let orderbook_obj = orderbook.canonicalize(Utc::now());
+        let time_exchange = orderbook_obj.time_engine.unwrap_or_else(Utc::now);
         let event = if orderbook.1.as_.is_some() || orderbook.1.bs.is_some() {
-            // If we have as_ or bs_, it's a snapshot
             OrderBookEvent::Snapshot(orderbook_obj)
         } else {
-            // Otherwise it's an update
             OrderBookEvent::Update(orderbook_obj)
         };
 
         Self(vec![Ok(MarketEvent {
-            time_exchange: latest_time,
+            time_exchange,
             time_received: Utc::now(),
             exchange: exchange_id,
             instrument,
