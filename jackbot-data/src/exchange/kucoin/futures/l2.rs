@@ -1,4 +1,8 @@
 //! Level 2 order book types for Kucoin futures.
+//!
+//! This module parses Kucoin futures WebSocket messages and converts them into
+//! Jackbot's canonical [`OrderBook`] representation via the [`Canonicalizer`]
+//! trait. Snapshots and deltas can then be persisted using a [`RedisStore`].
 use crate::{
     Identifier,
     books::{Canonicalizer, Level, OrderBook},
