@@ -7,7 +7,7 @@ members = [
     "jackbot-integration",
     "jackbot-macro", 
     "jackbot-instrument"
-]
+, "jackbot-snapshot"]
 
 [workspace.dependencies]
 # Jackbot Ecosystem
