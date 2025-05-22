@@ -1,0 +1,11 @@
+[package]
+name = "jackbot-strategy"
+version = "0.1.0"
+edition = "2024"
+authors = ["JustAStream <justastream.code@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+description = "Strategy trait and utilities for Jackbot"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }

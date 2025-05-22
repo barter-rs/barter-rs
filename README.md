@@ -40,6 +40,7 @@ The setup script installs:
 
 - **Rust and Cargo**: The programming language and package manager used by the project
 - **Redis**: For caching order book data and real-time information
+- Writes use Redis pipelines with `.atomic()` to ensure consistency
 - **AWS CLI**: For S3 interactions to store data
 - **Python**: For supporting tools and ML components
 - **Development libraries**: Required for building Rust dependencies
@@ -63,9 +64,17 @@ A detailed feature matrix is maintained in [docs/IMPLEMENTATION_STATUS.md](docs/
 - **L2 Order Books**
   - Completed: Binance (Spot & Futures), Coinbase (Spot), Kraken (Spot & Futures), Bybit (Spot & Futures)
   - Partial: OKX (Spot & Futures), Kucoin (Spot)
-  - Pending: Kucoin (Futures), Gate.io, Crypto.com, MEXC, Hyperliquid, Bitget
+  - Pending: Kucoin (Futures), Gate.io, Crypto.com, Hyperliquid, Bitget
+  - New: MEXC (Spot & Futures) with Redis order book support
 - **Canonical Order Book** implemented across Binance, Bybit, OKX, Coinbase, and Kraken (Futures).
 - **Trade Streams & Execution**: planned and under active development.
+
+## TWAP Execution
+
+`jackbot-execution` now includes a `twap` module capable of slicing large orders
+into randomized chunks and scheduling them based on order book analytics from
+`jackbot-data`. This enables discrete time-weighted execution both in
+simulation with the `MockExchange` and against real venues.
 
 
 ## Contributing

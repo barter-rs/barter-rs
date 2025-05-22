@@ -40,13 +40,13 @@ pub struct KrakenOrderBookL2(
     pub String, // Market (e.g., "XBT/USD")
 );
 
-impl Canonicalizer for KrakenOrderBookL2 {
+impl Canonicalizer for KrakenOrderBookL2Data {
     fn canonicalize(&self, _timestamp: DateTime<Utc>) -> OrderBook {
         let mut bids = Vec::new();
         let mut asks = Vec::new();
         let mut latest_time = Utc::now();
 
-        if let Some(snapshot_asks) = &self.1.as_ {
+        if let Some(snapshot_asks) = &self.as_ {
             for ask in snapshot_asks {
                 if let (Ok(price), Ok(amount), Ok(epoch_seconds)) = (
                     ask[0].parse::<Decimal>(),
@@ -68,7 +68,7 @@ impl Canonicalizer for KrakenOrderBookL2 {
             }
         }
 
-        if let Some(snapshot_bids) = &self.1.bs {
+        if let Some(snapshot_bids) = &self.bs {
             for bid in snapshot_bids {
                 if let (Ok(price), Ok(amount), Ok(epoch_seconds)) = (
                     bid[0].parse::<Decimal>(),
@@ -90,7 +90,7 @@ impl Canonicalizer for KrakenOrderBookL2 {
             }
         }
 
-        if let Some(ask_updates) = &self.1.a {
+        if let Some(ask_updates) = &self.a {
             for ask in ask_updates {
                 if let (Ok(price), Ok(amount), Ok(epoch_seconds)) = (
                     ask[0].parse::<Decimal>(),
@@ -112,7 +112,7 @@ impl Canonicalizer for KrakenOrderBookL2 {
             }
         }
 
-        if let Some(bid_updates) = &self.1.b {
+        if let Some(bid_updates) = &self.b {
             for bid in bid_updates {
                 if let (Ok(price), Ok(amount), Ok(epoch_seconds)) = (
                     bid[0].parse::<Decimal>(),
@@ -135,6 +135,12 @@ impl Canonicalizer for KrakenOrderBookL2 {
         }
 
         OrderBook::new(0, Some(latest_time), bids, asks)
+    }
+}
+
+impl Canonicalizer for KrakenOrderBookL2 {
+    fn canonicalize(&self, timestamp: DateTime<Utc>) -> OrderBook {
+        self.1.canonicalize(timestamp)
     }
 }
 
@@ -204,6 +210,8 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, KrakenOrderBookL2)>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::books::CanonicalOrderBook;
+    use rust_decimal_macros::dec;
 
     mod de {
         use super::*;
@@ -251,6 +259,12 @@ mod tests {
             assert_eq!(bids[0][0], "5541.20000");
             assert_eq!(bids[0][1], "1.52900000");
             assert_eq!(bids[0][2], "1534614248.765432");
+
+            let canonical = CanonicalOrderBook::from(orderbook.canonicalize(Utc::now()));
+            assert_eq!(canonical.inner().bids().levels().len(), 2);
+            assert_eq!(canonical.inner().asks().levels().len(), 2);
+            assert_eq!(canonical.inner().bids().levels()[0].price, dec!(5541.20000));
+            assert_eq!(canonical.inner().asks().levels()[0].price, dec!(5541.30000));
         }
 
         #[test]
@@ -297,6 +311,12 @@ mod tests {
             assert_eq!(bid_updates[0][0], "5541.20000");
             assert_eq!(bid_updates[0][1], "1.52900000");
             assert_eq!(bid_updates[0][2], "1534614248.765432");
+
+            let canonical = CanonicalOrderBook::from(orderbook.canonicalize(Utc::now()));
+            assert_eq!(canonical.inner().bids().levels().len(), 1);
+            assert_eq!(canonical.inner().asks().levels().len(), 1);
+            assert_eq!(canonical.inner().bids().levels()[0].price, dec!(5541.20000));
+            assert_eq!(canonical.inner().asks().levels()[0].price, dec!(5541.30000));
         }
     }
 }

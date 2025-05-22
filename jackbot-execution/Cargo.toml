@@ -16,6 +16,7 @@ categories = ["accessibility", "simulation"]
 # Jackbot Ecosystem
 jackbot-integration = { workspace = true }
 jackbot-instrument = { workspace = true }
+jackbot-data = { workspace = true }
 
 # Logging
 tracing = { workspace = true }

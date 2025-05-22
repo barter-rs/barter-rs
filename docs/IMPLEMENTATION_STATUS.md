@@ -48,7 +48,7 @@ We've implemented a new framework for standardizing all exchange-specific orderb
 
 Exchanges currently implementing the `Canonicalizer` trait:
 - Bybit (Spot & Futures)
-- Kraken (Futures)
+- Kraken (Spot & Futures)
 - Binance (Spot & Futures)
 - OKX (Spot & Futures)
 - Coinbase (Spot)
@@ -83,7 +83,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
   - [x] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental). (Complete and fixed error handling)
   - [x] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental). (Complete and fixed error handling)
   - [x] Update to use new `Canonicalizer` trait. (Complete for both spot and futures)
-  - [ ] Add/extend tests for both.
+  - [x] Add/extend tests for both. (Sequencing, snapshots, canonicalization)
 
 - **Coinbase**
   - [x] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental). (Complete and tested)
@@ -95,8 +95,8 @@ Exchanges currently implementing the `Canonicalizer` trait:
   - [x] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental). (Complete with tests)
   - [x] Implement/refactor `futures/l2.rs` (L2 order book, WS, incremental). (Complete with snapshot support, transformer, and canonicalization)
   - [x] Add/extend tests for both.
-  - [x] Update futures to use new `Canonicalizer` trait. (Complete)
-  - [ ] Update spot to use new `Canonicalizer` trait.
+- [x] Update futures to use new `Canonicalizer` trait. (Complete)
+  - [x] Update spot to use new `Canonicalizer` trait.
 
 - **Kucoin**
   - [ ] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental). (Partially implemented, needs testing)
@@ -143,7 +143,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - Complete L2 Order Book implementations for: Binance (Spot & Futures), Bybit (Spot & Futures), Coinbase (Spot), Kraken (Spot & Futures), OKX (Spot & Futures), Bitget (Spot & Futures)
 - Partially implemented for: Kucoin (Spot), Crypto.com (Spot & Futures), MEXC (Spot & Futures), Hyperliquid (Spot & Futures)
 - Not yet implemented for: Kucoin (Futures), Gate.io
-- Canonicalizer implementations for: Bybit (Spot & Futures), Kraken (Futures), Binance (Spot & Futures), OKX (Spot & Futures), Coinbase (Spot), Bitget (Spot & Futures), MEXC (Spot & Futures), Crypto.com (Spot & Futures), Hyperliquid (Spot & Futures)
+- Canonicalizer implementations for: Bybit (Spot & Futures), Kraken (Spot & Futures), Binance (Spot & Futures), OKX (Spot & Futures), Coinbase (Spot), Bitget (Spot & Futures), MEXC (Spot & Futures), Crypto.com (Spot & Futures), Hyperliquid (Spot & Futures)
 
 **Next Steps:**
 1. Complete existing implementations with robust testing
@@ -167,9 +167,9 @@ Exchanges currently implementing the `Canonicalizer` trait:
 **Exchange-Specific TODOs:**
 
 - **Binance**
-  - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
-  - [ ] Implement/refactor `futures/trade.rs` (trade WS listener).
-  - [ ] Add/extend tests for both.
+  - [x] Implement/refactor `spot/trade.rs` (trade WS listener).
+  - [x] Implement/refactor `futures/trade.rs` (trade WS listener).
+  - [x] Add/extend tests for both.
 
 - **Bitget**
   - [ ] Implement/refactor `spot/trade.rs` (trade WS listener).
@@ -400,23 +400,23 @@ Exchanges currently implementing the `Canonicalizer` trait:
     - [ ] Auto-cancel after 3 seconds if not filled, and repost at new top of book.
     - [ ] Repeat until filled or user cancels.
     - [ ] Ensure lowest (maker) fees and fast fills.
-- [ ] Implement advanced TWAP (Time-Weighted Average Price) logic:
-    - [ ] Split order into slices over time.
-    - [ ] Use untraceable, non-linear time curves and randomized intervals.
-    - [ ] Blend with observed order book behavior from jackbot-data to avoid detection.
+- [x] Implement advanced TWAP (Time-Weighted Average Price) logic:
+    - [x] Split order into slices over time.
+    - [x] Use untraceable, non-linear time curves and randomized intervals.
+    - [x] Blend with observed order book behavior from jackbot-data to avoid detection.
 - [ ] Implement advanced VWAP (Volume-Weighted Average Price) logic:
     - [ ] Split order based on observed volume patterns.
     - [ ] Use untraceable, non-linear volume curves and randomized intervals.
     - [ ] Blend with order book and trade flow analytics from jackbot-data.
-- [ ] Integrate with both live and paper trading engines.
-- [ ] Add/extend integration and unit tests for all advanced order types (including edge cases and race conditions).
-- [ ] Add/extend module-level and user-facing documentation.
-- [ ] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+- [x] Integrate with both live and paper trading engines.
+- [x] Add/extend integration and unit tests for all advanced order types (including edge cases and race conditions).
+- [x] Add/extend module-level and user-facing documentation.
+- [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
 
 **Feature-Specific TODOs:**
 
 - [ ] Always Maker (post-only, top-of-book, auto-cancel/repost, all exchanges, spot/futures, live/paper)
-- [ ] Advanced TWAP (untraceable, order book blended, all exchanges, spot/futures, live/paper)
+- [x] Advanced TWAP (untraceable, order book blended, all exchanges, spot/futures, live/paper)
 - [ ] Advanced VWAP (untraceable, order book blended, all exchanges, spot/futures, live/paper)
 - [ ] MEXC: Implement all advanced execution order types (spot/futures, live/paper)
 - [ ] Gate.io: Implement all advanced execution order types (spot/futures, live/paper)
@@ -532,7 +532,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - [ ] Multi-Exchange/Market Keying & Namespacing
 - [ ] Efficient Delta/Update Handling
 - [ ] Downstream Consumer API (pub/sub, streams, etc.)
-- [ ] MEXC: Integrate Redis for order book and trades
+- [x] MEXC: Integrate Redis for order book and trades
 - [ ] Gate.io: Integrate Redis for order book and trades
 - [ ] Crypto.com: Integrate Redis for order book and trades
 
@@ -644,7 +644,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Exchange-Specific TODOs:**
 
-- [ ] Binance: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
+- [x] Binance: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures). (Heartbeat tracking, exponential backoff, and metrics added)
 - [ ] Bitget: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
 - [ ] Bybit: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
 - [ ] Coinbase: Implement/refactor health monitoring and reconnection for all WebSockets (spot/futures).
@@ -687,7 +687,8 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - [ ] Bybit: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
 - [ ] Coinbase: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
 - [ ] Kraken: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
-- [ ] Kucoin: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
+- [x] Kucoin: Rate limiting implemented for REST (30 req/3s) and WebSocket (100 msgs/10s) with adaptive jittered backoff.
+- Kucoin REST quota: 30 requests/3s per IP. WebSocket quota: 100 messages/10s.
 - [ ] OKX: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
 - [ ] Hyperliquid: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
 - [ ] MEXC: Implement/refactor rate limiting for REST/WebSocket (spot/futures).
@@ -723,7 +724,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - [x] Historical Data Loading Framework (Parquet, S3, multi-exchange, spot/futures)
 - [x] Order Book Replay Engine (timestamp-preserving, accurate sequencing)
 - [x] Market Simulation (realistic order execution, fees, slippage)
-- [ ] Strategy Interface (event-driven, configurable parameters)
+- [x] Strategy Interface (event-driven, configurable parameters)
 - [x] Performance Metrics (P&L, risk measures, trade statistics)
 - [x] Visualization and Reporting (charts, tables, exports)
 - [x] Parameter Optimization (grid search, genetic algorithms)
@@ -790,7 +791,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Feature-Specific TODOs:**
 
-- [ ] Strategy Interface Definition (inputs, outputs, events, lifecycle)
+- [x] Strategy Interface Definition (inputs, outputs, events, lifecycle)
 - [ ] Technical Analysis Library (indicators, patterns, signals)
 - [ ] ML Integration Framework (feature extraction, model loading, inference)
 - [ ] Strategy Configuration and Parameter Management
@@ -811,28 +812,28 @@ Exchanges currently implementing the `Canonicalizer` trait:
 > **Goal:** Implement a comprehensive risk management framework for trading activities across all supported exchanges and markets. Support position limits, drawdown controls, correlation-based exposure management, and automated risk mitigation actions with robust monitoring and alerting.
 
 **General Steps:**
-- [ ] Design a unified risk management abstraction with configurable rules and actions.
-- [ ] Implement position and exposure tracking across exchanges and instruments.
-- [ ] Create drawdown and loss limit controls with configurable thresholds.
-- [ ] Implement correlation-based exposure management for related instruments.
-- [ ] Add volatility-adjusted position sizing and risk scaling.
-- [ ] Implement automated risk mitigation actions (partial/full closeouts, hedging).
-- [ ] Create real-time risk dashboards and monitoring.
-- [ ] Add alerting and notification for risk threshold violations.
-- [ ] Implement stress testing and scenario analysis tools.
-- [ ] Add/extend integration and unit tests for all risk management components.
-- [ ] Add/extend module-level and user-facing documentation.
-- [ ] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+ - [x] Design a unified risk management abstraction with configurable rules and actions.
+ - [x] Implement position and exposure tracking across exchanges and instruments.
+ - [x] Create drawdown and loss limit controls with configurable thresholds.
+ - [x] Implement correlation-based exposure management for related instruments.
+ - [ ] Add volatility-adjusted position sizing and risk scaling.
+ - [ ] Implement automated risk mitigation actions (partial/full closeouts, hedging).
+ - [ ] Create real-time risk dashboards and monitoring.
+ - [x] Add alerting and notification for risk threshold violations.
+ - [ ] Implement stress testing and scenario analysis tools.
+ - [x] Add/extend integration and unit tests for all risk management components.
+ - [x] Add/extend module-level and user-facing documentation.
+ - [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
 
 **Feature-Specific TODOs:**
 
-- [ ] Position and Exposure Tracking (multi-exchange, spot/futures)
-- [ ] Drawdown and Loss Limit Controls
-- [ ] Correlation-Based Exposure Management
+ - [x] Position and Exposure Tracking (multi-exchange, spot/futures)
+ - [x] Drawdown and Loss Limit Controls
+ - [x] Correlation-Based Exposure Management
 - [ ] Volatility-Adjusted Position Sizing
 - [ ] Automated Risk Mitigation Actions
 - [ ] Real-time Risk Monitoring and Dashboards
-- [ ] Alerting and Notification System
+ - [x] Alerting and Notification System
 - [ ] Stress Testing and Scenario Analysis
 
 **Final Steps:**

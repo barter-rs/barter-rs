@@ -13,7 +13,7 @@ use crate::{
 };
 use jackbot_instrument::exchange::ExchangeId;
 use jackbot_integration::{error::SocketError, protocol::websocket::WsMessage};
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, marker::PhantomData, time::Duration};
 use url::Url;
 
 /// OrderBook types common to both [`BinanceSpot`](spot::BinanceSpot) and
@@ -93,6 +93,17 @@ where
             })
             .to_string(),
         )]
+    }
+
+    fn ping_interval() -> Option<PingInterval> {
+        Some(PingInterval {
+            interval: tokio::time::interval(Duration::from_secs(30)),
+            ping: || WsMessage::Ping(Vec::new().into()),
+        })
+    }
+
+    fn heartbeat_interval() -> Option<Duration> {
+        Some(Duration::from_secs(90))
     }
 
     fn expected_responses<InstrumentKey>(_: &Map<InstrumentKey>) -> usize {

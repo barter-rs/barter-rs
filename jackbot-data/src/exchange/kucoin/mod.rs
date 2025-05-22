@@ -30,6 +30,7 @@ pub mod market;
 pub mod spot;
 pub mod subscription;
 pub mod trade;
+pub mod rate_limit;
 
 /// Kucoin WebSocket base URL.
 pub const BASE_URL_KUCOIN: &str = "wss://ws-api.kucoin.com/endpoint";

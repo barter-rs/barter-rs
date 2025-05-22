@@ -8,6 +8,10 @@ This document provides a brief overview of the strategy utilities added to Jackb
 `ClosePositionsStrategy` traits. Strategies implementing this trait expose an
 `id` method for registry lookups.
 
+The standalone `jackbot-strategy` crate offers a lightweight `Strategy` trait
+with `on_start`, `on_event` and `on_stop` hooks for simple event driven
+strategies.
+
 ## Strategy Registry
 
 `strategy::registry::StrategyRegistry` offers a lightweight container for
