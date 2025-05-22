@@ -620,9 +620,9 @@ Exchanges currently implementing the `Canonicalizer` trait:
   - [ ] Add/extend tests for all user WebSocket logic.
 
 - **Coinbase**
-  - [ ] Implement authentication and connection management (spot/futures).
-  - [ ] Implement event handling for balances, orders, and positions.
-  - [ ] Add/extend tests for all user WebSocket logic.
+  - [x] Implement authentication and connection management (spot/futures).
+  - [x] Implement event handling for balances, orders, and positions.
+  - [x] Add/extend tests for all user WebSocket logic.
 
 - **Kraken**
   - [ ] Implement authentication and connection management (spot/futures).
