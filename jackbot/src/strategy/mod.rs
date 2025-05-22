@@ -41,6 +41,10 @@ pub mod on_disconnect;
 /// `TradingState` gets set to `TradingState::Disabled`.
 pub mod on_trading_disabled;
 
+
+/// Advanced execution algorithms such as TWAP/VWAP slicing and always maker.
+pub mod advanced_orders;
+[
 /// Strategy trait combining the core strategy interfaces.
 pub mod framework;
 
@@ -49,6 +53,7 @@ pub mod registry;
 
 /// Loadable strategy configuration.
 pub mod config;
+[
 
 /// Naive implementation of all strategy interfaces.
 ///
