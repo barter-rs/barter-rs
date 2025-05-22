@@ -371,6 +371,11 @@ impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
             closed_fee,
         );
     }
+
+    /// Returns true if the cumulative realised and unrealised PnL is below the negative loss limit.
+    pub fn loss_exceeded(&self, ticket_loss: Decimal) -> bool {
+        (self.pnl_unrealised + self.pnl_realised) <= -ticket_loss
+    }
 }
 
 impl<InstrumentKey> From<&Trade<QuoteAsset, InstrumentKey>> for Position<QuoteAsset, InstrumentKey>
