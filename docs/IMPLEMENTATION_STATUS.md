@@ -861,7 +861,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
  - [x] Implement position and exposure tracking across exchanges and instruments.
  - [x] Create drawdown and loss limit controls with configurable thresholds.
  - [x] Implement correlation-based exposure management for related instruments.
- - [ ] Add volatility-adjusted position sizing and risk scaling.
+ - [x] Add volatility-adjusted position sizing and risk scaling.
  - [x] Implement automated risk mitigation actions (partial/full closeouts, hedging).
  - [x] Create real-time risk dashboards and monitoring.
  - [x] Add alerting and notification for risk threshold violations.

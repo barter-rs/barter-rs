@@ -79,20 +79,14 @@ where
         let mut approved_opens = Vec::new();
         let mut refused_opens = Vec::new();
 
-        for open in opens.into_iter() {
+        for mut open in opens.into_iter() {
             let inst_state = state.instruments.instrument_index(&open.key.instrument);
             let price = open.state.price
                 .or_else(|| inst_state.data.price())
                 .unwrap_or(Decimal::ZERO);
-            let notional = crate::risk::check::util::calculate_quote_notional(
-                open.state.quantity,
-                price,
-                inst_state.instrument.kind.contract_size(),
-            ).unwrap_or(Decimal::ZERO);
-            let underlying = inst_state.instrument.underlying.base;
-            let current = exposures.entry(underlying).or_insert(Decimal::ZERO);
 
             let mut limit = self.limits.max_notional_per_underlying;
+            let mut quantity = open.state.quantity;
             if let Some(scaler) = &self.scaler {
                 let vol = self
                     .volatilities
@@ -100,7 +94,17 @@ where
                     .copied()
                     .unwrap_or(scaler.base_volatility);
                 limit = scaler.adjust_risk(limit, vol);
+                quantity = scaler.adjust_position(quantity, vol);
+                open.state.quantity = quantity;
             }
+
+            let notional = crate::risk::check::util::calculate_quote_notional(
+                quantity,
+                price,
+                inst_state.instrument.kind.contract_size(),
+            ).unwrap_or(Decimal::ZERO);
+            let underlying = inst_state.instrument.underlying.base;
+            let current = exposures.entry(underlying).or_insert(Decimal::ZERO);
 
             if *current + notional > limit {
                 refused_opens.push(RiskRefused::new(open, "exposure limit"));
