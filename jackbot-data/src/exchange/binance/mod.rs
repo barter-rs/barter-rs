@@ -45,6 +45,9 @@ pub mod subscription;
 /// [`BinanceFuturesUsd`](futures::BinanceFuturesUsd).
 pub mod trade;
 
+/// Rate limiting utilities for Binance.
+pub mod rate_limit;
+
 /// Generic [`Binance<Server>`](Binance) execution.
 ///
 /// ### Notes

@@ -41,6 +41,9 @@ pub mod subscription;
 /// Public trade types for Hyperliquid.
 pub mod trade;
 
+/// Rate limiting utilities for Hyperliquid.
+pub mod rate_limit;
+
 /// Hyperliquid WebSocket base URL.
 pub const BASE_URL_HYPERLIQUID: &str = "wss://api.hyperliquid.xyz/ws";
 

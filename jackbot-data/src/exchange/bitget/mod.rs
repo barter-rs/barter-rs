@@ -9,3 +9,6 @@ pub mod market;
 pub mod spot;
 pub mod subscription;
 pub mod trade;
+
+/// Rate limiting utilities for Bitget.
+pub mod rate_limit;

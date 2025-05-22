@@ -45,6 +45,9 @@ pub mod subscription;
 /// Public trade types for [`Okx`].
 pub mod trade;
 
+/// Rate limiting utilities for OKX.
+pub mod rate_limit;
+
 /// [`Okx`] server base url.
 ///
 /// See docs: <https://www.okx.com/docs-v5/en/#overview-api-resources-and-support>
