@@ -5,7 +5,28 @@ use crate::{
 use jackbot_instrument::exchange::ExchangeId;
 use serde::{Serialize, Deserialize};
 use fnv::FnvHashMap;
-use std::{sync::{Arc, Mutex}};
+use std::sync::{Arc, Mutex};
+
+/// Default Redis key prefix used across exchanges.
+pub const DEFAULT_PREFIX: &str = "jb";
+
+/// Maximum number of deltas or trades retained per instrument.
+pub const MAX_LIST_LEN: usize = 1000;
+
+/// Build the snapshot key for a given exchange and instrument.
+pub fn snapshot_key(prefix: &str, exchange: ExchangeId, instrument: &str) -> String {
+    format!("{}:{}:{}:snapshot", prefix, exchange, instrument)
+}
+
+/// Build the delta list key for a given exchange and instrument.
+pub fn delta_key(prefix: &str, exchange: ExchangeId, instrument: &str) -> String {
+    format!("{}:{}:{}:deltas", prefix, exchange, instrument)
+}
+
+/// Build the trades list key for a given exchange and instrument.
+pub fn trade_key(prefix: &str, exchange: ExchangeId, instrument: &str) -> String {
+    format!("{}:{}:{}:trades", prefix, exchange, instrument)
+}
 
 /// Storage interface for persisting snapshots, deltas and trades.
 pub trait RedisStore: Send + Sync {
@@ -36,25 +57,25 @@ impl InMemoryStore {
         Self::default()
     }
 
-    fn snapshot_key(prefix: &str, exchange: ExchangeId, instrument: &str) -> String {
+    pub fn snapshot_key(prefix: &str, exchange: ExchangeId, instrument: &str) -> String {
         format!("{}:{}:{}:snapshot", prefix, exchange, instrument)
     }
-    fn delta_key(prefix: &str, exchange: ExchangeId, instrument: &str) -> String {
+    pub fn delta_key(prefix: &str, exchange: ExchangeId, instrument: &str) -> String {
         format!("{}:{}:{}:deltas", prefix, exchange, instrument)
     }
-    fn trade_key(prefix: &str, exchange: ExchangeId, instrument: &str) -> String {
+    pub fn trade_key(prefix: &str, exchange: ExchangeId, instrument: &str) -> String {
         format!("{}:{}:{}:trades", prefix, exchange, instrument)
     }
 
     /// Helper used in tests.
     pub fn get_snapshot_json(&self, exchange: ExchangeId, instrument: &str) -> Option<String> {
-        let key = Self::snapshot_key("jb", exchange, instrument);
+        let key = snapshot_key("jb", exchange, instrument);
         self.snapshots.lock().unwrap().get(&key).cloned()
     }
 
     /// Helper used in tests.
     pub fn delta_len(&self, exchange: ExchangeId, instrument: &str) -> usize {
-        let key = Self::delta_key("jb", exchange, instrument);
+        let key = delta_key("jb", exchange, instrument);
         self.deltas.lock().unwrap().get(&key).map(|v| v.len()).unwrap_or(0)
     }
 }
@@ -62,34 +83,36 @@ impl InMemoryStore {
 impl RedisStore for InMemoryStore {
     fn store_snapshot(&self, exchange: ExchangeId, instrument: &str, snapshot: &OrderBook) {
         let json = serde_json::to_string(snapshot).expect("serialise snapshot");
-        let key = Self::snapshot_key("jb", exchange, instrument);
+        let key = snapshot_key("jb", exchange, instrument);
         self.snapshots.lock().unwrap().insert(key, json);
     }
 
     fn store_delta(&self, exchange: ExchangeId, instrument: &str, delta: &OrderBookEvent) {
         let json = serde_json::to_string(delta).expect("serialise delta");
         let key = Self::delta_key("jb", exchange, instrument);
-        self.deltas
-            .lock()
-            .unwrap()
-            .entry(key)
-            .or_default()
-            .push(json);
+        let mut guard = self.deltas.lock().unwrap();
+        let list = guard.entry(key).or_default();
+        list.push(json);
+        if list.len() > MAX_LIST_LEN {
+            let excess = list.len() - MAX_LIST_LEN;
+            list.drain(0..excess);
+        }
     }
 
     fn store_trade(&self, exchange: ExchangeId, instrument: &str, trade: &PublicTrade) {
         let json = serde_json::to_string(trade).expect("serialise trade");
-        let key = Self::trade_key("jb", exchange, instrument);
-        self.trades
-            .lock()
-            .unwrap()
-            .entry(key)
-            .or_default()
-            .push(json);
+        let key = trade_key("jb", exchange, instrument);
+        let mut guard = self.trades.lock().unwrap();
+        let list = guard.entry(key).or_default();
+        list.push(json);
+        if list.len() > MAX_LIST_LEN {
+            let excess = list.len() - MAX_LIST_LEN;
+            list.drain(0..excess);
+        }
     }
 
     fn get_snapshot(&self, exchange: ExchangeId, instrument: &str) -> Option<OrderBook> {
-        let key = Self::snapshot_key("jb", exchange, instrument);
+        let key = snapshot_key("jb", exchange, instrument);
         self.snapshots
             .lock()
             .unwrap()
@@ -98,7 +121,7 @@ impl RedisStore for InMemoryStore {
     }
 
     fn get_deltas(&self, exchange: ExchangeId, instrument: &str, limit: usize) -> Vec<OrderBookEvent> {
-        let key = Self::delta_key("jb", exchange, instrument);
+        let key = delta_key("jb", exchange, instrument);
         self.deltas
             .lock()
             .unwrap()
@@ -114,7 +137,7 @@ impl RedisStore for InMemoryStore {
     }
 
     fn get_trades(&self, exchange: ExchangeId, instrument: &str, limit: usize) -> Vec<PublicTrade> {
-        let key = Self::trade_key("jb", exchange, instrument);
+        let key = trade_key("jb", exchange, instrument);
         self.trades
             .lock()
             .unwrap()
@@ -167,8 +190,12 @@ impl RedisStore for RedisClientStore {
                 let _ : redis::RedisResult<()> = redis::pipe()
                     .atomic()
                     .cmd("RPUSH")
-                    .arg(key)
-                    .arg(json)
+                    .arg(&key)
+                    .arg(&json)
+                    .cmd("LTRIM")
+                    .arg(&key)
+                    .arg(-(MAX_LIST_LEN as isize))
+                    .arg(-1)
                     .query(&mut conn);
             }
         }
@@ -181,8 +208,12 @@ impl RedisStore for RedisClientStore {
                 let _ : redis::RedisResult<()> = redis::pipe()
                     .atomic()
                     .cmd("RPUSH")
-                    .arg(key)
-                    .arg(json)
+                    .arg(&key)
+                    .arg(&json)
+                    .cmd("LTRIM")
+                    .arg(&key)
+                    .arg(-(MAX_LIST_LEN as isize))
+                    .arg(-1)
                     .query(&mut conn);
             }
         }

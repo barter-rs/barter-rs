@@ -212,3 +212,23 @@ fn test_gateio_store_methods() {
     assert_eq!(store.delta_len(ExchangeId::Gateio, "BTC_USDT"), 2);
 }
 
+#[test]
+fn test_list_trimming() {
+    use jackbot_data::books::OrderBook;
+    use jackbot_data::subscription::book::OrderBookEvent;
+
+    let store = InMemoryStore::new();
+    for _ in 0..(jackbot_data::redis_store::MAX_LIST_LEN + 10) {
+        store.store_delta(ExchangeId::BinanceSpot, "BTC_USDT", &OrderBookEvent::Update(OrderBook::default()));
+        store.store_trade(ExchangeId::BinanceSpot, "BTC_USDT", &jackbot_data::subscription::trade::PublicTrade {
+            id: "1".into(),
+            price: 1.0,
+            amount: 1.0,
+            side: jackbot_instrument::Side::Buy,
+        });
+    }
+
+    assert_eq!(store.delta_len(ExchangeId::BinanceSpot, "BTC_USDT"), jackbot_data::redis_store::MAX_LIST_LEN);
+    assert_eq!(store.get_trades(ExchangeId::BinanceSpot, "BTC_USDT", usize::MAX).len(), jackbot_data::redis_store::MAX_LIST_LEN);
+}
+
