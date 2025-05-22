@@ -36,3 +36,29 @@ fn test_auto_place_when_in_range() {
     assert_eq!(orders.len(), 1);
     assert!(manager.is_empty());
 }
+
+#[test]
+fn test_add_or_place_and_negative_range() {
+    let mut manager: PropheticOrderManager<u8, u8> = PropheticOrderManager::default();
+    let price = dec!(100);
+    let order = PropheticOrder::new(sample_request(price), DateTime::<Utc>::MIN_UTC);
+
+    // negative range should be treated as positive and order placed immediately
+    let out = manager.add_or_place(order.clone(), price, dec!(-5));
+    assert!(out.is_some());
+    assert!(manager.is_empty());
+
+    // add again but outside range
+    let out = manager.add_or_place(order.clone(), dec!(80), dec!(5));
+    assert!(out.is_none());
+    assert!(!manager.is_empty());
+
+    // duplicate should be ignored
+    manager.add(order);
+    assert_eq!(manager.pending_count(), 1);
+
+    // price moves in range
+    let ready = manager.drain_in_range(dec!(95), dec!(5));
+    assert_eq!(ready.len(), 1);
+    assert!(manager.is_empty());
+}
