@@ -564,10 +564,10 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Feature-Specific TODOs:**
 
-- [ ] Parquet Serialization (order book, trades, multi-exchange/market)
-- [ ] S3 Integration (upload, partitioning, retention)
-- [ ] Iceberg Table Management (registration, schema evolution, query support)
-- [ ] Snapshot Scheduling (configurable, robust)
+- [x] Parquet Serialization (order book, trades, multi-exchange/market)
+- [x] S3 Integration (upload, partitioning, retention)
+- [x] Iceberg Table Management (registration, schema evolution, query support)
+- [x] Snapshot Scheduling (configurable, robust)
 - [ ] MEXC: Integrate snapshot logic for order book and trades
 - [ ] Gate.io: Integrate snapshot logic for order book and trades
 - [ ] Crypto.com: Integrate snapshot logic for order book and trades

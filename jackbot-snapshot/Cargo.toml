@@ -7,3 +7,5 @@ edition = "2024"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+chrono = { workspace = true }
+
