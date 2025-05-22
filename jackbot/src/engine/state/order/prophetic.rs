@@ -13,12 +13,21 @@ pub struct PropheticOrder<ExchangeKey, InstrumentKey> {
 /// Manager that tracks prophetic orders and checks if they are in range
 #[derive(Debug, Clone, Default)]
 pub struct PropheticOrderManager<ExchangeKey, InstrumentKey> {
-    pending: Vec<PropheticOrder<ExchangeKey, InstrumentKey>>, 
+    pending: Vec<PropheticOrder<ExchangeKey, InstrumentKey>>,
 }
 
 impl<ExchangeKey, InstrumentKey> PropheticOrderManager<ExchangeKey, InstrumentKey> {
     /// Add a prophetic order to be monitored
     pub fn add(&mut self, order: PropheticOrder<ExchangeKey, InstrumentKey>) {
+        // avoid duplicates based on client order id
+        if self
+            .pending
+            .iter()
+            .any(|o| o.request.key.cid == order.request.key.cid)
+        {
+            return;
+        }
+
         self.pending.push(order);
     }
 
@@ -27,7 +36,7 @@ impl<ExchangeKey, InstrumentKey> PropheticOrderManager<ExchangeKey, InstrumentKe
         let mut ready = Vec::new();
         self.pending.retain(|order| {
             let diff = (order.request.state.price - market_price).abs();
-            let threshold = market_price * range_percent / Decimal::new(100,0);
+            let threshold = market_price * range_percent.abs() / Decimal::new(100,0);
             if diff <= threshold {
                 ready.push(order.request.clone());
                 false
@@ -38,8 +47,30 @@ impl<ExchangeKey, InstrumentKey> PropheticOrderManager<ExchangeKey, InstrumentKe
         ready
     }
 
+    /// Add an order and immediately return it if already within range of the provided market price.
+    /// Orders outside the range are stored for later processing.
+    pub fn add_or_place(
+        &mut self,
+        order: PropheticOrder<ExchangeKey, InstrumentKey>,
+        market_price: Decimal,
+        range_percent: Decimal,
+    ) -> Option<OrderRequestOpen<ExchangeKey, InstrumentKey>> {
+        let diff = (order.request.state.price - market_price).abs();
+        let threshold = market_price * range_percent.abs() / Decimal::new(100, 0);
+        if diff <= threshold {
+            Some(order.request)
+        } else {
+            self.add(order);
+            None
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.pending.is_empty()
+    }
+
+    pub fn pending_count(&self) -> usize {
+        self.pending.len()
     }
 }
 
