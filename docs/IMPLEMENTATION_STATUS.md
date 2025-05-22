@@ -404,10 +404,10 @@ Exchanges currently implementing the `Canonicalizer` trait:
     - [x] Split order into slices over time.
     - [x] Use untraceable, non-linear time curves and randomized intervals.
     - [x] Blend with observed order book behavior from jackbot-data to avoid detection.
-- [ ] Implement advanced VWAP (Volume-Weighted Average Price) logic:
-    - [ ] Split order based on observed volume patterns.
-    - [ ] Use untraceable, non-linear volume curves and randomized intervals.
-    - [ ] Blend with order book and trade flow analytics from jackbot-data.
+- [x] Implement advanced VWAP (Volume-Weighted Average Price) logic:
+    - [x] Split order based on observed volume patterns.
+    - [x] Use untraceable, non-linear volume curves and randomized intervals.
+    - [x] Blend with order book and trade flow analytics from jackbot-data.
 - [x] Integrate with both live and paper trading engines.
 - [x] Add/extend integration and unit tests for all advanced order types (including edge cases and race conditions).
 - [x] Add/extend module-level and user-facing documentation.
@@ -417,7 +417,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 - [ ] Always Maker (post-only, top-of-book, auto-cancel/repost, all exchanges, spot/futures, live/paper)
 - [x] Advanced TWAP (untraceable, order book blended, all exchanges, spot/futures, live/paper)
-- [ ] Advanced VWAP (untraceable, order book blended, all exchanges, spot/futures, live/paper)
+- [x] Advanced VWAP (untraceable, order book blended, all exchanges, spot/futures, live/paper)
 - [ ] MEXC: Implement all advanced execution order types (spot/futures, live/paper)
 - [ ] Gate.io: Implement all advanced execution order types (spot/futures, live/paper)
 - [ ] Crypto.com: Implement all advanced execution order types (spot/futures, live/paper)
