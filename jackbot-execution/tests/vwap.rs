@@ -13,6 +13,7 @@ use jackbot_instrument::{exchange::ExchangeId, instrument::{Instrument, name::In
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rust_decimal_macros::dec;
+use rust_decimal::Decimal;
 use std::sync::Arc;
 use parking_lot::RwLock;
 use tokio::sync::{mpsc, broadcast};
@@ -33,7 +34,7 @@ fn test_vwap_slices_sum() {
 async fn test_vwap_scheduler_mock_exchange() {
     let book = OrderBook::new(0, None, vec![Level::new(dec!(100), dec!(1))], vec![Level::new(dec!(101), dec!(1))]);
     let book = Arc::new(RwLock::new(book));
-    let aggregator = OrderBookAggregator::new([ExchangeBook { exchange: ExchangeId::BinanceSpot, book: book.clone() }]);
+    let aggregator = OrderBookAggregator::new([ExchangeBook { exchange: ExchangeId::BinanceSpot, book: book.clone(), weight: Decimal::ONE }]);
 
     let instrument = Instrument::spot(
         ExchangeId::BinanceSpot,
