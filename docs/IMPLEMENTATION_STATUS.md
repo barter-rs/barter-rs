@@ -821,34 +821,34 @@ Exchanges currently implementing the `Canonicalizer` trait:
 > **Goal:** Implement a comprehensive framework for developing, testing, and deploying trading strategies. Support both rule-based and ML-powered strategies with consistent interfaces, configuration management, and performance tracking across live, paper, and backtesting environments.
 
 **General Steps:**
-- [ ] Design a unified strategy abstraction with clear interfaces for inputs, outputs, and lifecycle events.
-- [ ] Implement configurable strategy parameters with type safety and validation.
-- [ ] Create a strategy registry and discovery mechanism.
-- [ ] Implement standard indicators and technical analysis tools.
-- [ ] Add support for rule-based, event-driven strategy definitions.
-- [ ] Implement ML model integration (loading, inference, feature extraction).
-- [ ] Create a backtest runner with performance metrics and visualization.
-- [ ] Add live/paper deployment capabilities with monitoring and control.
-- [ ] Implement A/B testing and strategy comparison tools.
-- [ ] Add/extend integration and unit tests for all strategy components.
-- [ ] Add/extend module-level and user-facing documentation.
-- [ ] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+- [x] Design a unified strategy abstraction with clear interfaces for inputs, outputs, and lifecycle events.
+- [x] Implement configurable strategy parameters with type safety and validation.
+- [x] Create a strategy registry and discovery mechanism.
+- [x] Implement standard indicators and technical analysis tools.
+- [x] Add support for rule-based, event-driven strategy definitions.
+- [x] Implement ML model integration (loading, inference, feature extraction).
+- [x] Create a backtest runner with performance metrics and visualization.
+- [x] Add live/paper deployment capabilities with monitoring and control.
+- [x] Implement A/B testing and strategy comparison tools.
+- [x] Add/extend integration and unit tests for all strategy components.
+- [x] Add/extend module-level and user-facing documentation.
+- [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
 
 **Feature-Specific TODOs:**
 
 - [x] Strategy Interface Definition (inputs, outputs, events, lifecycle)
  - [x] Technical Analysis Library (indicators, patterns, signals)
-- [ ] ML Integration Framework (feature extraction, model loading, inference)
-- [ ] Strategy Configuration and Parameter Management
-- [ ] Backtest Runner and Performance Evaluation
-- [ ] Live/Paper Deployment and Monitoring
-- [ ] A/B Testing and Strategy Comparison
-- [ ] Documentation and Example Strategies
+- [x] ML Integration Framework (feature extraction, model loading, inference)
+- [x] Strategy Configuration and Parameter Management
+- [x] Backtest Runner and Performance Evaluation
+- [x] Live/Paper Deployment and Monitoring
+- [x] A/B Testing and Strategy Comparison
+- [x] Documentation and Example Strategies
 
 **Final Steps:**
-- [ ] Update feature matrix and exchange-by-exchange status in this file.
-- [ ] Ensure all strategy components function correctly with test strategies.
-- [ ] Document the strategy development workflow, best practices, and examples.
+- [x] Update feature matrix and exchange-by-exchange status in this file.
+- [x] Ensure all strategy components function correctly with test strategies.
+- [x] Document the strategy development workflow, best practices, and examples.
 
 ---
 
