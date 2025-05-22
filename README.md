@@ -62,3 +62,6 @@ Please read our contribution guidelines before submitting pull requests.
 ## License
 
 [Include your license information here] 
+## Snapshotting Redis Data to S3
+
+The `jackbot-snapshot` crate demonstrates extracting multi-exchange order book and trade data from Redis, serializing it to Parquet, uploading snapshots to a partitioned S3 layout, and tracking them with a minimal Iceberg table. A configurable `SnapshotScheduler` handles periodic persistence and retention cleanup.
