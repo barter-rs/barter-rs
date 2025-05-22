@@ -723,7 +723,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - [x] Historical Data Loading Framework (Parquet, S3, multi-exchange, spot/futures)
 - [x] Order Book Replay Engine (timestamp-preserving, accurate sequencing)
 - [x] Market Simulation (realistic order execution, fees, slippage)
-- [ ] Strategy Interface (event-driven, configurable parameters)
+- [x] Strategy Interface (event-driven, configurable parameters)
 - [x] Performance Metrics (P&L, risk measures, trade statistics)
 - [x] Visualization and Reporting (charts, tables, exports)
 - [x] Parameter Optimization (grid search, genetic algorithms)
@@ -790,7 +790,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Feature-Specific TODOs:**
 
-- [ ] Strategy Interface Definition (inputs, outputs, events, lifecycle)
+- [x] Strategy Interface Definition (inputs, outputs, events, lifecycle)
 - [ ] Technical Analysis Library (indicators, patterns, signals)
 - [ ] ML Integration Framework (feature extraction, model loading, inference)
 - [ ] Strategy Configuration and Parameter Management
