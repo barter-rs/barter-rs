@@ -12,7 +12,8 @@ use crate::{
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
     subscription::{Map, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
-};
+}; 
+use crate::exchange::DEFAULT_HEARTBEAT_INTERVAL;
 use jackbot_instrument::exchange::ExchangeId;
 use jackbot_integration::{error::SocketError, protocol::websocket::WsMessage};
 use serde::de::{Error, Unexpected};
@@ -49,6 +50,9 @@ pub mod subscription;
 /// Public trade types common to both [`BybitSpot`](spot::BybitSpot) and
 /// [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
 pub mod trade;
+
+/// Rate limiting utilities for Bybit.
+pub mod rate_limit;
 
 /// Generic [`Bybit<Server>`](Bybit) execution.
 ///
@@ -102,6 +106,10 @@ where
             })
             .to_string(),
         )]
+    }
+
+    fn heartbeat_interval() -> Option<Duration> {
+        Some(DEFAULT_HEARTBEAT_INTERVAL)
     }
 
     fn expected_responses<InstrumentKey>(_: &Map<InstrumentKey>) -> usize {

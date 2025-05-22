@@ -4,7 +4,10 @@ use self::{
 };
 use crate::{
     ExchangeWsStream, NoInitialSnapshots,
-    exchange::{Connector, ExchangeSub, StreamSelector},
+    exchange::{
+        Connector, ExchangeSub, StreamSelector, PingInterval,
+        DEFAULT_PING_INTERVAL, DEFAULT_HEARTBEAT_INTERVAL,
+    },
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
     subscription::{book::OrderBooksL2, trade::PublicTrades},
@@ -16,6 +19,7 @@ use jackbot_integration::{error::SocketError, protocol::websocket::WsMessage};
 use jackbot_macro::{DeExchange, SerExchange};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::time::Duration;
 use url::Url;
 
 /// OrderBook types for [`Kraken`].
@@ -38,6 +42,9 @@ pub mod subscription;
 
 /// Public trade types for [`Kraken`].
 pub mod trade;
+
+/// Rate limiting utilities for Kraken.
+pub mod rate_limit;
 
 /// Futures market modules for Kraken (stub; not yet implemented).
 pub mod futures;
@@ -67,6 +74,13 @@ impl Connector for Kraken {
         Url::parse(BASE_URL_KRAKEN).map_err(SocketError::UrlParse)
     }
 
+    fn ping_interval() -> Option<PingInterval> {
+        Some(PingInterval {
+            interval: tokio::time::interval(DEFAULT_PING_INTERVAL),
+            ping: || WsMessage::text("ping"),
+        })
+    }
+
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
         exchange_subs
             .into_iter()
@@ -83,6 +97,10 @@ impl Connector for Kraken {
                 )
             })
             .collect()
+    }
+
+    fn heartbeat_interval() -> Option<Duration> {
+        Some(DEFAULT_HEARTBEAT_INTERVAL)
     }
 }
 

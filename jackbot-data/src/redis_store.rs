@@ -12,6 +12,15 @@ pub trait RedisStore: Send + Sync {
     fn store_snapshot(&self, exchange: ExchangeId, instrument: &str, snapshot: &OrderBook);
     fn store_delta(&self, exchange: ExchangeId, instrument: &str, delta: &OrderBookEvent);
     fn store_trade(&self, exchange: ExchangeId, instrument: &str, trade: &PublicTrade);
+
+    /// Retrieve the latest snapshot for the given exchange and instrument.
+    fn get_snapshot(&self, exchange: ExchangeId, instrument: &str) -> Option<OrderBook>;
+
+    /// Retrieve up to `limit` most recent order book deltas.
+    fn get_deltas(&self, exchange: ExchangeId, instrument: &str, limit: usize) -> Vec<OrderBookEvent>;
+
+    /// Retrieve up to `limit` most recent trades.
+    fn get_trades(&self, exchange: ExchangeId, instrument: &str, limit: usize) -> Vec<PublicTrade>;
 }
 
 /// In-memory RedisStore used for testing.
@@ -38,7 +47,7 @@ impl InMemoryStore {
     }
 
     /// Helper used in tests.
-    pub fn get_snapshot(&self, exchange: ExchangeId, instrument: &str) -> Option<String> {
+    pub fn get_snapshot_json(&self, exchange: ExchangeId, instrument: &str) -> Option<String> {
         let key = Self::snapshot_key("jb", exchange, instrument);
         self.snapshots.lock().unwrap().get(&key).cloned()
     }
@@ -77,6 +86,47 @@ impl RedisStore for InMemoryStore {
             .entry(key)
             .or_default()
             .push(json);
+    }
+
+    fn get_snapshot(&self, exchange: ExchangeId, instrument: &str) -> Option<OrderBook> {
+        let key = Self::snapshot_key("jb", exchange, instrument);
+        self.snapshots
+            .lock()
+            .unwrap()
+            .get(&key)
+            .and_then(|s| serde_json::from_str(s).ok())
+    }
+
+    fn get_deltas(&self, exchange: ExchangeId, instrument: &str, limit: usize) -> Vec<OrderBookEvent> {
+        let key = Self::delta_key("jb", exchange, instrument);
+        self.deltas
+            .lock()
+            .unwrap()
+            .get(&key)
+            .map(|v| {
+                v.iter()
+                    .rev()
+                    .take(limit)
+                    .filter_map(|s| serde_json::from_str(s).ok())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn get_trades(&self, exchange: ExchangeId, instrument: &str, limit: usize) -> Vec<PublicTrade> {
+        let key = Self::trade_key("jb", exchange, instrument);
+        self.trades
+            .lock()
+            .unwrap()
+            .get(&key)
+            .map(|v| {
+                v.iter()
+                    .rev()
+                    .take(limit)
+                    .filter_map(|s| serde_json::from_str(s).ok())
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 }
 
@@ -135,6 +185,61 @@ impl RedisStore for RedisClientStore {
                     .arg(json)
                     .query(&mut conn);
             }
+        }
+    }
+
+    fn get_snapshot(&self, exchange: ExchangeId, instrument: &str) -> Option<OrderBook> {
+        let key = self.key("snapshot", exchange, instrument);
+        if let Ok(mut conn) = self.client.get_connection() {
+            redis::cmd("GET")
+                .arg(key)
+                .query::<Option<String>>(&mut conn)
+                .ok()
+                .and_then(|s| s.and_then(|val| serde_json::from_str(&val).ok()))
+        } else {
+            None
+        }
+    }
+
+    fn get_deltas(&self, exchange: ExchangeId, instrument: &str, limit: usize) -> Vec<OrderBookEvent> {
+        if limit == 0 {
+            return Vec::new();
+        }
+        let key = self.key("deltas", exchange, instrument);
+        if let Ok(mut conn) = self.client.get_connection() {
+            let start = -(limit as isize);
+            redis::cmd("LRANGE")
+                .arg(&key)
+                .arg(start)
+                .arg(-1)
+                .query::<Vec<String>>(&mut conn)
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|s| serde_json::from_str(&s).ok())
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
+
+    fn get_trades(&self, exchange: ExchangeId, instrument: &str, limit: usize) -> Vec<PublicTrade> {
+        if limit == 0 {
+            return Vec::new();
+        }
+        let key = self.key("trades", exchange, instrument);
+        if let Ok(mut conn) = self.client.get_connection() {
+            let start = -(limit as isize);
+            redis::cmd("LRANGE")
+                .arg(&key)
+                .arg(start)
+                .arg(-1)
+                .query::<Vec<String>>(&mut conn)
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|s| serde_json::from_str(&s).ok())
+                .collect()
+        } else {
+            Vec::new()
         }
     }
 }

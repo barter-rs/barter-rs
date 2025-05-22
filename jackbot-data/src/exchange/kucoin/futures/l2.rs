@@ -101,7 +101,7 @@ mod tests {
             asks: vec![(dec!(30010.0), dec!(2.0))],
         };
         book.store_snapshot(&store);
-        assert!(store.get_snapshot(ExchangeId::Kucoin, "BTC-USDT").is_some());
+        assert!(store.get_snapshot_json(ExchangeId::Kucoin, "BTC-USDT").is_some());
 
         let delta_book = KucoinFuturesOrderBookL2 { time: Utc::now(), ..book };
         delta_book.store_delta(&store);

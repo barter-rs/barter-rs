@@ -20,6 +20,12 @@ pub mod bybit;
 /// `Coinbase` [`Connector`] and [`StreamSelector`] implementations.
 pub mod coinbase;
 
+/// `Crypto.com` [`Connector`] and [`StreamSelector`] implementations.
+pub mod cryptocom;
+
+/// `Gate.io` [`Connector`] and [`StreamSelector`] implementations.
+pub mod gateio;
+
 /// `Kraken` [`Connector`] and [`StreamSelector`] implementations.
 pub mod kraken;
 
@@ -29,6 +35,15 @@ pub mod okx;
 /// `Hyperliquid` [`Connector`] and [`StreamSelector`] implementations.
 pub mod hyperliquid;
 
+/// `MEXC` [`Connector`] modules.
+pub mod mexc;
+
+/// `Gate.io` [`Connector`] modules.
+pub mod gateio;
+
+/// `Crypto.com` [`Connector`] modules.
+pub mod cryptocom;
+
 /// Defines the generic [`ExchangeSub`] containing a market and channel combination used by an
 /// exchange [`Connector`] to build [`WsMessage`] subscription payloads.
 pub mod subscription;
@@ -36,6 +51,15 @@ pub mod subscription;
 /// Default [`Duration`] the [`Connector::SubValidator`] will wait to receive all success responses to actioned
 /// `Subscription` requests.
 pub const DEFAULT_SUBSCRIPTION_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Default interval between custom WebSocket pings when an exchange requires
+/// application-level heartbeats.
+pub const DEFAULT_PING_INTERVAL: Duration = Duration::from_secs(30);
+
+/// Default heartbeat interval used to detect stalled WebSocket connections.
+/// If no messages are received within this duration, the connection is
+/// considered unhealthy and will be re-established.
+pub const DEFAULT_HEARTBEAT_INTERVAL: Duration = Duration::from_secs(90);
 
 /// Defines the [`MarketStream`] kind associated with an exchange
 /// `Subscription` [`SubscriptionKind`].

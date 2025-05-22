@@ -57,6 +57,7 @@ After installing the dependencies:
 ## Project Structure
 
 For details on the project structure and implementation status, see [IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
+Documentation for the API rate limiter lives in [RATE_LIMITING.md](docs/RATE_LIMITING.md).
 ## Feature Matrix (Summary)
 
 A detailed feature matrix is maintained in [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md). At a glance:
@@ -64,8 +65,8 @@ A detailed feature matrix is maintained in [docs/IMPLEMENTATION_STATUS.md](docs/
 - **L2 Order Books**
   - Completed: Binance (Spot & Futures), Coinbase (Spot), Kraken (Spot & Futures), Bybit (Spot & Futures)
   - Partial: OKX (Spot & Futures), Kucoin (Spot)
-  - Pending: Kucoin (Futures), Gate.io, Crypto.com, Hyperliquid, Bitget
-  - New: MEXC (Spot & Futures) with Redis order book support
+  - Pending: Kucoin (Futures), Hyperliquid, Bitget
+  - New: MEXC (Spot & Futures), Gate.io, and Crypto.com with Redis snapshot integration
 - **Canonical Order Book** implemented across Binance, Bybit, OKX, Coinbase, and Kraken (Futures).
 - **Trade Streams & Execution**: planned and under active development.
 
@@ -81,6 +82,10 @@ simulation with the `MockExchange` and against real venues.
 `jackbot-execution` also provides a `vwap` module for volume-weighted execution.
 Orders can be split according to observed volume patterns and dispatched using
 order book analytics, allowing more discrete participation in the market.
+
+## Multi-Exchange Aggregation
+
+`jackbot-data` exposes an `OrderBookAggregator` for combining order books across exchanges with custom weights. Together with the `PositionTracker` and `StrategyConfig` utilities, this enables configurable arbitrage strategies. See [Multi-Exchange Aggregation and Arbitrage Framework](docs/MULTI_EXCHANGE_ARBITRAGE.md) for more details.
 
 
 ## Contributing

@@ -8,7 +8,10 @@ use self::{
 };
 use crate::{
     ExchangeWsStream, NoInitialSnapshots,
-    exchange::{Connector, ExchangeSub, PingInterval, StreamSelector},
+    exchange::{
+        Connector, ExchangeSub, PingInterval, StreamSelector,
+        DEFAULT_PING_INTERVAL, DEFAULT_HEARTBEAT_INTERVAL,
+    },
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
     subscription::trade::PublicTrades,
@@ -41,6 +44,9 @@ pub mod subscription;
 /// Public trade types for Hyperliquid.
 pub mod trade;
 
+/// Rate limiting utilities for Hyperliquid.
+pub mod rate_limit;
+
 /// Hyperliquid WebSocket base URL.
 pub const BASE_URL_HYPERLIQUID: &str = "wss://api.hyperliquid.xyz/ws";
 
@@ -59,6 +65,13 @@ impl Connector for Hyperliquid {
         Url::parse(BASE_URL_HYPERLIQUID).map_err(SocketError::UrlParse)
     }
 
+    fn ping_interval() -> Option<PingInterval> {
+        Some(PingInterval {
+            interval: tokio::time::interval(DEFAULT_PING_INTERVAL),
+            ping: || WsMessage::text("ping"),
+        })
+    }
+
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
         // Hyperliquid expects a subscription message per market/channel
         exchange_subs
@@ -74,6 +87,10 @@ impl Connector for Hyperliquid {
                 )
             })
             .collect()
+    }
+
+    fn heartbeat_interval() -> Option<Duration> {
+        Some(DEFAULT_HEARTBEAT_INTERVAL)
     }
 }
 

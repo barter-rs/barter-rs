@@ -3,6 +3,7 @@ use crate::{
     Identifier,
     books::{Canonicalizer, Level, OrderBook},
     event::{MarketEvent, MarketIter},
+    redis_store::RedisStore,
     subscription::book::{OrderBookEvent, OrderBooksL2},
 };
 use chrono::{DateTime, Utc};
@@ -37,6 +38,20 @@ impl Canonicalizer for CryptocomOrderBookL2 {
     }
 }
 
+impl CryptocomOrderBookL2 {
+    /// Persist this order book snapshot to the provided [`RedisStore`].
+    pub fn store_snapshot<Store: RedisStore>(&self, store: &Store) {
+        let snapshot = self.canonicalize(self.time);
+        store.store_snapshot(ExchangeId::Cryptocom, self.subscription_id.as_ref(), &snapshot);
+    }
+
+    /// Persist this order book update to the provided [`RedisStore`].
+    pub fn store_delta<Store: RedisStore>(&self, store: &Store) {
+        let delta = OrderBookEvent::Update(self.canonicalize(self.time));
+        store.store_delta(ExchangeId::Cryptocom, self.subscription_id.as_ref(), &delta);
+    }
+}
+
 impl<InstrumentKey> From<(ExchangeId, InstrumentKey, CryptocomOrderBookL2)>
     for MarketIter<InstrumentKey, OrderBookEvent>
 {
@@ -55,6 +70,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, CryptocomOrderBookL2)>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::redis_store::InMemoryStore;
     use rust_decimal_macros::dec;
 
     #[test]
@@ -63,5 +79,22 @@ mod tests {
         let book: CryptocomOrderBookL2 = serde_json::from_str(input).unwrap();
         assert_eq!(book.bids[0], (dec!(30000.0), dec!(1.0)));
         assert_eq!(book.asks[0], (dec!(30010.0), dec!(2.0)));
+    }
+
+    #[test]
+    fn test_store_methods() {
+        let store = InMemoryStore::new();
+        let book = CryptocomOrderBookL2 {
+            subscription_id: "BTC_USDT".into(),
+            time: Utc::now(),
+            bids: vec![(dec!(30000.0), dec!(1.0))],
+            asks: vec![(dec!(30010.0), dec!(2.0))],
+        };
+        book.store_snapshot(&store);
+        assert!(store.get_snapshot_json(ExchangeId::Cryptocom, "BTC_USDT").is_some());
+
+        let delta_book = CryptocomOrderBookL2 { time: Utc::now(), ..book };
+        delta_book.store_delta(&store);
+        assert_eq!(store.delta_len(ExchangeId::Cryptocom, "BTC_USDT"), 1);
     }
 }
