@@ -2,7 +2,7 @@
 
 use crate::{
     Identifier,
-    books::{Level, OrderBook},
+    books::{Canonicalizer, Level, OrderBook},
     event::{MarketEvent, MarketIter},
     exchange::{hyperliquid::channel::HyperliquidChannel, subscription::ExchangeSub},
     subscription::book::{OrderBookEvent, OrderBooksL2},
@@ -32,20 +32,28 @@ impl Identifier<Option<SubscriptionId>> for HyperliquidOrderBookL2 {
     }
 }
 
+impl Canonicalizer for HyperliquidOrderBookL2 {
+    fn canonicalize(&self, timestamp: DateTime<Utc>) -> OrderBook {
+        let bids = self.bids.iter().map(|(p, a)| Level::new(*p, *a));
+        let asks = self.asks.iter().map(|(p, a)| Level::new(*p, *a));
+        OrderBook::new(0, Some(timestamp), bids, asks)
+    }
+}
+
 impl<InstrumentKey> From<(ExchangeId, InstrumentKey, HyperliquidOrderBookL2)>
     for MarketIter<InstrumentKey, OrderBookEvent>
 {
     fn from(
         (exchange_id, instrument, book): (ExchangeId, InstrumentKey, HyperliquidOrderBookL2),
     ) -> Self {
-        let bids: Vec<Level> = book.bids.iter().map(|(p, a)| Level::new(*p, *a)).collect();
-        let asks: Vec<Level> = book.asks.iter().map(|(p, a)| Level::new(*p, *a)).collect();
+        let order_book = book.canonicalize(book.time);
+
         Self(vec![Ok(MarketEvent {
             time_exchange: book.time,
             time_received: Utc::now(),
             exchange: exchange_id,
             instrument,
-            kind: OrderBookEvent::Update(OrderBook::new(0, None, bids, asks)),
+            kind: OrderBookEvent::Update(order_book),
         })])
     }
 }

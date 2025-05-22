@@ -1,10 +1,9 @@
-// Kucoin Order Book L2 stub
-
+//! Level 2 order book types for MEXC spot.
 use crate::{
     Identifier,
     books::{Canonicalizer, Level, OrderBook},
     event::{MarketEvent, MarketIter},
-    exchange::{kucoin::channel::KucoinChannel, subscription::ExchangeSub},
+    exchange::{subscription::ExchangeSub},
     subscription::book::{OrderBookEvent, OrderBooksL2},
 };
 use chrono::{DateTime, Utc};
@@ -13,10 +12,9 @@ use jackbot_integration::subscription::SubscriptionId;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-/// Kucoin real-time OrderBook Level2 message.
 #[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
-pub struct KucoinOrderBookL2 {
-    #[serde(alias = "symbol", deserialize_with = "de_ob_l2_subscription_id")]
+pub struct MexcOrderBookL2 {
+    #[serde(alias = "symbol")]
     pub subscription_id: SubscriptionId,
     #[serde(default = "Utc::now")]
     pub time: DateTime<Utc>,
@@ -26,13 +24,13 @@ pub struct KucoinOrderBookL2 {
     pub asks: Vec<(Decimal, Decimal)>,
 }
 
-impl Identifier<Option<SubscriptionId>> for KucoinOrderBookL2 {
+impl Identifier<Option<SubscriptionId>> for MexcOrderBookL2 {
     fn id(&self) -> Option<SubscriptionId> {
         Some(self.subscription_id.clone())
     }
 }
 
-impl Canonicalizer for KucoinOrderBookL2 {
+impl Canonicalizer for MexcOrderBookL2 {
     fn canonicalize(&self, timestamp: DateTime<Utc>) -> OrderBook {
         let bids = self.bids.iter().map(|(p, a)| Level::new(*p, *a));
         let asks = self.asks.iter().map(|(p, a)| Level::new(*p, *a));
@@ -40,14 +38,11 @@ impl Canonicalizer for KucoinOrderBookL2 {
     }
 }
 
-impl<InstrumentKey> From<(ExchangeId, InstrumentKey, KucoinOrderBookL2)>
+impl<InstrumentKey> From<(ExchangeId, InstrumentKey, MexcOrderBookL2)>
     for MarketIter<InstrumentKey, OrderBookEvent>
 {
-    fn from(
-        (exchange_id, instrument, book): (ExchangeId, InstrumentKey, KucoinOrderBookL2),
-    ) -> Self {
+    fn from((exchange_id, instrument, book): (ExchangeId, InstrumentKey, MexcOrderBookL2)) -> Self {
         let order_book = book.canonicalize(book.time);
-
         Self(vec![Ok(MarketEvent {
             time_exchange: book.time,
             time_received: Utc::now(),
@@ -58,24 +53,15 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, KucoinOrderBookL2)>
     }
 }
 
-/// Deserialize a KucoinOrderBookL2 "symbol" as the associated SubscriptionId.
-pub fn de_ob_l2_subscription_id<'de, D>(deserializer: D) -> Result<SubscriptionId, D::Error>
-where
-    D: serde::de::Deserializer<'de>,
-{
-    <&str as Deserialize>::deserialize(deserializer)
-        .map(|market| ExchangeSub::from((KucoinChannel::ORDER_BOOK_L2, market)).id())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use rust_decimal_macros::dec;
 
     #[test]
-    fn test_kucoin_order_book_l2() {
-        let input = r#"{\"symbol\":\"BTC-USDT\",\"bids\":[[\"30000.0\",\"1.0\"]],\"asks\":[[\"30010.0\",\"2.0\"]]}"#;
-        let book: KucoinOrderBookL2 = serde_json::from_str(input).unwrap();
+    fn test_mexc_spot_order_book_l2() {
+        let input = r#"{\"symbol\":\"BTC_USDT\",\"bids\":[[\"30000.0\",\"1.0\"]],\"asks\":[[\"30010.0\",\"2.0\"]]}"#;
+        let book: MexcOrderBookL2 = serde_json::from_str(input).unwrap();
         assert_eq!(book.bids[0], (dec!(30000.0), dec!(1.0)));
         assert_eq!(book.asks[0], (dec!(30010.0), dec!(2.0)));
     }
