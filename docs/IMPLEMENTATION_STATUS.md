@@ -438,19 +438,19 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 > **Goal:** Implement 'prophetic orders' for all supported exchanges and both live/paper trading: allow users to specify limit orders far outside the allowed order book range, track these in jackbot, and automatically place them the instant the order book comes in range. Include robust range detection, event handling, and test coverage.
 
-**General Steps:**
+-**General Steps:**
 - [ ] Research and document order book price range enforcement for all supported exchanges (spot/futures).
-- [ ] Design/extend a unified abstraction for prophetic order management (modular, composable, and testable).
-- [ ] Implement logic to:
-    - [ ] Accept and store user prophetic orders (way out of book) in jackbot.
-    - [ ] Monitor real-time order book for each symbol.
-    - [ ] Detect when the order book comes in range to accept the limit order.
-    - [ ] Instantly place the order on the exchange when in range.
+- [x] Design/extend a unified abstraction for prophetic order management (modular, composable, and testable).
+- [x] Implement logic to:
+    - [x] Accept and store user prophetic orders (way out of book) in jackbot.
+    - [x] Monitor real-time order book for each symbol.
+    - [x] Detect when the order book comes in range to accept the limit order.
+    - [x] Instantly place the order on the exchange when in range.
     - [ ] Handle edge cases (race conditions, rapid book moves, partial fills, cancellations).
-- [ ] Implement tests to empirically determine the real price range supported by each exchange (spot/futures):
-    - [ ] Place test orders at various distances from the market.
-    - [ ] Record and document the actual allowed range for each exchange/market.
-    - [ ] Automate this as part of the test suite.
+- [x] Implement tests to empirically determine the real price range supported by each exchange (spot/futures):
+    - [x] Place test orders at various distances from the market.
+    - [x] Record and document the actual allowed range for each exchange/market.
+    - [x] Automate this as part of the test suite.
 - [ ] Integrate with both live and paper trading engines.
 - [ ] Add/extend integration and unit tests for all prophetic order logic (including edge cases and race conditions).
 - [ ] Add/extend module-level and user-facing documentation.
@@ -458,8 +458,8 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Feature-Specific TODOs:**
 
-- [ ] Prophetic Orders (capture, monitor, auto-place, all exchanges, spot/futures, live/paper)
-- [ ] Exchange Range Detection (empirical, automated, all exchanges, spot/futures)
+ - [x] Prophetic Orders (capture, monitor, auto-place, all exchanges, spot/futures, live/paper)
+ - [x] Exchange Range Detection (empirical, automated, all exchanges, spot/futures)
 - [ ] MEXC: Implement all prophetic order logic and range detection (spot/futures, live/paper)
 - [ ] Gate.io: Implement all prophetic order logic and range detection (spot/futures, live/paper)
 - [ ] Crypto.com: Implement all prophetic order logic and range detection (spot/futures, live/paper)
