@@ -77,7 +77,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
   - [x] Implement `spot/l2.rs` (L2 order book, WS, incremental).
   - [x] Implement `futures/l2.rs` (L2 order book, WS, incremental).
   - [x] Add/extend tests for both.
-  - [ ] Update to use new `Canonicalizer` trait.
+  - [x] Update to use new `Canonicalizer` trait.
 
 - **Bybit**
   - [x] Implement/refactor `spot/l2.rs` (L2 order book, WS, incremental). (Complete and fixed error handling)
@@ -140,10 +140,10 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - [ ] Document any API quirks, limitations, or unsupported features.
 
 **Implementation Summary:**
-- Complete L2 Order Book implementations for: Binance (Spot & Futures), Coinbase (Spot), Kraken (Spot & Futures), and Bybit (Spot & Futures)
-- Partially implemented for: OKX (Spot & Futures), Kucoin (Spot)
-- Not yet implemented for: Kucoin (Futures), Gate.io, Crypto.com, MEXC, Hyperliquid, Bitget
-- Canonicalizer implementations for: Bybit (Spot & Futures), Kraken (Futures), Binance (Spot & Futures), OKX (Spot & Futures), Coinbase (Spot)
+- Complete L2 Order Book implementations for: Binance (Spot & Futures), Bybit (Spot & Futures), Coinbase (Spot), Kraken (Spot & Futures), OKX (Spot & Futures), Bitget (Spot & Futures)
+- Partially implemented for: Kucoin (Spot), Crypto.com (Spot & Futures), MEXC (Spot & Futures), Hyperliquid (Spot & Futures)
+- Not yet implemented for: Kucoin (Futures), Gate.io
+- Canonicalizer implementations for: Bybit (Spot & Futures), Kraken (Futures), Binance (Spot & Futures), OKX (Spot & Futures), Coinbase (Spot), Bitget (Spot & Futures), MEXC (Spot & Futures), Crypto.com (Spot & Futures), Hyperliquid (Spot & Futures)
 
 **Next Steps:**
 1. Complete existing implementations with robust testing
