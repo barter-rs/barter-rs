@@ -249,6 +249,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - Only L2 (Level 2) streams are now supported.
 - All L1 types, subscription kinds, and references have been deleted from the codebase.
 - Example files dedicated to L1 streams have also been removed.
+- Added `TRADE_WS_ENDPOINTS.md` summarising trade WebSocket endpoints.
 
 ## Current Features
 
