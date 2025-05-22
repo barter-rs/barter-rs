@@ -415,7 +415,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Feature-Specific TODOs:**
 
-- [ ] Always Maker (post-only, top-of-book, auto-cancel/repost, all exchanges, spot/futures, live/paper)
+ - [x] Always Maker (post-only, top-of-book, auto-cancel/repost, all exchanges, spot/futures, live/paper)
 - [x] Advanced TWAP (untraceable, order book blended, all exchanges, spot/futures, live/paper)
 - [ ] Advanced VWAP (untraceable, order book blended, all exchanges, spot/futures, live/paper)
 - [ ] MEXC: Implement all advanced execution order types (spot/futures, live/paper)
