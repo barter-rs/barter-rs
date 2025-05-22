@@ -1,0 +1,15 @@
+[package]
+name = "jackbot-ta"
+version = "0.1.0"
+edition = "2024"
+authors = ["JustAStream <justastream.code@gmail.com>"]
+license = "MIT"
+documentation = "https://docs.rs/jackbot-ta"
+repository = "https://github.com/jackbot-rs/jackbot-rs"
+readme = "README.md"
+description = "Technical analysis indicators and signal generators for Jackbot"
+
+[dependencies]
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+serde = { workspace = true, features = ["derive"] }

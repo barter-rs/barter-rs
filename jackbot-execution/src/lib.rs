@@ -56,6 +56,9 @@ pub mod market_making;
 /// Time-weighted average price execution.
 pub mod twap;
 
+/// Volume-weighted average price execution.
+pub mod vwap;
+
 
 /// Convenient type alias for an [`AccountEvent`] keyed with [`ExchangeId`],
 /// [`AssetNameExchange`], and [`InstrumentNameExchange`].

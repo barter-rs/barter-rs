@@ -404,10 +404,10 @@ Exchanges currently implementing the `Canonicalizer` trait:
     - [x] Split order into slices over time.
     - [x] Use untraceable, non-linear time curves and randomized intervals.
     - [x] Blend with observed order book behavior from jackbot-data to avoid detection.
-- [ ] Implement advanced VWAP (Volume-Weighted Average Price) logic:
-    - [ ] Split order based on observed volume patterns.
-    - [ ] Use untraceable, non-linear volume curves and randomized intervals.
-    - [ ] Blend with order book and trade flow analytics from jackbot-data.
+- [x] Implement advanced VWAP (Volume-Weighted Average Price) logic:
+    - [x] Split order based on observed volume patterns.
+    - [x] Use untraceable, non-linear volume curves and randomized intervals.
+    - [x] Blend with order book and trade flow analytics from jackbot-data.
 - [x] Integrate with both live and paper trading engines.
 - [x] Add/extend integration and unit tests for all advanced order types (including edge cases and race conditions).
 - [x] Add/extend module-level and user-facing documentation.
@@ -415,9 +415,9 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **Feature-Specific TODOs:**
 
-- [ ] Always Maker (post-only, top-of-book, auto-cancel/repost, all exchanges, spot/futures, live/paper)
+ - [x] Always Maker (post-only, top-of-book, auto-cancel/repost, all exchanges, spot/futures, live/paper)
 - [x] Advanced TWAP (untraceable, order book blended, all exchanges, spot/futures, live/paper)
-- [ ] Advanced VWAP (untraceable, order book blended, all exchanges, spot/futures, live/paper)
+- [x] Advanced VWAP (untraceable, order book blended, all exchanges, spot/futures, live/paper)
 - [ ] MEXC: Implement all advanced execution order types (spot/futures, live/paper)
 - [ ] Gate.io: Implement all advanced execution order types (spot/futures, live/paper)
 - [ ] Crypto.com: Implement all advanced execution order types (spot/futures, live/paper)
@@ -792,7 +792,7 @@ Exchanges currently implementing the `Canonicalizer` trait:
 **Feature-Specific TODOs:**
 
 - [x] Strategy Interface Definition (inputs, outputs, events, lifecycle)
-- [ ] Technical Analysis Library (indicators, patterns, signals)
+ - [x] Technical Analysis Library (indicators, patterns, signals)
 - [ ] ML Integration Framework (feature extraction, model loading, inference)
 - [ ] Strategy Configuration and Parameter Management
 - [ ] Backtest Runner and Performance Evaluation
@@ -830,8 +830,9 @@ Exchanges currently implementing the `Canonicalizer` trait:
  - [x] Position and Exposure Tracking (multi-exchange, spot/futures)
  - [x] Drawdown and Loss Limit Controls
  - [x] Correlation-Based Exposure Management
-- [ ] Volatility-Adjusted Position Sizing
-- [ ] Automated Risk Mitigation Actions
+ - [x] Automated Risk Mitigation Actions
+ - [x] Volatility-Adjusted Position Sizing
+
 - [ ] Real-time Risk Monitoring and Dashboards
  - [x] Alerting and Notification System
 - [ ] Stress Testing and Scenario Analysis
