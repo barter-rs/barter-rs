@@ -829,9 +829,10 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
  - [x] Position and Exposure Tracking (multi-exchange, spot/futures)
  - [x] Drawdown and Loss Limit Controls
-- [x] Correlation-Based Exposure Management
-- [x] Volatility-Adjusted Position Sizing
-- [ ] Automated Risk Mitigation Actions
+ - [x] Correlation-Based Exposure Management
+ - [x] Automated Risk Mitigation Actions
+ - [x] Volatility-Adjusted Position Sizing
+
 - [ ] Real-time Risk Monitoring and Dashboards
  - [x] Alerting and Notification System
 - [ ] Stress Testing and Scenario Analysis

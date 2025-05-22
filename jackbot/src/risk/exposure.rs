@@ -2,7 +2,11 @@ use crate::engine::state::{EngineState, instrument::data::InstrumentDataState};
 use crate::risk::{RiskManager, RiskApproved, RiskRefused};
 use crate::engine::state::instrument::filter::InstrumentFilter;
 use crate::engine::command::Command;
-use jackbot_execution::order::request::{OrderRequestCancel, OrderRequestOpen};
+use jackbot_execution::order::request::{OrderRequestCancel, OrderRequestOpen, RequestOpen};
+use jackbot_execution::order::id::{ClientOrderId, StrategyId, OrderKey};
+use jackbot_execution::order::{OrderKind, TimeInForce};
+use jackbot_integration::collection::one_or_many::OneOrMany;
+use jackbot_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex, Side};
 use jackbot_instrument::{asset::AssetIndex, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use rust_decimal::Decimal;
 use std::collections::HashMap;
@@ -111,11 +115,105 @@ where
     InstrumentData: InstrumentDataState,
 {
     let mut actions = Vec::new();
+
+    let exposures_by_underlying = current_exposures(state);
+    let exposures_by_instrument = current_instrument_exposures(state);
+    let signed_exposures = current_instrument_signed_exposures(state);
+
+    // Drawdown mitigation - fully close positions breaching the limit
     for inst_state in state.instruments.instruments(&InstrumentFilter::None) {
         if exceeds_drawdown(inst_state.position.current.as_ref(), limits.max_drawdown_percent) {
-            actions.push(Command::ClosePositions(InstrumentFilter::Instruments(jackbot_integration::collection::one_or_many::OneOrMany::One(inst_state.key))));
+            actions.push(Command::ClosePositions(InstrumentFilter::Instruments(OneOrMany::One(inst_state.key))));
         }
     }
+
+    // Exposure mitigation - partially reduce exposure to within limits
+    for (asset, total) in exposures_by_underlying {
+        if total > limits.max_notional_per_underlying {
+            let mut excess = total - limits.max_notional_per_underlying;
+            let mut instruments: Vec<_> = state
+                .instruments
+                .instruments(&InstrumentFilter::None)
+                .filter(|s| s.instrument.underlying.base == asset && s.position.current.is_some())
+                .collect();
+            instruments.sort_by(|a, b| {
+                exposures_by_instrument
+                    .get(&b.key)
+                    .unwrap_or(&Decimal::ZERO)
+                    .cmp(exposures_by_instrument.get(&a.key).unwrap_or(&Decimal::ZERO))
+            });
+
+            for inst_state in instruments {
+                if excess <= Decimal::ZERO {
+                    break;
+                }
+                let notional = *exposures_by_instrument.get(&inst_state.key).unwrap_or(&Decimal::ZERO);
+                let reduce = if notional >= excess { excess } else { notional };
+                if let (Some(pos), Some(price)) = (&inst_state.position.current, inst_state.data.price()) {
+                    let qty = reduce / (price * inst_state.instrument.kind.contract_size());
+                    if qty > Decimal::ZERO {
+                        let side = match pos.side {
+                            Side::Buy => Side::Sell,
+                            Side::Sell => Side::Buy,
+                        };
+                        let order = OrderRequestOpen {
+                            key: OrderKey {
+                                exchange: inst_state.instrument.exchange,
+                                instrument: inst_state.key,
+                                strategy: StrategyId::new("risk_mitigation"),
+                                cid: ClientOrderId::random(),
+                            },
+                            state: RequestOpen {
+                                side,
+                                price,
+                                quantity: qty,
+                                kind: OrderKind::Market,
+                                time_in_force: TimeInForce::ImmediateOrCancel,
+                            },
+                        };
+                        actions.push(Command::SendOpenRequests(OneOrMany::One(order)));
+                        excess -= reduce;
+                    }
+                }
+            }
+        }
+    }
+
+    // Correlation mitigation - hedge exposures when pair limits are breached
+    for ((a, b), limit) in &limits.correlation_limits {
+        let exp_a = signed_exposures.get(a).copied().unwrap_or(Decimal::ZERO);
+        let exp_b = signed_exposures.get(b).copied().unwrap_or(Decimal::ZERO);
+        let combined = exp_a.abs() + exp_b.abs();
+        if combined > *limit {
+            let (hedge_key, hedge_exp) = if exp_a.abs() >= exp_b.abs() { (*a, exp_a) } else { (*b, exp_b) };
+            let inst_state = state.instruments.instrument_index(&hedge_key);
+            if let (Some(pos), Some(price)) = (&inst_state.position.current, inst_state.data.price()) {
+                    let reduce = (combined - *limit).min(hedge_exp.abs());
+                    let qty = reduce / (price * inst_state.instrument.kind.contract_size());
+                    if qty > Decimal::ZERO {
+                        let side = if hedge_exp > Decimal::ZERO { Side::Sell } else { Side::Buy };
+                        let order = OrderRequestOpen {
+                            key: OrderKey {
+                                exchange: inst_state.instrument.exchange,
+                                instrument: inst_state.key,
+                                strategy: StrategyId::new("risk_mitigation"),
+                                cid: ClientOrderId::random(),
+                            },
+                            state: RequestOpen {
+                                side,
+                                price,
+                                quantity: qty,
+                                kind: OrderKind::Market,
+                                time_in_force: TimeInForce::ImmediateOrCancel,
+                            },
+                        };
+                        actions.push(Command::SendOpenRequests(OneOrMany::One(order)));
+                    }
+                }
+            }
+        }
+    }
+
     actions
 }
 
@@ -136,6 +234,56 @@ where
                 ) {
                     let entry = map.entry(inst_state.instrument.underlying.base).or_insert(Decimal::ZERO);
                     *entry += notional;
+                }
+            }
+        }
+    }
+    map
+}
+
+fn current_instrument_exposures<GlobalData, InstrumentData>(
+    state: &EngineState<GlobalData, InstrumentData>,
+) -> HashMap<InstrumentIndex, Decimal>
+where
+    InstrumentData: InstrumentDataState,
+{
+    let mut map = HashMap::new();
+    for inst_state in state.instruments.instruments(&InstrumentFilter::None) {
+        if let Some(pos) = &inst_state.position.current {
+            if let Some(price) = inst_state.data.price() {
+                if let Some(notional) = crate::risk::check::util::calculate_quote_notional(
+                    pos.quantity_abs,
+                    price,
+                    inst_state.instrument.kind.contract_size(),
+                ) {
+                    map.insert(inst_state.key, notional);
+                }
+            }
+        }
+    }
+    map
+}
+
+fn current_instrument_signed_exposures<GlobalData, InstrumentData>(
+    state: &EngineState<GlobalData, InstrumentData>,
+) -> HashMap<InstrumentIndex, Decimal>
+where
+    InstrumentData: InstrumentDataState,
+{
+    let mut map = HashMap::new();
+    for inst_state in state.instruments.instruments(&InstrumentFilter::None) {
+        if let Some(pos) = &inst_state.position.current {
+            if let Some(price) = inst_state.data.price() {
+                if let Some(notional) = crate::risk::check::util::calculate_quote_notional(
+                    pos.quantity_abs,
+                    price,
+                    inst_state.instrument.kind.contract_size(),
+                ) {
+                    let signed = match pos.side {
+                        Side::Buy => notional,
+                        Side::Sell => -notional,
+                    };
+                    map.insert(inst_state.key, signed);
                 }
             }
         }
