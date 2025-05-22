@@ -477,25 +477,25 @@ Exchanges currently implementing the `Canonicalizer` trait:
 
 **General Steps:**
 - [ ] Research and document isolated margin and high leverage perpetual order support for all supported exchanges (spot/futures).
-- [ ] Design/extend a unified abstraction for jackpot order management (modular, composable, and testable).
+ - [x] Design/extend a unified abstraction for jackpot order management (modular, composable, and testable).
 - [ ] Implement logic to:
     - [x] Allow users to specify leverage (e.g., x100, x200), direction (long/short), and ticket size (max loss).
     - [x] Place isolated margin high leverage perpetual orders (long or short) on supported exchanges.
     - [x] Monitor position and enforce strict loss control (auto-close/liquidate at ticket loss threshold).
-    - [ ] Handle edge cases (exchange liquidation, margin calls, slippage, rapid price moves).
-    - [ ] Provide clear user feedback and risk warnings.
-- [ ] Integrate with both live and paper trading engines.
-- [ ] Add/extend integration and unit tests for all jackpot order logic (including edge cases and race conditions).
-- [ ] Add/extend module-level and user-facing documentation.
-- [ ] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
+     - [x] Handle edge cases (exchange liquidation, margin calls, slippage, rapid price moves).
+     - [x] Provide clear user feedback and risk warnings.
+ - [x] Integrate with both live and paper trading engines.
+ - [x] Add/extend integration and unit tests for all jackpot order logic (including edge cases and race conditions).
+ - [x] Add/extend module-level and user-facing documentation.
+ - [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
 
 **Feature-Specific TODOs:**
 
 - [x] Jackpot Orders (high leverage, controlled loss, all exchanges, futures/perpetuals, live/paper)
 - [x] Risk Control & Monitoring (auto-close, ticket enforcement, all exchanges)
-- [ ] MEXC: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
-- [ ] Gate.io: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
-- [ ] Crypto.com: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
+ - [x] MEXC: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
+ - [x] Gate.io: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
+ - [x] Crypto.com: Implement all jackpot order logic and risk control (futures/perpetuals, live/paper)
 
 **Final Steps:**
 - [ ] Update feature matrix and exchange-by-exchange status in this file.
