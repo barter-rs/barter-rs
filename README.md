@@ -76,6 +76,12 @@ into randomized chunks and scheduling them based on order book analytics from
 `jackbot-data`. This enables discrete time-weighted execution both in
 simulation with the `MockExchange` and against real venues.
 
+## VWAP Execution
+
+`jackbot-execution` also provides a `vwap` module for volume-weighted execution.
+Orders can be split according to observed volume patterns and dispatched using
+order book analytics, allowing more discrete participation in the market.
+
 
 ## Contributing
 
