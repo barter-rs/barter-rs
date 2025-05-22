@@ -525,13 +525,13 @@ Exchanges currently implementing the `Canonicalizer` trait:
 - [x] Add/extend module-level and user-facing documentation.
 - [x] Update `docs/IMPLEMENTATION_STATUS.md` with status and links.
 
-**Feature-Specific TODOs:**
+- **Feature-Specific TODOs:**
 
-- [ ] Redis Order Book Storage (all exchanges, spot/futures)
-- [ ] Redis Trade Data Storage (all exchanges, spot/futures)
-- [ ] Multi-Exchange/Market Keying & Namespacing
-- [ ] Efficient Delta/Update Handling
-- [ ] Downstream Consumer API (pub/sub, streams, etc.)
+- [x] Redis Order Book Storage (all exchanges, spot/futures)
+- [x] Redis Trade Data Storage (all exchanges, spot/futures)
+- [x] Multi-Exchange/Market Keying & Namespacing
+- [x] Efficient Delta/Update Handling
+- [x] Downstream Consumer API (pub/sub, streams, etc.)
 - [x] MEXC: Integrate Redis for order book and trades
 - [x] Gate.io: Integrate Redis for order book and trades
 - [x] Crypto.com: Integrate Redis for order book and trades
