@@ -125,3 +125,69 @@ fn test_mexc_store_methods() {
     assert!(store.get_snapshot(ExchangeId::Mexc, "BTC_USDT").is_some());
     assert_eq!(store.delta_len(ExchangeId::Mexc, "BTC_USDT"), 2);
 }
+
+#[test]
+fn test_cryptocom_store_methods() {
+    use jackbot_data::exchange::cryptocom::spot::l2::CryptocomOrderBookL2;
+    use jackbot_data::exchange::cryptocom::futures::l2::CryptocomFuturesOrderBookL2;
+
+    let store = InMemoryStore::new();
+
+    let spot_book = CryptocomOrderBookL2 {
+        subscription_id: "BTC_USDT".into(),
+        time: Utc::now(),
+        bids: vec![(dec!(30000.0), dec!(1.0))],
+        asks: vec![(dec!(30010.0), dec!(2.0))],
+    };
+    spot_book.store_snapshot(&store);
+    assert!(store.get_snapshot(ExchangeId::Cryptocom, "BTC_USDT").is_some());
+
+    let delta_book = CryptocomOrderBookL2 { time: Utc::now(), ..spot_book };
+    delta_book.store_delta(&store);
+    assert_eq!(store.delta_len(ExchangeId::Cryptocom, "BTC_USDT"), 1);
+
+    let fut_book = CryptocomFuturesOrderBookL2 {
+        subscription_id: "BTC_USDT".into(),
+        time: Utc::now(),
+        bids: vec![(dec!(30000.0), dec!(1.0))],
+        asks: vec![(dec!(30010.0), dec!(2.0))],
+    };
+    fut_book.store_snapshot(&store);
+    fut_book.store_delta(&store);
+
+    assert!(store.get_snapshot(ExchangeId::Cryptocom, "BTC_USDT").is_some());
+    assert_eq!(store.delta_len(ExchangeId::Cryptocom, "BTC_USDT"), 2);
+}
+
+#[test]
+fn test_gateio_store_methods() {
+    use jackbot_data::exchange::gateio::spot::l2::GateioOrderBookL2;
+    use jackbot_data::exchange::gateio::futures::l2::GateioFuturesOrderBookL2;
+
+    let store = InMemoryStore::new();
+
+    let spot_book = GateioOrderBookL2 {
+        subscription_id: "BTC_USDT".into(),
+        time: Utc::now(),
+        bids: vec![(dec!(30000.0), dec!(1.0))],
+        asks: vec![(dec!(30010.0), dec!(2.0))],
+    };
+    spot_book.store_snapshot(&store);
+    assert!(store.get_snapshot(ExchangeId::Gateio, "BTC_USDT").is_some());
+
+    let delta_book = GateioOrderBookL2 { time: Utc::now(), ..spot_book };
+    delta_book.store_delta(&store);
+    assert_eq!(store.delta_len(ExchangeId::Gateio, "BTC_USDT"), 1);
+
+    let fut_book = GateioFuturesOrderBookL2 {
+        subscription_id: "BTC_USDT".into(),
+        time: Utc::now(),
+        bids: vec![(dec!(30000.0), dec!(1.0))],
+        asks: vec![(dec!(30010.0), dec!(2.0))],
+    };
+    fut_book.store_snapshot(&store);
+    fut_book.store_delta(&store);
+
+    assert!(store.get_snapshot(ExchangeId::Gateio, "BTC_USDT").is_some());
+    assert_eq!(store.delta_len(ExchangeId::Gateio, "BTC_USDT"), 2);
+}

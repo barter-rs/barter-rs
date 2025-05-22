@@ -29,6 +29,15 @@ pub mod okx;
 /// `Hyperliquid` [`Connector`] and [`StreamSelector`] implementations.
 pub mod hyperliquid;
 
+/// `MEXC` [`Connector`] modules.
+pub mod mexc;
+
+/// `Gate.io` [`Connector`] modules.
+pub mod gateio;
+
+/// `Crypto.com` [`Connector`] modules.
+pub mod cryptocom;
+
 /// Defines the generic [`ExchangeSub`] containing a market and channel combination used by an
 /// exchange [`Connector`] to build [`WsMessage`] subscription payloads.
 pub mod subscription;

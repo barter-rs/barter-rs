@@ -37,6 +37,20 @@ impl Canonicalizer for CryptocomFuturesOrderBookL2 {
     }
 }
 
+impl CryptocomFuturesOrderBookL2 {
+    /// Persist this order book snapshot to the provided [`RedisStore`].
+    pub fn store_snapshot<Store: RedisStore>(&self, store: &Store) {
+        let snapshot = self.canonicalize(self.time);
+        store.store_snapshot(ExchangeId::Cryptocom, self.subscription_id.as_ref(), &snapshot);
+    }
+
+    /// Persist this order book update to the provided [`RedisStore`].
+    pub fn store_delta<Store: RedisStore>(&self, store: &Store) {
+        let delta = OrderBookEvent::Update(self.canonicalize(self.time));
+        store.store_delta(ExchangeId::Cryptocom, self.subscription_id.as_ref(), &delta);
+    }
+}
+
 impl<InstrumentKey> From<(ExchangeId, InstrumentKey, CryptocomFuturesOrderBookL2)>
     for MarketIter<InstrumentKey, OrderBookEvent>
 {
