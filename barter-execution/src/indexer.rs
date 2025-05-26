@@ -203,6 +203,7 @@ impl AccountEventIndexer {
 
     pub fn api_error(&self, error: UnindexedApiError) -> Result<ApiError, IndexError> {
         Ok(match error {
+            UnindexedApiError::Unauthorized(reason) => ApiError::Unauthorized(reason),
             UnindexedApiError::RateLimit => ApiError::RateLimit,
             UnindexedApiError::AssetInvalid(asset, value) => {
                 ApiError::AssetInvalid(self.map.find_asset_index(&asset)?, value)
@@ -216,6 +217,8 @@ impl AccountEventIndexer {
             UnindexedApiError::OrderRejected(reason) => ApiError::OrderRejected(reason),
             UnindexedApiError::OrderAlreadyCancelled => ApiError::OrderAlreadyCancelled,
             UnindexedApiError::OrderAlreadyFullyFilled => ApiError::OrderAlreadyFullyFilled,
+            UnindexedApiError::OrderNotFound => ApiError::OrderNotFound,
+            UnindexedApiError::Custom(reason) => ApiError::Custom(reason),
         })
     }
 

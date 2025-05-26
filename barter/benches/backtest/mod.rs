@@ -1,6 +1,5 @@
 use barter::{
-    backtest,
-    backtest::{BacktestArgsConstant, BacktestArgsDynamic, market_data::MarketDataInMemory},
+    backtest::{self, BacktestArgsConstant, BacktestArgsDynamic, market_data::MarketDataInMemory},
     engine::{
         Engine, Processor,
         clock::HistoricalClock,

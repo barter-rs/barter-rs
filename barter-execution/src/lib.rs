@@ -58,6 +58,11 @@ pub type UnindexedAccountEvent =
 pub type UnindexedAccountSnapshot =
     AccountSnapshot<ExchangeId, AssetNameExchange, InstrumentNameExchange>;
 
+/// Convenient type alias for an [`AccountEventKind`] keyed with [`ExchangeId`],
+/// [`AssetNameExchange`], and [`InstrumentNameExchange`].
+pub type UnindexedAccountEventKind =
+    AccountEventKind<ExchangeId, AssetNameExchange, InstrumentNameExchange>;
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct AccountEvent<
     ExchangeKey = ExchangeIndex,
@@ -158,5 +163,21 @@ impl<ExchangeKey, AssetKey, InstrumentKey> AccountSnapshot<ExchangeKey, AssetKey
 
     pub fn instruments(&self) -> impl Iterator<Item = &InstrumentKey> {
         self.instruments.iter().map(|snapshot| &snapshot.instrument)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize, Constructor)]
+pub struct ApiCredentials {
+    pub key: String,
+    pub secret: String,
+}
+
+impl std::fmt::Debug for ApiCredentials {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ApiCredentials")
+            .field("key", &self.key)
+            .field("secret", &"***")
+            .finish()
     }
 }
