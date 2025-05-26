@@ -275,9 +275,9 @@ where
 
                 // Process next ExecutionRequest::Cancel response
                 response_cancel = next_cancel_response => {
-                    let event = match response_cancel {
-                        Ok(response) => {
-                            match self.process_cancel_response(response) {
+                    match response_cancel {
+                        Ok(Some(response)) => {
+                            let event = match self.process_cancel_response(response) {
                                 Ok(indexed_event) => indexed_event,
                                 Err(error) => {
                                     warn!(
@@ -287,23 +287,30 @@ where
                                     );
                                     continue
                                 }
+                            };
+
+                            if self.response_tx.send(event).is_err() {
+                                break;
                             }
                         }
                         Err(request) => {
-                            Self::process_cancel_timeout(request)
+                            let event = Self::process_cancel_timeout(request);
+
+                            if self.response_tx.send(event).is_err() {
+                                break;
+                            }
+                        }
+                        Ok(None) => {
+                            // Do nothing
                         }
                     };
-
-                    if self.response_tx.send(event).is_err() {
-                        break;
-                    }
                 },
 
                 // Process next ExecutionRequest::Open response
                 response_open = next_open_response => {
-                    let event = match response_open {
-                        Ok(response) => {
-                            match self.process_open_response(response) {
+                    match response_open {
+                        Ok(Some(response)) => {
+                            let event = match self.process_open_response(response) {
                                 Ok(indexed_event) => indexed_event,
                                 Err(error) => {
                                     warn!(
@@ -313,18 +320,24 @@ where
                                     );
                                     continue
                                 }
+                            };
+
+                            if self.response_tx.send(event).is_err() {
+                                break;
                             }
                         }
                         Err(request) => {
-                            Self::process_open_timeout(request)
-                        }
-                    };
+                            let event = Self::process_open_timeout(request);
 
-                    if self.response_tx.send(event).is_err() {
-                        break;
+                            if self.response_tx.send(event).is_err() {
+                                break;
+                            }
+                        }
+                        Ok(None) => {
+                            // Do nothing
+                        }
                     }
                 }
-
             }
         }
 

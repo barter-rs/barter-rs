@@ -213,6 +213,7 @@ where
             ExecutionBuilder::new(&args_constant.instruments),
             |builder, config| match config {
                 ExecutionConfig::Mock(mock_config) => builder.add_mock(mock_config, clock.clone()),
+                _ => panic!("Backtest should not use real execution client"),
             },
         )?
         .build();
