@@ -1,6 +1,5 @@
 use crate::asset::name::AssetNameInternal;
 use kind::MarketDataInstrumentKind;
-use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
 pub mod kind;
@@ -9,12 +8,13 @@ pub mod kind;
 /// pair, and it's associated instrument type.
 ///
 /// eg/ MarketDataInstrument { base: "btc", quote: "usdt", kind: Spot }
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub struct MarketDataInstrument {
     pub base: AssetNameInternal,
     pub quote: AssetNameInternal,
-    #[serde(rename = "instrument_kind")]
+    #[cfg_attr(feature = "serde", serde(rename = "instrument_kind"))]
     pub kind: MarketDataInstrumentKind,
 }
 
@@ -51,6 +51,7 @@ impl MarketDataInstrument {
     }
 }
 
+#[cfg(feature = "serde")]
 #[cfg(test)]
 mod tests {
     use crate::instrument::{

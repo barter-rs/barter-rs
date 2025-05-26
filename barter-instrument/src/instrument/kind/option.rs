@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
 /// `OptionContract` specification containing all the information needed to fully identify an
@@ -18,23 +17,25 @@ use std::fmt::{Display, Formatter};
 /// * `expiry` - The date and time when the option expires.
 /// * `strike` - The price at which the option holder can buy (for calls) or sell (for puts)
 ///   the underlying asset upon exercise.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct OptionContract<AssetKey> {
     pub contract_size: Decimal,
     pub settlement_asset: AssetKey,
     pub kind: OptionKind,
     pub exercise: OptionExercise,
-    #[serde(with = "chrono::serde::ts_milliseconds")]
+    #[cfg_attr(feature = "serde", serde(with = "chrono::serde::ts_milliseconds"))]
     pub expiry: DateTime<Utc>,
     pub strike: Decimal,
 }
 /// [`OptionContract`] kind - Put or Call.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum OptionKind {
-    #[serde(alias = "CALL", alias = "Call")]
+    #[cfg_attr(feature = "serde", serde(alias = "CALL", alias = "Call"))]
     Call,
-    #[serde(alias = "PUT", alias = "Put")]
+    #[cfg_attr(feature = "serde", serde(alias = "PUT", alias = "Put"))]
     Put,
 }
 
@@ -52,14 +53,15 @@ impl Display for OptionKind {
 }
 
 /// [`OptionContract`] exercise style.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum OptionExercise {
-    #[serde(alias = "AMERICAN", alias = "American")]
+    #[cfg_attr(feature = "serde", serde(alias = "AMERICAN", alias = "American"))]
     American,
-    #[serde(alias = "BERMUDAN", alias = "Bermudan")]
+    #[cfg_attr(feature = "serde", serde(alias = "BERMUDAN", alias = "Bermudan"))]
     Bermudan,
-    #[serde(alias = "EUROPEAN", alias = "European")]
+    #[cfg_attr(feature = "serde", serde(alias = "EUROPEAN", alias = "European"))]
     European,
 }
 

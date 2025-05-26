@@ -19,7 +19,6 @@
 //! For a comprehensive collection of examples, see the Barter core Engine /examples directory.
 
 use derive_more::Constructor;
-use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
 /// Defines a global [`ExchangeId`](exchange::ExchangeId) enum covering all exchanges.
@@ -42,9 +41,8 @@ pub mod index;
 /// A keyed value.
 ///
 /// eg/ Keyed<InstrumentIndex, Instrument>
-#[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
-)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Constructor)]
 pub struct Keyed<Key, Value> {
     pub key: Key,
     pub value: Value,
@@ -69,7 +67,8 @@ where
 /// Instrument Underlying containing a base and quote asset.
 ///
 /// eg/ Underlying { base: "btc", quote: "usdt" }
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Underlying<AssetKey> {
     pub base: AssetKey,
     pub quote: AssetKey,
@@ -88,11 +87,12 @@ impl<AssetKey> Underlying<AssetKey> {
 }
 
 /// [`Side`] of a trade or position - Buy or Sell.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum Side {
-    #[serde(alias = "buy", alias = "BUY", alias = "b")]
+    #[cfg_attr(feature = "serde", serde(alias = "buy", alias = "BUY", alias = "b"))]
     Buy,
-    #[serde(alias = "sell", alias = "SELL", alias = "s")]
+    #[cfg_attr(feature = "serde", serde(alias = "sell", alias = "SELL", alias = "s"))]
     Sell,
 }
 
