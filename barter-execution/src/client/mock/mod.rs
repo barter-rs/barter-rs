@@ -152,7 +152,7 @@ where
     async fn cancel_order(
         &self,
         request: OrderRequestCancel<ExchangeId, &InstrumentNameExchange>,
-    ) -> UnindexedOrderResponseCancel {
+    ) -> Option<UnindexedOrderResponseCancel> {
         let (response_tx, response_rx) = oneshot::channel();
 
         let key = OrderKey {
@@ -171,15 +171,15 @@ where
             ))
             .is_err()
         {
-            return UnindexedOrderResponseCancel {
+            return Some(UnindexedOrderResponseCancel {
                 key,
                 state: Err(UnindexedOrderError::Connectivity(
                     ConnectivityError::ExchangeOffline(self.mocked_exchange),
                 )),
-            };
+            });
         }
 
-        match response_rx.await {
+        Some(match response_rx.await {
             Ok(response) => response,
             Err(_) => UnindexedOrderResponseCancel {
                 key,
@@ -187,13 +187,13 @@ where
                     ConnectivityError::ExchangeOffline(self.mocked_exchange),
                 )),
             },
-        }
+        })
     }
 
     async fn open_order(
         &self,
         request: OrderRequestOpen<ExchangeId, &InstrumentNameExchange>,
-    ) -> Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>> {
+    ) -> Option<Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>> {
         let (response_tx, response_rx) = oneshot::channel();
 
         let request = into_owned_request(request);
@@ -207,7 +207,7 @@ where
             ))
             .is_err()
         {
-            return Order {
+            return Some(Order {
                 key: request.key,
                 side: request.state.side,
                 price: request.state.price,
@@ -217,10 +217,10 @@ where
                 state: Err(UnindexedOrderError::Connectivity(
                     ConnectivityError::ExchangeOffline(self.mocked_exchange),
                 )),
-            };
+            });
         }
 
-        match response_rx.await {
+        Some(match response_rx.await {
             Ok(response) => response,
             Err(_) => Order {
                 key: request.key,
@@ -233,7 +233,7 @@ where
                     ConnectivityError::ExchangeOffline(self.mocked_exchange),
                 )),
             },
-        }
+        })
     }
 
     async fn fetch_balances(
