@@ -449,25 +449,25 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                 .rxs
                 .trades
                 .into_iter()
-                .map(|(ex, rx)| (ex, rx.into_stream()))
+                .map(|(exchange, rx)| (exchange, rx.into_stream()))
                 .collect(),
             l1s: channels
                 .rxs
                 .l1s
                 .into_iter()
-                .map(|(ex, rx)| (ex, rx.into_stream()))
+                .map(|(exchange, rx)| (exchange, rx.into_stream()))
                 .collect(),
             l2s: channels
                 .rxs
                 .l2s
                 .into_iter()
-                .map(|(ex, rx)| (ex, rx.into_stream()))
+                .map(|(exchange, rx)| (exchange, rx.into_stream()))
                 .collect(),
             liquidations: channels
                 .rxs
                 .liquidations
                 .into_iter()
-                .map(|(ex, rx)| (ex, rx.into_stream()))
+                .map(|(exchange, rx)| (exchange, rx.into_stream()))
                 .collect(),
         })
     }
@@ -698,7 +698,7 @@ where
                 }
                 SubKind::OrderBooksL2 => {
                     if let (None, None) =
-                        (txs.l2s.get(&sub.exchange), rxs.trades.get(&sub.exchange))
+                        (txs.l2s.get(&sub.exchange), rxs.l2s.get(&sub.exchange))
                     {
                         let (tx, rx) = mpsc_unbounded();
                         txs.l2s.insert(sub.exchange, tx);
