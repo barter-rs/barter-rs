@@ -61,7 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         DefaultRiskManager::default(),
         market_stream,
         DefaultGlobalData::default(),
-        DefaultInstrumentMarketData::default,
+        |_| DefaultInstrumentMarketData::default(),
     );
 
     // Build & run full system:

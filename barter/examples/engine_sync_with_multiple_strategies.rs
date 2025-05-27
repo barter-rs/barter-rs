@@ -339,7 +339,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         DefaultRiskManager::default(),
         market_stream,
         DefaultGlobalData::default(),
-        || MultiStrategyCustomInstrumentData::init(Utc::now()),
+        |_| MultiStrategyCustomInstrumentData::init(Utc::now()),
     );
 
     // Build & run System:

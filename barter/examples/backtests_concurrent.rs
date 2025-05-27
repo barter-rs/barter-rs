@@ -57,11 +57,9 @@ async fn main() {
     let time_engine_start = market_data.time_first_event().await.unwrap();
 
     // Construct EngineState
-    let engine_state = EngineStateBuilder::new(
-        &instruments,
-        DefaultGlobalData::default(),
-        DefaultInstrumentMarketData::default,
-    )
+    let engine_state = EngineStateBuilder::new(&instruments, DefaultGlobalData::default(), |_| {
+        DefaultInstrumentMarketData::default()
+    })
     .time_engine_start(time_engine_start)
     .trading_state(TradingState::Enabled)
     .build();
