@@ -35,7 +35,7 @@ pub mod trade;
 /// [`Coinbase`] server base url.
 ///
 /// See docs: <https://docs.cloud.coinbase.com/exchange/docs/websocket-overview>
-pub const BASE_URL_COINBASE: &str = "wss://ws-feed.execution.coinbase.com";
+pub const BASE_URL_COINBASE: &str = "wss://ws-feed.exchange.coinbase.com";
 
 /// [`Coinbase`] execution.
 ///
