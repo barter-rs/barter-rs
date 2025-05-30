@@ -98,6 +98,8 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         Subscription<BybitPerpetualsUsd, Instrument, OrderBooksL2>: Identifier<BybitMarket>,
         Subscription<Coinbase, Instrument, PublicTrades>: Identifier<CoinbaseMarket>,
         Subscription<GateioSpot, Instrument, PublicTrades>: Identifier<GateioMarket>,
+        Subscription<GateioSpot, Instrument, OrderBooksL1>: Identifier<GateioMarket>,
+        Subscription<GateioSpot, Instrument, OrderBooksL2>: Identifier<GateioMarket>,
         Subscription<GateioFuturesUsd, Instrument, PublicTrades>: Identifier<GateioMarket>,
         Subscription<GateioFuturesBtc, Instrument, PublicTrades>: Identifier<GateioMarket>,
         Subscription<GateioPerpetualsUsd, Instrument, PublicTrades>: Identifier<GateioMarket>,
@@ -467,6 +469,49 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                             ))
                                         })
                                     }
+
+                                    (ExchangeId::GateioSpot, SubKind::OrderBooksL1) => {
+                                        init_market_stream(
+                                            STREAM_RECONNECTION_POLICY,
+                                            subs.into_iter()
+                                                .map(|sub| {
+                                                    Subscription::new(
+                                                        GateioSpot::default(),
+                                                        sub.instrument,
+                                                        OrderBooksL1,
+                                                    )
+                                                })
+                                                .collect(),
+                                        )
+                                        .await
+                                        .map(|stream| {
+                                            tokio::spawn(stream.forward_to(
+                                                txs.l1s.get(&exchange).unwrap().clone(),
+                                            ))
+                                        })
+                                    }
+
+                                    (ExchangeId::GateioSpot, SubKind::OrderBooksL2) => {
+                                        init_market_stream(
+                                            STREAM_RECONNECTION_POLICY,
+                                            subs.into_iter()
+                                                .map(|sub| {
+                                                    Subscription::new(
+                                                        GateioSpot::default(),
+                                                        sub.instrument,
+                                                        OrderBooksL2,
+                                                    )
+                                                })
+                                                .collect(),
+                                        )
+                                        .await
+                                        .map(|stream| {
+                                            tokio::spawn(stream.forward_to(
+                                                txs.l2s.get(&exchange).unwrap().clone(),
+                                            ))
+                                        })
+                                    }
+
                                     (ExchangeId::GateioFuturesUsd, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,

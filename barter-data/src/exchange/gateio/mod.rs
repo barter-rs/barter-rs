@@ -1,13 +1,24 @@
 use self::{channel::GateioChannel, market::GateioMarket, subscription::GateioSubResponse};
 use crate::{
+    ExchangeWsStream, NoInitialSnapshots,
     exchange::{Connector, ExchangeServer, subscription::ExchangeSub},
+    instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
+    subscription::book::{OrderBooksL1, OrderBooksL2},
+    transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
+use book::{
+    l1::GateioOrderBookL1,
+    l2::{GateioSpotOrderBooksL2SnapshotFetcher, GateioSpotOrderBooksL2Transformer},
+};
 use serde_json::json;
+use spot::GateioServerSpot;
 use std::{fmt::Debug, marker::PhantomData};
 use url::Url;
+
+use super::StreamSelector;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
 /// into an execution [`Connector`] specific channel used for generating [`Connector::requests`].
@@ -46,6 +57,7 @@ pub mod message;
 /// [`GateioPerpetualBtc`](perpetual::GateioPerpetualsBtc).
 pub mod subscription;
 
+pub mod book;
 /// Generic [`Gateio<Server>`](Gateio) execution.
 ///
 /// ### Notes
@@ -81,7 +93,7 @@ where
                         "time": chrono::Utc::now().timestamp_millis(),
                         "channel": channel.as_ref(),
                         "event": "subscribe",
-                        "payload": [market.as_ref()]
+                        "payload": market.as_str_vec()
                     })
                     .to_string(),
                 )
@@ -120,4 +132,23 @@ where
     {
         serializer.serialize_str(Self::ID.as_str())
     }
+}
+
+impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL1> for Gateio<Server>
+where
+    Instrument: InstrumentData,
+    Server: ExchangeServer + Debug + Send + Sync,
+{
+    type SnapFetcher = NoInitialSnapshots;
+    type Stream = ExchangeWsStream<
+        StatelessTransformer<Self, Instrument::Key, OrderBooksL1, GateioOrderBookL1>,
+    >;
+}
+
+impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for Gateio<GateioServerSpot>
+where
+    Instrument: InstrumentData,
+{
+    type SnapFetcher = GateioSpotOrderBooksL2SnapshotFetcher;
+    type Stream = ExchangeWsStream<GateioSpotOrderBooksL2Transformer<Instrument::Key>>;
 }
