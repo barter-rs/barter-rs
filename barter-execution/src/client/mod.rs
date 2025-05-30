@@ -5,7 +5,7 @@ use crate::{
     order::{
         Order,
         request::{OrderRequestCancel, OrderRequestOpen, UnindexedOrderResponseCancel},
-        state::Open,
+        state::{FullyFilled, Open},
     },
     trade::Trade,
 };
@@ -85,6 +85,15 @@ where
         &self,
     ) -> impl Future<
         Output = Result<Vec<Order<ExchangeId, InstrumentNameExchange, Open>>, UnindexedClientError>,
+    >;
+
+    fn fetch_fully_filled_orders(
+        &self,
+    ) -> impl Future<
+        Output = Result<
+            Vec<Order<ExchangeId, InstrumentNameExchange, FullyFilled>>,
+            UnindexedClientError,
+        >,
     >;
 
     fn fetch_trades(
