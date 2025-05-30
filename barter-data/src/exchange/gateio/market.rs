@@ -1,5 +1,11 @@
+use std::any::{TypeId, type_name};
+
 use super::Gateio;
-use crate::{Identifier, instrument::MarketInstrumentData, subscription::Subscription};
+use crate::{
+    Identifier,
+    instrument::MarketInstrumentData,
+    subscription::{Subscription, SubscriptionKind, book::OrderBooksL2},
+};
 use barter_instrument::{
     Keyed,
     instrument::{
@@ -17,9 +23,9 @@ use smol_str::{SmolStr, StrExt, format_smolstr};
 /// Type that defines how to translate a Barter [`Subscription`] into a
 /// [`Gateio`] market that can be subscribed to.
 ///
-/// See docs: <https://www.okx.com/docs-v5/en/#websocket-api-public-channel>
+/// See docs: <https://www.gate.io/docs/developers/apiv4/ws/en/#spot-websocket-v4>
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub struct GateioMarket(pub SmolStr);
+pub struct GateioMarket(pub Vec<SmolStr>);
 
 impl<Server, Kind> Identifier<GateioMarket>
     for Subscription<Gateio<Server>, MarketDataInstrument, Kind>
@@ -39,22 +45,38 @@ impl<Server, InstrumentKey, Kind> Identifier<GateioMarket>
 
 impl<Server, InstrumentKey, Kind> Identifier<GateioMarket>
     for Subscription<Gateio<Server>, MarketInstrumentData<InstrumentKey>, Kind>
+where
+    Kind: SubscriptionKind,
 {
     fn id(&self) -> GateioMarket {
-        GateioMarket(self.instrument.name_exchange.name().clone())
+        if self.kind.as_str() == "l2" {
+            GateioMarket(vec![
+                self.instrument.name_exchange.name().clone(),
+                format_smolstr!("100"),
+                format_smolstr!("100ms"),
+            ])
+        } else {
+            GateioMarket(vec![self.instrument.name_exchange.name().clone()])
+        }
+    }
+}
+
+impl GateioMarket {
+    pub fn as_str_vec(&self) -> Vec<&str> {
+        self.0.iter().map(|v| v.as_str()).collect()
     }
 }
 
 impl AsRef<str> for GateioMarket {
     fn as_ref(&self) -> &str {
-        &self.0
+        self.0[0].as_str()
     }
 }
 
 fn gateio_market(instrument: &MarketDataInstrument) -> GateioMarket {
     let MarketDataInstrument { base, quote, kind } = instrument;
 
-    GateioMarket(
+    GateioMarket(vec![
         match kind {
             Spot | Perpetual => format_smolstr!("{base}_{quote}"),
             Future(contract) => {
@@ -74,7 +96,7 @@ fn gateio_market(instrument: &MarketDataInstrument) -> GateioMarket {
             ),
         }
         .to_uppercase_smolstr(),
-    )
+    ])
 }
 
 /// Format the expiry DateTime<Utc> to be Gateio API compatible.
