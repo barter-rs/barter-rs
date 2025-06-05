@@ -21,11 +21,11 @@ use url::Url;
 pub mod book;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an execution [`Connector`] specific channel used for generating [`Connector::requests`].
+/// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an execution [`Connector`]  specific market used for generating [`Connector::requests`].
+/// into an exchange [`Connector`]  specific market used for generating [`Connector::requests`].
 pub mod market;
 
 /// [`KrakenMessage`] type for [`Kraken`].
@@ -43,7 +43,7 @@ pub mod trade;
 /// See docs: <https://docs.kraken.com/websockets/#overview>
 pub const BASE_URL_KRAKEN: &str = "wss://ws.kraken.com/";
 
-/// [`Kraken`] execution.
+/// [`Kraken`] exchange.
 ///
 /// See docs: <https://docs.kraken.com/websockets/#overview>
 #[derive(

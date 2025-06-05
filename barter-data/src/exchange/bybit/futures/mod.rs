@@ -7,7 +7,7 @@ use std::fmt::Display;
 /// See docs: <https://bybit-exchange.github.io/docs/v5/ws/connect>
 pub const WEBSOCKET_BASE_URL_BYBIT_PERPETUALS_USD: &str = "wss://stream.bybit.com/v5/public/linear";
 
-/// [`Bybit`] perpetual execution.
+/// [`Bybit`] perpetual exchange.
 pub type BybitPerpetualsUsd = Bybit<BybitServerPerpetualsUsd>;
 
 /// [`Bybit`] perpetual [`ExchangeServer`].

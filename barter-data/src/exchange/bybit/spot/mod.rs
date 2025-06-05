@@ -7,7 +7,7 @@ use std::fmt::Display;
 /// See docs: <https://bybit-exchange.github.io/docs/v5/ws/connect>
 pub const WEBSOCKET_BASE_URL_BYBIT_SPOT: &str = "wss://stream.bybit.com/v5/public/spot";
 
-/// [`Bybit`] spot execution.
+/// [`Bybit`] spot exchange.
 pub type BybitSpot = Bybit<BybitServerSpot>;
 
 /// [`Bybit`] spot [`ExchangeServer`].

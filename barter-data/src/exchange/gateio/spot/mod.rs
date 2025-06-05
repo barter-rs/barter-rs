@@ -19,7 +19,7 @@ pub mod trade;
 /// See docs: <https://www.gate.io/docs/developers/apiv4/ws/en/>
 pub const WEBSOCKET_BASE_URL_GATEIO_SPOT: &str = "wss://api.gateio.ws/ws/v4/";
 
-/// [`Gateio`] spot execution.
+/// [`Gateio`] spot exchange.
 pub type GateioSpot = Gateio<GateioServerSpot>;
 
 /// [`Gateio`] spot [`ExchangeServer`].
