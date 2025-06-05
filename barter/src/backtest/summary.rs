@@ -33,7 +33,7 @@ impl<Interval> MultiBacktestSummary<Interval> {
 /// Single backtest `TradingSummary` and associated metadata.
 #[derive(Debug, PartialEq)]
 pub struct BacktestSummary<Interval> {
-    /// [`BacktestArgsDynamic`] unique identifier that was input for the backtest.
+    /// [`BacktestArgsDynamic`](super::BacktestArgsDynamic) unique identifier that was input for the backtest.
     pub id: SmolStr,
     /// Risk-free return rate used for performance metrics.
     pub risk_free_return: Decimal,
