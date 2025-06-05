@@ -18,11 +18,11 @@ use serde_json::json;
 use url::Url;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an execution [`Connector`] specific channel used for generating [`Connector::requests`].
+/// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an execution [`Connector`] specific market used for generating [`Connector::requests`].
+/// into an exchange [`Connector`] specific market used for generating [`Connector::requests`].
 pub mod market;
 
 /// [`Subscription`](crate::subscription::Subscription) response type and response
@@ -37,7 +37,7 @@ pub mod trade;
 /// See docs: <https://docs.cloud.coinbase.com/exchange/docs/websocket-overview>
 pub const BASE_URL_COINBASE: &str = "wss://ws-feed.exchange.coinbase.com";
 
-/// [`Coinbase`] execution.
+/// [`Coinbase`] exchange.
 ///
 /// See docs: <https://docs.cloud.coinbase.com/exchange/docs/websocket-overview>
 #[derive(

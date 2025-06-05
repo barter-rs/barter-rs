@@ -16,7 +16,7 @@ use std::fmt::Display;
 /// See docs: <https://www.gate.io/docs/developers/delivery/ws/en/>
 pub const WEBSOCKET_BASE_URL_GATEIO_FUTURES_USD: &str = "wss://fx-ws.gateio.ws/v4/ws/delivery/usdt";
 
-/// [`Gateio`] perpetual usd execution.
+/// [`Gateio`] perpetual usd exchange.
 pub type GateioFuturesUsd = Gateio<GateioServerFuturesUsd>;
 
 /// [`Gateio`] perpetual usd [`ExchangeServer`].
@@ -52,7 +52,7 @@ impl Display for GateioFuturesUsd {
 /// See docs: <https://www.gate.io/docs/developers/delivery/ws/en/>
 pub const WEBSOCKET_BASE_URL_GATEIO_FUTURES_BTC: &str = "wss://fx-ws.gateio.ws/v4/ws/delivery/btc";
 
-/// [`Gateio`] perpetual btc execution.
+/// [`Gateio`] perpetual btc exchange.
 pub type GateioFuturesBtc = Gateio<GateioServerFuturesBtc>;
 
 /// [`Gateio`] perpetual btc [`ExchangeServer`].

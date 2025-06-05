@@ -16,7 +16,7 @@ use std::fmt::Display;
 /// See docs: <https://www.gate.io/docs/developers/futures/ws/en/>
 pub const WEBSOCKET_BASE_URL_GATEIO_OPTIONS_USD: &str = "wss://op-ws.gateio.live/v4/ws";
 
-/// [`Gateio`] options execution.
+/// [`Gateio`] options exchange.
 pub type GateioOptions = Gateio<GateioServerOptions>;
 
 /// [`Gateio`] options [`ExchangeServer`].
