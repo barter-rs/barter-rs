@@ -832,11 +832,9 @@ fn build_engine(
 
     let clock = HistoricalClock::new(STARTING_TIMESTAMP);
 
-    let state = EngineState::builder(
-        &instruments,
-        DefaultGlobalData::default(),
-        DefaultInstrumentMarketData::default,
-    )
+    let state = EngineState::builder(&instruments, DefaultGlobalData::default(), |_| {
+        DefaultInstrumentMarketData::default()
+    })
     .time_engine_start(STARTING_TIMESTAMP)
     .trading_state(trading_state)
     .balances([
