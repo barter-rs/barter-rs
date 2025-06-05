@@ -7,8 +7,10 @@ use crate::engine::state::{
 use barter_execution::balance::{AssetBalance, Balance};
 use barter_instrument::{
     Keyed,
-    asset::{ExchangeAsset, name::AssetNameInternal},
+    asset::{AssetIndex, ExchangeAsset, name::AssetNameInternal},
+    exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
+    instrument::{Instrument, InstrumentIndex},
 };
 use barter_integration::snapshot::Snapshot;
 use chrono::{DateTime, Utc};
@@ -97,7 +99,9 @@ impl<'a, GlobalData, FnInstrumentData> EngineStateBuilder<'a, GlobalData, FnInst
     /// If optional data is not provided (eg/ Balances), default values are used (eg/ zero Balance).
     pub fn build<InstrumentData>(self) -> EngineState<GlobalData, InstrumentData>
     where
-        FnInstrumentData: FnMut() -> InstrumentData,
+        FnInstrumentData: Fn(
+            &'a Keyed<InstrumentIndex, Instrument<Keyed<ExchangeIndex, ExchangeId>, AssetIndex>>,
+        ) -> InstrumentData,
     {
         let Self {
             instruments,
