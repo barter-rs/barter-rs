@@ -17,10 +17,11 @@ use barter_execution::{
     AccountEvent, AccountEventKind, UnindexedAccountSnapshot, balance::AssetBalance,
 };
 use barter_instrument::{
+    Keyed,
     asset::{AssetIndex, QuoteAsset},
     exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
-    instrument::InstrumentIndex,
+    instrument::{Instrument, InstrumentIndex},
 };
 use barter_integration::{collection::one_or_many::OneOrMany, snapshot::Snapshot};
 use derive_more::Constructor;
@@ -84,7 +85,9 @@ impl<GlobalData, InstrumentData> EngineState<GlobalData, InstrumentData> {
         instrument_data_init: FnInstrumentData,
     ) -> EngineStateBuilder<'_, GlobalData, FnInstrumentData>
     where
-        FnInstrumentData: FnMut() -> InstrumentData,
+        FnInstrumentData: Fn(
+            &Keyed<InstrumentIndex, Instrument<Keyed<ExchangeIndex, ExchangeId>, AssetIndex>>,
+        ) -> InstrumentData,
     {
         EngineStateBuilder::new(instruments, global, instrument_data_init)
     }

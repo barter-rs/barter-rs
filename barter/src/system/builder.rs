@@ -19,8 +19,10 @@ use barter_data::streams::reconnect::stream::ReconnectingStream;
 use barter_execution::balance::Balance;
 use barter_instrument::{
     Keyed,
-    asset::{ExchangeAsset, name::AssetNameInternal},
+    asset::{AssetIndex, ExchangeAsset, name::AssetNameInternal},
+    exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
+    instrument::{Instrument, InstrumentIndex},
 };
 use barter_integration::{
     FeedEnded, Terminal,
@@ -195,7 +197,9 @@ impl<'a, Clock, Strategy, Risk, MarketStream, GlobalData, FnInstrumentData>
     >
     where
         Clock: EngineClock + Clone + Send + Sync + 'static,
-        FnInstrumentData: FnMut() -> InstrumentData,
+        FnInstrumentData: Fn(
+            &'a Keyed<InstrumentIndex, Instrument<Keyed<ExchangeIndex, ExchangeId>, AssetIndex>>,
+        ) -> InstrumentData,
     {
         let Self {
             args:
