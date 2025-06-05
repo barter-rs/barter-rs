@@ -238,7 +238,7 @@ impl<InstrumentData> InstrumentStates<InstrumentData> {
     }
 }
 
-/// Represents the current state of an instrument, including its [`Position`], [`Orders`], and
+/// Represents the current state of an instrument, including its [`Position`](super::position::Position), [`Orders`], and
 /// user provided instrument data.
 ///
 /// This aggregates all the state and data for a single instrument, providing a comprehensive
@@ -336,7 +336,7 @@ impl<InstrumentData, ExchangeKey, AssetKey, InstrumentKey>
     /// Updates the instrument state based on a new market event.
     ///
     /// If the market event has a price associated with it (eg/ `PublicTrade`, `OrderBookL1`), any
-    /// open [`Position`] `pnl_unrealised` is re-calculated.
+    /// open [`Position`](super::position::Position) `pnl_unrealised` is re-calculated.
     pub fn update_from_market(
         &mut self,
         event: &MarketEvent<InstrumentKey, InstrumentData::MarketEventKind>,

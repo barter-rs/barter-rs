@@ -16,7 +16,7 @@ pub mod l1;
 /// Level 2 OrderBook types.
 pub mod l2;
 
-/// Terse type alias for an [`BybitOrderBookMessage`](BybitOrderBookMessage) orderbook WebSocket message.
+/// Terse type alias for an [`BybitOrderBookMessage`] OrderBook WebSocket message.
 pub type BybitOrderBookMessage = BybitPayload<BybitOrderBookInner>;
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
