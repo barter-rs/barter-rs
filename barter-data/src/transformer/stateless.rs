@@ -15,7 +15,7 @@ use serde::Deserialize;
 use std::marker::PhantomData;
 use tokio::sync::mpsc;
 
-/// Standard generic stateless [`ExchangeTransformer`] to translate execution specific types into
+/// Standard generic stateless [`ExchangeTransformer`] to translate exchange specific types into
 /// normalised Barter types. Often used with
 /// [`PublicTrades`](crate::subscription::trade::PublicTrades) or
 /// [`OrderBooksL1`](crate::subscription::book::OrderBooksL1) streams.

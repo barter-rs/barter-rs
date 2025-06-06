@@ -16,7 +16,7 @@ use tracing::info;
 
 /// Synchronous `Engine` runner that processes input `Events`.
 ///
-/// Runs until shutdown, returning a [`ShutdownAudit`] detailing the reason for the shutdown
+/// Runs until shutdown, returning an audit detailing the reason for the shutdown
 /// (eg/ `Events` `FeedEnded`, `Command::Shutdown`, etc.).
 ///
 /// # Arguments
@@ -45,7 +45,7 @@ where
         // Process Event with AuditTick generation
         let audit = process_with_audit(engine, event);
 
-        // Check if AuditTick indicates shutdown is required
+        // Check if AuditTick indicates a shutdown is required
         if audit.event.is_terminal() {
             break audit;
         }
@@ -65,7 +65,7 @@ where
 /// Synchronous `Engine` runner that processes input `Events` and forwards audits to the provided
 /// `AuditTx`.
 ///
-/// Runs until shutdown, returning a [`ShutdownAudit`] detailing the reason for the shutdown
+/// Runs until shutdown, returning an audit detailing the reason for the shutdown
 /// (eg/ `Events` `FeedEnded`, `Command::Shutdown`, etc.).
 ///
 /// # Arguments
@@ -121,7 +121,7 @@ where
 
 /// Asynchronous `Engine` runner that processes input `Events`.
 ///
-/// Runs until shutdown, returning a [`ShutdownAudit`] detailing the reason for the shutdown
+/// Runs until shutdown, returning an audit detailing the reason for the shutdown
 /// (eg/ `Events` `FeedEnded`, `Command::Shutdown`, etc.).
 ///
 /// # Arguments
@@ -171,7 +171,7 @@ where
 /// Asynchronous `Engine` runner that processes input `Events` and forwards audits to the provided
 /// `AuditTx`.
 ///
-/// Runs until shutdown, returning a [`ShutdownAudit`] detailing the reason for the shutdown
+/// Runs until shutdown, returning an audit detailing the reason for the shutdown
 /// (eg/ `Events` `FeedEnded`, `Command::Shutdown`, etc.).
 ///
 /// # Arguments

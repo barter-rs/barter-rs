@@ -37,7 +37,7 @@ pub trait RiskManager<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentInd
     );
 }
 
-/// New type that wraps [`Order`] requests that have passed [`RiskManager`] checks.
+/// New type that wraps order requests that have passed [`RiskManager`] checks.
 #[derive(
     Debug,
     Clone,
@@ -60,7 +60,7 @@ impl<T> RiskApproved<T> {
     }
 }
 
-/// Type that wraps [`Order`] requests that have failed [`RiskManager`] checks, including the
+/// Type that wraps order requests that have failed [`RiskManager`] checks, including the
 /// failure reason.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct RiskRefused<T, Reason = String> {

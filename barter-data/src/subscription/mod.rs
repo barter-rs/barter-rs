@@ -35,7 +35,7 @@ where
     fn as_str(&self) -> &'static str;
 }
 
-/// Barter [`Subscription`] used to subscribe to a [`SubscriptionKind`] for a particular execution
+/// Barter [`Subscription`] used to subscribe to a [`SubscriptionKind`] for a particular exchange
 /// [`MarketDataInstrument`].
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct Subscription<Exchange = ExchangeId, Inst = MarketDataInstrument, Kind = SubKind> {
@@ -278,21 +278,21 @@ pub fn exchange_supports_instrument_kind_sub_kind(
     }
 }
 
-/// Metadata generated from a collection of Barter [`Subscription`]s, including the execution
-/// specific subscription payloads that are sent to the execution.
+/// Metadata generated from a collection of Barter [`Subscription`]s, including the exchange
+/// specific subscription payloads that are sent to the exchange.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct SubscriptionMeta<InstrumentKey> {
     /// `HashMap` containing the mapping between a [`SubscriptionId`] and
     /// it's associated Barter [`MarketDataInstrument`].
     pub instrument_map: Map<InstrumentKey>,
-    /// Collection of [`WsMessage`]s containing execution specific subscription payloads to be sent.
+    /// Collection of [`WsMessage`]s containing exchange specific subscription payloads to be sent.
     pub ws_subscriptions: Vec<WsMessage>,
 }
 
 /// New type`HashMap` that maps a [`SubscriptionId`] to some associated type `T`.
 ///
 /// Used by [`ExchangeTransformer`](crate::transformer::ExchangeTransformer)s to identify the
-/// Barter [`MarketDataInstrument`] associated with incoming execution messages.
+/// Barter [`MarketDataInstrument`] associated with incoming exchange messages.
 #[derive(Clone, Eq, PartialEq, Debug, Deserialize, Serialize)]
 pub struct Map<T>(pub FnvHashMap<SubscriptionId, T>);
 

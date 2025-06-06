@@ -5,7 +5,8 @@ use chrono::{DateTime, Utc};
 use futures::Stream;
 use std::sync::Arc;
 
-/// Interface that provides the backtest MarketStream and associated [`HistoricalClock`].
+/// Interface that provides the backtest MarketStream and associated
+/// [`HistoricalClock`](crate::engine::clock::HistoricalClock).
 pub trait BacktestMarketData {
     /// The type of market events provided by this data source.
     type Kind;

@@ -168,10 +168,10 @@ where
         self.send(trading_state)
     }
 
-    /// Take ownership of the audit snapshot with updates component if present.
+    /// Take ownership of the audit snapshot with updates if present.
     ///
     /// Note that by this will not be present if the `System` was built in
-    /// [`AuditMode::Disabled`] (default).
+    /// [`AuditMode::Disabled`](builder::AuditMode) (default).
     pub fn take_audit(
         &mut self,
     ) -> Option<SnapUpdates<AuditTick<Engine::Snapshot>, UnboundedRx<AuditTick<Engine::Audit>>>>

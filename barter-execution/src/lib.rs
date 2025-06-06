@@ -93,7 +93,7 @@ pub enum AccountEventKind<ExchangeKey, AssetKey, InstrumentKey> {
     /// This variant covers general order updates, and open order responses.
     OrderSnapshot(Snapshot<Order<ExchangeKey, InstrumentKey, OrderState<AssetKey, InstrumentKey>>>),
 
-    /// Response to an [`OrderRequestCancel<ExchangeKey, InstrumentKey>`].
+    /// Response to an [`OrderRequestCancel<ExchangeKey, InstrumentKey>`](order::request::OrderRequestOpen).
     OrderCancelled(OrderResponseCancel<ExchangeKey, AssetKey, InstrumentKey>),
 
     /// [`Order<ExchangeKey, InstrumentKey, Open>`] partial or full-fill.

@@ -21,7 +21,7 @@ use url::Url;
 use super::StreamSelector;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an execution [`Connector`] specific channel used for generating [`Connector::requests`].
+/// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
 /// [`ExchangeServer`] and [`StreamSelector`](super::StreamSelector) implementations for
@@ -43,7 +43,7 @@ pub mod perpetual;
 pub mod option;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an execution [`Connector`] specific market used for generating [`Connector::requests`].
+/// into an exchange [`Connector`] specific market used for generating [`Connector::requests`].
 pub mod market;
 
 /// Generic [`GateioMessage<T>`](message::GateioMessage) type common to
@@ -57,8 +57,10 @@ pub mod message;
 /// [`GateioPerpetualBtc`](perpetual::GateioPerpetualsBtc).
 pub mod subscription;
 
+/// OrderBook types common to [`GateioSpot`](spot::GateioSpot) 
 pub mod book;
-/// Generic [`Gateio<Server>`](Gateio) execution.
+
+/// Generic [`Gateio<Server>`](Gateio) exchange.
 ///
 /// ### Notes
 /// A `Server` [`ExchangeServer`] implementations exists for

@@ -122,7 +122,7 @@ where
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage>;
 
     /// Number of `Subscription` responses expected from the
-    /// execution server in responses to the requests send. Used to validate all
+    /// exchange server in responses to the requests send. Used to validate all
     /// `Subscription`s were accepted.
     fn expected_responses<InstrumentKey>(map: &Map<InstrumentKey>) -> usize {
         map.0.len()
@@ -135,7 +135,7 @@ where
     }
 }
 
-/// Used when an execution has servers different
+/// Used when an exchange has servers different
 /// [`InstrumentKind`](barter_instrument::instrument::kind::InstrumentKind) market data on distinct servers,
 /// allowing all the [`Connector`] logic to be identical apart from what this trait provides.
 ///

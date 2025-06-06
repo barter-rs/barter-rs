@@ -20,7 +20,7 @@ use url::Url;
 pub mod book;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an execution [`Connector`] specific channel used for generating [`Connector::requests`].
+/// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
 /// [`ExchangeServer`] and [`StreamSelector`] implementations for
@@ -28,7 +28,7 @@ pub mod channel;
 pub mod futures;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an execution [`Connector`] specific market used for generating [`Connector::requests`].
+/// into an exchange [`Connector`] specific market used for generating [`Connector::requests`].
 pub mod market;
 
 /// [`ExchangeServer`] and [`StreamSelector`] implementations for
@@ -44,7 +44,7 @@ pub mod subscription;
 /// [`BinanceFuturesUsd`](futures::BinanceFuturesUsd).
 pub mod trade;
 
-/// Generic [`Binance<Server>`](Binance) execution.
+/// Generic [`Binance<Server>`](Binance) exchange.
 ///
 /// ### Notes
 /// A `Server` [`ExchangeServer`] implementations exists for
