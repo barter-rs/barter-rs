@@ -3,7 +3,7 @@ use barter_instrument::{
     instrument::{
         Instrument,
         market_data::{MarketDataInstrument, kind::MarketDataInstrumentKind},
-        name::InstrumentNameExchange,
+        name::{InstrumentNameExchange, InstrumentNameInternal},
     },
 };
 use serde::{Deserialize, Serialize};
@@ -53,6 +53,7 @@ impl InstrumentData for MarketDataInstrument {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct MarketInstrumentData<InstrumentKey> {
     pub key: InstrumentKey,
+    pub name_internal: InstrumentNameInternal,
     pub name_exchange: InstrumentNameExchange,
     pub kind: MarketDataInstrumentKind,
 }
@@ -96,6 +97,7 @@ where
     fn from(value: &Keyed<InstrumentKey, Instrument<ExchangeKey, AssetKey>>) -> Self {
         Self {
             key: value.key.clone(),
+            name_internal: value.value.name_internal.clone(),
             name_exchange: value.value.name_exchange.clone(),
             kind: MarketDataInstrumentKind::from(&value.value.kind),
         }
