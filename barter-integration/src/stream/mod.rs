@@ -17,7 +17,7 @@ pub mod merge;
 #[pin_project]
 pub struct ExchangeStream<Protocol, InnerStream, StreamTransformer>
 where
-    Protocol: StreamParser,
+    Protocol: StreamParser<StreamTransformer::Input>,
     InnerStream: Stream,
     StreamTransformer: Transformer,
 {
@@ -31,7 +31,7 @@ where
 impl<Protocol, InnerStream, StreamTransformer> Stream
     for ExchangeStream<Protocol, InnerStream, StreamTransformer>
 where
-    Protocol: StreamParser,
+    Protocol: StreamParser<StreamTransformer::Input>,
     InnerStream: Stream<Item = Result<Protocol::Message, Protocol::Error>> + Unpin,
     StreamTransformer: Transformer,
     StreamTransformer::Error: From<SocketError>,
@@ -53,7 +53,7 @@ where
             };
 
             // Parse input protocol message into `ExchangeMessage`
-            let exchange_message = match Protocol::parse::<StreamTransformer::Input>(input) {
+            let exchange_message = match Protocol::parse(input) {
                 // `StreamParser` successfully deserialised `ExchangeMessage`
                 Some(Ok(exchange_message)) => exchange_message,
 
@@ -81,7 +81,7 @@ where
 impl<Protocol, InnerStream, StreamTransformer>
     ExchangeStream<Protocol, InnerStream, StreamTransformer>
 where
-    Protocol: StreamParser,
+    Protocol: StreamParser<StreamTransformer::Input>,
     InnerStream: Stream,
     StreamTransformer: Transformer,
 {
