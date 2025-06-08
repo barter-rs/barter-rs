@@ -2,7 +2,6 @@
 #![warn(
     unused,
     clippy::cognitive_complexity,
-    unused_crate_dependencies,
     unused_extern_crates,
     clippy::unused_self,
     clippy::useless_let_if_seq,
