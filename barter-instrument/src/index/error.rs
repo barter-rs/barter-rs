@@ -1,9 +1,9 @@
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Represents all possible errors that can occur when searching for indexes in an
 /// [`IndexedInstruments`](super::IndexedInstruments) collection.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Error)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Error)]
 pub enum IndexError {
     /// Indicates a failure to find an [`ExchangeIndex`](crate::exchange::ExchangeIndex) for a
     /// given exchange identifier.
