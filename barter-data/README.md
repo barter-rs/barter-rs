@@ -60,7 +60,7 @@ arbitrary number of exchange `MarketStream`s using input `Subscription`s. Simply
 |  **GateioOptionsBtc**   |    `GateioOptions::default()`    |                   Option                    |                   PublicTrades                   |
 |       **Kraken**        |             `Kraken`             |                    Spot                     |          PublicTrades <br> OrderBooksL1          |
 |         **Okx**         |              `Okx`               | Spot <br> Future <br> Perpetual <br> Option |                   PublicTrades                   |
-
+|         **Mexc**        |              `Mexc`              |                    Spot                     |          PublicTrades <br> OrderBooksL1          |
 
 ## Examples
 See barter-data-rs/examples for a more comprehensive selection of examples! 

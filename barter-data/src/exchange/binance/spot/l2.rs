@@ -517,7 +517,8 @@ mod tests {
             let actual = test.sequencer.validate_first_update(&test.input);
             match (actual, test.expected) {
                 (Ok(actual), Ok(expected)) => {
-                    assert_eq!(actual, expected, "TC{} failed", index)
+                    // Both validations returned `Ok(())`, nothing further to assert
+                    let (_actual, _expected) = (actual, expected);
                 }
                 (Err(_), Err(_)) => {
                     // Test passed
@@ -584,7 +585,8 @@ mod tests {
             let actual = test.sequencer.validate_next_update(&test.input);
             match (actual, test.expected) {
                 (Ok(actual), Ok(expected)) => {
-                    assert_eq!(actual, expected, "TC{} failed", index)
+                    // Both validations returned `Ok(())`, nothing further to assert
+                    let (_actual, _expected) = (actual, expected);
                 }
                 (Err(_), Err(_)) => {
                     // Test passed

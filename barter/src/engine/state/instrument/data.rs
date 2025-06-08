@@ -87,10 +87,11 @@ impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>>
                     .last_traded_price
                     .as_ref()
                     .is_none_or(|price| price.time < event.time_exchange)
-                    && let Some(price) = Decimal::from_f64(trade.price)
                 {
-                    self.last_traded_price
-                        .replace(Timed::new(price, event.time_exchange));
+                    if let Some(price) = Decimal::from_f64(trade.price) {
+                        self.last_traded_price
+                            .replace(Timed::new(price, event.time_exchange));
+                    }
                 }
             }
             DataKind::OrderBookL1(l1) => {

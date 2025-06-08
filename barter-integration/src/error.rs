@@ -1,4 +1,5 @@
 use crate::subscription::SubscriptionId;
+use prost::DecodeError;
 use reqwest::Error;
 use thiserror::Error;
 
@@ -17,6 +18,12 @@ pub enum SocketError {
     #[error("Deserialising JSON error: {error} for binary payload: {payload:?}")]
     DeserialiseBinary {
         error: serde_json::Error,
+        payload: Vec<u8>,
+    },
+
+    #[error("Deserialising protobuf error: {error} for binary payload: {payload:?}")]
+    DeserialiseProtobuf {
+        error: DecodeError,
         payload: Vec<u8>,
     },
 

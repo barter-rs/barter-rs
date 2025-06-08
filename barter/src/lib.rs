@@ -18,6 +18,8 @@
 //! * **Robust**: Strongly typed. Thread safe. Extensive test coverage.
 //! * **Customisable**: Plug and play Strategy and RiskManager components that facilitates most trading strategies (MarketMaking, StatArb, HFT, etc.).
 //! * **Scalable**: Multithreaded architecture with modular design. Leverages Tokio for I/O. Memory efficient data structures.
+
+// Silence unused dev-dependencies warnings.
 //!
 //! ## Overview
 //! Barter core is a Rust framework for building professional grade live-trading, paper-trading and back-testing systems. The
@@ -36,6 +38,11 @@
 //!
 //! ## Getting Started Via Engine Examples
 //! [See Engine Examples](https://github.com/barter-rs/barter-rs/tree/feat/docs_tests_readmes_examples/barter/examples)
+
+#[cfg(test)]
+use criterion as _;
+#[cfg(test)]
+use serde_json as _;
 
 use crate::{
     engine::{command::Command, state::trading::TradingState},
