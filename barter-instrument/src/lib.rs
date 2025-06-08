@@ -93,7 +93,7 @@ pub enum Side {
     #[serde(alias = "buy", alias = "BUY", alias = "b")]
     Buy,
     #[serde(alias = "sell", alias = "SELL", alias = "s")]
-    Sell,
+    Sell
 }
 
 impl Display for Side {
@@ -103,7 +103,7 @@ impl Display for Side {
             "{}",
             match self {
                 Side::Buy => "buy",
-                Side::Sell => "sell",
+                Side::Sell => "sell"
             }
         )
     }
