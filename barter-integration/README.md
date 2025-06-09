@@ -61,6 +61,7 @@ At a high level, an `ExchangeStream` is made up of a few major components:
 * StreamParser that is capable of parsing input protocol messages (eg/ WebSocket, FIX, etc.) as exchange
   specific messages.
 * Transformer that transforms from exchange specific message into an iterator of the desired outputs type.
+* Use `WebSocketProtobufParser` instead of `WebSocketSerdeParser` to decode protobuf WebSocket messages.
 
 ## Examples
 
@@ -230,7 +231,7 @@ async fn main() {
 ```rust,no_run
 use barter_integration::{
     error::SocketError,
-    protocol::websocket::{WebSocket, WebSocketParser, WsMessage},
+    protocol::websocket::{WebSocket, WebSocketSerdeParser, WsMessage},
     ExchangeStream, Transformer,
 };
 use futures::{SinkExt, StreamExt};
@@ -241,7 +242,7 @@ use tokio_tungstenite::connect_async;
 use tracing::debug;
 
 // Convenient type alias for an `ExchangeStream` utilising a tungstenite `WebSocket`
-type ExchangeWsStream<Exchange> = ExchangeStream<WebSocketParser, WebSocket, Exchange, VolumeSum>;
+type ExchangeWsStream<Exchange> = ExchangeStream<WebSocketSerdeParser, WebSocket, Exchange, VolumeSum>;
 
 // Communicative type alias for what the VolumeSum the Transformer is generating
 type VolumeSum = f64;
@@ -335,6 +336,23 @@ where
     data.parse::<T>().map_err(de::Error::custom)
 }
 ```
+
+#### Parsing binary protobuf messages
+
+`WebSocketProtobufParser` can decode `WsMessage::Binary` payloads using [`prost`]. It can
+be used with `ExchangeStream` in place of `WebSocketSerdeParser` when servers send
+protobuf encoded messages.
+
+```rust
+use barter_integration::protocol::WebSocketProtobufParser;
+use barter_integration::protocol::websocket::WebSocket;
+use barter_integration::ExchangeStream;
+
+type ProtoStream<Exchange> = ExchangeStream<WebSocketProtobufParser, WebSocket, Exchange, ()>;
+```
+
+[`prost`]: https://crates.io/crates/prost
+
 **For a larger, "real world" example, see the [`Barter-Data`] repository.**
 
 ## Getting Help
