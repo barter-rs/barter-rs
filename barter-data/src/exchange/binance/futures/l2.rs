@@ -114,7 +114,7 @@ where
 
                 let sequencer = BinanceFuturesUsdOrderBookL2Sequencer {
                     updates_processed: 0,
-                    last_update_id: snapshot.sequence,
+                    last_update_id: snapshot.sequence(),
                 };
 
                 Ok((
@@ -730,7 +730,7 @@ mod tests {
                     valid_update.asks,
                 ));
 
-                test.book.update(barter_update);
+                test.book.update(&barter_update);
             }
 
             assert_eq!(test.book, test.expected, "TC{index} failed");

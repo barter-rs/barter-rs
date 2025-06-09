@@ -17,6 +17,7 @@ use barter_execution::{
     trade::Trade,
 };
 use barter_instrument::{
+    Keyed,
     asset::{AssetIndex, QuoteAsset, name::AssetNameExchange},
     exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
@@ -237,7 +238,7 @@ impl<InstrumentData> InstrumentStates<InstrumentData> {
     }
 }
 
-/// Represents the current state of an instrument, including its [`Position`], [`Orders`], and
+/// Represents the current state of an instrument, including its [`Position`](super::position::Position), [`Orders`], and
 /// user provided instrument data.
 ///
 /// This aggregates all the state and data for a single instrument, providing a comprehensive
@@ -335,7 +336,7 @@ impl<InstrumentData, ExchangeKey, AssetKey, InstrumentKey>
     /// Updates the instrument state based on a new market event.
     ///
     /// If the market event has a price associated with it (eg/ `PublicTrade`, `OrderBookL1`), any
-    /// open [`Position`] `pnl_unrealised` is re-calculated.
+    /// open [`Position`](super::position::Position) `pnl_unrealised` is re-calculated.
     pub fn update_from_market(
         &mut self,
         event: &MarketEvent<InstrumentKey, InstrumentData::MarketEventKind>,
@@ -416,17 +417,19 @@ where
 }
 
 /// Generates an indexed [`InstrumentStates`]. Uses default values for
-pub fn generate_indexed_instrument_states<FnPosMan, FnOrders, FnInsData, InstrumentData>(
-    instruments: &IndexedInstruments,
+pub fn generate_indexed_instrument_states<'a, FnPosMan, FnOrders, FnInsData, InstrumentData>(
+    instruments: &'a IndexedInstruments,
     time_engine_start: DateTime<Utc>,
     position_manager_init: FnPosMan,
     orders_init: FnOrders,
-    mut instrument_data_init: FnInsData,
+    instrument_data_init: FnInsData,
 ) -> InstrumentStates<InstrumentData>
 where
     FnPosMan: Fn() -> PositionManager,
     FnOrders: Fn() -> Orders,
-    FnInsData: FnMut() -> InstrumentData,
+    FnInsData: Fn(
+        &'a Keyed<InstrumentIndex, Instrument<Keyed<ExchangeIndex, ExchangeId>, AssetIndex>>,
+    ) -> InstrumentData,
 {
     InstrumentStates(
         instruments
@@ -443,7 +446,7 @@ where
                         TearSheetGenerator::init(time_engine_start),
                         position_manager_init(),
                         orders_init(),
-                        instrument_data_init(),
+                        instrument_data_init(instrument),
                     ),
                 )
             })

@@ -220,10 +220,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         DefaultRiskManager::default(),
         market_stream,
         DefaultGlobalData::default(),
-        DefaultInstrumentMarketData::default,
+        |_| DefaultInstrumentMarketData::default(),
     );
 
-    // Build & run full system:
+    // Build & run the full system:
     // See SystemBuilder for all configuration options
     let system = SystemBuilder::new(args)
         // Engine feed in Sync mode (Iterator input)

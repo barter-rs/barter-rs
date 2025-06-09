@@ -18,7 +18,7 @@ pub mod trade;
 /// See docs: <https://www.gate.io/docs/developers/futures/ws/en/>
 pub const WEBSOCKET_BASE_URL_GATEIO_PERPETUALS_USD: &str = "wss://fx-ws.gateio.ws/v4/ws/usdt";
 
-/// [`Gateio`] perpetual usd execution.
+/// [`Gateio`] perpetual usd exchange.
 pub type GateioPerpetualsUsd = Gateio<GateioServerPerpetualsUsd>;
 
 /// [`Gateio`] perpetual usd [`ExchangeServer`].
@@ -54,7 +54,7 @@ impl Display for GateioPerpetualsUsd {
 /// See docs: <https://www.gate.io/docs/developers/futures/ws/en/>
 pub const WEBSOCKET_BASE_URL_GATEIO_PERPETUALS_BTC: &str = "wss://fx-ws.gateio.ws/v4/ws/btc";
 
-/// [`Gateio`] perpetual btc execution.
+/// [`Gateio`] perpetual btc exchange.
 pub type GateioPerpetualsBtc = Gateio<GateioServerPerpetualsBtc>;
 
 /// [`Gateio`] perpetual btc [`ExchangeServer`].

@@ -489,7 +489,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
     }
 
     /// Select and merge every exchange [`PublicTrade`] `Stream` using
-    /// [`SelectAll`](futures_util::stream::select_all).
+    /// [`SelectAll`](futures_util::stream::select_all::select_all).
     pub fn select_all_trades(
         &mut self,
     ) -> SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, PublicTrade>>> {
@@ -519,7 +519,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
     }
 
     /// Select and merge every exchange [`OrderBookL1`] `Stream` using
-    /// [`SelectAll`](futures_util::stream::select_all).
+    /// [`SelectAll`](futures_util::stream::select_all::select_all).
     pub fn select_all_l1s(
         &mut self,
     ) -> SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, OrderBookL1>>> {
@@ -531,7 +531,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         futures_util::stream::select_all::select_all(streams)
     }
 
-    /// Remove an exchange [`OrderBook`] `Stream` from the [`DynamicStreams`] collection.
+    /// Remove an exchange [`OrderBookEvent`] `Stream` from the [`DynamicStreams`] collection.
     ///
     /// Note that calling this method will permanently remove this `Stream` from [`Self`].
     pub fn select_l2s(
@@ -548,8 +548,8 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         (!streams.is_empty()).then(|| futures_util::stream::select_all::select_all(streams))
     }
 
-    /// Select and merge every exchange [`OrderBook`] `Stream` using
-    /// [`SelectAll`](futures_util::stream::select_all).
+    /// Select and merge every exchange [`OrderBookEvent`] `Stream` using
+    /// [`SelectAll`](futures_util::stream::select_all::select_all).
     pub fn select_all_l2s(
         &mut self,
     ) -> SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, OrderBookEvent>>> {
@@ -579,7 +579,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
     }
 
     /// Select and merge every exchange [`Liquidation`] `Stream` using
-    /// [`SelectAll`](futures_util::stream::select_all).
+    /// [`SelectAll`](futures_util::stream::select_all::select_all).
     pub fn select_all_liquidations(
         &mut self,
     ) -> SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, Liquidation>>> {
@@ -591,7 +591,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         futures_util::stream::select_all::select_all(streams)
     }
 
-    /// Select and merge every exchange `Stream` for every data type using [`select_all`]
+    /// Select and merge every exchange `Stream` for every data type using [`select_all`](futures_util::stream::select_all::select_all)
     ///
     /// Note that using [`MarketEvent<Instrument, DataKind>`] as the `Output` is suitable for most
     /// use cases.

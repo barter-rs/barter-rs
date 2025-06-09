@@ -109,7 +109,7 @@ where
 
                 let book_meta = BinanceOrderBookL2Meta::new(
                     instrument_key,
-                    BinanceSpotOrderBookL2Sequencer::new(snapshot.sequence),
+                    BinanceSpotOrderBookL2Sequencer::new(snapshot.sequence()),
                 );
 
                 Ok((sub_id, book_meta))
@@ -699,7 +699,7 @@ mod tests {
                     valid_update.asks,
                 ));
 
-                test.book.update(barter_update);
+                test.book.update(&barter_update);
             }
 
             assert_eq!(test.book, test.expected, "TC{index} failed");

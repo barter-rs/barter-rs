@@ -39,11 +39,11 @@ use serde_json::json;
 use url::Url;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an execution [`Connector`] specific channel used for generating [`Connector::requests`].
+/// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
-/// into an execution [`Connector`] specific market used for generating [`Connector::requests`].
+/// into an exchange [`Connector`] specific market used for generating [`Connector::requests`].
 pub mod market;
 
 /// [`BitfinexMessage`] type for [`Bitfinex`].
@@ -64,7 +64,7 @@ pub mod validator;
 /// See docs: <https://docs.bitfinex.com/docs/ws-general>
 pub const BASE_URL_BITFINEX: &str = "wss://api-pub.bitfinex.com/ws/2";
 
-/// [`Bitfinex`] execution.
+/// [`Bitfinex`] exchange.
 ///
 /// See docs: <https://docs.bitfinex.com/docs/ws-general>
 #[derive(
