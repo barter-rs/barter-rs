@@ -76,7 +76,7 @@ macro_rules! init_stream_logic {
 }
 
 #[derive(Debug)]
-pub struct BatchedStreams<InstrumentKey> {
+struct StreamBatch<InstrumentKey> {
     pub trades:
         VecMap<ExchangeId, UnboundedReceiverStream<MarketStreamResult<InstrumentKey, PublicTrade>>>,
     pub l1s:
@@ -91,7 +91,7 @@ pub struct BatchedStreams<InstrumentKey> {
 
 #[derive(Debug)]
 pub struct DynamicStreams<InstrumentKey> {
-    pub batched_streams: Vec<BatchedStreams<InstrumentKey>>,
+    pub stream_batch: Vec<StreamBatch<InstrumentKey>>,
 }
 
 impl<InstrumentKey> DynamicStreams<InstrumentKey> {
@@ -149,13 +149,13 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         let all_batched_streams = futures::future::try_join_all(futures).await?;
 
         Ok(Self {
-            batched_streams: all_batched_streams,
+            stream_batch: all_batched_streams,
         })
     }
 
     async fn init_streams_for_single_batch<Instrument>(
         mut batch: Vec<Subscription<ExchangeId, Instrument, SubKind>>,
-    ) -> Result<BatchedStreams<InstrumentKey>, DataError>
+    ) -> Result<StreamBatch<InstrumentKey>, DataError>
     where
         Instrument: InstrumentData<Key = InstrumentKey> + Ord + Display + 'static,
         InstrumentKey: Debug + Clone + Send + 'static,
@@ -444,7 +444,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                 });
 
         try_join_all(batch_futures).await?;
-        Ok(BatchedStreams {
+        Ok(StreamBatch {
             trades: channels
                 .rxs
                 .trades
@@ -481,7 +481,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
     ) -> Option<SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, PublicTrade>>>>
     {
         let streams = self
-            .batched_streams
+            .stream_batch
             .iter_mut()
             .filter_map(|batch| batch.trades.remove(&exchange))
             .collect::<Vec<_>>();
@@ -494,7 +494,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         &mut self,
     ) -> SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, PublicTrade>>> {
         let streams = self
-            .batched_streams
+            .stream_batch
             .iter_mut()
             .flat_map(|batch| std::mem::take(&mut batch.trades).into_values())
             .collect::<Vec<_>>();
@@ -510,7 +510,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
     ) -> Option<SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, OrderBookL1>>>>
     {
         let streams = self
-            .batched_streams
+            .stream_batch
             .iter_mut()
             .filter_map(|batch| batch.l1s.remove(&exchange))
             .collect::<Vec<_>>();
@@ -524,7 +524,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         &mut self,
     ) -> SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, OrderBookL1>>> {
         let streams = self
-            .batched_streams
+            .stream_batch
             .iter_mut()
             .flat_map(|batch| std::mem::take(&mut batch.l1s).into_values())
             .collect::<Vec<_>>();
@@ -540,7 +540,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
     ) -> Option<SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, OrderBookEvent>>>>
     {
         let streams = self
-            .batched_streams
+            .stream_batch
             .iter_mut()
             .filter_map(|batch| batch.l2s.remove(&exchange))
             .collect::<Vec<_>>();
@@ -554,7 +554,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         &mut self,
     ) -> SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, OrderBookEvent>>> {
         let streams = self
-            .batched_streams
+            .stream_batch
             .iter_mut()
             .flat_map(|batch| std::mem::take(&mut batch.l2s).into_values())
             .collect::<Vec<_>>();
@@ -570,7 +570,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
     ) -> Option<SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, Liquidation>>>>
     {
         let streams = self
-            .batched_streams
+            .stream_batch
             .iter_mut()
             .filter_map(|batch| batch.liquidations.remove(&exchange))
             .collect::<Vec<_>>();
@@ -584,7 +584,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         &mut self,
     ) -> SelectAll<UnboundedReceiverStream<MarketStreamResult<InstrumentKey, Liquidation>>> {
         let streams = self
-            .batched_streams
+            .stream_batch
             .iter_mut()
             .flat_map(|batch| std::mem::take(&mut batch.liquidations).into_values())
             .collect::<Vec<_>>();
@@ -609,7 +609,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         let mut all_l2s = Vec::new();
         let mut all_liquidations = Vec::new();
 
-        for mut batch in self.batched_streams {
+        for mut batch in self.stream_batch {
             all_trades.extend(std::mem::take(&mut batch.trades).into_values());
             all_l1s.extend(std::mem::take(&mut batch.l1s).into_values());
             all_l2s.extend(std::mem::take(&mut batch.l2s).into_values());
