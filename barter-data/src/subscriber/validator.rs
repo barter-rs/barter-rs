@@ -8,7 +8,7 @@ use barter_integration::{
     error::SocketError,
     protocol::{
         StreamParser,
-        websocket::{WebSocket, WebSocketParser, WsMessage},
+        websocket::{WebSocket, WebSocketSerdeParser, WsMessage},
     },
 };
 use futures::StreamExt;
@@ -19,7 +19,7 @@ use tracing::debug;
 /// [`Subscription`](crate::subscription::Subscription)s were accepted by the exchange.
 #[async_trait]
 pub trait SubscriptionValidator {
-    type Parser: StreamParser;
+    type Parser;
 
     async fn validate<Exchange, InstrumentKey, Kind>(
         instrument_map: Map<InstrumentKey>,
@@ -37,7 +37,7 @@ pub struct WebSocketSubValidator;
 
 #[async_trait]
 impl SubscriptionValidator for WebSocketSubValidator {
-    type Parser = WebSocketParser;
+    type Parser = WebSocketSerdeParser;
 
     async fn validate<Exchange, Instrument, Kind>(
         instrument_map: Map<Instrument>,
@@ -79,7 +79,7 @@ impl SubscriptionValidator for WebSocketSubValidator {
                         None => break Err(SocketError::Subscribe("WebSocket stream terminated unexpectedly".to_string()))
                     };
 
-                    match Self::Parser::parse::<Exchange::SubResponse>(response) {
+                    match <WebSocketSerdeParser as StreamParser<Exchange::SubResponse>>::parse(response) {
                         Some(Ok(response)) => match response.validate() {
                             // Subscription success
                             Ok(response) => {

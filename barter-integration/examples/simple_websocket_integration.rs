@@ -1,7 +1,7 @@
 use barter_integration::{
     Transformer,
     error::SocketError,
-    protocol::websocket::{WebSocket, WebSocketParser, WsMessage},
+    protocol::websocket::{WebSocket, WebSocketSerdeParser, WsMessage},
     stream::ExchangeStream,
 };
 use futures::{SinkExt, StreamExt};
@@ -12,7 +12,7 @@ use tokio_tungstenite::connect_async;
 use tracing::debug;
 
 // Convenient type alias for an `ExchangeStream` utilising a tungstenite `WebSocket`
-type ExchangeWsStream<Exchange> = ExchangeStream<WebSocketParser, WebSocket, Exchange>;
+type ExchangeWsStream<Exchange> = ExchangeStream<WebSocketSerdeParser, WebSocket, Exchange>;
 
 // Communicative type alias for what the VolumeSum the Transformer is generating
 type VolumeSum = f64;
@@ -63,7 +63,7 @@ impl Transformer for StatefulTransformer {
 #[tokio::main]
 async fn main() {
     // Establish Sink/Stream communication with desired WebSocket server
-    let mut binance_conn = connect_async("wss://fstream.binance.com/ws/")
+    let mut binance_conn = connect_async("wss://fstream.binance.com/ws")
         .await
         .map(|(ws_conn, _)| ws_conn)
         .expect("failed to connect");
