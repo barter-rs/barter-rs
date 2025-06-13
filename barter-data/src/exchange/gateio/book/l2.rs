@@ -155,7 +155,7 @@ where
 
                 let sequencer = GateioSpotOrderBookL2Sequencer {
                     updates_processed: 0,
-                    last_update_id: snapshot.sequence,
+                    last_update_id: snapshot.sequence(),
                 };
 
                 Ok((

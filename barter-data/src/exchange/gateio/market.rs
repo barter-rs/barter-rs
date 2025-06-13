@@ -1,9 +1,5 @@
 use super::Gateio;
-use crate::{
-    Identifier,
-    instrument::MarketInstrumentData,
-    subscription::{Subscription, SubscriptionKind},
-};
+use crate::{Identifier, instrument::MarketInstrumentData, subscription::Subscription};
 use barter_instrument::{
     Keyed,
     instrument::{
@@ -23,61 +19,42 @@ use smol_str::{SmolStr, StrExt, format_smolstr};
 ///
 /// See docs: <https://www.gate.io/docs/developers/apiv4/ws/en/#spot-websocket-v4>
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub struct GateioMarket(pub Vec<SmolStr>);
+pub struct GateioMarket(pub SmolStr);
 
 impl<Server, Kind> Identifier<GateioMarket>
     for Subscription<Gateio<Server>, MarketDataInstrument, Kind>
-where
-    Kind: SubscriptionKind,
 {
     fn id(&self) -> GateioMarket {
-        gateio_market(&self.instrument, self.kind.as_str() == "l2")
+        gateio_market(&self.instrument)
     }
 }
 
 impl<Server, InstrumentKey, Kind> Identifier<GateioMarket>
     for Subscription<Gateio<Server>, Keyed<InstrumentKey, MarketDataInstrument>, Kind>
-where
-    Kind: SubscriptionKind,
 {
     fn id(&self) -> GateioMarket {
-        gateio_market(&self.instrument.value, self.kind.as_str() == "l2")
+        gateio_market(&self.instrument.value)
     }
 }
 
 impl<Server, InstrumentKey, Kind> Identifier<GateioMarket>
     for Subscription<Gateio<Server>, MarketInstrumentData<InstrumentKey>, Kind>
-where
-    Kind: SubscriptionKind,
 {
     fn id(&self) -> GateioMarket {
-        if self.kind.as_str() == "l2" {
-            GateioMarket(vec![
-                self.instrument.name_exchange.name().clone(),
-                format_smolstr!("100ms"),
-            ])
-        } else {
-            GateioMarket(vec![self.instrument.name_exchange.name().clone()])
-        }
-    }
-}
-
-impl GateioMarket {
-    pub fn as_str_vec(&self) -> Vec<&str> {
-        self.0.iter().map(|v| v.as_str()).collect()
+        GateioMarket(self.instrument.name_exchange.name().clone())
     }
 }
 
 impl AsRef<str> for GateioMarket {
     fn as_ref(&self) -> &str {
-        self.0[0].as_str()
+        &self.0
     }
 }
 
-fn gateio_market(instrument: &MarketDataInstrument, l2: bool) -> GateioMarket {
+fn gateio_market(instrument: &MarketDataInstrument) -> GateioMarket {
     let MarketDataInstrument { base, quote, kind } = instrument;
 
-    let mut smol_strs = vec![
+    GateioMarket(
         match kind {
             Spot | Perpetual => format_smolstr!("{base}_{quote}"),
             Future(contract) => {
@@ -97,11 +74,7 @@ fn gateio_market(instrument: &MarketDataInstrument, l2: bool) -> GateioMarket {
             ),
         }
         .to_uppercase_smolstr(),
-    ];
-    if l2 {
-        smol_strs.push(format_smolstr!("100ms"));
-    }
-    GateioMarket(smol_strs)
+    )
 }
 
 /// Format the expiry DateTime<Utc> to be Gateio API compatible.

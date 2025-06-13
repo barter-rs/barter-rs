@@ -57,7 +57,7 @@ pub mod message;
 /// [`GateioPerpetualBtc`](perpetual::GateioPerpetualsBtc).
 pub mod subscription;
 
-/// OrderBook types common to [`GateioSpot`](spot::GateioSpot) 
+/// OrderBook types common to [`GateioSpot`](spot::GateioSpot)
 pub mod book;
 
 /// Generic [`Gateio<Server>`](Gateio) exchange.
@@ -90,12 +90,20 @@ where
         exchange_subs
             .into_iter()
             .map(|ExchangeSub { channel, market }| {
+                let payload = match channel {
+                    GateioChannel::ORDER_BOOK_L2 => {
+                        vec![market.as_ref(), "100ms"]
+                    }
+                    _ => {
+                        vec![market.as_ref()]
+                    }
+                };
                 WsMessage::text(
                     json!({
                         "time": chrono::Utc::now().timestamp_millis(),
                         "channel": channel.as_ref(),
                         "event": "subscribe",
-                        "payload": market.as_str_vec()
+                        "payload": payload,
                     })
                     .to_string(),
                 )
