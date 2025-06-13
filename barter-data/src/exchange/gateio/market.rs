@@ -17,7 +17,7 @@ use smol_str::{SmolStr, StrExt, format_smolstr};
 /// Type that defines how to translate a Barter [`Subscription`] into a
 /// [`Gateio`] market that can be subscribed to.
 ///
-/// See docs: <https://www.okx.com/docs-v5/en/#websocket-api-public-channel>
+/// See docs: <https://www.gate.io/docs/developers/apiv4/ws/en/#spot-websocket-v4>
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub struct GateioMarket(pub SmolStr);
 
