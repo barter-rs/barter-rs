@@ -1,13 +1,13 @@
 use crate::instrument::kind::option::{OptionExercise, OptionKind};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
 /// Defines the type of [`MarketDataInstrument`](super::MarketDataInstrument) which is being
 /// traded on a given `base_quote` market.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum MarketDataInstrumentKind {
     Spot,
     Perpetual,
@@ -43,17 +43,19 @@ impl Display for MarketDataInstrumentKind {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct MarketDataFutureContract {
-    #[serde(with = "chrono::serde::ts_milliseconds")]
+    #[cfg_attr(feature = "serde", serde(with = "chrono::serde::ts_milliseconds"))]
     pub expiry: DateTime<Utc>,
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct MarketDataOptionContract {
     pub kind: OptionKind,
     pub exercise: OptionExercise,
-    #[serde(with = "chrono::serde::ts_milliseconds")]
+    #[cfg_attr(feature = "serde", serde(with = "chrono::serde::ts_milliseconds"))]
     pub expiry: DateTime<Utc>,
     pub strike: Decimal,
 }
