@@ -1,5 +1,6 @@
 use crate::{error::SocketError, protocol::StreamParser};
 use bytes::Bytes;
+use prost::Message;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::fmt::Debug;
 use tokio::net::TcpStream;
@@ -31,19 +32,17 @@ pub type WsError = tokio_tungstenite::tungstenite::Error;
 
 /// Default [`StreamParser`] implementation for a [`WebSocket`].
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
-pub struct WebSocketParser;
+pub struct WebSocketSerdeParser;
 
-impl StreamParser for WebSocketParser {
+impl<Output> StreamParser<Output> for WebSocketSerdeParser
+where
+    Output: DeserializeOwned,
+{
     type Stream = WebSocket;
     type Message = WsMessage;
     type Error = WsError;
 
-    fn parse<Output>(
-        input: Result<Self::Message, Self::Error>,
-    ) -> Option<Result<Output, SocketError>>
-    where
-        Output: DeserializeOwned,
-    {
+    fn parse(input: Result<Self::Message, Self::Error>) -> Option<Result<Output, SocketError>> {
         match input {
             Ok(ws_message) => match ws_message {
                 WsMessage::Text(text) => process_text(text),
@@ -52,6 +51,41 @@ impl StreamParser for WebSocketParser {
                 WsMessage::Pong(pong) => process_pong(pong),
                 WsMessage::Close(close_frame) => process_close_frame(close_frame),
                 WsMessage::Frame(frame) => process_frame(frame),
+            },
+            Err(ws_err) => Some(Err(SocketError::WebSocket(Box::new(ws_err)))),
+        }
+    }
+}
+
+/// [`StreamParser`] implementation for a [`WebSocket`] that decodes protobuf
+/// binary payloads.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+pub struct WebSocketProtobufParser;
+
+impl<Output> StreamParser<Output> for WebSocketProtobufParser
+where
+    Output: Message + Default,
+{
+    type Stream = WebSocket;
+    type Message = WsMessage;
+    type Error = WsError;
+
+    fn parse(input: Result<Self::Message, Self::Error>) -> Option<Result<Output, SocketError>> {
+        match input {
+            Ok(ws_message) => match ws_message {
+                WsMessage::Binary(binary) => {
+                    Some(Output::decode(binary.clone()).map_err(|error| {
+                        SocketError::DeserialiseProtobuf {
+                            error,
+                            payload: binary.to_vec(),
+                        }
+                    }))
+                }
+                WsMessage::Ping(ping) => process_ping::<Output>(ping),
+                WsMessage::Pong(pong) => process_pong::<Output>(pong),
+                WsMessage::Close(close_frame) => process_close_frame::<Output>(close_frame),
+                WsMessage::Frame(frame) => process_frame::<Output>(frame),
+                WsMessage::Text(_) => None,
             },
             Err(ws_err) => Some(Err(SocketError::WebSocket(Box::new(ws_err)))),
         }

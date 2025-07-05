@@ -11,7 +11,7 @@ use barter_integration::{
     error::SocketError,
     protocol::{
         StreamParser,
-        websocket::{WebSocket, WebSocketParser, WsMessage},
+        websocket::{WebSocket, WebSocketSerdeParser, WsMessage},
     },
     subscription::SubscriptionId,
 };
@@ -36,7 +36,7 @@ pub struct BitfinexWebSocketSubValidator;
 
 #[async_trait]
 impl SubscriptionValidator for BitfinexWebSocketSubValidator {
-    type Parser = WebSocketParser;
+    type Parser = WebSocketSerdeParser;
 
     async fn validate<Exchange, Instrument, Kind>(
         mut instrument_map: Map<Instrument>,
@@ -82,7 +82,7 @@ impl SubscriptionValidator for BitfinexWebSocketSubValidator {
                         None => break Err(SocketError::Subscribe("WebSocket stream terminated unexpectedly".to_string()))
                     };
 
-                    match Self::Parser::parse::<BitfinexPlatformEvent>(response) {
+                    match <WebSocketSerdeParser as StreamParser<BitfinexPlatformEvent>>::parse(response) {
                         Some(Ok(response)) => match response.validate() {
                             // Bitfinex server is online
                             Ok(BitfinexPlatformEvent::PlatformStatus(status)) => {
