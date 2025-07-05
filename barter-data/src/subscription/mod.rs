@@ -265,7 +265,7 @@ pub fn exchange_supports_instrument_kind_sub_kind(
         (BybitSpot, Spot, PublicTrades | OrderBooksL1 | OrderBooksL2) => true,
         (BybitPerpetualsUsd, Perpetual, PublicTrades | OrderBooksL1 | OrderBooksL2) => true,
         (Coinbase, Spot, PublicTrades) => true,
-        (GateioSpot, Spot, PublicTrades) => true,
+        (GateioSpot, Spot, PublicTrades | OrderBooksL1 | OrderBooksL2) => true,
         (GateioFuturesUsd, Future { .. }, PublicTrades) => true,
         (GateioFuturesBtc, Future { .. }, PublicTrades) => true,
         (GateioPerpetualsUsd, Perpetual, PublicTrades) => true,

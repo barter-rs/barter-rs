@@ -1,10 +1,16 @@
 use crate::{
     Identifier,
     instrument::InstrumentData,
-    subscription::{Subscription, trade::PublicTrades},
+    subscription::{
+        Subscription,
+        book::{OrderBooksL1, OrderBooksL2},
+        trade::PublicTrades,
+    },
 };
 use barter_instrument::instrument::market_data::kind::MarketDataInstrumentKind;
 use serde::Serialize;
+
+use super::Gateio;
 
 /// Type that defines how to translate a Barter [`Subscription`] into a
 /// [`Gateio`](super::Gateio) channel to be subscribed to.
@@ -29,10 +35,20 @@ impl GateioChannel {
     ///
     /// See docs: <https://www.gate.io/docs/developers/options/ws/en/#public-contract-trades-channel>
     pub const OPTION_TRADES: Self = Self("options.trades");
+
+    /// Gateio [`MarketDataInstrumentKind::Spot`] real-time trades channel.
+    ///
+    /// See docs: <https://www.gate.io/docs/developers/apiv4/ws/en/#best-bid-or-ask-price>
+    pub const ORDER_BOOK_L1: Self = Self("spot.book_ticker");
+
+    /// Gateio [`MarketDataInstrumentKind::Spot`] real-time trades channel.
+    ///
+    /// See docs: <https://www.gate.io/docs/developers/apiv4/ws/en/#changed-order-book-levels>
+    pub const ORDER_BOOK_L2: Self = Self("spot.order_book_update");
 }
 
-impl<GateioExchange, Instrument> Identifier<GateioChannel>
-    for Subscription<GateioExchange, Instrument, PublicTrades>
+impl<Server, Instrument> Identifier<GateioChannel>
+    for Subscription<Gateio<Server>, Instrument, PublicTrades>
 where
     Instrument: InstrumentData,
 {
@@ -44,6 +60,22 @@ where
             }
             MarketDataInstrumentKind::Option { .. } => GateioChannel::OPTION_TRADES,
         }
+    }
+}
+
+impl<Server, Instrument> Identifier<GateioChannel>
+    for Subscription<Gateio<Server>, Instrument, OrderBooksL2>
+{
+    fn id(&self) -> GateioChannel {
+        GateioChannel::ORDER_BOOK_L2
+    }
+}
+
+impl<Server, Instrument> Identifier<GateioChannel>
+    for Subscription<Gateio<Server>, Instrument, OrderBooksL1>
+{
+    fn id(&self) -> GateioChannel {
+        GateioChannel::ORDER_BOOK_L1
     }
 }
 
