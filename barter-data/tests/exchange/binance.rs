@@ -22,13 +22,3 @@ async fn binance_perpetual_usd() {
         .await
         .unwrap()
 }
-
-#[tokio::test]
-async fn binance_perpetual_coin() {
-    MarketStreamTest::builder(ExchangeId::BinanceFuturesCoin)
-        .instruments([BTC_USDT_PERP, ETH_USDT_PERP])
-        .build()
-        .run()
-        .await
-        .unwrap()
-}

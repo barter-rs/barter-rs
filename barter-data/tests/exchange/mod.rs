@@ -15,22 +15,35 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod binance;
 
+static LOGGER: std::sync::Once = std::sync::Once::new();
+
 const BTC_USDT_SPOT: (&str, &str, MarketDataInstrumentKind) =
     ("btc", "usdt", MarketDataInstrumentKind::Spot);
 
 const ETH_USDT_SPOT: (&str, &str, MarketDataInstrumentKind) =
-    ("btc", "usdt", MarketDataInstrumentKind::Spot);
+    ("eth", "usdt", MarketDataInstrumentKind::Spot);
 
 const BTC_USDT_PERP: (&str, &str, MarketDataInstrumentKind) =
     ("btc", "usdt", MarketDataInstrumentKind::Perpetual);
 
 const ETH_USDT_PERP: (&str, &str, MarketDataInstrumentKind) =
-    ("btc", "usdt", MarketDataInstrumentKind::Perpetual);
+    ("eth", "usdt", MarketDataInstrumentKind::Perpetual);
+
 
 #[derive(Debug, Clone)]
 struct MarketStreamTest {
     timeout: std::time::Duration,
     subscriptions: Vec<Subscription>,
+}
+
+struct SubKindCheck {
+    // Todo: make a custom check for each SubKind
+    // OrderBook => check 1st is snapshot, 2nd is update with valid sequence
+    // other => just check first event
+}
+
+struct InstrumentCheck {
+    
 }
 
 impl MarketStreamTest {
@@ -41,19 +54,51 @@ impl MarketStreamTest {
     async fn run(self) -> Result<(), TestError> {
         init_logging();
 
+        // Construct Subscription checks
+        let subscription_checks = self
+            .subscriptions
+            .iter()
+            .map(|sub| match sub {
+                
+                
+                
+                
+            })
+        
+
         // Construct counter for MarketEvents per Instrument
         let mut num_events_per_instrument = self
             .subscriptions
             .iter()
-            .map(|sub| (sub.instrument.clone(), 0))
+            .map(|sub| match sub.kind {
+                SubKind::PublicTrades => {
+                    
+                }
+                SubKind::OrderBooksL1 => {
+                    
+                }
+                SubKind::OrderBooksL2 => {
+                    
+                }
+                SubKind::Liquidations => {
+                    
+                }
+                
+                
+                
+                (sub.instrument.clone(), 0)
+            })
             .collect::<HashMap<_, _>>();
 
+        // After creating num_events_per_instrument
         let subscriptions = self.subscriptions.clone();
         let future = async move {
             let mut stream = DynamicStreams::init([subscriptions])
                 .await
                 .map_err(TestErrorKind::Init)?
                 .select_all::<MarketStreamResult<MarketDataInstrument, DataKind>>();
+
+            println!("inited");
 
             loop {
                 if num_events_per_instrument.values().all(|count| *count >= 2) {
@@ -65,8 +110,12 @@ impl MarketStreamTest {
                     Some(Event::Item(Err(error))) => break Err(TestErrorKind::Stream(error)),
                     Some(Event::Reconnecting(_)) | None => break Err(TestErrorKind::StreamEnded),
                 };
+                
+                match event.kind {
+                    
+                }
 
-                println!("Consumed: {event:?}");
+                println!("event: {event:?}");
 
                 *num_events_per_instrument
                     .get_mut(&event.instrument)
@@ -145,7 +194,11 @@ impl MarketStreamTestBuilder {
                     .then(|| Subscription::new(exchange, instrument.clone(), sub_kind))
                 })
             })
-            .collect();
+            .collect::<Vec<_>>();
+
+        if subscriptions.is_empty() {
+            panic!("MarketStreamTestBuilder must have at least one supported Subscription")
+        }
 
         MarketStreamTest {
             timeout,
@@ -176,12 +229,15 @@ pub enum TestErrorKind {
 }
 
 fn init_logging() {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::filter::EnvFilter::builder()
-                .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
-                .from_env_lossy(),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init()
+    LOGGER
+        .call_once(|| {
+            tracing_subscriber::registry()
+                .with(
+                    tracing_subscriber::filter::EnvFilter::builder()
+                        .with_default_directive(tracing_subscriber::filter::LevelFilter::WARN.into())
+                        .from_env_lossy(),
+                )
+                .with(tracing_subscriber::fmt::layer())
+                .init()
+        })
 }
