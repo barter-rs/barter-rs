@@ -1,8 +1,6 @@
 use barter_data::{
-    MarketStream,
     error::DataError,
     event::DataKind,
-    instrument::InstrumentData,
     streams::{builder::dynamic::DynamicStreams, consumer::MarketStreamResult, reconnect::Event},
     subscription::{SubKind, Subscription, exchange_supports_instrument_kind_sub_kind},
 };
@@ -10,27 +8,24 @@ use barter_instrument::{
     exchange::ExchangeId,
     instrument::market_data::{MarketDataInstrument, kind::MarketDataInstrumentKind},
 };
-use barter_integration::{Validator, error::SocketError};
 use futures_util::StreamExt;
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
 use strum::IntoEnumIterator;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-#[tokio::test]
-async fn it_works() {
-    init_logging();
+mod binance;
 
-    MarketStreamTest::builder(ExchangeId::BinanceSpot)
-        .instruments([MarketDataInstrument::new(
-            "btc",
-            "usdt",
-            MarketDataInstrumentKind::Spot,
-        )])
-        .build()
-        .run()
-        .await
-        .unwrap()
-}
+const BTC_USDT_SPOT: (&str, &str, MarketDataInstrumentKind) =
+    ("btc", "usdt", MarketDataInstrumentKind::Spot);
+
+const ETH_USDT_SPOT: (&str, &str, MarketDataInstrumentKind) =
+    ("btc", "usdt", MarketDataInstrumentKind::Spot);
+
+const BTC_USDT_PERP: (&str, &str, MarketDataInstrumentKind) =
+    ("btc", "usdt", MarketDataInstrumentKind::Perpetual);
+
+const ETH_USDT_PERP: (&str, &str, MarketDataInstrumentKind) =
+    ("btc", "usdt", MarketDataInstrumentKind::Perpetual);
 
 #[derive(Debug, Clone)]
 struct MarketStreamTest {
@@ -44,6 +39,8 @@ impl MarketStreamTest {
     }
 
     async fn run(self) -> Result<(), TestError> {
+        init_logging();
+
         // Construct counter for MarketEvents per Instrument
         let mut num_events_per_instrument = self
             .subscriptions
