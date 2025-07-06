@@ -57,3 +57,4 @@ derive_more = { workspace = true }
 itertools = { workspace = true }
 vecmap-rs = { workspace = true }
 fnv = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
