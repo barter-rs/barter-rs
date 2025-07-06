@@ -11,6 +11,10 @@ description = "High performance & normalised WebSocket intergration for leading 
 keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
+[features]
+default = []
+integration-tests = []
+
 [dev-dependencies]
 tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
 rust_decimal_macros = { workspace = true }
