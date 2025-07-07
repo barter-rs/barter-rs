@@ -1,0 +1,31 @@
+# release-plz configuration
+# This configuration creates individual changelogs for each crate in the workspace
+
+[workspace]
+# Disable workspace-level changelog
+changelog_update = false
+
+# Individual package configurations
+[[package]]
+name = "barter"
+changelog_path = "barter/CHANGELOG.md"
+
+[[package]]
+name = "barter-data"
+changelog_path = "barter-data/CHANGELOG.md"
+
+[[package]]
+name = "barter-execution"
+changelog_path = "barter-execution/CHANGELOG.md"
+
+[[package]]
+name = "barter-instrument"
+changelog_path = "barter-instrument/CHANGELOG.md"
+
+[[package]]
+name = "barter-integration"
+changelog_path = "barter-integration/CHANGELOG.md"
+
+[[package]]
+name = "barter-macro"
+changelog_path = "barter-macro/CHANGELOG.md"
