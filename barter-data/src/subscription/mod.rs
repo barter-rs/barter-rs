@@ -13,6 +13,7 @@ use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 use smol_str::{ToSmolStr, format_smolstr};
 use std::{borrow::Borrow, fmt::Debug, hash::Hash};
+use strum::EnumIter;
 
 /// OrderBook [`SubscriptionKind`]s and the associated Barter output data models.
 pub mod book;
@@ -78,7 +79,18 @@ where
 }
 
 #[derive(
-    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Deserialize, Serialize,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Debug,
+    Display,
+    Deserialize,
+    Serialize,
+    EnumIter,
 )]
 pub enum SubKind {
     PublicTrades,

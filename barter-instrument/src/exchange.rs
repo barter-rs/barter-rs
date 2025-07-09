@@ -1,5 +1,6 @@
 use derive_more::{Constructor, Display};
 use serde::{Deserialize, Serialize};
+use strum::EnumIter;
 
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
@@ -27,7 +28,18 @@ impl std::fmt::Display for ExchangeIndex {
 /// For example, BinanceSpot and BinanceFuturesUsd have distinct APIs, and are therefore
 /// represented as unique variants.
 #[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display,
+    Debug,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Deserialize,
+    Serialize,
+    Display,
+    EnumIter,
 )]
 #[serde(rename = "execution", rename_all = "snake_case")]
 pub enum ExchangeId {
