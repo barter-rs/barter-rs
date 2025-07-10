@@ -33,10 +33,6 @@ impl<AssetKey, InstrumentKey> OrderState<AssetKey, InstrumentKey> {
         OrderState::Inactive(state.into())
     }
 
-    pub fn fully_filled() -> Self {
-        Self::Inactive(InactiveOrderState::FullyFilled)
-    }
-
     pub fn expired() -> Self {
         Self::Inactive(InactiveOrderState::Expired)
     }
@@ -103,7 +99,7 @@ pub struct CancelInFlight {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
 pub enum InactiveOrderState<AssetKey, InstrumentKey> {
     Cancelled(Cancelled),
-    FullyFilled,
+    FullyFilled(FullyFilled),
     OpenFailed(OrderError<AssetKey, InstrumentKey>),
     Expired,
 }
@@ -113,5 +109,12 @@ pub enum InactiveOrderState<AssetKey, InstrumentKey> {
 )]
 pub struct Cancelled {
     pub id: OrderId,
+    pub time_exchange: DateTime<Utc>,
+}
+
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
+pub struct FullyFilled {
     pub time_exchange: DateTime<Utc>,
 }
