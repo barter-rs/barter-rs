@@ -61,6 +61,7 @@ At a high level, an `ExchangeStream` is made up of a few major components:
 * StreamParser that is capable of parsing input protocol messages (eg/ WebSocket, FIX, etc.) as exchange
   specific messages.
 * Transformer that transforms from exchange specific message into an iterator of the desired outputs type.
+* Use `ProtobufParser` instead of `WebSocketParser` to decode protobuf WebSocket messages.
 
 ## Examples
 
@@ -335,6 +336,23 @@ where
     data.parse::<T>().map_err(de::Error::custom)
 }
 ```
+
+#### Parsing binary protobuf messages
+
+`ProtobufParser` can decode `WsMessage::Binary` payloads using [`prost`]. It can
+be used with `ExchangeStream` in place of `WebSocketParser` when servers send
+protobuf encoded messages.
+
+```rust
+use barter_integration::protocol::ProtobufParser;
+use barter_integration::protocol::websocket::WebSocket;
+use barter_integration::ExchangeStream;
+
+type ProtoStream<Exchange> = ExchangeStream<ProtobufParser, WebSocket, Exchange, ()>;
+```
+
+[`prost`]: https://crates.io/crates/prost
+
 **For a larger, "real world" example, see the [`Barter-Data`] repository.**
 
 ## Getting Help
