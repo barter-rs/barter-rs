@@ -4,21 +4,18 @@ use crate::{
     exchange::ExchangeId,
 };
 use derive_more::{Constructor, Display};
-use serde::{Deserialize, Serialize};
 
 /// Defines the [`AssetNameInternal`] and [`AssetNameExchange`] types, used as `SmolStr`
 /// identifiers for an [`Asset`].
 pub mod name;
 
 /// Unique identifier for an [`Asset`].
-#[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display,
-)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Display)]
 pub struct AssetId(pub u64);
 
-#[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
-)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Constructor)]
 pub struct AssetIndex(pub usize);
 
 impl AssetIndex {
@@ -33,7 +30,8 @@ impl std::fmt::Display for AssetIndex {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct ExchangeAsset<Asset> {
     pub exchange: ExchangeId,
     pub asset: Asset,
@@ -63,7 +61,8 @@ where
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Asset {
     pub name_internal: AssetNameInternal,
     pub name_exchange: AssetNameExchange,
@@ -102,8 +101,9 @@ impl Asset {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display)]
-#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Display)]
 pub enum AssetKind {
     Crypto,
     Fiat,
@@ -120,7 +120,8 @@ impl From<Asset> for AssetNameInternal {
 /// Examples: <br>
 /// a) Instrument = btc_usdt_spot, [`BaseAsset`] => btc <br>
 /// b) Instrument = eth_btc_spot, [`BaseAsset`] => eth
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Display)]
 pub struct BaseAsset;
 
 /// Special type that represents a "quote" [`Asset`].
@@ -128,5 +129,6 @@ pub struct BaseAsset;
 /// Examples: <br>
 /// a) Instrument = btc_usdt_spot, [`QuoteAsset`] => usdt <br>
 /// b) Instrument = eth_btc_spot, [`QuoteAsset`] => btc
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Display)]
 pub struct QuoteAsset;

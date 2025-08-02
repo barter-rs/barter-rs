@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
 
 /// `FutureContract` specification containing all the information needed to fully identify a
 /// future instrument.
@@ -12,10 +11,11 @@ use serde::{Deserialize, Serialize};
 /// * `contract_size` - Multiplier that determines how many of the underlying asset the contract represents.
 /// * `settlement_asset` - Asset used for settlement when the future expires.
 /// * `expiry` - The date and time when the future expires.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct FutureContract<AssetKey> {
     pub contract_size: Decimal,
     pub settlement_asset: AssetKey,
-    #[serde(with = "chrono::serde::ts_milliseconds")]
+    #[cfg_attr(feature = "serde", serde(with = "chrono::serde::ts_milliseconds"))]
     pub expiry: DateTime<Utc>,
 }

@@ -17,7 +17,7 @@ sha2 = { workspace = true }
 
 [dependencies]
 # Barter Ecosystem
-barter-instrument = { workspace = true }
+barter-instrument = { workspace = true, features = ["serde"]}
 
 # Logging
 tracing = { workspace = true }
