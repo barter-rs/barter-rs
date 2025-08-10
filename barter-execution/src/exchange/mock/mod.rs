@@ -348,6 +348,7 @@ impl MockExchange {
         let order_response = Order {
             key: request.key.clone(),
             side: request.state.side,
+            position_side: request.state.position_side,
             price: request.state.price,
             quantity: request.state.quantity,
             kind: request.state.kind,
@@ -363,6 +364,7 @@ impl MockExchange {
             balance: balance_snapshot,
             trade: Trade {
                 id: trade_id,
+                cid: request.key.cid,
                 order_id: order_id.clone(),
                 instrument: request.key.instrument,
                 strategy: request.key.strategy,
@@ -429,6 +431,7 @@ where
     Order {
         key: request.key,
         side: request.state.side,
+        position_side: request.state.position_side,
         price: request.state.price,
         quantity: request.state.quantity,
         kind: request.state.kind,

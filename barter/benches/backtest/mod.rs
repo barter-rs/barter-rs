@@ -319,6 +319,7 @@ impl AlgoStrategy for LoseMoneyStrategy {
                     },
                     state: RequestOpen {
                         side: Side::Buy,
+                        position_side: None,
                         price: Decimal::from_f64(trade_not_sent_as_order_open.price).unwrap(),
                         quantity: Decimal::from_f64(trade_not_sent_as_order_open.amount).unwrap(),
                         kind: OrderKind::Market,

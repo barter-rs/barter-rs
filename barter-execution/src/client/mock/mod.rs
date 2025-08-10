@@ -210,6 +210,7 @@ where
             return Some(Order {
                 key: request.key,
                 side: request.state.side,
+                position_side: request.state.position_side,
                 price: request.state.price,
                 quantity: request.state.quantity,
                 kind: request.state.kind,
@@ -225,6 +226,7 @@ where
             Err(_) => Order {
                 key: request.key,
                 side: request.state.side,
+                position_side: request.state.position_side,
                 price: request.state.price,
                 quantity: request.state.quantity,
                 kind: request.state.kind,

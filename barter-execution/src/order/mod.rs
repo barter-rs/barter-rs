@@ -4,7 +4,7 @@ use crate::order::{
     state::UnindexedOrderState,
 };
 use barter_instrument::{
-    Side,
+    PositionSide, Side,
     asset::{AssetIndex, name::AssetNameExchange},
     exchange::{ExchangeId, ExchangeIndex},
     instrument::{InstrumentIndex, name::InstrumentNameExchange},
@@ -75,6 +75,7 @@ pub struct OrderKey<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex
 pub struct Order<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex, State = OrderState> {
     pub key: OrderKey<ExchangeKey, InstrumentKey>,
     pub side: Side,
+    pub position_side: Option<PositionSide>,
     pub price: Decimal,
     pub quantity: Decimal,
     pub kind: OrderKind,
@@ -97,6 +98,7 @@ impl<ExchangeKey, AssetKey, InstrumentKey>
         Some(Order {
             key: self.key.clone(),
             side: self.side,
+            position_side: self.position_side,
             price: self.price,
             quantity: self.quantity,
             kind: self.kind,
@@ -120,6 +122,7 @@ impl<ExchangeKey, AssetKey, InstrumentKey>
         Some(Order {
             key: self.key.clone(),
             side: self.side,
+            position_side: self.position_side,
             price: self.price,
             quantity: self.quantity,
             kind: self.kind,
@@ -186,12 +189,14 @@ where
                     quantity,
                     kind,
                     time_in_force,
+                    position_side,
                 },
         } = value;
 
         Self {
             key: key.clone(),
             side: *side,
+            position_side: *position_side,
             price: *price,
             quantity: *quantity,
             kind: *kind,
@@ -209,6 +214,7 @@ impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
             key,
             side,
             price,
+            position_side,
             quantity,
             kind,
             time_in_force,
@@ -218,6 +224,7 @@ impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
         Self {
             key,
             side,
+            position_side,
             price,
             quantity,
             kind,
@@ -234,6 +241,7 @@ impl<ExchangeKey, AssetKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey
         let Order {
             key,
             side,
+            position_side,
             price,
             quantity,
             kind,
@@ -244,6 +252,7 @@ impl<ExchangeKey, AssetKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey
         Self {
             key,
             side,
+            position_side,
             price,
             quantity,
             kind,
@@ -260,6 +269,7 @@ impl<ExchangeKey, AssetKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey
         let Order {
             key,
             side,
+            position_side,
             price,
             quantity,
             kind,
@@ -270,6 +280,7 @@ impl<ExchangeKey, AssetKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey
         Self {
             key,
             side,
+            position_side,
             price,
             quantity,
             kind,

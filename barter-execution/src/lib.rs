@@ -137,6 +137,7 @@ pub struct InstrumentAccountSnapshot<
     pub instrument: InstrumentKey,
     #[serde(default = "Vec::new")]
     pub orders: Vec<OrderSnapshot<ExchangeKey, AssetKey, InstrumentKey>>,
+    // TODO: Add current open positions states
 }
 
 impl<ExchangeKey, AssetKey, InstrumentKey> AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey> {

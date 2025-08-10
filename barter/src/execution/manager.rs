@@ -380,6 +380,7 @@ where
         let Order {
             key,
             side,
+            position_side,
             price,
             quantity,
             kind,
@@ -400,6 +401,7 @@ where
             kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
                 key,
                 side,
+                position_side,
                 price,
                 quantity,
                 kind,
@@ -419,6 +421,7 @@ where
             kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
                 key,
                 side: state.side,
+                position_side: state.position_side,
                 price: state.price,
                 quantity: state.quantity,
                 kind: state.kind,

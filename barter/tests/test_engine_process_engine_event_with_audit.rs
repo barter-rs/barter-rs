@@ -131,6 +131,7 @@ fn test_engine_process_engine_event_with_audit() {
         },
         state: RequestOpen {
             side: Side::Buy,
+            position_side: None,
             kind: OrderKind::Market,
             time_in_force: TimeInForce::ImmediateOrCancel,
             price: dec!(10_000),
@@ -146,6 +147,7 @@ fn test_engine_process_engine_event_with_audit() {
         },
         state: RequestOpen {
             side: Side::Buy,
+            position_side: None,
             kind: OrderKind::Market,
             time_in_force: TimeInForce::ImmediateOrCancel,
             price: dec!(0.1),
@@ -332,6 +334,7 @@ fn test_engine_process_engine_event_with_audit() {
         },
         state: RequestOpen {
             side: Side::Sell,
+            position_side: None,
             kind: OrderKind::Market,
             time_in_force: TimeInForce::ImmediateOrCancel,
             price: dec!(20_000),
@@ -468,6 +471,7 @@ fn test_engine_process_engine_event_with_audit() {
         },
         state: RequestOpen {
             side: Side::Sell,
+            position_side: None,
             kind: OrderKind::Limit,
             time_in_force: TimeInForce::GoodUntilCancelled { post_only: true },
             price: dec!(0.05),
@@ -528,6 +532,7 @@ fn test_engine_process_engine_event_with_audit() {
                 cid: gen_cid(1),
             },
             side: Side::Sell,
+            position_side: None,
             price: dec!(0.05),
             quantity: dec!(1),
             kind: OrderKind::Limit,
@@ -569,6 +574,7 @@ fn test_engine_process_engine_event_with_audit() {
                 cid: gen_cid(1),
             },
             side: Side::Sell,
+            position_side: None,
             price: dec!(0.05),
             quantity: dec!(1),
             kind: OrderKind::Limit,
@@ -690,6 +696,7 @@ impl AlgoStrategy for TestBuyAndHoldStrategy {
                     },
                     state: RequestOpen {
                         side: Side::Buy,
+                        position_side: None,
                         kind: OrderKind::Market,
                         time_in_force: TimeInForce::ImmediateOrCancel,
                         price,
@@ -712,6 +719,10 @@ fn gen_cid(instrument: usize) -> ClientOrderId {
 
 fn gen_trade_id(instrument: usize) -> TradeId {
     TradeId::new(InstrumentIndex(instrument).to_string())
+}
+
+fn gen_client_order_id(instrument: usize) -> ClientOrderId {
+    ClientOrderId::new(InstrumentIndex(instrument).to_string())
 }
 
 fn gen_order_id(instrument: usize) -> OrderId {
@@ -912,6 +923,7 @@ fn account_event_order_response(
                 cid: gen_cid(instrument),
             },
             side,
+            position_side: None,
             price: Decimal::try_from(price).unwrap(),
             quantity: Decimal::try_from(quantity).unwrap(),
             kind: OrderKind::Market,
@@ -955,6 +967,7 @@ fn account_event_trade(
         exchange: ExchangeIndex(0),
         kind: AccountEventKind::Trade(Trade {
             id: gen_trade_id(instrument),
+            cid: gen_client_order_id(instrument),
             order_id: gen_order_id(instrument),
             instrument: InstrumentIndex(instrument),
             strategy: strategy_id(),

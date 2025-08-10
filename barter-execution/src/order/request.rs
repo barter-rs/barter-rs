@@ -3,7 +3,7 @@ use crate::{
     order::{OrderEvent, OrderKind, TimeInForce, id::OrderId, state::Cancelled},
 };
 use barter_instrument::{
-    Side,
+    PositionSide, Side,
     asset::{AssetIndex, name::AssetNameExchange},
     exchange::{ExchangeId, ExchangeIndex},
     instrument::{InstrumentIndex, name::InstrumentNameExchange},
@@ -32,6 +32,7 @@ pub type UnindexedOrderResponseCancel =
 )]
 pub struct RequestOpen {
     pub side: Side,
+    pub position_side: Option<PositionSide>,
     pub price: Decimal,
     pub quantity: Decimal,
     pub kind: OrderKind,

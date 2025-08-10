@@ -122,6 +122,7 @@ where
                 Side::Buy => Side::Sell,
                 Side::Sell => Side::Buy,
             },
+            position_side: None,
             price,
             quantity: position.quantity_abs,
             kind: OrderKind::Market,

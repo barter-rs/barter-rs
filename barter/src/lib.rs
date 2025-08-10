@@ -186,7 +186,7 @@ pub mod test_utils {
     };
     use barter_execution::{
         balance::Balance,
-        order::id::{OrderId, StrategyId},
+        order::id::{ClientOrderId, OrderId, StrategyId},
         trade::{AssetFees, Trade, TradeId},
     };
     use barter_instrument::{
@@ -239,6 +239,7 @@ pub mod test_utils {
         Trade {
             id: TradeId::new("trade_id"),
             order_id: OrderId::new("order_id"),
+            cid: ClientOrderId::random(),
             instrument: InstrumentNameInternal::new("instrument"),
             strategy: StrategyId::new("strategy"),
             time_exchange,

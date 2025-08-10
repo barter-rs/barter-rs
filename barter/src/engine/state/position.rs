@@ -297,6 +297,7 @@ impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
                     trade.fees.fees * (next_position_quantity / trade.quantity.abs());
                 let next_position_trade = Trade {
                     id: trade.id.clone(),
+                    cid: trade.cid.clone(),
                     order_id: trade.order_id.clone(),
                     instrument: trade.instrument.clone(),
                     strategy: trade.strategy.clone(),
