@@ -6,7 +6,7 @@ use barter_instrument::{
     index::{IndexedInstruments, error::IndexError},
     instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
-use barter_integration::collection::{FnvIndexMap, FnvIndexSet};
+use barter_integration::collection::FnvIndexMap;
 use fnv::FnvHashMap;
 
 /// Indexed instrument map used to associate the internal Barter representation of instruments and
@@ -21,8 +21,8 @@ use fnv::FnvHashMap;
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ExecutionInstrumentMap {
     pub exchange: Keyed<ExchangeIndex, ExchangeId>,
-    pub assets: FnvIndexSet<AssetNameExchange>,
-    pub instruments: FnvIndexSet<InstrumentNameExchange>,
+    pub assets: FnvIndexMap<AssetIndex, AssetNameExchange>,
+    pub instruments: FnvIndexMap<InstrumentIndex, InstrumentNameExchange>,
     pub asset_names: FnvHashMap<AssetNameExchange, AssetIndex>,
     pub instrument_names: FnvHashMap<InstrumentNameExchange, InstrumentIndex>,
 }
@@ -44,17 +44,17 @@ impl ExecutionInstrumentMap {
                 .iter()
                 .map(|(key, value)| (value.clone(), *key))
                 .collect(),
-            assets: assets.into_values().collect(),
-            instruments: instruments.into_values().collect(),
+            assets: assets,
+            instruments: instruments,
         }
     }
 
     pub fn exchange_assets(&self) -> impl Iterator<Item = &AssetNameExchange> {
-        self.assets.iter()
+        self.assets.values()
     }
 
     pub fn exchange_instruments(&self) -> impl Iterator<Item = &InstrumentNameExchange> {
-        self.instruments.iter()
+        self.instruments.values()
     }
 
     pub fn find_exchange_id(&self, exchange: ExchangeIndex) -> Result<ExchangeId, KeyError> {
@@ -81,7 +81,7 @@ impl ExecutionInstrumentMap {
         &self,
         asset: AssetIndex,
     ) -> Result<&AssetNameExchange, KeyError> {
-        self.assets.get_index(asset.index()).ok_or_else(|| {
+        self.assets.get(&asset).ok_or_else(|| {
             KeyError::AssetKey(format!("ExecutionInstrumentMap does not contain: {asset}"))
         })
     }
@@ -96,13 +96,11 @@ impl ExecutionInstrumentMap {
         &self,
         instrument: InstrumentIndex,
     ) -> Result<&InstrumentNameExchange, KeyError> {
-        self.instruments
-            .get_index(instrument.index())
-            .ok_or_else(|| {
-                KeyError::InstrumentKey(format!(
-                    "ExecutionInstrumentMap does not contain: {instrument}"
-                ))
-            })
+        self.instruments.get(&instrument).ok_or_else(|| {
+            KeyError::InstrumentKey(format!(
+                "ExecutionInstrumentMap does not contain: {instrument}"
+            ))
+        })
     }
 
     pub fn find_instrument_index(
@@ -153,4 +151,54 @@ pub fn generate_execution_instrument_map(
             })
             .collect(),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use barter_instrument::{exchange::ExchangeId, test_utils};
+
+    fn indexed_instruments() -> IndexedInstruments {
+        let instruments = vec![
+            test_utils::instrument(ExchangeId::BinanceSpot, "BTC", "ETH"),
+            test_utils::instrument(ExchangeId::Coinbase, "BTC", "ETH"),
+            test_utils::instrument(ExchangeId::Kraken, "USDC", "USDT"),
+        ];
+
+        IndexedInstruments::new(instruments)
+    }
+
+    #[test]
+    fn test_find_asset_name_exchange() {
+        let instruments = indexed_instruments();
+
+        let kraken = generate_execution_instrument_map(&instruments, ExchangeId::Kraken).unwrap();
+
+        let usdt = test_utils::asset("USDT");
+        let usdt_index = instruments
+            .find_asset_index(ExchangeId::Kraken, &usdt.name_internal)
+            .unwrap();
+
+        let usdt_exchange_name = kraken.find_asset_name_exchange(usdt_index).unwrap();
+        assert_eq!(usdt_exchange_name, &usdt.name_exchange);
+    }
+
+    #[test]
+    fn test_find_instrument_name_exchange() {
+        let instruments = indexed_instruments();
+
+        let kraken = generate_execution_instrument_map(&instruments, ExchangeId::Kraken).unwrap();
+
+        let usdc_usdt = test_utils::instrument(ExchangeId::Kraken, "USDC", "USDT");
+
+        let usdc_usdt_index = instruments
+            .find_instrument_index(ExchangeId::Kraken, &usdc_usdt.name_internal)
+            .unwrap();
+
+        let usdc_usdt_exchange_name = kraken
+            .find_instrument_name_exchange(usdc_usdt_index)
+            .unwrap();
+
+        assert_eq!(usdc_usdt_exchange_name, &usdc_usdt.name_exchange);
+    }
 }
