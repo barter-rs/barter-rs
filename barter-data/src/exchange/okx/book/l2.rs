@@ -24,12 +24,12 @@ use super::OkxLevel;
 ///   "data": [
 ///     {
 ///       "asks": [
-///         ["41010.2", "0.60067239", "0", "2"],
-///         ["41010.3", "0.30000000", "0", "1"]
+///         ["41010.2", "0.60067239"],
+///         ["41010.3", "0.30000000"]
 ///       ],
 ///       "bids": [
-///         ["41009.9", "0.01", "0", "1"],
-///         ["41009.8", "0.05", "0", "1"]
+///         ["41009.9", "0.01"],
+///         ["41009.8", "0.05"]
 ///       ],
 ///       "ts": "1629966436396",
 ///       "checksum": -855196043,
@@ -59,6 +59,8 @@ pub struct OkxOrderBookL2Inner {
     pub sequence_id: Option<u64>,
     #[serde(rename = "prevSeqId", default)]
     pub prev_sequence_id: Option<u64>,
+    #[serde(default)]
+    pub action: Option<String>,
 }
 
 impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, OkxOrderBookL2)>
@@ -77,9 +79,15 @@ impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, OkxOrderBookL2)>
                     book_data.asks,
                 );
 
-                // OKX sends incremental updates, so treat all as updates
-                // Full snapshots are only sent on initial subscription or reconnection
-                let kind = OrderBookEvent::Update(orderbook);
+                // OKX snapshot detection:
+                // 1. Action field = "snapshot" (explicit)
+                // 2. prevSeqId is absent/0 (initial subscription)  
+                // 3. All else are incremental updates
+                let kind = match (&book_data.action, book_data.prev_sequence_id) {
+                    (Some(action), _) if action == "snapshot" => OrderBookEvent::Snapshot(orderbook),
+                    (_, None | Some(0)) => OrderBookEvent::Snapshot(orderbook),
+                    _ => OrderBookEvent::Update(orderbook),
+                };
 
                 Ok(MarketEvent {
                     time_exchange: book_data.time,
@@ -102,6 +110,7 @@ impl Default for OkxOrderBookL2Inner {
             checksum: None,
             sequence_id: None,
             prev_sequence_id: None,
+            action: None,
         }
     }
 }
@@ -178,6 +187,32 @@ mod tests {
             "#;
 
             let actual = serde_json::from_str::<OkxOrderBookL2>(input).unwrap();
+            assert_eq!(actual.data[0].sequence_id, Some(1));
+        }
+
+        #[test]
+        fn test_okx_order_book_l2_with_action() {
+            let input = r#"
+            {
+                "arg": {
+                    "channel": "books",
+                    "instId": "BTC-USDT"
+                },
+                "data": [
+                    {
+                        "asks": [["41010.2", "0.60067239"]],
+                        "bids": [["41009.9", "0.01"]],
+                        "ts": "1629966436396",
+                        "checksum": -855196043,
+                        "seqId": 1,
+                        "action": "snapshot"
+                    }
+                ]
+            }
+            "#;
+
+            let actual = serde_json::from_str::<OkxOrderBookL2>(input).unwrap();
+            assert_eq!(actual.data[0].action, Some("snapshot".to_string()));
             assert_eq!(actual.data[0].sequence_id, Some(1));
         }
     }

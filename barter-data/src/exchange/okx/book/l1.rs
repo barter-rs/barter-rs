@@ -53,7 +53,21 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, OkxOrderBookL1)>
     fn from(
         (exchange_id, instrument, book): (ExchangeId, InstrumentKey, OkxOrderBookL1),
     ) -> Self {
-        let book_data = book.data.into_iter().next().unwrap_or_default();
+        // OKX should always send at least one data element for L1
+        let Some(book_data) = book.data.into_iter().next() else {
+            // Return empty event with current time if no data
+            return Self(vec![Ok(MarketEvent {
+                time_exchange: Utc::now(),
+                time_received: Utc::now(),
+                exchange: exchange_id,
+                instrument,
+                kind: OrderBookL1 {
+                    last_update_time: Utc::now(),
+                    best_bid: None,
+                    best_ask: None,
+                },
+            })]);
+        };
         
         let best_ask = book_data.asks
             .first()
