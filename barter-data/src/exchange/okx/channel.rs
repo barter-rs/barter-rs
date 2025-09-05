@@ -1,7 +1,11 @@
 use super::Okx;
 use crate::{
     Identifier,
-    subscription::{Subscription, trade::PublicTrades},
+    subscription::{
+        Subscription,
+        book::{OrderBooksL1, OrderBooksL2},
+        trade::PublicTrades,
+    },
 };
 use serde::Serialize;
 
@@ -17,11 +21,33 @@ impl OkxChannel {
     ///
     /// See docs: <https://www.okx.com/docs-v5/en/#websocket-api-public-channel-trades-channel>
     pub const TRADES: Self = Self("trades");
+
+    /// [`Okx`] real-time OrderBook Level1 (top of books) channel.
+    ///
+    /// See docs: <https://www.okx.com/docs-v5/en/#websocket-api-public-channel-bbo-tbt-channel>
+    pub const ORDER_BOOK_L1: Self = Self("bbo-tbt");
+
+    /// [`Okx`] OrderBook Level2 channel (incremental updates).
+    ///
+    /// See docs: <https://www.okx.com/docs-v5/en/#websocket-api-public-channel-order-book-channel>
+    pub const ORDER_BOOK_L2: Self = Self("books");
 }
 
 impl<Instrument> Identifier<OkxChannel> for Subscription<Okx, Instrument, PublicTrades> {
     fn id(&self) -> OkxChannel {
         OkxChannel::TRADES
+    }
+}
+
+impl<Instrument> Identifier<OkxChannel> for Subscription<Okx, Instrument, OrderBooksL1> {
+    fn id(&self) -> OkxChannel {
+        OkxChannel::ORDER_BOOK_L1
+    }
+}
+
+impl<Instrument> Identifier<OkxChannel> for Subscription<Okx, Instrument, OrderBooksL2> {
+    fn id(&self) -> OkxChannel {
+        OkxChannel::ORDER_BOOK_L2
     }
 }
 
