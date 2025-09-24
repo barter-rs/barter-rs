@@ -1,0 +1,88 @@
+version: '3.8'
+
+# Binance Testnet Configuration
+# Uses the provided testnet API keys for safe testing
+
+services:
+  barter-strategy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: barter-strategy:testnet
+    container_name: barter-strategy-testnet
+    restart: unless-stopped
+    env_file:
+      - .env.testnet
+    environment:
+      - RUST_LOG=debug
+      - TRADING_MODE=paper
+      - BINANCE_TESTNET=true
+      - BINANCE_TESTNET_API_KEY=Wt104kkmijNETENuP4hpJfnGLZxjcjhpH7cYVckIvGAeeI6vxd24Vf8zGKs4lznM
+      - BINANCE_TESTNET_API_SECRET=q7MCl5Fp3tILTDsoVA7rG6WzzV2lscHYWsYVp65RYZaXI5dnDGMqXMKDkaniP2Wx
+      - BINANCE_TESTNET_REST_URL=https://testnet.binance.vision
+      - BINANCE_TESTNET_WS_URL=wss://testnet.binance.vision/ws
+      - INITIAL_CAPITAL=10000
+      - MAX_POSITION_SIZE=1000
+      - FLUVIO_URL=fluvio:9003
+    volumes:
+      - ./config:/opt/barter/config
+      - ./data/testnet:/opt/barter/data
+      - ./logs/testnet:/opt/barter/logs
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - barter-testnet
+    command: ["barter-strategy", "--testnet"]
+
+  # Lightweight services for testnet
+  redis:
+    image: redis:7-alpine
+    container_name: barter-redis-testnet
+    restart: unless-stopped
+    volumes:
+      - redis-testnet-data:/data
+    networks:
+      - barter-testnet
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: barter-postgres-testnet
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=barter_testnet
+      - POSTGRES_USER=barter
+      - POSTGRES_PASSWORD=barter_secret
+    volumes:
+      - postgres-testnet-data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - barter-testnet
+
+  # Monitoring (shared)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: barter-grafana-testnet
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=redis-datasource
+    ports:
+      - "3001:3000"  # Different port for testnet
+    volumes:
+      - grafana-testnet-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - barter-testnet
+
+networks:
+  barter-testnet:
+    driver: bridge
+
+volumes:
+  redis-testnet-data:
+  postgres-testnet-data:
+  grafana-testnet-data:

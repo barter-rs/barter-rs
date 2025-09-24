@@ -228,9 +228,37 @@ clippy:
 audit:
 	docker-compose run --rm barter-strategy cargo audit
 
+# Testnet commands
+testnet:
+	@echo "Starting Binance Testnet Trading System..."
+	@chmod +x start_testnet.sh
+	@./start_testnet.sh
+
+testnet-up:
+	docker-compose -f docker-compose.testnet.yml up -d
+
+testnet-down:
+	docker-compose -f docker-compose.testnet.yml down
+
+testnet-logs:
+	docker-compose -f docker-compose.testnet.yml logs -f
+
+testnet-test:
+	@chmod +x scripts/test_binance_testnet.sh
+	@./scripts/test_binance_testnet.sh
+
+testnet-trade:
+	docker-compose -f docker-compose.testnet.yml run --rm barter-strategy \
+		cargo run --example binance_testnet_trading
+
+testnet-clean:
+	docker-compose -f docker-compose.testnet.yml down -v
+	rm -rf data/testnet/* logs/testnet/*
+
 # Quick commands
 qs: up logs-strategy  # Quick start
 qd: down clean         # Quick down
+qt: testnet           # Quick testnet
 
 # Default target
 .DEFAULT_GOAL := help
