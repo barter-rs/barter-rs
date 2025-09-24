@@ -1,0 +1,51 @@
+version: '3.8'
+
+# Development overrides for docker-compose.yml
+services:
+  barter-strategy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder  # Use builder stage for development
+    image: barter-strategy:dev
+    environment:
+      - RUST_LOG=debug
+      - RUST_BACKTRACE=full
+      - TRADING_MODE=test
+    volumes:
+      - .:/usr/src/barter  # Mount source code for hot reload
+      - cargo-cache:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - target-cache:/usr/src/barter/target
+    command: ["cargo", "watch", "-x", "run", "--bin", "barter-strategy"]
+
+  # Development tools
+  rust-analyzer:
+    image: rust:1.75
+    container_name: barter-rust-analyzer
+    volumes:
+      - .:/workspace
+      - cargo-cache:/usr/local/cargo/registry
+    working_dir: /workspace
+    command: ["cargo", "check"]
+    profiles:
+      - dev-tools
+
+  # Test runner
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: barter-test-runner
+    volumes:
+      - .:/usr/src/barter
+      - cargo-cache:/usr/local/cargo/registry
+    command: ["cargo", "test", "--all"]
+    profiles:
+      - test
+
+volumes:
+  cargo-cache:
+  cargo-git:
+  target-cache:

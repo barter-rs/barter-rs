@@ -1,0 +1,53 @@
+# Git
+.git
+.gitignore
+
+# CI
+.github
+
+# Documentation
+*.md
+LICENSE
+
+# Development
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+**/tests/
+**/benches/
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Backtest results
+*.csv
+backtest_results/
+
+# Environment files
+.env
+.env.*
