@@ -1,12 +1,13 @@
 [workspace]
-resolver = "3"
+resolver = "2"
 members = [
     "barter",
     "barter-data",
     "barter-execution",
     "barter-integration",
-    "barter-macro", 
-    "barter-instrument"
+    "barter-macro",
+    "barter-instrument",
+    "barter-strategy"
 ]
 
 [workspace.dependencies]
