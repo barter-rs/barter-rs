@@ -47,7 +47,7 @@ use barter_execution::{
         Order, OrderKey, OrderKind, TimeInForce,
         id::{ClientOrderId, OrderId, StrategyId},
         request::{OrderRequestCancel, OrderRequestOpen, RequestOpen},
-        state::{ActiveOrderState, Open, OrderState},
+        state::{ActiveOrderState, FullyFilled, Open, OrderState},
     },
     trade::{AssetFees, Trade, TradeId},
 };
@@ -573,7 +573,7 @@ fn test_engine_process_engine_event_with_audit() {
             quantity: dec!(1),
             kind: OrderKind::Limit,
             time_in_force: TimeInForce::GoodUntilCancelled { post_only: true },
-            state: OrderState::fully_filled(),
+            state: OrderState::inactive(FullyFilled::new(DateTime::<Utc>::MIN_UTC)),
         })),
     }));
     let audit = process_with_audit(&mut engine, event.clone());
