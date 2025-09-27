@@ -17,9 +17,7 @@ pub mod l2;
 /// ```
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct BinanceLevel {
-    #[serde(with = "rust_decimal::serde::str")]
     pub price: Decimal,
-    #[serde(with = "rust_decimal::serde::str")]
     pub amount: Decimal,
 }
 

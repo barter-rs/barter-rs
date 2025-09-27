@@ -113,3 +113,29 @@ pub enum OrderBookEvent {
     Snapshot(OrderBook),
     Update(OrderBook),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_event_remains_unchanged_after_serializing_and_deserializing() {
+        let bid_levels = vec![
+            Level { price: dec!(50000.50), amount: dec!(1.25) },
+            Level { price: dec!(49995.00), amount: dec!(2.50) },
+        ];
+
+        let ask_levels = vec![
+            Level { price: dec!(50005.75), amount: dec!(0.75) },
+            Level { price: dec!(50010.25), amount: dec!(3.00) },
+        ];
+        let orderbook = OrderBook::new(1001, Some(Utc::now()), bid_levels, ask_levels);
+        let original_event = OrderBookEvent::Update(orderbook);
+
+        let serialized_json = serde_json::to_string_pretty(&original_event).unwrap();
+        let deserialized_event: OrderBookEvent = serde_json::from_str(&serialized_json).unwrap();
+
+        assert_eq!(original_event, deserialized_event, "The deserialized event should match the original event.");
+    }
+}
