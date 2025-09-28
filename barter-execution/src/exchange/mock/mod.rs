@@ -78,12 +78,28 @@ impl MockExchange {
                     let snapshot = self.account_snapshot();
                     self.respond_with_latency(response_tx, snapshot);
                 }
-                MockExchangeRequestKind::FetchBalances { response_tx } => {
-                    let balances = self.account.balances().cloned().collect();
+                MockExchangeRequestKind::FetchBalances {
+                    response_tx,
+                    assets,
+                } => {
+                    let balances = self
+                        .account
+                        .balances()
+                        .filter(|balance| assets.contains(&balance.asset))
+                        .cloned()
+                        .collect();
                     self.respond_with_latency(response_tx, balances);
                 }
-                MockExchangeRequestKind::FetchOrdersOpen { response_tx } => {
-                    let orders_open = self.account.orders_open().cloned().collect();
+                MockExchangeRequestKind::FetchOrdersOpen {
+                    response_tx,
+                    instruments,
+                } => {
+                    let orders_open = self
+                        .account
+                        .orders_open()
+                        .filter(|order| instruments.contains(&order.key.instrument))
+                        .cloned()
+                        .collect();
                     self.respond_with_latency(response_tx, orders_open);
                 }
                 MockExchangeRequestKind::FetchTrades {

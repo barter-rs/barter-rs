@@ -82,10 +82,12 @@ where
 
     fn fetch_balances(
         &self,
+        assets: &[AssetNameExchange],
     ) -> impl Future<Output = Result<Vec<AssetBalance<AssetNameExchange>>, UnindexedClientError>>;
 
     fn fetch_open_orders(
         &self,
+        instruments: &[InstrumentNameExchange],
     ) -> impl Future<
         Output = Result<Vec<Order<ExchangeId, InstrumentNameExchange, Open>>, UnindexedClientError>,
     >;

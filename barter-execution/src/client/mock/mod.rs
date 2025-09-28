@@ -238,12 +238,14 @@ where
 
     async fn fetch_balances(
         &self,
+        assets: &[AssetNameExchange],
     ) -> Result<Vec<AssetBalance<AssetNameExchange>>, UnindexedClientError> {
         let (response_tx, response_rx) = oneshot::channel();
 
         self.request_tx
             .send(MockExchangeRequest::fetch_balances(
                 self.time_request(),
+                assets.to_vec(),
                 response_tx,
             ))
             .map_err(|_| {
@@ -261,12 +263,14 @@ where
 
     async fn fetch_open_orders(
         &self,
+        instruments: &[InstrumentNameExchange],
     ) -> Result<Vec<Order<ExchangeId, InstrumentNameExchange, Open>>, UnindexedClientError> {
         let (response_tx, response_rx) = oneshot::channel();
 
         self.request_tx
             .send(MockExchangeRequest::fetch_orders_open(
                 self.time_request(),
+                instruments.to_vec(),
                 response_tx,
             ))
             .map_err(|_| {
