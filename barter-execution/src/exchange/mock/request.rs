@@ -40,21 +40,29 @@ impl MockExchangeRequest {
 
     pub fn fetch_balances(
         time_request: DateTime<Utc>,
+        assets: Vec<AssetNameExchange>,
         response_tx: oneshot::Sender<Vec<AssetBalance<AssetNameExchange>>>,
     ) -> Self {
         Self::new(
             time_request,
-            MockExchangeRequestKind::FetchBalances { response_tx },
+            MockExchangeRequestKind::FetchBalances {
+                response_tx,
+                assets,
+            },
         )
     }
 
     pub fn fetch_orders_open(
         time_request: DateTime<Utc>,
+        instruments: Vec<InstrumentNameExchange>,
         response_tx: oneshot::Sender<Vec<Order<ExchangeId, InstrumentNameExchange, Open>>>,
     ) -> Self {
         Self::new(
             time_request,
-            MockExchangeRequestKind::FetchOrdersOpen { response_tx },
+            MockExchangeRequestKind::FetchOrdersOpen {
+                response_tx,
+                instruments,
+            },
         )
     }
 
@@ -109,9 +117,11 @@ pub enum MockExchangeRequestKind {
         response_tx: oneshot::Sender<UnindexedAccountSnapshot>,
     },
     FetchBalances {
+        assets: Vec<AssetNameExchange>,
         response_tx: oneshot::Sender<Vec<AssetBalance<AssetNameExchange>>>,
     },
     FetchOrdersOpen {
+        instruments: Vec<InstrumentNameExchange>,
         response_tx: oneshot::Sender<Vec<Order<ExchangeId, InstrumentNameExchange, Open>>>,
     },
     FetchTrades {
