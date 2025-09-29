@@ -53,3 +53,5 @@ derive_more = { workspace = true }
 itertools = { workspace = true }
 vecmap-rs = { workspace = true }
 fnv = { workspace = true }
+
+prost = { workspace = true }

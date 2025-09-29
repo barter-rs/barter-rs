@@ -82,7 +82,7 @@ impl SubscriptionValidator for BitfinexWebSocketSubValidator {
                         None => break Err(SocketError::Subscribe("WebSocket stream terminated unexpectedly".to_string()))
                     };
 
-                    match Self::Parser::parse::<BitfinexPlatformEvent>(response) {
+                    match <WebSocketParser as StreamParser<BitfinexPlatformEvent>>::parse(response) {
                         Some(Ok(response)) => match response.validate() {
                             // Bitfinex server is online
                             Ok(BitfinexPlatformEvent::PlatformStatus(status)) => {
