@@ -98,6 +98,7 @@ impl From<UnindexedAccountSnapshot> for AccountState {
                                 Order {
                                     key: order.key,
                                     side: order.side,
+                                    position_side: order.position_side,
                                     price: order.price,
                                     quantity: order.quantity,
                                     kind: order.kind,
@@ -112,6 +113,7 @@ impl From<UnindexedAccountSnapshot> for AccountState {
                                 Order {
                                     key: order.key,
                                     side: order.side,
+                                    position_side: order.position_side,
                                     price: order.price,
                                     quantity: order.quantity,
                                     kind: order.kind,

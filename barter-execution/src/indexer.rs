@@ -133,6 +133,7 @@ impl AccountEventIndexer {
         let Order {
             key,
             side,
+            position_side,
             price,
             quantity,
             kind,
@@ -162,6 +163,7 @@ impl AccountEventIndexer {
         Ok(Order {
             key,
             side,
+            position_side,
             price,
             quantity,
             kind,
@@ -273,6 +275,7 @@ impl AccountEventIndexer {
     ) -> Result<Trade<QuoteAsset, InstrumentIndex>, IndexError> {
         let Trade {
             id,
+            cid,
             order_id,
             instrument,
             strategy,
@@ -287,6 +290,7 @@ impl AccountEventIndexer {
 
         Ok(Trade {
             id,
+            cid,
             order_id,
             instrument: instrument_index,
             strategy,

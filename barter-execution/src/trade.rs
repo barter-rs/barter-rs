@@ -1,4 +1,4 @@
-use crate::order::id::{OrderId, StrategyId};
+use crate::order::id::{ClientOrderId, OrderId, StrategyId};
 use barter_instrument::{Side, asset::QuoteAsset};
 use chrono::{DateTime, Utc};
 use derive_more::{Constructor, From};
@@ -21,6 +21,7 @@ impl TradeId {
 )]
 pub struct Trade<AssetKey, InstrumentKey> {
     pub id: TradeId,
+    pub cid: ClientOrderId,
     pub order_id: OrderId,
     pub instrument: InstrumentKey,
     pub strategy: StrategyId,

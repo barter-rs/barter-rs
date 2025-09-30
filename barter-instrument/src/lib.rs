@@ -109,6 +109,26 @@ impl Display for Side {
     }
 }
 
+/// [`PositionSide`] of a position - Long or Short.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub enum PositionSide {
+    Long,
+    Short,
+}
+
+impl Display for PositionSide {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                PositionSide::Long => "Long",
+                PositionSide::Short => "Short",
+            }
+        )
+    }
+}
+
 pub mod test_utils {
     use crate::{
         Underlying,

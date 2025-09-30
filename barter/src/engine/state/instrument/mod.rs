@@ -387,6 +387,7 @@ where
                 let Order {
                     key,
                     side,
+                    position_side,
                     price,
                     quantity,
                     kind,
@@ -405,6 +406,7 @@ where
                         cid: key.cid.clone(),
                     },
                     side: *side,
+                    position_side: *position_side,
                     price: *price,
                     quantity: *quantity,
                     kind: *kind,
