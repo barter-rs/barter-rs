@@ -44,6 +44,7 @@ pub mod quote;
 )]
 pub struct InstrumentId(pub u64);
 
+/// Unique index for each [`Instrument`] used in the Engine.
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
