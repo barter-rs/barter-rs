@@ -18,7 +18,7 @@ use barter_execution::{
         request::{
             OrderRequestCancel, OrderRequestOpen, OrderResponseCancel, UnindexedOrderResponseCancel,
         },
-        state::{Open, OrderState},
+        state::{FullyFilled, Open, OrderState},
     },
 };
 use barter_instrument::{
@@ -390,7 +390,9 @@ where
         let key = self.indexer.order_key(key)?;
 
         let state = match state {
-            Ok(open) if open.quantity_remaining(quantity).is_zero() => OrderState::fully_filled(),
+            Ok(open) if open.quantity_remaining(quantity).is_zero() => {
+                OrderState::inactive(FullyFilled::new(open.time_exchange))
+            }
             Ok(open) => OrderState::active(open),
             Err(error) => OrderState::inactive(self.indexer.order_error(error)?),
         };

@@ -154,7 +154,7 @@ impl AccountEventIndexer {
                     }
                 },
                 InactiveOrderState::Cancelled(cancelled) => OrderState::inactive(cancelled),
-                InactiveOrderState::FullyFilled => OrderState::fully_filled(),
+                InactiveOrderState::FullyFilled(fully_filled) => OrderState::inactive(fully_filled),
                 InactiveOrderState::Expired => OrderState::expired(),
             },
         };
