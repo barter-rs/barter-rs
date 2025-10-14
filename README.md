@@ -12,6 +12,7 @@ comprehensive documentation and examples for each library.**
 [![Crates.io][crates-badge]][crates-url]
 [![MIT licensed][mit-badge]][mit-url]
 [![Discord chat][discord-badge]][discord-url]
+[![DeepWiki][deepwiki-badge]][deepwiki-url]
 
 [crates-badge]: https://img.shields.io/crates/v/barter.svg
 [crates-url]: https://crates.io/crates/barter
@@ -21,6 +22,9 @@ comprehensive documentation and examples for each library.**
 
 [discord-badge]: https://img.shields.io/discord/910237311332151317.svg?logo=discord&style=flat-square
 [discord-url]: https://discord.gg/wE7RqhnQMV
+
+[deepwiki-badge]: https://deepwiki.com/badge.svg
+[deepwiki-url]: https://deepwiki.com/barter-rs/barter-rs
 
 [`Barter`]: https://crates.io/crates/barter
 [`Barter-Instrument`]: https://crates.io/crates/barter-instrument
