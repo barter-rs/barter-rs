@@ -63,7 +63,7 @@ impl Transformer for StatefulTransformer {
 #[tokio::main]
 async fn main() {
     // Establish Sink/Stream communication with desired WebSocket server
-    let mut binance_conn = connect_async("wss://fstream.binance.com/ws/")
+    let mut binance_conn = connect_async("wss://fstream.binance.com/ws")
         .await
         .map(|(ws_conn, _)| ws_conn)
         .expect("failed to connect");

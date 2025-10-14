@@ -26,6 +26,10 @@
 //!
 //! Both core abstractions provide the robust glue you need to conveniently translate between server & client data models.
 
+// Silence unused dev-dependencies warnings.
+#[cfg(test)]
+use sha2 as _;
+
 use crate::error::SocketError;
 use serde::{Deserialize, Serialize};
 
@@ -73,7 +77,7 @@ pub trait Validator {
 /// `Result<Self::Output, Self::Error>`s.
 pub trait Transformer {
     type Error;
-    type Input: for<'de> Deserialize<'de>;
+    type Input;
     type Output;
     type OutputIter: IntoIterator<Item = Result<Self::Output, Self::Error>>;
     fn transform(&mut self, input: Self::Input) -> Self::OutputIter;
