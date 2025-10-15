@@ -296,10 +296,8 @@ impl MockExchange {
                 assert_eq!(current_quote.balance.total, current_quote.balance.free);
 
                 let order_value_quote = request.state.price * request.state.quantity.abs();
-                let order_fees_quote = order_value_quote * self.fees_percent;
-                let quote_required = order_value_quote + order_fees_quote;
 
-                let maybe_new_balance = current_quote.balance.free - quote_required;
+                let maybe_new_balance = current_quote.balance.free - order_value_quote;
 
                 if maybe_new_balance >= Decimal::ZERO {
                     current_quote.balance.free = maybe_new_balance;
@@ -308,24 +306,27 @@ impl MockExchange {
 
                     let current_quote_snapshot = current_quote.clone();
 
-                    // Add received base asset
+                    // Add received base asset with fees deducted
                     let base_received = request.state.quantity.abs();
+                    let order_fees_base = base_received * self.fees_percent;
+                    let base_after_fees = base_received - order_fees_base;
+
                     let current_base = self
                         .account
                         .balance_mut(&underlying.base)
                         .expect("MockExchange has Balance for all configured Instrument assets");
 
-                    current_base.balance.free += base_received;
-                    current_base.balance.total += base_received;
+                    current_base.balance.free += base_after_fees;
+                    current_base.balance.total += base_after_fees;
                     current_base.time_exchange = time_exchange;
-
-                    Ok((current_quote_snapshot, AssetFees::quote_fees(order_fees_quote)))
+                    // TODO: switch to `AssetFees::base_fees` once `OpenOrderNotifications` can represent fees charged in the received asset.
+                    Ok((current_quote_snapshot, AssetFees::quote_fees(order_fees_base)))
                 } else {
                     Err(ApiError::BalanceInsufficient(
                         underlying.quote,
                         format!(
-                            "Available Balance: {}, Required Balance inc. fees: {}",
-                            current_quote.balance.free, quote_required
+                            "Available Balance: {}, Required Balance: {}",
+                            current_quote.balance.free, order_value_quote
                         ),
                     ))
                 }
