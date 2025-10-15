@@ -11,7 +11,10 @@ use crate::{
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
+use barter_integration::{
+    error::SocketError,
+    protocol::websocket::{WebSocketSerdeParser, WsMessage},
+};
 use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
 use serde_json::json;
@@ -42,6 +45,9 @@ pub mod trade;
 ///
 /// See docs: <https://docs.kraken.com/websockets/#overview>
 pub const BASE_URL_KRAKEN: &str = "wss://ws.kraken.com/";
+
+/// Convenient type alias for a Kraken [`ExchangeWsStream`] using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
+pub type KrakenWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
 
 /// [`Kraken`] exchange.
 ///
@@ -99,7 +105,7 @@ where
 {
     type SnapFetcher = NoInitialSnapshots;
     type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, KrakenTrades>>;
+        KrakenWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, KrakenTrades>>;
 }
 
 impl<Instrument> StreamSelector<Instrument, OrderBooksL1> for Kraken
@@ -107,7 +113,7 @@ where
     Instrument: InstrumentData,
 {
     type SnapFetcher = NoInitialSnapshots;
-    type Stream = ExchangeWsStream<
+    type Stream = KrakenWsStream<
         StatelessTransformer<Self, Instrument::Key, OrderBooksL1, KrakenOrderBookL1>,
     >;
 }

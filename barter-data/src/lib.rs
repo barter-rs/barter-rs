@@ -107,12 +107,11 @@ use barter_integration::{
     error::SocketError,
     protocol::{
         StreamParser,
-        websocket::{WebSocketProtobufParser, WebSocketSerdeParser, WsMessage, WsSink, WsStream},
+        websocket::{WsError, WsMessage, WsSink, WsStream},
     },
     stream::ExchangeStream,
 };
 use futures::{SinkExt, Stream, StreamExt};
-use serde::{Deserialize, de::DeserializeOwned};
 
 use std::{collections::VecDeque, future::Future};
 use tokio::sync::mpsc;
@@ -164,16 +163,9 @@ pub mod books;
 /// [`futures_usd`](exchange::binance::futures::l2::BinanceFuturesUsdOrderBooksL2Transformer).
 pub mod transformer;
 
-/// Convenient type alias for an [`ExchangeStream`] utilising a tungstenite
+/// Convenient type alias for an [`ExchangeStream`] utilizing a tungstenite
 /// [`WebSocket`](barter_integration::protocol::websocket::WebSocket).
-pub type ExchangeWsStream<Transformer> =
-    ExchangeStream<WebSocketSerdeParser, WsStream, Transformer>;
-
-/// Convenient type alias for an [`ExchangeStream`] utilising a tungstenite
-/// [`WebSocket`](barter_integration::protocol::websocket::WebSocket) that
-/// decodes protobuf-encoded `WsMessage::Binary` payloads.
-pub type ExchangeWsPbStream<Transformer> =
-    ExchangeStream<WebSocketProtobufParser, WsStream, Transformer>;
+pub type ExchangeWsStream<Parser, Transformer> = ExchangeStream<Parser, WsStream, Transformer>;
 
 /// Defines a generic identification type for the implementor.
 pub trait Identifier<T> {
@@ -222,15 +214,15 @@ pub trait SnapshotFetcher<Exchange, Kind> {
 }
 
 #[async_trait]
-impl<Exchange, Instrument, Kind, Transformer> MarketStream<Exchange, Instrument, Kind>
-    for ExchangeWsStream<Transformer>
+impl<Exchange, Instrument, Kind, Transformer, Parser> MarketStream<Exchange, Instrument, Kind>
+    for ExchangeWsStream<Parser, Transformer>
 where
     Exchange: Connector + Send + Sync,
     Instrument: InstrumentData,
     Kind: SubscriptionKind + Send + Sync,
     Transformer: ExchangeTransformer<Exchange, Instrument::Key, Kind> + Send,
     Kind::Event: Send,
-    Transformer::Input: DeserializeOwned,
+    Parser: StreamParser<Transformer::Input, Message = WsMessage, Error = WsError> + Send,
 {
     async fn init<SnapFetcher>(
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
@@ -275,7 +267,7 @@ where
             Transformer::init(instrument_map, &initial_snapshots, ws_sink_tx).await?;
 
         // Process any buffered active subscription events received during Subscription validation
-        let mut processed = process_buffered_events::<WebSocketSerdeParser, _>(
+        let mut processed = process_buffered_events::<Parser, Transformer>(
             &mut transformer,
             buffered_websocket_events,
         );
@@ -284,64 +276,6 @@ where
         processed.extend(initial_snapshots.into_iter().map(Ok));
 
         Ok(ExchangeWsStream::new(ws_stream, transformer, processed))
-    }
-}
-
-#[async_trait]
-impl<Exchange, Instrument, Kind, Transformer> MarketStream<Exchange, Instrument, Kind>
-    for ExchangeWsPbStream<Transformer>
-where
-    Exchange: Connector + Send + Sync,
-    Instrument: InstrumentData,
-    Kind: SubscriptionKind + Send + Sync,
-    Transformer: ExchangeTransformer<Exchange, Instrument::Key, Kind> + Send,
-    Kind::Event: Send,
-    Transformer::Input: Default + prost::Message + for<'de> Deserialize<'de>,
-{
-    async fn init<SnapFetcher>(
-        subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> Result<Self, DataError>
-    where
-        SnapFetcher: SnapshotFetcher<Exchange, Kind>,
-        Subscription<Exchange, Instrument, Kind>:
-            Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
-    {
-        let Subscribed {
-            websocket,
-            map: instrument_map,
-            buffered_websocket_events,
-        } = Exchange::Subscriber::subscribe(subscriptions).await?;
-
-        let initial_snapshots = SnapFetcher::fetch_snapshots(subscriptions).await?;
-
-        let (ws_sink, ws_stream) = websocket.split();
-
-        let (ws_sink_tx, ws_sink_rx) = mpsc::unbounded_channel();
-        tokio::spawn(distribute_messages_to_exchange(
-            Exchange::ID,
-            ws_sink,
-            ws_sink_rx,
-        ));
-
-        if let Some(ping_interval) = Exchange::ping_interval() {
-            tokio::spawn(schedule_pings_to_exchange(
-                Exchange::ID,
-                ws_sink_tx.clone(),
-                ping_interval,
-            ));
-        }
-
-        let mut transformer =
-            Transformer::init(instrument_map, &initial_snapshots, ws_sink_tx).await?;
-
-        let mut processed = process_buffered_events::<WebSocketProtobufParser, _>(
-            &mut transformer,
-            buffered_websocket_events,
-        );
-
-        processed.extend(initial_snapshots.into_iter().map(Ok));
-
-        Ok(ExchangeWsPbStream::new(ws_stream, transformer, processed))
     }
 }
 
@@ -365,19 +299,18 @@ impl<Exchange, Kind> SnapshotFetcher<Exchange, Kind> for NoInitialSnapshots {
     }
 }
 
-pub fn process_buffered_events<Protocol, StreamTransformer>(
+pub fn process_buffered_events<Parser, StreamTransformer>(
     transformer: &mut StreamTransformer,
-    events: Vec<Protocol::Message>,
+    events: Vec<Parser::Message>,
 ) -> VecDeque<Result<StreamTransformer::Output, StreamTransformer::Error>>
 where
-    Protocol: StreamParser<StreamTransformer::Input>,
+    Parser: StreamParser<StreamTransformer::Input>,
     StreamTransformer: Transformer,
-    StreamTransformer::Input: DeserializeOwned,
 {
     events
         .into_iter()
         .filter_map(|event| {
-            Protocol::parse(Ok(event))?
+            Parser::parse(Ok(event))?
                 .inspect_err(|error| {
                     warn!(
                         ?error,

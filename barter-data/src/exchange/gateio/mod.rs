@@ -1,10 +1,14 @@
 use self::{channel::GateioChannel, market::GateioMarket, subscription::GateioSubResponse};
 use crate::{
+    ExchangeWsStream,
     exchange::{Connector, ExchangeServer, subscription::ExchangeSub},
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
+use barter_integration::{
+    error::SocketError,
+    protocol::websocket::{WebSocketSerdeParser, WsMessage},
+};
 use serde_json::json;
 use std::{fmt::Debug, marker::PhantomData};
 use url::Url;
@@ -45,6 +49,9 @@ pub mod message;
 /// [`GateioPerpetualUsdt`](perpetual::GateioPerpetualsUsd) and
 /// [`GateioPerpetualBtc`](perpetual::GateioPerpetualsBtc).
 pub mod subscription;
+
+/// Convenient type alias using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
+pub type GateiotWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
 
 /// Generic [`Gateio<Server>`](Gateio) exchange.
 ///

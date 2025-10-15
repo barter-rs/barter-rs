@@ -4,7 +4,6 @@ use futures::Stream;
 /// Contains useful `WebSocket` type aliases and a default `WebSocket` implementation of a
 /// [`StreamParser`].
 pub mod websocket;
-pub use websocket::WebSocketProtobufParser;
 
 /// Contains HTTP client capable of executing signed & unsigned requests, as well as an associated
 /// execution oriented HTTP request.

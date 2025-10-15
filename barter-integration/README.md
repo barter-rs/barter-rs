@@ -344,8 +344,7 @@ be used with `ExchangeStream` in place of `WebSocketSerdeParser` when servers se
 protobuf encoded messages.
 
 ```rust
-use barter_integration::protocol::WebSocketProtobufParser;
-use barter_integration::protocol::websocket::WebSocket;
+use barter_integration::protocol::websocket::{WebSocket, WebSocketProtobufParser};
 use barter_integration::ExchangeStream;
 
 type ProtoStream<Exchange> = ExchangeStream<WebSocketProtobufParser, WebSocket, Exchange, ()>;

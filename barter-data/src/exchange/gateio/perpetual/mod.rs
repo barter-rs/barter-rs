@@ -1,8 +1,8 @@
 use self::trade::GateioFuturesTrades;
 use super::Gateio;
 use crate::{
-    ExchangeWsStream, NoInitialSnapshots,
-    exchange::{ExchangeServer, StreamSelector},
+    NoInitialSnapshots,
+    exchange::{ExchangeServer, StreamSelector, gateio::GateiotWsStream},
     instrument::InstrumentData,
     subscription::trade::PublicTrades,
     transformer::stateless::StatelessTransformer,
@@ -38,7 +38,7 @@ where
     Instrument: InstrumentData,
 {
     type SnapFetcher = NoInitialSnapshots;
-    type Stream = ExchangeWsStream<
+    type Stream = GateiotWsStream<
         StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
     >;
 }
@@ -74,7 +74,7 @@ where
     Instrument: InstrumentData,
 {
     type SnapFetcher = NoInitialSnapshots;
-    type Stream = ExchangeWsStream<
+    type Stream = GateiotWsStream<
         StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
     >;
 }

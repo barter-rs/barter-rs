@@ -76,6 +76,7 @@ pub trait Transformer {
     type Input;
     type Output;
     type OutputIter: IntoIterator<Item = Result<Self::Output, Self::Error>>;
+
     fn transform(&mut self, input: Self::Input) -> Self::OutputIter;
 }
 
