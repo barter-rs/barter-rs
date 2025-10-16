@@ -114,19 +114,3 @@ impl From<Asset> for AssetNameInternal {
         value.name_internal
     }
 }
-
-/// Special type that represents a "base" [`Asset`].
-///
-/// Examples: <br>
-/// a) Instrument = btc_usdt_spot, [`BaseAsset`] => btc <br>
-/// b) Instrument = eth_btc_spot, [`BaseAsset`] => eth
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display)]
-pub struct BaseAsset;
-
-/// Special type that represents a "quote" [`Asset`].
-///
-/// Examples: <br>
-/// a) Instrument = btc_usdt_spot, [`QuoteAsset`] => usdt <br>
-/// b) Instrument = eth_btc_spot, [`QuoteAsset`] => btc
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display)]
-pub struct QuoteAsset;

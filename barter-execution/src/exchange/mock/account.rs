@@ -9,9 +9,7 @@ use crate::{
     trade::Trade,
 };
 use barter_instrument::{
-    asset::{QuoteAsset, name::AssetNameExchange},
-    exchange::ExchangeId,
-    instrument::name::InstrumentNameExchange,
+    asset::name::AssetNameExchange, exchange::ExchangeId, instrument::name::InstrumentNameExchange,
 };
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
@@ -23,7 +21,7 @@ pub struct AccountState {
     orders_open: FnvHashMap<ClientOrderId, Order<ExchangeId, InstrumentNameExchange, Open>>,
     orders_cancelled:
         FnvHashMap<ClientOrderId, Order<ExchangeId, InstrumentNameExchange, Cancelled>>,
-    trades: Vec<Trade<QuoteAsset, InstrumentNameExchange>>,
+    trades: Vec<Trade<InstrumentNameExchange>>,
 }
 
 impl AccountState {
@@ -56,7 +54,7 @@ impl AccountState {
     pub fn trades(
         &self,
         time_since: DateTime<Utc>,
-    ) -> impl Iterator<Item = &Trade<QuoteAsset, InstrumentNameExchange>> + '_ {
+    ) -> impl Iterator<Item = &Trade<InstrumentNameExchange>> + '_ {
         self.trades
             .iter()
             .filter(move |trade| trade.time_exchange >= time_since)
@@ -69,7 +67,7 @@ impl AccountState {
         self.balances.get_mut(asset)
     }
 
-    pub fn ack_trade(&mut self, trade: Trade<QuoteAsset, InstrumentNameExchange>) {
+    pub fn ack_trade(&mut self, trade: Trade<InstrumentNameExchange>) {
         self.trades.push(trade);
     }
 }

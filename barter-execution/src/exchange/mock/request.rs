@@ -10,9 +10,7 @@ use crate::{
     trade::Trade,
 };
 use barter_instrument::{
-    asset::{QuoteAsset, name::AssetNameExchange},
-    exchange::ExchangeId,
-    instrument::name::InstrumentNameExchange,
+    asset::name::AssetNameExchange, exchange::ExchangeId, instrument::name::InstrumentNameExchange,
 };
 use chrono::{DateTime, Utc};
 use tokio::sync::oneshot;
@@ -68,7 +66,7 @@ impl MockExchangeRequest {
 
     pub fn fetch_trades(
         time_request: DateTime<Utc>,
-        response_tx: oneshot::Sender<Vec<Trade<QuoteAsset, InstrumentNameExchange>>>,
+        response_tx: oneshot::Sender<Vec<Trade<InstrumentNameExchange>>>,
         time_since: DateTime<Utc>,
     ) -> Self {
         Self::new(
@@ -125,7 +123,7 @@ pub enum MockExchangeRequestKind {
         response_tx: oneshot::Sender<Vec<Order<ExchangeId, InstrumentNameExchange, Open>>>,
     },
     FetchTrades {
-        response_tx: oneshot::Sender<Vec<Trade<QuoteAsset, InstrumentNameExchange>>>,
+        response_tx: oneshot::Sender<Vec<Trade<InstrumentNameExchange>>>,
         time_since: DateTime<Utc>,
     },
     CancelOrder {

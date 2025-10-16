@@ -15,7 +15,7 @@ use crate::{
     trade::Trade,
 };
 use barter_instrument::{
-    asset::{AssetIndex, QuoteAsset, name::AssetNameExchange},
+    asset::{AssetIndex, name::AssetNameExchange},
     exchange::{ExchangeId, ExchangeIndex},
     index::error::IndexError,
     instrument::{InstrumentIndex, name::InstrumentNameExchange},
@@ -269,8 +269,8 @@ impl AccountEventIndexer {
 
     pub fn trade(
         &self,
-        trade: Trade<QuoteAsset, InstrumentNameExchange>,
-    ) -> Result<Trade<QuoteAsset, InstrumentIndex>, IndexError> {
+        trade: Trade<InstrumentNameExchange>,
+    ) -> Result<Trade<InstrumentIndex>, IndexError> {
         let Trade {
             id,
             order_id,

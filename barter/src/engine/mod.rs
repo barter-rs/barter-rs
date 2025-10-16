@@ -29,7 +29,7 @@ use crate::{
 };
 use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
 use barter_execution::AccountEvent;
-use barter_instrument::{asset::QuoteAsset, exchange::ExchangeIndex, instrument::InstrumentIndex};
+use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::channel::Tx;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
@@ -379,7 +379,7 @@ pub enum EngineOutput<
     Commanded(ActionOutput<ExchangeKey, InstrumentKey>),
     OnTradingDisabled(OnTradingDisabled),
     AccountDisconnect(OnDisconnect),
-    PositionExit(PositionExited<QuoteAsset, InstrumentKey>),
+    PositionExit(PositionExited<InstrumentKey>),
     MarketDisconnect(OnDisconnect),
     AlgoOrders(GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>),
 }
@@ -398,7 +398,7 @@ pub enum UpdateTradingStateOutput<OnTradingDisabled> {
 pub enum UpdateFromAccountOutput<OnDisconnect, InstrumentKey = InstrumentIndex> {
     None,
     OnDisconnect(OnDisconnect),
-    PositionExit(PositionExited<QuoteAsset, InstrumentKey>),
+    PositionExit(PositionExited<InstrumentKey>),
 }
 
 /// Output produced by the [`Engine`] updating from an [`MarketStreamEvent`], used to construct
@@ -419,10 +419,10 @@ impl<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
 }
 
 impl<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
-    From<PositionExited<QuoteAsset, InstrumentKey>>
+    From<PositionExited<InstrumentKey>>
     for EngineOutput<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
 {
-    fn from(value: PositionExited<QuoteAsset, InstrumentKey>) -> Self {
+    fn from(value: PositionExited<InstrumentKey>) -> Self {
         Self::PositionExit(value)
     }
 }

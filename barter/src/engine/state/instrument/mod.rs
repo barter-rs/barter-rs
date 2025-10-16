@@ -18,7 +18,7 @@ use barter_execution::{
 };
 use barter_instrument::{
     Keyed,
-    asset::{AssetIndex, QuoteAsset, name::AssetNameExchange},
+    asset::{AssetIndex, name::AssetNameExchange},
     exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
     instrument::{
@@ -323,8 +323,8 @@ impl<InstrumentData, ExchangeKey, AssetKey, InstrumentKey>
     /// - Updating the internal [`TearSheetGenerator`] if a position is exited.
     pub fn update_from_trade(
         &mut self,
-        trade: &Trade<QuoteAsset, InstrumentKey>,
-    ) -> Option<PositionExited<QuoteAsset, InstrumentKey>>
+        trade: &Trade<InstrumentKey>,
+    ) -> Option<PositionExited<InstrumentKey>>
     where
         InstrumentKey: Debug + Clone + PartialEq,
     {

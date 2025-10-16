@@ -99,9 +99,9 @@ where
 /// provided [`Position`].
 ///
 /// For example, if [`Position`] is LONG by 100, build a market order request to sell 100.
-pub fn build_ioc_market_order_to_close_position<ExchangeKey, AssetKey, InstrumentKey>(
+pub fn build_ioc_market_order_to_close_position<ExchangeKey, InstrumentKey>(
     exchange: ExchangeKey,
-    position: &Position<AssetKey, InstrumentKey>,
+    position: &Position<InstrumentKey>,
     strategy_id: StrategyId,
     price: Decimal,
     gen_cid: impl Fn() -> ClientOrderId,

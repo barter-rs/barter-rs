@@ -12,9 +12,7 @@ use crate::{
     trade::Trade,
 };
 use barter_instrument::{
-    asset::{QuoteAsset, name::AssetNameExchange},
-    exchange::ExchangeId,
-    instrument::name::InstrumentNameExchange,
+    asset::name::AssetNameExchange, exchange::ExchangeId, instrument::name::InstrumentNameExchange,
 };
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
@@ -289,7 +287,7 @@ where
     async fn fetch_trades(
         &self,
         time_since: DateTime<Utc>,
-    ) -> Result<Vec<Trade<QuoteAsset, InstrumentNameExchange>>, UnindexedClientError> {
+    ) -> Result<Vec<Trade<InstrumentNameExchange>>, UnindexedClientError> {
         let (response_tx, response_rx) = oneshot::channel();
 
         self.request_tx

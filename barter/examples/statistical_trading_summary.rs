@@ -7,18 +7,18 @@ use barter::{
 };
 use barter_execution::{
     balance::{AssetBalance, Balance},
-    trade::{AssetFees, TradeId},
+    trade::TradeId,
 };
 use barter_instrument::{
     Side, Underlying,
-    asset::{AssetIndex, QuoteAsset},
+    asset::AssetIndex,
     exchange::ExchangeId,
     index::IndexedInstruments,
     instrument::{Instrument, InstrumentIndex},
 };
 use barter_integration::snapshot::Snapshot;
 use chrono::{DateTime, Days, Utc};
-use rust_decimal::Decimal;
+use rust_decimal::{Decimal, prelude::Zero};
 use rust_decimal_macros::dec;
 use smol_str::SmolStr;
 
@@ -40,7 +40,7 @@ const STARTING_BALANCE_ETH: Balance = Balance {
 
 pub enum ContrivedEvents {
     Balance(Snapshot<AssetBalance<AssetIndex>>),
-    Position(PositionExited<QuoteAsset, InstrumentIndex>),
+    Position(PositionExited<InstrumentIndex>),
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -137,14 +137,8 @@ fn generate_synthetic_updates(base_time: DateTime<Utc>) -> Vec<ContrivedEvents> 
             price_entry_average: dec!(1.0),
             quantity_abs_max: dec!(1000.0),
             pnl_realised: dec!(2000.0), // 2000 usdt profit
-            fees_enter: AssetFees {
-                asset: QuoteAsset,
-                fees: dec!(0.0),
-            },
-            fees_exit: AssetFees {
-                asset: QuoteAsset,
-                fees: dec!(0.0),
-            },
+            fees_enter: dec!(0.0),
+            fees_exit: dec!(0.0),
             time_enter: base_time.checked_add_days(Days::new(1)).unwrap(),
             time_exit: base_time.checked_add_days(Days::new(2)).unwrap(),
             trades: vec![TradeId(SmolStr::new("1")), TradeId(SmolStr::new("2"))],
@@ -168,8 +162,8 @@ fn generate_synthetic_updates(base_time: DateTime<Utc>) -> Vec<ContrivedEvents> 
             price_entry_average: dec!(1.0),
             quantity_abs_max: dec!(2000.0),
             pnl_realised: dec!(1000.0), // 1000 usdt profit
-            fees_enter: AssetFees::default(),
-            fees_exit: AssetFees::default(),
+            fees_enter: Decimal::zero(),
+            fees_exit: Decimal::zero(),
             time_enter: base_time.checked_add_days(Days::new(2)).unwrap(),
             time_exit: base_time.checked_add_days(Days::new(3)).unwrap(),
             trades: vec![TradeId(SmolStr::new("3")), TradeId(SmolStr::new("4"))],
@@ -193,8 +187,8 @@ fn generate_synthetic_updates(base_time: DateTime<Utc>) -> Vec<ContrivedEvents> 
             price_entry_average: dec!(1.0),
             quantity_abs_max: dec!(2000.0),
             pnl_realised: dec!(-2000.0), // 2000 usdt loss
-            fees_enter: AssetFees::default(),
-            fees_exit: AssetFees::default(),
+            fees_enter: Decimal::zero(),
+            fees_exit: Decimal::zero(),
             time_enter: base_time.checked_add_days(Days::new(4)).unwrap(),
             time_exit: base_time.checked_add_days(Days::new(5)).unwrap(),
             trades: vec![TradeId(SmolStr::new("5")), TradeId(SmolStr::new("6"))],
@@ -224,8 +218,8 @@ fn generate_synthetic_updates(base_time: DateTime<Utc>) -> Vec<ContrivedEvents> 
             price_entry_average: dec!(1.0),
             quantity_abs_max: dec!(6000.0),
             pnl_realised: dec!(-1000.0), // 1000 usdt loss
-            fees_enter: AssetFees::default(),
-            fees_exit: AssetFees::default(),
+            fees_enter: Decimal::zero(),
+            fees_exit: Decimal::zero(),
             time_enter: base_time.checked_add_days(Days::new(6)).unwrap(),
             time_exit: base_time.checked_add_days(Days::new(8)).unwrap(),
             trades: vec![
@@ -253,8 +247,8 @@ fn generate_synthetic_updates(base_time: DateTime<Utc>) -> Vec<ContrivedEvents> 
             price_entry_average: dec!(1.0),
             quantity_abs_max: dec!(6000.0),
             pnl_realised: dec!(500.0), // 500 usdt profit
-            fees_enter: AssetFees::default(),
-            fees_exit: AssetFees::default(),
+            fees_enter: Decimal::zero(),
+            fees_exit: Decimal::zero(),
             time_enter: base_time.checked_add_days(Days::new(10)).unwrap(),
             time_exit: base_time.checked_add_days(Days::new(11)).unwrap(),
             trades: vec![TradeId(SmolStr::new("10")), TradeId(SmolStr::new("11"))],

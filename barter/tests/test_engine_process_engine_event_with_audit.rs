@@ -423,8 +423,8 @@ fn test_engine_process_engine_event_with_audit() {
                 price_entry_average: dec!(10_000.0),
                 quantity_abs_max: dec!(1.0),
                 pnl_realised: dec!(7000.0), // (-10k entry - 1k fees)+(20k exit - 2k fees) = 7k
-                fees_enter: AssetFees::quote_fees(dec!(1_000.0)),
-                fees_exit: AssetFees::quote_fees(dec!(2_000.0)),
+                fees_enter: dec!(1_000.0),
+                fees_exit: dec!(2_000.0),
                 time_enter: time_plus_days(STARTING_TIMESTAMP, 2),
                 time_exit: time_plus_days(STARTING_TIMESTAMP, 3),
                 trades: vec![gen_trade_id(0), gen_trade_id(0)],
@@ -603,8 +603,8 @@ fn test_engine_process_engine_event_with_audit() {
                 price_entry_average: dec!(0.1),
                 quantity_abs_max: dec!(1.0),
                 pnl_realised: dec!(-0.065), // 0.05 - 0.01 - 0.01 entry fees - 0.005 exit fees
-                fees_enter: AssetFees::quote_fees(dec!(0.01)), // 0.01 btc
-                fees_exit: AssetFees::quote_fees(dec!(0.005)), // 0.005 btc
+                fees_enter: dec!(0.01),     // 0.01 btc
+                fees_exit: dec!(0.005),     // 0.005 btc
                 time_enter: time_plus_days(STARTING_TIMESTAMP, 2),
                 time_exit: time_plus_days(STARTING_TIMESTAMP, 5),
                 trades: vec![gen_trade_id(1), gen_trade_id(1)],
@@ -962,7 +962,7 @@ fn account_event_trade(
             side,
             price: Decimal::try_from(price).unwrap(),
             quantity: Decimal::try_from(quantity).unwrap(),
-            fees: AssetFees::quote_fees(
+            fees: AssetFees::quote(
                 Decimal::try_from(price * quantity * QUOTE_FEES_PERCENT).unwrap(),
             ),
         }),

@@ -40,10 +40,7 @@ pub struct PnLReturns {
 
 impl PnLReturns {
     /// Update the `PnLReturns` from the next [`PositionExited`].
-    pub fn update<AssetKey, InstrumentKey>(
-        &mut self,
-        position: &PositionExited<AssetKey, InstrumentKey>,
-    ) {
+    pub fn update<InstrumentKey>(&mut self, position: &PositionExited<InstrumentKey>) {
         self.pnl_raw += position.pnl_realised;
 
         let pnl_return = calculate_pnl_return(
