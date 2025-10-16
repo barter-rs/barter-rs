@@ -1,7 +1,6 @@
 use crate::{error::SocketError, protocol::StreamParser};
 use bytes::Bytes;
-use prost::Message;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
@@ -36,7 +35,7 @@ pub struct WebSocketSerdeParser;
 
 impl<Output> StreamParser<Output> for WebSocketSerdeParser
 where
-    Output: DeserializeOwned,
+    Output: for<'de> Deserialize<'de>,
 {
     type Stream = WebSocket;
     type Message = WsMessage;
@@ -64,7 +63,7 @@ pub struct WebSocketProtobufParser;
 
 impl<Output> StreamParser<Output> for WebSocketProtobufParser
 where
-    Output: Message + Default,
+    Output: prost::Message + Default,
 {
     type Stream = WebSocket;
     type Message = WsMessage;
@@ -73,8 +72,12 @@ where
     fn parse(input: Result<Self::Message, Self::Error>) -> Option<Result<Output, SocketError>> {
         match input {
             Ok(ws_message) => match ws_message {
+                WsMessage::Text(payload) => {
+                    debug!(?payload, "received Text WebSocket message");
+                    None
+                }
                 WsMessage::Binary(binary) => {
-                    Some(Output::decode(binary.clone()).map_err(|error| {
+                    Some(Output::decode(binary.as_ref()).map_err(|error| {
                         SocketError::DeserialiseProtobuf {
                             error,
                             payload: binary.to_vec(),
@@ -85,7 +88,6 @@ where
                 WsMessage::Pong(pong) => process_pong::<Output>(pong),
                 WsMessage::Close(close_frame) => process_close_frame::<Output>(close_frame),
                 WsMessage::Frame(frame) => process_frame::<Output>(frame),
-                WsMessage::Text(_) => None,
             },
             Err(ws_err) => Some(Err(SocketError::WebSocket(Box::new(ws_err)))),
         }
@@ -97,7 +99,7 @@ pub fn process_text<ExchangeMessage>(
     payload: Utf8Bytes,
 ) -> Option<Result<ExchangeMessage, SocketError>>
 where
-    ExchangeMessage: DeserializeOwned,
+    ExchangeMessage: for<'de> Deserialize<'de>,
 {
     Some(
         serde_json::from_str::<ExchangeMessage>(&payload).map_err(|error| {
@@ -120,7 +122,7 @@ pub fn process_binary<ExchangeMessage>(
     payload: Bytes,
 ) -> Option<Result<ExchangeMessage, SocketError>>
 where
-    ExchangeMessage: DeserializeOwned,
+    ExchangeMessage: for<'de> Deserialize<'de>,
 {
     Some(
         serde_json::from_slice::<ExchangeMessage>(&payload).map_err(|error| {

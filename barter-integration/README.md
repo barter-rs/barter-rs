@@ -61,7 +61,6 @@ At a high level, an `ExchangeStream` is made up of a few major components:
 * StreamParser that is capable of parsing input protocol messages (eg/ WebSocket, FIX, etc.) as exchange
   specific messages.
 * Transformer that transforms from exchange specific message into an iterator of the desired outputs type.
-* Use `WebSocketProtobufParser` instead of `WebSocketSerdeParser` to decode protobuf WebSocket messages.
 
 ## Examples
 
