@@ -19,7 +19,7 @@ use barter_instrument::{
     Side,
     asset::{QuoteAsset, name::AssetNameExchange},
     exchange::ExchangeId,
-    instrument::{Instrument, name::InstrumentNameExchange},
+    instrument::{Instrument, kind::InstrumentKind, name::InstrumentNameExchange},
 };
 use barter_integration::snapshot::Snapshot;
 use chrono::{DateTime, TimeDelta, Utc};
@@ -277,10 +277,19 @@ impl MockExchange {
             return (build_open_order_err_response(request, error), None);
         }
 
-        let underlying = match self.find_instrument_data(&request.key.instrument) {
-            Ok(instrument) => instrument.underlying.clone(),
+        let instrument = match self.find_instrument_data(&request.key.instrument) {
+            Ok(instrument) => instrument,
             Err(error) => return (build_open_order_err_response(request, error), None),
         };
+
+        if instrument.kind != InstrumentKind::Spot {
+            panic!(
+                "MockExchange open_order only supports Spot instruments; received {:?}",
+                instrument.kind.clone()
+            );
+        }
+
+        let underlying = instrument.underlying.clone();
 
         let time_exchange = self.time_exchange();
 
