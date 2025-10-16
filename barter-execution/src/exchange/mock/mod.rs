@@ -217,7 +217,8 @@ impl MockExchange {
     ///
     /// Used to simulate network latency between the exchange and client.
     fn send_notifications_with_latency(&self, notifications: OpenOrderNotifications) {
-        let balance = self.build_account_event(notifications.balance);
+        let base_balance = self.build_account_event(notifications.base_balance);
+        let quote_balance = self.build_account_event(notifications.quote_balance);
         let trade = self.build_account_event(notifications.trade);
 
         let exchange = self.exchange;
@@ -226,7 +227,15 @@ impl MockExchange {
         tokio::spawn(async move {
             tokio::time::sleep(latency).await;
 
-            if tx.send(balance).is_err() {
+            if tx.send(base_balance).is_err() {
+                error!(
+                    %exchange,
+                    kind = "Snapshot<AssetBalance<AssetNameExchange>",
+                    "MockExchange failed to send AccountEvent notification to client"
+                );
+            }
+
+            if tx.send(quote_balance).is_err() {
                 error!(
                     %exchange,
                     kind = "Snapshot<AssetBalance<AssetNameExchange>",
@@ -328,8 +337,11 @@ impl MockExchange {
                     current_base.balance.free += base_after_fees;
                     current_base.balance.total += base_after_fees;
                     current_base.time_exchange = time_exchange;
+
+                    let current_base_snapshot = current_base.clone();
+
                     // TODO: switch to `AssetFees::base_fees` once `OpenOrderNotifications` can represent fees charged in the received asset.
-                    Ok((current_quote_snapshot, AssetFees::quote_fees(order_fees_base)))
+                    Ok((current_base_snapshot, current_quote_snapshot, AssetFees::quote_fees(order_fees_base)))
                 } else {
                     Err(ApiError::BalanceInsufficient(
                         underlying.quote,
@@ -357,6 +369,8 @@ impl MockExchange {
                     current_base.balance.total -= order_value_base;
                     current_base.time_exchange = time_exchange;
 
+                    let current_base_snapshot = current_base.clone();
+
                     let order_value_quote = request.state.price * request.state.quantity.abs();
                     let order_fees_quote = order_value_quote * self.fees_percent;
                     let quote_received = order_value_quote - order_fees_quote;
@@ -369,7 +383,7 @@ impl MockExchange {
                     current_quote.balance.total += quote_received;
                     current_quote.time_exchange = time_exchange;
 
-                    Ok((current_quote.clone(), AssetFees::quote_fees(order_fees_quote)))
+                    Ok((current_base_snapshot, current_quote.clone(), AssetFees::quote_fees(order_fees_quote)))
                 } else {
                     Err(ApiError::BalanceInsufficient(
                         underlying.base,
@@ -382,8 +396,8 @@ impl MockExchange {
             }
         };
 
-        let (balance_snapshot, fees) = match balance_change_result {
-            Ok((balance_snapshot, fees)) => (Snapshot(balance_snapshot), fees),
+        let (base_balance_snapshot, quote_balance_snapshot, fees) = match balance_change_result {
+            Ok((b, q, f)) => (Snapshot(b), Snapshot(q), f),
             Err(error) => return (build_open_order_err_response(request, error), None),
         };
 
@@ -405,7 +419,8 @@ impl MockExchange {
         };
 
         let notifications = OpenOrderNotifications {
-            balance: balance_snapshot,
+            base_balance: base_balance_snapshot,
+            quote_balance: quote_balance_snapshot,
             trade: Trade {
                 id: trade_id,
                 order_id: order_id.clone(),
@@ -484,6 +499,7 @@ where
 
 #[derive(Debug)]
 pub struct OpenOrderNotifications {
-    pub balance: Snapshot<AssetBalance<AssetNameExchange>>,
+    pub base_balance: Snapshot<AssetBalance<AssetNameExchange>>,
+    pub quote_balance: Snapshot<AssetBalance<AssetNameExchange>>,
     pub trade: Trade<QuoteAsset, InstrumentNameExchange>,
 }

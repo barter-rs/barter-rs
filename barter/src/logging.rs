@@ -33,7 +33,7 @@ pub fn init_json_logging() {
         .init()
 }
 
-pub struct AuditSpanFilter;
+struct AuditSpanFilter;
 
 impl<S> tracing_subscriber::layer::Layer<S> for AuditSpanFilter
 where
