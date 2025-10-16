@@ -33,6 +33,7 @@ pub fn init_json_logging() {
         .init()
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct AuditSpanFilter;
 
 impl<S> tracing_subscriber::layer::Layer<S> for AuditSpanFilter

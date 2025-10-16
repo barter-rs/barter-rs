@@ -17,7 +17,7 @@ use crate::{
 };
 use barter_instrument::{
     Side,
-    asset::{QuoteAsset, name::AssetNameExchange},
+    asset::name::AssetNameExchange,
     exchange::ExchangeId,
     instrument::{Instrument, name::InstrumentNameExchange},
 };
@@ -306,7 +306,7 @@ impl MockExchange {
                     current.balance.total = maybe_new_balance;
                     current.time_exchange = time_exchange;
 
-                    Ok((current.clone(), AssetFees::quote_fees(order_fees_quote)))
+                    Ok((current.clone(), AssetFees::quote(order_fees_quote)))
                 } else {
                     Err(ApiError::BalanceInsufficient(
                         underlying.quote,
@@ -340,7 +340,7 @@ impl MockExchange {
 
                     let fees_quote = order_fees_base * request.state.price;
 
-                    Ok((current.clone(), AssetFees::quote_fees(fees_quote)))
+                    Ok((current.clone(), AssetFees::quote(fees_quote)))
                 } else {
                     Err(ApiError::BalanceInsufficient(
                         underlying.quote,
@@ -456,5 +456,5 @@ where
 #[derive(Debug)]
 pub struct OpenOrderNotifications {
     pub balance: Snapshot<AssetBalance<AssetNameExchange>>,
-    pub trade: Trade<QuoteAsset, InstrumentNameExchange>,
+    pub trade: Trade<InstrumentNameExchange>,
 }

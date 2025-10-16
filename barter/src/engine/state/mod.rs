@@ -18,7 +18,7 @@ use barter_execution::{
 };
 use barter_instrument::{
     Keyed,
-    asset::{AssetIndex, QuoteAsset},
+    asset::AssetIndex,
     exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
     instrument::{Instrument, InstrumentIndex},
@@ -101,10 +101,7 @@ impl<GlobalData, InstrumentData> EngineState<GlobalData, InstrumentData> {
     ///   [`Health::Healthy`](connectivity::Health::Healthy) if it was not previously.
     /// - Updates the `GlobalData` with the `AccountEvent`.
     /// - Updates the associated `AssetStates` and `InstrumentStates` with the `AccountEvent`.
-    pub fn update_from_account(
-        &mut self,
-        event: &AccountEvent,
-    ) -> Option<PositionExited<QuoteAsset>>
+    pub fn update_from_account(&mut self, event: &AccountEvent) -> Option<PositionExited>
     where
         GlobalData: for<'a> Processor<&'a AccountEvent>,
         InstrumentData: for<'a> Processor<&'a AccountEvent>,
