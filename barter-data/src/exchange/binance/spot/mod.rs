@@ -1,10 +1,12 @@
 use super::{Binance, ExchangeServer};
 use crate::{
-    ExchangeWsStream,
     exchange::{
         StreamSelector,
-        binance::spot::l2::{
-            BinanceSpotOrderBooksL2SnapshotFetcher, BinanceSpotOrderBooksL2Transformer,
+        binance::{
+            BinanceWsStream,
+            spot::l2::{
+                BinanceSpotOrderBooksL2SnapshotFetcher, BinanceSpotOrderBooksL2Transformer,
+            },
         },
     },
     instrument::InstrumentData,
@@ -41,7 +43,7 @@ where
     Instrument: InstrumentData,
 {
     type SnapFetcher = BinanceSpotOrderBooksL2SnapshotFetcher;
-    type Stream = ExchangeWsStream<BinanceSpotOrderBooksL2Transformer<Instrument::Key>>;
+    type Stream = BinanceWsStream<BinanceSpotOrderBooksL2Transformer<Instrument::Key>>;
 }
 
 impl Display for BinanceSpot {

@@ -10,7 +10,10 @@ use crate::{
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
+use barter_integration::{
+    error::SocketError,
+    protocol::websocket::{WebSocketSerdeParser, WsMessage},
+};
 use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
 use serde_json::json;
@@ -41,6 +44,9 @@ pub const BASE_URL_OKX: &str = "wss://ws.okx.com:8443/ws/v5/public";
 ///
 /// See docs: <https://www.okx.com/docs-v5/en/#websocket-api-connect>
 pub const PING_INTERVAL_OKX: Duration = Duration::from_secs(29);
+
+/// Convenient type alias for an Okx [`ExchangeWsStream`] using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
+pub type OkxWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
 
 /// [`Okx`] exchange.
 ///
@@ -96,6 +102,5 @@ where
     Instrument: InstrumentData,
 {
     type SnapFetcher = NoInitialSnapshots;
-    type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, OkxTrades>>;
+    type Stream = OkxWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, OkxTrades>>;
 }

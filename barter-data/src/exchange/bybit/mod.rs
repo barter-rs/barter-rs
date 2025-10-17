@@ -15,7 +15,10 @@ use crate::{
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
+use barter_integration::{
+    error::SocketError,
+    protocol::websocket::{WebSocketSerdeParser, WsMessage},
+};
 use book::{BybitOrderBookMessage, l2::BybitOrderBooksL2Transformer};
 use serde::de::{Error, Unexpected};
 use std::{fmt::Debug, marker::PhantomData, time::Duration};
@@ -55,6 +58,9 @@ pub mod trade;
 /// Orderbook types common to both [`BybitSpot`](spot::BybitSpot) and
 /// [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
 pub mod book;
+
+/// Convenient type alias for a Bybit [`ExchangeWsStream`] using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
+pub type BybitWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
 
 /// Generic [`Bybit<Server>`](Bybit) exchange.
 ///
@@ -122,7 +128,7 @@ where
 {
     type SnapFetcher = NoInitialSnapshots;
     type Stream =
-        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BybitTrade>>;
+        BybitWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BybitTrade>>;
 }
 
 impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL1> for Bybit<Server>
@@ -131,7 +137,7 @@ where
     Server: ExchangeServer + Debug + Send + Sync,
 {
     type SnapFetcher = NoInitialSnapshots;
-    type Stream = ExchangeWsStream<
+    type Stream = BybitWsStream<
         StatelessTransformer<Self, Instrument::Key, OrderBooksL1, BybitOrderBookMessage>,
     >;
 }
@@ -142,7 +148,7 @@ where
     Server: ExchangeServer + Debug + Send + Sync,
 {
     type SnapFetcher = NoInitialSnapshots;
-    type Stream = ExchangeWsStream<BybitOrderBooksL2Transformer<Instrument::Key>>;
+    type Stream = BybitWsStream<BybitOrderBooksL2Transformer<Instrument::Key>>;
 }
 
 impl<'de, Server> serde::Deserialize<'de> for Bybit<Server>

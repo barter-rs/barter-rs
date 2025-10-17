@@ -73,9 +73,10 @@ pub trait Validator {
 /// `Result<Self::Output, Self::Error>`s.
 pub trait Transformer {
     type Error;
-    type Input: for<'de> Deserialize<'de>;
+    type Input;
     type Output;
     type OutputIter: IntoIterator<Item = Result<Self::Output, Self::Error>>;
+
     fn transform(&mut self, input: Self::Input) -> Self::OutputIter;
 }
 
