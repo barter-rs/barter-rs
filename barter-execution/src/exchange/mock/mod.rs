@@ -19,7 +19,7 @@ use barter_instrument::{
     Side,
     asset::{QuoteAsset, name::AssetNameExchange},
     exchange::ExchangeId,
-    instrument::{Instrument, name::InstrumentNameExchange},
+    instrument::{Instrument, kind::InstrumentKind, name::InstrumentNameExchange},
 };
 use barter_integration::snapshot::Snapshot;
 use chrono::{DateTime, TimeDelta, Utc};
@@ -217,7 +217,8 @@ impl MockExchange {
     ///
     /// Used to simulate network latency between the exchange and client.
     fn send_notifications_with_latency(&self, notifications: OpenOrderNotifications) {
-        let balance = self.build_account_event(notifications.balance);
+        let base_balance = self.build_account_event(notifications.base_balance);
+        let quote_balance = self.build_account_event(notifications.quote_balance);
         let trade = self.build_account_event(notifications.trade);
 
         let exchange = self.exchange;
@@ -226,7 +227,15 @@ impl MockExchange {
         tokio::spawn(async move {
             tokio::time::sleep(latency).await;
 
-            if tx.send(balance).is_err() {
+            if tx.send(base_balance).is_err() {
+                error!(
+                    %exchange,
+                    kind = "Snapshot<AssetBalance<AssetNameExchange>",
+                    "MockExchange failed to send AccountEvent notification to client"
+                );
+            }
+
+            if tx.send(quote_balance).is_err() {
                 error!(
                     %exchange,
                     kind = "Snapshot<AssetBalance<AssetNameExchange>",
@@ -277,84 +286,118 @@ impl MockExchange {
             return (build_open_order_err_response(request, error), None);
         }
 
-        let underlying = match self.find_instrument_data(&request.key.instrument) {
-            Ok(instrument) => instrument.underlying.clone(),
+        let instrument = match self.find_instrument_data(&request.key.instrument) {
+            Ok(instrument) => instrument,
             Err(error) => return (build_open_order_err_response(request, error), None),
         };
+
+        if instrument.kind != InstrumentKind::Spot {
+            panic!(
+                "MockExchange open_order only supports Spot instruments; received {:?}",
+                instrument.kind.clone()
+            );
+        }
+
+        let underlying = instrument.underlying.clone();
 
         let time_exchange = self.time_exchange();
 
         let balance_change_result = match request.state.side {
             Side::Buy => {
                 // Buying Instrument requires sufficient QuoteAsset Balance
-                let current = self
+                let current_quote = self
                     .account
                     .balance_mut(&underlying.quote)
                     .expect("MockExchange has Balance for all configured Instrument assets");
 
                 // Currently we only supported MarketKind orders, so they should be identical
-                assert_eq!(current.balance.total, current.balance.free);
+                assert_eq!(current_quote.balance.total, current_quote.balance.free);
 
                 let order_value_quote = request.state.price * request.state.quantity.abs();
-                let order_fees_quote = order_value_quote * self.fees_percent;
-                let quote_required = order_value_quote + order_fees_quote;
 
-                let maybe_new_balance = current.balance.free - quote_required;
+                let maybe_new_balance = current_quote.balance.free - order_value_quote;
 
                 if maybe_new_balance >= Decimal::ZERO {
-                    current.balance.free = maybe_new_balance;
-                    current.balance.total = maybe_new_balance;
-                    current.time_exchange = time_exchange;
+                    current_quote.balance.free = maybe_new_balance;
+                    current_quote.balance.total = maybe_new_balance;
+                    current_quote.time_exchange = time_exchange;
 
-                    Ok((current.clone(), AssetFees::quote_fees(order_fees_quote)))
+                    let current_quote_snapshot = current_quote.clone();
+
+                    // Add received base asset with fees deducted
+                    let base_received = request.state.quantity.abs();
+                    let order_fees_base = base_received * self.fees_percent;
+                    let base_after_fees = base_received - order_fees_base;
+
+                    let current_base = self
+                        .account
+                        .balance_mut(&underlying.base)
+                        .expect("MockExchange has Balance for all configured Instrument assets");
+
+                    current_base.balance.free += base_after_fees;
+                    current_base.balance.total += base_after_fees;
+                    current_base.time_exchange = time_exchange;
+
+                    let current_base_snapshot = current_base.clone();
+
+                    // TODO: switch to `AssetFees::base_fees` once `OpenOrderNotifications` can represent fees charged in the received asset.
+                    Ok((current_base_snapshot, current_quote_snapshot, AssetFees::quote_fees(order_fees_base)))
                 } else {
                     Err(ApiError::BalanceInsufficient(
                         underlying.quote,
                         format!(
-                            "Available Balance: {}, Required Balance inc. fees: {}",
-                            current.balance.free, quote_required
+                            "Available Balance: {}, Required Balance: {}",
+                            current_quote.balance.free, order_value_quote
                         ),
                     ))
                 }
             }
             Side::Sell => {
                 // Selling Instrument requires sufficient BaseAsset Balance
-                let current = self
+                let current_base = self
                     .account
-                    .balance_mut(&underlying.quote)
+                    .balance_mut(&underlying.base)
                     .expect("MockExchange has Balance for all configured Instrument assets");
 
                 // Currently we only supported MarketKind orders, so they should be identical
-                assert_eq!(current.balance.total, current.balance.free);
+                assert_eq!(current_base.balance.total, current_base.balance.free);
 
                 let order_value_base = request.state.quantity.abs();
-                let order_fees_base = order_value_base * self.fees_percent;
-                let base_required = order_value_base + order_fees_base;
 
-                let maybe_new_balance = current.balance.free - base_required;
+                if current_base.balance.free >= order_value_base {
+                    current_base.balance.free -= order_value_base;
+                    current_base.balance.total -= order_value_base;
+                    current_base.time_exchange = time_exchange;
 
-                if maybe_new_balance >= Decimal::ZERO {
-                    current.balance.free = maybe_new_balance;
-                    current.balance.total = maybe_new_balance;
-                    current.time_exchange = time_exchange;
+                    let current_base_snapshot = current_base.clone();
 
-                    let fees_quote = order_fees_base * request.state.price;
+                    let order_value_quote = request.state.price * request.state.quantity.abs();
+                    let order_fees_quote = order_value_quote * self.fees_percent;
+                    let quote_received = order_value_quote - order_fees_quote;
 
-                    Ok((current.clone(), AssetFees::quote_fees(fees_quote)))
+                    let current_quote = self.account.balance_mut(&underlying.quote).expect(
+                        "MockExchange has Balance for all configured Instrument assets",
+                    );
+
+                    current_quote.balance.free += quote_received;
+                    current_quote.balance.total += quote_received;
+                    current_quote.time_exchange = time_exchange;
+
+                    Ok((current_base_snapshot, current_quote.clone(), AssetFees::quote_fees(order_fees_quote)))
                 } else {
                     Err(ApiError::BalanceInsufficient(
-                        underlying.quote,
+                        underlying.base,
                         format!(
-                            "Available Balance: {}, Required Balance inc. fees: {}",
-                            current.balance.free, base_required
+                            "Available Balance: {}, Required Balance: {}",
+                            current_base.balance.free, order_value_base
                         ),
                     ))
                 }
             }
         };
 
-        let (balance_snapshot, fees) = match balance_change_result {
-            Ok((balance_snapshot, fees)) => (Snapshot(balance_snapshot), fees),
+        let (base_balance_snapshot, quote_balance_snapshot, fees) = match balance_change_result {
+            Ok((b, q, f)) => (Snapshot(b), Snapshot(q), f),
             Err(error) => return (build_open_order_err_response(request, error), None),
         };
 
@@ -376,7 +419,8 @@ impl MockExchange {
         };
 
         let notifications = OpenOrderNotifications {
-            balance: balance_snapshot,
+            base_balance: base_balance_snapshot,
+            quote_balance: quote_balance_snapshot,
             trade: Trade {
                 id: trade_id,
                 order_id: order_id.clone(),
@@ -455,6 +499,7 @@ where
 
 #[derive(Debug)]
 pub struct OpenOrderNotifications {
-    pub balance: Snapshot<AssetBalance<AssetNameExchange>>,
+    pub base_balance: Snapshot<AssetBalance<AssetNameExchange>>,
+    pub quote_balance: Snapshot<AssetBalance<AssetNameExchange>>,
     pub trade: Trade<QuoteAsset, InstrumentNameExchange>,
 }
