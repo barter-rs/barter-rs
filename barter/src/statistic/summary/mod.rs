@@ -114,10 +114,8 @@ impl TradingSummaryGenerator {
     }
 
     /// Update the [`TradingSummaryGenerator`] from the next [`PositionExited`].
-    pub fn update_from_position<AssetKey, InstrumentKey>(
-        &mut self,
-        position: &PositionExited<AssetKey, InstrumentKey>,
-    ) where
+    pub fn update_from_position<InstrumentKey>(&mut self, position: &PositionExited<InstrumentKey>)
+    where
         Self: InstrumentTearSheetManager<InstrumentKey>,
     {
         if self.time_engine_now < position.time_exit {

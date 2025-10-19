@@ -67,9 +67,9 @@ impl TearSheetGenerator {
     }
 
     /// Update the [`TearSheetGenerator`] from the next [`PositionExited`].
-    pub fn update_from_position<AssetKey, InstrumentKey>(
+    pub fn update_from_position<InstrumentKey>(
         &mut self,
-        position: &PositionExited<AssetKey, InstrumentKey>,
+        position: &PositionExited<InstrumentKey>,
     ) {
         self.time_engine_now = position.time_exit;
         self.pnl_returns.update(position);

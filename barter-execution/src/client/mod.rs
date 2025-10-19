@@ -10,9 +10,7 @@ use crate::{
     trade::Trade,
 };
 use barter_instrument::{
-    asset::{QuoteAsset, name::AssetNameExchange},
-    exchange::ExchangeId,
-    instrument::name::InstrumentNameExchange,
+    asset::name::AssetNameExchange, exchange::ExchangeId, instrument::name::InstrumentNameExchange,
 };
 use chrono::{DateTime, Utc};
 use futures::Stream;
@@ -95,5 +93,5 @@ where
     fn fetch_trades(
         &self,
         time_since: DateTime<Utc>,
-    ) -> impl Future<Output = Result<Vec<Trade<QuoteAsset, InstrumentNameExchange>>, UnindexedClientError>>;
+    ) -> impl Future<Output = Result<Vec<Trade<InstrumentNameExchange>>, UnindexedClientError>>;
 }

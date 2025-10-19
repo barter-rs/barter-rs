@@ -189,9 +189,7 @@ pub mod test_utils {
         order::id::{OrderId, StrategyId},
         trade::{AssetFees, Trade, TradeId},
     };
-    use barter_instrument::{
-        Side, asset::QuoteAsset, instrument::name::InstrumentNameInternal, test_utils::asset,
-    };
+    use barter_instrument::{Side, instrument::name::InstrumentNameInternal, test_utils::asset};
     use chrono::{DateTime, Days, TimeDelta, Utc};
     use rust_decimal::Decimal;
 
@@ -235,7 +233,7 @@ pub mod test_utils {
         price: f64,
         quantity: f64,
         fees: f64,
-    ) -> Trade<QuoteAsset, InstrumentNameInternal> {
+    ) -> Trade<InstrumentNameInternal> {
         Trade {
             id: TradeId::new("trade_id"),
             order_id: OrderId::new("order_id"),
@@ -245,10 +243,7 @@ pub mod test_utils {
             side,
             price: price.try_into().unwrap(),
             quantity: quantity.try_into().unwrap(),
-            fees: AssetFees {
-                asset: QuoteAsset,
-                fees: fees.try_into().unwrap(),
-            },
+            fees: AssetFees::quote(fees.try_into().unwrap()),
         }
     }
 

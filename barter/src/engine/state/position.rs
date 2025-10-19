@@ -1,19 +1,15 @@
 use barter_execution::trade::{AssetFees, Trade, TradeId};
-use barter_instrument::{
-    Side,
-    asset::{AssetIndex, QuoteAsset},
-    instrument::InstrumentIndex,
-};
+use barter_instrument::{Side, instrument::InstrumentIndex};
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
-use rust_decimal::Decimal;
+use rust_decimal::{Decimal, prelude::Zero};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tracing::error;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
 pub struct PositionManager<InstrumentKey = InstrumentIndex> {
-    pub current: Option<Position<QuoteAsset, InstrumentKey>>,
+    pub current: Option<Position<InstrumentKey>>,
 }
 
 impl<InstrumentKey> Default for PositionManager<InstrumentKey> {
@@ -31,8 +27,8 @@ impl<InstrumentKey> PositionManager<InstrumentKey> {
     /// - Handling position flips (close existing & open new with any remaining trade quantity)
     pub fn update_from_trade(
         &mut self,
-        trade: &Trade<QuoteAsset, InstrumentKey>,
-    ) -> Option<PositionExited<QuoteAsset, InstrumentKey>>
+        trade: &Trade<InstrumentKey>,
+    ) -> Option<PositionExited<InstrumentKey>>
     where
         InstrumentKey: Debug + Clone + PartialEq,
     {
@@ -57,7 +53,6 @@ impl<InstrumentKey> PositionManager<InstrumentKey> {
 /// Represents an open trading position for a specific instrument.
 ///
 /// # Type Parameters
-/// - `AssetKey`: The type representing the asset used for fees (e.g. AssetIndex, QuoteAsset, etc.)
 /// - `InstrumentKey`: The type identifying the traded instrument (e.g. InstrumentIndex, etc.)
 ///
 /// # Examples
@@ -66,7 +61,6 @@ impl<InstrumentKey> PositionManager<InstrumentKey> {
 /// use barter::engine::state::position::Position;
 /// use barter_execution::order::id::{OrderId, StrategyId};
 /// use barter_execution::trade::{AssetFees, Trade, TradeId};
-/// use barter_instrument::asset::QuoteAsset;
 /// use barter_instrument::instrument::name::InstrumentNameInternal;
 /// use barter_instrument::Side;
 /// use chrono::{DateTime, Utc};
@@ -83,7 +77,7 @@ impl<InstrumentKey> PositionManager<InstrumentKey> {
 ///     side: Side::Buy,
 ///     price: dec!(50_000.0),
 ///     quantity: dec!(0.1),
-///     fees: AssetFees::quote_fees(dec!(5.0))
+///     fees: AssetFees::quote(dec!(5.0))
 /// });
 /// assert_eq!(position.side, Side::Buy);
 /// assert_eq!(position.quantity_abs, dec!(0.1));
@@ -98,7 +92,7 @@ impl<InstrumentKey> PositionManager<InstrumentKey> {
 ///     side: Side::Sell,
 ///     price: dec!(60_000.0),
 ///     quantity: dec!(0.05),
-///     fees: AssetFees::quote_fees(dec!(2.5))
+///     fees: AssetFees::quote(dec!(2.5))
 /// });
 ///
 /// // LONG Position is still open, but with reduced size
@@ -114,7 +108,6 @@ impl<InstrumentKey> PositionManager<InstrumentKey> {
 /// use barter::engine::state::position::Position;
 /// use barter_execution::order::id::{OrderId, StrategyId};
 /// use barter_execution::trade::{AssetFees, Trade, TradeId};
-/// use barter_instrument::asset::QuoteAsset;
 /// use barter_instrument::instrument::name::InstrumentNameInternal;
 /// use barter_instrument::Side;
 /// use chrono::{DateTime, Utc};
@@ -131,7 +124,7 @@ impl<InstrumentKey> PositionManager<InstrumentKey> {
 ///     side: Side::Sell,
 ///     price: dec!(50_000.0),
 ///     quantity: dec!(0.1),
-///     fees: AssetFees::quote_fees(dec!(5.0))
+///     fees: AssetFees::quote(dec!(5.0))
 /// });
 /// assert_eq!(position.side, Side::Sell);
 /// assert_eq!(position.quantity_abs, dec!(0.1));
@@ -146,7 +139,7 @@ impl<InstrumentKey> PositionManager<InstrumentKey> {
 ///     side: Side::Buy,
 ///     price: dec!(40_000.0),
 ///     quantity: dec!(0.2),
-///     fees: AssetFees::quote_fees(dec!(10.0))
+///     fees: AssetFees::quote(dec!(10.0))
 /// });
 ///
 /// // Original SHORT Position closed with profit
@@ -163,7 +156,7 @@ impl<InstrumentKey> PositionManager<InstrumentKey> {
 /// assert_eq!(new_position.pnl_realised, dec!(-5.0));
 /// ```
 #[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Constructor)]
-pub struct Position<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
+pub struct Position<InstrumentKey = InstrumentIndex> {
     /// [`Position`] Instrument identifier (eg/ InstrumentIndex, InstrumentNameInternal, etc.).
     pub instrument: InstrumentKey,
 
@@ -190,10 +183,10 @@ pub struct Position<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
     pub pnl_realised: Decimal,
 
     /// Cumulative fees paid when entering/increasing [`Position`] quantity.
-    pub fees_enter: AssetFees<AssetKey>,
+    pub fees_enter: Decimal,
 
     /// Cumulative fees paid when exiting/reducing [`Position`] quantity.
-    pub fees_exit: AssetFees<AssetKey>,
+    pub fees_exit: Decimal,
 
     /// Timestamp of [`Trade`] that triggered the initial [`Position`] entry.
     pub time_enter: DateTime<Utc>,
@@ -208,7 +201,7 @@ pub struct Position<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
     pub trades: Vec<TradeId>,
 }
 
-impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
+impl<InstrumentKey> Position<InstrumentKey> {
     /// Updates the [`Position`] state based on a new [`Trade`].
     ///
     /// This method handles various scenarios:
@@ -226,11 +219,8 @@ impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
     /// - `Option<PositionExited>`: The closed [`PositionExited`], if the [`Position`] was closed.
     pub fn update_from_trade(
         mut self,
-        trade: &Trade<QuoteAsset, InstrumentKey>,
-    ) -> (
-        Option<Self>,
-        Option<PositionExited<QuoteAsset, InstrumentKey>>,
-    )
+        trade: &Trade<InstrumentKey>,
+    ) -> (Option<Self>, Option<PositionExited<InstrumentKey>>)
     where
         InstrumentKey: Debug + Clone + PartialEq,
     {
@@ -246,6 +236,8 @@ impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
 
         // Add TradeId to current Position
         self.trades.push(trade.id.clone());
+        // Trade fee represented in quote asset
+        let fee_in_quote = trade.fee_quote();
 
         use Side::*;
         match (self.side, trade.side) {
@@ -256,8 +248,8 @@ impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
                 if self.quantity_abs > self.quantity_abs_max {
                     self.quantity_abs_max = self.quantity_abs;
                 }
-                self.pnl_realised -= trade.fees.fees;
-                self.fees_enter.fees += trade.fees.fees;
+                self.pnl_realised -= fee_in_quote;
+                self.fees_enter += fee_in_quote;
                 self.time_exchange_update = trade.time_exchange;
                 self.update_pnl_unrealised(trade.price);
 
@@ -266,11 +258,11 @@ impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
             // Reduce LONG/SHORT Position
             (Buy, Sell) | (Sell, Buy) if self.quantity_abs > trade.quantity.abs() => {
                 // Update pnl_realised
-                self.update_pnl_realised(trade.quantity, trade.price, trade.fees.fees);
+                self.update_pnl_realised(trade.quantity, trade.price, fee_in_quote);
 
                 // Update remaining Position state
                 self.quantity_abs -= trade.quantity.abs();
-                self.fees_exit.fees += trade.fees.fees;
+                self.fees_exit += fee_in_quote;
                 self.time_exchange_update = trade.time_exchange;
 
                 // Update pnl_unrealised for remaining Position
@@ -281,9 +273,9 @@ impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
             // Close LONG/SHORT Position (exactly)
             (Buy, Sell) | (Sell, Buy) if self.quantity_abs == trade.quantity.abs() => {
                 self.quantity_abs -= trade.quantity.abs();
-                self.fees_exit.fees += trade.fees.fees;
+                self.fees_exit += fee_in_quote;
                 self.time_exchange_update = trade.time_exchange;
-                self.update_pnl_realised(trade.quantity, trade.price, trade.fees.fees);
+                self.update_pnl_realised(trade.quantity, trade.price, fee_in_quote);
                 self.update_pnl_unrealised(trade.price);
 
                 (None, Some(PositionExited::from(self)))
@@ -294,7 +286,7 @@ impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
                 // Trade flips Position, so generate theoretical initial Trade for next Position
                 let next_position_quantity = trade.quantity.abs() - self.quantity_abs;
                 let next_position_fee_enter =
-                    trade.fees.fees * (next_position_quantity / trade.quantity.abs());
+                    fee_in_quote * (next_position_quantity / trade.quantity.abs());
                 let next_position_trade = Trade {
                     id: trade.id.clone(),
                     order_id: trade.order_id.clone(),
@@ -304,15 +296,12 @@ impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
                     side: trade.side,
                     price: trade.price,
                     quantity: next_position_quantity,
-                    fees: AssetFees {
-                        asset: trade.fees.asset.clone(),
-                        fees: next_position_fee_enter,
-                    },
+                    fees: AssetFees::quote(next_position_fee_enter),
                 };
 
                 // Update closing Position with appropriate ratio of fees for theoretical quantity
-                let fee_exit = trade.fees.fees * (self.quantity_abs / trade.quantity.abs());
-                self.fees_exit.fees += fee_exit;
+                let fee_exit = fee_in_quote * (self.quantity_abs / trade.quantity.abs());
+                self.fees_exit += fee_exit;
                 self.time_exchange_update = trade.time_exchange;
                 self.update_pnl_realised(self.quantity_abs, trade.price, fee_exit);
                 self.quantity_abs = Decimal::ZERO;
@@ -330,7 +319,7 @@ impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
     /// Updates the volume-weighted average entry price of the [`Position`].
     ///
     /// Internally uses the logic defined in [`calculate_price_entry_average`].
-    fn update_price_entry_average(&mut self, trade: &Trade<QuoteAsset, InstrumentKey>) {
+    fn update_price_entry_average(&mut self, trade: &Trade<InstrumentKey>) {
         self.price_entry_average = calculate_price_entry_average(
             self.price_entry_average,
             self.quantity_abs,
@@ -350,7 +339,7 @@ impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
             self.price_entry_average,
             self.quantity_abs,
             self.quantity_abs_max,
-            self.fees_enter.fees,
+            self.fees_enter,
             price,
         );
     }
@@ -373,11 +362,11 @@ impl<InstrumentKey> Position<QuoteAsset, InstrumentKey> {
     }
 }
 
-impl<InstrumentKey> From<&Trade<QuoteAsset, InstrumentKey>> for Position<QuoteAsset, InstrumentKey>
+impl<InstrumentKey> From<&Trade<InstrumentKey>> for Position<InstrumentKey>
 where
     InstrumentKey: Clone,
 {
-    fn from(trade: &Trade<QuoteAsset, InstrumentKey>) -> Self {
+    fn from(trade: &Trade<InstrumentKey>) -> Self {
         let mut trades = Vec::with_capacity(2);
         trades.push(trade.id.clone());
         Self {
@@ -387,9 +376,9 @@ where
             quantity_abs: trade.quantity.abs(),
             quantity_abs_max: trade.quantity.abs(),
             pnl_unrealised: Decimal::ZERO,
-            pnl_realised: -trade.fees.fees,
-            fees_enter: trade.fees.clone(),
-            fees_exit: AssetFees::default(),
+            pnl_realised: -trade.fees.amount(),
+            fees_enter: trade.fee_quote(),
+            fees_exit: Decimal::zero(),
             time_enter: trade.time_exchange,
             time_exchange_update: trade.time_exchange,
             trades,
@@ -402,12 +391,11 @@ where
 /// Contains the final state and history of a [`Position`] that has been completely closed.
 ///
 /// # Type Parameters
-/// - `AssetKey`: The type representing the asset used for fees (e.g. AssetIndex, QuoteAsset, etc.)
 /// - `InstrumentKey`: The type identifying the traded instrument (e.g. InstrumentIndex, etc.)
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
-pub struct PositionExited<AssetKey, InstrumentKey = InstrumentIndex> {
+pub struct PositionExited<InstrumentKey = InstrumentIndex> {
     /// Closed [`Position`] Instrument identifier (eg/ InstrumentIndex, InstrumentNameInternal, etc.).
     pub instrument: InstrumentKey,
 
@@ -426,10 +414,10 @@ pub struct PositionExited<AssetKey, InstrumentKey = InstrumentIndex> {
     pub pnl_realised: Decimal,
 
     /// Cumulative fees paid when entering the [`Position`].
-    pub fees_enter: AssetFees<AssetKey>,
+    pub fees_enter: Decimal,
 
     /// Cumulative fees paid when exiting the [`Position`].
-    pub fees_exit: AssetFees<AssetKey>,
+    pub fees_exit: Decimal,
 
     /// Timestamp of [`Trade`] that triggered the initial [`Position`] entry.
     pub time_enter: DateTime<Utc>,
@@ -441,10 +429,8 @@ pub struct PositionExited<AssetKey, InstrumentKey = InstrumentIndex> {
     pub trades: Vec<TradeId>,
 }
 
-impl<AssetKey, InstrumentKey> From<Position<AssetKey, InstrumentKey>>
-    for PositionExited<AssetKey, InstrumentKey>
-{
-    fn from(value: Position<AssetKey, InstrumentKey>) -> Self {
+impl<InstrumentKey> From<Position<InstrumentKey>> for PositionExited<InstrumentKey> {
+    fn from(value: Position<InstrumentKey>) -> Self {
         Self {
             instrument: value.instrument,
             side: value.side,
@@ -564,10 +550,10 @@ mod tests {
     #[test]
     fn test_position_update_from_trade() {
         struct TestCase {
-            initial_trade: Trade<QuoteAsset, InstrumentNameInternal>,
-            update_trade: Trade<QuoteAsset, InstrumentNameInternal>,
-            expected_position: Option<Position<QuoteAsset, InstrumentNameInternal>>,
-            expected_position_exited: Option<PositionExited<QuoteAsset, InstrumentNameInternal>>,
+            initial_trade: Trade<InstrumentNameInternal>,
+            update_trade: Trade<InstrumentNameInternal>,
+            expected_position: Option<Position<InstrumentNameInternal>>,
+            expected_position_exited: Option<PositionExited<InstrumentNameInternal>>,
         }
 
         let base_time = DateTime::<Utc>::MIN_UTC;
@@ -585,14 +571,8 @@ mod tests {
                     quantity_abs_max: dec!(2.0),
                     pnl_unrealised: dec!(0.0),
                     pnl_realised: dec!(-20.0), // Sum of fees
-                    fees_enter: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(20.0),
-                    },
-                    fees_exit: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(0.0),
-                    },
+                    fees_enter: dec!(20.0),
+                    fees_exit: dec!(0.0),
                     time_enter: base_time,
                     time_exchange_update: time_plus_days(base_time, 1),
                     trades: vec![TradeId::new("trade_id"), TradeId::new("trade_id")],
@@ -611,14 +591,8 @@ mod tests {
                     quantity_abs_max: dec!(2.0),
                     pnl_unrealised: dec!(67.5), // (150-100)*(2.0-0.5) - approx_exit_fees (1.5/2 * 10)
                     pnl_realised: dec!(10.0),   // (150-100)*0.5 - 15_fees
-                    fees_enter: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(10.0),
-                    },
-                    fees_exit: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(5.0),
-                    },
+                    fees_enter: dec!(10.0),
+                    fees_exit: dec!(5.0),
                     time_enter: base_time,
                     time_exchange_update: time_plus_days(base_time, 1),
                     trades: vec![TradeId::new("trade_id"), TradeId::new("trade_id")],
@@ -636,14 +610,8 @@ mod tests {
                     price_entry_average: dec!(100.0),
                     quantity_abs_max: dec!(1.0),
                     pnl_realised: dec!(30.0), // (150-100)*1 - 20 (total fees)
-                    fees_enter: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(10.0),
-                    },
-                    fees_exit: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(10.0),
-                    },
+                    fees_enter: dec!(10.0),
+                    fees_exit: dec!(10.0),
                     time_enter: base_time,
                     time_exit: time_plus_days(base_time, 1),
                     trades: vec![TradeId::new("trade_id"), TradeId::new("trade_id")],
@@ -661,14 +629,8 @@ mod tests {
                     quantity_abs_max: dec!(1.0),
                     pnl_unrealised: dec!(0.0),
                     pnl_realised: dec!(-10.0), // Entry fees for new position (2-1)*(1/2)*20
-                    fees_enter: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(10.0),
-                    },
-                    fees_exit: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(0.0),
-                    },
+                    fees_enter: dec!(10.0),
+                    fees_exit: dec!(0.0),
                     time_enter: time_plus_days(base_time, 1),
                     time_exchange_update: time_plus_days(base_time, 1),
                     trades: vec![TradeId::new("trade_id")],
@@ -679,14 +641,8 @@ mod tests {
                     price_entry_average: dec!(100.0),
                     quantity_abs_max: dec!(1.0),
                     pnl_realised: dec!(30.0), // (150-100)*1 - 20 (total fees)
-                    fees_enter: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(10.0),
-                    },
-                    fees_exit: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(10.0),
-                    },
+                    fees_enter: dec!(10.0),
+                    fees_exit: dec!(10.0),
                     time_enter: base_time,
                     time_exit: time_plus_days(base_time, 1),
                     trades: vec![TradeId::new("trade_id"), TradeId::new("trade_id")],
@@ -704,14 +660,8 @@ mod tests {
                     quantity_abs_max: dec!(2.0),
                     pnl_unrealised: dec!(0.0), // (90-80)*2 - approx_exit_fees(2/2 * 20)
                     pnl_realised: dec!(-20.0), // Sum of entry fees
-                    fees_enter: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(20.0),
-                    },
-                    fees_exit: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(0.0),
-                    },
+                    fees_enter: dec!(20.0),
+                    fees_exit: dec!(0.0),
                     time_enter: base_time,
                     time_exchange_update: base_time,
                     trades: vec![TradeId::new("trade_id"), TradeId::new("trade_id")],
@@ -730,14 +680,8 @@ mod tests {
                     quantity_abs_max: dec!(2.0),
                     pnl_unrealised: dec!(22.5), // (100-80)*1.5 - approx_exit_fees(1.5/2 * 10)
                     pnl_realised: dec!(-5.0),   // 10_fee_entry - (100-80)*0.5 - 5_fee_exit
-                    fees_enter: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(10.0),
-                    },
-                    fees_exit: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(5.0),
-                    },
+                    fees_enter: dec!(10.0),
+                    fees_exit: dec!(5.0),
                     time_enter: base_time,
                     time_exchange_update: base_time,
                     trades: vec![TradeId::new("trade_id"), TradeId::new("trade_id")],
@@ -755,14 +699,8 @@ mod tests {
                     price_entry_average: dec!(100.0),
                     quantity_abs_max: dec!(1.0),
                     pnl_realised: dec!(0.0), // (100-80)*1 - 20 (total fees)
-                    fees_enter: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(10.0),
-                    },
-                    fees_exit: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(10.0),
-                    },
+                    fees_enter: dec!(10.0),
+                    fees_exit: dec!(10.0),
                     time_enter: base_time,
                     time_exit: base_time,
                     trades: vec![TradeId::new("trade_id"), TradeId::new("trade_id")],
@@ -780,14 +718,8 @@ mod tests {
                     quantity_abs_max: dec!(1.0),
                     pnl_unrealised: dec!(0.0),
                     pnl_realised: dec!(-10.0), // Entry fees for new position
-                    fees_enter: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(10.0),
-                    },
-                    fees_exit: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(0.0),
-                    },
+                    fees_enter: dec!(10.0),
+                    fees_exit: dec!(0.0),
                     time_enter: base_time,
                     time_exchange_update: base_time,
                     trades: vec![TradeId::new("trade_id")],
@@ -798,14 +730,8 @@ mod tests {
                     price_entry_average: dec!(100.0),
                     quantity_abs_max: dec!(1.0),
                     pnl_realised: dec!(0.0), // (100-80)*1 - 20 (total fees)
-                    fees_enter: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(10.0),
-                    },
-                    fees_exit: AssetFees {
-                        asset: QuoteAsset,
-                        fees: dec!(10.0),
-                    },
+                    fees_enter: dec!(10.0),
+                    fees_exit: dec!(10.0),
                     time_enter: base_time,
                     time_exit: base_time,
                     trades: vec![TradeId::new("trade_id"), TradeId::new("trade_id")],

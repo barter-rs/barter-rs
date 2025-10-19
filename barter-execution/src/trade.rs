@@ -1,5 +1,5 @@
 use crate::order::id::{OrderId, StrategyId};
-use barter_instrument::{Side, asset::QuoteAsset};
+use barter_instrument::Side;
 use chrono::{DateTime, Utc};
 use derive_more::{Constructor, From};
 use rust_decimal::Decimal;
@@ -19,7 +19,7 @@ impl TradeId {
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
-pub struct Trade<AssetKey, InstrumentKey> {
+pub struct Trade<InstrumentKey> {
     pub id: TradeId,
     pub order_id: OrderId,
     pub instrument: InstrumentKey,
@@ -28,18 +28,24 @@ pub struct Trade<AssetKey, InstrumentKey> {
     pub side: Side,
     pub price: Decimal,
     pub quantity: Decimal,
-    pub fees: AssetFees<AssetKey>,
+    pub fees: AssetFees,
 }
 
-impl<AssetKey, InstrumentKey> Trade<AssetKey, InstrumentKey> {
+impl<InstrumentKey> Trade<InstrumentKey> {
+    pub fn fee_quote(&self) -> Decimal {
+        match self.fees {
+            AssetFees::Base(amount) => amount * self.price,
+            AssetFees::Quote(amount) => amount,
+        }
+    }
+
     pub fn value_quote(&self) -> Decimal {
         self.price * self.quantity.abs()
     }
 }
 
-impl<AssetKey, InstrumentKey> Display for Trade<AssetKey, InstrumentKey>
+impl<InstrumentKey> Display for Trade<InstrumentKey>
 where
-    AssetKey: Display,
     InstrumentKey: Display,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -51,37 +57,24 @@ where
     }
 }
 
-#[derive(
-    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
-)]
-pub struct AssetFees<AssetKey> {
-    pub asset: AssetKey,
-    pub fees: Decimal,
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub enum AssetFees {
+    Base(Decimal),
+    Quote(Decimal),
 }
 
-impl AssetFees<QuoteAsset> {
-    pub fn quote_fees(fees: Decimal) -> Self {
-        Self {
-            asset: QuoteAsset,
-            fees,
-        }
+impl AssetFees {
+    pub fn base(fees: Decimal) -> Self {
+        Self::Base(fees)
     }
-}
 
-impl Default for AssetFees<QuoteAsset> {
-    fn default() -> Self {
-        Self {
-            asset: QuoteAsset,
-            fees: Decimal::ZERO,
-        }
+    pub fn quote(fees: Decimal) -> Self {
+        Self::Quote(fees)
     }
-}
 
-impl<AssetKey> Default for AssetFees<Option<AssetKey>> {
-    fn default() -> Self {
-        Self {
-            asset: None,
-            fees: Decimal::ZERO,
+    pub fn amount(&self) -> Decimal {
+        match self {
+            Self::Base(amount) | Self::Quote(amount) => *amount,
         }
     }
 }

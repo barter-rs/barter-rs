@@ -29,7 +29,7 @@ use crate::{
     trade::Trade,
 };
 use barter_instrument::{
-    asset::{AssetIndex, QuoteAsset, name::AssetNameExchange},
+    asset::{AssetIndex, name::AssetNameExchange},
     exchange::{ExchangeId, ExchangeIndex},
     instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
@@ -97,7 +97,7 @@ pub enum AccountEventKind<ExchangeKey, AssetKey, InstrumentKey> {
     OrderCancelled(OrderResponseCancel<ExchangeKey, AssetKey, InstrumentKey>),
 
     /// [`Order<ExchangeKey, InstrumentKey, Open>`] partial or full-fill.
-    Trade(Trade<QuoteAsset, InstrumentKey>),
+    Trade(Trade<InstrumentKey>),
 }
 
 impl<ExchangeKey, AssetKey, InstrumentKey> AccountEvent<ExchangeKey, AssetKey, InstrumentKey>
