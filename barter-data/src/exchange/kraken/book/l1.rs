@@ -35,15 +35,11 @@ pub struct KrakenOrderBookL1Inner {
 /// See docs: <https://docs.kraken.com/websockets/#message-spread>
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct KrakenSpread {
-    #[serde(with = "rust_decimal::serde::str")]
     pub best_bid_price: Decimal,
-    #[serde(with = "rust_decimal::serde::str")]
     pub best_ask_price: Decimal,
     #[serde(deserialize_with = "barter_integration::de::de_str_f64_epoch_s_as_datetime_utc")]
     pub time: DateTime<Utc>,
-    #[serde(with = "rust_decimal::serde::str")]
     pub best_bid_amount: Decimal,
-    #[serde(with = "rust_decimal::serde::str")]
     pub best_ask_amount: Decimal,
 }
 

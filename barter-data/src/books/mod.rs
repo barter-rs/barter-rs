@@ -131,17 +131,20 @@ impl OrderBook {
 /// Normalised Barter [`Level`]s for one `Side` of the [`OrderBook`].
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
 pub struct OrderBookSide<Side> {
-    #[serde(skip_serializing)]
     pub side: Side,
     levels: Vec<Level>,
 }
 
 /// Unit type to tag an [`OrderBookSide`] as the bid Side (ie/ buyers) of an [`OrderBook`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Display)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize, Display,
+)]
 pub struct Bids;
 
 /// Unit type to tag an [`OrderBookSide`] as the ask Side (ie/ sellers) of an [`OrderBook`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Display)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize, Display,
+)]
 pub struct Asks;
 
 impl OrderBookSide<Bids> {
