@@ -20,6 +20,9 @@ pub mod bitfinex;
 /// `Bitmex [`Connector`] and [`StreamSelector`] implementations.
 pub mod bitmex;
 
+/// `Bitstamp [`Connector`] and [`StreamSelector`] implementations.
+pub mod bitstamp;
+
 /// `Bybit` ['Connector'] and ['StreamSelector'] implementation
 pub mod bybit;
 
