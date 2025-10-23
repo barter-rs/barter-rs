@@ -1,14 +1,11 @@
 use derive_more::Constructor;
-use serde::{Deserialize, Serialize};
 
 use crate::{
-    NoInitialSnapshots,
     exchange::{
         StreamSelector,
         bitstamp::{
             BitstampSpot, BitstampWsStream,
             book::l2::{BitstampOrderBooksL2SnapshotFetcher, BitstampOrderBooksL2Transformer},
-            message::BitstampPayload,
         },
     },
     instrument::InstrumentData,
