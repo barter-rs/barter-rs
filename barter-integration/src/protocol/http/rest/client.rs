@@ -12,7 +12,7 @@ use std::borrow::Cow;
 /// a specific combination of [`Signer`](super::super::private::Signer), [`Mac`](hmac::Mac),
 /// signature [`Encoder`](super::super::private::encoder::Encoder), and
 /// [`HttpParser`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RestClient<'a, Strategy, Parser> {
     /// HTTP [`reqwest::Client`] for executing signed [`reqwest::Request`]s.
     pub http_client: reqwest::Client,

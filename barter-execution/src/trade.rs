@@ -1,5 +1,8 @@
 use crate::order::id::{OrderId, StrategyId};
-use barter_instrument::{Side, asset::QuoteAsset};
+use barter_instrument::{
+    Side,
+    asset::{BaseAsset, QuoteAsset},
+};
 use chrono::{DateTime, Utc};
 use derive_more::{Constructor, From};
 use rust_decimal::Decimal;
@@ -57,6 +60,15 @@ where
 pub struct AssetFees<AssetKey> {
     pub asset: AssetKey,
     pub fees: Decimal,
+}
+
+impl AssetFees<BaseAsset> {
+    pub fn base_fees(fees: Decimal) -> Self {
+        Self {
+            asset: BaseAsset,
+            fees,
+        }
+    }
 }
 
 impl AssetFees<QuoteAsset> {
