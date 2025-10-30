@@ -1,4 +1,5 @@
 use self::{
+    book::{l1::OkxOrderBookL1, l2::OkxOrderBookL2},
     channel::OkxChannel, market::OkxMarket, subscription::OkxSubResponse, trade::OkxTrades,
 };
 use crate::{
@@ -6,7 +7,10 @@ use crate::{
     exchange::{Connector, ExchangeSub, PingInterval, StreamSelector},
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
-    subscription::trade::PublicTrades,
+    subscription::{
+        book::{OrderBooksL1, OrderBooksL2},
+        trade::PublicTrades,
+    },
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
@@ -19,6 +23,9 @@ use derive_more::Display;
 use serde_json::json;
 use std::time::Duration;
 use url::Url;
+
+/// Public order book types for [`Okx`].
+pub mod book;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
 /// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
@@ -103,4 +110,22 @@ where
 {
     type SnapFetcher = NoInitialSnapshots;
     type Stream = OkxWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, OkxTrades>>;
+}
+
+impl<Instrument> StreamSelector<Instrument, OrderBooksL1> for Okx
+where
+    Instrument: InstrumentData,
+{
+    type SnapFetcher = NoInitialSnapshots;
+    type Stream =
+        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, OrderBooksL1, OkxOrderBookL1>>;
+}
+
+impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for Okx
+where
+    Instrument: InstrumentData,
+{
+    type SnapFetcher = NoInitialSnapshots;
+    type Stream =
+        ExchangeWsStream<StatelessTransformer<Self, Instrument::Key, OrderBooksL2, OkxOrderBookL2>>;
 }
