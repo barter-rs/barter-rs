@@ -13,7 +13,6 @@ use crate::{
     },
 };
 use derive_more::{Constructor, Display};
-use serde::{Deserialize, Serialize};
 use std::fmt::Formatter;
 
 /// Defines an [`Instrument`]s [`InstrumentKind`] (eg/ Spot, Perpetual, etc).
@@ -39,14 +38,12 @@ pub mod quote;
 /// Unique identifier for an `Instrument` traded on an execution.
 ///
 /// Used to key data events in a memory efficient way.
-#[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Display,
-)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Display)]
 pub struct InstrumentId(pub u64);
 
-#[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
-)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Constructor)]
 pub struct InstrumentIndex(pub usize);
 
 impl InstrumentIndex {
@@ -63,14 +60,15 @@ impl std::fmt::Display for InstrumentIndex {
 
 /// Comprehensive Instrument model, containing all the data required to subscribe to market data
 /// and generate correct orders.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Instrument<ExchangeKey, AssetKey> {
     pub exchange: ExchangeKey,
     pub name_internal: InstrumentNameInternal,
     pub name_exchange: InstrumentNameExchange,
     pub underlying: Underlying<AssetKey>,
     pub quote: InstrumentQuoteAsset,
-    #[serde(alias = "instrument_kind")]
+    #[cfg_attr(feature = "serde", serde(alias = "instrument_kind"))]
     pub kind: InstrumentKind<AssetKey>,
     pub spec: Option<InstrumentSpec<AssetKey>>,
 }

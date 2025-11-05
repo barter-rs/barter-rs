@@ -41,7 +41,7 @@ where
     Engine: Processor<Event> + Auditor<Engine::Audit, Context = EngineContext>,
 {
     /// Task handle for the running `Engine`.
-    pub engine: JoinHandle<(Engine, Engine::Audit)>,
+    pub engine: JoinHandle<(Engine, ShutdownAudit<Event, Engine::Output>)>,
 
     /// Handles to auxiliary system components (execution components, event forwarding, etc.).
     pub handles: SystemAuxillaryHandles,
@@ -92,7 +92,9 @@ where
     ///
     /// **Note that for live & paper-trading this market stream will never end, so use
     /// System::shutdown() for that use case**.
-    pub async fn shutdown_after_backtest(self) -> Result<(Engine, Engine::Audit), JoinError>
+    pub async fn shutdown_after_backtest(
+        self,
+    ) -> Result<(Engine, ShutdownAudit<Event, Engine::Output>), JoinError>
     where
         Event: From<Shutdown>,
     {
@@ -105,7 +107,7 @@ where
                     account_to_engine,
                 },
             feed_tx,
-            audit: _,
+            audit_rx: _,
         } = self;
 
         // Wait for MarketStream to finish forwarding to Engine before initiating Shutdown
