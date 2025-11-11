@@ -12,7 +12,7 @@ pub mod http;
 /// `StreamParser`s are capable of parsing the input messages from a given stream protocol
 /// (eg/ WebSocket, Financial Information eXchange (FIX), etc.) and deserialising into an `Output`.
 pub trait StreamParser<Output> {
-    type Stream: Stream;
+    type Stream: Stream<Item = Result<Self::Message, Self::Error>>;
     type Message;
     type Error;
 
