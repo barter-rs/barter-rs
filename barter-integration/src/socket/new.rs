@@ -81,15 +81,26 @@ async fn run() {
     //   Probably is fine to take a regular closure Fn() -> ... where it is possible to capture
     //   static config.
     let manager = FooManager { state: FooState };
+
+    // aka. Audit stream
     let manager_output_event_stream = rx_manager
         .into_stream()
         .scan(manager, |manager, update| Some(manager.process(update)));
+
+    // Todo: New Problem: Manager needs access to Sink right? Which refreshes upon reconnection
+    //  Maybe I need an additional level of tokio task with an eternal Tx and Rx
+
+    // Todo: want to merge Audit stream with inner StreamEvents, for now must use channel
+    // let external_stream = merge(
+    //     manager_output_event_stream,
+    //     _
+    // );
 
     let handle = tokio::spawn(async move {
         let tx_external_stream = tx_external_stream.clone();
         loop {
             // Initialise Stream<Item = Message<ManagerEvent, StreamEvent>
-            let (sink, stream) = init_socket(init, &manager.state).await.unwrap();
+            let (sink, stream) = init_socket(init).await.unwrap();
 
             // ManagerEvents routed, so left with StreamEvents to send to external stream
             let stream = route_manager_events::<ManagerInputEvent, StreamEvent, _>(stream, route);
@@ -112,16 +123,13 @@ async fn run() {
     });
 }
 
-// Do I want this to be a Stream of Streams? Because State is changing I don't think so.
-// Unless Arc<Mutex<>>... surely not.
 pub async fn init_socket<FnInit, FnInitErr, State, Sink, Stream>(
     mut init: FnInit,
-    state: &State,
 ) -> Result<(Sink, Stream), FnInitErr>
 where
-    FnInit: AsyncFnMut(&State) -> Result<(Sink, Stream), FnInitErr>,
+    FnInit: AsyncFnMut() -> Result<(Sink, Stream), FnInitErr>,
 {
-    let (sink, stream) = init(state).await?;
+    let (sink, stream) = init().await?;
     Ok((sink, stream))
 }
 
