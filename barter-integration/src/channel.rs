@@ -176,3 +176,8 @@ pub fn mpsc_unbounded<T>() -> (UnboundedTx<T>, UnboundedRx<T>) {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     (UnboundedTx::new(tx), UnboundedRx::new(rx))
 }
+
+pub fn mpsc_bounded<T>(capacity: usize) -> (UnboundedTx<T>, UnboundedRx<T>) {
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    (UnboundedTx::new(tx), UnboundedRx::new(rx))
+}

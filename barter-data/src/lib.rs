@@ -148,6 +148,7 @@ pub mod instrument;
 /// a collection of sorted local Instrument [`OrderBook`](books::OrderBook)s
 pub mod books;
 
+mod spike;
 /// Generic [`ExchangeTransformer`] implementations used by [`MarketStream`]s to translate exchange
 /// specific types to normalised Barter types.
 ///
@@ -162,7 +163,6 @@ pub mod books;
 /// [`spot`](exchange::binance::spot::l2::BinanceSpotOrderBooksL2Transformer) and
 /// [`futures_usd`](exchange::binance::futures::l2::BinanceFuturesUsdOrderBooksL2Transformer).
 pub mod transformer;
-mod spike;
 
 /// Convenient type alias for an [`ExchangeStream`] utilizing a tungstenite
 /// [`WebSocket`](barter_integration::protocol::websocket::WebSocket).
