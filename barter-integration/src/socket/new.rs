@@ -74,6 +74,12 @@ async fn run() {
     let external_stream = rx_external_stream.into_stream();
 
     // Todo: Problem: Manager has to process(ManagerInputEvents) as well as init_socket()
+    //  Update:
+    //   If Manager is managing State/Stream (eg/ SubscriptionState), does init_socket need dynamic
+    //   &State? Probably just needs static config, since Manager "orchestrates" stream output
+    //   via Sink.send() & event sourcing ManagerInputEvents
+    //   Probably is fine to take a regular closure Fn() -> ... where it is possible to capture
+    //   static config.
     let manager = FooManager { state: FooState };
     let manager_output_event_stream = rx_manager
         .into_stream()
