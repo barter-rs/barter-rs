@@ -169,26 +169,3 @@ where
         // 2. Transformer::Input to Transformer::Output
         .flat_map(|input| futures::stream::iter(Transform::transform(input)))
 }
-
-pub fn route_manager_events<ManagerEvent, StreamEvent, FnRoute>(
-    stream: impl Stream<Item = Message<ManagerEvent, StreamEvent>> + Unpin + 'static,
-    route: FnRoute,
-) -> impl Stream<Item = StreamEvent>
-where
-    FnRoute: AsyncFnMut(ManagerEvent) -> Result<(), ()>,
-{
-    futures::stream::unfold((stream, route), |(mut stream, mut route)| async move {
-        let message = stream.next().await?;
-        match message {
-            Message::Manager(manager_event) => {
-                if route(manager_event).await.is_err() {
-                    None
-                } else {
-                    Some((None, (stream, route)))
-                }
-            }
-            Message::Stream(stream_event) => Some((Some(stream_event), (stream, route))),
-        }
-    })
-    .filter_map(std::future::ready)
-}
