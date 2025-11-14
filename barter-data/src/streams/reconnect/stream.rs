@@ -106,7 +106,7 @@ where
 
     /// Handles all encountered errors with the provided closure before filtering them out,
     /// returning a [`Stream`] of the Ok values. Useful for logging recoverable errors before
-    /// continuing.
+    /// continuing.Event
     fn with_error_handler<FnOnErr, Origin, T, E>(
         self,
         op: FnOnErr,
