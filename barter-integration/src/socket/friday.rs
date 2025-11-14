@@ -147,6 +147,13 @@ pub fn init_reconnecting_websocket(
         let websocket: WebSocket = connect(URL).await?;
 
         let (sink, stream) = futures::StreamExt::split(websocket);
+
+        // Todo: maybe ReconnectingSocket method is better, since we can end the inner Stream upon
+        //       timeout.
+        let stream =
+            tokio_stream::StreamExt::timeout(stream, TIMEOUT_STREAM).map(|result| match result {
+                Ok(item) => Some(item),
+            });
         Ok::<_, SocketError>((sink, stream))
     };
 
