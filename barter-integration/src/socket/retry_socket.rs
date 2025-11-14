@@ -7,19 +7,10 @@ use crate::socket::{
 use futures::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
-pub enum SocketEvent<Origin, Sink, T> {
-    Connected(Origin, Sink),
-    Reconnecting(Origin),
-    Item(T),
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
-pub enum StreamEvent<Origin, T> {
-    Reconnecting(Origin),
-    Item(T),
-}
-
+// Todo: consider adding a with_stream_timeout for "next event timeout",
+//       or maybe .timeout() is fine, but needs to be before stream_of_streams.flatten()
+//
+// Todo: Add method to .flatten() without the ConnectionUpdates
 pub trait ReconnectingSocket
 where
     Self: Stream,
@@ -163,7 +154,7 @@ where
 
 impl<St> ReconnectingSocket for St where St: Stream {}
 
-pub fn reconnect<FnConnect, Backoff, Socket, ErrConnect>(
+pub fn init_reconnecting_socket<FnConnect, Backoff, Socket, ErrConnect>(
     connect: FnConnect,
     timeout_connect: std::time::Duration,
     backoff: Backoff,
@@ -214,4 +205,57 @@ where
             Some((result, state))
         },
     )
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+pub enum SocketEvent<Origin, Sink, T> {
+    Connected(Origin, Sink),
+    Reconnecting(Origin),
+    Item(T),
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+pub enum StreamEvent<Origin, T> {
+    Reconnecting(Origin),
+    Item(T),
+}
+
+impl<Origin, T> From<T> for StreamEvent<Origin, T> {
+    fn from(value: T) -> Self {
+        Self::Item(value)
+    }
+}
+
+impl<Origin, T> StreamEvent<Origin, T> {
+    pub fn map<F, O>(self, op: F) -> Event<Origin, O>
+    where
+        F: FnOnce(T) -> O,
+    {
+        match self {
+            StreamEvent::Reconnecting(origin) => StreamEvent::Reconnecting(origin),
+            StreamEvent::Item(item) => StreamEvent::Item(op(item)),
+        }
+    }
+}
+
+impl<Origin, T, E> StreamEvent<Origin, Result<T, E>> {
+    pub fn map_ok<F, O>(self, op: F) -> StreamEvent<Origin, Result<O, E>>
+    where
+        F: FnOnce(T) -> O,
+    {
+        match self {
+            StreamEvent::Reconnecting(origin) => StreamEvent::Reconnecting(origin),
+            StreamEvent::Item(result) => StreamEvent::Item(result.map(op)),
+        }
+    }
+
+    pub fn map_err<F, O>(self, op: F) -> StreamEvent<Origin, Result<T, O>>
+    where
+        F: FnOnce(E) -> O,
+    {
+        match self {
+            StreamEvent::Reconnecting(origin) => StreamEvent::Reconnecting(origin),
+            StreamEvent::Item(result) => StreamEvent::Item(result.map_err(op)),
+        }
+    }
 }

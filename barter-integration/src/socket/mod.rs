@@ -112,52 +112,52 @@ pub struct Socket<State, Updates, Sink> {
 //     Stream(StreamEvent),
 // }
 //
-// pub trait SocketParser {
-//     type Input;
-//     fn parse<Output>(input: Self::Input) -> impl Iterator<Item = Output>;
-// }
-//
-// pub struct WebSocketParser;
-//
-// impl SocketParser for WebSocketParser {
-//     type Input = Result<WsMessage, WsError>;
-//
-//     fn parse<Output>(input: Self::Input) -> impl Iterator<Item = Output> {
-//         std::iter::empty()
-//     }
-// }
-//
-// pub trait Transformer {
-//     type Input;
-//     type Output;
-//     fn transform(input: Self::Input) -> impl IntoIterator<Item = Self::Output>;
-// }
-//
-// pub fn process<Parser, Transform, ManagerEvent, StreamEvent, FnRoute>(
-//     stream: impl Stream<Item = Parser::Input> + Unpin + 'static,
-//     route: FnRoute,
-// ) -> impl Stream<Item = StreamEvent>
-// where
-//     Parser: SocketParser + 'static,
-//     Transform: Transformer<Output = Message<ManagerEvent, StreamEvent>> + 'static,
-//     FnRoute: AsyncFnMut(ManagerEvent) -> Result<(), ()>,
-// {
-//     let stream = parse_protocol_stream_and_transform::<Parser, Transform>(stream);
-//     let stream = route_manager_events::<ManagerEvent, StreamEvent, FnRoute>(stream, route);
-//
-//     stream
-// }
-//
-// pub fn parse_protocol_stream_and_transform<Parser, Transform>(
-//     stream: impl Stream<Item = Parser::Input>,
-// ) -> impl Stream<Item = Transform::Output>
-// where
-//     Parser: SocketParser,
-//     Transform: Transformer,
-// {
-//     stream
-//         // 1. SocketParser into Transformer::Input
-//         .flat_map(|item| futures::stream::iter(Parser::parse::<Transform::Input>(item)))
-//         // 2. Transformer::Input to Transformer::Output
-//         .flat_map(|input| futures::stream::iter(Transform::transform(input)))
-// }
+pub trait SocketParser<Output> {
+    type Input;
+    fn parse(input: Self::Input) -> impl Iterator<Item = Output>;
+}
+
+pub struct WebSocketParser;
+
+impl SocketParser for WebSocketParser {
+    type Input = Result<WsMessage, WsError>;
+
+    fn parse<Output>(input: Self::Input) -> impl Iterator<Item = Output> {
+        std::iter::empty()
+    }
+}
+
+pub trait Transformer {
+    type Input;
+    type Output;
+    fn transform(input: Self::Input) -> impl IntoIterator<Item = Self::Output>;
+}
+
+pub fn process<Parser, Transform, ManagerEvent, StreamEvent, FnRoute>(
+    stream: impl Stream<Item = Parser::Input> + Unpin + 'static,
+    route: FnRoute,
+) -> impl Stream<Item = StreamEvent>
+where
+    Parser: SocketParser + 'static,
+    Transform: Transformer<Output = Message<ManagerEvent, StreamEvent>> + 'static,
+    FnRoute: AsyncFnMut(ManagerEvent) -> Result<(), ()>,
+{
+    let stream = parse_protocol_stream_and_transform::<Parser, Transform>(stream);
+    let stream = route_manager_events::<ManagerEvent, StreamEvent, FnRoute>(stream, route);
+
+    stream
+}
+
+pub fn parse_protocol_stream_and_transform<Parser, Transform>(
+    stream: impl Stream<Item = Parser::Input>,
+) -> impl Stream<Item = Transform::Output>
+where
+    Parser: SocketParser,
+    Transform: Transformer,
+{
+    stream
+        // 1. SocketParser into Transformer::Input
+        .flat_map(|item| futures::stream::iter(Parser::parse::<Transform::Input>(item)))
+        // 2. Transformer::Input to Transformer::Output
+        .flat_map(|input| futures::stream::iter(Transform::transform(input)))
+}

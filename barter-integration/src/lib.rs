@@ -81,6 +81,20 @@ pub trait Transformer {
     fn transform(&mut self, input: Self::Input) -> Self::OutputIter;
 }
 
+/// Todo: rust docs + normalise wrt Transformer + rename Transformer
+pub trait TransformerSync {
+    type Input;
+    type Output;
+    fn transform(&mut self, input: Self::Input) -> Self::Output;
+}
+
+/// Todo: rust docs + normalise wrt Transformer
+pub trait AsyncTransformer {
+    type Input;
+    type Output;
+    fn transform(&mut self, input: Self::Input) -> impl Future<Output = Self::Output>;
+}
+
 /// Determines if something is considered "unrecoverable", such as an unrecoverable error.
 ///
 /// Note that the meaning of [`Unrecoverable`] may vary depending on the context.
