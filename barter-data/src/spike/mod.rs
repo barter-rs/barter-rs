@@ -3,7 +3,6 @@ use barter_instrument::{exchange::ExchangeId, instrument::kind::InstrumentKind};
 use barter_integration::{
     channel::{UnboundedTx, mpsc_unbounded},
     protocol::websocket::{WebSocket, WsMessage, WsSink, connect},
-    socket::Processor,
     stream::merge::merge,
 };
 use fnv::FnvHashMap;

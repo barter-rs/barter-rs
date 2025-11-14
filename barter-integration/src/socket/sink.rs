@@ -4,6 +4,7 @@ use std::{
     task::{Context, Poll},
 };
 
+// Todo: fix ReconnectingSink, watch channel won't work since impl Sink requires &mut Sink
 pub struct ReconnectingSink<Sink> {
     sink_rx: tokio::sync::watch::Receiver<Option<Sink>>,
 }
@@ -21,25 +22,27 @@ where
     type Error = ReconnectingSinkError<S::Error>;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        let current = self.sink_rx.borrow();
-        if let Some(sink) = current.as_ref() {
-            Pin::new(sink)
-                .poll_ready(cx)
-                .map_err(ReconnectingSinkError::Sink)
-        } else {
-            Poll::Ready(Err(ReconnectingSinkError::Reconnecting))
-        }
+        todo!()
+        // let current = self.sink_rx.borrow();
+        // if let Some(sink) = current.as_ref() {
+        //     Pin::new(sink)
+        //         .poll_ready(cx)
+        //         .map_err(ReconnectingSinkError::Sink)
+        // } else {
+        //     Poll::Ready(Err(ReconnectingSinkError::Reconnecting))
+        // }
     }
 
     fn start_send(mut self: Pin<&mut Self>, item: Item) -> Result<(), Self::Error> {
-        let mut current = self.sink_rx.borrow_mut();
-        if let Some(sink) = current.as_mut() {
-            Pin::new(sink)
-                .start_send(item)
-                .map_err(ReconnectingSinkError::Sink)
-        } else {
-            Err(ReconnectingSinkError::Reconnecting)
-        }
+        todo!()
+        // let mut current = self.sink_rx.borrow_mut();
+        // if let Some(sink) = current.as_mut() {
+        //     Pin::new(sink)
+        //         .start_send(item)
+        //         .map_err(ReconnectingSinkError::Sink)
+        // } else {
+        //     Err(ReconnectingSinkError::Reconnecting)
+        // }
     }
 
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
