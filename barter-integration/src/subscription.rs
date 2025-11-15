@@ -3,10 +3,10 @@ use smol_str::SmolStr;
 use std::fmt::{Display, Formatter};
 
 /// New type representing a unique `String` identifier for a stream that has been subscribed to.
-/// This is used to identify data structures received over the socket.
+/// This is used to identify data structures received over the socket_old.
 ///
 /// For example, `Barter-Data` uses this identifier to associate received data structures from the
-/// execution with the original `Barter-Data` `Subscription` that was actioned over the socket.
+/// execution with the original `Barter-Data` `Subscription` that was actioned over the socket_old.
 ///
 /// Note: Each execution will require the use of different `String` identifiers depending on the
 /// data structures they send.

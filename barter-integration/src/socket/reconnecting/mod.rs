@@ -1,11 +1,14 @@
-use crate::socket::{
-    backoff::ReconnectBackoff,
-    on_connect_err::{ConnectError, ConnectErrorAction, ConnectErrorHandler, ConnectErrorKind},
-    on_stream_err::{StreamErrorAction, StreamErrorHandler},
-    sink::ReconnectingSink,
-};
+use sink::ReconnectingSink;
 use futures::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
+use crate::socket::reconnecting::backoff::ReconnectBackoff;
+use crate::socket::reconnecting::on_connect_err::{ConnectError, ConnectErrorAction, ConnectErrorHandler, ConnectErrorKind};
+use crate::socket::reconnecting::on_stream_err::{StreamErrorAction, StreamErrorHandler};
+
+pub mod backoff;
+pub mod on_connect_err;
+pub mod on_stream_err;
+pub mod sink;
 
 // Todo: consider adding a with_stream_timeout for "next event timeout",
 //       or maybe .timeout() is fine, but needs to be before stream_of_streams.flatten()
@@ -32,7 +35,7 @@ where
                 },
             })
         })
-        .filter_map(std::future::ready)
+            .filter_map(std::future::ready)
     }
 
     fn on_stream_err<Sink, St, StOk, StErr, ErrHandler>(
@@ -117,11 +120,11 @@ where
                 origin.clone(),
                 sink,
             )))
-            .chain(stream.map(SocketEvent::Item).chain(futures::stream::once(
-                std::future::ready(SocketEvent::Reconnecting(origin.clone())),
-            )))
+                .chain(stream.map(SocketEvent::Item).chain(futures::stream::once(
+                    std::future::ready(SocketEvent::Reconnecting(origin.clone())),
+                )))
         })
-        .flatten()
+            .flatten()
     }
 
     fn route_sinks<Origin, Sink, T, FnRoute, FnRouteErr>(
@@ -148,7 +151,7 @@ where
                 SocketEvent::Item(item) => Some((Some(StreamEvent::Item(item)), (stream, route))),
             }
         })
-        .filter_map(std::future::ready)
+            .filter_map(std::future::ready)
     }
 }
 
@@ -227,7 +230,7 @@ impl<Origin, T> From<T> for StreamEvent<Origin, T> {
 }
 
 impl<Origin, T> StreamEvent<Origin, T> {
-    pub fn map<F, O>(self, op: F) -> Event<Origin, O>
+    pub fn map<F, O>(self, op: F) -> StreamEvent<Origin, O>
     where
         F: FnOnce(T) -> O,
     {

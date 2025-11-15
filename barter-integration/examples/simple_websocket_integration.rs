@@ -68,13 +68,13 @@ async fn main() {
         .map(|(ws_conn, _)| ws_conn)
         .expect("failed to connect");
 
-    // Send something over the socket (eg/ Binance trades subscription)
+    // Send something over the socket_old (eg/ Binance trades subscription)
     binance_conn
         .send(WsMessage::text(
             json!({"method": "SUBSCRIBE","params": ["btcusdt@aggTrade"],"id": 1}).to_string(),
         ))
         .await
-        .expect("failed to send WsMessage over socket");
+        .expect("failed to send WsMessage over socket_old");
 
     // Instantiate some arbitrary Transformer to apply to data parsed from the WebSocket protocol
     let transformer = StatefulTransformer { sum_of_volume: 0.0 };

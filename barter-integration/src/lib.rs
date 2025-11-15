@@ -59,7 +59,8 @@ pub mod collection;
 pub mod stream;
 
 pub mod snapshot;
-pub mod socket;
+pub mod socket_old;
+mod socket;
 
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.

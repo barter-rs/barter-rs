@@ -3,7 +3,7 @@ use prost::DecodeError;
 use reqwest::Error;
 use thiserror::Error;
 
-/// All socket IO related errors generated in `barter-integration`.
+/// All socket_old IO related errors generated in `barter-integration`.
 #[derive(Debug, Error)]
 pub enum SocketError {
     #[error("Sink error")]
@@ -39,7 +39,7 @@ pub enum SocketError {
     #[error("error parsing Url: {0}")]
     UrlParse(#[from] url::ParseError),
 
-    #[error("error subscribing to resources over the socket: {0}")]
+    #[error("error subscribing to resources over the socket_old: {0}")]
     Subscribe(String),
 
     #[error("ExchangeStream terminated with closing frame: {0}")]

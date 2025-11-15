@@ -90,7 +90,7 @@ where
     type Market: AsRef<str>;
 
     /// [`Subscriber`] type that establishes a connection with the exchange server, and actions
-    /// `Subscription`s over the socket.
+    /// `Subscription`s over the socket_old.
     type Subscriber: Subscriber;
 
     /// [`SubscriptionValidator`] type that listens to responses from the exchange server and

@@ -1,22 +1,20 @@
 use crate::{
-    AsyncTransformer, TransformerSync,
-    error::SocketError,
-    protocol::websocket::{
-        WebSocket, WsMessage, WsSink, connect, process_binary, process_close_frame, process_frame,
-        process_ping, process_pong, process_text,
+    error::SocketError, protocol::websocket::{
+        connect, process_binary, process_close_frame, process_frame, process_ping, process_pong, process_text,
+        WebSocket, WsMessage, WsSink,
     },
-    socket::{
-        backoff::DefaultBackoff,
-        on_connect_err::ConnectError,
-        retry_socket::{ReconnectingSocket, StreamEvent, init_reconnecting_socket},
-        sink::ReconnectingSink,
-    },
+    socket_old::retry_socket::{init_reconnecting_socket, ReconnectingSocket, StreamEvent},
+    AsyncTransformer,
+    TransformerSync,
 };
 use futures::{Stream, StreamExt};
 use std::marker::PhantomData;
-use tokio_stream::StreamExt;
 use tokio_tungstenite::tungstenite::Utf8Bytes;
 use tracing::debug;
+use crate::socket::reconnecting::backoff::DefaultBackoff;
+use crate::socket::reconnecting::{init_reconnecting_socket, ReconnectingSocket};
+use crate::socket::reconnecting::on_connect_err::ConnectError;
+use crate::socket::reconnecting::sink::ReconnectingSink;
 
 const URL: &str = "wss://streams.fast.onetrading.com";
 const TIMEOUT_CONNECT: std::time::Duration = std::time::Duration::from_secs(10);
@@ -163,7 +161,6 @@ pub fn init_reconnecting_websocket(
         // .on_connect_err(move |err_connect: &ConnectError<SocketError>| todo!())
         // .on_stream_err_filter(move |err_stream: &WsError| todo!())
         .map(|result| result.unwrap())
-        .timeout(timeout_stream)
         .into_reconnecting_sink_and_stream(origin)
 }
 

@@ -26,7 +26,7 @@ pub mod mapper;
 /// validate actioned [`Subscription`]s were successful.
 pub mod validator;
 
-/// Defines how to connect to a socket and subscribe to market data streams.
+/// Defines how to connect to a socket_old and subscribe to market data streams.
 #[async_trait]
 pub trait Subscriber {
     type SubMapper: SubscriptionMapper;
