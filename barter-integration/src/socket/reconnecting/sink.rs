@@ -22,6 +22,7 @@ where
     type Error = ReconnectingSinkError<S::Error>;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+
         todo!()
         // let current = self.sink_rx.borrow();
         // if let Some(sink) = current.as_ref() {
