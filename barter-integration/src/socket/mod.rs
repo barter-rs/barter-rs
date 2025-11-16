@@ -142,93 +142,14 @@ where
         .with_timeout(timeout_stream, on_timeout)
 }
 
-pub fn init_reconnecting_websocket_with_updates<Output>(
-    url: &str,
-    timeout_connect: std::time::Duration,
-    timeout_stream: std::time::Duration,
-    forward: impl FnMut(
-        SocketUpdate<WsSink, MessageAdmin<MessageAdminWs, MessageAdminApp>>,
-    ) -> Result<(), ()>,
-) -> impl Stream<Item = StreamUpdate<Output>> {
-    init_reconnecting_websocket::<Output>(url, timeout_connect, timeout_stream)
-        .with_socket_updates()
-        .forward_by(
-            |update| {
-                use futures::future::Either::*;
-                match update {
-                    SocketUpdate::Connected(sink) => Left(SocketUpdate::Connected(sink)),
-                    SocketUpdate::Reconnecting => {
-                        // Todo: Manager should get this too, need to Clone
-                        Right(StreamUpdate::Reconnecting)
-                    }
-                    SocketUpdate::Item(message) => match message {
-                        Message::Admin(admin) => Left(SocketUpdate::Item(admin)),
-                        Message::Payload(payload) => Right(StreamUpdate::Item(payload)),
-                    },
-                }
-            },
-            forward,
-        );
-}
-
-pub fn init_reconnecting_websocket<Output>(
-    url: &str,
-    timeout_connect: std::time::Duration,
-    timeout_stream: std::time::Duration,
-) -> impl Stream<
-    Item = (
-               impl Sink<WsMessage>
-               + Stream<Item = Message<MessageAdmin<MessageAdminWs, MessageAdminApp>, Output>>
-           ),
-> {
-    init_reconnecting_socket(
-        || init_websocket_stream(url, timeout_stream),
-        timeout_connect,
-        DefaultBackoff,
-    )
-    .on_connect_err(
-        move |err_connect: &ConnectError<SocketError>| match &err_connect.kind {
-            ConnectErrorKind::Connect(error) => {
-                warn!(
-                    %url,
-                    %error,
-                    action = "reconnecting after backoff",
-                    "failed to initialise WebSocket due to connect error"
-                );
-                ConnectErrorAction::Reconnect
-            }
-            ConnectErrorKind::Timeout => {
-                warn!(
-                    %url,
-                    timeout = ?timeout_connect,
-                    action = "reconnecting after backoff",
-                    "failed to initialise WebSocket due to connect timeout"
-                );
-                ConnectErrorAction::Reconnect
-            }
-        },
-    )
-}
-
 pub async fn init_websocket_stream<Socket, AppMessage, Output>(
     url: &str,
-    timeout: std::time::Duration,
 ) -> Result<
     impl Sink<WsMessage> + Stream<Item = Message<MessageAdmin<MessageAdminWs, MessageAdminApp>, Output>>,
     SocketError,
 > {
-    // Todo: Timeout must be applied to inner Stream before flattening, otherwise ReconnectingStream ends:
-    //   - For now, see if this compiles even though tokio_stream::Timeout doesn't impl Sink
     let socket = connect(url)
         .await?
-        // End Stream if consecutive Stream events exceed timeout
-        .with_timeout(timeout, || {
-            warn!(
-                %url,
-                ?timeout,
-                "stream ended due to consecutive event timeout"
-            )
-        })
         // WebSocketTransformer: Result<WsMessage, WsError> => Message<AdminMessageWs, bytes::Bytes>
         .scan(WebSocketTransformer, |transformer, ws_result| {
             std::future::ready({ Some(transformer.transform(ws_result)) })
@@ -262,14 +183,6 @@ pub async fn init_websocket_stream<Socket, AppMessage, Output>(
                 })
             },
         );
-
-    // .forward_by(
-    //     |message| match message {
-    //         Message::Admin(admin) => futures::future::Either::Left(admin),
-    //         Message::Payload(data) => futures::future::Either::Right(data),
-    //     },
-    //     |x| Ok(()),
-    // );
 
     Ok(socket)
 }
