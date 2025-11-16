@@ -59,8 +59,8 @@ pub mod collection;
 pub mod stream;
 
 pub mod snapshot;
-pub mod socket_old;
 mod socket;
+pub mod socket_old;
 
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.
@@ -84,9 +84,9 @@ pub trait Transformer {
 
 /// Todo: rust docs + normalise wrt Transformer + rename Transformer
 pub trait TransformerSync {
-    type Input;
+    type Input<'a>;
     type Output;
-    fn transform(&mut self, input: Self::Input) -> Self::Output;
+    fn transform(&mut self, input: Self::Input<'_>) -> Self::Output;
 }
 
 /// Todo: rust docs + normalise wrt Transformer

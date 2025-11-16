@@ -1,10 +1,11 @@
-use sink::ReconnectingSink;
+use crate::socket::reconnecting::{
+    backoff::ReconnectBackoff,
+    on_connect_err::{ConnectError, ConnectErrorAction, ConnectErrorHandler, ConnectErrorKind},
+    on_stream_err::{StreamErrorAction, StreamErrorHandler},
+};
 use futures::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
-use tokio_stream::{Elapsed, StreamExt};
-use crate::socket::reconnecting::backoff::ReconnectBackoff;
-use crate::socket::reconnecting::on_connect_err::{ConnectError, ConnectErrorAction, ConnectErrorHandler, ConnectErrorKind};
-use crate::socket::reconnecting::on_stream_err::{StreamErrorAction, StreamErrorHandler};
+use sink::ReconnectingSink;
 
 pub mod backoff;
 pub mod on_connect_err;
@@ -33,7 +34,7 @@ where
                 },
             })
         })
-            .filter_map(std::future::ready)
+        .filter_map(std::future::ready)
     }
 
     fn with_timeout<TimeoutHandler>(
@@ -42,12 +43,12 @@ where
         on_timeout: TimeoutHandler,
     ) -> impl Stream<Item = Self::Item>
     where
-        Self: Stream,
-        TimeoutHandler: FnOnce(),
+        Self: Stream + Sized,
+        TimeoutHandler: Fn() + 'static,
     {
         use tokio_stream::StreamExt;
         self.timeout(timeout_next_item)
-            .map_while(|timeout_result| match timeout_result {
+            .map_while(move |timeout_result| match timeout_result {
                 Ok(item) => Some(item),
                 Err(_elapsed) => {
                     on_timeout();
@@ -138,11 +139,11 @@ where
                 origin.clone(),
                 sink,
             )))
-                .chain(stream.map(SocketUpdate::Item).chain(futures::stream::once(
-                    std::future::ready(SocketUpdate::Reconnecting(origin.clone())),
-                )))
+            .chain(stream.map(SocketUpdate::Item).chain(futures::stream::once(
+                std::future::ready(SocketUpdate::Reconnecting(origin.clone())),
+            )))
         })
-            .flatten()
+        .flatten()
     }
 
     fn route_sinks<Origin, Sink, T, FnRoute, FnRouteErr>(
@@ -169,7 +170,7 @@ where
                 SocketUpdate::Item(item) => Some((Some(StreamUpdate::Item(item)), (stream, route))),
             }
         })
-            .filter_map(std::future::ready)
+        .filter_map(std::future::ready)
     }
 }
 

@@ -3,7 +3,6 @@ use crate::{
         connect, process_binary, process_close_frame, process_frame, process_ping, process_pong, process_text,
         WebSocket, WsMessage, WsSink,
     },
-    socket_old::retry_socket::{init_reconnecting_socket, ReconnectingSocket, StreamEvent},
     AsyncTransformer,
     TransformerSync,
 };
