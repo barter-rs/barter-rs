@@ -13,7 +13,7 @@ use crate::{
         sink::ReconnectingSink,
     },
 };
-use futures::{SinkExt, Stream, StreamExt};
+use futures::{Sink, SinkExt, Stream, StreamExt};
 use std::marker::PhantomData;
 use tokio_stream::Elapsed;
 use tokio_tungstenite::tungstenite::{Error, protocol::CloseFrame as WsCloseFrame};
@@ -135,26 +135,40 @@ pub fn run() {
     //     Stream<(Sink, Stream)> methods :thinking.
 }
 
-pub fn init_reconnecting_websocket_with_updates<Output>(
+pub fn init_reconnecting_websocket_with_updates<FnForwardAdmin, Output>(
     url: &str,
     timeout_connect: std::time::Duration,
     timeout_stream: std::time::Duration,
+    forward: FnForwardAdmin,
 ) -> (
     ReconnectingSink<WsSink>,
     impl Stream<Item = StreamUpdate<Origin, Output>>,
-) {
-    let stream = init_reconnecting_websocket(url, timeout_connect, timeout_stream)
-        .forward_by(
-            |(sink, stream)|
-        )
-        // .into_reconnecting_sink_and_stream(Origin(URL.to_string()))
+)
+where
+    FnForwardAdmin: FnMut(MessageAdmin<MessageAdminWs, MessageAdminApp>) -> Result<(), ()>,
+{
+    let socket = init_reconnecting_websocket::<Output>(url, timeout_connect, timeout_stream);
+
+    let socket = socket.forward_by(
+        |message| match message {
+            Message::Admin(admin) => futures::future::Either::Left(admin),
+            Message::Data(data) => futures::future::Either::Right(data),
+        },
+        forward,
+    );
+
+    // let stream = init_reconnecting_websocket(url, timeout_connect, timeout_stream)
+    //     .forward_by(
+    //         |(sink, stream)|
+    //     )
+    // .into_reconnecting_sink_and_stream(Origin(URL.to_string()))
 }
 
 pub fn init_reconnecting_websocket<Output>(
     url: &str,
     timeout_connect: std::time::Duration,
     timeout_stream: std::time::Duration,
-) -> impl Stream<Item = (WsSink, impl Stream<Item = Message<MessageAdmin<MessageAdminWs, MessageAdminApp>, Output>>)>
+) -> impl Sink<WsMessage> + Stream<Item = Message<MessageAdmin<MessageAdminWs, MessageAdminApp>, Output>>
 {
     init_reconnecting_socket(
         || init_websocket_stream(URL, timeout_stream),
@@ -185,64 +199,67 @@ pub fn init_reconnecting_websocket<Output>(
     )
 }
 
-pub async fn init_websocket_stream<AppMessage, OutputMessage>(
+pub async fn init_websocket_stream<Socket, AppMessage, Output>(
     url: &str,
     timeout: std::time::Duration,
 ) -> Result<
-    (
-        WsSink,
-        impl Stream<Item = Message<MessageAdmin<MessageAdminWs, MessageAdminApp>, OutputMessage>>,
-    ),
+    impl Sink<WsMessage> + Stream<Item = Message<MessageAdmin<MessageAdminWs, MessageAdminApp>, Output>>,
     SocketError,
 > {
-    let websocket: WebSocket = connect(URL).await?;
-    let (sink, stream) = futures::StreamExt::split(websocket);
-
-    let stream = stream.with_timeout(timeout, || {
-        warn!(
-            %url,
-            ?timeout,
-            "stream ended due to consecutive event timeout"
+    let socket = connect(URL)
+        .await?
+        // End Stream if consecutive Stream events exceed timeout
+        .with_timeout(timeout, || {
+            warn!(
+                %url,
+                ?timeout,
+                "stream ended due to consecutive event timeout"
+            )
+        })
+        // WebSocketTransformer: Result<WsMessage, WsError> => Message<AdminMessageWs, bytes::Bytes>
+        .scan(WebSocketTransformer, |transformer, ws_result| {
+            std::future::ready({ Some(transformer.transform(ws_result)) })
+        })
+        // SerdeTransformer: Message<_, bytes::Bytes> => Message<_, Result<AppMessage, DeBinaryError>>
+        .scan(
+            SerdeTransformer::<AppMessage>::default(),
+            |transformer, message| {
+                std::future::ready({
+                    Some(match message {
+                        Message::Admin(admin) => Message::Admin(admin),
+                        Message::Data(data) => Message::Data(transformer.transform(data)),
+                    })
+                })
+            },
         )
-    });
-
-    // Todo: Maybe don't filter the Results at this point, let the downstream consumers do it!
-
-    // WebSocketTransformer: Result<WsMessage, WsError> => Message<AdminMessageWs, bytes::Bytes>
-    let stream = stream.scan(WebSocketTransformer, |transformer, ws_result| {
-        std::future::ready({ Some(transformer.transform(ws_result)) })
-    });
-
-    // SerdeTransformer: Message<_, bytes::Bytes> => Message<_, Result<AppMessage, DeBinaryError>>
-    let stream = stream.scan(
-        SerdeTransformer::<AppMessage>::default(),
-        |transformer, message| {
-            std::future::ready({
-                Some(match message {
-                    Message::Admin(admin) => Message::Admin(admin),
-                    Message::Data(data) => Message::Data(transformer.transform(data)),
+        // AppTransformer: Result<AppMessage, DeBinaryError> -> Message<MessageAdminApp, OutputMessage>
+        .scan(
+            BinanceTransformer::<Output>::default(),
+            |transformer, message| {
+                std::future::ready({
+                    Some(match message {
+                        Message::Admin(protocol) => {
+                            Message::Admin(MessageAdmin::Protocol(protocol))
+                        }
+                        Message::Data(data) => match transformer.transform(data) {
+                            Message::Admin(app) => Message::Admin(MessageAdmin::Application(app)),
+                            Message::Data(data) => Message::Data(data),
+                        },
+                    })
                 })
-            })
-        },
-    );
+            },
+        )
+        // Todo: Not sure where to forward_by since returns impl Stream:
+        //  - Here I could split
+        .forward_by(
+            |message| match message {
+                Message::Admin(admin) => futures::future::Either::Left(admin),
+                Message::Data(data) => futures::future::Either::Right(data),
+            },
+            |x| Ok(()),
+        );
 
-    // AppTransformer: Result<AppMessage, DeBinaryError> -> Message<MessageAdminApp, OutputMessage>
-    let stream = stream.scan(
-        BinanceTransformer::<OutputMessage>::default(),
-        |transformer, message| {
-            std::future::ready({
-                Some(match message {
-                    Message::Admin(protocol) => Message::Admin(MessageAdmin::Protocol(protocol)),
-                    Message::Data(data) => match transformer.transform(data) {
-                        Message::Admin(app) => Message::Admin(MessageAdmin::Application(app)),
-                        Message::Data(data) => Message::Data(data),
-                    },
-                })
-            })
-        },
-    );
-
-    Ok((sink, stream))
+    Ok(socket)
 }
 
 // pub fn init_reconnecting_websocket(

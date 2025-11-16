@@ -1,42 +1,28 @@
 use crate::socket::reconnecting::{
     backoff::ReconnectBackoff,
-    on_connect_err::{ConnectError, ConnectErrorAction, ConnectErrorHandler, ConnectErrorKind},
-    on_stream_err::{StreamErrorAction, StreamErrorHandler},
+    forward_by::ForwardBy,
+    on_connect_err::{ConnectError, ConnectErrorHandler, ConnectErrorKind, OnConnectErr},
+    on_stream_err::{OnStreamErr, StreamErrorHandler},
+    on_stream_err_filter::OnStreamErrFilter,
 };
 use futures::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use sink::ReconnectingSink;
 
 pub mod backoff;
+pub mod forward_by;
 pub mod on_connect_err;
 pub mod on_stream_err;
+pub mod on_stream_err_filter;
 pub mod sink;
+pub mod with_timeout;
 
 // Todo: Add method to .flatten() without the ConnectionUpdates
 pub trait ReconnectingSocket
 where
     Self: Stream,
 {
-    fn on_connect_err<Socket, ErrConnect, ErrHandler>(
-        self,
-        on_err: ErrHandler,
-    ) -> impl Stream<Item = Socket>
-    where
-        Self: Stream<Item = Result<Socket, ConnectError<ErrConnect>>> + Sized,
-        ErrHandler: ConnectErrorHandler<ErrConnect>,
-    {
-        self.scan(on_err, |on_err, result| {
-            std::future::ready(match result {
-                Ok(socket) => Some(Some(socket)),
-                Err(error) => match on_err.handle(&error) {
-                    ConnectErrorAction::Reconnect => Some(None),
-                    ConnectErrorAction::Terminate => None,
-                },
-            })
-        })
-        .filter_map(std::future::ready)
-    }
-
+    // Todo: ReconnectingStream maybe?
     fn with_timeout<TimeoutHandler>(
         self,
         timeout_next_item: std::time::Duration,
@@ -57,41 +43,39 @@ where
             })
     }
 
-    fn on_stream_err<Sink, St, StOk, StErr, ErrHandler>(
+    fn on_connect_err<Socket, ErrConnect, ErrHandler>(
         self,
         on_err: ErrHandler,
-    ) -> impl Stream<Item = (Sink, impl Stream<Item = Result<StOk, StErr>>)>
+    ) -> OnConnectErr<Self, ErrHandler>
     where
-        Self: Stream<Item = (Sink, St)> + Sized,
-        St: Stream<Item = Result<StOk, StErr>>,
-        ErrHandler: StreamErrorHandler<StErr> + Clone + 'static,
+        Self: Stream<Item = Result<Socket, ConnectError<ErrConnect>>> + Sized,
+        ErrHandler: ConnectErrorHandler<ErrConnect>,
     {
-        self.map(move |(sink, stream)| {
-            let mut on_err = on_err.clone();
-            let stream = tokio_stream::StreamExt::map_while(stream, move |result| match result {
-                Ok(event) => Some(Ok(event)),
-                Err(error) => match on_err.handle(&error) {
-                    StreamErrorAction::Continue => Some(Err(error)),
-                    StreamErrorAction::Reconnect => None,
-                },
-            });
-            (sink, stream)
-        })
+        OnConnectErr::new(self, on_err)
     }
 
-    fn on_stream_err_filter<Sink, St, StOk, StErr, ErrHandler>(
+    fn on_stream_err<Socket, StOk, StErr, ErrHandler>(
         self,
         on_err: ErrHandler,
-    ) -> impl Stream<Item = (Sink, impl Stream<Item = StOk>)>
+    ) -> impl Stream<Item = OnStreamErr<Socket, ErrHandler>>
     where
-        Self: Stream<Item = (Sink, St)> + Sized,
-        St: Stream<Item = Result<StOk, StErr>>,
+        Self: Stream<Item = Socket> + Sized,
+        Socket: Stream<Item = Result<StOk, StErr>>,
         ErrHandler: StreamErrorHandler<StErr> + Clone + 'static,
     {
-        self.on_stream_err(on_err).map(|(sink, stream)| {
-            let stream = stream.filter_map(|result| std::future::ready(result.ok()));
-            (sink, stream)
-        })
+        self.map(move |socket| OnStreamErr::new(socket, on_err.clone()))
+    }
+
+    fn on_stream_err_filter<Socket, StOk, StErr, ErrHandler>(
+        self,
+        on_err: ErrHandler,
+    ) -> impl Stream<Item = OnStreamErrFilter<Socket, ErrHandler>>
+    where
+        Self: Stream<Item = Socket> + Sized,
+        Socket: Stream<Item = Result<StOk, StErr>>,
+        ErrHandler: StreamErrorHandler<StErr> + Clone + 'static,
+    {
+        self.map(move |socket| OnStreamErrFilter::new(socket, on_err.clone()))
     }
 
     fn into_reconnecting_sink_and_stream<Origin, Sink, St>(
@@ -99,7 +83,7 @@ where
         origin: Origin,
     ) -> (
         ReconnectingSink<Sink>,
-        impl Stream<Item = StreamUpdate<Origin, St::Item>>,
+        impl Stream<Item = StreamUpdate<St::Item, Origin>>,
     )
     where
         Self: Stream<Item = (Sink, St)> + Sized,
@@ -125,6 +109,7 @@ where
         (ReconnectingSink::new(sink_rx), stream)
     }
 
+    // ReconnectingSocket
     fn with_connection_updates<Origin, Sink, St>(
         self,
         origin: Origin,
@@ -146,35 +131,17 @@ where
         .flatten()
     }
 
-    /// Todo: Rust Docs
-    ///  - FnPredicate determines which elements to forward and which to keep in Stream.
-    ///  - If FnForward errors, Stream ends.
     fn forward_by<A, B, FnPredicate, FnForward>(
         self,
         predicate: FnPredicate,
-        forward: FnForward
-    ) -> impl Stream<Item = B>
+        forward: FnForward,
+    ) -> ForwardBy<Self, FnPredicate, FnForward>
     where
-        Self: Stream + Sized,
+        Self: Sized,
         FnPredicate: Fn(Self::Item) -> futures::future::Either<A, B>,
-        FnForward: FnMut(A) -> Result<(), ()>
+        FnForward: FnMut(A) -> Result<(), ()>,
     {
-        futures::stream::unfold((self, forward), |(mut stream, forward)| async move {
-            let next = stream.next().await?;
-            match predicate(next) {
-                futures::future::Either::Left(left) => {
-                    if forward(left).is_err() {
-                        None
-                    } else {
-                        Some((None, (stream, forward)))
-                    }
-                }
-                futures::future::Either::Right(right) => {
-                    Some((Some(right), (stream, forward)))
-                }
-            }
-        })
-        .filter_map(std::future::ready)
+        ForwardBy::new(self, predicate, forward)
     }
 
     // fn route_sinks<Origin, Sink, T, FnRoute, FnRouteErr>(
@@ -268,7 +235,7 @@ pub enum SocketUpdate<Origin, Sink, T> {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
-pub enum StreamUpdate<Origin, T> {
+pub enum StreamUpdate<T, Origin = ()> {
     Reconnecting(Origin),
     Item(T),
 }
