@@ -28,6 +28,12 @@ pub mod reconnecting;
 //  4. Transform ProtocolMessage::Data into ApplicationMessage (ie/ ExchangeMessage)
 //  5. Transform ApplicationMessage -> enum { Heartbeat, Response, Event }
 
+pub trait Integration {
+    type Protocol;
+    type Deserialiser;
+    type Api;
+}
+
 pub enum Message<A, T> {
     Admin(A),
     Data(T),
@@ -122,11 +128,6 @@ pub fn run() {
     // Stream of Streams is flattened from this point, so ability to end inner stream
     // is up to the Manager to orchestrate
 
-    // Todo: Need to decide where we flatten... don't really want to apply Transformations
-    //       to a StreamUpdate :cry
-    //       Maybe more logic should exist in the FnConnect? Or I can act on Stream Of Streams
-    //       via closure that operates on the InnerStream.
-
     // Todo: Shower Thoughts:
     //  1. ReconnectingStream logic must not exclude "ReconnectingStreams" w/o Sinks
     //      '--> Maybe have two traits, one for Stream, another for Stream<(Sink, Stream)>
@@ -134,23 +135,27 @@ pub fn run() {
     //     Stream<(Sink, Stream)> methods :thinking.
 }
 
-pub fn init_reconnecting_websocket_with_updates(
+pub fn init_reconnecting_websocket_with_updates<Output>(
     url: &str,
     timeout_connect: std::time::Duration,
     timeout_stream: std::time::Duration,
 ) -> (
     ReconnectingSink<WsSink>,
-    impl Stream<Item = StreamUpdate<Origin, WsMessage>>,
+    impl Stream<Item = StreamUpdate<Origin, Output>>,
 ) {
-    init_reconnecting_websocket(url, timeout_connect, timeout_stream)
-        .into_reconnecting_sink_and_stream(Origin(URL.to_string()))
+    let stream = init_reconnecting_websocket(url, timeout_connect, timeout_stream)
+        .forward_by(
+            |(sink, stream)|
+        )
+        // .into_reconnecting_sink_and_stream(Origin(URL.to_string()))
 }
 
-pub fn init_reconnecting_websocket(
+pub fn init_reconnecting_websocket<Output>(
     url: &str,
     timeout_connect: std::time::Duration,
     timeout_stream: std::time::Duration,
-) -> impl Stream<Item = (WsSink, impl Stream<Item = WsMessage>)> {
+) -> impl Stream<Item = (WsSink, impl Stream<Item = Message<MessageAdmin<MessageAdminWs, MessageAdminApp>, Output>>)>
+{
     init_reconnecting_socket(
         || init_websocket_stream(URL, timeout_stream),
         timeout_connect,
@@ -178,24 +183,8 @@ pub fn init_reconnecting_websocket(
             }
         },
     )
-    .on_stream_err_filter(move |error: &WsError| {
-        if is_websocket_disconnected(error) {
-            warn!(
-                %error,
-                action = "reconnecting after backoff",
-                "consumed non-recoverable WebSocket error"
-            );
-            StreamErrorAction::Reconnect
-        } else {
-            warn!(
-                %error,
-                action = "skipping message",
-                "consumed recoverable WebSocket error"
-            );
-            StreamErrorAction::Continue
-        }
-    })
 }
+
 pub async fn init_websocket_stream<AppMessage, OutputMessage>(
     url: &str,
     timeout: std::time::Duration,
@@ -255,3 +244,54 @@ pub async fn init_websocket_stream<AppMessage, OutputMessage>(
 
     Ok((sink, stream))
 }
+
+// pub fn init_reconnecting_websocket(
+//     url: &str,
+//     timeout_connect: std::time::Duration,
+//     timeout_stream: std::time::Duration,
+// ) -> impl Stream<Item = (WsSink, impl Stream<Item = WsMessage>)> {
+//     init_reconnecting_socket(
+//         || init_websocket_stream(URL, timeout_stream),
+//         timeout_connect,
+//         DefaultBackoff,
+//     )
+//     .on_connect_err(
+//         move |err_connect: &ConnectError<SocketError>| match &err_connect.kind {
+//             ConnectErrorKind::Connect(error) => {
+//                 warn!(
+//                     %url,
+//                     %error,
+//                     action = "reconnecting after backoff",
+//                     "failed to initialise WebSocket due to connect error"
+//                 );
+//                 ConnectErrorAction::Reconnect
+//             }
+//             ConnectErrorKind::Timeout => {
+//                 warn!(
+//                     %url,
+//                     timeout = ?timeout_connect,
+//                     action = "reconnecting after backoff",
+//                     "failed to initialise WebSocket due to connect timeout"
+//                 );
+//                 ConnectErrorAction::Reconnect
+//             }
+//         },
+//     )
+//     .on_stream_err_filter(move |error: &WsError| {
+//         if is_websocket_disconnected(error) {
+//             warn!(
+//                 %error,
+//                 action = "reconnecting after backoff",
+//                 "consumed non-recoverable WebSocket error"
+//             );
+//             StreamErrorAction::Reconnect
+//         } else {
+//             warn!(
+//                 %error,
+//                 action = "skipping message",
+//                 "consumed recoverable WebSocket error"
+//             );
+//             StreamErrorAction::Continue
+//         }
+//     })
+// }

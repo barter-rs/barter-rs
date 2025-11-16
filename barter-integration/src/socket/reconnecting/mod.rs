@@ -146,32 +146,63 @@ where
         .flatten()
     }
 
-    fn route_sinks<Origin, Sink, T, FnRoute, FnRouteErr>(
+    /// Todo: Rust Docs
+    ///  - FnPredicate determines which elements to forward and which to keep in Stream.
+    ///  - If FnForward errors, Stream ends.
+    fn forward_by<A, B, FnPredicate, FnForward>(
         self,
-        route: FnRoute,
-    ) -> impl Stream<Item = StreamUpdate<Origin, T>>
+        predicate: FnPredicate,
+        forward: FnForward
+    ) -> impl Stream<Item = B>
     where
-        Self: Stream<Item = SocketUpdate<Origin, Sink, T>> + Unpin + Sized,
-        FnRoute: AsyncFnMut(Origin, Sink) -> Result<(), FnRouteErr>,
+        Self: Stream + Sized,
+        FnPredicate: Fn(Self::Item) -> futures::future::Either<A, B>,
+        FnForward: FnMut(A) -> Result<(), ()>
     {
-        futures::stream::unfold((self, route), |(mut stream, mut route)| async move {
-            let event = stream.next().await?;
-            match event {
-                SocketUpdate::Connected(origin, sink) => {
-                    if route(origin, sink).await.is_err() {
+        futures::stream::unfold((self, forward), |(mut stream, forward)| async move {
+            let next = stream.next().await?;
+            match predicate(next) {
+                futures::future::Either::Left(left) => {
+                    if forward(left).is_err() {
                         None
                     } else {
-                        Some((None, (stream, route)))
+                        Some((None, (stream, forward)))
                     }
                 }
-                SocketUpdate::Reconnecting(origin) => {
-                    Some((Some(StreamUpdate::Reconnecting(origin)), (stream, route)))
+                futures::future::Either::Right(right) => {
+                    Some((Some(right), (stream, forward)))
                 }
-                SocketUpdate::Item(item) => Some((Some(StreamUpdate::Item(item)), (stream, route))),
             }
         })
         .filter_map(std::future::ready)
     }
+
+    // fn route_sinks<Origin, Sink, T, FnRoute, FnRouteErr>(
+    //     self,
+    //     route: FnRoute,
+    // ) -> impl Stream<Item = StreamUpdate<Origin, T>>
+    // where
+    //     Self: Stream<Item = SocketUpdate<Origin, Sink, T>> + Unpin + Sized,
+    //     FnRoute: AsyncFnMut(Origin, Sink) -> Result<(), FnRouteErr>,
+    // {
+    //     futures::stream::unfold((self, route), |(mut stream, mut route)| async move {
+    //         let event = stream.next().await?;
+    //         match event {
+    //             SocketUpdate::Connected(origin, sink) => {
+    //                 if route(origin, sink).await.is_err() {
+    //                     None
+    //                 } else {
+    //                     Some((None, (stream, route)))
+    //                 }
+    //             }
+    //             SocketUpdate::Reconnecting(origin) => {
+    //                 Some((Some(StreamUpdate::Reconnecting(origin)), (stream, route)))
+    //             }
+    //             SocketUpdate::Item(item) => Some((Some(StreamUpdate::Item(item)), (stream, route))),
+    //         }
+    //     })
+    //     .filter_map(std::future::ready)
+    // }
 }
 
 impl<St> ReconnectingSocket for St where St: Stream {}
