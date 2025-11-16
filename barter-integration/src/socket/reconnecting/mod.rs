@@ -5,7 +5,7 @@ use crate::socket::reconnecting::{
     on_stream_err::{OnStreamErr, StreamErrorHandler},
     on_stream_err_filter::OnStreamErrFilter,
 };
-use futures::{Stream, StreamExt};
+use futures::{Sink, Stream, StreamExt, stream::SplitSink};
 use serde::{Deserialize, Serialize};
 use sink::ReconnectingSink;
 
@@ -47,6 +47,7 @@ where
         self,
         on_err: ErrHandler,
     ) -> OnConnectErr<Self, ErrHandler>
+    // Stream<Item = Socket>
     where
         Self: Stream<Item = Result<Socket, ConnectError<ErrConnect>>> + Sized,
         ErrHandler: ConnectErrorHandler<ErrConnect>,
@@ -78,71 +79,94 @@ where
         self.map(move |socket| OnStreamErrFilter::new(socket, on_err.clone()))
     }
 
-    fn into_reconnecting_sink_and_stream<Origin, Sink, St>(
-        self,
-        origin: Origin,
-    ) -> (
-        ReconnectingSink<Sink>,
-        impl Stream<Item = StreamUpdate<St::Item, Origin>>,
-    )
-    where
-        Self: Stream<Item = (Sink, St)> + Sized,
-        Origin: Clone + 'static,
-        St: Stream,
-    {
-        let (sink_tx, sink_rx) = tokio::sync::watch::channel(None);
-
-        let stream = self
-            .with_connection_updates(origin)
-            .map(move |event| match event {
-                SocketUpdate::Connected(origin, sink) => {
-                    let _ = sink_tx.send(Some(sink));
-                    StreamUpdate::Reconnecting(origin)
-                }
-                SocketUpdate::Reconnecting(origin) => {
-                    let _ = sink_tx.send(None);
-                    StreamUpdate::Reconnecting(origin)
-                }
-                SocketUpdate::Item(item) => StreamUpdate::Item(item),
-            });
-
-        (ReconnectingSink::new(sink_rx), stream)
-    }
-
-    // ReconnectingSocket
-    fn with_connection_updates<Origin, Sink, St>(
-        self,
-        origin: Origin,
-    ) -> impl Stream<Item = SocketUpdate<Origin, Sink, St::Item>>
-    where
-        Self: Stream<Item = (Sink, St)> + Sized,
-        St: Stream,
-        Origin: Clone + 'static,
-    {
-        self.map(move |(sink, stream)| {
-            futures::stream::once(std::future::ready(SocketUpdate::Connected(
-                origin.clone(),
-                sink,
-            )))
-            .chain(stream.map(SocketUpdate::Item).chain(futures::stream::once(
-                std::future::ready(SocketUpdate::Reconnecting(origin.clone())),
-            )))
-        })
-        .flatten()
-    }
-
+    // Todo: What to do if need to Forward as well as Keep? eg/ OrderResponse, maybe Audit stream is enough?
     fn forward_by<A, B, FnPredicate, FnForward>(
         self,
         predicate: FnPredicate,
         forward: FnForward,
     ) -> ForwardBy<Self, FnPredicate, FnForward>
+    // Stream<Item = B>
     where
-        Self: Sized,
+        Self: Stream + Sized,
         FnPredicate: Fn(Self::Item) -> futures::future::Either<A, B>,
         FnForward: FnMut(A) -> Result<(), ()>,
     {
         ForwardBy::new(self, predicate, forward)
     }
+
+    // fn into_reconnecting_sink_and_stream<Origin, Sink, St>(
+    //     self,
+    //     origin: Origin,
+    // ) -> (
+    //     ReconnectingSink<Sink>,
+    //     impl Stream<Item = StreamUpdate<St::Item, Origin>>,
+    // )
+    // where
+    //     Self: Stream<Item = (Sink, St)> + Sized,
+    //     Origin: Clone + 'static,
+    //     St: Stream,
+    // {
+    //     let (sink_tx, sink_rx) = tokio::sync::watch::channel(None);
+    //
+    //     let stream = self
+    //         .with_connection_updates(origin)
+    //         .map(move |event| match event {
+    //             SocketUpdate::Connected(origin, sink) => {
+    //                 let _ = sink_tx.send(Some(sink));
+    //                 StreamUpdate::Reconnecting(origin)
+    //             }
+    //             SocketUpdate::Reconnecting(origin) => {
+    //                 let _ = sink_tx.send(None);
+    //                 StreamUpdate::Reconnecting(origin)
+    //             }
+    //             SocketUpdate::Item(item) => StreamUpdate::Item(item),
+    //         });
+    //
+    //     (ReconnectingSink::new(sink_rx), stream)
+    // }
+
+    fn with_socket_updates<Socket, SinkItem>(
+        self,
+    ) -> impl Stream<Item = SocketUpdate<SplitSink<Self, SinkItem>, Socket::Item>>
+    where
+        Self: Stream<Item = Socket> + Sized,
+        Socket: Sink<SinkItem> + Stream,
+    {
+        use futures::stream::once;
+        use std::future::ready;
+
+        self.map(move |socket| {
+            let (sink, stream) = socket.split();
+            once(ready(SocketUpdate::Connected(sink))).chain(
+                stream
+                    .map(SocketUpdate::Item)
+                    .chain(once(ready(SocketUpdate::Reconnecting))),
+            )
+        })
+        .flatten()
+    }
+
+    // // ReconnectingSocket
+    // fn with_connection_updates<Origin, Sink, St>(
+    //     self,
+    //     origin: Origin,
+    // ) -> impl Stream<Item = SocketUpdate<Origin, Sink, St::Item>>
+    // where
+    //     Self: Stream<Item = (Sink, St)> + Sized,
+    //     St: Stream,
+    //     Origin: Clone + 'static,
+    // {
+    //     self.map(move |(sink, stream)| {
+    //         futures::stream::once(std::future::ready(SocketUpdate::Connected(
+    //             origin.clone(),
+    //             sink,
+    //         )))
+    //         .chain(stream.map(SocketUpdate::Item).chain(futures::stream::once(
+    //             std::future::ready(SocketUpdate::Reconnecting(origin.clone())),
+    //         )))
+    //     })
+    //     .flatten()
+    // }
 
     // fn route_sinks<Origin, Sink, T, FnRoute, FnRouteErr>(
     //     self,
@@ -228,15 +252,15 @@ where
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
-pub enum SocketUpdate<Origin, Sink, T> {
-    Connected(Origin, Sink),
-    Reconnecting(Origin),
+pub enum SocketUpdate<Sink, T> {
+    Connected(Sink),
+    Reconnecting,
     Item(T),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
-pub enum StreamUpdate<T, Origin = ()> {
-    Reconnecting(Origin),
+pub enum StreamUpdate<T> {
+    Reconnecting,
     Item(T),
 }
 

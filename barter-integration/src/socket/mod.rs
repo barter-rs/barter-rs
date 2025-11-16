@@ -5,30 +5,25 @@ use crate::{
         WebSocket, WsError, WsMessage, WsSink, connect, is_websocket_disconnected,
     },
     socket::reconnecting::{
-        ReconnectingSocket, StreamUpdate,
+        ReconnectingSocket, SocketUpdate, StreamUpdate,
         backoff::DefaultBackoff,
         init_reconnecting_socket,
-        on_connect_err::{ConnectError, ConnectErrorAction, ConnectErrorKind},
+        on_connect_err::{ConnectError, ConnectErrorAction, ConnectErrorHandler, ConnectErrorKind},
         on_stream_err::StreamErrorAction,
         sink::ReconnectingSink,
     },
 };
-use futures::{Sink, SinkExt, Stream, StreamExt};
+use futures::{Sink, SinkExt, Stream, StreamExt, stream::SplitSink};
 use std::marker::PhantomData;
-use tokio_stream::Elapsed;
+use tokio_stream::{Elapsed, StreamExt};
 use tokio_tungstenite::tungstenite::{Error, protocol::CloseFrame as WsCloseFrame};
 use tracing::{debug, warn};
 
+pub mod manager;
 pub mod reconnecting;
 
-// Todo: Layer Transformations
-//  1. Establish connection
-//  2. Transform Stream::Item (eg/ WsMessage) to Stream<Item = Message<AdminMessageWs, T>>
-//  3. Route WsControlMessage to Manager // actually, can route at end and hide from user transformers
-//  4. Transform ProtocolMessage::Data into ApplicationMessage (ie/ ExchangeMessage)
-//  5. Transform ApplicationMessage -> enum { Heartbeat, Response, Event }
-
 pub trait Integration {
+    // Idea for framework
     type Protocol;
     type Deserialiser;
     type Api;
@@ -36,10 +31,11 @@ pub trait Integration {
 
 pub enum Message<A, T> {
     Admin(A),
-    Data(T),
+    Payload(T),
 }
 
 pub enum MessageAdmin<P, A> {
+    Disconnected,
     Protocol(P),
     Application(A),
 }
@@ -55,6 +51,8 @@ pub enum MessageAdminApp {
     Heartbeat,
     SubscriptionResponse,
     Error,
+    ForwardToSink,
+    // Could have: Request + Response and have some RequestId to determine timeouts by
 }
 
 pub struct WebSocketTransformer;
@@ -64,9 +62,9 @@ impl TransformerSync for WebSocketTransformer {
 
     fn transform(&mut self, input: Self::Input<'_>) -> Self::Output {
         match input {
-            Ok(WsMessage::Text(utf8)) => Message::Data(bytes::Bytes::from(utf8)),
-            Ok(WsMessage::Binary(bytes)) => Message::Data(bytes),
-            Ok(WsMessage::Frame(frame)) => Message::Data(frame.into_payload()),
+            Ok(WsMessage::Text(utf8)) => Message::Payload(bytes::Bytes::from(utf8)),
+            Ok(WsMessage::Binary(bytes)) => Message::Payload(bytes),
+            Ok(WsMessage::Frame(frame)) => Message::Payload(frame.into_payload()),
             Ok(WsMessage::Ping(bytes)) => Message::Admin(MessageAdminWs::Ping(bytes)),
             Ok(WsMessage::Pong(bytes)) => Message::Admin(MessageAdminWs::Pong(bytes)),
             Ok(WsMessage::Close(close)) => Message::Admin(MessageAdminWs::Close(close)),
@@ -116,62 +114,75 @@ impl<T> TransformerSync for BinanceTransformer<T> {
     }
 }
 
-const URL: &str = "wss://streams.fast.onetrading.com";
-const TIMEOUT_CONNECT: std::time::Duration = std::time::Duration::from_secs(10);
-const TIMEOUT_STREAM: std::time::Duration = std::time::Duration::from_secs(10);
-#[derive(Clone)]
-pub struct Origin(pub String);
-pub fn run() {
-    let (sink, stream) =
-        init_reconnecting_websocket_with_updates(URL, TIMEOUT_CONNECT, TIMEOUT_STREAM);
-
-    // Stream of Streams is flattened from this point, so ability to end inner stream
-    // is up to the Manager to orchestrate
-
-    // Todo: Shower Thoughts:
-    //  1. ReconnectingStream logic must not exclude "ReconnectingStreams" w/o Sinks
-    //      '--> Maybe have two traits, one for Stream, another for Stream<(Sink, Stream)>
-    //  2. I'm not sure I need to split the WebSocket so early, which could unlock a lot of the
-    //     Stream<(Sink, Stream)> methods :thinking.
+pub fn init_reconnecting_socket_with_updates<
+    FnConnect,
+    ErrConnect,
+    FnOnConnectErr,
+    FnOnTimeout,
+    Socket,
+    SinkItem,
+    Admin,
+    Output,
+>(
+    connect: FnConnect,
+    on_connect_err: FnOnConnectErr,
+    on_timeout: FnOnTimeout,
+    timeout_connect: std::time::Duration,
+    timeout_stream: std::time::Duration,
+) -> impl Stream<Item = SocketUpdate<impl Sink<SinkItem>, Socket::Item>>
+where
+    FnConnect: AsyncFnMut() -> Result<Socket, ErrConnect>,
+    FnOnConnectErr: ConnectErrorHandler<ErrConnect>,
+    FnOnTimeout: Fn() + 'static,
+    Socket: Sink<SinkItem> + Stream<Item = Message<Admin, Output>>,
+{
+    init_reconnecting_socket(connect, timeout_connect, DefaultBackoff)
+        .on_connect_err(on_connect_err)
+        .with_socket_updates()
+        .with_timeout(timeout_stream, on_timeout)
 }
 
-pub fn init_reconnecting_websocket_with_updates<FnForwardAdmin, Output>(
+pub fn init_reconnecting_websocket_with_updates<Output>(
     url: &str,
     timeout_connect: std::time::Duration,
     timeout_stream: std::time::Duration,
-    forward: FnForwardAdmin,
-) -> (
-    ReconnectingSink<WsSink>,
-    impl Stream<Item = StreamUpdate<Origin, Output>>,
-)
-where
-    FnForwardAdmin: FnMut(MessageAdmin<MessageAdminWs, MessageAdminApp>) -> Result<(), ()>,
-{
-    let socket = init_reconnecting_websocket::<Output>(url, timeout_connect, timeout_stream);
-
-    let socket = socket.forward_by(
-        |message| match message {
-            Message::Admin(admin) => futures::future::Either::Left(admin),
-            Message::Data(data) => futures::future::Either::Right(data),
-        },
-        forward,
-    );
-
-    // let stream = init_reconnecting_websocket(url, timeout_connect, timeout_stream)
-    //     .forward_by(
-    //         |(sink, stream)|
-    //     )
-    // .into_reconnecting_sink_and_stream(Origin(URL.to_string()))
+    forward: impl FnMut(
+        SocketUpdate<WsSink, MessageAdmin<MessageAdminWs, MessageAdminApp>>,
+    ) -> Result<(), ()>,
+) -> impl Stream<Item = StreamUpdate<Output>> {
+    init_reconnecting_websocket::<Output>(url, timeout_connect, timeout_stream)
+        .with_socket_updates()
+        .forward_by(
+            |update| {
+                use futures::future::Either::*;
+                match update {
+                    SocketUpdate::Connected(sink) => Left(SocketUpdate::Connected(sink)),
+                    SocketUpdate::Reconnecting => {
+                        // Todo: Manager should get this too, need to Clone
+                        Right(StreamUpdate::Reconnecting)
+                    }
+                    SocketUpdate::Item(message) => match message {
+                        Message::Admin(admin) => Left(SocketUpdate::Item(admin)),
+                        Message::Payload(payload) => Right(StreamUpdate::Item(payload)),
+                    },
+                }
+            },
+            forward,
+        );
 }
 
 pub fn init_reconnecting_websocket<Output>(
     url: &str,
     timeout_connect: std::time::Duration,
     timeout_stream: std::time::Duration,
-) -> impl Sink<WsMessage> + Stream<Item = Message<MessageAdmin<MessageAdminWs, MessageAdminApp>, Output>>
-{
+) -> impl Stream<
+    Item = (
+               impl Sink<WsMessage>
+               + Stream<Item = Message<MessageAdmin<MessageAdminWs, MessageAdminApp>, Output>>
+           ),
+> {
     init_reconnecting_socket(
-        || init_websocket_stream(URL, timeout_stream),
+        || init_websocket_stream(url, timeout_stream),
         timeout_connect,
         DefaultBackoff,
     )
@@ -206,7 +217,9 @@ pub async fn init_websocket_stream<Socket, AppMessage, Output>(
     impl Sink<WsMessage> + Stream<Item = Message<MessageAdmin<MessageAdminWs, MessageAdminApp>, Output>>,
     SocketError,
 > {
-    let socket = connect(URL)
+    // Todo: Timeout must be applied to inner Stream before flattening, otherwise ReconnectingStream ends:
+    //   - For now, see if this compiles even though tokio_stream::Timeout doesn't impl Sink
+    let socket = connect(url)
         .await?
         // End Stream if consecutive Stream events exceed timeout
         .with_timeout(timeout, || {
@@ -227,7 +240,7 @@ pub async fn init_websocket_stream<Socket, AppMessage, Output>(
                 std::future::ready({
                     Some(match message {
                         Message::Admin(admin) => Message::Admin(admin),
-                        Message::Data(data) => Message::Data(transformer.transform(data)),
+                        Message::Payload(data) => Message::Payload(transformer.transform(data)),
                     })
                 })
             },
@@ -241,23 +254,22 @@ pub async fn init_websocket_stream<Socket, AppMessage, Output>(
                         Message::Admin(protocol) => {
                             Message::Admin(MessageAdmin::Protocol(protocol))
                         }
-                        Message::Data(data) => match transformer.transform(data) {
+                        Message::Payload(data) => match transformer.transform(data) {
                             Message::Admin(app) => Message::Admin(MessageAdmin::Application(app)),
-                            Message::Data(data) => Message::Data(data),
+                            Message::Payload(data) => Message::Payload(data),
                         },
                     })
                 })
             },
-        )
-        // Todo: Not sure where to forward_by since returns impl Stream:
-        //  - Here I could split
-        .forward_by(
-            |message| match message {
-                Message::Admin(admin) => futures::future::Either::Left(admin),
-                Message::Data(data) => futures::future::Either::Right(data),
-            },
-            |x| Ok(()),
         );
+
+    // .forward_by(
+    //     |message| match message {
+    //         Message::Admin(admin) => futures::future::Either::Left(admin),
+    //         Message::Payload(data) => futures::future::Either::Right(data),
+    //     },
+    //     |x| Ok(()),
+    // );
 
     Ok(socket)
 }

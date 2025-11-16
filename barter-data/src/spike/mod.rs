@@ -17,12 +17,6 @@ pub type Initialised<Stream, Update> = (Stream, UnboundedTx<Update>);
 // Open Q: Do I want to create a Sink implementation at the client level?
 // It's Item would be eg/ BinanceRequest, not sure what the mirrored Stream impl would look like.
 
-pub trait AsyncProcessor {
-    type Event;
-    type Audit;
-    fn process(&mut self, event: Self::Event) -> impl Future<Output = Self::Audit>;
-}
-
 async fn implementation() {
     let websocket: WebSocket = connect(URL).await.unwrap();
     let (sink, stream) = websocket.split();
@@ -62,25 +56,6 @@ where
 pub struct ConnectionManager {
     state: ConnectionState,
     sink: WsSink,
-}
-
-// Todo: I think there should be two layers:
-// OuterStream:
-//  - Holds ConnectionState: if Pong issue it can re-init the InnerStream
-// InnerStream:
-//  - Holds no State. Must present WsSink upon re-init for OuterStream consistency.
-impl AsyncProcessor for ConnectionManager {
-    type Event = ConnectionUpdate;
-    type Audit = ();
-
-    async fn process(&mut self, event: Self::Event) -> Self::Audit {
-        match event {
-            ConnectionUpdate::Pong(_) => {}
-            ConnectionUpdate::Subscription(_) => {}
-        }
-
-        todo!()
-    }
 }
 
 pub struct ConnectionState {
