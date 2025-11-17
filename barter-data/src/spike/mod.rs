@@ -32,25 +32,7 @@ async fn implementation() {
         sink,
     };
 
-    let stream = framework(manager, manager_updates, stream);
-}
-
-fn framework<Manager, Update>(
-    manager: Manager,
-    manager_updates: impl Stream<Item = Update>,
-    stream: impl Stream<Item = WsMessage>,
-) -> impl Stream<Item = SocketMessage<Manager::Event, Manager::Audit>>
-where
-    Manager: AsyncProcessor,
-{
-    let audits = manager_updates.scan(manager, |manager, update| Some(manager.process(update)));
-
-    let stream = merge(
-        stream.map(SocketMessage::Event),
-        audits.map(SocketMessage::Audit),
-    );
-
-    Ok(stream)
+    // let stream = framework(manager, manager_updates, stream);
 }
 
 pub struct ConnectionManager {
@@ -87,9 +69,4 @@ pub enum SubscriptionState {
 pub enum ConnectionUpdate {
     Pong(u64),
     Subscription(Result<(), ()>),
-}
-
-pub enum SocketMessage<Event, Audit> {
-    Event(Event),
-    Audit(Audit),
 }

@@ -7,7 +7,6 @@ use crate::socket::reconnecting::{
 };
 use futures::{Sink, Stream, StreamExt, stream::SplitSink};
 use serde::{Deserialize, Serialize};
-use sink::ReconnectingSink;
 
 pub mod backoff;
 pub mod forward_by;
@@ -17,12 +16,13 @@ pub mod on_stream_err_filter;
 pub mod sink;
 pub mod with_timeout;
 
-// Todo: Add method to .flatten() without the ConnectionUpdates
+// Todo:
+//  - Add ability to .flatten() without ConnectionUpdates
+//  - Do I want ReconnectingStream as well as for Stream specific combinators?
 pub trait ReconnectingSocket
 where
     Self: Stream,
 {
-    // Todo: ReconnectingStream maybe?
     fn with_timeout<TimeoutHandler>(
         self,
         timeout_next_item: std::time::Duration,
@@ -47,7 +47,6 @@ where
         self,
         on_err: ErrHandler,
     ) -> OnConnectErr<Self, ErrHandler>
-    // Stream<Item = Socket>
     where
         Self: Stream<Item = Result<Socket, ConnectError<ErrConnect>>> + Sized,
         ErrHandler: ConnectErrorHandler<ErrConnect>,
@@ -85,7 +84,6 @@ where
         predicate: FnPredicate,
         forward: FnForward,
     ) -> ForwardBy<Self, FnPredicate, FnForward>
-    // Stream<Item = B>
     where
         Self: Stream + Sized,
         FnPredicate: Fn(Self::Item) -> futures::future::Either<A, B>,
@@ -94,40 +92,9 @@ where
         ForwardBy::new(self, predicate, forward)
     }
 
-    // fn into_reconnecting_sink_and_stream<Origin, Sink, St>(
-    //     self,
-    //     origin: Origin,
-    // ) -> (
-    //     ReconnectingSink<Sink>,
-    //     impl Stream<Item = StreamUpdate<St::Item, Origin>>,
-    // )
-    // where
-    //     Self: Stream<Item = (Sink, St)> + Sized,
-    //     Origin: Clone + 'static,
-    //     St: Stream,
-    // {
-    //     let (sink_tx, sink_rx) = tokio::sync::watch::channel(None);
-    //
-    //     let stream = self
-    //         .with_connection_updates(origin)
-    //         .map(move |event| match event {
-    //             SocketUpdate::Connected(origin, sink) => {
-    //                 let _ = sink_tx.send(Some(sink));
-    //                 StreamUpdate::Reconnecting(origin)
-    //             }
-    //             SocketUpdate::Reconnecting(origin) => {
-    //                 let _ = sink_tx.send(None);
-    //                 StreamUpdate::Reconnecting(origin)
-    //             }
-    //             SocketUpdate::Item(item) => StreamUpdate::Item(item),
-    //         });
-    //
-    //     (ReconnectingSink::new(sink_rx), stream)
-    // }
-
     fn with_socket_updates<Socket, SinkItem>(
         self,
-    ) -> impl Stream<Item = SocketUpdate<SplitSink<Self, SinkItem>, Socket::Item>>
+    ) -> impl Stream<Item = SocketUpdate<SplitSink<Socket, SinkItem>, Socket::Item>>
     where
         Self: Stream<Item = Socket> + Sized,
         Socket: Sink<SinkItem> + Stream,
@@ -145,55 +112,6 @@ where
         })
         .flatten()
     }
-
-    // // ReconnectingSocket
-    // fn with_connection_updates<Origin, Sink, St>(
-    //     self,
-    //     origin: Origin,
-    // ) -> impl Stream<Item = SocketUpdate<Origin, Sink, St::Item>>
-    // where
-    //     Self: Stream<Item = (Sink, St)> + Sized,
-    //     St: Stream,
-    //     Origin: Clone + 'static,
-    // {
-    //     self.map(move |(sink, stream)| {
-    //         futures::stream::once(std::future::ready(SocketUpdate::Connected(
-    //             origin.clone(),
-    //             sink,
-    //         )))
-    //         .chain(stream.map(SocketUpdate::Item).chain(futures::stream::once(
-    //             std::future::ready(SocketUpdate::Reconnecting(origin.clone())),
-    //         )))
-    //     })
-    //     .flatten()
-    // }
-
-    // fn route_sinks<Origin, Sink, T, FnRoute, FnRouteErr>(
-    //     self,
-    //     route: FnRoute,
-    // ) -> impl Stream<Item = StreamUpdate<Origin, T>>
-    // where
-    //     Self: Stream<Item = SocketUpdate<Origin, Sink, T>> + Unpin + Sized,
-    //     FnRoute: AsyncFnMut(Origin, Sink) -> Result<(), FnRouteErr>,
-    // {
-    //     futures::stream::unfold((self, route), |(mut stream, mut route)| async move {
-    //         let event = stream.next().await?;
-    //         match event {
-    //             SocketUpdate::Connected(origin, sink) => {
-    //                 if route(origin, sink).await.is_err() {
-    //                     None
-    //                 } else {
-    //                     Some((None, (stream, route)))
-    //                 }
-    //             }
-    //             SocketUpdate::Reconnecting(origin) => {
-    //                 Some((Some(StreamUpdate::Reconnecting(origin)), (stream, route)))
-    //             }
-    //             SocketUpdate::Item(item) => Some((Some(StreamUpdate::Item(item)), (stream, route))),
-    //         }
-    //     })
-    //     .filter_map(std::future::ready)
-    // }
 }
 
 impl<St> ReconnectingSocket for St where St: Stream {}
@@ -258,47 +176,90 @@ pub enum SocketUpdate<Sink, T> {
     Item(T),
 }
 
+impl<Sink, T> From<T> for SocketUpdate<Sink, T> {
+    fn from(value: T) -> Self {
+        Self::Item(value)
+    }
+}
+
+impl<Sink, T> SocketUpdate<Sink, T> {
+    pub fn map<F, O>(self, op: F) -> SocketUpdate<Sink, O>
+    where
+        F: FnOnce(T) -> O,
+    {
+        match self {
+            SocketUpdate::Connected(sink) => SocketUpdate::Connected(sink),
+            SocketUpdate::Reconnecting => SocketUpdate::Reconnecting,
+            SocketUpdate::Item(item) => SocketUpdate::Item(op(item)),
+        }
+    }
+}
+
+impl<Sink, T, E> SocketUpdate<Sink, Result<T, E>> {
+    pub fn map_ok<F, O>(self, op: F) -> SocketUpdate<Sink, Result<O, E>>
+    where
+        F: FnOnce(T) -> O,
+    {
+        match self {
+            SocketUpdate::Connected(sink) => SocketUpdate::Connected(sink),
+            SocketUpdate::Reconnecting => SocketUpdate::Reconnecting,
+            SocketUpdate::Item(result) => SocketUpdate::Item(result.map(op)),
+        }
+    }
+
+    pub fn map_err<F, O>(self, op: F) -> SocketUpdate<Sink, Result<T, O>>
+    where
+        F: FnOnce(E) -> O,
+    {
+        match self {
+            SocketUpdate::Connected(sink) => SocketUpdate::Connected(sink),
+            SocketUpdate::Reconnecting => SocketUpdate::Reconnecting,
+            SocketUpdate::Item(result) => SocketUpdate::Item(result.map_err(op)),
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub enum StreamUpdate<T> {
     Reconnecting,
     Item(T),
 }
 
-impl<Origin, T> From<T> for StreamUpdate<Origin, T> {
+impl<T> From<T> for StreamUpdate<T> {
     fn from(value: T) -> Self {
         Self::Item(value)
     }
 }
 
-impl<Origin, T> StreamUpdate<Origin, T> {
-    pub fn map<F, O>(self, op: F) -> StreamUpdate<Origin, O>
+impl<T> StreamUpdate<T> {
+    pub fn map<F, O>(self, op: F) -> StreamUpdate<O>
     where
         F: FnOnce(T) -> O,
     {
         match self {
-            StreamUpdate::Reconnecting(origin) => StreamUpdate::Reconnecting(origin),
+            StreamUpdate::Reconnecting => StreamUpdate::Reconnecting,
             StreamUpdate::Item(item) => StreamUpdate::Item(op(item)),
         }
     }
 }
 
-impl<Origin, T, E> StreamUpdate<Origin, Result<T, E>> {
-    pub fn map_ok<F, O>(self, op: F) -> StreamUpdate<Origin, Result<O, E>>
+impl<T, E> StreamUpdate<Result<T, E>> {
+    pub fn map_ok<F, O>(self, op: F) -> StreamUpdate<Result<O, E>>
     where
         F: FnOnce(T) -> O,
     {
         match self {
-            StreamUpdate::Reconnecting(origin) => StreamUpdate::Reconnecting(origin),
+            StreamUpdate::Reconnecting => StreamUpdate::Reconnecting,
             StreamUpdate::Item(result) => StreamUpdate::Item(result.map(op)),
         }
     }
 
-    pub fn map_err<F, O>(self, op: F) -> StreamUpdate<Origin, Result<T, O>>
+    pub fn map_err<F, O>(self, op: F) -> StreamUpdate<Result<T, O>>
     where
         F: FnOnce(E) -> O,
     {
         match self {
-            StreamUpdate::Reconnecting(origin) => StreamUpdate::Reconnecting(origin),
+            StreamUpdate::Reconnecting => StreamUpdate::Reconnecting,
             StreamUpdate::Item(result) => StreamUpdate::Item(result.map_err(op)),
         }
     }

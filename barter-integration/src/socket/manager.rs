@@ -4,9 +4,8 @@ use crate::{
     error::SocketError,
     protocol::websocket::{WsMessage, WsSink},
     socket::{
-        Message, MessageAdmin, MessageAdminApp, MessageAdminWs,
-        init_reconnecting_socket_with_updates, init_reconnecting_websocket_with_updates,
-        init_websocket_stream,
+        BinanceTransformer, Message, MessageAdmin, MessageAdminApp, MessageAdminWs,
+        SerdeTransformer, init_reconnecting_socket_with_updates, init_websocket_serde_stream,
         reconnecting::{
             ReconnectingSocket, SocketUpdate, StreamUpdate,
             on_connect_err::{ConnectError, ConnectErrorAction, ConnectErrorKind},
@@ -14,9 +13,9 @@ use crate::{
     },
     stream::merge::merge,
 };
-use futures::{FutureExt, Sink, Stream, StreamExt};
-use tokio_stream::StreamExt;
+use futures::{Stream, StreamExt};
 use tracing::warn;
+
 // Todo:
 //  - Ensure ApiTransformer can raw "ForwardToSink"
 //  - Consider Arc<Mutex<State> in Manager for users to set "desired State"
@@ -83,9 +82,11 @@ fn binary() {
     let manager = SocketManager {
         sink: Option::<WsSink>::None,
     };
+    let serde_transformer = SerdeTransformer::default();
+    let binance_transformer = BinanceTransformer::default();
 
     let socket_stream = init_reconnecting_socket_with_updates(
-        || init_websocket_stream(URL),
+        || init_websocket_serde_stream(URL, serde_transformer, binance_transformer),
         move |err_connect: &ConnectError<SocketError>| match &err_connect.kind {
             ConnectErrorKind::Connect(error) => {
                 warn!(
@@ -132,18 +133,18 @@ fn binary() {
     );
 }
 
-pub fn run<Manager, SinkItem, StreamItem, Admin, Command, Output>(
+pub fn run<Manager, Sink, StreamItem, Admin, Command, Output>(
     manager: Manager,
-    socket_stream: impl Stream<Item = SocketUpdate<impl Sink<SinkItem>, StreamItem>>,
-    socket_update_stream: impl Stream<Item = SocketUpdate<impl Sink<SinkItem>, Admin>>,
+    socket_stream: impl Stream<Item = SocketUpdate<Sink, StreamItem>>,
+    socket_update_stream: impl Stream<Item = SocketUpdate<Sink, Admin>>,
     command_stream: impl Stream<Item = Command>,
-    forward_socket_update: impl FnMut(SocketUpdate<impl Sink<SinkItem>, Admin>) -> Result<(), ()>,
+    forward_socket_update: impl FnMut(SocketUpdate<Sink, Admin>) -> Result<(), ()>,
 ) -> (
     impl Stream<Item = Manager::Output>,
     impl Stream<Item = StreamUpdate<Output>>,
 )
 where
-    Manager: AsyncTransformer<Input = Message<SocketUpdate<impl Sink<SinkItem>, Admin>, Command>>,
+    Manager: AsyncTransformer<Input = Message<SocketUpdate<Sink, Admin>, Command>>,
 {
     // Manager Command+SocketUpdate Stream
     let manager_stream = merge(
@@ -153,7 +154,7 @@ where
 
     // Manager Audit Stream (processes Commands + SocketUpdates)
     let manager_audit_stream = manager_stream.scan(manager, |manager, message| {
-        std::future::ready(Some(manager.process(message)))
+        manager.transform(message).map(Some)
     });
 
     let data_stream = socket_stream.forward_by(
