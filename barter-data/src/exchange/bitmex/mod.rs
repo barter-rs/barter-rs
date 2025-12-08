@@ -1,16 +1,19 @@
 use crate::{
-    ExchangeWsStream, NoInitialSnapshots,
+    Identifier, IdentifierStatic, NoInitialSnapshots, StreamSelector,
+    error::DataError,
+    event::MarketEvent,
     exchange::{
-        Connector, StreamSelector,
+        Connector,
         bitmex::{
             channel::BitmexChannel, market::BitmexMarket, subscription::BitmexSubResponse,
             trade::BitmexTrade,
         },
         subscription::ExchangeSub,
     },
+    init_ws_exchange_stream_with_initial_snapshots,
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
-    subscription::{Map, trade::PublicTrades},
+    subscription::{Map, Subscription, SubscriptionKind, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
@@ -19,30 +22,28 @@ use barter_integration::{
     protocol::websocket::{WebSocketSerdeParser, WsMessage},
 };
 use derive_more::Display;
+use futures_util::Stream;
 use serde::de::{Error, Unexpected};
-use std::fmt::Debug;
+use std::{fmt::Debug, future::Future};
 use url::Url;
 
-/// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
+/// Defines the type that translates a Barter [`Subscription`]
 /// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
-/// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
+/// Defines the type that translates a Barter [`Subscription`]
 /// into an exchange [`Connector`] specific market used for generating [`Connector::requests`].
 pub mod market;
 
 /// Generic [`BitmexMessage<T>`](message::BitmexMessage)
 pub mod message;
 
-/// [`Subscription`](crate::subscription::Subscription) response type and response
+/// [`Subscription`] response type and response
 /// [`Validator`](barter_integration::Validator) for [`Bitmex`].
 pub mod subscription;
 
 /// Public trade types for [`Bitmex`].
 pub mod trade;
-
-/// Convenient type alias for a Bitmex [`ExchangeWsStream`] using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
-pub type BitmexWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
 
 /// [`Bitmex`] server base url.
 ///
@@ -52,8 +53,13 @@ pub const BASE_URL_BITMEX: &str = "wss://ws.bitmex.com/realtime";
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, Display)]
 pub struct Bitmex;
 
+impl IdentifierStatic<ExchangeId> for Bitmex {
+    fn id() -> ExchangeId {
+        ExchangeId::Bitmex
+    }
+}
+
 impl Connector for Bitmex {
-    const ID: ExchangeId = ExchangeId::Bitmex;
     type Channel = BitmexChannel;
     type Market = BitmexMarket;
     type Subscriber = WebSocketSubscriber;
@@ -87,10 +93,31 @@ impl Connector for Bitmex {
 impl<Instrument> StreamSelector<Instrument, PublicTrades> for Bitmex
 where
     Instrument: InstrumentData,
+    Subscription<Self, Instrument, PublicTrades>:
+        Identifier<BitmexChannel> + Identifier<BitmexMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream =
-        BitmexWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BitmexTrade>>;
+    fn init(
+        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send,
+    ) -> impl Future<
+        Output = Result<
+            impl Stream<
+                Item = Result<
+                    MarketEvent<Instrument::Key, <PublicTrades as SubscriptionKind>::Event>,
+                    DataError,
+                >,
+            >,
+            DataError,
+        >,
+    > {
+        init_ws_exchange_stream_with_initial_snapshots::<
+            Self,
+            Instrument,
+            PublicTrades,
+            WebSocketSerdeParser,
+            StatelessTransformer<Self, Instrument::Key, PublicTrades, BitmexTrade>,
+            NoInitialSnapshots,
+        >(subscriptions)
+    }
 }
 
 impl<'de> serde::Deserialize<'de> for Bitmex {
@@ -99,12 +126,12 @@ impl<'de> serde::Deserialize<'de> for Bitmex {
         D: serde::de::Deserializer<'de>,
     {
         let input = <&str as serde::Deserialize>::deserialize(deserializer)?;
-        if input == Self::ID.as_str() {
+        if input == Self::id().as_str() {
             Ok(Self)
         } else {
             Err(Error::invalid_value(
                 Unexpected::Str(input),
-                &Self::ID.as_str(),
+                &Self::id().as_str(),
             ))
         }
     }
@@ -115,6 +142,6 @@ impl serde::Serialize for Bitmex {
     where
         S: serde::ser::Serializer,
     {
-        serializer.serialize_str(Self::ID.as_str())
+        serializer.serialize_str(Self::id().as_str())
     }
 }

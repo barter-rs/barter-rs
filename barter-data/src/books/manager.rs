@@ -1,11 +1,10 @@
 use crate::{
-    Identifier,
+    IdentifierStatic, StreamSelector,
     books::{
         OrderBook,
         map::{OrderBookMap, OrderBookMapMulti},
     },
     error::DataError,
-    exchange::StreamSelector,
     instrument::InstrumentData,
     streams::{Streams, consumer::MarketStreamEvent, reconnect::stream::ReconnectingStream},
     subscription::{
@@ -13,6 +12,7 @@ use crate::{
         book::{OrderBookEvent, OrderBooksL2},
     },
 };
+use barter_instrument::exchange::ExchangeId;
 use fnv::FnvHashMap;
 use futures::Stream;
 use futures_util::StreamExt;
@@ -82,11 +82,15 @@ where
     SubBatchIter: IntoIterator<Item = SubIter>,
     SubIter: IntoIterator<Item = Sub>,
     Sub: Into<Subscription<Exchange, Instrument, OrderBooksL2>>,
-    Exchange: StreamSelector<Instrument, OrderBooksL2> + Ord + Display + Send + Sync + 'static,
+    Exchange: StreamSelector<Instrument, OrderBooksL2>
+        + IdentifierStatic<ExchangeId>
+        + Ord
+        + Display
+        + Send
+        + Sync
+        + 'static,
     Instrument: InstrumentData + Ord + Display + 'static,
     Instrument::Key: Eq + Hash + Send + 'static,
-    Subscription<Exchange, Instrument, OrderBooksL2>:
-        Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
 {
     // Generate Streams from provided OrderBooksL2 Subscription batches
     let (stream_builder, books) = subscription_batches.into_iter().fold(

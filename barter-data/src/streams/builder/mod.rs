@@ -1,8 +1,7 @@
 use super::Streams;
 use crate::{
-    Identifier,
+    IdentifierStatic, StreamSelector,
     error::DataError,
-    exchange::StreamSelector,
     instrument::InstrumentData,
     streams::{
         consumer::{MarketStreamResult, STREAM_RECONNECTION_POLICY, init_market_stream},
@@ -17,6 +16,7 @@ use std::{
     fmt::{Debug, Display},
     future::Future,
     pin::Pin,
+    sync::Arc,
 };
 
 /// Defines the [`MultiStreamBuilder`](multi::MultiStreamBuilder) API for ergonomically
@@ -78,20 +78,25 @@ where
     where
         SubIter: IntoIterator<Item = Sub>,
         Sub: Into<Subscription<Exchange, Instrument, Kind>>,
-        Exchange: StreamSelector<Instrument, Kind> + Ord + Send + Sync + 'static,
+        Exchange: StreamSelector<Instrument, Kind>
+            + IdentifierStatic<ExchangeId>
+            + Ord
+            + Send
+            + Sync
+            + 'static,
         Instrument: InstrumentData<Key = InstrumentKey> + Ord + Display + 'static,
         Instrument::Key: Debug + Clone + Send + 'static,
         Kind: Ord + Display + Send + Sync + 'static,
         Kind::Event: Clone + Send,
-        Subscription<Exchange, Instrument, Kind>:
-            Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
+        // Subscription<Exchange, Instrument, Kind>:
+        //     Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
     {
         // Construct Vec<Subscriptions> from input SubIter
         let subscriptions = subscriptions.into_iter().map(Sub::into).collect::<Vec<_>>();
 
         // Acquire channel Sender to send Market<Kind::Event> from consumer loop to user
         // '--> Add ExchangeChannel Entry if this Exchange <--> SubscriptionKind combination is new
-        let exchange_tx = self.channels.entry(Exchange::ID).or_default().tx.clone();
+        let exchange_tx = self.channels.entry(Exchange::id()).or_default().tx.clone();
 
         // Add Future that once awaited will yield the Result<(), SocketError> of subscribing
         self.futures.push(Box::pin(async move {
@@ -106,7 +111,8 @@ where
             subscriptions.dedup();
 
             // Initialise a MarketEvent `ReconnectingStream`
-            let stream = init_market_stream(STREAM_RECONNECTION_POLICY, subscriptions).await?;
+            let stream =
+                init_market_stream(STREAM_RECONNECTION_POLICY, Arc::new(subscriptions)).await?;
 
             // Forward MarketEvents to ExchangeTx
             tokio::spawn(stream.forward_to(exchange_tx));

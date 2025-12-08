@@ -1,11 +1,12 @@
 use super::subscription::{BitfinexPlatformEvent, BitfinexSubResponse};
 use crate::{
-    Identifier,
+    Identifier, IdentifierStatic,
     exchange::{Connector, ExchangeSub},
     subscriber::validator::SubscriptionValidator,
     subscription::{Map, SubscriptionKind},
 };
 use async_trait::async_trait;
+use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
     Validator,
     error::SocketError,
@@ -43,7 +44,7 @@ impl SubscriptionValidator for BitfinexWebSocketSubValidator {
         websocket: &mut WebSocket,
     ) -> Result<(Map<Instrument>, Vec<WsMessage>), SocketError>
     where
-        Exchange: Connector + Send,
+        Exchange: Connector + IdentifierStatic<ExchangeId> + Send,
         Instrument: Send,
         Kind: SubscriptionKind + Send,
     {
@@ -64,7 +65,7 @@ impl SubscriptionValidator for BitfinexWebSocketSubValidator {
             if success_responses == expected_responses
                 && init_snapshots_received == expected_responses
             {
-                debug!(exchange = %Exchange::ID, "validated exchange WebSocket subscriptions");
+                debug!(exchange = %Exchange::id(), "validated exchange WebSocket subscriptions");
                 break Ok((instrument_map, buff_active_subscription_events));
             }
 
@@ -87,7 +88,7 @@ impl SubscriptionValidator for BitfinexWebSocketSubValidator {
                             // Bitfinex server is online
                             Ok(BitfinexPlatformEvent::PlatformStatus(status)) => {
                                 debug!(
-                                    exchange = %Exchange::ID,
+                                    exchange = %Exchange::id(),
                                     %success_responses,
                                     %expected_responses,
                                     payload = ?status,
@@ -107,7 +108,7 @@ impl SubscriptionValidator for BitfinexWebSocketSubValidator {
                                     instrument_map.0.insert(SubscriptionId(channel_id.0.to_smolstr()), subscription);
 
                                     debug!(
-                                        exchange = %Exchange::ID,
+                                        exchange = %Exchange::id(),
                                         %success_responses,
                                         %expected_responses,
                                         payload = ?response,

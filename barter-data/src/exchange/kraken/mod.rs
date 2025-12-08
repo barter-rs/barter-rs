@@ -3,11 +3,14 @@ use self::{
     message::KrakenMessage, subscription::KrakenSubResponse, trade::KrakenTrades,
 };
 use crate::{
-    ExchangeWsStream, NoInitialSnapshots,
-    exchange::{Connector, ExchangeSub, StreamSelector},
+    Identifier, IdentifierStatic, NoInitialSnapshots, StreamSelector,
+    error::DataError,
+    event::MarketEvent,
+    exchange::{Connector, ExchangeSub},
+    init_ws_exchange_stream_with_initial_snapshots,
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
-    subscription::{book::OrderBooksL1, trade::PublicTrades},
+    subscription::{Subscription, SubscriptionKind, book::OrderBooksL1, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
@@ -17,24 +20,26 @@ use barter_integration::{
 };
 use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
+use futures_util::Stream;
 use serde_json::json;
+use std::future::Future;
 use url::Url;
 
 /// OrderBook types for [`Kraken`].
 pub mod book;
 
-/// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
+/// Defines the type that translates a Barter [`Subscription`]
 /// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
-/// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
+/// Defines the type that translates a Barter [`Subscription`]
 /// into an exchange [`Connector`]  specific market used for generating [`Connector::requests`].
 pub mod market;
 
 /// [`KrakenMessage`] type for [`Kraken`].
 pub mod message;
 
-/// [`Subscription`](crate::subscription::Subscription) response type and response
+/// [`Subscription`] response type and response
 /// [`Validator`](barter_integration) for [`Kraken`].
 pub mod subscription;
 
@@ -45,9 +50,6 @@ pub mod trade;
 ///
 /// See docs: <https://docs.kraken.com/websockets/#overview>
 pub const BASE_URL_KRAKEN: &str = "wss://ws.kraken.com/";
-
-/// Convenient type alias for a Kraken [`ExchangeWsStream`] using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
-pub type KrakenWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
 
 /// [`Kraken`] exchange.
 ///
@@ -68,8 +70,13 @@ pub type KrakenWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Tr
 )]
 pub struct Kraken;
 
+impl IdentifierStatic<ExchangeId> for Kraken {
+    fn id() -> ExchangeId {
+        ExchangeId::Kraken
+    }
+}
+
 impl Connector for Kraken {
-    const ID: ExchangeId = ExchangeId::Kraken;
     type Channel = KrakenChannel;
     type Market = KrakenMarket;
     type Subscriber = WebSocketSubscriber;
@@ -102,18 +109,59 @@ impl Connector for Kraken {
 impl<Instrument> StreamSelector<Instrument, PublicTrades> for Kraken
 where
     Instrument: InstrumentData,
+    Subscription<Self, Instrument, PublicTrades>:
+        Identifier<KrakenChannel> + Identifier<KrakenMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream =
-        KrakenWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, KrakenTrades>>;
+    fn init(
+        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send,
+    ) -> impl Future<
+        Output = Result<
+            impl Stream<
+                Item = Result<
+                    MarketEvent<Instrument::Key, <PublicTrades as SubscriptionKind>::Event>,
+                    DataError,
+                >,
+            >,
+            DataError,
+        >,
+    > {
+        init_ws_exchange_stream_with_initial_snapshots::<
+            Self,
+            Instrument,
+            PublicTrades,
+            WebSocketSerdeParser,
+            StatelessTransformer<Self, Instrument::Key, PublicTrades, KrakenTrades>,
+            NoInitialSnapshots,
+        >(subscriptions)
+    }
 }
 
 impl<Instrument> StreamSelector<Instrument, OrderBooksL1> for Kraken
 where
     Instrument: InstrumentData,
+    Subscription<Self, Instrument, OrderBooksL1>:
+        Identifier<KrakenChannel> + Identifier<KrakenMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream = KrakenWsStream<
-        StatelessTransformer<Self, Instrument::Key, OrderBooksL1, KrakenOrderBookL1>,
-    >;
+    fn init(
+        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, OrderBooksL1>>>,
+    ) -> impl Future<
+        Output = Result<
+            impl Stream<
+                Item = Result<
+                    MarketEvent<Instrument::Key, <OrderBooksL1 as SubscriptionKind>::Event>,
+                    DataError,
+                >,
+            >,
+            DataError,
+        >,
+    > {
+        init_ws_exchange_stream_with_initial_snapshots::<
+            Self,
+            Instrument,
+            OrderBooksL1,
+            WebSocketSerdeParser,
+            StatelessTransformer<Self, Instrument::Key, OrderBooksL1, KrakenOrderBookL1>,
+            NoInitialSnapshots,
+        >(subscriptions)
+    }
 }

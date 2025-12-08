@@ -1,16 +1,13 @@
 use super::super::book::BinanceLevel;
 use crate::{
-    Identifier, SnapshotFetcher,
+    Identifier, IdentifierStatic, SnapshotFetcher,
     books::OrderBook,
     error::DataError,
     event::{MarketEvent, MarketIter},
-    exchange::{
-        Connector,
-        binance::{
-            book::l2::{BinanceOrderBookL2Meta, BinanceOrderBookL2Snapshot},
-            market::BinanceMarket,
-            spot::BinanceSpot,
-        },
+    exchange::binance::{
+        book::l2::{BinanceOrderBookL2Meta, BinanceOrderBookL2Snapshot},
+        market::BinanceMarket,
+        spot::BinanceSpot,
     },
     instrument::InstrumentData,
     subscription::{
@@ -38,15 +35,16 @@ pub const HTTP_BOOK_L2_SNAPSHOT_URL_BINANCE_SPOT: &str = "https://api.binance.co
 #[derive(Debug)]
 pub struct BinanceSpotOrderBooksL2SnapshotFetcher;
 
-impl SnapshotFetcher<BinanceSpot, OrderBooksL2> for BinanceSpotOrderBooksL2SnapshotFetcher {
-    fn fetch_snapshots<Instrument>(
+impl<Instrument> SnapshotFetcher<BinanceSpot, Instrument, OrderBooksL2>
+    for BinanceSpotOrderBooksL2SnapshotFetcher
+where
+    Instrument: InstrumentData,
+    Subscription<BinanceSpot, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
+{
+    fn fetch_snapshots(
         subscriptions: &[Subscription<BinanceSpot, Instrument, OrderBooksL2>],
     ) -> impl Future<Output = Result<Vec<MarketEvent<Instrument::Key, OrderBookEvent>>, SocketError>>
-    + Send
-    where
-        Instrument: InstrumentData,
-        Subscription<BinanceSpot, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
-    {
+    + Send {
         let l2_snapshot_futures = subscriptions.iter().map(|subscription| {
             // Construct initial OrderBook snapshot GET url
             let market = subscription.id();
@@ -150,7 +148,7 @@ where
         };
 
         MarketIter::<InstrumentKey, OrderBookEvent>::from((
-            BinanceSpot::ID,
+            BinanceSpot::id(),
             instrument.key.clone(),
             valid_update,
         ))

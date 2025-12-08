@@ -1,8 +1,10 @@
 use crate::{
+    IdentifierStatic,
     exchange::Connector,
     subscription::{Map, SubscriptionKind},
 };
 use async_trait::async_trait;
+use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
     Validator,
     error::SocketError,
@@ -26,7 +28,7 @@ pub trait SubscriptionValidator {
         websocket: &mut WebSocket,
     ) -> Result<(Map<InstrumentKey>, Vec<WsMessage>), SocketError>
     where
-        Exchange: Connector + Send,
+        Exchange: Connector + IdentifierStatic<ExchangeId> + Send,
         InstrumentKey: Send,
         Kind: SubscriptionKind + Send;
 }
@@ -44,7 +46,7 @@ impl SubscriptionValidator for WebSocketSubValidator {
         websocket: &mut WebSocket,
     ) -> Result<(Map<Instrument>, Vec<WsMessage>), SocketError>
     where
-        Exchange: Connector + Send,
+        Exchange: Connector + IdentifierStatic<ExchangeId> + Send,
         Instrument: Send,
         Kind: SubscriptionKind + Send,
     {
@@ -61,7 +63,7 @@ impl SubscriptionValidator for WebSocketSubValidator {
         loop {
             // Break if all Subscriptions were a success
             if success_responses == expected_responses {
-                debug!(exchange = %Exchange::ID, "validated exchange WebSocket subscriptions");
+                debug!(exchange = %Exchange::id(), "validated exchange WebSocket subscriptions");
                 break Ok((instrument_map, buff_active_subscription_events));
             }
 
@@ -85,7 +87,7 @@ impl SubscriptionValidator for WebSocketSubValidator {
                             Ok(response) => {
                                 success_responses += 1;
                                 debug!(
-                                    exchange = %Exchange::ID,
+                                    exchange = %Exchange::id(),
                                     %success_responses,
                                     %expected_responses,
                                     payload = ?response,

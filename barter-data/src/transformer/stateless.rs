@@ -1,9 +1,8 @@
 use super::ExchangeTransformer;
 use crate::{
-    Identifier,
+    Identifier, IdentifierStatic,
     error::DataError,
     event::{MarketEvent, MarketIter},
-    exchange::Connector,
     subscription::{Map, SubscriptionKind},
 };
 use async_trait::async_trait;
@@ -29,7 +28,7 @@ pub struct StatelessTransformer<Exchange, InstrumentKey, Kind, Input> {
 impl<Exchange, InstrumentKey, Kind, Input> ExchangeTransformer<Exchange, InstrumentKey, Kind>
     for StatelessTransformer<Exchange, InstrumentKey, Kind, Input>
 where
-    Exchange: Connector + Send,
+    Exchange: IdentifierStatic<ExchangeId> + Send,
     InstrumentKey: Clone + Send,
     Kind: SubscriptionKind + Send,
     Input: Identifier<Option<SubscriptionId>> + for<'de> Deserialize<'de>,
@@ -50,7 +49,7 @@ where
 impl<Exchange, InstrumentKey, Kind, Input> Transformer
     for StatelessTransformer<Exchange, InstrumentKey, Kind, Input>
 where
-    Exchange: Connector,
+    Exchange: IdentifierStatic<ExchangeId>,
     InstrumentKey: Clone,
     Kind: SubscriptionKind,
     Input: Identifier<Option<SubscriptionId>> + for<'de> Deserialize<'de>,
@@ -72,7 +71,7 @@ where
         match self.instrument_map.find(&subscription_id) {
             Ok(instrument) => {
                 MarketIter::<InstrumentKey, Kind::Event>::from((
-                    Exchange::ID,
+                    Exchange::id(),
                     instrument.clone(),
                     input,
                 ))

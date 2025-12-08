@@ -1,8 +1,7 @@
 use crate::{
-    Identifier, MarketStream,
+    IdentifierStatic, StreamSelector,
     error::DataError,
     event::MarketEvent,
-    exchange::StreamSelector,
     instrument::InstrumentData,
     streams::{
         reconnect,
@@ -16,7 +15,7 @@ use barter_instrument::exchange::ExchangeId;
 use derive_more::Constructor;
 use futures::Stream;
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 use tracing::info;
 
 /// Default [`ReconnectionBackoffPolicy`] for a [`reconnecting`](`ReconnectingStream`) [`MarketStream`].
@@ -43,17 +42,16 @@ pub type MarketStreamEvent<InstrumentKey, Kind> =
 /// between reconnections.
 pub async fn init_market_stream<Exchange, Instrument, Kind>(
     policy: ReconnectionBackoffPolicy,
-    subscriptions: Vec<Subscription<Exchange, Instrument, Kind>>,
-) -> Result<impl Stream<Item = MarketStreamResult<Instrument::Key, Kind::Event>>, DataError>
+    subscriptions: Arc<Vec<Subscription<Exchange, Instrument, Kind>>>,
+) -> Result<impl Stream<Item = MarketStreamResult<Instrument::Key, Kind::Event>> + Send, DataError>
 where
-    Exchange: StreamSelector<Instrument, Kind>,
+    Exchange: StreamSelector<Instrument, Kind> + IdentifierStatic<ExchangeId> + Send + Sync,
     Instrument: InstrumentData + Display,
-    Kind: SubscriptionKind + Display,
-    Subscription<Exchange, Instrument, Kind>:
-        Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
+    Kind: SubscriptionKind + Display + Send + Sync,
+    Kind::Event: Send,
 {
     // Determine ExchangeId associated with these Subscriptions
-    let exchange = Exchange::ID;
+    let exchange = Exchange::id();
 
     // Determine StreamKey for use in logging
     let stream_key = subscriptions
@@ -70,8 +68,8 @@ where
     );
 
     Ok(init_reconnecting_stream(move || {
-        let subscriptions = subscriptions.clone();
-        async move { Exchange::Stream::init::<Exchange::SnapFetcher>(&subscriptions).await }
+        let subscriptions = Arc::clone(&subscriptions);
+        async move { Exchange::init(Arc::clone(&subscriptions)).await }
     })
     .await?
     .with_reconnect_backoff(policy, stream_key)

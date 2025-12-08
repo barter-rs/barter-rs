@@ -3,12 +3,13 @@ use self::{
     validator::SubscriptionValidator,
 };
 use crate::{
-    Identifier,
+    Identifier, IdentifierStatic,
     exchange::Connector,
     instrument::InstrumentData,
     subscription::{Map, Subscription, SubscriptionKind, SubscriptionMeta},
 };
 use async_trait::async_trait;
+use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
     error::SocketError,
     protocol::websocket::{WebSocket, WsMessage, connect},
@@ -35,7 +36,7 @@ pub trait Subscriber {
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
     ) -> Result<Subscribed<Instrument::Key>, SocketError>
     where
-        Exchange: Connector + Send + Sync,
+        Exchange: Connector + IdentifierStatic<ExchangeId> + Send + Sync,
         Kind: SubscriptionKind + Send + Sync,
         Instrument: InstrumentData,
         Subscription<Exchange, Instrument, Kind>:
@@ -61,14 +62,14 @@ impl Subscriber for WebSocketSubscriber {
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
     ) -> Result<Subscribed<Instrument::Key>, SocketError>
     where
-        Exchange: Connector + Send + Sync,
+        Exchange: Connector + IdentifierStatic<ExchangeId> + Send + Sync,
         Kind: SubscriptionKind + Send + Sync,
         Instrument: InstrumentData,
         Subscription<Exchange, Instrument, Kind>:
             Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
     {
         // Define variables for logging ergonomics
-        let exchange = Exchange::ID;
+        let exchange = Exchange::id();
         let url = Exchange::url()?;
         debug!(%exchange, %url, ?subscriptions, "subscribing to WebSocket");
 

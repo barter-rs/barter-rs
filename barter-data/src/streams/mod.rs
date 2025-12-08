@@ -6,11 +6,11 @@ use fnv::FnvHashMap;
 use futures::Stream;
 
 /// Defines the [`StreamBuilder`] and [`MultiStreamBuilder`] APIs for ergonomically initialising
-/// [`MarketStream`](super::MarketStream) [`Streams`].
+/// market data [`Streams`].
 pub mod builder;
 
 /// Central consumer loop functionality used by the [`StreamBuilder`] to
-/// drive a re-connecting [`MarketStream`](super::MarketStream).
+/// drive a re-connecting market data stream.
 pub mod consumer;
 
 /// Defines a [`ReconnectingStream`](reconnect::stream::ReconnectingStream) and associated logic

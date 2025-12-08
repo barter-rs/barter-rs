@@ -35,21 +35,21 @@ comprehensive documentation and examples for each library.**
 [Chat]: https://discord.gg/wE7RqhnQMV
 
 ## Overview
-Barter is an algorithmic trading ecosystem of Rust libraries for building high-performance live-trading, paper-trading 
+Barter is an algorithmic trading ecosystem of Rust libraries for building high-performance live-trading, paper-trading
 and back-testing systems. It is made up of several easy-to-use, extensible crates:
 * **Barter**: Algorithmic trading Engine with feature rich state management system.
-* **Barter-Instrument**: Exchange, Instrument and Asset data structures and utilities. 
-* **Barter-Data**: Stream public market data from financial venues. Easily extensible via the MarketStream interface.
-* **Barter-Execution**: Stream private account data and execute orders. Easily extensible via the ExecutionClient interface. 
+* **Barter-Instrument**: Exchange, Instrument and Asset data structures and utilities.
+* **Barter-Data**: Stream public market data from financial venues. Easily extensible via the StreamSelector trait.
+* **Barter-Execution**: Stream private account data and execute orders. Easily extensible via the ExecutionClient interface.
 * **Barter-Integration**: Low-level frameworks for flexible REST/WebSocket integrations.
 
 ## Notable Features
-- Stream public market data from financial venues via the [`Barter-Data`] library. 
+- Stream public market data from financial venues via the [`Barter-Data`] library.
 - Stream private account data, execute orders (live or mock)** via the [`Barter-Execution`] library.
-- Plug and play Strategy and RiskManager components that facilitate most trading strategies. 
+- Plug and play Strategy and RiskManager components that facilitate most trading strategies.
 - Backtest utilities for efficiently running thousands of concurrent backtests.
 - Flexible Engine that facilitates trading strategies that execute on many exchanges simultaneously.
-- Use mock MarketStream or Execution components to enable back-testing on a near-identical trading system as live-trading.  
+- Use mock market data streams or Execution components to enable back-testing on a near-identical trading system as live-trading.  
 - Centralised cache friendly state management system with O(1) constant lookups using indexed data structures.
 - Robust Order management system - use stand-alone or with Barter. 
 - Trading summaries with comprehensive performance metrics (PnL, Sharpe, Sortino, Drawdown, etc.).
