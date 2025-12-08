@@ -55,10 +55,14 @@ pub mod channel;
 
 pub mod collection;
 
-/// Stream utilities.
+/// Barter flavour `StreamExt` and other `Stream` utilities.
+#[cfg(feature = "socket")]
 pub mod stream;
 
 pub mod snapshot;
+
+#[cfg(feature = "socket")]
+pub mod socket;
 
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.
