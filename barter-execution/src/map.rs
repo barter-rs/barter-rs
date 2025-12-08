@@ -82,13 +82,11 @@ impl ExecutionInstrumentMap {
     }
 
     pub fn exchange_assets(&self) -> impl Iterator<Item = &AssetNameExchange> {
-        self.asset_names.iter().map(|(asset, _)| asset)
+        self.asset_names.keys()
     }
 
     pub fn exchange_instruments(&self) -> impl Iterator<Item = &InstrumentNameExchange> {
-        self.instrument_names
-            .iter()
-            .map(|(instrument, _)| instrument)
+        self.instrument_names.keys()
     }
 
     pub fn find_exchange_id(&self, exchange: ExchangeIndex) -> Result<ExchangeId, KeyError> {
