@@ -189,7 +189,7 @@ impl OrderBookSide<Asks> {
     where
         L: Into<Level> + Copy,
     {
-        levels.into_iter().for_each(|upsert| {
+        levels.iter().for_each(|upsert| {
             let upsert = (*upsert).into();
             self.upsert_single(upsert, |existing| existing.price.cmp(&upsert.price))
         })

@@ -19,7 +19,6 @@ use barter::{
     risk::DefaultRiskManager,
     statistic::{summary::instrument::TearSheetGenerator, time::Daily},
     strategy::{
-        DefaultStrategy,
         algo::AlgoStrategy,
         close_positions::{ClosePositionsStrategy, build_ioc_market_order_to_close_position},
         on_disconnect::OnDisconnectStrategy,
@@ -60,6 +59,7 @@ use tracing::debug;
 const FILE_PATH_SYSTEM_CONFIG: &str = "barter/examples/config/system_config.json";
 const RISK_FREE_RETURN: Decimal = dec!(0.05);
 
+#[derive(Debug, Default)]
 struct MultiStrategy {
     strategy_a: StrategyA,
     strategy_b: StrategyB,
@@ -212,6 +212,7 @@ impl<Clock, State, ExecutionTxs, Risk> OnTradingDisabled<Clock, State, Execution
     }
 }
 
+#[derive(Debug, Default)]
 struct StrategyA;
 
 impl StrategyA {
@@ -232,6 +233,7 @@ impl AlgoStrategy for StrategyA {
     }
 }
 
+#[derive(Debug, Default)]
 struct StrategyB;
 
 impl StrategyB {
@@ -335,7 +337,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &instruments,
         executions,
         LiveClock,
-        DefaultStrategy::default(),
+        MultiStrategy::default(),
         DefaultRiskManager::default(),
         market_stream,
         DefaultGlobalData::default(),
