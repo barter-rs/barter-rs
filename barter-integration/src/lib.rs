@@ -26,7 +26,7 @@
 //!
 //! Both core abstractions provide the robust glue you need to conveniently translate between server & client data models.
 
-use serde::{Deserialize, Serialize};
+use ::serde::{Deserialize, Serialize};
 
 /// All [`Error`](std::error::Error)s generated in Barter-Integration.
 #[cfg(feature = "error")]
@@ -40,10 +40,6 @@ pub mod protocol;
 /// Contains the flexible `Metric` type used for representing real-time metrics generically.
 #[cfg(feature = "metric")]
 pub mod metric;
-
-/// Utilities to assist deserialisation.
-#[cfg(feature = "de_util")]
-pub mod de;
 
 /// Defines a [`SubscriptionId`](subscription::SubscriptionId) new type representing a unique
 /// `SmolStr` identifier for a data stream (market data, account data) that has been
@@ -67,6 +63,10 @@ pub mod stream;
 
 #[cfg(feature = "socket")]
 pub mod socket;
+
+/// SerDe transformer and other utilities.
+#[cfg(feature = "serde")]
+pub mod serde;
 
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.

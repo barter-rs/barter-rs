@@ -300,7 +300,7 @@ pub struct BinanceSpotOrderBookL2Update {
     pub subscription_id: SubscriptionId,
     #[serde(
         alias = "E",
-        deserialize_with = "barter_integration::de::de_u64_epoch_ms_as_datetime_utc"
+        deserialize_with = "barter_integration::serde::de::de_u64_epoch_ms_as_datetime_utc"
     )]
     pub time_exchange: DateTime<Utc>,
     #[serde(alias = "U")]
