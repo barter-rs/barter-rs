@@ -26,7 +26,7 @@ use barter_instrument::{
         name::{InstrumentNameExchange, InstrumentNameInternal},
     },
 };
-use barter_integration::{collection::FnvIndexMap, snapshot::Snapshot};
+use barter_integration::collection::{FnvIndexMap, snapshot::Snapshot};
 use chrono::{DateTime, Utc};
 use derive_more::Constructor;
 use itertools::Either;

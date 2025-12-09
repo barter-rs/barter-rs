@@ -164,6 +164,7 @@ where
     Exchange: IdentifierStatic<ExchangeId>,
     Instrument: InstrumentData,
 {
+    type Error = SocketError;
     fn validate(self) -> Result<Self, SocketError>
     where
         Self: Sized,
@@ -222,6 +223,7 @@ impl<Instrument> Validator for Subscription<ExchangeId, Instrument, SubKind>
 where
     Instrument: InstrumentData,
 {
+    type Error = SocketError;
     fn validate(self) -> Result<Self, SocketError>
     where
         Self: Sized,

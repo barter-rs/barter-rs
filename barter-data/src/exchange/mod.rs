@@ -79,7 +79,7 @@ where
     /// sent over the [`WebSocket`](barter_integration::protocol::websocket::WebSocket). Implements
     /// [`Validator`] in order to determine if [`Self`]
     /// communicates a successful `Subscription` outcome.
-    type SubResponse: Validator + Debug + DeserializeOwned;
+    type SubResponse: Validator<Error = SocketError> + Debug + DeserializeOwned;
 
     /// Base [`Url`] of the exchange server being connected with.
     fn url() -> Result<Url, SocketError>;

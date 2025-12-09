@@ -49,6 +49,7 @@ pub struct CoinbaseChannels {
 }
 
 impl Validator for CoinbaseSubResponse {
+    type Error = SocketError;
     fn validate(self) -> Result<Self, SocketError>
     where
         Self: Sized,

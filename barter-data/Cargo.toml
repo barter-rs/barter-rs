@@ -17,7 +17,7 @@ rust_decimal_macros = { workspace = true }
 
 [dependencies]
 # Barter Ecosystem
-barter-integration = { workspace = true }
+barter-integration = { workspace = true, features = ["full"] }
 barter-instrument = { workspace = true }
 barter-macro = { workspace = true }
 

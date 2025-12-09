@@ -29,7 +29,7 @@ use barter_instrument::{
 };
 use barter_integration::{
     channel::{Tx, UnboundedTx, mpsc_unbounded},
-    snapshot::Snapshot,
+    collection::snapshot::Snapshot,
     stream::util::merge::merge,
 };
 use derive_more::Constructor;

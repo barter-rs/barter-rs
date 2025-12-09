@@ -27,6 +27,8 @@ pub struct BinanceSubResponse {
 }
 
 impl Validator for BinanceSubResponse {
+    type Error = SocketError;
+
     fn validate(self) -> Result<Self, SocketError>
     where
         Self: Sized,
