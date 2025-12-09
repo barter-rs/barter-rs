@@ -1,5 +1,5 @@
 use barter_integration::{
-    Transformer,
+    TransformerDeprecated,
     error::SocketError,
     protocol::websocket::{WebSocket, WebSocketSerdeParser, WsMessage},
     stream::ExchangeStream,
@@ -34,7 +34,7 @@ struct StatefulTransformer {
     sum_of_volume: VolumeSum,
 }
 
-impl Transformer for StatefulTransformer {
+impl TransformerDeprecated for StatefulTransformer {
     type Error = SocketError;
     type Input = BinanceMessage;
     type Output = VolumeSum;

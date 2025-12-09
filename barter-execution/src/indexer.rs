@@ -37,8 +37,9 @@ pub struct AccountEventIndexer {
 impl Indexer for AccountEventIndexer {
     type Unindexed = UnindexedAccountEvent;
     type Indexed = AccountEvent;
+    type Error = IndexError;
 
-    fn index(&self, item: Self::Unindexed) -> Result<Self::Indexed, IndexError> {
+    fn index(&self, item: Self::Unindexed) -> Result<Self::Indexed, Self::Error> {
         self.account_event(item)
     }
 }

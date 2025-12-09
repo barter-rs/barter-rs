@@ -1,5 +1,6 @@
 use self::subscription::ExchangeSub;
 use crate::{
+    event::MarketEvent,
     subscriber::{Subscriber, validator::SubscriptionValidator},
     subscription::Map,
 };
@@ -41,6 +42,46 @@ pub mod subscription;
 /// Default [`Duration`] the [`Connector::SubValidator`] will wait to receive all success responses to actioned
 /// `Subscription` requests.
 pub const DEFAULT_SUBSCRIPTION_TIMEOUT: Duration = Duration::from_secs(10);
+
+// Todo: ie/ BinanceMessage, encompasses all messages that can be received over WebSocket
+pub trait ApiMessage {
+    type Message;
+}
+
+pub trait AppMessage {
+    type Response;
+    type Payload;
+}
+
+pub enum ServerMessage<Response, Payload> {
+    Ping,
+    Pong,
+    Response(Response),
+    Payload(Payload),
+}
+
+// Todo: this would be post-transformation, so it's not coupled to deserialisation
+pub enum ExchangeMessageImpl<InstrumentKey, T, SubKind> {
+    Payload(MarketEvent<InstrumentKey, T>), // Todo: T linked to SubKind ofc.
+    AppPing,
+    AppPong,
+    Maintenance,
+    Subscribed(SubscriptionKey<InstrumentKey, SubKind>),
+    Unsubscribed(SubscriptionKey<InstrumentKey, SubKind>),
+    Response,
+}
+
+pub struct SubscriptionKey<InstrumentKey, Kind> {
+    instrument: InstrumentKey,
+    kind: Kind,
+}
+
+// Todo: ideally "Response" would be opaque and encompass all "responses" to a Request
+pub enum ResponseKind<InstrumentKey, SubKind> {
+    Subscribed(SubscriptionKey<InstrumentKey, SubKind>),
+    Unsubscribed(SubscriptionKey<InstrumentKey, SubKind>),
+    Generic,
+}
 
 /// Primary exchange abstraction. Defines how to translate Barter types into exchange specific
 /// types, as well as connecting, subscribing, and interacting with the exchange server.

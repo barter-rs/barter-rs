@@ -3,7 +3,7 @@ use crate::{
     Identifier, IdentifierStatic, SnapshotFetcher,
     books::OrderBook,
     error::DataError,
-    event::{MarketEvent, MarketIter},
+    event::MarketEvent,
     exchange::binance::{
         book::l2::{BinanceOrderBookL2Meta, BinanceOrderBookL2Snapshot},
         market::BinanceMarket,
@@ -19,7 +19,8 @@ use crate::{
 use async_trait::async_trait;
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
-    Transformer, error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId,
+    TransformerDeprecated, TransformerMut, collection::none_one_or_many::NoneOneOrMany,
+    error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId,
 };
 use chrono::{DateTime, Utc};
 use futures_util::future::try_join_all;
@@ -118,7 +119,45 @@ where
     }
 }
 
-impl<InstrumentKey> Transformer for BinanceSpotOrderBooksL2Transformer<InstrumentKey>
+impl<InstrumentKey> TransformerMut<BinanceSpotOrderBookL2Update>
+    for BinanceSpotOrderBooksL2Transformer<InstrumentKey>
+where
+    InstrumentKey: Clone + 'static,
+{
+    type Output<'a> = Result<MarketEvent<InstrumentKey, OrderBookEvent>, DataError>;
+
+    fn transform<'a>(
+        &mut self,
+        input: BinanceSpotOrderBookL2Update,
+    ) -> impl IntoIterator<Item = Self::Output<'a>> + 'a {
+        // Determine if the message has an identifiable SubscriptionId
+        let subscription_id = match input.id() {
+            Some(subscription_id) => subscription_id,
+            None => return NoneOneOrMany::None,
+        };
+
+        // Find Instrument associated with Input and transform
+        let instrument = match self.instrument_map.find_mut(&subscription_id) {
+            Ok(instrument) => instrument,
+            Err(unidentifiable) => return NoneOneOrMany::One(Err(DataError::from(unidentifiable))),
+        };
+
+        // Drop any outdated updates & validate sequence for relevant updates
+        let valid_update = match instrument.sequencer.validate_sequence(input) {
+            Ok(Some(valid_update)) => valid_update,
+            Ok(None) => return NoneOneOrMany::None,
+            Err(error) => return NoneOneOrMany::One(Err(error)),
+        };
+
+        NoneOneOrMany::One(Ok(MarketEvent::from((
+            BinanceSpot::id(),
+            instrument.key.clone(),
+            valid_update,
+        ))))
+    }
+}
+
+impl<InstrumentKey> TransformerDeprecated for BinanceSpotOrderBooksL2Transformer<InstrumentKey>
 where
     InstrumentKey: Clone,
 {
@@ -147,12 +186,11 @@ where
             Err(error) => return vec![Err(error)],
         };
 
-        MarketIter::<InstrumentKey, OrderBookEvent>::from((
+        vec![Ok(MarketEvent::from((
             BinanceSpot::id(),
             instrument.key.clone(),
             valid_update,
-        ))
-        .0
+        )))]
     }
 }
 
@@ -320,7 +358,7 @@ impl Identifier<Option<SubscriptionId>> for BinanceSpotOrderBookL2Update {
 }
 
 impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceSpotOrderBookL2Update)>
-    for MarketIter<InstrumentKey, OrderBookEvent>
+    for MarketEvent<InstrumentKey, OrderBookEvent>
 {
     fn from(
         (exchange_id, instrument, update): (
@@ -329,7 +367,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceSpotOrderBookL2Updat
             BinanceSpotOrderBookL2Update,
         ),
     ) -> Self {
-        Self(vec![Ok(MarketEvent {
+        MarketEvent {
             time_exchange: update.time_exchange,
             time_received: Utc::now(),
             exchange: exchange_id,
@@ -340,7 +378,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceSpotOrderBookL2Updat
                 update.bids,
                 update.asks,
             )),
-        })])
+        }
     }
 }
 

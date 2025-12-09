@@ -1,6 +1,6 @@
 use crate::{
     books::{Level, OrderBook},
-    event::{MarketEvent, MarketIter},
+    event::MarketEvent,
     subscription::book::OrderBookEvent,
 };
 use barter_instrument::exchange::ExchangeId;
@@ -35,7 +35,7 @@ pub struct BybitOrderBookInner {
 }
 
 impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BybitOrderBookMessage)>
-    for MarketIter<InstrumentKey, OrderBookEvent>
+    for MarketEvent<InstrumentKey, OrderBookEvent>
 {
     fn from(
         (exchange, instrument, message): (ExchangeId, InstrumentKey, BybitOrderBookMessage),
@@ -52,13 +52,13 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BybitOrderBookMessage)>
             BybitPayloadKind::Delta => OrderBookEvent::Update(orderbook),
         };
 
-        Self(vec![Ok(MarketEvent {
+        MarketEvent {
             time_exchange: message.time,
             time_received: Utc::now(),
             exchange,
             instrument,
             kind,
-        })])
+        }
     }
 }
 

@@ -1,9 +1,10 @@
 use std::vec;
 
+use super::BybitOrderBookMessage;
 use crate::{
     Identifier, IdentifierStatic,
     error::DataError,
-    event::{MarketEvent, MarketIter},
+    event::MarketEvent,
     exchange::bybit::{Bybit, message::BybitPayloadKind, spot::BybitSpot},
     subscription::{
         Map,
@@ -12,12 +13,13 @@ use crate::{
     transformer::ExchangeTransformer,
 };
 use async_trait::async_trait;
-use barter_integration::{Transformer, protocol::websocket::WsMessage};
+use barter_integration::{
+    TransformerDeprecated, TransformerMut, collection::none_one_or_many::NoneOneOrMany,
+    protocol::websocket::WsMessage,
+};
 use derive_more::Constructor;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::debug;
-
-use super::BybitOrderBookMessage;
 
 #[derive(Debug, Constructor)]
 pub struct BybitOrderBookL2Meta<InstrumentKey, Sequencer> {
@@ -53,7 +55,65 @@ where
     }
 }
 
-impl<InstrumentKey> Transformer for BybitOrderBooksL2Transformer<InstrumentKey>
+impl<InstrumentKey> TransformerMut<BybitOrderBookMessage>
+    for BybitOrderBooksL2Transformer<InstrumentKey>
+where
+    InstrumentKey: Clone + 'static,
+{
+    type Output<'a> = Result<MarketEvent<InstrumentKey, OrderBookEvent>, DataError>;
+
+    fn transform<'a>(
+        &mut self,
+        input: BybitOrderBookMessage,
+    ) -> impl IntoIterator<Item = Self::Output<'a>> + 'a {
+        // Determine if the message has an identifiable SubscriptionId
+        let subscription_id = match input.id() {
+            Some(subscription_id) => subscription_id,
+            None => return NoneOneOrMany::None,
+        };
+
+        // Find Instrument associated with Input and transform
+        let instrument = match self.instrument_map.find_mut(&subscription_id) {
+            Ok(instrument) => instrument,
+            Err(unidentifiable) => return NoneOneOrMany::One(Err(DataError::from(unidentifiable))),
+        };
+
+        // Initialise a sequencer when snapshot received from the exchange. We
+        // return immediately because the snapshot message is always valid.
+        if matches!(input.kind, BybitPayloadKind::Snapshot) {
+            instrument.sequencer.replace(BybitOrderBookL2Sequencer {
+                last_update_id: input.data.update_id,
+            });
+
+            return NoneOneOrMany::One(Ok(MarketEvent::from((
+                BybitSpot::id(),
+                instrument.key.clone(),
+                input,
+            ))));
+        }
+
+        // Could happen if we receive an update message before the snapshot
+        let Some(sequencer) = &mut instrument.sequencer else {
+            debug!("Update message received before initial Snapshot");
+            return NoneOneOrMany::None;
+        };
+
+        // Drop any outdated updates & validate sequence for relevant updates
+        let valid_update = match sequencer.validate_sequence(input) {
+            Ok(Some(valid_update)) => valid_update,
+            Ok(None) => return NoneOneOrMany::None,
+            Err(error) => return NoneOneOrMany::One(Err(error)),
+        };
+
+        NoneOneOrMany::One(Ok(MarketEvent::from((
+            BybitSpot::id(),
+            instrument.key.clone(),
+            valid_update,
+        ))))
+    }
+}
+
+impl<InstrumentKey> TransformerDeprecated for BybitOrderBooksL2Transformer<InstrumentKey>
 where
     InstrumentKey: Clone,
 {
@@ -82,12 +142,11 @@ where
                 last_update_id: input.data.update_id,
             });
 
-            return MarketIter::<InstrumentKey, OrderBookEvent>::from((
+            return vec![Ok(MarketEvent::from((
                 BybitSpot::id(),
                 instrument.key.clone(),
                 input,
-            ))
-            .0;
+            )))];
         }
 
         // Could happen if we receive an update message before the snapshot
@@ -103,12 +162,11 @@ where
             Err(error) => return vec![Err(error)],
         };
 
-        MarketIter::<InstrumentKey, OrderBookEvent>::from((
+        vec![Ok(MarketEvent::from((
             BybitSpot::id(),
             instrument.key.clone(),
             valid_update,
-        ))
-        .0
+        )))]
     }
 }
 

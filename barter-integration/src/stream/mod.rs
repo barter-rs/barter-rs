@@ -1,4 +1,4 @@
-use crate::{Transformer, error::SocketError, protocol::StreamParser};
+use crate::{TransformerDeprecated, error::SocketError, protocol::StreamParser};
 use futures::Stream;
 use pin_project::pin_project;
 use std::{
@@ -19,7 +19,7 @@ pub struct ExchangeStream<Protocol, InnerStream, StreamTransformer>
 where
     Protocol: StreamParser<StreamTransformer::Input>,
     InnerStream: Stream,
-    StreamTransformer: Transformer,
+    StreamTransformer: TransformerDeprecated,
 {
     #[pin]
     pub stream: InnerStream,
@@ -33,7 +33,7 @@ impl<Protocol, InnerStream, StreamTransformer> Stream
 where
     Protocol: StreamParser<StreamTransformer::Input>,
     InnerStream: Stream<Item = Result<Protocol::Message, Protocol::Error>> + Unpin,
-    StreamTransformer: Transformer,
+    StreamTransformer: TransformerDeprecated,
     StreamTransformer::Error: From<SocketError>,
 {
     type Item = Result<StreamTransformer::Output, StreamTransformer::Error>;
@@ -83,7 +83,7 @@ impl<Protocol, InnerStream, StreamTransformer>
 where
     Protocol: StreamParser<StreamTransformer::Input>,
     InnerStream: Stream,
-    StreamTransformer: Transformer,
+    StreamTransformer: TransformerDeprecated,
 {
     pub fn new(
         stream: InnerStream,

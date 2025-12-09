@@ -102,7 +102,7 @@ use crate::{
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
-    Transformer,
+    Message, MessageApp, Transformer, TransformerDeprecated,
     error::SocketError,
     protocol::{
         StreamParser,
@@ -110,9 +110,26 @@ use barter_integration::{
     },
     stream::ExchangeStream,
 };
-use futures::{SinkExt, Stream, StreamExt};
+use futures::{Sink, SinkExt, Stream, StreamExt};
 
-use std::{collections::VecDeque, future::Future};
+use crate::{
+    exchange::{ApiMessage, AppMessage, binance::spot::BinanceSpot},
+    subscription::Map,
+};
+use barter_instrument::{Keyed, index::error::IndexError};
+use barter_integration::{
+    protocol::websocket::init_websocket,
+    serde::{DeBinaryError, DeTransformer, SeBinaryError, SeTransformer},
+    socket::reconnecting::{
+        ReconnectingSocket, backoff::ReconnectBackoff, init_reconnecting_socket,
+        on_connect_err::ConnectErrorHandler, update::SocketUpdate,
+    },
+    stream::ext::indexed::Indexer,
+    subscription::SubscriptionId,
+};
+use fnv::FnvHashMap;
+use serde::{Deserialize, Serialize};
+use std::{collections::VecDeque, future::Future, marker::PhantomData};
 use tokio::sync::mpsc;
 use tracing::{debug, error, warn};
 
@@ -225,6 +242,196 @@ where
     }
 }
 
+pub fn init_reconnecting_socket_with_updates<
+    FnConnect,
+    FnOnConnectErr,
+    ConnectErr,
+    Backoff,
+    FnOnStTimeout,
+    Socket,
+    SinkItem,
+    Admin,
+    Payload,
+>(
+    connect: FnConnect,
+    timeout_connect: std::time::Duration,
+    on_connect_err: FnOnConnectErr,
+    reconnect_backoff: Backoff,
+    timeout_stream: std::time::Duration,
+    on_stream_timeout: FnOnStTimeout,
+) -> impl Stream<Item = SocketUpdate<impl Sink<SinkItem>, Socket::Item>>
+where
+    FnConnect: AsyncFnMut() -> Result<Socket, ConnectErr>,
+    FnOnConnectErr: ConnectErrorHandler<ConnectErr>,
+    Backoff: ReconnectBackoff,
+    FnOnStTimeout: Fn() + 'static,
+    Socket: Sink<SinkItem> + Stream<Item = Message<Admin, Payload>>,
+{
+    init_reconnecting_socket(connect, timeout_connect, reconnect_backoff)
+        .on_connect_err(on_connect_err)
+        // Todo: add timeouts before .with_socket_updates()
+        .with_socket_updates()
+}
+
+// pub trait ServerSocket {
+//     type Serialiser<'se>: Transformer<Self::OutMessage, Output<'se> = Result<bytes::Bytes, SeBinaryError>>;
+//     type OutMessage;
+//     type Deserialiser<'de>: Transformer<bytes::Bytes, Output<'de> = Result<Self::InMessage, DeBinaryError>>;
+//     type InMessage;
+//
+//     fn base_url() -> &'static str;
+// }
+//
+// pub async fn init_socket<Exchange, Instrument, Kind, SeTransf, OutMessage, DeTransf, InMessage>(
+//     subscriptions: impl AsRef<Vec<Subscription<Exchange, Instrument, Kind>>>,
+// ) -> Result<(), WsError>
+// where
+//     Exchange: ServerSocket,
+// {
+//     let socket = init_websocket::<
+//         Exchange::Serialiser<'_>,
+//         Exchange::OutMessage,
+//         Exchange::Deserialiser<'_>,
+//         Exchange::InMessage,
+//     >(Exchange::base_url())
+//     .await?;
+//
+//     Ok(())
+// }
+
+pub struct MessageKeyer<Key, Index, Message> {
+    map: FnvHashMap<Key, Index>,
+    phantom: PhantomData<Message>,
+}
+
+impl<Key, Index, Message> Indexer for MessageKeyer<Key, Index, Message>
+where
+    Index: Clone,
+    Message: for<'a> Identifier<&'a Key>,
+{
+    type Unindexed = Message;
+    type Indexed = Keyed<Index, Message>;
+
+    type Error = String; // Todo: update this to less catch all type
+
+    // Todo: Make Indexer more general:
+    //  1. Move to barter-integration
+    //  2. Make Error associated type or more general in some way
+    //  3. How can we handle dynamic subscriptions?
+
+    fn index(&self, item: Self::Unindexed) -> Result<Self::Indexed, Self::Error> {
+        self.map
+            .get(item.id())
+            .map(|index| Keyed::new(index, item))
+            .ok_or_else(|| "failed to find index for Unindexed key".to_string())
+    }
+}
+
+impl<Key, Index, Message> FromIterator<(Key, Index)> for MessageKeyer<Key, Index, Message> {
+    fn from_iter<Iter>(iter: Iter) -> Self
+    where
+        Iter: IntoIterator<Item = (Key, Index)>,
+    {
+        let map = iter.into_iter().collect::<FnvHashMap<Key, Index>>();
+        Self::new(map)
+    }
+}
+
+impl<Key, Index, Message> MessageKeyer<Key, Index, Message> {
+    pub fn new(map: FnvHashMap<Key, Index>) -> Self {
+        Self {
+            map,
+            phantom: <_>::default(),
+        }
+    }
+}
+
+pub async fn init_binance_socket<Instrument, Kind>(
+    url_custom: Option<url::Url>,
+    subscriptions: impl AsRef<Vec<Subscription<BinanceSpot, Instrument, Kind>>>,
+) -> Result<(), SocketError>
+where
+    Instrument: InstrumentData,
+    Kind: SubscriptionKind,
+    Subscription<BinanceSpot, Instrument, Kind>: Identifier<SubscriptionId>,
+{
+    let url = url_custom.unwrap_or(BinanceSpot::url()?);
+
+    // Subscriptions are basically Requests...
+
+    #[derive(Serialize)]
+    pub struct BinanceRequest;
+    #[derive(Deserialize)]
+    pub struct BinanceMessage;
+
+    let socket = init_websocket::<
+        SeTransformer<BinanceRequest>,
+        BinanceRequest,
+        DeTransformer<BinanceMessage>,
+        BinanceMessage,
+    >(url.as_str())
+    .await?;
+
+    let subscriptions = subscriptions.as_ref();
+
+    let keyer = MessageKeyer::from_iter(
+        subscriptions
+            .iter()
+            .map(|sub| (sub.id(), sub.instrument.key())),
+    );
+
+    use barter_integration::stream::ext::StreamExt;
+
+    let socket = socket.with_index(keyer);
+
+    Ok(())
+}
+
+pub async fn init_ws_stream<Exchange, Instrument, Kind, FnDe, DeTransf, AppTransf, SnapFetcher>(
+    subscriptions: impl AsRef<Vec<Subscription<Exchange, Instrument, Kind>>>,
+) -> Result<impl Stream, WsError>
+where
+    Exchange: Connector + ApiMessage + AppMessage + IdentifierStatic<ExchangeId>,
+    Instrument: InstrumentData,
+    Kind: SubscriptionKind,
+    DeTransf:
+        for<'a> Transformer<bytes::Bytes, Output<'a> = Result<Exchange::Message, DeBinaryError>>,
+    AppTransf: for<'a> Transformer<
+            Exchange::Message,
+            Output<'a> = MessageApp<Exchange::Response, Exchange::Payload>,
+        >,
+    SnapFetcher: SnapshotFetcher<Exchange, Instrument, Kind>,
+{
+    // Define variables for logging ergonomics
+    let exchange = Exchange::id();
+    let url = Exchange::url().unwrap();
+
+    let mut socket = init_websocket(url).await?;
+    // Todo: Subscribing & validating occurs here
+
+    // Todo:
+    //  - Should Ping, Pong, Respones be MessageAdmin::Application?
+    //  - If we are doing dynamic subs (so no static SubMap), where do we Key Payloads?
+    //     - Feels like we may need to hold off on applying AppTransf until context is present
+
+    while let Some(message) = socket.next().await {
+        match message {
+            Message::Admin(admin) => {}
+            Message::Payload(payload) => match payload {
+                MessageApp::Ping => {}
+                MessageApp::Pong => {}
+                MessageApp::Response(_) => {}
+                MessageApp::Payload(_) => {}
+            },
+        }
+    }
+
+    // Fetch any required initial MarketEvent snapshots
+    let initial_snapshots = SnapFetcher::fetch_snapshots(subscriptions).await?;
+
+    Ok(())
+}
+
 pub async fn init_ws_exchange_stream_with_initial_snapshots<
     Exchange,
     Instrument,
@@ -296,7 +503,7 @@ pub fn process_buffered_events<Parser, StreamTransformer>(
 ) -> VecDeque<Result<StreamTransformer::Output, StreamTransformer::Error>>
 where
     Parser: StreamParser<StreamTransformer::Input>,
-    StreamTransformer: Transformer,
+    StreamTransformer: TransformerDeprecated,
 {
     events
         .into_iter()

@@ -3,7 +3,7 @@ use crate::{
     Identifier, IdentifierStatic, SnapshotFetcher,
     books::OrderBook,
     error::DataError,
-    event::{MarketEvent, MarketIter},
+    event::MarketEvent,
     exchange::binance::{
         book::l2::{BinanceOrderBookL2Meta, BinanceOrderBookL2Snapshot},
         futures::BinanceFuturesUsd,
@@ -19,7 +19,8 @@ use crate::{
 use async_trait::async_trait;
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
-    Transformer, error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId,
+    TransformerDeprecated, TransformerMut, collection::none_one_or_many::NoneOneOrMany,
+    error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId,
 };
 use chrono::{DateTime, Utc};
 use futures_util::future::try_join_all;
@@ -124,7 +125,53 @@ where
     }
 }
 
-impl<InstrumentKey> Transformer for BinanceFuturesUsdOrderBooksL2Transformer<InstrumentKey>
+impl<InstrumentKey> TransformerMut<BinanceFuturesOrderBookL2Update>
+    for BinanceFuturesUsdOrderBooksL2Transformer<InstrumentKey>
+where
+    InstrumentKey: Clone + 'static,
+{
+    type Output<'a> = Result<MarketEvent<InstrumentKey, OrderBookEvent>, DataError>;
+
+    fn transform<'a>(
+        &mut self,
+        input: BinanceFuturesOrderBookL2Update,
+    ) -> impl IntoIterator<Item = Self::Output<'a>> + 'a {
+        // Determine if the message has an identifiable SubscriptionId
+        let subscription_id = match input.id() {
+            Some(subscription_id) => subscription_id,
+            None => return NoneOneOrMany::None,
+        };
+
+        // Find Instrument associated with Input and transform
+        let instrument = match self.instrument_map.find_mut(&subscription_id) {
+            Ok(instrument) => instrument,
+            Err(unidentifiable) => return NoneOneOrMany::One(Err(DataError::from(unidentifiable))),
+        };
+
+        // Drop any outdated updates & validate sequence for relevant updates
+        let valid_update = match instrument.sequencer.validate_sequence(input) {
+            Ok(Some(valid_update)) => valid_update,
+            Ok(None) => return NoneOneOrMany::None,
+            Err(error) => return NoneOneOrMany::One(Err(error)),
+        };
+
+        NoneOneOrMany::One(Ok(MarketEvent {
+            time_exchange: valid_update.time_exchange,
+            time_received: Utc::now(),
+            exchange: BinanceFuturesUsd::id(),
+            instrument: instrument.key.clone(),
+            kind: OrderBookEvent::Update(OrderBook::new(
+                valid_update.last_update_id,
+                Some(valid_update.time_engine),
+                valid_update.bids,
+                valid_update.asks,
+            )),
+        }))
+    }
+}
+
+impl<InstrumentKey> TransformerDeprecated
+    for BinanceFuturesUsdOrderBooksL2Transformer<InstrumentKey>
 where
     InstrumentKey: Clone,
 {
@@ -153,12 +200,11 @@ where
             Err(error) => return vec![Err(error)],
         };
 
-        MarketIter::<InstrumentKey, OrderBookEvent>::from((
+        vec![Ok(MarketEvent::from((
             BinanceFuturesUsd::id(),
             instrument.key.clone(),
             valid_update,
-        ))
-        .0
+        )))]
     }
 }
 
@@ -334,7 +380,7 @@ impl Identifier<Option<SubscriptionId>> for BinanceFuturesOrderBookL2Update {
 }
 
 impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceFuturesOrderBookL2Update)>
-    for MarketIter<InstrumentKey, OrderBookEvent>
+    for MarketEvent<InstrumentKey, OrderBookEvent>
 {
     fn from(
         (exchange, instrument, update): (
@@ -343,7 +389,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceFuturesOrderBookL2Up
             BinanceFuturesOrderBookL2Update,
         ),
     ) -> Self {
-        Self(vec![Ok(MarketEvent {
+        MarketEvent {
             time_exchange: update.time_exchange,
             time_received: Utc::now(),
             exchange,
@@ -354,7 +400,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceFuturesOrderBookL2Up
                 update.bids,
                 update.asks,
             )),
-        })])
+        }
     }
 }
 

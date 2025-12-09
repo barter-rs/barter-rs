@@ -74,7 +74,9 @@ impl Subscriber for WebSocketSubscriber {
         debug!(%exchange, %url, ?subscriptions, "subscribing to WebSocket");
 
         // Connect to exchange
-        let mut websocket = connect(url).await?;
+        let mut websocket = connect(url)
+            .await
+            .map_err(|error| SocketError::WebSocket(Box::new(error)))?;
         debug!(%exchange, ?subscriptions, "connected to WebSocket");
 
         // Map &[Subscription<Exchange, Kind>] to SubscriptionMeta

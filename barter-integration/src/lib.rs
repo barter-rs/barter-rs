@@ -79,15 +79,54 @@ pub trait Validator {
         Self: Sized;
 }
 
-/// [`Transformer`]s are capable of transforming any `Input` into an iterator of
+/// [`TransformerDeprecated`]s are capable of transforming any `Input` into an iterator of
 /// `Result<Self::Output, Self::Error>`s.
-pub trait Transformer {
+pub trait TransformerDeprecated {
     type Error;
     type Input;
     type Output;
     type OutputIter: IntoIterator<Item = Result<Self::Output, Self::Error>>;
 
     fn transform(&mut self, input: Self::Input) -> Self::OutputIter;
+}
+
+pub trait Transformer<Input> {
+    type Output<'a>
+    where
+        Input: 'a;
+
+    fn transform<'a>(input: Input) -> impl IntoIterator<Item = Self::Output<'a>> + 'a
+    where
+        Input: 'a;
+}
+
+pub trait TransformerAsync<Input> {
+    type Output<'a>
+    where
+        Input: 'a;
+
+    fn transform<'a>(input: Input) -> impl futures::Stream<Item = Self::Output<'a>> + 'a
+    where
+        Input: 'a;
+}
+
+pub trait TransformerMut<Input> {
+    type Output<'a>
+    where
+        Input: 'a;
+
+    fn transform<'a>(&mut self, input: Input) -> impl IntoIterator<Item = Self::Output<'a>> + 'a
+    where
+        Input: 'a;
+}
+
+pub trait TransformerMutAsync<Input> {
+    type Output<'a>
+    where
+        Input: 'a;
+    fn transform<'a>(&mut self, input: Input) -> impl futures::Stream<Item = Self::Output<'a>> + 'a
+    where
+        Input: 'a;
 }
 
 /// Determines if something is considered "unrecoverable", such as an unrecoverable error.
@@ -100,6 +139,30 @@ pub trait Unrecoverable {
 /// Trait that communicates if something is terminal (eg/ requires shutdown or restart).
 pub trait Terminal {
     fn is_terminal(&self) -> bool;
+}
+
+/// Either an "Admin" or a "Payload" message.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+pub enum Message<A, T> {
+    Admin(A),
+    Payload(T),
+}
+
+// /// Admin message that's either a "Protocol", "Deserialisation" or "Application" level event.
+// #[derive(Debug, Deserialize, Serialize)]
+// pub enum MessageAdmin<P> {
+//     Protocol(P),
+//     DeError(DeBinaryError),
+//     // Application(A), // this currentlly isn't used, should I contain Ping, Pong, Response?
+// }
+
+/// Application level message.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+pub enum MessageApp<Response, Payload> {
+    Ping, // Maybe Request, Response, Payload? Are Request-Response Payloads or Admin?
+    Pong,
+    Response(Response),
+    Payload(Payload),
 }
 
 /// Indicates an `Iterator` or `Stream` has ended.
