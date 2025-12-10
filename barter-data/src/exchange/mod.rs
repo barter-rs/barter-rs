@@ -33,6 +33,9 @@ pub mod gateio;
 /// `Kraken` [`Connector`] and [`StreamSelector`] implementations.
 pub mod kraken;
 
+/// `Mexc` [`Connector`] and [`StreamSelector`] implementations.
+pub mod mexc;
+
 /// `Okx` [`Connector`] and [`StreamSelector`] implementations.
 pub mod okx;
 

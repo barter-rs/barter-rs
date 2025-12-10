@@ -132,9 +132,9 @@ where
                 action = "returning Some(Err(err))",
                 "failed to deserialize WebSocket Message into domain specific Message"
             );
-            SocketError::Deserialise {
+            SocketError::DeserialiseBinary {
                 error,
-                payload: String::from_utf8(payload.into()).unwrap_or_else(|x| x.to_string()),
+                payload: payload.to_vec(),
             }
         }),
     )

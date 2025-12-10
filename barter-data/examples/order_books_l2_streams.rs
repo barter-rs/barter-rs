@@ -1,11 +1,12 @@
 use barter_data::{
-    exchange::binance::spot::BinanceSpot,
+    exchange::{
+        binance::{futures::BinanceFuturesUsd, spot::BinanceSpot},
+        mexc::MexcSpot,
+    },
     streams::{Streams, reconnect::stream::ReconnectingStream},
     subscription::book::OrderBooksL2,
 };
-use barter_instrument::{
-    exchange::ExchangeId, instrument::market_data::kind::MarketDataInstrumentKind,
-};
+use barter_instrument::instrument::market_data::kind::MarketDataInstrumentKind;
 use futures_util::StreamExt;
 use tracing::{info, warn};
 
@@ -15,39 +16,41 @@ async fn main() {
     // Initialise INFO Tracing log subscriber
     init_logging();
 
-    // Initialise OrderBooksL2 Streams for BinanceSpot only
+    // Initialise OrderBooksL2 Streams for multiple exchanges
     // '--> each call to StreamBuilder::subscribe() creates a separate WebSocket connection
-    let mut streams = Streams::<OrderBooksL2>::builder()
+    let streams = Streams::<OrderBooksL2>::builder()
 
-        // Separate WebSocket connection for BTC_USDT stream since it's very high volume
+        // BinanceSpot BTC_USDT L2 orderbook
         .subscribe([
             (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
         ])
 
-        // Separate WebSocket connection for ETH_USDT stream since it's very high volume
+        // BinanceFuturesUsd BTC_USDT perpetual L2 orderbook
         .subscribe([
-            (BinanceSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
+            (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, OrderBooksL2),
         ])
 
-        // Lower volume Instruments can share a WebSocket connection
+        // MexcSpot ETH_USDT L2 orderbook (uses protobuf transport)
         .subscribe([
-            (BinanceSpot::default(), "xrp", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
-            (BinanceSpot::default(), "sol", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
-            (BinanceSpot::default(), "avax", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
-            (BinanceSpot::default(), "ltc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
+            (MexcSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
         ])
+
+        // MexcSpot BTC_USDT L2 orderbook
+        .subscribe([
+            (MexcSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
+        ])
+
         .init()
         .await
         .unwrap();
 
-    // Select the ExchangeId::BinanceSpot stream
+    // Select and merge all exchange streams using futures_util::stream::select_all
     // Note: use `Streams.select(ExchangeId)` to interact with individual exchange streams!
-    let mut l1_stream = streams
-        .select(ExchangeId::BinanceSpot)
-        .unwrap()
+    let mut merged_stream = streams
+        .select_all()
         .with_error_handler(|error| warn!(?error, "MarketStream generated error"));
 
-    while let Some(event) = l1_stream.next().await {
+    while let Some(event) = merged_stream.next().await {
         info!("{event:?}");
     }
 }

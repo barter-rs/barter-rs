@@ -102,6 +102,12 @@ impl SubscriptionValidator for WebSocketSubValidator {
                             buff_active_subscription_events.push(WsMessage::text(payload));
                             continue
                         }
+                        Some(Err(SocketError::DeserialiseBinary { error: _, payload })) => {
+                            // Binary payload (e.g., protobuf data) received during validation
+                            // Buffer for post validation processing
+                            buff_active_subscription_events.push(WsMessage::binary(payload));
+                            continue
+                        }
                         Some(Err(SocketError::Terminated(close_frame))) => {
                             break Err(SocketError::Subscribe(
                                 format!("received WebSocket CloseFrame: {close_frame}")
