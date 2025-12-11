@@ -6,13 +6,12 @@
 //! ### Important Notes
 //! - MEXC sends JSON for subscription responses and ping/pong
 //! - MEXC sends binary Protobuf for orderbook data
-//! - L2 requires fetching a REST snapshot before processing WebSocket updates
+//! - L2 uses deferred snapshot fetching: WebSocket updates are buffered while the REST
+//!   snapshot is fetched, then aligned using version validation per MEXC's recommended
+//!   approach. See [`book::l2`] for details.
 
 use self::{
-    book::{
-        l1::MexcOrderBooksL1Transformer,
-        l2::{MexcOrderBooksL2SnapshotFetcher, MexcOrderBooksL2Transformer},
-    },
+    book::{l1::MexcOrderBooksL1Transformer, l2::MexcOrderBooksL2Transformer},
     channel::MexcChannel,
     market::MexcMarket,
     subscription::MexcSubResponse,
@@ -162,7 +161,8 @@ impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for MexcSpot
 where
     Instrument: InstrumentData,
 {
-    type SnapFetcher = MexcOrderBooksL2SnapshotFetcher;
+    // Snapshot fetching is handled internally by the transformer using deferred approach
+    type SnapFetcher = NoInitialSnapshots;
     type Stream = MexcWsStream<MexcOrderBooksL2Transformer<Instrument::Key>>;
 }
 

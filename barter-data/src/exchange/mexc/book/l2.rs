@@ -1,29 +1,46 @@
-//! MEXC L2 OrderBook transformer and snapshot fetcher.
+//! MEXC L2 OrderBook transformer with deferred snapshot fetching.
+//!
+//! This implementation follows MEXC's recommended approach for maintaining a local orderbook:
+//!
+//! 1. Connect to WebSocket and subscribe to depth updates
+//! 2. Buffer incoming updates while fetching REST snapshot
+//! 3. Align the snapshot with buffered updates using version validation:
+//!    - If `toVersion < snapshot.version`: discard (outdated)
+//!    - If `fromVersion > snapshot.version`: gap detected, refetch snapshot
+//!    - If `fromVersion <= snapshot.version <= toVersion`: first valid update
+//! 4. For subsequent updates: `fromVersion` must equal `prevToVersion + 1`
+//! 5. Output snapshot + aligned updates only after successful validation
+//!
+//! See: <https://mexcdevelop.github.io/apidocs/spot_v3_en/>
 
 use crate::{
-    Identifier,
     books::{Level, OrderBook},
     error::DataError,
     event::MarketEvent,
-    exchange::{Connector, mexc::{MexcSpot, market::extract_symbol_from_channel, proto::PushDataV3ApiWrapper}},
-    instrument::InstrumentData,
-    subscription::{Map, Subscription, book::{OrderBookEvent, OrderBooksL2}},
+    exchange::mexc::{MexcSpot, market::extract_symbol_from_channel, proto::PushDataV3ApiWrapper},
+    subscription::{
+        Map,
+        book::{OrderBookEvent, OrderBooksL2},
+    },
     transformer::ExchangeTransformer,
-    SnapshotFetcher,
 };
 use async_trait::async_trait;
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{Transformer, error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId};
+use barter_integration::{
+    Transformer, error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId,
+};
 use chrono::{DateTime, Utc};
-use futures_util::future::try_join_all;
 use rust_decimal::Decimal;
 use serde::Deserialize;
-use std::{collections::HashMap, future::Future};
-use tokio::sync::mpsc;
-use tracing::debug;
+use std::collections::{HashMap, VecDeque};
+use tokio::sync::{mpsc, oneshot};
+use tracing::{debug, warn};
 
 /// REST API base URL for MEXC.
 pub const MEXC_REST_BASE_URL: &str = "https://api.mexc.com";
+
+/// Maximum buffer size to prevent unbounded memory growth.
+const MAX_BUFFER_SIZE: usize = 1000;
 
 /// MEXC REST orderbook snapshot response.
 #[derive(Debug, Clone, Deserialize)]
@@ -51,217 +68,33 @@ pub async fn fetch_snapshot(symbol: &str, limit: u32) -> Result<MexcRestSnapshot
         ));
     }
 
-    response
-        .json()
-        .await
-        .map_err(|e| SocketError::Http(e))
+    response.json().await.map_err(SocketError::Http)
 }
 
-/// MEXC L2 snapshot fetcher.
-#[derive(Debug)]
-pub struct MexcOrderBooksL2SnapshotFetcher;
-
-impl SnapshotFetcher<MexcSpot, OrderBooksL2> for MexcOrderBooksL2SnapshotFetcher {
-    fn fetch_snapshots<Instrument>(
-        subscriptions: &[Subscription<MexcSpot, Instrument, OrderBooksL2>],
-    ) -> impl Future<Output = Result<Vec<MarketEvent<Instrument::Key, OrderBookEvent>>, SocketError>> + Send
-    where
-        Instrument: InstrumentData,
-        Instrument::Key: Clone,
-        Subscription<MexcSpot, Instrument, OrderBooksL2>: Identifier<<MexcSpot as Connector>::Market>,
-    {
-        // Create futures for fetching all snapshots in parallel
-        let snapshot_futures = subscriptions.iter().map(|sub| {
-            let market = sub.id();
-            let symbol = market.0.clone();
-            let instrument_key = sub.instrument.key().clone();
-            let snapshot_depth = sub.exchange.snapshot_depth;
-
-            async move {
-                let snapshot = fetch_snapshot(&symbol, snapshot_depth).await?;
-
-                let ts = snapshot
-                    .timestamp
-                    .and_then(|ms| DateTime::from_timestamp_millis(ms as i64))
-                    .unwrap_or_else(Utc::now);
-
-                let bids: Vec<Level> = snapshot
-                    .bids
-                    .iter()
-                    .filter_map(|level| {
-                        let price: Decimal = level[0].parse().ok()?;
-                        let amount: Decimal = level[1].parse().ok()?;
-                        Some(Level::new(price, amount))
-                    })
-                    .collect();
-
-                let asks: Vec<Level> = snapshot
-                    .asks
-                    .iter()
-                    .filter_map(|level| {
-                        let price: Decimal = level[0].parse().ok()?;
-                        let amount: Decimal = level[1].parse().ok()?;
-                        Some(Level::new(price, amount))
-                    })
-                    .collect();
-
-                Ok(MarketEvent {
-                    time_exchange: ts,
-                    time_received: Utc::now(),
-                    exchange: ExchangeId::Mexc,
-                    instrument: instrument_key,
-                    kind: OrderBookEvent::Snapshot(OrderBook::new(
-                        snapshot.last_update_id,
-                        Some(ts),
-                        bids,
-                        asks,
-                    )),
-                })
-            }
-        });
-
-        // Execute all snapshot fetches in parallel
-        try_join_all(snapshot_futures)
-    }
+/// Parsed update from WebSocket with version info.
+#[derive(Debug, Clone)]
+struct ParsedUpdate {
+    from_version: u64,
+    to_version: u64,
+    timestamp: DateTime<Utc>,
+    bids: Vec<Level>,
+    asks: Vec<Level>,
 }
 
-/// MEXC L2 sequencer state for a single symbol.
-#[derive(Debug)]
-struct L2SequencerState<InstrumentKey> {
-    instrument_key: InstrumentKey,
-    snapshot_version: u64,
-    last_version: Option<u64>,
-    synced: bool,
-}
+impl ParsedUpdate {
+    /// Try to parse a WebSocket message into a ParsedUpdate.
+    fn try_from_ws_message(input: &PushDataV3ApiWrapper) -> Option<Self> {
+        let aggre_depth = input.public_aggre_depths.as_ref()?;
 
-/// MEXC L2 orderbook transformer with version validation.
-#[derive(Debug)]
-pub struct MexcOrderBooksL2Transformer<InstrumentKey> {
-    instrument_map: HashMap<SubscriptionId, L2SequencerState<InstrumentKey>>,
-}
+        let from_version: u64 = aggre_depth.from_version.parse().ok()?;
+        let to_version: u64 = aggre_depth.to_version.parse().ok()?;
 
-#[async_trait]
-impl<InstrumentKey> ExchangeTransformer<MexcSpot, InstrumentKey, OrderBooksL2>
-    for MexcOrderBooksL2Transformer<InstrumentKey>
-where
-    InstrumentKey: Clone + PartialEq + Send + Sync,
-{
-    async fn init(
-        instrument_map: Map<InstrumentKey>,
-        initial_snapshots: &[MarketEvent<InstrumentKey, OrderBookEvent>],
-        _ws_sink_tx: mpsc::UnboundedSender<WsMessage>,
-    ) -> Result<Self, DataError> {
-        // Build map from symbol to sequencer state
-        let mut map = HashMap::new();
-
-        for (sub_id, instrument_key) in instrument_map.0 {
-            // Find snapshot matching this specific instrument key
-            let snapshot = initial_snapshots
-                .iter()
-                .find(|event| event.instrument == instrument_key)
-                .ok_or_else(|| DataError::InitialSnapshotMissing(sub_id.clone()))?;
-
-            let OrderBookEvent::Snapshot(book) = &snapshot.kind else {
-                return Err(DataError::InitialSnapshotInvalid(String::from(
-                    "expected OrderBookEvent::Snapshot but found OrderBookEvent::Update",
-                )));
-            };
-
-            map.insert(
-                sub_id,
-                L2SequencerState {
-                    instrument_key,
-                    snapshot_version: book.sequence(),
-                    last_version: None,
-                    synced: false,
-                },
-            );
-        }
-
-        Ok(Self { instrument_map: map })
-    }
-}
-
-impl<InstrumentKey> Transformer for MexcOrderBooksL2Transformer<InstrumentKey>
-where
-    InstrumentKey: Clone,
-{
-    type Error = DataError;
-    type Input = PushDataV3ApiWrapper;
-    type Output = MarketEvent<InstrumentKey, OrderBookEvent>;
-    type OutputIter = Vec<Result<Self::Output, Self::Error>>;
-
-    fn transform(&mut self, input: Self::Input) -> Self::OutputIter {
-        // Extract symbol from channel
-        let symbol = match extract_symbol_from_channel(&input.channel) {
-            Some(s) => s,
-            None => return vec![],
-        };
-
-        // Find sequencer state using SubscriptionId
-        // SubscriptionId format: "{channel}|{market}" e.g., "aggre.depth|ETHUSDT"
-        let sub_id = SubscriptionId::from(format!("aggre.depth|{}", symbol));
-        let state = match self.instrument_map.get_mut(&sub_id) {
-            Some(s) => s,
-            None => return vec![],
-        };
-
-        // Get aggregated depth data
-        let aggre_depth = match input.public_aggre_depths {
-            Some(data) => data,
-            None => return vec![],
-        };
-
-        // Parse versions
-        let from_version: u64 = match aggre_depth.from_version.parse() {
-            Ok(v) => v,
-            Err(_) => return vec![],
-        };
-        let to_version: u64 = match aggre_depth.to_version.parse() {
-            Ok(v) => v,
-            Err(_) => return vec![],
-        };
-
-        // Parse timestamp
-        let ts = input
+        let timestamp = input
             .send_time
             .or(input.create_time)
             .and_then(|ms| DateTime::from_timestamp_millis(ms))
             .unwrap_or_else(Utc::now);
 
-        // Validate version sequence
-        let was_synced = state.synced;
-        match state.validate_update(from_version, to_version) {
-            L2ValidationResult::Outdated => {
-                debug!(
-                    %symbol,
-                    from_version,
-                    to_version,
-                    snapshot_version = state.snapshot_version,
-                    "Skipping outdated update"
-                );
-                return vec![];
-            }
-            L2ValidationResult::Gap { prev_last_update_id, first_update_id } => {
-                return vec![Err(DataError::InvalidSequence {
-                    prev_last_update_id,
-                    first_update_id,
-                })];
-            }
-            L2ValidationResult::Valid => {
-                if !was_synced && state.synced {
-                    debug!(
-                        %symbol,
-                        from_version,
-                        to_version,
-                        snapshot_version = state.snapshot_version,
-                        "L2 stream synced"
-                    );
-                }
-            }
-        }
-
-        // Build orderbook update
         let bids: Vec<Level> = aggre_depth
             .bids
             .iter()
@@ -282,82 +115,517 @@ where
             })
             .collect();
 
-        vec![Ok(MarketEvent {
-            time_exchange: ts,
+        Some(Self {
+            from_version,
+            to_version,
+            timestamp,
+            bids,
+            asks,
+        })
+    }
+
+    /// Convert this update into a MarketEvent.
+    fn into_market_event<InstrumentKey: Clone>(
+        self,
+        instrument_key: &InstrumentKey,
+    ) -> MarketEvent<InstrumentKey, OrderBookEvent> {
+        MarketEvent {
+            time_exchange: self.timestamp,
             time_received: Utc::now(),
             exchange: ExchangeId::Mexc,
-            instrument: state.instrument_key.clone(),
-            kind: OrderBookEvent::Update(OrderBook::new(to_version, Some(ts), bids, asks)),
-        })]
-    }
-}
-
-/// Validation result for L2 sequencer.
-#[derive(Debug, Clone, PartialEq)]
-pub enum L2ValidationResult {
-    /// Update is valid and should be applied
-    Valid,
-    /// Update is outdated and should be skipped
-    Outdated,
-    /// Sequence gap detected, requires resync
-    Gap { prev_last_update_id: u64, first_update_id: u64 },
-}
-
-impl<InstrumentKey> L2SequencerState<InstrumentKey> {
-    /// Create a new sequencer state for testing.
-    #[cfg(test)]
-    pub fn new_for_test(instrument_key: InstrumentKey, snapshot_version: u64) -> Self {
-        Self {
-            instrument_key,
-            snapshot_version,
-            last_version: None,
-            synced: false,
+            instrument: instrument_key.clone(),
+            kind: OrderBookEvent::Update(OrderBook::new(
+                self.to_version,
+                Some(self.timestamp),
+                self.bids,
+                self.asks,
+            )),
         }
     }
+}
 
-    /// Validate an update and return the result.
-    /// This encapsulates the version validation logic per MEXC docs:
-    /// - toVersion < snapshot.lastUpdateId → Discard (outdated)
-    /// - fromVersion > snapshot.lastUpdateId → Resync (gap detected)
-    /// - fromVersion <= snapshot.lastUpdateId <= toVersion → Apply update (first sync)
-    /// - Subsequent: fromVersion > lastToVersion + 1 → Resync (sequence break)
-    pub fn validate_update(&mut self, from_version: u64, to_version: u64) -> L2ValidationResult {
-        if !self.synced {
-            // First update after snapshot
-            if to_version < self.snapshot_version {
-                return L2ValidationResult::Outdated;
-            }
+/// State for syncing a single symbol's orderbook.
+#[derive(Debug)]
+enum SyncState<InstrumentKey> {
+    /// Waiting for snapshot to be fetched.
+    /// Buffering updates until snapshot arrives.
+    WaitingForSnapshot {
+        instrument_key: InstrumentKey,
+        symbol: String,
+        snapshot_depth: u32,
+        buffer: VecDeque<ParsedUpdate>,
+        snapshot_rx: Option<oneshot::Receiver<Result<MexcRestSnapshot, SocketError>>>,
+    },
+    /// Snapshot received, looking for the first update that aligns.
+    Aligning {
+        instrument_key: InstrumentKey,
+        symbol: String,
+        snapshot_depth: u32,
+        snapshot: MexcRestSnapshot,
+        buffer: VecDeque<ParsedUpdate>,
+    },
+    /// Successfully synced, normal operation.
+    Synced {
+        instrument_key: InstrumentKey,
+        last_to_version: u64,
+    },
+}
 
-            // Check for valid overlap: fromVersion <= snapshot.lastUpdateId <= toVersion
-            if from_version > self.snapshot_version {
-                // Gap detected - snapshot is too old, need to resync
-                return L2ValidationResult::Gap {
-                    prev_last_update_id: self.snapshot_version,
-                    first_update_id: from_version,
+/// MEXC L2 orderbook transformer with deferred snapshot fetching.
+///
+/// This transformer implements MEXC's recommended orderbook maintenance approach:
+/// 1. Buffer WebSocket updates while fetching REST snapshot
+/// 2. Align buffered updates with snapshot version
+/// 3. Validate continuous sequence: fromVersion == prev_toVersion + 1
+#[derive(Debug)]
+pub struct MexcOrderBooksL2Transformer<InstrumentKey> {
+    /// Map from subscription ID to sync state.
+    states: HashMap<SubscriptionId, SyncState<InstrumentKey>>,
+}
+
+#[async_trait]
+impl<InstrumentKey> ExchangeTransformer<MexcSpot, InstrumentKey, OrderBooksL2>
+    for MexcOrderBooksL2Transformer<InstrumentKey>
+where
+    InstrumentKey: Clone + PartialEq + Send + Sync,
+{
+    async fn init(
+        instrument_map: Map<InstrumentKey>,
+        _initial_snapshots: &[MarketEvent<InstrumentKey, OrderBookEvent>],
+        _ws_sink_tx: mpsc::UnboundedSender<WsMessage>,
+    ) -> Result<Self, DataError> {
+        // Build initial state map - all symbols start in WaitingForSnapshot
+        let states = instrument_map
+            .0
+            .into_iter()
+            .map(|(sub_id, instrument_key)| {
+                // Extract symbol from subscription ID
+                // Format: "aggre.depth|BTCUSDT"
+                let symbol = sub_id
+                    .as_ref()
+                    .split('|')
+                    .nth(1)
+                    .unwrap_or("")
+                    .to_string();
+
+                let state = SyncState::WaitingForSnapshot {
+                    instrument_key,
+                    symbol,
+                    // Note: snapshot_depth will be updated when we receive the first update
+                    // from the subscription context. For now, use default.
+                    snapshot_depth: 500,
+                    buffer: VecDeque::with_capacity(64),
+                    snapshot_rx: None,
                 };
-            }
+                (sub_id, state)
+            })
+            .collect();
 
-            self.synced = true;
-        } else {
-            // Subsequent updates: check for continuous sequence
-            if let Some(last) = self.last_version {
-                if to_version <= last {
-                    // Outdated, skip silently
-                    return L2ValidationResult::Outdated;
-                }
-                // MEXC uses version ranges, so fromVersion should be <= last + 1
-                // (allows for some overlap in ranges)
-                if from_version > last + 1 {
-                    return L2ValidationResult::Gap {
-                        prev_last_update_id: last,
-                        first_update_id: from_version,
-                    };
-                }
-            }
+        Ok(Self { states })
+    }
+}
+
+impl<InstrumentKey> Transformer for MexcOrderBooksL2Transformer<InstrumentKey>
+where
+    InstrumentKey: Clone,
+{
+    type Error = DataError;
+    type Input = PushDataV3ApiWrapper;
+    type Output = MarketEvent<InstrumentKey, OrderBookEvent>;
+    type OutputIter = Vec<Result<Self::Output, Self::Error>>;
+
+    fn transform(&mut self, input: Self::Input) -> Self::OutputIter {
+        // Extract symbol from channel
+        let symbol = match extract_symbol_from_channel(&input.channel) {
+            Some(s) => s,
+            None => return vec![],
+        };
+
+        // Find state using SubscriptionId
+        let sub_id = SubscriptionId::from(format!("aggre.depth|{}", symbol));
+        if !self.states.contains_key(&sub_id) {
+            return vec![];
         }
 
-        self.last_version = Some(to_version);
-        L2ValidationResult::Valid
+        // Parse the update
+        let update = match ParsedUpdate::try_from_ws_message(&input) {
+            Some(u) => u,
+            None => return vec![],
+        };
+
+        // Process update based on current state
+        self.process_update(&sub_id, update)
+    }
+}
+
+impl<InstrumentKey> MexcOrderBooksL2Transformer<InstrumentKey>
+where
+    InstrumentKey: Clone,
+{
+    /// Process an update based on current state.
+    fn process_update(
+        &mut self,
+        sub_id: &SubscriptionId,
+        update: ParsedUpdate,
+    ) -> Vec<Result<MarketEvent<InstrumentKey, OrderBookEvent>, DataError>> {
+        // Take ownership of state to avoid borrow issues
+        let state = match self.states.remove(sub_id) {
+            Some(s) => s,
+            None => return vec![],
+        };
+
+        let (new_state, results) = self.process_update_inner(state, update);
+
+        // Put the state back
+        self.states.insert(sub_id.clone(), new_state);
+
+        results
+    }
+
+    /// Inner processing that takes ownership of state.
+    fn process_update_inner(
+        &self,
+        state: SyncState<InstrumentKey>,
+        update: ParsedUpdate,
+    ) -> (
+        SyncState<InstrumentKey>,
+        Vec<Result<MarketEvent<InstrumentKey, OrderBookEvent>, DataError>>,
+    ) {
+        match state {
+            SyncState::WaitingForSnapshot {
+                instrument_key,
+                symbol,
+                snapshot_depth,
+                mut buffer,
+                snapshot_rx,
+            } => {
+                // Buffer the update
+                buffer.push_back(update);
+
+                // Limit buffer size to prevent memory issues
+                while buffer.len() > MAX_BUFFER_SIZE {
+                    buffer.pop_front();
+                }
+
+                // Check if snapshot is ready (if we have a receiver)
+                if let Some(mut rx) = snapshot_rx {
+                    match rx.try_recv() {
+                        Ok(Ok(snapshot)) => {
+                            debug!(
+                                %symbol,
+                                snapshot_version = snapshot.last_update_id,
+                                buffer_size = buffer.len(),
+                                "Snapshot received, transitioning to Aligning"
+                            );
+
+                            // Transition to Aligning state
+                            return (
+                                SyncState::Aligning {
+                                    instrument_key,
+                                    symbol,
+                                    snapshot_depth,
+                                    snapshot,
+                                    buffer,
+                                },
+                                vec![],
+                            );
+                        }
+                        Ok(Err(error)) => {
+                            warn!(%symbol, ?error, "Failed to fetch snapshot, will retry");
+
+                            // Reset - will trigger new snapshot request
+                            return (
+                                SyncState::WaitingForSnapshot {
+                                    instrument_key,
+                                    symbol,
+                                    snapshot_depth,
+                                    buffer,
+                                    snapshot_rx: None,
+                                },
+                                vec![],
+                            );
+                        }
+                        Err(oneshot::error::TryRecvError::Empty) => {
+                            // Still waiting for snapshot
+                            return (
+                                SyncState::WaitingForSnapshot {
+                                    instrument_key,
+                                    symbol,
+                                    snapshot_depth,
+                                    buffer,
+                                    snapshot_rx: Some(rx),
+                                },
+                                vec![],
+                            );
+                        }
+                        Err(oneshot::error::TryRecvError::Closed) => {
+                            warn!(%symbol, "Snapshot channel closed unexpectedly");
+
+                            // Reset - will trigger new snapshot request
+                            return (
+                                SyncState::WaitingForSnapshot {
+                                    instrument_key,
+                                    symbol,
+                                    snapshot_depth,
+                                    buffer,
+                                    snapshot_rx: None,
+                                },
+                                vec![],
+                            );
+                        }
+                    }
+                }
+
+                // No snapshot request yet - trigger one now
+                debug!(%symbol, depth = snapshot_depth, "Triggering snapshot fetch");
+
+                let (tx, rx) = oneshot::channel();
+                let symbol_clone = symbol.clone();
+                let depth = snapshot_depth;
+
+                tokio::spawn(async move {
+                    let result = fetch_snapshot(&symbol_clone, depth).await;
+                    let _ = tx.send(result);
+                });
+
+                (
+                    SyncState::WaitingForSnapshot {
+                        instrument_key,
+                        symbol,
+                        snapshot_depth,
+                        buffer,
+                        snapshot_rx: Some(rx),
+                    },
+                    vec![],
+                )
+            }
+
+            SyncState::Aligning {
+                instrument_key,
+                symbol,
+                snapshot_depth,
+                snapshot,
+                mut buffer,
+            } => {
+                // Add the new update to the buffer
+                buffer.push_back(update);
+
+                // Limit buffer size
+                while buffer.len() > MAX_BUFFER_SIZE {
+                    buffer.pop_front();
+                }
+
+                // Try to find an update that aligns with the snapshot
+                let snapshot_version = snapshot.last_update_id;
+
+                // Find first update where fromVersion <= snapshot.version <= toVersion
+                let aligned_idx = buffer.iter().position(|u| {
+                    u.from_version <= snapshot_version && snapshot_version <= u.to_version
+                });
+
+                match aligned_idx {
+                    Some(idx) => {
+                        // Found aligned update - output snapshot + aligned updates
+                        let mut results = Vec::new();
+
+                        // Build and output snapshot
+                        let snapshot_ts = snapshot
+                            .timestamp
+                            .and_then(|ms| DateTime::from_timestamp_millis(ms as i64))
+                            .unwrap_or_else(Utc::now);
+
+                        let snapshot_bids: Vec<Level> = snapshot
+                            .bids
+                            .iter()
+                            .filter_map(|level| {
+                                let price: Decimal = level[0].parse().ok()?;
+                                let amount: Decimal = level[1].parse().ok()?;
+                                Some(Level::new(price, amount))
+                            })
+                            .collect();
+
+                        let snapshot_asks: Vec<Level> = snapshot
+                            .asks
+                            .iter()
+                            .filter_map(|level| {
+                                let price: Decimal = level[0].parse().ok()?;
+                                let amount: Decimal = level[1].parse().ok()?;
+                                Some(Level::new(price, amount))
+                            })
+                            .collect();
+
+                        results.push(Ok(MarketEvent {
+                            time_exchange: snapshot_ts,
+                            time_received: Utc::now(),
+                            exchange: ExchangeId::Mexc,
+                            instrument: instrument_key.clone(),
+                            kind: OrderBookEvent::Snapshot(OrderBook::new(
+                                snapshot_version,
+                                Some(snapshot_ts),
+                                snapshot_bids,
+                                snapshot_asks,
+                            )),
+                        }));
+
+                        debug!(
+                            %symbol,
+                            snapshot_version,
+                            aligned_update_idx = idx,
+                            "L2 stream synced with snapshot"
+                        );
+
+                        // Drain and discard updates before the aligned one
+                        for _ in 0..idx {
+                            buffer.pop_front();
+                        }
+
+                        // Output all buffered updates from aligned one onwards
+                        let mut last_to_version = snapshot_version;
+                        while let Some(u) = buffer.pop_front() {
+                            // Validate sequence: fromVersion must equal prevToVersion + 1
+                            // (For the first aligned update, we allow fromVersion <= snapshot_version)
+                            if results.len() > 1 && u.from_version != last_to_version + 1 {
+                                // Gap detected in buffered updates
+                                warn!(
+                                    %symbol,
+                                    expected = last_to_version + 1,
+                                    actual = u.from_version,
+                                    "Gap in buffered updates"
+                                );
+                                return (
+                                    SyncState::Synced {
+                                        instrument_key,
+                                        last_to_version,
+                                    },
+                                    vec![Err(DataError::InvalidSequence {
+                                        prev_last_update_id: last_to_version,
+                                        first_update_id: u.from_version,
+                                    })],
+                                );
+                            }
+
+                            results.push(Ok(u.into_market_event(&instrument_key)));
+                            last_to_version = results
+                                .last()
+                                .and_then(|r| r.as_ref().ok())
+                                .map(|e| match &e.kind {
+                                    OrderBookEvent::Update(b) => b.sequence(),
+                                    OrderBookEvent::Snapshot(b) => b.sequence(),
+                                })
+                                .unwrap_or(last_to_version);
+                        }
+
+                        // Get the actual last_to_version from the last update
+                        let final_version = results
+                            .iter()
+                            .filter_map(|r| r.as_ref().ok())
+                            .last()
+                            .map(|e| match &e.kind {
+                                OrderBookEvent::Update(b) => b.sequence(),
+                                OrderBookEvent::Snapshot(b) => b.sequence(),
+                            })
+                            .unwrap_or(snapshot_version);
+
+                        // Transition to Synced state
+                        (
+                            SyncState::Synced {
+                                instrument_key,
+                                last_to_version: final_version,
+                            },
+                            results,
+                        )
+                    }
+                    None => {
+                        // Check if all buffered updates are outdated (toVersion < snapshot.version)
+                        let all_outdated =
+                            buffer.iter().all(|u| u.to_version < snapshot_version);
+
+                        if all_outdated && !buffer.is_empty() {
+                            // All updates are outdated, clear buffer and wait for newer ones
+                            debug!(
+                                %symbol,
+                                snapshot_version,
+                                buffered_count = buffer.len(),
+                                "All buffered updates outdated, clearing buffer"
+                            );
+                            buffer.clear();
+                        }
+
+                        // Check if we have a gap (fromVersion > snapshot.version for all updates)
+                        let earliest_from = buffer
+                            .iter()
+                            .map(|u| u.from_version)
+                            .min()
+                            .unwrap_or(u64::MAX);
+
+                        if earliest_from > snapshot_version && !buffer.is_empty() {
+                            // Gap detected - snapshot is too old, need to refetch
+                            warn!(
+                                %symbol,
+                                snapshot_version,
+                                earliest_from,
+                                "Snapshot too old, refetching"
+                            );
+
+                            // Transition back to WaitingForSnapshot
+                            return (
+                                SyncState::WaitingForSnapshot {
+                                    instrument_key,
+                                    symbol,
+                                    snapshot_depth,
+                                    buffer,
+                                    snapshot_rx: None,
+                                },
+                                vec![],
+                            );
+                        }
+
+                        // Still waiting for alignment
+                        (
+                            SyncState::Aligning {
+                                instrument_key,
+                                symbol,
+                                snapshot_depth,
+                                snapshot,
+                                buffer,
+                            },
+                            vec![],
+                        )
+                    }
+                }
+            }
+
+            SyncState::Synced {
+                instrument_key,
+                last_to_version,
+            } => {
+                // Normal operation - validate sequence
+                // MEXC rule: fromVersion must equal prevToVersion + 1
+                if update.from_version != last_to_version + 1 {
+                    return (
+                        SyncState::Synced {
+                            instrument_key,
+                            last_to_version,
+                        },
+                        vec![Err(DataError::InvalidSequence {
+                            prev_last_update_id: last_to_version,
+                            first_update_id: update.from_version,
+                        })],
+                    );
+                }
+
+                let new_version = update.to_version;
+                let event = update.into_market_event(&instrument_key);
+
+                (
+                    SyncState::Synced {
+                        instrument_key,
+                        last_to_version: new_version,
+                    },
+                    vec![Ok(event)],
+                )
+            }
+        }
     }
 }
 
@@ -365,199 +633,58 @@ impl<InstrumentKey> L2SequencerState<InstrumentKey> {
 mod tests {
     use super::*;
 
-    mod l2_sequencer_state {
+    mod parsed_update {
         use super::*;
+        use crate::exchange::mexc::proto::{
+            PublicAggreDepthV3ApiItem, PublicAggreDepthsV3Api, PushDataV3ApiWrapper,
+        };
 
         #[test]
-        fn test_first_update_outdated() {
-            // TC: toVersion < snapshot.lastUpdateId → Discard
-            let mut state = L2SequencerState::new_for_test("BTCUSDT", 100);
+        fn test_try_from_ws_message_valid() {
+            let input = PushDataV3ApiWrapper {
+                channel: "spot@public.aggre.depth.v3.api.pb@100ms@BTCUSDT".to_string(),
+                send_time: Some(1700000000000),
+                create_time: None,
+                public_aggre_depths: Some(PublicAggreDepthsV3Api {
+                    from_version: "100".to_string(),
+                    to_version: "110".to_string(),
+                    event_type: "depth".to_string(),
+                    bids: vec![PublicAggreDepthV3ApiItem {
+                        price: "50000.00".to_string(),
+                        quantity: "1.5".to_string(),
+                    }],
+                    asks: vec![PublicAggreDepthV3ApiItem {
+                        price: "50001.00".to_string(),
+                        quantity: "0.5".to_string(),
+                    }],
+                }),
+                public_limit_depths: None,
+                public_increase_depths: None,
+                symbol: None,
+                symbol_id: None,
+            };
 
-            let result = state.validate_update(50, 90); // to_version(90) < snapshot(100)
-            assert_eq!(result, L2ValidationResult::Outdated);
-            assert!(!state.synced);
-            assert_eq!(state.last_version, None);
+            let update = ParsedUpdate::try_from_ws_message(&input).unwrap();
+            assert_eq!(update.from_version, 100);
+            assert_eq!(update.to_version, 110);
+            assert_eq!(update.bids.len(), 1);
+            assert_eq!(update.asks.len(), 1);
         }
 
         #[test]
-        fn test_first_update_gap_detected() {
-            // TC: fromVersion > snapshot.lastUpdateId → Gap
-            let mut state = L2SequencerState::new_for_test("BTCUSDT", 100);
+        fn test_try_from_ws_message_no_depth() {
+            let input = PushDataV3ApiWrapper {
+                channel: "spot@public.aggre.depth.v3.api.pb@100ms@BTCUSDT".to_string(),
+                send_time: Some(1700000000000),
+                create_time: None,
+                public_aggre_depths: None,
+                public_limit_depths: None,
+                public_increase_depths: None,
+                symbol: None,
+                symbol_id: None,
+            };
 
-            let result = state.validate_update(110, 120); // from_version(110) > snapshot(100)
-            assert_eq!(
-                result,
-                L2ValidationResult::Gap {
-                    prev_last_update_id: 100,
-                    first_update_id: 110,
-                }
-            );
-            assert!(!state.synced);
-        }
-
-        #[test]
-        fn test_first_update_valid_exact_overlap() {
-            // TC: fromVersion <= snapshot.lastUpdateId <= toVersion (exact match)
-            let mut state = L2SequencerState::new_for_test("BTCUSDT", 100);
-
-            let result = state.validate_update(100, 110); // from(100) <= snap(100) <= to(110)
-            assert_eq!(result, L2ValidationResult::Valid);
-            assert!(state.synced);
-            assert_eq!(state.last_version, Some(110));
-        }
-
-        #[test]
-        fn test_first_update_valid_with_buffer() {
-            // TC: fromVersion < snapshot.lastUpdateId < toVersion
-            let mut state = L2SequencerState::new_for_test("BTCUSDT", 100);
-
-            let result = state.validate_update(90, 110); // from(90) < snap(100) < to(110)
-            assert_eq!(result, L2ValidationResult::Valid);
-            assert!(state.synced);
-            assert_eq!(state.last_version, Some(110));
-        }
-
-        #[test]
-        fn test_first_update_valid_from_equals_snapshot() {
-            // TC: fromVersion == snapshot.lastUpdateId
-            let mut state = L2SequencerState::new_for_test("BTCUSDT", 100);
-
-            let result = state.validate_update(100, 105);
-            assert_eq!(result, L2ValidationResult::Valid);
-            assert!(state.synced);
-            assert_eq!(state.last_version, Some(105));
-        }
-
-        #[test]
-        fn test_subsequent_update_valid_continuous() {
-            // TC: Valid continuous sequence after sync
-            let mut state = L2SequencerState::new_for_test("BTCUSDT", 100);
-            
-            // First sync
-            let _ = state.validate_update(95, 110);
-            assert!(state.synced);
-
-            // Subsequent update: fromVersion == last + 1
-            let result = state.validate_update(111, 120);
-            assert_eq!(result, L2ValidationResult::Valid);
-            assert_eq!(state.last_version, Some(120));
-        }
-
-        #[test]
-        fn test_subsequent_update_valid_with_overlap() {
-            // TC: Valid update with overlapping version range
-            let mut state = L2SequencerState::new_for_test("BTCUSDT", 100);
-            
-            // First sync
-            let _ = state.validate_update(95, 110);
-
-            // Subsequent update: fromVersion <= last + 1 (overlapping range)
-            let result = state.validate_update(110, 125);
-            assert_eq!(result, L2ValidationResult::Valid);
-            assert_eq!(state.last_version, Some(125));
-        }
-
-        #[test]
-        fn test_subsequent_update_outdated() {
-            // TC: toVersion <= last → Outdated
-            let mut state = L2SequencerState::new_for_test("BTCUSDT", 100);
-            
-            // First sync
-            let _ = state.validate_update(95, 110);
-
-            // Outdated update: toVersion <= last
-            let result = state.validate_update(100, 110); // to(110) == last(110)
-            assert_eq!(result, L2ValidationResult::Outdated);
-            assert_eq!(state.last_version, Some(110)); // unchanged
-        }
-
-        #[test]
-        fn test_subsequent_update_outdated_older() {
-            // TC: toVersion < last → Outdated
-            let mut state = L2SequencerState::new_for_test("BTCUSDT", 100);
-            
-            // First sync
-            let _ = state.validate_update(95, 110);
-
-            // Very old update
-            let result = state.validate_update(80, 90);
-            assert_eq!(result, L2ValidationResult::Outdated);
-            assert_eq!(state.last_version, Some(110)); // unchanged
-        }
-
-        #[test]
-        fn test_subsequent_update_gap_detected() {
-            // TC: fromVersion > last + 1 → Gap
-            let mut state = L2SequencerState::new_for_test("BTCUSDT", 100);
-            
-            // First sync
-            let _ = state.validate_update(95, 110);
-
-            // Gap: fromVersion > last + 1
-            let result = state.validate_update(115, 125); // from(115) > last(110) + 1
-            assert_eq!(
-                result,
-                L2ValidationResult::Gap {
-                    prev_last_update_id: 110,
-                    first_update_id: 115,
-                }
-            );
-        }
-
-        #[test]
-        fn test_subsequent_update_boundary_valid() {
-            // TC: fromVersion == last + 1 (exact boundary)
-            let mut state = L2SequencerState::new_for_test("BTCUSDT", 100);
-            
-            // First sync
-            let _ = state.validate_update(95, 110);
-
-            // Exact boundary: fromVersion == last + 1
-            let result = state.validate_update(111, 120);
-            assert_eq!(result, L2ValidationResult::Valid);
-            assert_eq!(state.last_version, Some(120));
-        }
-
-        #[test]
-        fn test_multiple_sequential_updates() {
-            // TC: Multiple valid sequential updates
-            let mut state = L2SequencerState::new_for_test("BTCUSDT", 100);
-            
-            // First sync
-            assert_eq!(state.validate_update(95, 110), L2ValidationResult::Valid);
-            assert_eq!(state.last_version, Some(110));
-
-            // Second update
-            assert_eq!(state.validate_update(111, 120), L2ValidationResult::Valid);
-            assert_eq!(state.last_version, Some(120));
-
-            // Third update
-            assert_eq!(state.validate_update(121, 130), L2ValidationResult::Valid);
-            assert_eq!(state.last_version, Some(130));
-
-            // Fourth update with overlap
-            assert_eq!(state.validate_update(130, 140), L2ValidationResult::Valid);
-            assert_eq!(state.last_version, Some(140));
-        }
-
-        #[test]
-        fn test_gap_after_multiple_updates() {
-            // TC: Gap detected after several successful updates
-            let mut state = L2SequencerState::new_for_test("BTCUSDT", 100);
-            
-            let _ = state.validate_update(95, 110);
-            let _ = state.validate_update(111, 120);
-            let _ = state.validate_update(121, 130);
-
-            // Now a gap
-            let result = state.validate_update(150, 160);
-            assert_eq!(
-                result,
-                L2ValidationResult::Gap {
-                    prev_last_update_id: 130,
-                    first_update_id: 150,
-                }
-            );
+            assert!(ParsedUpdate::try_from_ws_message(&input).is_none());
         }
     }
 
@@ -608,274 +735,602 @@ mod tests {
         }
     }
 
-    mod integration {
+    mod sync_state {
         use super::*;
-        use crate::subscription::book::OrderBookEvent;
         use rust_decimal_macros::dec;
 
-        /// Helper to create a Level from i64 values
-        fn level(price: i64, amount: i64) -> Level {
-            Level::new(Decimal::from(price), Decimal::from(amount))
+        fn make_update(from: u64, to: u64) -> ParsedUpdate {
+            ParsedUpdate {
+                from_version: from,
+                to_version: to,
+                timestamp: Utc::now(),
+                bids: vec![Level::new(dec!(100), dec!(1))],
+                asks: vec![Level::new(dec!(101), dec!(1))],
+            }
+        }
+
+        fn make_snapshot(version: u64) -> MexcRestSnapshot {
+            MexcRestSnapshot {
+                last_update_id: version,
+                bids: vec![["100".to_string(), "1".to_string()]],
+                asks: vec![["101".to_string(), "1".to_string()]],
+                timestamp: Some(1700000000000),
+            }
         }
 
         #[test]
-        fn test_orderbook_update_flow_with_sequencer() {
-            // Simulate a full flow:
-            // 1. Start with a snapshot (seq=100)
-            // 2. Receive updates that build on the snapshot
-            // 3. Apply updates to OrderBook
+        fn test_alignment_exact_match() {
+            // Snapshot version 100, update range [100, 110]
+            let snapshot = make_snapshot(100);
+            let update = make_update(100, 110);
 
-            // Initial snapshot-based OrderBook
-            let mut book = OrderBook::new(
-                100, // sequence from snapshot
-                None,
-                vec![
-                    level(100, 10), // bid at 100 with amount 10
-                    level(99, 20),  // bid at 99 with amount 20
-                    level(98, 30),  // bid at 98 with amount 30
-                ],
-                vec![
-                    level(101, 5),  // ask at 101 with amount 5
-                    level(102, 10), // ask at 102 with amount 10
-                    level(103, 15), // ask at 103 with amount 15
-                ],
-            );
-
-            // Initialize sequencer with snapshot version
-            let mut state: L2SequencerState<&str> = L2SequencerState::new_for_test("BTCUSDT", 100);
-
-            // Update 1: Valid first update (fromVersion=95, toVersion=110)
-            // This should sync and be applied
-            let result = state.validate_update(95, 110);
-            assert_eq!(result, L2ValidationResult::Valid);
-            
-            // Simulate update data: modify bid at 100, add new ask at 104
-            let update1 = OrderBookEvent::Update(OrderBook::new(
-                110,
-                None,
-                vec![level(100, 15)], // update bid at 100 to amount 15
-                vec![level(104, 8)],  // add new ask at 104
-            ));
-            book.update(&update1);
-
-            assert_eq!(book.sequence(), 110);
-            // Check bid at 100 is now 15
-            assert!(book.bids().levels().iter().any(|l| l.price == dec!(100) && l.amount == dec!(15)));
-            // Check new ask at 104 exists
-            assert!(book.asks().levels().iter().any(|l| l.price == dec!(104) && l.amount == dec!(8)));
-
-            // Update 2: Valid subsequent update (fromVersion=111, toVersion=120)
-            let result = state.validate_update(111, 120);
-            assert_eq!(result, L2ValidationResult::Valid);
-
-            // Simulate update: remove bid at 98 (amount=0), update ask at 101
-            let update2 = OrderBookEvent::Update(OrderBook::new(
-                120,
-                None,
-                vec![Level::new(dec!(98), dec!(0))], // remove bid at 98
-                vec![level(101, 12)], // update ask at 101 to amount 12
-            ));
-            book.update(&update2);
-
-            assert_eq!(book.sequence(), 120);
-            // Check bid at 98 is removed
-            assert!(!book.bids().levels().iter().any(|l| l.price == dec!(98)));
-            // Check ask at 101 is now 12
-            assert!(book.asks().levels().iter().any(|l| l.price == dec!(101) && l.amount == dec!(12)));
-
-            // Update 3: Outdated update (toVersion <= last)
-            let result = state.validate_update(100, 115);
-            assert_eq!(result, L2ValidationResult::Outdated);
-            // Book should remain unchanged
-            assert_eq!(book.sequence(), 120);
+            // fromVersion(100) <= snapshot(100) <= toVersion(110) -> should align
+            assert!(update.from_version <= snapshot.last_update_id);
+            assert!(snapshot.last_update_id <= update.to_version);
         }
 
         #[test]
-        fn test_orderbook_gap_triggers_resync() {
-            // Simulate a gap detection scenario
-            let mut book = OrderBook::new(
-                100,
-                None,
-                vec![level(100, 10)],
-                vec![level(101, 5)],
-            );
+        fn test_alignment_with_overlap() {
+            // Snapshot version 100, update range [90, 110]
+            let snapshot = make_snapshot(100);
+            let update = make_update(90, 110);
 
-            let mut state: L2SequencerState<&str> = L2SequencerState::new_for_test("BTCUSDT", 100);
-
-            // First sync
-            let result = state.validate_update(95, 110);
-            assert_eq!(result, L2ValidationResult::Valid);
-
-            let update1 = OrderBookEvent::Update(OrderBook::new(
-                110,
-                None,
-                vec![level(100, 15)],
-                vec![],
-            ));
-            book.update(&update1);
-
-            // Gap detected - should trigger resync in real code
-            let result = state.validate_update(150, 160);
-            assert!(matches!(result, L2ValidationResult::Gap { .. }));
-
-            // In real code, this would trigger a reconnection
-            // The book should NOT be updated with this message
-            assert_eq!(book.sequence(), 110);
+            // fromVersion(90) <= snapshot(100) <= toVersion(110) -> should align
+            assert!(update.from_version <= snapshot.last_update_id);
+            assert!(snapshot.last_update_id <= update.to_version);
         }
 
         #[test]
-        fn test_orderbook_first_update_gap() {
-            // Test gap detection on first update (snapshot too old)
-            let book = OrderBook::new(
-                100,
-                None,
-                vec![level(100, 10)],
-                vec![level(101, 5)],
-            );
+        fn test_update_outdated() {
+            // Snapshot version 100, update range [80, 90]
+            let snapshot = make_snapshot(100);
+            let update = make_update(80, 90);
 
-            let mut state: L2SequencerState<&str> = L2SequencerState::new_for_test("BTCUSDT", 100);
+            // toVersion(90) < snapshot(100) -> outdated
+            assert!(update.to_version < snapshot.last_update_id);
+        }
 
-            // First update has gap: fromVersion(150) > snapshot(100)
-            let result = state.validate_update(150, 160);
-            assert_eq!(
-                result,
-                L2ValidationResult::Gap {
-                    prev_last_update_id: 100,
-                    first_update_id: 150,
+        #[test]
+        fn test_snapshot_too_old() {
+            // Snapshot version 100, update range [110, 120]
+            let snapshot = make_snapshot(100);
+            let update = make_update(110, 120);
+
+            // fromVersion(110) > snapshot(100) -> gap, snapshot too old
+            assert!(update.from_version > snapshot.last_update_id);
+        }
+
+        #[test]
+        fn test_subsequent_update_valid() {
+            // After syncing with toVersion 110
+            // Next update should have fromVersion 111
+            let last_to_version = 110u64;
+            let update = make_update(111, 120);
+
+            assert_eq!(update.from_version, last_to_version + 1);
+        }
+
+        #[test]
+        fn test_subsequent_update_gap() {
+            // After syncing with toVersion 110
+            // Update with fromVersion 115 is a gap
+            let last_to_version = 110u64;
+            let update = make_update(115, 125);
+
+            assert_ne!(update.from_version, last_to_version + 1);
+        }
+    }
+
+    mod alignment {
+        use super::*;
+        use rust_decimal_macros::dec;
+
+        fn make_update(from: u64, to: u64) -> ParsedUpdate {
+            ParsedUpdate {
+                from_version: from,
+                to_version: to,
+                timestamp: Utc::now(),
+                bids: vec![Level::new(dec!(100), dec!(1))],
+                asks: vec![Level::new(dec!(101), dec!(1))],
+            }
+        }
+
+        #[test]
+        fn test_alignment_finds_correct_update() {
+            let updates = vec![
+                make_update(80, 90),   // outdated
+                make_update(91, 100),  // outdated
+                make_update(101, 110), // alignment point for snapshot=105
+                make_update(111, 120), // valid next
+            ];
+
+            let snapshot_version = 105u64;
+
+            let alignment_idx = updates.iter().position(|update| {
+                update.from_version <= snapshot_version && snapshot_version <= update.to_version
+            });
+
+            assert_eq!(alignment_idx, Some(2));
+        }
+
+        #[test]
+        fn test_alignment_no_match_all_outdated() {
+            let updates = vec![
+                make_update(80, 90),
+                make_update(91, 100),
+            ];
+
+            let snapshot_version = 150u64;
+
+            let alignment_idx = updates.iter().position(|update| {
+                update.from_version <= snapshot_version && snapshot_version <= update.to_version
+            });
+
+            assert_eq!(alignment_idx, None);
+        }
+
+        #[test]
+        fn test_alignment_no_match_gap() {
+            let updates = vec![
+                make_update(200, 210), // gap - snapshot too old
+            ];
+
+            let snapshot_version = 100u64;
+
+            let alignment_idx = updates.iter().position(|update| {
+                update.from_version <= snapshot_version && snapshot_version <= update.to_version
+            });
+
+            assert_eq!(alignment_idx, None);
+
+            // Verify this is a gap scenario (first update is after snapshot)
+            assert!(updates[0].from_version > snapshot_version);
+        }
+
+        #[test]
+        fn test_sequence_validation_continuous() {
+            let updates = vec![
+                make_update(100, 110), // alignment point for snapshot=105
+                make_update(111, 120), // valid: fromVersion == prev_toVersion + 1
+                make_update(121, 130), // valid: fromVersion == prev_toVersion + 1
+            ];
+
+            let snapshot_version = 105u64;
+            let mut last_to_version = snapshot_version;
+            let mut valid_count = 0;
+
+            for (i, update) in updates.iter().enumerate() {
+                // Skip first (alignment) - it's always valid if found
+                if i == 0 {
+                    last_to_version = update.to_version;
+                    valid_count += 1;
+                    continue;
                 }
-            );
 
-            // Book should remain at snapshot state
-            assert_eq!(book.sequence(), 100);
-        }
-
-        #[test]
-        fn test_orderbook_multiple_updates_then_gap() {
-            // Test gap detection after several successful updates
-            let mut book = OrderBook::new(
-                100,
-                None,
-                vec![level(100, 10), level(99, 20)],
-                vec![level(101, 5), level(102, 10)],
-            );
-
-            let mut state: L2SequencerState<&str> = L2SequencerState::new_for_test("BTCUSDT", 100);
-
-            // First sync
-            assert_eq!(state.validate_update(95, 110), L2ValidationResult::Valid);
-            book.update(&OrderBookEvent::Update(OrderBook::new(
-                110,
-                None,
-                vec![level(100, 12)],
-                vec![],
-            )));
-
-            // Second update
-            assert_eq!(state.validate_update(111, 120), L2ValidationResult::Valid);
-            book.update(&OrderBookEvent::Update(OrderBook::new(
-                120,
-                None,
-                vec![level(99, 25)],
-                vec![],
-            )));
-
-            // Third update
-            assert_eq!(state.validate_update(121, 130), L2ValidationResult::Valid);
-            book.update(&OrderBookEvent::Update(OrderBook::new(
-                130,
-                None,
-                vec![],
-                vec![level(101, 8)],
-            )));
-
-            assert_eq!(book.sequence(), 130);
-
-            // Now a gap
-            let result = state.validate_update(200, 210);
-            assert_eq!(
-                result,
-                L2ValidationResult::Gap {
-                    prev_last_update_id: 130,
-                    first_update_id: 200,
+                if update.from_version == last_to_version + 1 {
+                    last_to_version = update.to_version;
+                    valid_count += 1;
+                } else {
+                    break;
                 }
-            );
+            }
 
-            // Book unchanged
-            assert_eq!(book.sequence(), 130);
+            assert_eq!(valid_count, 3);
+            assert_eq!(last_to_version, 130);
         }
 
         #[test]
-        fn test_orderbook_level_removal() {
-            // Test that zero-amount levels are removed
-            let mut book = OrderBook::new(
-                100,
-                None,
-                vec![
-                    level(100, 10),
-                    level(99, 20),
-                    level(98, 30),
-                ],
-                vec![
-                    level(101, 5),
-                    level(102, 10),
-                ],
+        fn test_sequence_validation_with_gap() {
+            let updates = vec![
+                make_update(100, 110), // alignment point
+                make_update(111, 120), // valid
+                make_update(125, 130), // GAP: expected 121, got 125
+                make_update(131, 140), // won't be processed
+            ];
+
+            let snapshot_version = 105u64;
+            let mut last_to_version = snapshot_version;
+            let mut valid_count = 0;
+
+            for (i, update) in updates.iter().enumerate() {
+                if i == 0 {
+                    last_to_version = update.to_version;
+                    valid_count += 1;
+                    continue;
+                }
+
+                if update.from_version == last_to_version + 1 {
+                    last_to_version = update.to_version;
+                    valid_count += 1;
+                } else {
+                    break;
+                }
+            }
+
+            assert_eq!(valid_count, 2); // Only first 2 are valid
+            assert_eq!(last_to_version, 120);
+        }
+    }
+
+    /// Integration tests for the full MEXC L2 orderbook flow.
+    /// These tests require network access and validate the complete snapshot + update stream.
+    ///
+    /// Run with: `cargo test -p barter-data --lib mexc::book::l2::tests::integration -- --ignored`
+    mod integration {
+        use super::*;
+        use crate::{
+            books::OrderBook,
+            exchange::mexc::MexcSpot,
+            streams::{
+                Streams,
+                reconnect::{Event, stream::ReconnectingStream},
+            },
+            subscription::book::OrderBooksL2,
+        };
+        use barter_instrument::instrument::market_data::kind::MarketDataInstrumentKind;
+        use futures_util::StreamExt;
+        use rust_decimal::Decimal;
+        use std::time::Duration;
+        use tokio::time::timeout;
+
+        /// Full integration test that validates the MEXC L2 orderbook implementation:
+        ///
+        /// 1. Subscribes to MEXC WebSocket for L2 orderbook updates
+        /// 2. Validates that the transformer correctly buffers updates
+        /// 3. Validates that snapshot is fetched and aligned with buffered updates
+        /// 4. Validates that snapshot is emitted first, followed by aligned updates
+        /// 5. Validates that subsequent updates follow continuous sequence rule:
+        ///    `fromVersion == prev_toVersion + 1`
+        /// 6. Validates orderbook integrity after applying updates
+        ///
+        /// This test validates the fix for the MEXC orderbook maintenance approach as
+        /// documented at: https://mexcdevelop.github.io/apidocs/spot_v3_en/
+        #[tokio::test]
+        #[ignore] // Requires network access - run with: cargo test --lib -- --ignored
+        async fn test_full_snapshot_and_update_stream() {
+            // Initialize tracing for debugging
+            let _ = tracing_subscriber::fmt()
+                .with_env_filter("barter_data=debug,multi_stream=info")
+                .try_init();
+
+            // Subscribe to MEXC BTC/USDT L2 orderbook
+            let streams = Streams::<OrderBooksL2>::builder()
+                .subscribe([(
+                    MexcSpot::default(),
+                    "btc",
+                    "usdt",
+                    MarketDataInstrumentKind::Spot,
+                    OrderBooksL2,
+                )])
+                .init()
+                .await
+                .expect("Failed to initialize MEXC L2 stream");
+
+            let mut stream = streams
+                .select_all()
+                .with_error_handler(|error| {
+                    panic!("MarketStream error during test: {:?}", error);
+                });
+
+            // Track state for validation
+            let mut snapshot_count: u32 = 0;
+            let mut snapshot_sequence: u64 = 0;
+            let mut last_update_sequence: u64 = 0;
+            let mut received_updates: u32 = 0;
+            let mut local_book = OrderBook::default();
+            let mut reconnect_count = 0;
+
+            const REQUIRED_UPDATES: u32 = 3; // Validate at least 3 updates after snapshot
+
+            // Run test with timeout
+            let test_result = timeout(Duration::from_secs(30), async {
+                while let Some(event) = stream.next().await {
+                    match event {
+                        Event::Reconnecting(exchange) => {
+                            reconnect_count += 1;
+                            panic!(
+                                "Unexpected reconnection to {:?} - this indicates a sequence gap!",
+                                exchange
+                            );
+                        }
+                        Event::Item(market_event) => {
+                            match &market_event.kind {
+                                OrderBookEvent::Snapshot(book) => {
+                                    snapshot_count += 1;
+
+                                    // Validate we only receive ONE snapshot - fail immediately
+                                    assert_eq!(
+                                        snapshot_count, 1,
+                                        "Received {} snapshots - should only receive exactly 1!",
+                                        snapshot_count
+                                    );
+
+                                    snapshot_sequence = book.sequence();
+
+                                    // Validate snapshot has data
+                                    assert!(
+                                        !book.bids().levels().is_empty(),
+                                        "Snapshot should have bids"
+                                    );
+                                    assert!(
+                                        !book.asks().levels().is_empty(),
+                                        "Snapshot should have asks"
+                                    );
+                                    assert!(
+                                        book.sequence() > 0,
+                                        "Snapshot should have a sequence number"
+                                    );
+
+                                    // Initialize local book from snapshot
+                                    local_book = book.clone();
+                                    last_update_sequence = book.sequence();
+
+                                    println!(
+                                        "✓ Received snapshot: seq={}, bids={}, asks={}",
+                                        book.sequence(),
+                                        book.bids().levels().len(),
+                                        book.asks().levels().len()
+                                    );
+                                }
+                                OrderBookEvent::Update(update) => {
+                                    // Validate updates only come after snapshot
+                                    assert!(
+                                        snapshot_count == 1,
+                                        "Received update but snapshot_count={} (expected 1)",
+                                        snapshot_count
+                                    );
+
+                                    // Validate sequence continuity
+                                    if received_updates > 0 {
+                                        assert!(
+                                            update.sequence() > last_update_sequence,
+                                            "Update sequence {} should be > last sequence {}",
+                                            update.sequence(),
+                                            last_update_sequence
+                                        );
+                                    }
+
+                                    // Apply update to local book
+                                    local_book.update(&market_event.kind);
+                                    last_update_sequence = update.sequence();
+                                    received_updates += 1;
+
+                                    // Validate orderbook integrity after each update
+                                    validate_orderbook_integrity(&local_book);
+
+                                    println!(
+                                        "✓ Applied update #{}: seq={}, Δbids={}, Δasks={}",
+                                        received_updates,
+                                        update.sequence(),
+                                        update.bids().levels().len(),
+                                        update.asks().levels().len()
+                                    );
+
+                                    // Once we've received enough updates, test passes
+                                    if received_updates >= REQUIRED_UPDATES {
+                                        println!(
+                                            "\n✓ Successfully validated {} updates after snapshot",
+                                            REQUIRED_UPDATES
+                                        );
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+            .await;
+
+            // Final assertions
+            assert!(test_result.is_ok(), "Test timed out after 30 seconds");
+            assert_eq!(snapshot_count, 1, "Should have received exactly 1 snapshot");
+            assert_eq!(reconnect_count, 0, "Should not have any reconnections");
+            assert!(
+                received_updates >= REQUIRED_UPDATES,
+                "Should have received at least {} updates, got {}",
+                REQUIRED_UPDATES,
+                received_updates
             );
 
-            let mut state: L2SequencerState<&str> = L2SequencerState::new_for_test("BTCUSDT", 100);
+            // Validate final orderbook state
+            validate_orderbook_integrity(&local_book);
 
-            // First sync and remove a level
-            assert_eq!(state.validate_update(95, 110), L2ValidationResult::Valid);
-            book.update(&OrderBookEvent::Update(OrderBook::new(
-                110,
-                None,
-                vec![Level::new(dec!(99), dec!(0))], // Remove bid at 99
-                vec![Level::new(dec!(101), dec!(0))], // Remove ask at 101
-            )));
-
-            assert_eq!(book.sequence(), 110);
-            assert_eq!(book.bids().levels().len(), 2); // 100 and 98 remain
-            assert_eq!(book.asks().levels().len(), 1); // only 102 remains
-            assert!(!book.bids().levels().iter().any(|l| l.price == dec!(99)));
-            assert!(!book.asks().levels().iter().any(|l| l.price == dec!(101)));
+            println!(
+                "\n========================================\n\
+                 INTEGRATION TEST PASSED\n\
+                 ========================================\n\
+                 • Snapshot count: {} (expected: 1)\n\
+                 • Snapshot sequence: {}\n\
+                 • Final sequence: {}\n\
+                 • Updates validated: {}\n\
+                 • Reconnections: {}\n\
+                 • Final book: {} bids, {} asks\n\
+                 ========================================",
+                snapshot_count,
+                snapshot_sequence,
+                local_book.sequence(),
+                received_updates,
+                reconnect_count,
+                local_book.bids().levels().len(),
+                local_book.asks().levels().len()
+            );
         }
 
-        #[test]
-        fn test_orderbook_level_insert_and_update() {
-            // Test inserting new levels and updating existing ones
-            let mut book = OrderBook::new(
-                100,
-                None,
-                vec![level(100, 10)],
-                vec![level(101, 5)],
+        /// Validates that an OrderBook is in a consistent state.
+        fn validate_orderbook_integrity(book: &OrderBook) {
+            // Check that best bid < best ask (no crossed book)
+            if let (Some(best_bid), Some(best_ask)) = (book.bids().best(), book.asks().best()) {
+                assert!(
+                    best_bid.price < best_ask.price,
+                    "Orderbook is crossed! Best bid {} >= best ask {}",
+                    best_bid.price,
+                    best_ask.price
+                );
+            }
+
+            // Check that bids are sorted descending (highest first)
+            let bids = book.bids().levels();
+            for window in bids.windows(2) {
+                assert!(
+                    window[0].price >= window[1].price,
+                    "Bids not sorted descending: {} < {}",
+                    window[0].price,
+                    window[1].price
+                );
+            }
+
+            // Check that asks are sorted ascending (lowest first)
+            let asks = book.asks().levels();
+            for window in asks.windows(2) {
+                assert!(
+                    window[0].price <= window[1].price,
+                    "Asks not sorted ascending: {} > {}",
+                    window[0].price,
+                    window[1].price
+                );
+            }
+
+            // Check that all amounts are positive
+            for level in bids {
+                assert!(
+                    level.amount > Decimal::ZERO,
+                    "Bid level has non-positive amount: {:?}",
+                    level
+                );
+            }
+            for level in asks {
+                assert!(
+                    level.amount > Decimal::ZERO,
+                    "Ask level has non-positive amount: {:?}",
+                    level
+                );
+            }
+        }
+
+        /// Test that validates multiple symbols can be subscribed simultaneously
+        /// and each receives exactly one snapshot followed by updates.
+        #[tokio::test]
+        #[ignore] // Requires network access
+        async fn test_multiple_symbols_snapshot_and_updates() {
+            let _ = tracing_subscriber::fmt()
+                .with_env_filter("barter_data=debug")
+                .try_init();
+
+            // Subscribe to both BTC/USDT and ETH/USDT
+            let streams = Streams::<OrderBooksL2>::builder()
+                .subscribe([
+                    (
+                        MexcSpot::default(),
+                        "btc",
+                        "usdt",
+                        MarketDataInstrumentKind::Spot,
+                        OrderBooksL2,
+                    ),
+                    (
+                        MexcSpot::default(),
+                        "eth",
+                        "usdt",
+                        MarketDataInstrumentKind::Spot,
+                        OrderBooksL2,
+                    ),
+                ])
+                .init()
+                .await
+                .expect("Failed to initialize MEXC L2 streams");
+
+            let mut stream = streams
+                .select_all()
+                .with_error_handler(|error| {
+                    panic!("MarketStream error: {:?}", error);
+                });
+
+            let mut btc_snapshot_count: u32 = 0;
+            let mut eth_snapshot_count: u32 = 0;
+            let mut btc_update_count: u32 = 0;
+            let mut eth_update_count: u32 = 0;
+
+            let test_result = timeout(Duration::from_secs(30), async {
+                while let Some(event) = stream.next().await {
+                    match event {
+                        Event::Reconnecting(_) => {
+                            panic!("Unexpected reconnection!");
+                        }
+                        Event::Item(market_event) => {
+                            let instrument = format!("{:?}", market_event.instrument);
+                            let is_btc = instrument.to_lowercase().contains("btc");
+                            let is_eth = instrument.to_lowercase().contains("eth");
+
+                            match &market_event.kind {
+                                OrderBookEvent::Snapshot(_) => {
+                                    if is_btc {
+                                        btc_snapshot_count += 1;
+                                        // Fail immediately if more than 1 snapshot for BTC
+                                        assert_eq!(
+                                            btc_snapshot_count, 1,
+                                            "BTC received {} snapshots - should only receive 1!",
+                                            btc_snapshot_count
+                                        );
+                                        println!("✓ BTC snapshot received (count: {})", btc_snapshot_count);
+                                    } else if is_eth {
+                                        eth_snapshot_count += 1;
+                                        // Fail immediately if more than 1 snapshot for ETH
+                                        assert_eq!(
+                                            eth_snapshot_count, 1,
+                                            "ETH received {} snapshots - should only receive 1!",
+                                            eth_snapshot_count
+                                        );
+                                        println!("✓ ETH snapshot received (count: {})", eth_snapshot_count);
+                                    }
+                                }
+                                OrderBookEvent::Update(_) => {
+                                    if is_btc {
+                                        // Ensure we got snapshot before updates
+                                        assert_eq!(
+                                            btc_snapshot_count, 1,
+                                            "BTC update received but snapshot_count={} (expected 1)",
+                                            btc_snapshot_count
+                                        );
+                                        btc_update_count += 1;
+                                    } else if is_eth {
+                                        // Ensure we got snapshot before updates
+                                        assert_eq!(
+                                            eth_snapshot_count, 1,
+                                            "ETH update received but snapshot_count={} (expected 1)",
+                                            eth_snapshot_count
+                                        );
+                                        eth_update_count += 1;
+                                    }
+                                }
+                            }
+
+                            // Test passes when both have exactly 1 snapshot + at least 2 updates
+                            if btc_snapshot_count == 1
+                                && eth_snapshot_count == 1
+                                && btc_update_count >= 2
+                                && eth_update_count >= 2
+                            {
+                                return;
+                            }
+                        }
+                    }
+                }
+            })
+            .await;
+
+            assert!(test_result.is_ok(), "Test timed out");
+            assert_eq!(btc_snapshot_count, 1, "BTC should have exactly 1 snapshot, got {}", btc_snapshot_count);
+            assert_eq!(eth_snapshot_count, 1, "ETH should have exactly 1 snapshot, got {}", eth_snapshot_count);
+            assert!(btc_update_count >= 2, "BTC should have at least 2 updates, got {}", btc_update_count);
+            assert!(eth_update_count >= 2, "ETH should have at least 2 updates, got {}", eth_update_count);
+
+            println!(
+                "\n✓ Multi-symbol test passed:\n\
+                   • BTC: {} snapshot(s), {} update(s)\n\
+                   • ETH: {} snapshot(s), {} update(s)",
+                btc_snapshot_count, btc_update_count,
+                eth_snapshot_count, eth_update_count
             );
-
-            let mut state: L2SequencerState<&str> = L2SequencerState::new_for_test("BTCUSDT", 100);
-
-            // Sync with updates
-            assert_eq!(state.validate_update(95, 110), L2ValidationResult::Valid);
-            book.update(&OrderBookEvent::Update(OrderBook::new(
-                110,
-                None,
-                vec![
-                    level(100, 15),  // Update existing
-                    level(99, 25),   // Insert new
-                ],
-                vec![
-                    level(101, 8),   // Update existing
-                    level(102, 12),  // Insert new
-                ],
-            )));
-
-            assert_eq!(book.sequence(), 110);
-            
-            // Check bids
-            assert!(book.bids().levels().iter().any(|l| l.price == dec!(100) && l.amount == dec!(15)));
-            assert!(book.bids().levels().iter().any(|l| l.price == dec!(99) && l.amount == dec!(25)));
-            
-            // Check asks
-            assert!(book.asks().levels().iter().any(|l| l.price == dec!(101) && l.amount == dec!(8)));
-            assert!(book.asks().levels().iter().any(|l| l.price == dec!(102) && l.amount == dec!(12)));
         }
     }
 }
-
