@@ -10,7 +10,9 @@ use crate::{
 };
 use async_trait::async_trait;
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{Transformer, protocol::websocket::WsMessage, subscription::SubscriptionId};
+use barter_integration::{
+    Transformer, protocol::websocket::WsMessage, subscription::SubscriptionId,
+};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use std::collections::HashMap;
@@ -33,7 +35,10 @@ where
 {
     async fn init(
         instrument_map: Map<InstrumentKey>,
-        _initial_snapshots: &[MarketEvent<InstrumentKey, <OrderBooksL1 as crate::subscription::SubscriptionKind>::Event>],
+        _initial_snapshots: &[MarketEvent<
+            InstrumentKey,
+            <OrderBooksL1 as crate::subscription::SubscriptionKind>::Event,
+        >],
         _ws_sink_tx: mpsc::UnboundedSender<WsMessage>,
     ) -> Result<Self, DataError> {
         Ok(Self {
@@ -48,7 +53,8 @@ where
 {
     type Error = DataError;
     type Input = PushDataV3ApiWrapper;
-    type Output = MarketEvent<InstrumentKey, <OrderBooksL1 as crate::subscription::SubscriptionKind>::Event>;
+    type Output =
+        MarketEvent<InstrumentKey, <OrderBooksL1 as crate::subscription::SubscriptionKind>::Event>;
     type OutputIter = Vec<Result<Self::Output, Self::Error>>;
 
     fn transform(&mut self, input: Self::Input) -> Self::OutputIter {
@@ -90,5 +96,3 @@ where
         })]
     }
 }
-
-

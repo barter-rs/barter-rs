@@ -87,7 +87,9 @@ impl MexcChannel {
     }
 }
 
-impl<Exchange, Instrument> Identifier<MexcChannel> for Subscription<Exchange, Instrument, OrderBooksL1> {
+impl<Exchange, Instrument> Identifier<MexcChannel>
+    for Subscription<Exchange, Instrument, OrderBooksL1>
+{
     fn id(&self) -> MexcChannel {
         MexcChannel::LimitDepth {
             level: MexcDepthLevel::Level20,
@@ -95,12 +97,12 @@ impl<Exchange, Instrument> Identifier<MexcChannel> for Subscription<Exchange, In
     }
 }
 
-impl<Exchange, Instrument> Identifier<MexcChannel> for Subscription<Exchange, Instrument, OrderBooksL2> {
+impl<Exchange, Instrument> Identifier<MexcChannel>
+    for Subscription<Exchange, Instrument, OrderBooksL2>
+{
     fn id(&self) -> MexcChannel {
         MexcChannel::AggreDepth {
             interval: MexcDepthInterval::Ms100,
         }
     }
 }
-
-

@@ -7,8 +7,8 @@ use barter_data::{
     books::OrderBook,
     exchange::mexc::MexcSpot,
     streams::{
-        reconnect::{stream::ReconnectingStream, Event},
         Streams,
+        reconnect::{Event, stream::ReconnectingStream},
     },
     subscription::book::{OrderBookEvent, OrderBooksL2},
 };
@@ -44,11 +44,9 @@ async fn test_mexc_l2_full_subscription_flow() {
         .expect("Failed to initialize MEXC L2 stream");
 
     // Get the merged stream with error handling
-    let mut stream = streams
-        .select_all()
-        .with_error_handler(|error| {
-            panic!("MarketStream error: {:?}", error);
-        });
+    let mut stream = streams.select_all().with_error_handler(|error| {
+        panic!("MarketStream error: {:?}", error);
+    });
 
     // Track state
     let mut received_snapshot = false;
@@ -82,7 +80,10 @@ async fn test_mexc_l2_full_subscription_flow() {
                         !book.asks().levels().is_empty(),
                         "Snapshot should have asks"
                     );
-                    assert!(book.sequence() > 0, "Snapshot should have a sequence number");
+                    assert!(
+                        book.sequence() > 0,
+                        "Snapshot should have a sequence number"
+                    );
 
                     // Initialize local book from snapshot
                     local_book = book.clone();
@@ -95,10 +96,7 @@ async fn test_mexc_l2_full_subscription_flow() {
                     );
                 }
                 OrderBookEvent::Update(update) => {
-                    assert!(
-                        received_snapshot,
-                        "Should receive snapshot before updates"
-                    );
+                    assert!(received_snapshot, "Should receive snapshot before updates");
 
                     // Apply update to local book
                     local_book.update(&market_event.kind);
@@ -167,11 +165,9 @@ async fn test_mexc_l2_custom_snapshot_depth() {
         .await
         .expect("Failed to initialize MEXC L2 stream with custom depth");
 
-    let mut stream = streams
-        .select_all()
-        .with_error_handler(|error| {
-            panic!("MarketStream error: {:?}", error);
-        });
+    let mut stream = streams.select_all().with_error_handler(|error| {
+        panic!("MarketStream error: {:?}", error);
+    });
 
     // Wait for snapshot
     let test_result = timeout(Duration::from_secs(15), async {
@@ -238,11 +234,9 @@ async fn test_mexc_l2_multiple_symbols() {
         .await
         .expect("Failed to initialize MEXC L2 streams for multiple symbols");
 
-    let mut stream = streams
-        .select_all()
-        .with_error_handler(|error| {
-            panic!("MarketStream error: {:?}", error);
-        });
+    let mut stream = streams.select_all().with_error_handler(|error| {
+        panic!("MarketStream error: {:?}", error);
+    });
 
     let mut btc_snapshot = false;
     let mut eth_snapshot = false;
@@ -328,4 +322,3 @@ fn validate_orderbook(book: &OrderBook) {
         );
     }
 }
-

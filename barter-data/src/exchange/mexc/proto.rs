@@ -359,5 +359,3 @@ mod tests {
         assert_eq!(decoded.quantity, "1000000000.12345678");
     }
 }
-
-

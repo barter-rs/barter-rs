@@ -1,11 +1,7 @@
 //! MEXC market identifier.
 
 use super::MexcSpot;
-use crate::{
-    Identifier,
-    instrument::MarketInstrumentData,
-    subscription::Subscription,
-};
+use crate::{Identifier, instrument::MarketInstrumentData, subscription::Subscription};
 use barter_instrument::{
     Keyed, asset::name::AssetNameInternal, instrument::market_data::MarketDataInstrument,
 };
@@ -93,5 +89,3 @@ mod tests {
         assert_eq!(extract_symbol_from_channel(channel), Some("ETHUSDT"));
     }
 }
-
-

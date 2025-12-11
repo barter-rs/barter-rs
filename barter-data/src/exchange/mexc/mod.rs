@@ -21,7 +21,10 @@ use crate::{
     exchange::{Connector, PingInterval, StreamSelector, subscription::ExchangeSub},
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
-    subscription::{Map, book::{OrderBooksL1, OrderBooksL2}},
+    subscription::{
+        Map,
+        book::{OrderBooksL1, OrderBooksL2},
+    },
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
@@ -229,4 +232,3 @@ mod tests {
         assert_eq!(deserialized.snapshot_depth, DEFAULT_SNAPSHOT_DEPTH);
     }
 }
-

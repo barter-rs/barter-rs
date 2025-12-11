@@ -182,12 +182,7 @@ where
             .map(|(sub_id, instrument_key)| {
                 // Extract symbol from subscription ID
                 // Format: "aggre.depth|BTCUSDT"
-                let symbol = sub_id
-                    .as_ref()
-                    .split('|')
-                    .nth(1)
-                    .unwrap_or("")
-                    .to_string();
+                let symbol = sub_id.as_ref().split('|').nth(1).unwrap_or("").to_string();
 
                 let state = SyncState::WaitingForSnapshot {
                     instrument_key,
@@ -334,9 +329,9 @@ where
                 let snapshot_version = snapshot.last_update_id;
 
                 // Find first update where fromVersion <= snapshot.version <= toVersion
-                let aligned_idx = buffer
-                    .iter()
-                    .position(|u| u.from_version <= snapshot_version && snapshot_version <= u.to_version);
+                let aligned_idx = buffer.iter().position(|u| {
+                    u.from_version <= snapshot_version && snapshot_version <= u.to_version
+                });
 
                 match aligned_idx {
                     Some(idx) => {
@@ -392,7 +387,10 @@ where
                                 );
                                 return self.finish_state_transition(
                                     sub_id,
-                                    SyncState::Synced { instrument_key, last_to_version },
+                                    SyncState::Synced {
+                                        instrument_key,
+                                        last_to_version,
+                                    },
                                     vec![Err(DataError::InvalidSequence {
                                         prev_last_update_id: last_to_version,
                                         first_update_id: u.from_version,
@@ -413,7 +411,9 @@ where
                     }
                     None => {
                         // Check if all buffered updates are outdated
-                        if !buffer.is_empty() && buffer.iter().all(|u| u.to_version < snapshot_version) {
+                        if !buffer.is_empty()
+                            && buffer.iter().all(|u| u.to_version < snapshot_version)
+                        {
                             debug!(
                                 %symbol,
                                 snapshot_version,
@@ -462,7 +462,10 @@ where
                 // Normal operation - validate sequence (fromVersion must equal prevToVersion + 1)
                 if update.from_version != last_to_version + 1 {
                     (
-                        SyncState::Synced { instrument_key, last_to_version },
+                        SyncState::Synced {
+                            instrument_key,
+                            last_to_version,
+                        },
                         vec![Err(DataError::InvalidSequence {
                             prev_last_update_id: last_to_version,
                             first_update_id: update.from_version,
@@ -725,10 +728,7 @@ mod tests {
 
         #[test]
         fn test_alignment_no_match_all_outdated() {
-            let updates = vec![
-                make_update(80, 90),
-                make_update(91, 100),
-            ];
+            let updates = vec![make_update(80, 90), make_update(91, 100)];
 
             let snapshot_version = 150u64;
 
@@ -876,11 +876,9 @@ mod tests {
                 .await
                 .expect("Failed to initialize MEXC L2 stream");
 
-            let mut stream = streams
-                .select_all()
-                .with_error_handler(|error| {
-                    panic!("MarketStream error during test: {:?}", error);
-                });
+            let mut stream = streams.select_all().with_error_handler(|error| {
+                panic!("MarketStream error during test: {:?}", error);
+            });
 
             // Track state for validation
             let mut snapshot_count: u32 = 0;
@@ -1109,11 +1107,9 @@ mod tests {
                 .await
                 .expect("Failed to initialize MEXC L2 streams");
 
-            let mut stream = streams
-                .select_all()
-                .with_error_handler(|error| {
-                    panic!("MarketStream error: {:?}", error);
-                });
+            let mut stream = streams.select_all().with_error_handler(|error| {
+                panic!("MarketStream error: {:?}", error);
+            });
 
             let mut btc_snapshot_count: u32 = 0;
             let mut eth_snapshot_count: u32 = 0;
@@ -1189,17 +1185,32 @@ mod tests {
             .await;
 
             assert!(test_result.is_ok(), "Test timed out");
-            assert_eq!(btc_snapshot_count, 1, "BTC should have exactly 1 snapshot, got {}", btc_snapshot_count);
-            assert_eq!(eth_snapshot_count, 1, "ETH should have exactly 1 snapshot, got {}", eth_snapshot_count);
-            assert!(btc_update_count >= 2, "BTC should have at least 2 updates, got {}", btc_update_count);
-            assert!(eth_update_count >= 2, "ETH should have at least 2 updates, got {}", eth_update_count);
+            assert_eq!(
+                btc_snapshot_count, 1,
+                "BTC should have exactly 1 snapshot, got {}",
+                btc_snapshot_count
+            );
+            assert_eq!(
+                eth_snapshot_count, 1,
+                "ETH should have exactly 1 snapshot, got {}",
+                eth_snapshot_count
+            );
+            assert!(
+                btc_update_count >= 2,
+                "BTC should have at least 2 updates, got {}",
+                btc_update_count
+            );
+            assert!(
+                eth_update_count >= 2,
+                "ETH should have at least 2 updates, got {}",
+                eth_update_count
+            );
 
             println!(
                 "\n✓ Multi-symbol test passed:\n\
                    • BTC: {} snapshot(s), {} update(s)\n\
                    • ETH: {} snapshot(s), {} update(s)",
-                btc_snapshot_count, btc_update_count,
-                eth_snapshot_count, eth_update_count
+                btc_snapshot_count, btc_update_count, eth_snapshot_count, eth_update_count
             );
         }
     }

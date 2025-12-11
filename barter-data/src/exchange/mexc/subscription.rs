@@ -47,5 +47,3 @@ mod tests {
         assert!(response.validate().is_err());
     }
 }
-
-
