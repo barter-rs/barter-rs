@@ -176,26 +176,41 @@ where
         _ws_sink_tx: mpsc::UnboundedSender<WsMessage>,
     ) -> Result<Self, DataError> {
         // Build initial state map - all symbols start in WaitingForSnapshot
-        let states = instrument_map
-            .0
-            .into_iter()
-            .map(|(sub_id, instrument_key)| {
-                // Extract symbol from subscription ID
-                // Format: "aggre.depth|BTCUSDT"
-                let symbol = sub_id.as_ref().split('|').nth(1).unwrap_or("").to_string();
+        let mut states = HashMap::with_capacity(instrument_map.0.len());
 
-                let state = SyncState::WaitingForSnapshot {
-                    instrument_key,
-                    symbol,
-                    // Note: snapshot_depth will be updated when we receive the first update
-                    // from the subscription context. For now, use default.
-                    snapshot_depth: 500,
-                    buffer: VecDeque::with_capacity(64),
-                    snapshot_rx: None,
-                };
-                (sub_id, state)
-            })
-            .collect();
+        for (sub_id, instrument_key) in instrument_map.0.into_iter() {
+            // Extract symbol from subscription ID
+            // Format: "aggre.depth|BTCUSDT"
+            let symbol = sub_id
+                .as_ref()
+                .split('|')
+                .nth(1)
+                .ok_or_else(|| {
+                    DataError::Socket(format!(
+                        "Invalid MEXC L2 subscription ID format: expected 'aggre.depth|SYMBOL', got '{}'",
+                        sub_id.as_ref()
+                    ))
+                })?
+                .to_string();
+
+            if symbol.is_empty() {
+                return Err(DataError::Socket(format!(
+                    "Invalid MEXC L2 subscription ID: symbol is empty in '{}'",
+                    sub_id.as_ref()
+                )));
+            }
+
+            let state = SyncState::WaitingForSnapshot {
+                instrument_key,
+                symbol,
+                // Note: snapshot_depth will be updated when we receive the first update
+                // from the subscription context. For now, use default.
+                snapshot_depth: 500,
+                buffer: VecDeque::with_capacity(64),
+                snapshot_rx: None,
+            };
+            states.insert(sub_id, state);
+        }
 
         Ok(Self { states })
     }
