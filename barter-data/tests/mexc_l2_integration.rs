@@ -5,7 +5,7 @@
 
 use barter_data::{
     books::OrderBook,
-    exchange::mexc::MexcSpot,
+    exchange::mexc::{MexcSnapshotDepth, MexcSpot},
     streams::{
         Streams,
         reconnect::{Event, stream::ReconnectingStream},
@@ -55,7 +55,7 @@ async fn test_mexc_l2_full_subscription_flow() {
     const REQUIRED_UPDATES: usize = 5;
 
     // Set a timeout for the entire test
-    let test_result = timeout(Duration::from_secs(30), async {
+    let test_result = timeout(Duration::from_secs(5), async {
         while let Some(event) = stream.next().await {
             // Handle reconnection events
             let market_event = match event {
@@ -155,7 +155,7 @@ async fn test_mexc_l2_custom_snapshot_depth() {
     // Subscribe with custom snapshot depth of 100
     let streams = Streams::<OrderBooksL2>::builder()
         .subscribe([(
-            MexcSpot::with_snapshot_depth(100),
+            MexcSpot::with_snapshot_depth(MexcSnapshotDepth::Depth100),
             "btc",
             "usdt",
             MarketDataInstrumentKind::Spot,

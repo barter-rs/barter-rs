@@ -200,12 +200,13 @@ where
                 )));
             }
 
+            // Get snapshot depth from the global registry (set during subscription creation)
+            let snapshot_depth = super::super::get_snapshot_depth(&symbol);
+
             let state = SyncState::WaitingForSnapshot {
                 instrument_key,
                 symbol,
-                // Note: snapshot_depth will be updated when we receive the first update
-                // from the subscription context. For now, use default.
-                snapshot_depth: 500,
+                snapshot_depth,
                 buffer: VecDeque::with_capacity(64),
                 snapshot_rx: None,
             };

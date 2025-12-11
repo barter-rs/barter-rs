@@ -1,5 +1,6 @@
 //! MEXC channel definitions for WebSocket subscriptions.
 
+use super::{MexcSnapshotDepth, MexcSpot};
 use crate::{
     Identifier,
     subscription::{
@@ -9,7 +10,7 @@ use crate::{
 };
 
 /// MEXC WebSocket channel identifier.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum MexcChannel {
     /// L1 partial depth channel (snapshots of top N levels).
     /// Format: `spot@public.limit.depth.v3.api.pb@{SYMBOL}@{LEVEL}`
@@ -17,7 +18,12 @@ pub enum MexcChannel {
 
     /// L2 aggregated depth channel (incremental updates).
     /// Format: `spot@public.aggre.depth.v3.api.pb@{INTERVAL}@{SYMBOL}`
-    AggreDepth { interval: MexcDepthInterval },
+    ///
+    /// The `snapshot_depth` is used when fetching the REST snapshot for orderbook sync.
+    AggreDepth {
+        interval: MexcDepthInterval,
+        snapshot_depth: MexcSnapshotDepth,
+    },
 }
 
 /// Depth levels for L1 limit depth channel.
@@ -56,15 +62,6 @@ impl MexcDepthInterval {
     }
 }
 
-impl AsRef<str> for MexcChannel {
-    fn as_ref(&self) -> &str {
-        match self {
-            MexcChannel::LimitDepth { .. } => "limit.depth",
-            MexcChannel::AggreDepth { .. } => "aggre.depth",
-        }
-    }
-}
-
 impl MexcChannel {
     /// Build the full channel string for subscription.
     pub fn subscription_channel(&self, symbol: &str) -> String {
@@ -76,13 +73,22 @@ impl MexcChannel {
                     level.as_str()
                 )
             }
-            MexcChannel::AggreDepth { interval } => {
+            MexcChannel::AggreDepth { interval, .. } => {
                 format!(
                     "spot@public.aggre.depth.v3.api.pb@{}@{}",
                     interval.as_str(),
                     symbol.to_uppercase()
                 )
             }
+        }
+    }
+}
+
+impl AsRef<str> for MexcChannel {
+    fn as_ref(&self) -> &str {
+        match self {
+            MexcChannel::LimitDepth { .. } => "limit.depth",
+            MexcChannel::AggreDepth { .. } => "aggre.depth",
         }
     }
 }
@@ -97,12 +103,11 @@ impl<Exchange, Instrument> Identifier<MexcChannel>
     }
 }
 
-impl<Exchange, Instrument> Identifier<MexcChannel>
-    for Subscription<Exchange, Instrument, OrderBooksL2>
-{
+impl<Instrument> Identifier<MexcChannel> for Subscription<MexcSpot, Instrument, OrderBooksL2> {
     fn id(&self) -> MexcChannel {
         MexcChannel::AggreDepth {
             interval: MexcDepthInterval::Ms100,
+            snapshot_depth: self.exchange.snapshot_depth,
         }
     }
 }
