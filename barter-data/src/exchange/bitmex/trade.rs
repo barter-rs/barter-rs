@@ -34,7 +34,7 @@ pub type BitmexTrade = BitmexMessage<BitmexTradeInner>;
 ///     ]
 /// }
 ///```
-#[derive(Clone, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub struct BitmexTradeInner {
     pub timestamp: DateTime<Utc>,
     pub symbol: String,

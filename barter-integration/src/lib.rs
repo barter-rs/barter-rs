@@ -68,6 +68,9 @@ pub mod socket;
 #[cfg(feature = "serde")]
 pub mod serde;
 
+#[cfg(feature = "exchange")]
+pub mod exchange;
+
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.
 pub trait Validator {
@@ -95,7 +98,10 @@ pub trait Transformer<Input> {
     where
         Input: 'a;
 
-    fn transform<'a>(input: Input) -> impl IntoIterator<Item = Self::Output<'a>> + 'a
+    fn transform<'a>(
+        input: Input,
+    ) -> impl IntoIterator<Item = Self::Output<'a>, IntoIter: Send> + 'a
+    // Todo: remove Send bound later
     where
         Input: 'a;
 }
@@ -115,7 +121,10 @@ pub trait TransformerMut<Input> {
     where
         Input: 'a;
 
-    fn transform<'a>(&mut self, input: Input) -> impl IntoIterator<Item = Self::Output<'a>> + 'a
+    fn transform<'a>(
+        &mut self,
+        input: Input,
+    ) -> impl IntoIterator<Item = Self::Output<'a>, IntoIter: Send> + 'a
     where
         Input: 'a;
 }
@@ -148,21 +157,18 @@ pub enum Message<A, T> {
     Payload(T),
 }
 
-// /// Admin message that's either a "Protocol", "Deserialisation" or "Application" level event.
-// #[derive(Debug, Deserialize, Serialize)]
-// pub enum MessageAdmin<P> {
-//     Protocol(P),
-//     DeError(DeBinaryError),
-//     // Application(A), // this currentlly isn't used, should I contain Ping, Pong, Response?
-// }
-
-/// Application level message.
+/// Admin message that's either a "Protocol", "Deserialisation" or "Application" level event.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
-pub enum MessageApp<Response, Payload> {
-    Ping, // Maybe Request, Response, Payload? Are Request-Response Payloads or Admin?
-    Pong,
-    Response(Response),
-    Payload(Payload),
+pub enum Admin<P, A> {
+    Protocol(P),
+    Application(A),
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+pub enum Routing<F, K> {
+    Forward(F),
+    Keep(K),
+    ForwardAndKeep { forward: F, keep: K },
 }
 
 /// Indicates an `Iterator` or `Stream` has ended.

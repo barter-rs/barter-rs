@@ -1,4 +1,3 @@
-use barter_instrument::index::error::IndexError;
 use derive_more::Constructor;
 use futures::{Sink, Stream};
 use pin_project::pin_project;
@@ -6,6 +5,8 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
+
+pub mod dynamic;
 
 pub trait Indexer {
     type Unindexed;

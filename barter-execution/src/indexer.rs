@@ -22,7 +22,7 @@ use barter_instrument::{
 };
 use barter_integration::{
     collection::snapshot::Snapshot,
-    stream::ext::indexed::{IndexedStream, Indexer},
+    stream::ext::index::{IndexedStream, Indexer},
 };
 use derive_more::Constructor;
 use std::sync::Arc;

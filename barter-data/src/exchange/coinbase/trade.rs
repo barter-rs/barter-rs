@@ -38,10 +38,10 @@ pub struct CoinbaseTrade {
     pub time: DateTime<Utc>,
     #[serde(
         alias = "size",
-        deserialize_with = "barter_integration::serde::de::de_str"
+        deserialize_with = "barter_integration::serde::de::util::de_str"
     )]
     pub amount: f64,
-    #[serde(deserialize_with = "barter_integration::serde::de::de_str")]
+    #[serde(deserialize_with = "barter_integration::serde::de::util::de_str")]
     pub price: f64,
     pub side: Side,
 }

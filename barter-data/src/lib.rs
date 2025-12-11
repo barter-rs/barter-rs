@@ -101,35 +101,35 @@ use crate::{
     transformer::ExchangeTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
+use barter_integration::stream::ExchangeStream;
+use futures::{Sink, SinkExt, Stream, StreamExt};
+
+use crate::exchange::binance::spot::BinanceSpot;
 use barter_integration::{
-    Message, MessageApp, Transformer, TransformerDeprecated,
+    Message, Transformer, TransformerDeprecated, TransformerMut,
     error::SocketError,
     protocol::{
         StreamParser,
         websocket::{WsError, WsMessage, WsSink, WsStream},
     },
-    stream::ExchangeStream,
 };
-use futures::{Sink, SinkExt, Stream, StreamExt};
 
-use crate::{
-    exchange::{ApiMessage, AppMessage, binance::spot::BinanceSpot},
-    subscription::Map,
-};
-use barter_instrument::{Keyed, index::error::IndexError};
+use barter_instrument::Keyed;
 use barter_integration::{
-    protocol::websocket::init_websocket,
-    serde::{DeBinaryError, DeTransformer, SeBinaryError, SeTransformer},
     socket::reconnecting::{
         ReconnectingSocket, backoff::ReconnectBackoff, init_reconnecting_socket,
         on_connect_err::ConnectErrorHandler, update::SocketUpdate,
     },
-    stream::ext::indexed::Indexer,
+    stream::ext::index::{
+        Indexer,
+        dynamic::{TryUpdateable, Updateable},
+    },
     subscription::SubscriptionId,
 };
+use derive_more::Constructor;
 use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
-use std::{collections::VecDeque, future::Future, marker::PhantomData};
+use std::{collections::VecDeque, future::Future, hash::Hash, marker::PhantomData};
 use tokio::sync::mpsc;
 use tracing::{debug, error, warn};
 
@@ -299,13 +299,101 @@ where
 //     Ok(())
 // }
 
-pub struct MessageKeyer<Key, Index, Message> {
+pub trait Processor<Event> {
+    // Todo: move from Engine to barter-integration
+    type Audit;
+    fn process(&mut self, event: Event) -> Self::Audit;
+}
+
+pub trait ReversibleProcessor<Event>
+where
+    Self: Processor<Event>,
+{
+    fn reverse(&mut self, audit: Self::Audit) -> Event;
+}
+
+// Todo: Sequence is likely the AuditIndex...
+//   Whole idea is we can go back efficiently without reloading from a snapshot and re-processing
+//  !!!!! Live Engine doesn't need this, but the Audit State replica could generate the StateDeltas
+//        by processing the input and generating them (while hold path doesn't need to hold that extra data)
+//    Audit thread could actually persist these to parquet files to assist with backtest explorer
+//     Could even run in the cloud...? w/ UI
+//      But could be agnostic to what cloud, so user can pay for their own hosting via some Provision interface.
+//      This would all live in the "TradingHistory" / Audit state replica world!
+
+pub trait StateTransition<Event> {
+    type State: Processor<Event>;
+
+    fn forward(&self, state: Self::State) -> Self::State;
+    fn backward(&self, state: Self::State) -> Self::State;
+}
+
+pub trait StateDelta {}
+
+pub struct State<S, Meta> {
+    pub state: Keyed<Sequence, S>,
+    pub meta: Meta,
+}
+
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
+pub struct Sequence(pub u64);
+
+pub struct MessageIndexer<Key, Index, Message> {
     map: FnvHashMap<Key, Index>,
     phantom: PhantomData<Message>,
 }
 
-impl<Key, Index, Message> Indexer for MessageKeyer<Key, Index, Message>
+// How to create a true deterministic "Mutable State" forwards (apply Input) and backwards (apply Audit)
+
+impl<Key, Index, Message> TransformerMut<Keyed<Sequence, MapUpdate<Key, Index>>>
+    for MessageIndexer<Key, Index, Message>
+{
+    type Output<'a> =
+        Result<Keyed<Sequence, MapUpdate<Key, Index>>, Keyed<Sequence, MapUpdate<Key, Index>>>;
+
+    fn transform<'a>(
+        &mut self,
+        input: MapUpdate<Key, Index>,
+    ) -> impl IntoIterator<Item = Self::Output<'a>> + 'a {
+        match &input {
+            MapUpdate::Upsert(key, value) => {}
+            MapUpdate::Remove(_) => {}
+            MapUpdate::RemoveIfExists(_) => {}
+        }
+
+        std::iter::once(Ok(input))
+    }
+}
+
+// Todo: ReadReplica paradigm like Barter Engine
+//  re-construct Map state from event sourcing. Ideally make error free.
+
+enum MutableIndexError {}
+
+enum MapUpdate<Key, Value> {
+    Upsert(Key, Value),
+    Remove(Key),
+    RemoveIfExists(Key),
+    // etc
+}
+
+enum MapUpdateAudit {}
+
+impl<Key, Index, Message> TryUpdateable for MessageIndexer<Key, Index, Message> {
+    type Update = MapUpdate<Key, Index>;
+
+    type Error = MutableIndexError;
+
+    fn try_update(&mut self, update: Self::Update) -> Result<(), Self::Error> {
+        todo!()
+    }
+}
+
+impl<Key, Index, Message> Indexer for MessageIndexer<Key, Index, Message>
 where
+    Key: Eq + Hash,
     Index: Clone,
     Message: for<'a> Identifier<&'a Key>,
 {
@@ -317,17 +405,20 @@ where
     // Todo: Make Indexer more general:
     //  1. Move to barter-integration
     //  2. Make Error associated type or more general in some way
-    //  3. How can we handle dynamic subscriptions?
+    //  3. How can we handle dynamic subscriptions? Indexer is updated via event
 
     fn index(&self, item: Self::Unindexed) -> Result<Self::Indexed, Self::Error> {
         self.map
             .get(item.id())
-            .map(|index| Keyed::new(index, item))
+            .map(|index| Keyed::new(index.clone(), item))
             .ok_or_else(|| "failed to find index for Unindexed key".to_string())
     }
 }
 
-impl<Key, Index, Message> FromIterator<(Key, Index)> for MessageKeyer<Key, Index, Message> {
+impl<Key, Index, Message> FromIterator<(Key, Index)> for MessageIndexer<Key, Index, Message>
+where
+    Key: Eq + Hash,
+{
     fn from_iter<Iter>(iter: Iter) -> Self
     where
         Iter: IntoIterator<Item = (Key, Index)>,
@@ -337,7 +428,7 @@ impl<Key, Index, Message> FromIterator<(Key, Index)> for MessageKeyer<Key, Index
     }
 }
 
-impl<Key, Index, Message> MessageKeyer<Key, Index, Message> {
+impl<Key, Index, Message> MessageIndexer<Key, Index, Message> {
     pub fn new(map: FnvHashMap<Key, Index>) -> Self {
         Self {
             map,
@@ -364,73 +455,78 @@ where
     #[derive(Deserialize)]
     pub struct BinanceMessage;
 
-    let socket = init_websocket::<
-        SeTransformer<BinanceRequest>,
-        BinanceRequest,
-        DeTransformer<BinanceMessage>,
-        BinanceMessage,
-    >(url.as_str())
-    .await?;
-
-    let subscriptions = subscriptions.as_ref();
-
-    let keyer = MessageKeyer::from_iter(
-        subscriptions
-            .iter()
-            .map(|sub| (sub.id(), sub.instrument.key())),
-    );
-
-    use barter_integration::stream::ext::StreamExt;
-
-    let socket = socket.with_index(keyer);
-
-    Ok(())
-}
-
-pub async fn init_ws_stream<Exchange, Instrument, Kind, FnDe, DeTransf, AppTransf, SnapFetcher>(
-    subscriptions: impl AsRef<Vec<Subscription<Exchange, Instrument, Kind>>>,
-) -> Result<impl Stream, WsError>
-where
-    Exchange: Connector + ApiMessage + AppMessage + IdentifierStatic<ExchangeId>,
-    Instrument: InstrumentData,
-    Kind: SubscriptionKind,
-    DeTransf:
-        for<'a> Transformer<bytes::Bytes, Output<'a> = Result<Exchange::Message, DeBinaryError>>,
-    AppTransf: for<'a> Transformer<
-            Exchange::Message,
-            Output<'a> = MessageApp<Exchange::Response, Exchange::Payload>,
-        >,
-    SnapFetcher: SnapshotFetcher<Exchange, Instrument, Kind>,
-{
-    // Define variables for logging ergonomics
-    let exchange = Exchange::id();
-    let url = Exchange::url().unwrap();
-
-    let mut socket = init_websocket(url).await?;
-    // Todo: Subscribing & validating occurs here
-
-    // Todo:
-    //  - Should Ping, Pong, Respones be MessageAdmin::Application?
-    //  - If we are doing dynamic subs (so no static SubMap), where do we Key Payloads?
-    //     - Feels like we may need to hold off on applying AppTransf until context is present
-
-    while let Some(message) = socket.next().await {
-        match message {
-            Message::Admin(admin) => {}
-            Message::Payload(payload) => match payload {
-                MessageApp::Ping => {}
-                MessageApp::Pong => {}
-                MessageApp::Response(_) => {}
-                MessageApp::Payload(_) => {}
-            },
-        }
-    }
-
-    // Fetch any required initial MarketEvent snapshots
-    let initial_snapshots = SnapFetcher::fetch_snapshots(subscriptions).await?;
+    // let socket = init_websocket::<
+    //     SeTransformer<BinanceRequest>,
+    //     BinanceRequest,
+    //     DeTransformer<BinanceMessage>,
+    //     BinanceMessage,
+    // >(url.as_str())
+    // .await?;
+    //
+    // let subscriptions = subscriptions.as_ref();
+    //
+    // let keyer = MessageKeyer::from_iter(
+    //     subscriptions
+    //         .iter()
+    //         .map(|sub| (sub.id(), sub.instrument.key())),
+    // );
+    //
+    // use barter_integration::stream::ext::StreamExt;
+    //
+    // let socket = socket.with_index(keyer);
 
     Ok(())
 }
+
+// pub async fn init_ws_stream<Exchange, Instrument, Kind, FnDe, DeTransf, AppTransf, SnapFetcher>(
+//     subscriptions: impl AsRef<Vec<Subscription<Exchange, Instrument, Kind>>>,
+// ) -> Result<impl Stream, WsError>
+// where
+//     Exchange: Connector + ApiMessage + AppMessage + IdentifierStatic<ExchangeId>,
+//     Instrument: InstrumentData,
+//     Kind: SubscriptionKind,
+//     DeTransf:
+//         for<'a> Transformer<bytes::Bytes, Output<'a> = Result<Exchange::Message, DeBinaryError>>,
+//     AppTransf: for<'a> Transformer<
+//             Exchange::Message,
+//             Output<'a> = MessageApp<Exchange::Response, Exchange::Payload>,
+//         >,
+//     SnapFetcher: SnapshotFetcher<Exchange, Instrument, Kind>,
+// {
+//     // Define variables for logging ergonomics
+//     let exchange = Exchange::id();
+//     let url = Exchange::url().unwrap();
+//
+//     let subscriptions = subscriptions.as_ref();
+//
+//     // let mut socket = init_websocket(url.as_str()).await?;
+//     // Todo: Subscribing & validating occurs here
+//
+//     // Todo:
+//     //  - Should Ping, Pong, Respones be MessageAdmin::Application?
+//     //  - If we are doing dynamic subs (so no static SubMap), where do we Key Payloads?
+//     //     - Feels like we may need to hold off on applying AppTransf until context is present
+//
+//     // while let Some(message) = socket.next().await {
+//     //     match message {
+//     //         Message::Admin(admin) => {}
+//     //         Message::Payload(payload) => match payload {
+//     //             MessageApp::Ping => {}
+//     //             MessageApp::Pong => {}
+//     //             MessageApp::Response(_) => {}
+//     //             MessageApp::Payload(_) => {}
+//     //         },
+//     //     }
+//     // }
+//
+//     // Fetch any required initial MarketEvent snapshots
+//     let initial_snapshots = SnapFetcher::fetch_snapshots(subscriptions)
+//         .await
+//         .unwrap();
+//
+//     // Ok(socket)
+//     todo!()
+// }
 
 pub async fn init_ws_exchange_stream_with_initial_snapshots<
     Exchange,

@@ -2,12 +2,9 @@ use crate::{
     Message, Transformer,
     error::SocketError,
     protocol::StreamParser,
-    serde::{DeBinaryError, SeBinaryError},
+    serde::{de::DeBinaryError, se::SeError},
 };
-use futures::{
-    Sink, Stream,
-    future::Either::{Left, Right},
-};
+use futures::{Sink, Stream};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tokio::net::TcpStream;
@@ -21,7 +18,6 @@ use tokio_tungstenite::{
     },
 };
 use tracing::debug;
-use url::Url;
 
 /// Convenient type alias for a tungstenite `WebSocketStream`.
 pub type WebSocket = tokio_tungstenite::WebSocketStream<MaybeTlsStream<TcpStream>>;
@@ -48,6 +44,14 @@ pub enum AdminWs {
     DeError(DeBinaryError),
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum WsSinkError {
+    #[error("tungstenite: {0}")]
+    Tungstenite(WsError),
+    #[error("serialisation: {0}")]
+    Serialisation(SeError),
+}
+
 /// WebSocket [`Transformer`] that transforms a `WebSocket::Item` into a
 /// `Message<AdminWs, bytes::Bytes>`.
 #[derive(Debug)]
@@ -58,7 +62,7 @@ impl Transformer<Result<WsMessage, WsError>> for WsTransformer {
 
     fn transform<'a>(
         input: Result<WsMessage, WsError>,
-    ) -> impl IntoIterator<Item = Self::Output<'a>> + 'a {
+    ) -> impl IntoIterator<Item = Self::Output<'a>, IntoIter: Send> + 'a {
         let output = match input {
             Ok(WsMessage::Text(utf8)) => Message::Payload(bytes::Bytes::from(utf8)),
             Ok(WsMessage::Binary(bytes)) => Message::Payload(bytes),
@@ -71,6 +75,86 @@ impl Transformer<Result<WsMessage, WsError>> for WsTransformer {
 
         std::iter::once(output)
     }
+}
+
+/// Connect to a [`WebSocket`] server.
+pub async fn init_websocket<Serialise, OutMessage, SinkItem, Deserialise, InMessage>(
+    url: &str,
+) -> Result<
+    impl Sink<OutMessage, Error = WsSinkError> + Stream<Item = Message<AdminWs, InMessage>> + Send,
+    WsError,
+>
+where
+    Serialise: for<'a> Transformer<OutMessage, Output<'a> = Result<SinkItem, SeError>>,
+    SinkItem: Into<WsMessage>,
+    for<'a> OutMessage: Debug + 'a,
+    Deserialise: for<'a> Transformer<bytes::Bytes, Output<'a> = Result<InMessage, DeBinaryError>>,
+    InMessage: Send,
+{
+    use futures::{
+        SinkExt, StreamExt,
+        future::Either::{Left, Right},
+        stream,
+    };
+
+    let websocket = connect(url).await?;
+    debug!(%url, "successfully connected to WebSocket");
+
+    // Apply Sink pipeline
+    let websocket = websocket
+        .sink_map_err(WsSinkError::Tungstenite)
+        .with_flat_map(move |out_message| {
+            debug!(
+                payload = ?out_message,
+                target_type = "bytes::Bytes",
+                "serialising OutMessage before sending via Sink"
+            );
+
+            stream::iter(Serialise::transform(out_message).into_iter().map(|result| {
+                result
+                    .map(SinkItem::into)
+                    .map_err(WsSinkError::Serialisation)
+            }))
+        });
+
+    // Apply Stream pipeline
+    let websocket = websocket
+        // WsTransformer: Result<WsMessage, WsError> -> Message<AdminWs, bytes::Bytes>
+        .flat_map(|result| stream::iter(WsTransformer::transform(result)))
+        // Deserialise Message::Payload: Bytes -> Result<ApiMessage, DeBinaryError>
+        .flat_map(|message| match message {
+            Message::Admin(admin) => Left(stream::iter(std::iter::once(Message::Admin(admin)))),
+            Message::Payload(payload) => Right(stream::iter(
+                Deserialise::transform(payload)
+                    .into_iter()
+                    .map(|result| match result {
+                        Ok(payload) => Message::Payload(payload),
+                        Err(error) => Message::Admin(AdminWs::DeError(error)),
+                    }),
+            )),
+        });
+
+    Ok(websocket)
+}
+
+/// Connect asynchronously to a [`WebSocket`] server.
+pub async fn connect<R>(request: R) -> Result<WebSocket, WsError>
+where
+    R: IntoClientRequest + Unpin + Debug,
+{
+    debug!(url = ?request, "attempting to establish WebSocket connection");
+    connect_async(request).await.map(|(websocket, _)| websocket)
+}
+
+/// Determine whether a [`WsError`] indicates the [`WebSocket`] has disconnected.
+pub fn is_websocket_disconnected(error: &WsError) -> bool {
+    matches!(
+        error,
+        WsError::ConnectionClosed
+            | WsError::AlreadyClosed
+            | WsError::Io(_)
+            | WsError::Protocol(ProtocolError::SendAfterClosing)
+    )
 }
 
 /// Default [`StreamParser`] implementation for a [`WebSocket`].
@@ -86,6 +170,7 @@ where
     type Error = WsError;
 
     fn parse(input: Result<Self::Message, Self::Error>) -> Option<Result<Output, SocketError>> {
+        println!("{input:?}");
         match input {
             Ok(ws_message) => match ws_message {
                 WsMessage::Text(text) => process_text(text),
@@ -216,116 +301,4 @@ pub fn process_frame<ExchangeMessage>(
     let frame = format!("{frame:?}");
     debug!(payload = %frame, "received unexpected Frame WebSocket message");
     None
-}
-
-#[derive(Debug)]
-pub enum WsSinkError {
-    Tungstenite(WsError),
-    SeBinary(SeBinaryError),
-}
-
-/// Connect to a [`WebSocket`] server.
-pub async fn init_websocket<SeTransf, OutMessage, DeTransf, InMessage>(
-    url: &str,
-) -> Result<impl Sink<OutMessage> + Stream<Item = Message<AdminWs, InMessage>>, WsError>
-where
-    SeTransf: for<'a> Transformer<OutMessage, Output<'a> = Result<bytes::Bytes, SeBinaryError>>,
-    OutMessage: 'static,
-    DeTransf: for<'a> Transformer<bytes::Bytes, Output<'a> = Result<InMessage, DeBinaryError>>,
-{
-    use futures::{SinkExt, StreamExt, stream};
-
-    // Todo: maybe "init_socket" and have FnConnect parameter to generalise... although this is
-    //  coupled due to AdminWs...
-
-    let websocket = connect(url).await?;
-    debug!(%url, "successfully connected to WebSocket");
-
-    // Apply Sink pipeline
-    let websocket = websocket
-        .sink_map_err(WsSinkError::Tungstenite)
-        .with_flat_map(|out_message| {
-            stream::iter(
-                SeTransf::transform(out_message)
-                    .into_iter()
-                    .map(|result| result.map(WsMessage::Binary).map_err(WsSinkError::SeBinary)),
-            )
-        });
-
-    // Apply Stream pipeline
-    let websocket = websocket
-        // Apply WsTransformer: Result<WsMessage, WsError> -> Message<AdminWs, bytes::Bytes>
-        .flat_map(|result| stream::iter(WsTransformer::transform(result)))
-        // Apply DeTransformer to Message::Payload: Bytes -> Result<ApiMessage, DeBinaryError>
-        .flat_map(|message| match message {
-            Message::Admin(admin) => Left(stream::iter(std::iter::once(Message::Admin(admin)))),
-            Message::Payload(payload) => {
-                Right(stream::iter(DeTransf::transform(payload).into_iter().map(
-                    |result| match result {
-                        Ok(payload) => Message::Payload(payload),
-                        Err(error) => Message::Admin(AdminWs::DeError(error)),
-                    },
-                )))
-            }
-        });
-
-    Ok(websocket)
-}
-
-// pub fn apply_pipeline<DeTransf, ApiMessage, AppTransf, Response, Payload>(
-//     websocket: WebSocket,
-// ) -> impl Sink<WsMessage> + Stream<Item = Message<AdminWs, MessageApp<Response, Payload>>>
-// where
-//     DeTransf: for<'a> Transformer<bytes::Bytes, Output<'a> = Result<ApiMessage, DeBinaryError>>,
-//     AppTransf: for<'a> Transformer<ApiMessage, Output = MessageApp<Response, Payload>>,
-// {
-//     use futures::{future::Either::*, StreamExt, stream};
-//
-//     websocket
-//         // Apply WsTransformer: Result<WsMessage, WsError> -> Message<AdminWs, bytes::Bytes>
-//         .flat_map(|result| stream::iter(WsTransformer::transform(result)))
-//
-//         // Apply DeTransformer to Message::Payload: Bytes -> Result<ApiMessage, DeBinaryError>
-//         .flat_map(|message| match message {
-//             Message::Admin(admin) => Left(
-//                 stream::iter(std::iter::once(Message::Admin(admin)))
-//             ),
-//             Message::Payload(payload) => Right(
-//                 stream::iter(DeTransf::transform(payload).into_iter().map(Message::Payload))
-//             )
-//         })
-//
-//         // Todo: Maybe returning Stream<Item = Message<AdminWs, ApiMessage> is good enough
-//         // Apply AppTransformer: ApiMessage -> MessageApp<Response, Payload>
-//         .flat_map(|message| match message {
-//             Message::Admin(admin) => Left(
-//                 Message::Admin(admin)
-//             ),
-//             Message::Payload(Err(de_error)) => Left(
-//                 Message::Admin(AdminWs::DeError(de_error))
-//             ),
-//             Message::Payload(Ok(payload)) => Right(
-//                 stream::iter(AppTransf::transform(payload).into_iter().map(Message::Payload))
-//             )
-//         })
-// }
-
-/// Connect asynchronously to a [`WebSocket`] server.
-pub async fn connect<R>(request: R) -> Result<WebSocket, WsError>
-where
-    R: IntoClientRequest + Unpin + Debug,
-{
-    debug!(url = ?request, "attempting to establish WebSocket connection");
-    connect_async(request).await.map(|(websocket, _)| websocket)
-}
-
-/// Determine whether a [`WsError`] indicates the [`WebSocket`] has disconnected.
-pub fn is_websocket_disconnected(error: &WsError) -> bool {
-    matches!(
-        error,
-        WsError::ConnectionClosed
-            | WsError::AlreadyClosed
-            | WsError::Io(_)
-            | WsError::Protocol(ProtocolError::SendAfterClosing)
-    )
 }

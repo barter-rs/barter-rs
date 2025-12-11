@@ -39,6 +39,7 @@ use std::{fmt::Debug, sync::Arc};
 /// that can be used in backtests.
 pub mod market_data;
 
+mod state;
 /// Contains data structures for representing backtest results and metrics.
 pub mod summary;
 

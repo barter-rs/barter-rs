@@ -1,13 +1,13 @@
 use crate::stream::ext::{
     forward_by::ForwardBy,
     forward_clone_by::ForwardCloneBy,
-    indexed::{IndexedStream, Indexer},
+    index::{IndexedStream, Indexer},
 };
 use futures::Stream;
 
 pub mod forward_by;
 mod forward_clone_by;
-pub mod indexed;
+pub mod index;
 
 pub trait StreamExt
 where
@@ -33,7 +33,7 @@ where
             })
     }
 
-    fn with_index<I>(self, indexer: I) -> IndexedStream<Self, I>
+    fn with_indexer<I>(self, indexer: I) -> IndexedStream<Self, I>
     where
         Self: Stream<Item = I::Unindexed> + Sized,
         I: Indexer,

@@ -27,7 +27,7 @@ use crate::{
         on_disconnect::OnDisconnectStrategy, on_trading_disabled::OnTradingDisabled,
     },
 };
-use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
+use barter_data::{ReversibleProcessor, event::MarketEvent, streams::consumer::MarketStreamEvent};
 use barter_execution::AccountEvent;
 use barter_instrument::{asset::QuoteAsset, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::channel::Tx;
@@ -119,6 +119,26 @@ pub struct EngineMeta {
     pub time_start: DateTime<Utc>,
     /// Monotonically increasing [`Sequence`] associated with the number of events processed.
     pub sequence: Sequence,
+}
+
+impl<Clock, GlobalData, InstrumentData, ExecutionTxs, Strategy, Risk>
+    ReversibleProcessor<EngineEvent<InstrumentData::MarketEventKind>>
+    for Engine<Clock, EngineState<GlobalData, InstrumentData>, ExecutionTxs, Strategy, Risk>
+where
+    Clock: EngineClock + for<'a> Processor<&'a EngineEvent<InstrumentData::MarketEventKind>>,
+    InstrumentData: InstrumentDataState,
+    GlobalData: for<'a> Processor<&'a AccountEvent>
+        + for<'a> Processor<&'a MarketEvent<InstrumentIndex, InstrumentData::MarketEventKind>>,
+    ExecutionTxs: ExecutionTxMap<ExchangeIndex, InstrumentIndex>,
+    Strategy: OnTradingDisabled<Clock, EngineState<GlobalData, InstrumentData>, ExecutionTxs, Risk>
+        + OnDisconnectStrategy<Clock, EngineState<GlobalData, InstrumentData>, ExecutionTxs, Risk>
+        + AlgoStrategy<State = EngineState<GlobalData, InstrumentData>>
+        + ClosePositionsStrategy<State = EngineState<GlobalData, InstrumentData>>,
+    Risk: RiskManager<State = EngineState<GlobalData, InstrumentData>>,
+{
+    fn reverse(&mut self, audit: Self::Audit) -> EngineEvent<InstrumentData::MarketEventKind> {
+        match audit {}
+    }
 }
 
 impl<Clock, GlobalData, InstrumentData, ExecutionTxs, Strategy, Risk>
