@@ -84,43 +84,24 @@ struct ParsedUpdate {
 impl ParsedUpdate {
     /// Try to parse a WebSocket message into a ParsedUpdate.
     fn try_from_ws_message(input: &PushDataV3ApiWrapper) -> Option<Self> {
-        let aggre_depth = input.public_aggre_depths.as_ref()?;
+        let depth = input.public_aggre_depths.as_ref()?;
 
-        let from_version: u64 = aggre_depth.from_version.parse().ok()?;
-        let to_version: u64 = aggre_depth.to_version.parse().ok()?;
-
-        let timestamp = input
-            .send_time
-            .or(input.create_time)
-            .and_then(|ms| DateTime::from_timestamp_millis(ms))
-            .unwrap_or_else(Utc::now);
-
-        let bids: Vec<Level> = aggre_depth
-            .bids
-            .iter()
-            .filter_map(|level| {
-                let price: Decimal = level.price.parse().ok()?;
-                let amount: Decimal = level.quantity.parse().ok()?;
-                Some(Level::new(price, amount))
-            })
-            .collect();
-
-        let asks: Vec<Level> = aggre_depth
-            .asks
-            .iter()
-            .filter_map(|level| {
-                let price: Decimal = level.price.parse().ok()?;
-                let amount: Decimal = level.quantity.parse().ok()?;
-                Some(Level::new(price, amount))
-            })
-            .collect();
+        let parse_level = |l: &crate::exchange::mexc::proto::PublicAggreDepthV3ApiItem| {
+            let price: Decimal = l.price.parse().ok()?;
+            let amount: Decimal = l.quantity.parse().ok()?;
+            Some(Level::new(price, amount))
+        };
 
         Some(Self {
-            from_version,
-            to_version,
-            timestamp,
-            bids,
-            asks,
+            from_version: depth.from_version.parse().ok()?,
+            to_version: depth.to_version.parse().ok()?,
+            timestamp: input
+                .send_time
+                .or(input.create_time)
+                .and_then(DateTime::from_timestamp_millis)
+                .unwrap_or_else(Utc::now),
+            bids: depth.bids.iter().filter_map(parse_level).collect(),
+            asks: depth.asks.iter().filter_map(parse_level).collect(),
         })
     }
 
@@ -235,25 +216,19 @@ where
     type OutputIter = Vec<Result<Self::Output, Self::Error>>;
 
     fn transform(&mut self, input: Self::Input) -> Self::OutputIter {
-        // Extract symbol from channel
-        let symbol = match extract_symbol_from_channel(&input.channel) {
-            Some(s) => s,
-            None => return vec![],
+        let Some(symbol) = extract_symbol_from_channel(&input.channel) else {
+            return vec![];
         };
 
-        // Find state using SubscriptionId
         let sub_id = SubscriptionId::from(format!("aggre.depth|{}", symbol));
         if !self.states.contains_key(&sub_id) {
             return vec![];
         }
 
-        // Parse the update
-        let update = match ParsedUpdate::try_from_ws_message(&input) {
-            Some(u) => u,
-            None => return vec![],
+        let Some(update) = ParsedUpdate::try_from_ws_message(&input) else {
+            return vec![];
         };
 
-        // Process update based on current state
         self.process_update(&sub_id, update)
     }
 }
@@ -268,30 +243,11 @@ where
         sub_id: &SubscriptionId,
         update: ParsedUpdate,
     ) -> Vec<Result<MarketEvent<InstrumentKey, OrderBookEvent>, DataError>> {
-        // Take ownership of state to avoid borrow issues
-        let state = match self.states.remove(sub_id) {
-            Some(s) => s,
-            None => return vec![],
+        let Some(state) = self.states.remove(sub_id) else {
+            return vec![];
         };
 
-        let (new_state, results) = self.process_update_inner(state, update);
-
-        // Put the state back
-        self.states.insert(sub_id.clone(), new_state);
-
-        results
-    }
-
-    /// Inner processing that takes ownership of state.
-    fn process_update_inner(
-        &self,
-        state: SyncState<InstrumentKey>,
-        update: ParsedUpdate,
-    ) -> (
-        SyncState<InstrumentKey>,
-        Vec<Result<MarketEvent<InstrumentKey, OrderBookEvent>, DataError>>,
-    ) {
-        match state {
+        let (new_state, results) = match state {
             SyncState::WaitingForSnapshot {
                 instrument_key,
                 symbol,
@@ -299,7 +255,6 @@ where
                 mut buffer,
                 snapshot_rx,
             } => {
-                // Buffer the update
                 buffer.push_back(update);
 
                 // Limit buffer size to prevent memory issues
@@ -308,8 +263,8 @@ where
                 }
 
                 // Check if snapshot is ready (if we have a receiver)
-                if let Some(mut rx) = snapshot_rx {
-                    match rx.try_recv() {
+                let snapshot_rx = match snapshot_rx {
+                    Some(mut rx) => match rx.try_recv() {
                         Ok(Ok(snapshot)) => {
                             debug!(
                                 %symbol,
@@ -317,9 +272,8 @@ where
                                 buffer_size = buffer.len(),
                                 "Snapshot received, transitioning to Aligning"
                             );
-
-                            // Transition to Aligning state
-                            return (
+                            return self.finish_state_transition(
+                                sub_id,
                                 SyncState::Aligning {
                                     instrument_key,
                                     symbol,
@@ -332,61 +286,25 @@ where
                         }
                         Ok(Err(error)) => {
                             warn!(%symbol, ?error, "Failed to fetch snapshot, will retry");
-
-                            // Reset - will trigger new snapshot request
-                            return (
-                                SyncState::WaitingForSnapshot {
-                                    instrument_key,
-                                    symbol,
-                                    snapshot_depth,
-                                    buffer,
-                                    snapshot_rx: None,
-                                },
-                                vec![],
-                            );
+                            None // Reset - will trigger new snapshot request
                         }
-                        Err(oneshot::error::TryRecvError::Empty) => {
-                            // Still waiting for snapshot
-                            return (
-                                SyncState::WaitingForSnapshot {
-                                    instrument_key,
-                                    symbol,
-                                    snapshot_depth,
-                                    buffer,
-                                    snapshot_rx: Some(rx),
-                                },
-                                vec![],
-                            );
-                        }
+                        Err(oneshot::error::TryRecvError::Empty) => Some(rx),
                         Err(oneshot::error::TryRecvError::Closed) => {
                             warn!(%symbol, "Snapshot channel closed unexpectedly");
-
-                            // Reset - will trigger new snapshot request
-                            return (
-                                SyncState::WaitingForSnapshot {
-                                    instrument_key,
-                                    symbol,
-                                    snapshot_depth,
-                                    buffer,
-                                    snapshot_rx: None,
-                                },
-                                vec![],
-                            );
+                            None // Reset - will trigger new snapshot request
                         }
+                    },
+                    None => {
+                        // No snapshot request yet - trigger one now
+                        debug!(%symbol, depth = snapshot_depth, "Triggering snapshot fetch");
+                        let (tx, rx) = oneshot::channel();
+                        let symbol_clone = symbol.clone();
+                        tokio::spawn(async move {
+                            let _ = tx.send(fetch_snapshot(&symbol_clone, snapshot_depth).await);
+                        });
+                        Some(rx)
                     }
-                }
-
-                // No snapshot request yet - trigger one now
-                debug!(%symbol, depth = snapshot_depth, "Triggering snapshot fetch");
-
-                let (tx, rx) = oneshot::channel();
-                let symbol_clone = symbol.clone();
-                let depth = snapshot_depth;
-
-                tokio::spawn(async move {
-                    let result = fetch_snapshot(&symbol_clone, depth).await;
-                    let _ = tx.send(result);
-                });
+                };
 
                 (
                     SyncState::WaitingForSnapshot {
@@ -394,7 +312,7 @@ where
                         symbol,
                         snapshot_depth,
                         buffer,
-                        snapshot_rx: Some(rx),
+                        snapshot_rx,
                     },
                     vec![],
                 )
@@ -407,54 +325,38 @@ where
                 snapshot,
                 mut buffer,
             } => {
-                // Add the new update to the buffer
                 buffer.push_back(update);
 
-                // Limit buffer size
                 while buffer.len() > MAX_BUFFER_SIZE {
                     buffer.pop_front();
                 }
 
-                // Try to find an update that aligns with the snapshot
                 let snapshot_version = snapshot.last_update_id;
 
                 // Find first update where fromVersion <= snapshot.version <= toVersion
-                let aligned_idx = buffer.iter().position(|u| {
-                    u.from_version <= snapshot_version && snapshot_version <= u.to_version
-                });
+                let aligned_idx = buffer
+                    .iter()
+                    .position(|u| u.from_version <= snapshot_version && snapshot_version <= u.to_version);
 
                 match aligned_idx {
                     Some(idx) => {
-                        // Found aligned update - output snapshot + aligned updates
-                        let mut results = Vec::new();
-
-                        // Build and output snapshot
                         let snapshot_ts = snapshot
                             .timestamp
                             .and_then(|ms| DateTime::from_timestamp_millis(ms as i64))
                             .unwrap_or_else(Utc::now);
 
-                        let snapshot_bids: Vec<Level> = snapshot
-                            .bids
-                            .iter()
-                            .filter_map(|level| {
-                                let price: Decimal = level[0].parse().ok()?;
-                                let amount: Decimal = level[1].parse().ok()?;
-                                Some(Level::new(price, amount))
-                            })
-                            .collect();
+                        let parse_levels = |levels: &[[String; 2]]| -> Vec<Level> {
+                            levels
+                                .iter()
+                                .filter_map(|[price, amount]| {
+                                    let p: Decimal = price.parse().ok()?;
+                                    let a: Decimal = amount.parse().ok()?;
+                                    Some(Level::new(p, a))
+                                })
+                                .collect()
+                        };
 
-                        let snapshot_asks: Vec<Level> = snapshot
-                            .asks
-                            .iter()
-                            .filter_map(|level| {
-                                let price: Decimal = level[0].parse().ok()?;
-                                let amount: Decimal = level[1].parse().ok()?;
-                                Some(Level::new(price, amount))
-                            })
-                            .collect();
-
-                        results.push(Ok(MarketEvent {
+                        let mut results = vec![Ok(MarketEvent {
                             time_exchange: snapshot_ts,
                             time_received: Utc::now(),
                             exchange: ExchangeId::Mexc,
@@ -462,10 +364,10 @@ where
                             kind: OrderBookEvent::Snapshot(OrderBook::new(
                                 snapshot_version,
                                 Some(snapshot_ts),
-                                snapshot_bids,
-                                snapshot_asks,
+                                parse_levels(&snapshot.bids),
+                                parse_levels(&snapshot.asks),
                             )),
-                        }));
+                        })];
 
                         debug!(
                             %symbol,
@@ -474,74 +376,44 @@ where
                             "L2 stream synced with snapshot"
                         );
 
-                        // Drain and discard updates before the aligned one
-                        for _ in 0..idx {
-                            buffer.pop_front();
-                        }
+                        // Discard updates before the aligned one
+                        buffer.drain(..idx);
 
                         // Output all buffered updates from aligned one onwards
                         let mut last_to_version = snapshot_version;
-                        while let Some(u) = buffer.pop_front() {
-                            // Validate sequence: fromVersion must equal prevToVersion + 1
-                            // (For the first aligned update, we allow fromVersion <= snapshot_version)
+                        for u in buffer.drain(..) {
+                            // Validate sequence (allow first aligned update to have fromVersion <= snapshot_version)
                             if results.len() > 1 && u.from_version != last_to_version + 1 {
-                                // Gap detected in buffered updates
                                 warn!(
                                     %symbol,
                                     expected = last_to_version + 1,
                                     actual = u.from_version,
                                     "Gap in buffered updates"
                                 );
-                                return (
-                                    SyncState::Synced {
-                                        instrument_key,
-                                        last_to_version,
-                                    },
+                                return self.finish_state_transition(
+                                    sub_id,
+                                    SyncState::Synced { instrument_key, last_to_version },
                                     vec![Err(DataError::InvalidSequence {
                                         prev_last_update_id: last_to_version,
                                         first_update_id: u.from_version,
                                     })],
                                 );
                             }
-
+                            last_to_version = u.to_version;
                             results.push(Ok(u.into_market_event(&instrument_key)));
-                            last_to_version = results
-                                .last()
-                                .and_then(|r| r.as_ref().ok())
-                                .map(|e| match &e.kind {
-                                    OrderBookEvent::Update(b) => b.sequence(),
-                                    OrderBookEvent::Snapshot(b) => b.sequence(),
-                                })
-                                .unwrap_or(last_to_version);
                         }
 
-                        // Get the actual last_to_version from the last update
-                        let final_version = results
-                            .iter()
-                            .filter_map(|r| r.as_ref().ok())
-                            .last()
-                            .map(|e| match &e.kind {
-                                OrderBookEvent::Update(b) => b.sequence(),
-                                OrderBookEvent::Snapshot(b) => b.sequence(),
-                            })
-                            .unwrap_or(snapshot_version);
-
-                        // Transition to Synced state
                         (
                             SyncState::Synced {
                                 instrument_key,
-                                last_to_version: final_version,
+                                last_to_version,
                             },
                             results,
                         )
                     }
                     None => {
-                        // Check if all buffered updates are outdated (toVersion < snapshot.version)
-                        let all_outdated =
-                            buffer.iter().all(|u| u.to_version < snapshot_version);
-
-                        if all_outdated && !buffer.is_empty() {
-                            // All updates are outdated, clear buffer and wait for newer ones
+                        // Check if all buffered updates are outdated
+                        if !buffer.is_empty() && buffer.iter().all(|u| u.to_version < snapshot_version) {
                             debug!(
                                 %symbol,
                                 snapshot_version,
@@ -551,24 +423,13 @@ where
                             buffer.clear();
                         }
 
-                        // Check if we have a gap (fromVersion > snapshot.version for all updates)
-                        let earliest_from = buffer
-                            .iter()
-                            .map(|u| u.from_version)
-                            .min()
-                            .unwrap_or(u64::MAX);
-
-                        if earliest_from > snapshot_version && !buffer.is_empty() {
-                            // Gap detected - snapshot is too old, need to refetch
-                            warn!(
-                                %symbol,
-                                snapshot_version,
-                                earliest_from,
-                                "Snapshot too old, refetching"
-                            );
-
-                            // Transition back to WaitingForSnapshot
-                            return (
+                        // Check for gap (fromVersion > snapshot.version for all updates)
+                        if let Some(earliest) = buffer.iter().map(|u| u.from_version).min()
+                            && earliest > snapshot_version
+                        {
+                            warn!(%symbol, snapshot_version, earliest_from = earliest, "Snapshot too old, refetching");
+                            return self.finish_state_transition(
+                                sub_id,
                                 SyncState::WaitingForSnapshot {
                                     instrument_key,
                                     symbol,
@@ -580,7 +441,6 @@ where
                             );
                         }
 
-                        // Still waiting for alignment
                         (
                             SyncState::Aligning {
                                 instrument_key,
@@ -599,33 +459,43 @@ where
                 instrument_key,
                 last_to_version,
             } => {
-                // Normal operation - validate sequence
-                // MEXC rule: fromVersion must equal prevToVersion + 1
+                // Normal operation - validate sequence (fromVersion must equal prevToVersion + 1)
                 if update.from_version != last_to_version + 1 {
-                    return (
-                        SyncState::Synced {
-                            instrument_key,
-                            last_to_version,
-                        },
+                    (
+                        SyncState::Synced { instrument_key, last_to_version },
                         vec![Err(DataError::InvalidSequence {
                             prev_last_update_id: last_to_version,
                             first_update_id: update.from_version,
                         })],
-                    );
+                    )
+                } else {
+                    let new_version = update.to_version;
+                    let event = update.into_market_event(&instrument_key);
+                    (
+                        SyncState::Synced {
+                            instrument_key,
+                            last_to_version: new_version,
+                        },
+                        vec![Ok(event)],
+                    )
                 }
-
-                let new_version = update.to_version;
-                let event = update.into_market_event(&instrument_key);
-
-                (
-                    SyncState::Synced {
-                        instrument_key,
-                        last_to_version: new_version,
-                    },
-                    vec![Ok(event)],
-                )
             }
-        }
+        };
+
+        self.states.insert(sub_id.clone(), new_state);
+        results
+    }
+
+    /// Helper for early returns that need to insert state before returning.
+    #[inline]
+    fn finish_state_transition(
+        &mut self,
+        sub_id: &SubscriptionId,
+        state: SyncState<InstrumentKey>,
+        results: Vec<Result<MarketEvent<InstrumentKey, OrderBookEvent>, DataError>>,
+    ) -> Vec<Result<MarketEvent<InstrumentKey, OrderBookEvent>, DataError>> {
+        self.states.insert(sub_id.clone(), state);
+        results
     }
 }
 

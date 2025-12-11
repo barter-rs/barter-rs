@@ -52,54 +52,30 @@ where
     type OutputIter = Vec<Result<Self::Output, Self::Error>>;
 
     fn transform(&mut self, input: Self::Input) -> Self::OutputIter {
-        // Extract symbol from channel
-        let symbol = match extract_symbol_from_channel(&input.channel) {
-            Some(s) => s,
-            None => return vec![],
+        let Some(symbol) = extract_symbol_from_channel(&input.channel) else {
+            return vec![];
         };
 
-        // Find instrument key using SubscriptionId
-        // SubscriptionId format: "{channel}|{market}" e.g., "limit.depth|ETHUSDT"
         let sub_id = SubscriptionId::from(format!("limit.depth|{}", symbol));
-        let instrument_key = match self.instrument_map.get(&sub_id) {
-            Some(key) => key.clone(),
-            None => return vec![],
+        let Some(instrument_key) = self.instrument_map.get(&sub_id).cloned() else {
+            return vec![];
         };
 
-        // Get limit depth data
-        let limit_depth = match input.public_limit_depths {
-            Some(data) => data,
-            None => return vec![],
+        let Some(limit_depth) = input.public_limit_depths else {
+            return vec![];
         };
 
-        // Parse timestamp
         let ts = input
             .send_time
             .or(input.create_time)
-            .and_then(|ms| DateTime::from_timestamp_millis(ms))
+            .and_then(DateTime::from_timestamp_millis)
             .unwrap_or_else(Utc::now);
 
-        // Parse best bid
-        let best_bid = limit_depth.bids.first().and_then(|level| {
+        let parse_level = |level: &crate::exchange::mexc::proto::PublicLimitDepthV3ApiItem| {
             let price: Decimal = level.price.parse().ok()?;
             let amount: Decimal = level.quantity.parse().ok()?;
-            if price.is_zero() {
-                None
-            } else {
-                Some(Level::new(price, amount))
-            }
-        });
-
-        // Parse best ask
-        let best_ask = limit_depth.asks.first().and_then(|level| {
-            let price: Decimal = level.price.parse().ok()?;
-            let amount: Decimal = level.quantity.parse().ok()?;
-            if price.is_zero() {
-                None
-            } else {
-                Some(Level::new(price, amount))
-            }
-        });
+            (!price.is_zero()).then(|| Level::new(price, amount))
+        };
 
         vec![Ok(MarketEvent {
             time_exchange: ts,
@@ -108,8 +84,8 @@ where
             instrument: instrument_key,
             kind: crate::subscription::book::OrderBookL1 {
                 last_update_time: ts,
-                best_bid,
-                best_ask,
+                best_bid: limit_depth.bids.first().and_then(parse_level),
+                best_ask: limit_depth.asks.first().and_then(parse_level),
             },
         })]
     }
