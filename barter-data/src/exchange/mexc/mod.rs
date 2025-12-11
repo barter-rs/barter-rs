@@ -175,9 +175,9 @@ impl Connector for MexcSpot {
         )]
     }
 
-    fn expected_responses<InstrumentKey>(map: &Map<InstrumentKey>) -> usize {
-        // MEXC sends one response per subscription
-        map.0.len()
+    fn expected_responses<InstrumentKey>(_map: &Map<InstrumentKey>) -> usize {
+        // MEXC sends a single combined response for all subscriptions
+        1
     }
 
     fn subscription_timeout() -> Duration {

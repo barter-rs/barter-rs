@@ -55,7 +55,7 @@ async fn test_mexc_l2_full_subscription_flow() {
     const REQUIRED_UPDATES: usize = 5;
 
     // Set a timeout for the entire test
-    let test_result = timeout(Duration::from_secs(5), async {
+    let test_result = timeout(Duration::from_secs(10), async {
         while let Some(event) = stream.next().await {
             // Handle reconnection events
             let market_event = match event {
@@ -170,7 +170,7 @@ async fn test_mexc_l2_custom_snapshot_depth() {
     });
 
     // Wait for snapshot
-    let test_result = timeout(Duration::from_secs(15), async {
+    let test_result = timeout(Duration::from_secs(10), async {
         while let Some(event) = stream.next().await {
             let market_event = match event {
                 Event::Item(item) => item,
@@ -241,7 +241,7 @@ async fn test_mexc_l2_multiple_symbols() {
     let mut btc_snapshot = false;
     let mut eth_snapshot = false;
 
-    let test_result = timeout(Duration::from_secs(20), async {
+    let test_result = timeout(Duration::from_secs(10), async {
         while let Some(event) = stream.next().await {
             let market_event = match event {
                 Event::Item(item) => item,
