@@ -43,6 +43,7 @@ pub type MarketStreamEvent<InstrumentKey, Kind> =
 pub async fn init_market_stream<Exchange, Instrument, Kind>(
     policy: ReconnectionBackoffPolicy,
     subscriptions: Arc<Vec<Subscription<Exchange, Instrument, Kind>>>,
+    stream_timeout: std::time::Duration,
 ) -> Result<impl Stream<Item = MarketStreamResult<Instrument::Key, Kind::Event>> + Send, DataError>
 where
     Exchange: StreamSelector<Instrument, Kind> + IdentifierStatic<ExchangeId> + Send + Sync,
@@ -69,7 +70,7 @@ where
 
     Ok(init_reconnecting_stream(move || {
         let subscriptions = Arc::clone(&subscriptions);
-        async move { Exchange::init(Arc::clone(&subscriptions)).await }
+        async move { Exchange::init(Arc::clone(&subscriptions), stream_timeout).await }
     })
     .await?
     .with_reconnect_backoff(policy, stream_key)

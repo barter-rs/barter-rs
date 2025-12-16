@@ -9,6 +9,8 @@ use barter_instrument::instrument::market_data::{
 use std::time::Duration;
 use tracing::info;
 
+const STREAM_TIMEOUT: Duration = Duration::from_mins(1);
+
 #[rustfmt::skip]
 #[tokio::main]
 async fn main() {
@@ -16,7 +18,9 @@ async fn main() {
     init_logging();
 
     // Initialise OrderBookL2Manager with desired Subscriptions
-    let book_manager = init_multi_order_book_l2_manager([
+    let book_manager = init_multi_order_book_l2_manager(
+        STREAM_TIMEOUT,
+        [
         // Separate WebSocket connection for BTC_USDT stream since it's very high volume
         vec![
             (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2)
@@ -34,7 +38,8 @@ async fn main() {
             (BinanceSpot::default(), "avax", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
             (BinanceSpot::default(), "ltc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
         ]
-    ]).await.unwrap();
+    ]
+    ).await.unwrap();
 
     // Clone OrderBookMap so you can access the locally managed OrderBooks elsewhere in your program
     let books = book_manager.books.clone();

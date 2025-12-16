@@ -33,7 +33,7 @@ async-trait = { workspace = true }
 
 # Protocol
 url = { workspace = true }
-reqwest = { workspace = true}
+reqwest = { workspace = true }
 
 # Error
 thiserror = { workspace = true }
@@ -43,6 +43,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 
 # Data Structures
+bytes = { workspace = true }
 parking_lot = { workspace = true }
 rust_decimal = { workspace = true, features = ["serde-with-str"] }
 smol_str = { workspace = true, features = ["serde"] }

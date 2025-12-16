@@ -74,7 +74,11 @@ where
     ///
     /// Note that [`Subscription`]s are not actioned until the
     /// [`init()`](StreamBuilder::init()) method is invoked.
-    pub fn subscribe<SubIter, Sub, Exchange, Instrument>(mut self, subscriptions: SubIter) -> Self
+    pub fn subscribe<SubIter, Sub, Exchange, Instrument>(
+        mut self,
+        stream_timeout: std::time::Duration,
+        subscriptions: SubIter,
+    ) -> Self
     where
         SubIter: IntoIterator<Item = Sub>,
         Sub: Into<Subscription<Exchange, Instrument, Kind>>,
@@ -111,8 +115,12 @@ where
             subscriptions.dedup();
 
             // Initialise a MarketEvent `ReconnectingStream`
-            let stream =
-                init_market_stream(STREAM_RECONNECTION_POLICY, Arc::new(subscriptions)).await?;
+            let stream = init_market_stream(
+                STREAM_RECONNECTION_POLICY,
+                Arc::new(subscriptions),
+                stream_timeout,
+            )
+            .await?;
 
             // Forward MarketEvents to ExchangeTx
             tokio::spawn(stream.forward_to(exchange_tx));

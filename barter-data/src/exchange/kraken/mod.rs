@@ -7,14 +7,14 @@ use crate::{
     error::DataError,
     event::MarketEvent,
     exchange::{Connector, ExchangeSub},
-    init_ws_exchange_stream_with_initial_snapshots,
+    init_ws_exchange_stream,
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
     subscription::{Subscription, SubscriptionKind, book::OrderBooksL1, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::protocol::websocket::{WebSocketSerdeParser, WsMessage};
+use barter_integration::{protocol::websocket::WsMessage, serde::de::DeJson};
 use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
 use futures_util::Stream;
@@ -111,6 +111,7 @@ where
 {
     fn init(
         subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send,
+        stream_timeout: std::time::Duration,
     ) -> impl Future<
         Output = Result<
             impl Stream<
@@ -122,14 +123,14 @@ where
             DataError,
         >,
     > {
-        init_ws_exchange_stream_with_initial_snapshots::<
+        init_ws_exchange_stream::<
             Self,
             Instrument,
             PublicTrades,
-            WebSocketSerdeParser,
+            DeJson,
             StatelessTransformer<Self, Instrument::Key, PublicTrades, KrakenTrades>,
             NoInitialSnapshots,
-        >(subscriptions)
+        >(subscriptions, stream_timeout)
     }
 }
 
@@ -141,6 +142,7 @@ where
 {
     fn init(
         subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, OrderBooksL1>>>,
+        stream_timeout: std::time::Duration,
     ) -> impl Future<
         Output = Result<
             impl Stream<
@@ -152,13 +154,13 @@ where
             DataError,
         >,
     > {
-        init_ws_exchange_stream_with_initial_snapshots::<
+        init_ws_exchange_stream::<
             Self,
             Instrument,
             OrderBooksL1,
-            WebSocketSerdeParser,
+            DeJson,
             StatelessTransformer<Self, Instrument::Key, OrderBooksL1, KrakenOrderBookL1>,
             NoInitialSnapshots,
-        >(subscriptions)
+        >(subscriptions, stream_timeout)
     }
 }

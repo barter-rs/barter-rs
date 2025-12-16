@@ -8,12 +8,12 @@ use crate::{
         market::BinanceMarket,
         spot::l2::{BinanceSpotOrderBooksL2SnapshotFetcher, BinanceSpotOrderBooksL2Transformer},
     },
-    init_ws_exchange_stream_with_initial_snapshots,
+    init_ws_exchange_stream,
     instrument::InstrumentData,
     subscription::{Subscription, SubscriptionKind, book::OrderBooksL2},
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::protocol::websocket::WebSocketSerdeParser;
+use barter_integration::serde::de::DeJson;
 use futures::Stream;
 use std::{
     fmt::{Display, Formatter},
@@ -51,6 +51,7 @@ where
 {
     fn init(
         subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, OrderBooksL2>>>,
+        stream_timeout: std::time::Duration,
     ) -> impl Future<
         Output = Result<
             impl Stream<
@@ -62,14 +63,14 @@ where
             DataError,
         >,
     > {
-        init_ws_exchange_stream_with_initial_snapshots::<
+        init_ws_exchange_stream::<
             Self,
             Instrument,
             OrderBooksL2,
-            WebSocketSerdeParser,
+            DeJson,
             BinanceSpotOrderBooksL2Transformer<Instrument::Key>,
             BinanceSpotOrderBooksL2SnapshotFetcher,
-        >(subscriptions)
+        >(subscriptions, stream_timeout)
     }
 }
 

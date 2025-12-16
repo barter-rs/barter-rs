@@ -4,48 +4,39 @@ use tracing::debug;
 pub mod error;
 pub mod util;
 
-pub trait Deserialiser<Input> {
-    type Output;
+pub trait Deserialiser<Input, Output> {
     type Error;
 
-    fn deserialise(input: Input) -> Result<Self::Output, Self::Error>;
+    fn deserialise(input: Input) -> Result<Output, Self::Error>;
 }
 
-#[derive(Debug)]
-pub struct DeJson<Output>(std::marker::PhantomData<Output>);
+#[derive(Debug, Default)]
+pub struct DeJson;
 
-impl<T> Default for DeJson<T> {
-    fn default() -> Self {
-        Self(<_>::default())
-    }
-}
-
-impl<'a, Output> Deserialiser<&'a [u8]> for DeJson<Output>
+impl<'a, Output> Deserialiser<&'a [u8], Output> for DeJson
 where
     Output: serde::Deserialize<'a> + 'a,
 {
-    type Output = Output;
     type Error = DeBinaryError;
 
-    fn deserialise(input: &'a [u8]) -> Result<Self::Output, Self::Error> {
+    fn deserialise(input: &'a [u8]) -> Result<Output, Self::Error> {
         Self::de_bytes(input)
     }
 }
 
-impl<Output> Deserialiser<bytes::Bytes> for DeJson<Output>
+impl<Output> Deserialiser<bytes::Bytes, Output> for DeJson
 where
     Output: for<'a> serde::Deserialize<'a>,
 {
-    type Output = Output;
     type Error = DeBinaryError;
 
-    fn deserialise(input: bytes::Bytes) -> Result<Self::Output, Self::Error> {
+    fn deserialise(input: bytes::Bytes) -> Result<Output, Self::Error> {
         Self::de_bytes(input.as_ref())
     }
 }
 
-impl<Output> DeJson<Output> {
-    pub fn de_bytes<'a>(input: &'a [u8]) -> Result<Output, DeBinaryError>
+impl DeJson {
+    pub fn de_bytes<'a, Output>(input: &'a [u8]) -> Result<Output, DeBinaryError>
     where
         Output: serde::Deserialize<'a> + 'a,
     {
@@ -70,41 +61,33 @@ impl<Output> DeJson<Output> {
     }
 }
 
-#[derive(Debug)]
-pub struct DeProtobuf<T>(std::marker::PhantomData<T>);
+#[derive(Debug, Default)]
+pub struct DeProtobuf;
 
-impl<T> Default for DeProtobuf<T> {
-    fn default() -> Self {
-        Self(<_>::default())
-    }
-}
-
-impl<'a, Output> Deserialiser<&'a [u8]> for DeProtobuf<Output>
+impl<'a, Output> Deserialiser<&'a [u8], Output> for DeProtobuf
 where
     Output: prost::Message + Default,
 {
-    type Output = Output;
     type Error = DeBinaryError;
 
-    fn deserialise(input: &'a [u8]) -> Result<Self::Output, Self::Error> {
+    fn deserialise(input: &'a [u8]) -> Result<Output, Self::Error> {
         Self::decode_bytes(input)
     }
 }
 
-impl<Output> Deserialiser<bytes::Bytes> for DeProtobuf<Output>
+impl<Output> Deserialiser<bytes::Bytes, Output> for DeProtobuf
 where
     Output: prost::Message + Default,
 {
-    type Output = Output;
     type Error = DeBinaryError;
 
-    fn deserialise(input: bytes::Bytes) -> Result<Self::Output, Self::Error> {
+    fn deserialise(input: bytes::Bytes) -> Result<Output, Self::Error> {
         Self::decode_bytes(input.as_ref())
     }
 }
 
-impl<Output> DeProtobuf<Output> {
-    pub fn decode_bytes(input: &[u8]) -> Result<Output, DeBinaryError>
+impl DeProtobuf {
+    pub fn decode_bytes<Output>(input: &[u8]) -> Result<Output, DeBinaryError>
     where
         Output: prost::Message + Default,
     {

@@ -70,6 +70,7 @@ where
 ///
 /// See `examples/order_books_l2_manager` for how to use this initialisation paradigm.
 pub async fn init_multi_order_book_l2_manager<SubBatchIter, SubIter, Sub, Exchange, Instrument>(
+    stream_timeout: std::time::Duration,
     subscription_batches: SubBatchIter,
 ) -> Result<
     OrderBookL2Manager<
@@ -106,7 +107,7 @@ where
                 subscription
             });
 
-            let builder = builder.subscribe(batch);
+            let builder = builder.subscribe(stream_timeout, batch);
             (builder, books)
         },
     );

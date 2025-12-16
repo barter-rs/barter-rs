@@ -80,6 +80,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
     /// Please see barter-data-rs/examples/dynamic_multi_stream_multi_exchange.rs for a
     /// comprehensive example of how to use this market data stream initialiser.
     pub async fn init<SubBatchIter, SubIter, Sub, Instrument>(
+        stream_timeout: std::time::Duration,
         subscription_batches: SubBatchIter,
     ) -> Result<Self, DataError>
     where
@@ -187,6 +188,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -209,6 +211,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -231,6 +234,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -253,6 +257,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -275,6 +280,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -297,6 +303,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -319,6 +326,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -341,6 +349,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -363,6 +372,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -385,6 +395,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -407,6 +418,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -429,6 +441,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -451,6 +464,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -473,6 +487,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -495,6 +510,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -517,6 +533,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -539,6 +556,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -561,6 +579,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -583,6 +602,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -605,6 +625,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -627,6 +648,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -649,6 +671,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -671,6 +694,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -693,6 +717,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {
@@ -715,6 +740,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                                     })
                                                     .collect(),
                                             ),
+                                            stream_timeout,
                                         )
                                         .await
                                         .map(|stream| {

@@ -48,29 +48,31 @@
 //! use futures::StreamExt;
 //! use tracing::warn;
 //!
+//! const STREAM_TIMEOUT: std::time::Duration = std::time::Duration::from_mins(1);
+//!
 //! #[tokio::main]
 //! async fn main() {
 //!     // Initialise PublicTrades Streams for various exchanges
 //!     // '--> each call to StreamBuilder::subscribe() initialises a separate WebSocket connection
 //!
 //!     let streams = Streams::<PublicTrades>::builder()
-//!         .subscribe([
+//!         .subscribe(STREAM_TIMEOUT, [
 //!             (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!             (BinanceSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!         ])
-//!         .subscribe([
+//!         .subscribe(STREAM_TIMEOUT, [
 //!             (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
 //!             (BinanceFuturesUsd::default(), "eth", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
 //!         ])
-//!         .subscribe([
+//!         .subscribe(STREAM_TIMEOUT, [
 //!             (Coinbase, "btc", "usd", MarketDataInstrumentKind::Spot, PublicTrades),
 //!             (Coinbase, "eth", "usd", MarketDataInstrumentKind::Spot, PublicTrades),
 //!         ])
-//!         .subscribe([
+//!         .subscribe(STREAM_TIMEOUT, [
 //!             (GateioSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!             (GateioSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!         ])
-//!         .subscribe([
+//!         .subscribe(STREAM_TIMEOUT, [
 //!             (Okx, "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!             (Okx, "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!             (Okx, "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
@@ -102,17 +104,15 @@ use crate::{
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
-    Transformer,
+    Message, Transformer,
     error::SocketError,
-    protocol::{
-        StreamParser,
-        websocket::{WsError, WsMessage, WsSink, WsStream},
-    },
-    stream::ExchangeStream,
+    protocol::websocket::{AdminWs, WsMessage, WsParser, WsSink, process_admin_ws},
+    serde::de::{Deserialiser, error::DeBinaryError},
+    stream::ext::BarterStreamExt,
 };
+use bytes::Bytes;
 use futures::{SinkExt, Stream, StreamExt};
-
-use std::{collections::VecDeque, future::Future};
+use std::future::Future;
 use tokio::sync::mpsc;
 use tracing::{debug, error, warn};
 
@@ -181,6 +181,7 @@ where
 {
     fn init(
         subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, Kind>>> + Send,
+        stream_timeout: std::time::Duration,
     ) -> impl Future<
         Output = Result<
             impl Stream<Item = Result<MarketEvent<Instrument::Key, Kind::Event>, DataError>> + Send,
@@ -225,22 +226,19 @@ where
     }
 }
 
-pub async fn init_ws_exchange_stream_with_initial_snapshots<
-    Exchange,
-    Instrument,
-    Kind,
-    Parser,
-    Transformer,
-    SnapFetcher,
->(
+pub async fn init_ws_exchange_stream<Exchange, Instrument, Kind, De, Transformer, SnapFetcher>(
     subscriptions: impl AsRef<Vec<Subscription<Exchange, Instrument, Kind>>>,
-) -> Result<ExchangeStream<Parser, WsStream, Transformer>, DataError>
+    timeout_stream: std::time::Duration,
+) -> Result<
+    impl Stream<Item = Result<MarketEvent<Instrument::Key, Kind::Event>, DataError>>,
+    DataError,
+>
 where
     Exchange: Connector + IdentifierStatic<ExchangeId> + Send + Sync,
     Instrument: InstrumentData,
     Kind: SubscriptionKind + Send + Sync,
     Kind::Event: Send,
-    Parser: StreamParser<Transformer::Input, Message = WsMessage, Error = WsError>,
+    De: Deserialiser<Bytes, Transformer::Input, Error = DeBinaryError>,
     Transformer: ExchangeTransformer<Exchange, Instrument::Key, Kind>,
     SnapFetcher: SnapshotFetcher<Exchange, Instrument, Kind>,
     Subscription<Exchange, Instrument, Kind>:
@@ -257,11 +255,13 @@ where
     // Fetch any required initial MarketEvent snapshots
     let initial_snapshots = SnapFetcher::fetch_snapshots(subscriptions).await?;
 
+    // Construct channel to distribute Transformer messages (eg/ custom pongs) to the exchange
+    let (ws_sink_tx, ws_sink_rx) = mpsc::unbounded_channel();
+
     // Split WebSocket into WsStream & WsSink components
     let (ws_sink, ws_stream) = websocket.split();
 
     // Spawn task to distribute Transformer messages (eg/ custom pongs) to the exchange
-    let (ws_sink_tx, ws_sink_rx) = mpsc::unbounded_channel();
     tokio::spawn(distribute_messages_to_exchange(
         Exchange::id(),
         ws_sink,
@@ -281,37 +281,82 @@ where
     let mut transformer = Transformer::init(instrument_map, &initial_snapshots, ws_sink_tx).await?;
 
     // Process any buffered active subscription events received during Subscription validation
-    let mut processed =
-        process_buffered_events::<Parser, Transformer>(&mut transformer, buffered_websocket_events);
+    let initial_updates = process_buffered_events::<De, _>(
+        &mut transformer,
+        buffered_websocket_events
+            .into_iter()
+            .map(WsMessage::into_data),
+    )
+    .collect::<Vec<_>>();
 
-    // Extend buffered events with any initial snapshot events
-    processed.extend(initial_snapshots.into_iter().map(Ok));
+    // Define Stream Pipeline
+    let ws_stream = ws_stream
+        // Apply Stream timeout
+        .with_timeout(timeout_stream, move || {
+            warn!(
+                timeout = ?timeout_stream,
+                "stream ended due to consecutive event timeout"
+            )
+        })
+        // Parse Result<WsMessage, WsError> -> Message<AdminWs, ExchangeTransformer::Input>
+        .map(|ws_result| match WsParser::parse(ws_result) {
+            Message::Admin(admin) => Message::Admin(admin),
+            Message::Payload(payload) => De::deserialise(payload)
+                .map(Message::Payload)
+                .unwrap_or_else(|error| Message::Admin(AdminWs::DeError(error))),
+        })
+        // Apply ExchangeTransformer & flatten OutputIter
+        .scan(transformer, |transformer, message| {
+            use itertools::Either::*;
 
-    Ok(ExchangeStream::new(ws_stream, transformer, processed))
+            let output = match message {
+                Message::Admin(admin_ws) => match process_admin_ws(admin_ws) {
+                    Ok(()) => None,
+                    Err(error) => Some(Left(std::iter::once(Err(DataError::from(error))))),
+                },
+                Message::Payload(payload) => {
+                    Some(Right(transformer.transform(payload).into_iter()))
+                }
+            };
+
+            std::future::ready(Some(output))
+        })
+        .filter_map(std::future::ready)
+        .flat_map(futures::stream::iter);
+
+    let stream = futures::stream::iter(initial_updates)
+        .chain(futures::stream::iter(initial_snapshots.into_iter().map(Ok)))
+        .chain(ws_stream);
+
+    Ok(stream)
 }
 
-pub fn process_buffered_events<Parser, StreamTransformer>(
+pub fn process_buffered_events<De, StreamTransformer>(
     transformer: &mut StreamTransformer,
-    events: Vec<Parser::Message>,
-) -> VecDeque<Result<StreamTransformer::Output, StreamTransformer::Error>>
+    events: impl IntoIterator<Item = Bytes>,
+) -> impl Iterator<Item = Result<StreamTransformer::Output, StreamTransformer::Error>>
 where
-    Parser: StreamParser<StreamTransformer::Input>,
+    De: Deserialiser<Bytes, StreamTransformer::Input>,
+    De::Error: std::fmt::Debug,
     StreamTransformer: Transformer,
 {
     events
         .into_iter()
-        .filter_map(|event| {
-            Parser::parse(Ok(event))?
-                .inspect_err(|error| {
-                    warn!(
-                        ?error,
-                        "failed to parse message buffered during Subscription validation"
-                    )
-                })
-                .ok()
+        .filter_map(|input| match De::deserialise(input.clone()) {
+            Ok(output) => Some(output),
+            Err(error) => {
+                let input_str =
+                    String::from_utf8(input.to_vec()).unwrap_or_else(|error| error.to_string());
+                warn!(
+                    ?input,
+                    %input_str,
+                    ?error,
+                    "failed to parse message buffered during Subscription validation"
+                );
+                None
+            }
         })
         .flat_map(|parsed| transformer.transform(parsed))
-        .collect()
 }
 
 /// Transmit [`WsMessage`]s sent from the [`ExchangeTransformer`] to the exchange via

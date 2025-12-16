@@ -16,6 +16,8 @@ use barter_instrument::instrument::market_data::{
 use tokio_stream::StreamExt;
 use tracing::{info, warn};
 
+const STREAM_TIMEOUT: std::time::Duration = std::time::Duration::from_mins(1);
+
 #[rustfmt::skip]
 #[tokio::main]
 async fn main() {
@@ -32,13 +34,13 @@ async fn main() {
 
         // Add PublicTrades Streams for various exchanges
         .add(Streams::<PublicTrades>::builder()
-            .subscribe([
+            .subscribe(STREAM_TIMEOUT, [
                 (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
             ])
-            .subscribe([
+            .subscribe(STREAM_TIMEOUT, [
                 (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
             ])
-            .subscribe([
+            .subscribe(STREAM_TIMEOUT, [
                 (Okx, "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
                 (Okx, "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
             ])
@@ -46,20 +48,20 @@ async fn main() {
 
         // Add OrderBooksL1 Stream for various exchanges
         .add(Streams::<OrderBooksL1>::builder()
-            .subscribe([
+            .subscribe(STREAM_TIMEOUT, [
                 (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL1),
             ])
-            .subscribe([
+            .subscribe(STREAM_TIMEOUT, [
                 (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, OrderBooksL1),
             ])
         )
 
         // Add OrderBooksL2 Stream for various exchanges
         .add(Streams::<OrderBooksL2>::builder()
-            .subscribe([
+            .subscribe(STREAM_TIMEOUT, [
                 (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
             ])
-            .subscribe([
+            .subscribe(STREAM_TIMEOUT, [
                 (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, OrderBooksL2),
             ])
         )

@@ -11,13 +11,13 @@ use crate::{
         },
         market::BinanceMarket,
     },
-    init_ws_exchange_stream_with_initial_snapshots,
+    init_ws_exchange_stream,
     instrument::InstrumentData,
     subscription::{Subscription, SubscriptionKind, book::OrderBooksL2, liquidation::Liquidations},
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::protocol::websocket::WebSocketSerdeParser;
+use barter_integration::serde::de::DeJson;
 use futures::Stream;
 use std::{
     fmt::{Display, Formatter},
@@ -58,6 +58,7 @@ where
 {
     fn init(
         subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, OrderBooksL2>>>,
+        stream_timeout: std::time::Duration,
     ) -> impl Future<
         Output = Result<
             impl Stream<
@@ -69,14 +70,14 @@ where
             DataError,
         >,
     > {
-        init_ws_exchange_stream_with_initial_snapshots::<
+        init_ws_exchange_stream::<
             Self,
             Instrument,
             OrderBooksL2,
-            WebSocketSerdeParser,
+            DeJson,
             BinanceFuturesUsdOrderBooksL2Transformer<Instrument::Key>,
             BinanceFuturesUsdOrderBooksL2SnapshotFetcher,
-        >(subscriptions)
+        >(subscriptions, stream_timeout)
     }
 }
 
@@ -88,6 +89,7 @@ where
 {
     fn init(
         subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, Liquidations>>>,
+        stream_timeout: std::time::Duration,
     ) -> impl Future<
         Output = Result<
             impl Stream<
@@ -99,14 +101,14 @@ where
             DataError,
         >,
     > {
-        init_ws_exchange_stream_with_initial_snapshots::<
+        init_ws_exchange_stream::<
             Self,
             Instrument,
             Liquidations,
-            WebSocketSerdeParser,
+            DeJson,
             StatelessTransformer<Self, Instrument::Key, Liquidations, BinanceLiquidation>,
             NoInitialSnapshots,
-        >(subscriptions)
+        >(subscriptions, stream_timeout)
     }
 }
 

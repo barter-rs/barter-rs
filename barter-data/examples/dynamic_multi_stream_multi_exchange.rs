@@ -13,6 +13,8 @@ use barter_instrument::{
 use futures::StreamExt;
 use tracing::{info, warn};
 
+const STREAM_TIMEOUT: std::time::Duration = std::time::Duration::from_mins(1);
+
 #[rustfmt::skip]
 #[tokio::main]
 async fn main() {
@@ -31,7 +33,7 @@ async fn main() {
     //   will be further split under the hood for compile-time reasons.
 
     // Initialise market reconnect::Event streams for various ExchangeIds and SubscriptionKinds
-    let streams = DynamicStreams::init([
+    let streams = DynamicStreams::init(STREAM_TIMEOUT, [
         // Batch notes:
         // Since batch contains 1 ExchangeId and 1 SubscriptionKind, so only 1 (1x1) WebSockets
         // will be spawned for this batch.

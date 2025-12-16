@@ -7,6 +7,8 @@ use barter_instrument::instrument::market_data::kind::MarketDataInstrumentKind;
 use futures_util::StreamExt;
 use tracing::{info, warn};
 
+const STREAM_TIMEOUT: std::time::Duration = std::time::Duration::from_mins(1);
+
 #[rustfmt::skip]
 #[tokio::main]
 async fn main() {
@@ -18,17 +20,17 @@ async fn main() {
     let streams = Streams::<PublicTrades>::builder()
 
         // Separate WebSocket connection for BTC_USDT stream since it's very high volume
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
         ])
 
         // Separate WebSocket connection for ETH_USDT stream since it's very high volume
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (BinanceFuturesUsd::default(), "eth", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
         ])
 
         // Lower volume Instruments can share a WebSocket connection
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (BinanceFuturesUsd::default(), "xrp", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
             (BinanceFuturesUsd::default(), "sol", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
             (BinanceFuturesUsd::default(), "avax", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),

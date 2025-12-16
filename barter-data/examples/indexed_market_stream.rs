@@ -16,7 +16,10 @@ use barter_instrument::{
 };
 use futures_util::StreamExt;
 use rust_decimal_macros::dec;
+use std::time::Duration;
 use tracing::info;
+
+const STREAM_TIMEOUT: Duration = Duration::from_mins(1);
 
 #[rustfmt::skip]
 #[tokio::main]
@@ -31,7 +34,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // - Uses IndexedInstruments to generate a Subscription for each Instrument-SubKind combination
     let mut stream = init_indexed_multi_exchange_market_stream(
         &instruments,
-        &[SubKind::PublicTrades, SubKind::OrderBooksL1, SubKind::OrderBooksL2]
+        &[SubKind::PublicTrades, SubKind::OrderBooksL1, SubKind::OrderBooksL2],
+        STREAM_TIMEOUT
     )
     .await?;
 

@@ -9,6 +9,8 @@ use barter_instrument::{
 use tokio_stream::StreamExt;
 use tracing::{info, warn};
 
+const STREAM_TIMEOUT: std::time::Duration = std::time::Duration::from_mins(1);
+
 #[rustfmt::skip]
 #[tokio::main]
 async fn main() {
@@ -20,17 +22,17 @@ async fn main() {
     let mut streams = Streams::<OrderBooksL1>::builder()
 
         // Separate WebSocket connection for BTC_USDT stream since it's very high volume
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL1),
         ])
 
         // Separate WebSocket connection for ETH_USDT stream since it's very high volume
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (BinanceSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL1),
         ])
 
         // Lower volume Instruments can share a WebSocket connection
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (BinanceSpot::default(), "xrp", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL1),
             (BinanceSpot::default(), "sol", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL1),
             (BinanceSpot::default(), "avax", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL1),

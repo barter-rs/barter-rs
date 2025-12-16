@@ -9,13 +9,13 @@ use crate::{
             perpetual::trade::GateioFuturesTrades,
         },
     },
-    init_ws_exchange_stream_with_initial_snapshots,
+    init_ws_exchange_stream,
     instrument::InstrumentData,
     subscription::{Subscription, SubscriptionKind, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::protocol::websocket::WebSocketSerdeParser;
+use barter_integration::serde::de::DeJson;
 use futures_util::Stream;
 use std::{fmt::Display, future::Future};
 
@@ -46,7 +46,8 @@ where
         Identifier<GateioChannel> + Identifier<GateioMarket>,
 {
     fn init(
-        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send + Send,
+        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send,
+        stream_timeout: std::time::Duration,
     ) -> impl Future<
         Output = Result<
             impl Stream<
@@ -58,14 +59,14 @@ where
             DataError,
         >,
     > {
-        init_ws_exchange_stream_with_initial_snapshots::<
+        init_ws_exchange_stream::<
             Self,
             Instrument,
             PublicTrades,
-            WebSocketSerdeParser,
+            DeJson,
             StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
             NoInitialSnapshots,
-        >(subscriptions)
+        >(subscriptions, stream_timeout)
     }
 }
 
@@ -103,6 +104,7 @@ where
 {
     fn init(
         subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send,
+        stream_timeout: std::time::Duration,
     ) -> impl Future<
         Output = Result<
             impl Stream<
@@ -114,14 +116,14 @@ where
             DataError,
         >,
     > {
-        init_ws_exchange_stream_with_initial_snapshots::<
+        init_ws_exchange_stream::<
             Self,
             Instrument,
             PublicTrades,
-            WebSocketSerdeParser,
+            DeJson,
             StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
             NoInitialSnapshots,
-        >(subscriptions)
+        >(subscriptions, stream_timeout)
     }
 }
 
