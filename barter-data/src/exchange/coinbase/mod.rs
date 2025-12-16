@@ -14,10 +14,7 @@ use crate::{
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{
-    error::SocketError,
-    protocol::websocket::{WebSocketSerdeParser, WsMessage},
-};
+use barter_integration::protocol::websocket::{WebSocketSerdeParser, WsMessage};
 use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
 use futures_util::Stream;
@@ -77,8 +74,8 @@ impl Connector for Coinbase {
     type SubValidator = WebSocketSubValidator;
     type SubResponse = CoinbaseSubResponse;
 
-    fn url() -> Result<Url, SocketError> {
-        Url::parse(BASE_URL_COINBASE).map_err(SocketError::UrlParse)
+    fn url() -> Result<Url, url::ParseError> {
+        Url::parse(BASE_URL_COINBASE)
     }
 
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {

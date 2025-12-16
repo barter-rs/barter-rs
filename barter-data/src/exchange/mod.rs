@@ -82,7 +82,7 @@ where
     type SubResponse: Validator<Error = SocketError> + Debug + DeserializeOwned;
 
     /// Base [`Url`] of the exchange server being connected with.
-    fn url() -> Result<Url, SocketError>;
+    fn url() -> Result<Url, url::ParseError>;
 
     /// Defines [`PingInterval`] of custom application-level
     /// [`WebSocket`](barter_integration::protocol::websocket::WebSocket) pings for the exchange

@@ -18,10 +18,7 @@ use crate::{
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{
-    error::SocketError,
-    protocol::websocket::{WebSocketSerdeParser, WsMessage},
-};
+use barter_integration::protocol::websocket::{WebSocketSerdeParser, WsMessage};
 use book::{BybitOrderBookMessage, l2::BybitOrderBooksL2Transformer};
 use futures_util::Stream;
 use serde::de::{Error, Unexpected};
@@ -92,8 +89,8 @@ where
     type SubValidator = WebSocketSubValidator;
     type SubResponse = BybitResponse;
 
-    fn url() -> Result<Url, SocketError> {
-        Url::parse(Server::websocket_url()).map_err(SocketError::UrlParse)
+    fn url() -> Result<Url, url::ParseError> {
+        Url::parse(Server::websocket_url())
     }
 
     fn ping_interval() -> Option<PingInterval> {
