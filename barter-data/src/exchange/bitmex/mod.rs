@@ -14,10 +14,7 @@ use crate::{
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{
-    error::SocketError,
-    protocol::websocket::{WebSocketSerdeParser, WsMessage},
-};
+use barter_integration::protocol::websocket::{WebSocketSerdeParser, WsMessage};
 use derive_more::Display;
 use serde::de::{Error, Unexpected};
 use std::fmt::Debug;
@@ -60,8 +57,8 @@ impl Connector for Bitmex {
     type SubValidator = WebSocketSubValidator;
     type SubResponse = BitmexSubResponse;
 
-    fn url() -> Result<Url, SocketError> {
-        Url::parse(BASE_URL_BITMEX).map_err(SocketError::UrlParse)
+    fn url() -> Result<Url, url::ParseError> {
+        Url::parse(BASE_URL_BITMEX)
     }
 
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
