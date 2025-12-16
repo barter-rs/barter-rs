@@ -1,4 +1,4 @@
-use crate::{error::SocketError, protocol::StreamParser};
+use crate::{Message, error::SocketError, protocol::StreamParser};
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -28,6 +28,35 @@ pub type WsMessage = tokio_tungstenite::tungstenite::Message;
 
 /// Communicative type alias for a tungstenite [`WebSocket`] `Error`.
 pub type WsError = tokio_tungstenite::tungstenite::Error;
+
+/// [`WebSocket`] administration message variants.
+#[derive(Debug)]
+pub enum AdminWs {
+    Ping(Bytes),
+    Pong(Bytes),
+    Close(Option<CloseFrame>),
+    WsError(WsError),
+}
+
+/// [`WebSocket`] parser.
+///
+/// Translates a `Result<WsMessage, WsError>` to a `Message<AdminWs, Bytes>`.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+pub struct WsParser;
+
+impl WsParser {
+    pub fn parse(ws_result: Result<WsMessage, WsError>) -> Message<AdminWs, Bytes> {
+        match ws_result {
+            Ok(WsMessage::Text(utf8)) => Message::Payload(Bytes::from(utf8)),
+            Ok(WsMessage::Binary(bytes)) => Message::Payload(bytes),
+            Ok(WsMessage::Frame(frame)) => Message::Payload(frame.into_payload()),
+            Ok(WsMessage::Ping(bytes)) => Message::Admin(AdminWs::Ping(bytes)),
+            Ok(WsMessage::Pong(bytes)) => Message::Admin(AdminWs::Pong(bytes)),
+            Ok(WsMessage::Close(close)) => Message::Admin(AdminWs::Close(close)),
+            Err(error) => Message::Admin(AdminWs::WsError(error)),
+        }
+    }
+}
 
 /// Default [`StreamParser`] implementation for a [`WebSocket`].
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
@@ -191,4 +220,56 @@ pub fn is_websocket_disconnected(error: &WsError) -> bool {
             | WsError::Io(_)
             | WsError::Protocol(ProtocolError::SendAfterClosing)
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
+
+    #[test]
+    fn test_ws_parser_text_message() {
+        let msg = Ok(WsMessage::Text("hello".into()));
+        let result = WsParser::parse(msg);
+        assert!(matches!(result, Message::Payload(bytes) if bytes == Bytes::from("hello")));
+    }
+
+    #[test]
+    fn test_ws_parser_binary_message() {
+        let msg = Ok(WsMessage::Binary(Bytes::from_static(b"\x01\x02")));
+        let result = WsParser::parse(msg);
+        assert!(matches!(result, Message::Payload(bytes) if bytes == Bytes::from_static(b"\x01\x02")));
+    }
+
+    #[test]
+    fn test_ws_parser_ping() {
+        let msg = Ok(WsMessage::Ping(Bytes::from_static(b"ping")));
+        let result = WsParser::parse(msg);
+        assert!(matches!(result, Message::Admin(AdminWs::Ping(bytes)) if bytes == Bytes::from_static(b"ping")));
+    }
+
+    #[test]
+    fn test_ws_parser_pong() {
+        let msg = Ok(WsMessage::Pong(Bytes::from_static(b"pong")));
+        let result = WsParser::parse(msg);
+        assert!(matches!(result, Message::Admin(AdminWs::Pong(bytes)) if bytes == Bytes::from_static(b"pong")));
+    }
+
+    #[test]
+    fn test_ws_parser_close() {
+        let close = CloseFrame {
+            code: CloseCode::Normal,
+            reason: "bye".into(),
+        };
+        let msg = Ok(WsMessage::Close(Some(close)));
+        let result = WsParser::parse(msg);
+        assert!(matches!(result, Message::Admin(AdminWs::Close(Some(_)))));
+    }
+
+    #[test]
+    fn test_ws_parser_error() {
+        let msg = Err(WsError::ConnectionClosed);
+        let result = WsParser::parse(msg);
+        assert!(matches!(result, Message::Admin(AdminWs::WsError(_))));
+    }
 }

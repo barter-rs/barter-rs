@@ -105,3 +105,17 @@ pub trait Terminal {
     Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Deserialize, Serialize,
 )]
 pub struct FeedEnded;
+
+/// Either an "Admin" or a "Payload" message.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+pub enum Message<A, T> {
+    Admin(A),
+    Payload(T),
+}
+
+/// Admin message that's either a "Protocol" or "Application" level event.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+pub enum Admin<P, A> {
+    Protocol(P),
+    Application(A),
+}
