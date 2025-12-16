@@ -10,10 +10,7 @@ use crate::{
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{
-    error::SocketError,
-    protocol::websocket::{WebSocketSerdeParser, WsMessage},
-};
+use barter_integration::protocol::websocket::{WebSocketSerdeParser, WsMessage};
 use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
 use serde_json::json;
@@ -75,8 +72,8 @@ impl Connector for Okx {
     type SubValidator = WebSocketSubValidator;
     type SubResponse = OkxSubResponse;
 
-    fn url() -> Result<Url, SocketError> {
-        Url::parse(BASE_URL_OKX).map_err(SocketError::UrlParse)
+    fn url() -> Result<Url, url::ParseError> {
+        Url::parse(BASE_URL_OKX)
     }
 
     fn ping_interval() -> Option<PingInterval> {

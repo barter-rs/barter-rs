@@ -6,7 +6,7 @@ use crate::{
     subscription::{Map, SubscriptionKind},
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{Validator, error::SocketError, protocol::websocket::WsMessage};
+use barter_integration::{Validator, protocol::websocket::WsMessage};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{fmt::Debug, time::Duration};
 use url::Url;
@@ -106,7 +106,7 @@ where
     type SubResponse: Validator + Debug + DeserializeOwned;
 
     /// Base [`Url`] of the exchange server being connected with.
-    fn url() -> Result<Url, SocketError>;
+    fn url() -> Result<Url, url::ParseError>;
 
     /// Defines [`PingInterval`] of custom application-level
     /// [`WebSocket`](barter_integration::protocol::websocket::WebSocket) pings for the exchange
