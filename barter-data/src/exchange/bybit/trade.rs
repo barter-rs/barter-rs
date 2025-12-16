@@ -29,7 +29,7 @@ pub type BybitTrade = BybitPayload<Vec<BybitTradeInner>>;
 pub struct BybitTradeInner {
     #[serde(
         alias = "T",
-        deserialize_with = "barter_integration::serde::de::de_u64_epoch_ms_as_datetime_utc"
+        deserialize_with = "barter_integration::serde::de::util::de_u64_epoch_ms_as_datetime_utc"
     )]
     pub time: DateTime<Utc>,
 
@@ -41,13 +41,13 @@ pub struct BybitTradeInner {
 
     #[serde(
         alias = "v",
-        deserialize_with = "barter_integration::serde::de::de_str"
+        deserialize_with = "barter_integration::serde::de::util::de_str"
     )]
     pub amount: f64,
 
     #[serde(
         alias = "p",
-        deserialize_with = "barter_integration::serde::de::de_str"
+        deserialize_with = "barter_integration::serde::de::util::de_str"
     )]
     pub price: f64,
 
@@ -91,7 +91,7 @@ mod tests {
 
         use super::*;
         use barter_integration::{
-            error::SocketError, serde::de::datetime_utc_from_epoch_duration,
+            error::SocketError, serde::de::util::datetime_utc_from_epoch_duration,
             subscription::SubscriptionId,
         };
         use smol_str::ToSmolStr;

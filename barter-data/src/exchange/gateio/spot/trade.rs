@@ -34,16 +34,16 @@ pub struct GateioSpotTradeInner {
     pub market: String,
     #[serde(
         rename = "create_time_ms",
-        deserialize_with = "barter_integration::serde::de::de_str_f64_epoch_ms_as_datetime_utc"
+        deserialize_with = "barter_integration::serde::de::util::de_str_f64_epoch_ms_as_datetime_utc"
     )]
     pub time: DateTime<Utc>,
     pub id: u64,
-    #[serde(deserialize_with = "barter_integration::serde::de::de_str")]
+    #[serde(deserialize_with = "barter_integration::serde::de::util::de_str")]
     pub price: f64,
 
     #[serde(
         alias = "size",
-        deserialize_with = "barter_integration::serde::de::de_str"
+        deserialize_with = "barter_integration::serde::de::util::de_str"
     )]
     pub amount: f64,
 

@@ -57,19 +57,19 @@ pub struct BinanceTrade {
     pub subscription_id: SubscriptionId,
     #[serde(
         alias = "T",
-        deserialize_with = "barter_integration::serde::de::de_u64_epoch_ms_as_datetime_utc"
+        deserialize_with = "barter_integration::serde::de::util::de_u64_epoch_ms_as_datetime_utc"
     )]
     pub time: DateTime<Utc>,
     #[serde(alias = "t")]
     pub id: u64,
     #[serde(
         alias = "p",
-        deserialize_with = "barter_integration::serde::de::de_str"
+        deserialize_with = "barter_integration::serde::de::util::de_str"
     )]
     pub price: f64,
     #[serde(
         alias = "q",
-        deserialize_with = "barter_integration::serde::de::de_str"
+        deserialize_with = "barter_integration::serde::de::util::de_str"
     )]
     pub amount: f64,
     #[serde(alias = "m", deserialize_with = "de_side_from_buyer_is_maker")]
@@ -137,7 +137,9 @@ mod tests {
         use std::time::Duration;
 
         use super::*;
-        use barter_integration::{error::SocketError, serde::de::datetime_utc_from_epoch_duration};
+        use barter_integration::{
+            error::SocketError, serde::de::util::datetime_utc_from_epoch_duration,
+        };
         use serde::de::Error;
 
         #[test]
