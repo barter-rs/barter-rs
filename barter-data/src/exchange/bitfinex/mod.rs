@@ -24,11 +24,14 @@ use self::{
     subscription::BitfinexPlatformEvent, validator::BitfinexWebSocketSubValidator,
 };
 use crate::{
-    ExchangeWsStream, NoInitialSnapshots,
-    exchange::{Connector, ExchangeSub, StreamSelector},
+    Identifier, IdentifierStatic, NoInitialSnapshots, StreamSelector,
+    error::DataError,
+    event::MarketEvent,
+    exchange::{Connector, ExchangeSub},
+    init_ws_exchange_stream_with_initial_snapshots,
     instrument::InstrumentData,
     subscriber::WebSocketSubscriber,
-    subscription::trade::PublicTrades,
+    subscription::{Subscription, SubscriptionKind, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
@@ -38,21 +41,23 @@ use barter_integration::{
 };
 use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
+use futures_util::Stream;
 use serde_json::json;
+use std::future::Future;
 use url::Url;
 
-/// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
+/// Defines the type that translates a Barter [`Subscription`]
 /// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
-/// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
+/// Defines the type that translates a Barter [`Subscription`]
 /// into an exchange [`Connector`] specific market used for generating [`Connector::requests`].
 pub mod market;
 
 /// [`BitfinexMessage`] type for [`Bitfinex`].
 pub mod message;
 
-/// [`Subscription`](crate::subscription::Subscription) response types and response
+/// [`Subscription`] response types and response
 /// [`Validator`](barter_integration::Validator) for [`Bitfinex`].
 pub mod subscription;
 
@@ -66,9 +71,6 @@ pub mod validator;
 ///
 /// See docs: <https://docs.bitfinex.com/docs/ws-general>
 pub const BASE_URL_BITFINEX: &str = "wss://api-pub.bitfinex.com/ws/2";
-
-/// Convenient type alias for a Bitfinex [`ExchangeWsStream`] using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
-pub type BitfinexWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
 
 /// [`Bitfinex`] exchange.
 ///
@@ -89,8 +91,13 @@ pub type BitfinexWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, 
 )]
 pub struct Bitfinex;
 
+impl IdentifierStatic<ExchangeId> for Bitfinex {
+    fn id() -> ExchangeId {
+        ExchangeId::Bitfinex
+    }
+}
+
 impl Connector for Bitfinex {
-    const ID: ExchangeId = ExchangeId::Bitfinex;
     type Channel = BitfinexChannel;
     type Market = BitfinexMarket;
     type Subscriber = WebSocketSubscriber;
@@ -121,9 +128,29 @@ impl Connector for Bitfinex {
 impl<Instrument> StreamSelector<Instrument, PublicTrades> for Bitfinex
 where
     Instrument: InstrumentData,
+    Subscription<Self, Instrument, PublicTrades>:
+        Identifier<BitfinexChannel> + Identifier<BitfinexMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream = BitfinexWsStream<
-        StatelessTransformer<Self, Instrument::Key, PublicTrades, BitfinexMessage>,
-    >;
+    fn init(
+        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send,
+    ) -> impl Future<
+        Output = Result<
+            impl Stream<
+                Item = Result<
+                    MarketEvent<Instrument::Key, <PublicTrades as SubscriptionKind>::Event>,
+                    DataError,
+                >,
+            >,
+            DataError,
+        >,
+    > {
+        init_ws_exchange_stream_with_initial_snapshots::<
+            Self,
+            Instrument,
+            PublicTrades,
+            WebSocketSerdeParser,
+            StatelessTransformer<Self, Instrument::Key, PublicTrades, BitfinexMessage>,
+            NoInitialSnapshots,
+        >(subscriptions)
+    }
 }

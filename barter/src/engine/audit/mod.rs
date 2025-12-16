@@ -163,7 +163,8 @@ impl<Event, Output> EngineAudit<Event, Output> {
 /// Represents [`AuditTick`] types that are generated when an `Engine` processes an `Event`.
 pub struct ProcessAudit<Event, Output> {
     pub event: Event,
-    pub outputs: NoneOneOrMany<Output>,
+    // pub state_deltas: NoneOneOrMany<>,
+    pub outputs: NoneOneOrMany<Output>, // Todo: could these be combined? Just One "Output" enum, then "Outputs: Iterator"
     pub errors: NoneOneOrMany<UnrecoverableEngineError>,
 }
 

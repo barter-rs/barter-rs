@@ -4,19 +4,20 @@ use crate::{
     subscription::{Map, SubscriptionKind},
 };
 use async_trait::async_trait;
-use barter_integration::{Transformer, protocol::websocket::WsMessage};
+use barter_integration::{TransformerDeprecated, protocol::websocket::WsMessage};
 use tokio::sync::mpsc;
 
 /// Generic stateless [`ExchangeTransformer`] often used for transforming
 /// [`PublicTrades`](crate::subscription::trade::PublicTrades) streams.
 pub mod stateless;
 
-/// Defines how to construct a [`Transformer`] used by [`MarketStream`](super::MarketStream)s to
+/// Defines how to construct a [`TransformerDeprecated`] used by [`MarketStream`](super::MarketStream)s to
 /// translate exchange specific types to normalised Barter types.
 #[async_trait]
 pub trait ExchangeTransformer<Exchange, InstrumentKey, Kind>
 where
-    Self: Transformer<Output = MarketEvent<InstrumentKey, Kind::Event>, Error = DataError> + Sized,
+    Self: TransformerDeprecated<Output = MarketEvent<InstrumentKey, Kind::Event>, Error = DataError>
+        + Sized,
     Kind: SubscriptionKind,
 {
     /// Initialise a new [`Self`], also fetching any market data snapshots required for the

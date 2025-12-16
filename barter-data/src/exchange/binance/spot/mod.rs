@@ -1,19 +1,24 @@
 use super::{Binance, ExchangeServer};
 use crate::{
-    exchange::{
-        StreamSelector,
-        binance::{
-            BinanceWsStream,
-            spot::l2::{
-                BinanceSpotOrderBooksL2SnapshotFetcher, BinanceSpotOrderBooksL2Transformer,
-            },
-        },
+    Identifier, StreamSelector,
+    error::DataError,
+    event::MarketEvent,
+    exchange::binance::{
+        channel::BinanceChannel,
+        market::BinanceMarket,
+        spot::l2::{BinanceSpotOrderBooksL2SnapshotFetcher, BinanceSpotOrderBooksL2Transformer},
     },
+    init_ws_exchange_stream_with_initial_snapshots,
     instrument::InstrumentData,
-    subscription::book::OrderBooksL2,
+    subscription::{Subscription, SubscriptionKind, book::OrderBooksL2},
 };
 use barter_instrument::exchange::ExchangeId;
-use std::fmt::{Display, Formatter};
+use barter_integration::protocol::websocket::WebSocketSerdeParser;
+use futures::Stream;
+use std::{
+    fmt::{Display, Formatter},
+    future::Future,
+};
 
 /// Level 2 OrderBook types.
 pub mod l2;
@@ -41,9 +46,31 @@ impl ExchangeServer for BinanceServerSpot {
 impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for BinanceSpot
 where
     Instrument: InstrumentData,
+    Subscription<Self, Instrument, OrderBooksL2>:
+        Identifier<BinanceChannel> + Identifier<BinanceMarket>,
 {
-    type SnapFetcher = BinanceSpotOrderBooksL2SnapshotFetcher;
-    type Stream = BinanceWsStream<BinanceSpotOrderBooksL2Transformer<Instrument::Key>>;
+    fn init(
+        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, OrderBooksL2>>>,
+    ) -> impl Future<
+        Output = Result<
+            impl Stream<
+                Item = Result<
+                    MarketEvent<Instrument::Key, <OrderBooksL2 as SubscriptionKind>::Event>,
+                    DataError,
+                >,
+            >,
+            DataError,
+        >,
+    > {
+        init_ws_exchange_stream_with_initial_snapshots::<
+            Self,
+            Instrument,
+            OrderBooksL2,
+            WebSocketSerdeParser,
+            BinanceSpotOrderBooksL2Transformer<Instrument::Key>,
+            BinanceSpotOrderBooksL2SnapshotFetcher,
+        >(subscriptions)
+    }
 }
 
 impl Display for BinanceSpot {

@@ -1,15 +1,22 @@
 use self::trade::GateioSpotTrade;
 use super::Gateio;
 use crate::{
-    NoInitialSnapshots,
-    exchange::{ExchangeServer, StreamSelector, gateio::GateiotWsStream},
+    Identifier, NoInitialSnapshots, StreamSelector,
+    error::DataError,
+    event::MarketEvent,
+    exchange::{
+        ExchangeServer,
+        gateio::{channel::GateioChannel, market::GateioMarket},
+    },
+    init_ws_exchange_stream_with_initial_snapshots,
     instrument::InstrumentData,
-    subscription::trade::PublicTrades,
+    subscription::{Subscription, SubscriptionKind, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_macro::{DeExchange, SerExchange};
-use std::fmt::Display;
+use barter_integration::protocol::websocket::WebSocketSerdeParser;
+use futures_util::Stream;
+use std::{fmt::Display, future::Future};
 
 /// Public trades types.
 pub mod trade;
@@ -23,9 +30,7 @@ pub const WEBSOCKET_BASE_URL_GATEIO_SPOT: &str = "wss://api.gateio.ws/ws/v4/";
 pub type GateioSpot = Gateio<GateioServerSpot>;
 
 /// [`Gateio`] spot [`ExchangeServer`].
-#[derive(
-    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, DeExchange, SerExchange,
-)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 pub struct GateioServerSpot;
 
 impl ExchangeServer for GateioServerSpot {
@@ -39,10 +44,31 @@ impl ExchangeServer for GateioServerSpot {
 impl<Instrument> StreamSelector<Instrument, PublicTrades> for GateioSpot
 where
     Instrument: InstrumentData,
+    Subscription<Self, Instrument, PublicTrades>:
+        Identifier<GateioChannel> + Identifier<GateioMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream =
-        GateiotWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioSpotTrade>>;
+    fn init(
+        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send,
+    ) -> impl Future<
+        Output = Result<
+            impl Stream<
+                Item = Result<
+                    MarketEvent<Instrument::Key, <PublicTrades as SubscriptionKind>::Event>,
+                    DataError,
+                >,
+            >,
+            DataError,
+        >,
+    > {
+        init_ws_exchange_stream_with_initial_snapshots::<
+            Self,
+            Instrument,
+            PublicTrades,
+            WebSocketSerdeParser,
+            StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioSpotTrade>,
+            NoInitialSnapshots,
+        >(subscriptions)
+    }
 }
 
 impl Display for GateioSpot {

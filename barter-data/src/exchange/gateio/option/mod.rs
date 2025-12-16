@@ -1,15 +1,23 @@
 use crate::{
-    NoInitialSnapshots,
+    Identifier, NoInitialSnapshots, StreamSelector,
+    error::DataError,
+    event::MarketEvent,
     exchange::{
-        ExchangeServer, StreamSelector,
-        gateio::{Gateio, GateiotWsStream, perpetual::trade::GateioFuturesTrades},
+        ExchangeServer,
+        gateio::{
+            Gateio, channel::GateioChannel, market::GateioMarket,
+            perpetual::trade::GateioFuturesTrades,
+        },
     },
+    init_ws_exchange_stream_with_initial_snapshots,
     instrument::InstrumentData,
-    subscription::trade::PublicTrades,
+    subscription::{Subscription, SubscriptionKind, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use std::fmt::Display;
+use barter_integration::protocol::websocket::WebSocketSerdeParser;
+use futures_util::Stream;
+use std::{fmt::Display, future::Future};
 
 /// [`GateioOptions`] WebSocket server base url.
 ///
@@ -34,11 +42,31 @@ impl ExchangeServer for GateioServerOptions {
 impl<Instrument> StreamSelector<Instrument, PublicTrades> for GateioOptions
 where
     Instrument: InstrumentData,
+    Subscription<Self, Instrument, PublicTrades>:
+        Identifier<GateioChannel> + Identifier<GateioMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream = GateiotWsStream<
-        StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
-    >;
+    fn init(
+        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send,
+    ) -> impl Future<
+        Output = Result<
+            impl Stream<
+                Item = Result<
+                    MarketEvent<Instrument::Key, <PublicTrades as SubscriptionKind>::Event>,
+                    DataError,
+                >,
+            >,
+            DataError,
+        >,
+    > {
+        init_ws_exchange_stream_with_initial_snapshots::<
+            Self,
+            Instrument,
+            PublicTrades,
+            WebSocketSerdeParser,
+            StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
+            NoInitialSnapshots,
+        >(subscriptions)
+    }
 }
 
 impl Display for GateioOptions {

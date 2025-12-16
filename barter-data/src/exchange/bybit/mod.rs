@@ -1,14 +1,17 @@
 use crate::{
-    ExchangeWsStream, NoInitialSnapshots,
+    Identifier, IdentifierStatic, NoInitialSnapshots, StreamSelector,
+    error::DataError,
+    event::MarketEvent,
     exchange::{
-        Connector, ExchangeServer, PingInterval, StreamSelector,
+        Connector, ExchangeServer, PingInterval,
         bybit::{channel::BybitChannel, market::BybitMarket, subscription::BybitResponse},
         subscription::ExchangeSub,
     },
+    init_ws_exchange_stream_with_initial_snapshots,
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
     subscription::{
-        Map,
+        Map, Subscription, SubscriptionKind,
         book::{OrderBooksL1, OrderBooksL2},
         trade::PublicTrades,
     },
@@ -20,13 +23,14 @@ use barter_integration::{
     protocol::websocket::{WebSocketSerdeParser, WsMessage},
 };
 use book::{BybitOrderBookMessage, l2::BybitOrderBooksL2Transformer};
+use futures_util::Stream;
 use serde::de::{Error, Unexpected};
-use std::{fmt::Debug, marker::PhantomData, time::Duration};
+use std::{fmt::Debug, future::Future, marker::PhantomData, time::Duration};
 use tokio::time;
 use trade::BybitTrade;
 use url::Url;
 
-/// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
+/// Defines the type that translates a Barter [`Subscription`]
 /// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
@@ -34,7 +38,7 @@ pub mod channel;
 /// [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
 pub mod futures;
 
-/// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
+/// Defines the type that translates a Barter [`Subscription`]
 /// into an exchange [`Connector`] specific market used for generating [`Connector::requests`].
 pub mod market;
 
@@ -46,7 +50,7 @@ pub mod message;
 /// [`BybitSpot`](spot::BybitSpot).
 pub mod spot;
 
-/// [`Subscription`](crate::subscription::Subscription) response type and response
+/// [`Subscription`] response type and response
 /// [`Validator`](barter_integration::Validator) common to both [`BybitSpot`](spot::BybitSpot)
 /// and [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
 pub mod subscription;
@@ -59,9 +63,6 @@ pub mod trade;
 /// [`BybitFuturesUsd`](futures::BybitPerpetualsUsd).
 pub mod book;
 
-/// Convenient type alias for a Bybit [`ExchangeWsStream`] using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
-pub type BybitWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
-
 /// Generic [`Bybit<Server>`](Bybit) exchange.
 ///
 /// ### Notes
@@ -72,11 +73,19 @@ pub struct Bybit<Server> {
     server: PhantomData<Server>,
 }
 
+impl<Server> IdentifierStatic<ExchangeId> for Bybit<Server>
+where
+    Server: ExchangeServer,
+{
+    fn id() -> ExchangeId {
+        Server::ID
+    }
+}
+
 impl<Server> Connector for Bybit<Server>
 where
     Server: ExchangeServer,
 {
-    const ID: ExchangeId = Server::ID;
     type Channel = BybitChannel;
     type Market = BybitMarket;
     type Subscriber = WebSocketSubscriber;
@@ -125,30 +134,93 @@ impl<Instrument, Server> StreamSelector<Instrument, PublicTrades> for Bybit<Serv
 where
     Instrument: InstrumentData,
     Server: ExchangeServer + Debug + Send + Sync,
+    Subscription<Self, Instrument, PublicTrades>:
+        Identifier<BybitChannel> + Identifier<BybitMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream =
-        BybitWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BybitTrade>>;
+    fn init(
+        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send,
+    ) -> impl Future<
+        Output = Result<
+            impl Stream<
+                Item = Result<
+                    MarketEvent<Instrument::Key, <PublicTrades as SubscriptionKind>::Event>,
+                    DataError,
+                >,
+            >,
+            DataError,
+        >,
+    > {
+        init_ws_exchange_stream_with_initial_snapshots::<
+            Self,
+            Instrument,
+            PublicTrades,
+            WebSocketSerdeParser,
+            StatelessTransformer<Self, Instrument::Key, PublicTrades, BybitTrade>,
+            NoInitialSnapshots,
+        >(subscriptions)
+    }
 }
 
 impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL1> for Bybit<Server>
 where
     Instrument: InstrumentData,
     Server: ExchangeServer + Debug + Send + Sync,
+    Subscription<Self, Instrument, OrderBooksL1>:
+        Identifier<BybitChannel> + Identifier<BybitMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream = BybitWsStream<
-        StatelessTransformer<Self, Instrument::Key, OrderBooksL1, BybitOrderBookMessage>,
-    >;
+    fn init(
+        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, OrderBooksL1>>>,
+    ) -> impl Future<
+        Output = Result<
+            impl Stream<
+                Item = Result<
+                    MarketEvent<Instrument::Key, <OrderBooksL1 as SubscriptionKind>::Event>,
+                    DataError,
+                >,
+            >,
+            DataError,
+        >,
+    > {
+        init_ws_exchange_stream_with_initial_snapshots::<
+            Self,
+            Instrument,
+            OrderBooksL1,
+            WebSocketSerdeParser,
+            StatelessTransformer<Self, Instrument::Key, OrderBooksL1, BybitOrderBookMessage>,
+            NoInitialSnapshots,
+        >(subscriptions)
+    }
 }
 
 impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL2> for Bybit<Server>
 where
     Instrument: InstrumentData,
     Server: ExchangeServer + Debug + Send + Sync,
+    Subscription<Self, Instrument, OrderBooksL2>:
+        Identifier<BybitChannel> + Identifier<BybitMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream = BybitWsStream<BybitOrderBooksL2Transformer<Instrument::Key>>;
+    fn init(
+        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, OrderBooksL2>>> + Send,
+    ) -> impl Future<
+        Output = Result<
+            impl Stream<
+                Item = Result<
+                    MarketEvent<Instrument::Key, <OrderBooksL2 as SubscriptionKind>::Event>,
+                    DataError,
+                >,
+            >,
+            DataError,
+        >,
+    > {
+        init_ws_exchange_stream_with_initial_snapshots::<
+            Self,
+            Instrument,
+            OrderBooksL2,
+            WebSocketSerdeParser,
+            BybitOrderBooksL2Transformer<Instrument::Key>,
+            NoInitialSnapshots,
+        >(subscriptions)
+    }
 }
 
 impl<'de, Server> serde::Deserialize<'de> for Bybit<Server>
@@ -161,12 +233,12 @@ where
     {
         let input = <&str as serde::Deserialize>::deserialize(deserializer)?;
 
-        if input == Self::ID.as_str() {
+        if input == Self::id().as_str() {
             Ok(Self::default())
         } else {
             Err(Error::invalid_value(
                 Unexpected::Str(input),
-                &Self::ID.as_str(),
+                &Self::id().as_str(),
             ))
         }
     }
@@ -180,6 +252,6 @@ where
     where
         S: serde::ser::Serializer,
     {
-        serializer.serialize_str(Self::ID.as_str())
+        serializer.serialize_str(Self::id().as_str())
     }
 }

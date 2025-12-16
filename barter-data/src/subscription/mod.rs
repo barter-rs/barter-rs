@@ -1,4 +1,4 @@
-use crate::{exchange::Connector, instrument::InstrumentData};
+use crate::{IdentifierStatic, instrument::InstrumentData};
 use barter_instrument::{
     Keyed,
     asset::name::AssetNameInternal,
@@ -161,19 +161,20 @@ impl<Instrument, Exchange, Kind> Subscription<Exchange, Instrument, Kind> {
 
 impl<Exchange, Instrument, Kind> Validator for Subscription<Exchange, Instrument, Kind>
 where
-    Exchange: Connector,
+    Exchange: IdentifierStatic<ExchangeId>,
     Instrument: InstrumentData,
 {
+    type Error = SocketError;
     fn validate(self) -> Result<Self, SocketError>
     where
         Self: Sized,
     {
         // Validate the Exchange supports the Subscription InstrumentKind
-        if exchange_supports_instrument_kind(Exchange::ID, self.instrument.kind()) {
+        if exchange_supports_instrument_kind(Exchange::id(), self.instrument.kind()) {
             Ok(self)
         } else {
             Err(SocketError::Unsupported {
-                entity: Exchange::ID.to_string(),
+                entity: Exchange::id().to_string(),
                 item: self.instrument.kind().to_string(),
             })
         }
@@ -222,6 +223,7 @@ impl<Instrument> Validator for Subscription<ExchangeId, Instrument, SubKind>
 where
     Instrument: InstrumentData,
 {
+    type Error = SocketError;
     fn validate(self) -> Result<Self, SocketError>
     where
         Self: Sized,

@@ -8,7 +8,7 @@ use barter_execution::order::{
     state::{ActiveOrderState, CancelInFlight, OrderState},
 };
 use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
-use barter_integration::snapshot::Snapshot;
+use barter_integration::collection::snapshot::Snapshot;
 use derive_more::Constructor;
 use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};

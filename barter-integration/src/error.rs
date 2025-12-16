@@ -76,3 +76,9 @@ impl From<reqwest::Error> for SocketError {
         }
     }
 }
+
+impl From<tokio_tungstenite::tungstenite::Error> for SocketError {
+    fn from(value: tokio_tungstenite::tungstenite::Error) -> Self {
+        Self::WebSocket(Box::new(value))
+    }
+}

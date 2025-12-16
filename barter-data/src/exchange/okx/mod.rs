@@ -2,11 +2,14 @@ use self::{
     channel::OkxChannel, market::OkxMarket, subscription::OkxSubResponse, trade::OkxTrades,
 };
 use crate::{
-    ExchangeWsStream, NoInitialSnapshots,
-    exchange::{Connector, ExchangeSub, PingInterval, StreamSelector},
+    Identifier, IdentifierStatic, NoInitialSnapshots, StreamSelector,
+    error::DataError,
+    event::MarketEvent,
+    exchange::{Connector, ExchangeSub, PingInterval},
+    init_ws_exchange_stream_with_initial_snapshots,
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
-    subscription::trade::PublicTrades,
+    subscription::{Subscription, SubscriptionKind, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
@@ -16,19 +19,20 @@ use barter_integration::{
 };
 use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
+use futures_util::Stream;
 use serde_json::json;
-use std::time::Duration;
+use std::{future::Future, time::Duration};
 use url::Url;
 
-/// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
+/// Defines the type that translates a Barter [`Subscription`]
 /// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
-/// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
+/// Defines the type that translates a Barter [`Subscription`]
 /// into an exchange [`Connector`] specific market used for generating [`Connector::requests`].
 pub mod market;
 
-/// [`Subscription`](crate::subscription::Subscription) response type and response
+/// [`Subscription`] response type and response
 /// [`Validator`](barter_integration::Validator) for [`Okx`].
 pub mod subscription;
 
@@ -44,9 +48,6 @@ pub const BASE_URL_OKX: &str = "wss://ws.okx.com:8443/ws/v5/public";
 ///
 /// See docs: <https://www.okx.com/docs-v5/en/#websocket-api-connect>
 pub const PING_INTERVAL_OKX: Duration = Duration::from_secs(29);
-
-/// Convenient type alias for an Okx [`ExchangeWsStream`] using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
-pub type OkxWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
 
 /// [`Okx`] exchange.
 ///
@@ -67,8 +68,13 @@ pub type OkxWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Trans
 )]
 pub struct Okx;
 
+impl IdentifierStatic<ExchangeId> for Okx {
+    fn id() -> ExchangeId {
+        ExchangeId::Okx
+    }
+}
+
 impl Connector for Okx {
-    const ID: ExchangeId = ExchangeId::Okx;
     type Channel = OkxChannel;
     type Market = OkxMarket;
     type Subscriber = WebSocketSubscriber;
@@ -100,7 +106,28 @@ impl Connector for Okx {
 impl<Instrument> StreamSelector<Instrument, PublicTrades> for Okx
 where
     Instrument: InstrumentData,
+    Subscription<Self, Instrument, PublicTrades>: Identifier<OkxChannel> + Identifier<OkxMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream = OkxWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, OkxTrades>>;
+    fn init(
+        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send,
+    ) -> impl Future<
+        Output = Result<
+            impl Stream<
+                Item = Result<
+                    MarketEvent<Instrument::Key, <PublicTrades as SubscriptionKind>::Event>,
+                    DataError,
+                >,
+            >,
+            DataError,
+        >,
+    > {
+        init_ws_exchange_stream_with_initial_snapshots::<
+            Self,
+            Instrument,
+            PublicTrades,
+            WebSocketSerdeParser,
+            StatelessTransformer<Self, Instrument::Key, PublicTrades, OkxTrades>,
+            NoInitialSnapshots,
+        >(subscriptions)
+    }
 }

@@ -1,14 +1,22 @@
 use self::trade::GateioFuturesTrades;
 use super::Gateio;
 use crate::{
-    NoInitialSnapshots,
-    exchange::{ExchangeServer, StreamSelector, gateio::GateiotWsStream},
+    Identifier, NoInitialSnapshots, StreamSelector,
+    error::DataError,
+    event::MarketEvent,
+    exchange::{
+        ExchangeServer,
+        gateio::{channel::GateioChannel, market::GateioMarket},
+    },
+    init_ws_exchange_stream_with_initial_snapshots,
     instrument::InstrumentData,
-    subscription::trade::PublicTrades,
+    subscription::{Subscription, SubscriptionKind, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use std::fmt::Display;
+use barter_integration::protocol::websocket::WebSocketSerdeParser;
+use futures_util::Stream;
+use std::{fmt::Display, future::Future};
 
 /// Public trades types.
 pub mod trade;
@@ -36,11 +44,31 @@ impl ExchangeServer for GateioServerPerpetualsUsd {
 impl<Instrument> StreamSelector<Instrument, PublicTrades> for GateioPerpetualsUsd
 where
     Instrument: InstrumentData,
+    Subscription<Self, Instrument, PublicTrades>:
+        Identifier<GateioChannel> + Identifier<GateioMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream = GateiotWsStream<
-        StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
-    >;
+    fn init(
+        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send,
+    ) -> impl Future<
+        Output = Result<
+            impl Stream<
+                Item = Result<
+                    MarketEvent<Instrument::Key, <PublicTrades as SubscriptionKind>::Event>,
+                    DataError,
+                >,
+            >,
+            DataError,
+        >,
+    > {
+        init_ws_exchange_stream_with_initial_snapshots::<
+            Self,
+            Instrument,
+            PublicTrades,
+            WebSocketSerdeParser,
+            StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
+            NoInitialSnapshots,
+        >(subscriptions)
+    }
 }
 
 impl Display for GateioPerpetualsUsd {
@@ -72,11 +100,31 @@ impl ExchangeServer for GateioServerPerpetualsBtc {
 impl<Instrument> StreamSelector<Instrument, PublicTrades> for GateioPerpetualsBtc
 where
     Instrument: InstrumentData,
+    Subscription<Self, Instrument, PublicTrades>:
+        Identifier<GateioChannel> + Identifier<GateioMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream = GateiotWsStream<
-        StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
-    >;
+    fn init(
+        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send,
+    ) -> impl Future<
+        Output = Result<
+            impl Stream<
+                Item = Result<
+                    MarketEvent<Instrument::Key, <PublicTrades as SubscriptionKind>::Event>,
+                    DataError,
+                >,
+            >,
+            DataError,
+        >,
+    > {
+        init_ws_exchange_stream_with_initial_snapshots::<
+            Self,
+            Instrument,
+            PublicTrades,
+            WebSocketSerdeParser,
+            StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
+            NoInitialSnapshots,
+        >(subscriptions)
+    }
 }
 
 impl Display for GateioPerpetualsBtc {

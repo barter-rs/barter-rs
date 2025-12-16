@@ -1,16 +1,13 @@
 use super::super::book::BinanceLevel;
 use crate::{
-    Identifier, SnapshotFetcher,
+    Identifier, IdentifierStatic, SnapshotFetcher,
     books::OrderBook,
     error::DataError,
-    event::{MarketEvent, MarketIter},
-    exchange::{
-        Connector,
-        binance::{
-            book::l2::{BinanceOrderBookL2Meta, BinanceOrderBookL2Snapshot},
-            futures::BinanceFuturesUsd,
-            market::BinanceMarket,
-        },
+    event::MarketEvent,
+    exchange::binance::{
+        book::l2::{BinanceOrderBookL2Meta, BinanceOrderBookL2Snapshot},
+        futures::BinanceFuturesUsd,
+        market::BinanceMarket,
     },
     instrument::InstrumentData,
     subscription::{
@@ -22,7 +19,8 @@ use crate::{
 use async_trait::async_trait;
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
-    Transformer, error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId,
+    TransformerDeprecated, TransformerMut, collection::none_one_or_many::NoneOneOrMany,
+    error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId,
 };
 use chrono::{DateTime, Utc};
 use futures_util::future::try_join_all;
@@ -39,17 +37,16 @@ pub const HTTP_BOOK_L2_SNAPSHOT_URL_BINANCE_FUTURES_USD: &str =
 #[derive(Debug)]
 pub struct BinanceFuturesUsdOrderBooksL2SnapshotFetcher;
 
-impl SnapshotFetcher<BinanceFuturesUsd, OrderBooksL2>
+impl<Instrument> SnapshotFetcher<BinanceFuturesUsd, Instrument, OrderBooksL2>
     for BinanceFuturesUsdOrderBooksL2SnapshotFetcher
+where
+    Instrument: InstrumentData,
+    Subscription<BinanceFuturesUsd, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
 {
-    fn fetch_snapshots<Instrument>(
+    fn fetch_snapshots(
         subscriptions: &[Subscription<BinanceFuturesUsd, Instrument, OrderBooksL2>],
     ) -> impl Future<Output = Result<Vec<MarketEvent<Instrument::Key, OrderBookEvent>>, SocketError>>
-    + Send
-    where
-        Instrument: InstrumentData,
-        Subscription<BinanceFuturesUsd, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
-    {
+    + Send {
         let l2_snapshot_futures = subscriptions.iter().map(|sub| {
             // Construct initial OrderBook snapshot GET url
             let market = sub.id();
@@ -128,7 +125,53 @@ where
     }
 }
 
-impl<InstrumentKey> Transformer for BinanceFuturesUsdOrderBooksL2Transformer<InstrumentKey>
+impl<InstrumentKey> TransformerMut<BinanceFuturesOrderBookL2Update>
+    for BinanceFuturesUsdOrderBooksL2Transformer<InstrumentKey>
+where
+    InstrumentKey: Clone + 'static,
+{
+    type Output<'a> = Result<MarketEvent<InstrumentKey, OrderBookEvent>, DataError>;
+
+    fn transform<'a>(
+        &mut self,
+        input: BinanceFuturesOrderBookL2Update,
+    ) -> impl IntoIterator<Item = Self::Output<'a>> + 'a {
+        // Determine if the message has an identifiable SubscriptionId
+        let subscription_id = match input.id() {
+            Some(subscription_id) => subscription_id,
+            None => return NoneOneOrMany::None,
+        };
+
+        // Find Instrument associated with Input and transform
+        let instrument = match self.instrument_map.find_mut(&subscription_id) {
+            Ok(instrument) => instrument,
+            Err(unidentifiable) => return NoneOneOrMany::One(Err(DataError::from(unidentifiable))),
+        };
+
+        // Drop any outdated updates & validate sequence for relevant updates
+        let valid_update = match instrument.sequencer.validate_sequence(input) {
+            Ok(Some(valid_update)) => valid_update,
+            Ok(None) => return NoneOneOrMany::None,
+            Err(error) => return NoneOneOrMany::One(Err(error)),
+        };
+
+        NoneOneOrMany::One(Ok(MarketEvent {
+            time_exchange: valid_update.time_exchange,
+            time_received: Utc::now(),
+            exchange: BinanceFuturesUsd::id(),
+            instrument: instrument.key.clone(),
+            kind: OrderBookEvent::Update(OrderBook::new(
+                valid_update.last_update_id,
+                Some(valid_update.time_engine),
+                valid_update.bids,
+                valid_update.asks,
+            )),
+        }))
+    }
+}
+
+impl<InstrumentKey> TransformerDeprecated
+    for BinanceFuturesUsdOrderBooksL2Transformer<InstrumentKey>
 where
     InstrumentKey: Clone,
 {
@@ -157,12 +200,11 @@ where
             Err(error) => return vec![Err(error)],
         };
 
-        MarketIter::<InstrumentKey, OrderBookEvent>::from((
-            BinanceFuturesUsd::ID,
+        vec![Ok(MarketEvent::from((
+            BinanceFuturesUsd::id(),
             instrument.key.clone(),
             valid_update,
-        ))
-        .0
+        )))]
     }
 }
 
@@ -311,12 +353,12 @@ pub struct BinanceFuturesOrderBookL2Update {
     pub subscription_id: SubscriptionId,
     #[serde(
         alias = "E",
-        deserialize_with = "barter_integration::de::de_u64_epoch_ms_as_datetime_utc"
+        deserialize_with = "barter_integration::serde::de::util::de_u64_epoch_ms_as_datetime_utc"
     )]
     pub time_exchange: DateTime<Utc>,
     #[serde(
         alias = "T",
-        deserialize_with = "barter_integration::de::de_u64_epoch_ms_as_datetime_utc"
+        deserialize_with = "barter_integration::serde::de::util::de_u64_epoch_ms_as_datetime_utc"
     )]
     pub time_engine: DateTime<Utc>,
     #[serde(alias = "U")]
@@ -338,7 +380,7 @@ impl Identifier<Option<SubscriptionId>> for BinanceFuturesOrderBookL2Update {
 }
 
 impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceFuturesOrderBookL2Update)>
-    for MarketIter<InstrumentKey, OrderBookEvent>
+    for MarketEvent<InstrumentKey, OrderBookEvent>
 {
     fn from(
         (exchange, instrument, update): (
@@ -347,7 +389,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceFuturesOrderBookL2Up
             BinanceFuturesOrderBookL2Update,
         ),
     ) -> Self {
-        Self(vec![Ok(MarketEvent {
+        MarketEvent {
             time_exchange: update.time_exchange,
             time_received: Utc::now(),
             exchange,
@@ -358,7 +400,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BinanceFuturesOrderBookL2Up
                 update.bids,
                 update.asks,
             )),
-        })])
+        }
     }
 }
 

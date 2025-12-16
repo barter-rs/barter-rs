@@ -8,7 +8,7 @@ pub mod client;
 /// Default Http [`reqwest::Request`] timeout Duration.
 const DEFAULT_HTTP_REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// Http REST request that can be executed by a [`RestClient`](self::client::RestClient).
+/// Http REST request that can be executed by a [`RestClient`](client::RestClient).
 pub trait RestRequest {
     /// Expected response type if this request was successful.
     type Response: DeserializeOwned;

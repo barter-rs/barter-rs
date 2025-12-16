@@ -31,9 +31,12 @@ pub struct BybitResponse {
     pub ret_msg: BybitReturnMessage,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+#[derive(
+    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default, Deserialize, Serialize,
+)]
 pub enum BybitReturnMessage {
     #[serde(alias = "")]
+    #[default]
     None,
     #[serde(alias = "pong")]
     Pong,
@@ -41,13 +44,8 @@ pub enum BybitReturnMessage {
     Subscribe,
 }
 
-impl Default for BybitReturnMessage {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
 impl Validator for BybitResponse {
+    type Error = SocketError;
     fn validate(self) -> Result<Self, SocketError>
     where
         Self: Sized,

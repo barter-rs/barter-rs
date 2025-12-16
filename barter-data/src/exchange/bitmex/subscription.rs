@@ -23,6 +23,7 @@ pub struct BitmexSubResponse {
 }
 
 impl Validator for BitmexSubResponse {
+    type Error = SocketError;
     fn validate(self) -> Result<Self, SocketError>
     where
         Self: Sized,

@@ -26,58 +26,116 @@
 //!
 //! Both core abstractions provide the robust glue you need to conveniently translate between server & client data models.
 
-use crate::error::SocketError;
-use serde::{Deserialize, Serialize};
+use ::serde::{Deserialize, Serialize};
 
 /// All [`Error`](std::error::Error)s generated in Barter-Integration.
+#[cfg(feature = "error")]
 pub mod error;
 
 /// Contains `StreamParser` implementations for transforming communication protocol specific
 /// messages into a generic output data structure.
+#[cfg(feature = "protocol")]
 pub mod protocol;
 
 /// Contains the flexible `Metric` type used for representing real-time metrics generically.
+#[cfg(feature = "metric")]
 pub mod metric;
-
-/// Utilities to assist deserialisation.
-pub mod de;
 
 /// Defines a [`SubscriptionId`](subscription::SubscriptionId) new type representing a unique
 /// `SmolStr` identifier for a data stream (market data, account data) that has been
 /// subscribed to.
+#[cfg(feature = "subscription")]
 pub mod subscription;
 
 /// Defines a trait [`Tx`](channel::Tx) abstraction over different channel kinds, as well as
 /// other channel utilities.
 ///
 /// eg/ `UnboundedTx`, `ChannelTxDroppable`, etc.
+#[cfg(feature = "channel")]
 pub mod channel;
 
+#[cfg(feature = "collection")]
 pub mod collection;
 
-/// Stream utilities.
+/// Barter flavour `StreamExt` and other `Stream` utilities.
+#[cfg(feature = "socket")]
 pub mod stream;
 
-pub mod snapshot;
+#[cfg(feature = "socket")]
+pub mod socket;
+
+/// SerDe transformer and other utilities.
+#[cfg(feature = "serde")]
+pub mod serde;
+
+#[cfg(feature = "exchange")]
+pub mod exchange;
 
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.
 pub trait Validator {
+    type Error;
+
     /// Check if `Self` is valid for some use case.
-    fn validate(self) -> Result<Self, SocketError>
+    fn validate(self) -> Result<Self, Self::Error>
     where
         Self: Sized;
 }
 
-/// [`Transformer`]s are capable of transforming any `Input` into an iterator of
+/// [`TransformerDeprecated`]s are capable of transforming any `Input` into an iterator of
 /// `Result<Self::Output, Self::Error>`s.
-pub trait Transformer {
+pub trait TransformerDeprecated {
     type Error;
     type Input;
     type Output;
     type OutputIter: IntoIterator<Item = Result<Self::Output, Self::Error>>;
 
     fn transform(&mut self, input: Self::Input) -> Self::OutputIter;
+}
+
+pub trait Transformer<Input> {
+    type Output<'a>
+    where
+        Input: 'a;
+
+    fn transform<'a>(
+        input: Input,
+    ) -> impl IntoIterator<Item = Self::Output<'a>, IntoIter: Send> + 'a
+    // Todo: remove Send bound later
+    where
+        Input: 'a;
+}
+
+pub trait TransformerAsync<Input> {
+    type Output<'a>
+    where
+        Input: 'a;
+
+    fn transform<'a>(input: Input) -> impl futures::Stream<Item = Self::Output<'a>> + 'a
+    where
+        Input: 'a;
+}
+
+pub trait TransformerMut<Input> {
+    type Output<'a>
+    where
+        Input: 'a;
+
+    fn transform<'a>(
+        &mut self,
+        input: Input,
+    ) -> impl IntoIterator<Item = Self::Output<'a>, IntoIter: Send> + 'a
+    where
+        Input: 'a;
+}
+
+pub trait TransformerMutAsync<Input> {
+    type Output<'a>
+    where
+        Input: 'a;
+    fn transform<'a>(&mut self, input: Input) -> impl futures::Stream<Item = Self::Output<'a>> + 'a
+    where
+        Input: 'a;
 }
 
 /// Determines if something is considered "unrecoverable", such as an unrecoverable error.
@@ -90,6 +148,27 @@ pub trait Unrecoverable {
 /// Trait that communicates if something is terminal (eg/ requires shutdown or restart).
 pub trait Terminal {
     fn is_terminal(&self) -> bool;
+}
+
+/// Either an "Admin" or a "Payload" message.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+pub enum Message<A, T> {
+    Admin(A),
+    Payload(T),
+}
+
+/// Admin message that's either a "Protocol", "Deserialisation" or "Application" level event.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+pub enum Admin<P, A> {
+    Protocol(P),
+    Application(A),
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+pub enum Routing<F, K> {
+    Forward(F),
+    Keep(K),
+    ForwardAndKeep { forward: F, keep: K },
 }
 
 /// Indicates an `Iterator` or `Stream` has ended.

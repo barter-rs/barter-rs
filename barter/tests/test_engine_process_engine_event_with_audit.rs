@@ -66,8 +66,7 @@ use barter_instrument::{
 };
 use barter_integration::{
     channel::{UnboundedTx, mpsc_unbounded},
-    collection::{none_one_or_many::NoneOneOrMany, one_or_many::OneOrMany},
-    snapshot::Snapshot,
+    collection::{none_one_or_many::NoneOneOrMany, one_or_many::OneOrMany, snapshot::Snapshot},
 };
 use chrono::{DateTime, Utc};
 use fnv::FnvHashMap;

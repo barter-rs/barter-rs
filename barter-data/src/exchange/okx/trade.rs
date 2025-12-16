@@ -80,14 +80,20 @@ impl<T> Identifier<Option<SubscriptionId>> for OkxMessage<T> {
 pub struct OkxTrade {
     #[serde(rename = "tradeId")]
     pub id: String,
-    #[serde(rename = "px", deserialize_with = "barter_integration::de::de_str")]
+    #[serde(
+        rename = "px",
+        deserialize_with = "barter_integration::serde::de::util::de_str"
+    )]
     pub price: f64,
-    #[serde(rename = "sz", deserialize_with = "barter_integration::de::de_str")]
+    #[serde(
+        rename = "sz",
+        deserialize_with = "barter_integration::serde::de::util::de_str"
+    )]
     pub amount: f64,
     pub side: Side,
     #[serde(
         rename = "ts",
-        deserialize_with = "barter_integration::de::de_str_u64_epoch_ms_as_datetime_utc"
+        deserialize_with = "barter_integration::serde::de::util::de_str_u64_epoch_ms_as_datetime_utc"
     )]
     pub time: DateTime<Utc>,
 }
@@ -141,7 +147,9 @@ mod tests {
 
     mod de {
         use super::*;
-        use barter_integration::{de::datetime_utc_from_epoch_duration, error::SocketError};
+        use barter_integration::{
+            error::SocketError, serde::de::util::datetime_utc_from_epoch_duration,
+        };
         use std::time::Duration;
 
         #[test]

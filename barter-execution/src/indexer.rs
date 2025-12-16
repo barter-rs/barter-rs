@@ -21,13 +21,13 @@ use barter_instrument::{
     instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
 use barter_integration::{
-    snapshot::Snapshot,
-    stream::indexed::{IndexedStream, Indexer},
+    collection::snapshot::Snapshot,
+    stream::ext::index::{IndexedStream, Indexer},
 };
 use derive_more::Constructor;
 use std::sync::Arc;
 
-pub type IndexedAccountStream<St> = IndexedStream<AccountEventIndexer, St>;
+pub type IndexedAccountStream<St> = IndexedStream<St, AccountEventIndexer>;
 
 #[derive(Debug, Clone, Constructor)]
 pub struct AccountEventIndexer {
@@ -37,8 +37,9 @@ pub struct AccountEventIndexer {
 impl Indexer for AccountEventIndexer {
     type Unindexed = UnindexedAccountEvent;
     type Indexed = AccountEvent;
+    type Error = IndexError;
 
-    fn index(&self, item: Self::Unindexed) -> Result<Self::Indexed, IndexError> {
+    fn index(&self, item: Self::Unindexed) -> Result<Self::Indexed, Self::Error> {
         self.account_event(item)
     }
 }

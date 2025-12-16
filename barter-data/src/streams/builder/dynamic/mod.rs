@@ -1,21 +1,28 @@
 use crate::{
-    Identifier,
+    Identifier, IdentifierStatic,
     error::DataError,
     exchange::{
-        binance::{futures::BinanceFuturesUsd, market::BinanceMarket, spot::BinanceSpot},
-        bitfinex::{Bitfinex, market::BitfinexMarket},
-        bitmex::{Bitmex, market::BitmexMarket},
-        bybit::{futures::BybitPerpetualsUsd, market::BybitMarket, spot::BybitSpot},
-        coinbase::{Coinbase, market::CoinbaseMarket},
+        binance::{
+            channel::BinanceChannel, futures::BinanceFuturesUsd, market::BinanceMarket,
+            spot::BinanceSpot,
+        },
+        bitfinex::{Bitfinex, channel::BitfinexChannel, market::BitfinexMarket},
+        bitmex::{Bitmex, channel::BitmexChannel, market::BitmexMarket},
+        bybit::{
+            channel::BybitChannel, futures::BybitPerpetualsUsd, market::BybitMarket,
+            spot::BybitSpot,
+        },
+        coinbase::{Coinbase, channel::CoinbaseChannel, market::CoinbaseMarket},
         gateio::{
+            channel::GateioChannel,
             future::{GateioFuturesBtc, GateioFuturesUsd},
             market::GateioMarket,
             option::GateioOptions,
             perpetual::{GateioPerpetualsBtc, GateioPerpetualsUsd},
             spot::GateioSpot,
         },
-        kraken::{Kraken, market::KrakenMarket},
-        okx::{Okx, market::OkxMarket},
+        kraken::{Kraken, channel::KrakenChannel, market::KrakenMarket},
+        okx::{Okx, channel::OkxChannel, market::OkxMarket},
     },
     instrument::InstrumentData,
     streams::{
@@ -81,31 +88,70 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         Sub: Into<Subscription<ExchangeId, Instrument, SubKind>>,
         Instrument: InstrumentData<Key = InstrumentKey> + Ord + Display + 'static,
         InstrumentKey: Debug + Clone + Send + 'static,
-        Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
-        Subscription<BinanceSpot, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
-        Subscription<BinanceSpot, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
-        Subscription<BinanceFuturesUsd, Instrument, PublicTrades>: Identifier<BinanceMarket>,
-        Subscription<BinanceFuturesUsd, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
-        Subscription<BinanceFuturesUsd, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
-        Subscription<BinanceFuturesUsd, Instrument, Liquidations>: Identifier<BinanceMarket>,
-        Subscription<Bitfinex, Instrument, PublicTrades>: Identifier<BitfinexMarket>,
-        Subscription<Bitmex, Instrument, PublicTrades>: Identifier<BitmexMarket>,
-        Subscription<BybitSpot, Instrument, PublicTrades>: Identifier<BybitMarket>,
-        Subscription<BybitSpot, Instrument, OrderBooksL1>: Identifier<BybitMarket>,
-        Subscription<BybitSpot, Instrument, OrderBooksL2>: Identifier<BybitMarket>,
-        Subscription<BybitPerpetualsUsd, Instrument, PublicTrades>: Identifier<BybitMarket>,
-        Subscription<BybitPerpetualsUsd, Instrument, OrderBooksL1>: Identifier<BybitMarket>,
-        Subscription<BybitPerpetualsUsd, Instrument, OrderBooksL2>: Identifier<BybitMarket>,
-        Subscription<Coinbase, Instrument, PublicTrades>: Identifier<CoinbaseMarket>,
-        Subscription<GateioSpot, Instrument, PublicTrades>: Identifier<GateioMarket>,
-        Subscription<GateioFuturesUsd, Instrument, PublicTrades>: Identifier<GateioMarket>,
-        Subscription<GateioFuturesBtc, Instrument, PublicTrades>: Identifier<GateioMarket>,
-        Subscription<GateioPerpetualsUsd, Instrument, PublicTrades>: Identifier<GateioMarket>,
-        Subscription<GateioPerpetualsBtc, Instrument, PublicTrades>: Identifier<GateioMarket>,
-        Subscription<GateioOptions, Instrument, PublicTrades>: Identifier<GateioMarket>,
-        Subscription<Kraken, Instrument, PublicTrades>: Identifier<KrakenMarket>,
-        Subscription<Kraken, Instrument, OrderBooksL1>: Identifier<KrakenMarket>,
-        Subscription<Okx, Instrument, PublicTrades>: Identifier<OkxMarket>,
+        BinanceSpot: IdentifierStatic<ExchangeId>,
+        Subscription<BinanceSpot, Instrument, PublicTrades>:
+            Identifier<BinanceChannel> + Identifier<BinanceMarket>,
+        Subscription<BinanceSpot, Instrument, OrderBooksL1>:
+            Identifier<BinanceChannel> + Identifier<BinanceMarket>,
+        Subscription<BinanceSpot, Instrument, OrderBooksL2>:
+            Identifier<BinanceChannel> + Identifier<BinanceMarket>,
+        BinanceFuturesUsd: IdentifierStatic<ExchangeId>,
+        Subscription<BinanceFuturesUsd, Instrument, PublicTrades>:
+            Identifier<BinanceChannel> + Identifier<BinanceMarket>,
+        Subscription<BinanceFuturesUsd, Instrument, OrderBooksL1>:
+            Identifier<BinanceChannel> + Identifier<BinanceMarket>,
+        Subscription<BinanceFuturesUsd, Instrument, OrderBooksL2>:
+            Identifier<BinanceChannel> + Identifier<BinanceMarket>,
+        Subscription<BinanceFuturesUsd, Instrument, Liquidations>:
+            Identifier<BinanceChannel> + Identifier<BinanceMarket>,
+        Bitfinex: IdentifierStatic<ExchangeId>,
+        Subscription<Bitfinex, Instrument, PublicTrades>:
+            Identifier<BitfinexChannel> + Identifier<BitfinexMarket>,
+        Bitmex: IdentifierStatic<ExchangeId>,
+        Subscription<Bitmex, Instrument, PublicTrades>:
+            Identifier<BitmexChannel> + Identifier<BitmexMarket>,
+        BybitSpot: IdentifierStatic<ExchangeId>,
+        Subscription<BybitSpot, Instrument, PublicTrades>:
+            Identifier<BybitChannel> + Identifier<BybitMarket>,
+        Subscription<BybitSpot, Instrument, OrderBooksL1>:
+            Identifier<BybitChannel> + Identifier<BybitMarket>,
+        Subscription<BybitSpot, Instrument, OrderBooksL2>:
+            Identifier<BybitChannel> + Identifier<BybitMarket>,
+        BybitPerpetualsUsd: IdentifierStatic<ExchangeId>,
+        Subscription<BybitPerpetualsUsd, Instrument, PublicTrades>:
+            Identifier<BybitChannel> + Identifier<BybitMarket>,
+        Subscription<BybitPerpetualsUsd, Instrument, OrderBooksL1>:
+            Identifier<BybitChannel> + Identifier<BybitMarket>,
+        Subscription<BybitPerpetualsUsd, Instrument, OrderBooksL2>:
+            Identifier<BybitChannel> + Identifier<BybitMarket>,
+        Coinbase: IdentifierStatic<ExchangeId>,
+        Subscription<Coinbase, Instrument, PublicTrades>:
+            Identifier<CoinbaseChannel> + Identifier<CoinbaseMarket>,
+        GateioSpot: IdentifierStatic<ExchangeId>,
+        Subscription<GateioSpot, Instrument, PublicTrades>:
+            Identifier<GateioChannel> + Identifier<GateioMarket>,
+        GateioFuturesUsd: IdentifierStatic<ExchangeId>,
+        Subscription<GateioFuturesUsd, Instrument, PublicTrades>:
+            Identifier<GateioChannel> + Identifier<GateioMarket>,
+        GateioFuturesBtc: IdentifierStatic<ExchangeId>,
+        Subscription<GateioFuturesBtc, Instrument, PublicTrades>:
+            Identifier<GateioChannel> + Identifier<GateioMarket>,
+        GateioPerpetualsUsd: IdentifierStatic<ExchangeId>,
+        Subscription<GateioPerpetualsUsd, Instrument, PublicTrades>:
+            Identifier<GateioChannel> + Identifier<GateioMarket>,
+        GateioPerpetualsBtc: IdentifierStatic<ExchangeId>,
+        Subscription<GateioPerpetualsBtc, Instrument, PublicTrades>:
+            Identifier<GateioChannel> + Identifier<GateioMarket>,
+        GateioOptions: IdentifierStatic<ExchangeId>,
+        Subscription<GateioOptions, Instrument, PublicTrades>:
+            Identifier<GateioChannel> + Identifier<GateioMarket>,
+        Kraken: IdentifierStatic<ExchangeId>,
+        Subscription<Kraken, Instrument, PublicTrades>:
+            Identifier<KrakenChannel> + Identifier<KrakenMarket>,
+        Subscription<Kraken, Instrument, OrderBooksL1>:
+            Identifier<KrakenChannel> + Identifier<KrakenMarket>,
+        Okx: IdentifierStatic<ExchangeId>,
+        Subscription<Okx, Instrument, PublicTrades>: Identifier<OkxChannel> + Identifier<OkxMarket>,
     {
         // Validate & dedup Subscription batches
         let batches = validate_batches(subscription_batches)?;
@@ -130,15 +176,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BinanceSpot, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BinanceSpot::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BinanceSpot::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -150,15 +198,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BinanceSpot, SubKind::OrderBooksL1) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BinanceSpot::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL1,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BinanceSpot::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL1,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -170,15 +220,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BinanceSpot, SubKind::OrderBooksL2) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BinanceSpot::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL2,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BinanceSpot::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL2,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -190,15 +242,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BinanceFuturesUsd, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BinanceFuturesUsd::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BinanceFuturesUsd::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -210,15 +264,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BinanceFuturesUsd, SubKind::OrderBooksL1) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::<_, Instrument, _>::new(
-                                                        BinanceFuturesUsd::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL1,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::<_, Instrument, _>::new(
+                                                            BinanceFuturesUsd::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL1,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -230,15 +286,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BinanceFuturesUsd, SubKind::OrderBooksL2) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::<_, Instrument, _>::new(
-                                                        BinanceFuturesUsd::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL2,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::<_, Instrument, _>::new(
+                                                            BinanceFuturesUsd::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL2,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -250,15 +308,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BinanceFuturesUsd, SubKind::Liquidations) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::<_, Instrument, _>::new(
-                                                        BinanceFuturesUsd::default(),
-                                                        sub.instrument,
-                                                        Liquidations,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::<_, Instrument, _>::new(
+                                                            BinanceFuturesUsd::default(),
+                                                            sub.instrument,
+                                                            Liquidations,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -270,15 +330,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::Bitfinex, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        Bitfinex,
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            Bitfinex,
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -290,15 +352,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::Bitmex, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        Bitmex,
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            Bitmex,
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -310,15 +374,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BybitSpot, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BybitSpot::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BybitSpot::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -330,15 +396,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BybitSpot, SubKind::OrderBooksL1) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BybitSpot::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL1,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BybitSpot::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL1,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -350,15 +418,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BybitSpot, SubKind::OrderBooksL2) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BybitSpot::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL2,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BybitSpot::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL2,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -370,15 +440,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BybitPerpetualsUsd, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BybitPerpetualsUsd::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BybitPerpetualsUsd::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -390,15 +462,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BybitPerpetualsUsd, SubKind::OrderBooksL1) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BybitSpot::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL1,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BybitSpot::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL1,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -410,15 +484,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BybitPerpetualsUsd, SubKind::OrderBooksL2) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BybitSpot::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL2,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BybitSpot::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL2,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -430,15 +506,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::Coinbase, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        Coinbase,
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            Coinbase,
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -450,15 +528,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::GateioSpot, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        GateioSpot::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            GateioSpot::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -470,15 +550,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::GateioFuturesUsd, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        GateioFuturesUsd::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            GateioFuturesUsd::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -490,15 +572,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::GateioFuturesBtc, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        GateioFuturesBtc::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            GateioFuturesBtc::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -510,15 +594,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::GateioPerpetualsUsd, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        GateioPerpetualsUsd::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            GateioPerpetualsUsd::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -530,15 +616,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::GateioPerpetualsBtc, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        GateioPerpetualsBtc::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            GateioPerpetualsBtc::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -550,15 +638,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::GateioOptions, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        GateioOptions::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            GateioOptions::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -570,15 +660,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::Kraken, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        Kraken,
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            Kraken,
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -590,15 +682,17 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::Kraken, SubKind::OrderBooksL1) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        Kraken,
-                                                        sub.instrument,
-                                                        OrderBooksL1,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            Kraken,
+                                                            sub.instrument,
+                                                            OrderBooksL1,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
                                         )
                                         .await
                                         .map(|stream| {
@@ -607,22 +701,28 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                             ))
                                         })
                                     }
-                                    (ExchangeId::Okx, SubKind::PublicTrades) => init_market_stream(
-                                        STREAM_RECONNECTION_POLICY,
-                                        subs.into_iter()
-                                            .map(|sub| {
-                                                Subscription::new(Okx, sub.instrument, PublicTrades)
-                                            })
-                                            .collect(),
-                                    )
-                                    .await
-                                    .map(|stream| {
-                                        tokio::spawn(
-                                            stream.forward_to(
-                                                txs.trades.get(&exchange).unwrap().clone(),
+                                    (ExchangeId::Okx, SubKind::PublicTrades) => {
+                                        init_market_stream(
+                                            STREAM_RECONNECTION_POLICY,
+                                            Arc::new(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            Okx,
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
                                             ),
                                         )
-                                    }),
+                                        .await
+                                        .map(|stream| {
+                                            tokio::spawn(stream.forward_to(
+                                                txs.trades.get(&exchange).unwrap().clone(),
+                                            ))
+                                        })
+                                    }
                                     (exchange, sub_kind) => {
                                         Err(DataError::Unsupported { exchange, sub_kind })
                                     }
