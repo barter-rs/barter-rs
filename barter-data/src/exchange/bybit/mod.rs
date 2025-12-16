@@ -1,5 +1,5 @@
 use crate::{
-    Identifier, IdentifierStatic, NoInitialSnapshots, StreamSelector,
+    Identifier, IdentifierStatic, LiveMarketDataArgs, NoInitialSnapshots,
     error::DataError,
     event::MarketEvent,
     exchange::{
@@ -11,18 +11,20 @@ use crate::{
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
     subscription::{
-        Map, Subscription, SubscriptionKind,
-        book::{OrderBooksL1, OrderBooksL2},
-        trade::PublicTrades,
+        Map, Subscription,
+        book::{OrderBookEvent, OrderBookL1, OrderBooksL1, OrderBooksL2},
+        trade::{PublicTrade, PublicTrades},
     },
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{protocol::websocket::WsMessage, serde::de::DeJson};
+use barter_integration::{
+    protocol::websocket::WsMessage, serde::de::DeJson, stream::data::DataStream,
+};
 use book::{BybitOrderBookMessage, l2::BybitOrderBooksL2Transformer};
 use futures_util::Stream;
 use serde::de::{Error, Unexpected};
-use std::{fmt::Debug, future::Future, marker::PhantomData, time::Duration};
+use std::{fmt::Debug, marker::PhantomData, time::Duration};
 use tokio::time;
 use trade::BybitTrade;
 use url::Url;
@@ -127,27 +129,19 @@ where
     }
 }
 
-impl<Instrument, Server> StreamSelector<Instrument, PublicTrades> for Bybit<Server>
+impl<Instrument, Server> DataStream<LiveMarketDataArgs<Self, Instrument, PublicTrades>>
+    for Bybit<Server>
 where
-    Instrument: InstrumentData,
-    Server: ExchangeServer + Debug + Send + Sync,
-    Subscription<Self, Instrument, PublicTrades>:
-        Identifier<BybitChannel> + Identifier<BybitMarket>,
+    Instrument: InstrumentData + 'static,
+    Server: ExchangeServer + Sync + 'static,
+    Subscription<Bybit<Server>, Instrument, PublicTrades>: Identifier<BybitMarket>,
 {
-    fn init(
-        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send,
-        stream_timeout: std::time::Duration,
-    ) -> impl Future<
-        Output = Result<
-            impl Stream<
-                Item = Result<
-                    MarketEvent<Instrument::Key, <PublicTrades as SubscriptionKind>::Event>,
-                    DataError,
-                >,
-            >,
-            DataError,
-        >,
-    > {
+    type Item = Result<MarketEvent<Instrument::Key, PublicTrade>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, PublicTrades>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
         init_ws_exchange_stream::<
             Self,
             Instrument,
@@ -155,31 +149,24 @@ where
             DeJson,
             StatelessTransformer<Self, Instrument::Key, PublicTrades, BybitTrade>,
             NoInitialSnapshots,
-        >(subscriptions, stream_timeout)
+        >(args)
+        .await
     }
 }
 
-impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL1> for Bybit<Server>
+impl<Instrument, Server> DataStream<LiveMarketDataArgs<Self, Instrument, OrderBooksL1>>
+    for Bybit<Server>
 where
-    Instrument: InstrumentData,
-    Server: ExchangeServer + Debug + Send + Sync,
-    Subscription<Self, Instrument, OrderBooksL1>:
-        Identifier<BybitChannel> + Identifier<BybitMarket>,
+    Instrument: InstrumentData + 'static,
+    Server: ExchangeServer + Sync + 'static,
+    Subscription<Bybit<Server>, Instrument, OrderBooksL1>: Identifier<BybitMarket>,
 {
-    fn init(
-        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, OrderBooksL1>>>,
-        stream_timeout: std::time::Duration,
-    ) -> impl Future<
-        Output = Result<
-            impl Stream<
-                Item = Result<
-                    MarketEvent<Instrument::Key, <OrderBooksL1 as SubscriptionKind>::Event>,
-                    DataError,
-                >,
-            >,
-            DataError,
-        >,
-    > {
+    type Item = Result<MarketEvent<Instrument::Key, OrderBookL1>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, OrderBooksL1>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
         init_ws_exchange_stream::<
             Self,
             Instrument,
@@ -187,31 +174,24 @@ where
             DeJson,
             StatelessTransformer<Self, Instrument::Key, OrderBooksL1, BybitOrderBookMessage>,
             NoInitialSnapshots,
-        >(subscriptions, stream_timeout)
+        >(args)
+        .await
     }
 }
 
-impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL2> for Bybit<Server>
+impl<Instrument, Server> DataStream<LiveMarketDataArgs<Self, Instrument, OrderBooksL2>>
+    for Bybit<Server>
 where
-    Instrument: InstrumentData,
-    Server: ExchangeServer + Debug + Send + Sync,
-    Subscription<Self, Instrument, OrderBooksL2>:
-        Identifier<BybitChannel> + Identifier<BybitMarket>,
+    Instrument: InstrumentData + 'static,
+    Server: ExchangeServer + Sync + 'static,
+    Subscription<Self, Instrument, OrderBooksL2>: Identifier<BybitMarket>,
 {
-    fn init(
-        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, OrderBooksL2>>> + Send,
-        stream_timeout: std::time::Duration,
-    ) -> impl Future<
-        Output = Result<
-            impl Stream<
-                Item = Result<
-                    MarketEvent<Instrument::Key, <OrderBooksL2 as SubscriptionKind>::Event>,
-                    DataError,
-                >,
-            >,
-            DataError,
-        >,
-    > {
+    type Item = Result<MarketEvent<Instrument::Key, OrderBookEvent>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, OrderBooksL2>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
         init_ws_exchange_stream::<
             Self,
             Instrument,
@@ -219,7 +199,8 @@ where
             DeJson,
             BybitOrderBooksL2Transformer<Instrument::Key>,
             NoInitialSnapshots,
-        >(subscriptions, stream_timeout)
+        >(args)
+        .await
     }
 }
 

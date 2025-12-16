@@ -1,10 +1,11 @@
 use crate::{
-    IdentifierStatic, StreamSelector,
+    IdentifierStatic, LiveMarketDataArgs, StreamConfig,
     books::{
         OrderBook,
         map::{OrderBookMap, OrderBookMapMulti},
     },
     error::DataError,
+    event::MarketEvent,
     instrument::InstrumentData,
     streams::{Streams, consumer::MarketStreamEvent, reconnect::stream::ReconnectingStream},
     subscription::{
@@ -13,6 +14,7 @@ use crate::{
     },
 };
 use barter_instrument::exchange::ExchangeId;
+use barter_integration::stream::data::DataStream;
 use fnv::FnvHashMap;
 use futures::Stream;
 use futures_util::StreamExt;
@@ -70,7 +72,7 @@ where
 ///
 /// See `examples/order_books_l2_manager` for how to use this initialisation paradigm.
 pub async fn init_multi_order_book_l2_manager<SubBatchIter, SubIter, Sub, Exchange, Instrument>(
-    stream_timeout: std::time::Duration,
+    config: StreamConfig,
     subscription_batches: SubBatchIter,
 ) -> Result<
     OrderBookL2Manager<
@@ -83,8 +85,11 @@ where
     SubBatchIter: IntoIterator<Item = SubIter>,
     SubIter: IntoIterator<Item = Sub>,
     Sub: Into<Subscription<Exchange, Instrument, OrderBooksL2>>,
-    Exchange: StreamSelector<Instrument, OrderBooksL2>
-        + IdentifierStatic<ExchangeId>
+    Exchange: DataStream<
+            LiveMarketDataArgs<Exchange, Instrument, OrderBooksL2>,
+            Item = Result<MarketEvent<Instrument::Key, OrderBookEvent>, DataError>,
+            Error = DataError,
+        > + IdentifierStatic<ExchangeId>
         + Ord
         + Display
         + Send
@@ -107,7 +112,7 @@ where
                 subscription
             });
 
-            let builder = builder.subscribe(stream_timeout, batch);
+            let builder = builder.subscribe(config.clone(), batch);
             (builder, books)
         },
     );

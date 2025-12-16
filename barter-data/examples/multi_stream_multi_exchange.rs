@@ -1,4 +1,5 @@
 use barter_data::{
+    ServerConfig, StreamConfig,
     event::DataKind,
     exchange::{
         binance::{futures::BinanceFuturesUsd, spot::BinanceSpot},
@@ -16,7 +17,13 @@ use barter_instrument::instrument::market_data::{
 use tokio_stream::StreamExt;
 use tracing::{info, warn};
 
-const STREAM_TIMEOUT: std::time::Duration = std::time::Duration::from_mins(1);
+const STREAM_CONFIG: StreamConfig = StreamConfig {
+    server: ServerConfig {
+        credentials: None,
+        base_url_custom: None,
+    },
+    timeout_stream: std::time::Duration::from_mins(1),
+};
 
 #[rustfmt::skip]
 #[tokio::main]
@@ -34,13 +41,13 @@ async fn main() {
 
         // Add PublicTrades Streams for various exchanges
         .add(Streams::<PublicTrades>::builder()
-            .subscribe(STREAM_TIMEOUT, [
+            .subscribe(STREAM_CONFIG, [
                 (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
             ])
-            .subscribe(STREAM_TIMEOUT, [
+            .subscribe(STREAM_CONFIG, [
                 (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
             ])
-            .subscribe(STREAM_TIMEOUT, [
+            .subscribe(STREAM_CONFIG, [
                 (Okx, "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
                 (Okx, "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
             ])
@@ -48,20 +55,20 @@ async fn main() {
 
         // Add OrderBooksL1 Stream for various exchanges
         .add(Streams::<OrderBooksL1>::builder()
-            .subscribe(STREAM_TIMEOUT, [
+            .subscribe(STREAM_CONFIG, [
                 (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL1),
             ])
-            .subscribe(STREAM_TIMEOUT, [
+            .subscribe(STREAM_CONFIG, [
                 (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, OrderBooksL1),
             ])
         )
 
         // Add OrderBooksL2 Stream for various exchanges
         .add(Streams::<OrderBooksL2>::builder()
-            .subscribe(STREAM_TIMEOUT, [
+            .subscribe(STREAM_CONFIG, [
                 (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
             ])
-            .subscribe(STREAM_TIMEOUT, [
+            .subscribe(STREAM_CONFIG, [
                 (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, OrderBooksL2),
             ])
         )

@@ -8,6 +8,7 @@ use std::{
     task::{Context, Poll},
 };
 
+pub mod data;
 pub mod ext;
 pub mod util;
 

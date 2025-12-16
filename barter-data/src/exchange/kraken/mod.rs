@@ -3,23 +3,28 @@ use self::{
     message::KrakenMessage, subscription::KrakenSubResponse, trade::KrakenTrades,
 };
 use crate::{
-    Identifier, IdentifierStatic, NoInitialSnapshots, StreamSelector,
+    Identifier, IdentifierStatic, LiveMarketDataArgs, NoInitialSnapshots,
     error::DataError,
     event::MarketEvent,
     exchange::{Connector, ExchangeSub},
     init_ws_exchange_stream,
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
-    subscription::{Subscription, SubscriptionKind, book::OrderBooksL1, trade::PublicTrades},
+    subscription::{
+        Subscription,
+        book::{OrderBookL1, OrderBooksL1},
+        trade::{PublicTrade, PublicTrades},
+    },
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{protocol::websocket::WsMessage, serde::de::DeJson};
+use barter_integration::{
+    protocol::websocket::WsMessage, serde::de::DeJson, stream::data::DataStream,
+};
 use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
 use futures_util::Stream;
 use serde_json::json;
-use std::future::Future;
 use url::Url;
 
 /// OrderBook types for [`Kraken`].
@@ -103,26 +108,17 @@ impl Connector for Kraken {
     }
 }
 
-impl<Instrument> StreamSelector<Instrument, PublicTrades> for Kraken
+impl<Instrument> DataStream<LiveMarketDataArgs<Self, Instrument, PublicTrades>> for Kraken
 where
-    Instrument: InstrumentData,
-    Subscription<Self, Instrument, PublicTrades>:
-        Identifier<KrakenChannel> + Identifier<KrakenMarket>,
+    Instrument: InstrumentData + 'static,
+    Subscription<Self, Instrument, PublicTrades>: Identifier<KrakenMarket>,
 {
-    fn init(
-        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send,
-        stream_timeout: std::time::Duration,
-    ) -> impl Future<
-        Output = Result<
-            impl Stream<
-                Item = Result<
-                    MarketEvent<Instrument::Key, <PublicTrades as SubscriptionKind>::Event>,
-                    DataError,
-                >,
-            >,
-            DataError,
-        >,
-    > {
+    type Item = Result<MarketEvent<Instrument::Key, PublicTrade>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, PublicTrades>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
         init_ws_exchange_stream::<
             Self,
             Instrument,
@@ -130,30 +126,22 @@ where
             DeJson,
             StatelessTransformer<Self, Instrument::Key, PublicTrades, KrakenTrades>,
             NoInitialSnapshots,
-        >(subscriptions, stream_timeout)
+        >(args)
+        .await
     }
 }
 
-impl<Instrument> StreamSelector<Instrument, OrderBooksL1> for Kraken
+impl<Instrument> DataStream<LiveMarketDataArgs<Self, Instrument, OrderBooksL1>> for Kraken
 where
-    Instrument: InstrumentData,
-    Subscription<Self, Instrument, OrderBooksL1>:
-        Identifier<KrakenChannel> + Identifier<KrakenMarket>,
+    Instrument: InstrumentData + 'static,
+    Subscription<Self, Instrument, OrderBooksL1>: Identifier<KrakenMarket>,
 {
-    fn init(
-        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, OrderBooksL1>>>,
-        stream_timeout: std::time::Duration,
-    ) -> impl Future<
-        Output = Result<
-            impl Stream<
-                Item = Result<
-                    MarketEvent<Instrument::Key, <OrderBooksL1 as SubscriptionKind>::Event>,
-                    DataError,
-                >,
-            >,
-            DataError,
-        >,
-    > {
+    type Item = Result<MarketEvent<Instrument::Key, OrderBookL1>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, OrderBooksL1>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
         init_ws_exchange_stream::<
             Self,
             Instrument,
@@ -161,6 +149,7 @@ where
             DeJson,
             StatelessTransformer<Self, Instrument::Key, OrderBooksL1, KrakenOrderBookL1>,
             NoInitialSnapshots,
-        >(subscriptions, stream_timeout)
+        >(args)
+        .await
     }
 }

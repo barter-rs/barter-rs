@@ -24,23 +24,27 @@ use self::{
     subscription::BitfinexPlatformEvent, validator::BitfinexWebSocketSubValidator,
 };
 use crate::{
-    Identifier, IdentifierStatic, NoInitialSnapshots, StreamSelector,
+    Identifier, IdentifierStatic, LiveMarketDataArgs, NoInitialSnapshots,
     error::DataError,
     event::MarketEvent,
     exchange::{Connector, ExchangeSub},
     init_ws_exchange_stream,
     instrument::InstrumentData,
     subscriber::WebSocketSubscriber,
-    subscription::{Subscription, SubscriptionKind, trade::PublicTrades},
+    subscription::{
+        Subscription,
+        trade::{PublicTrade, PublicTrades},
+    },
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{protocol::websocket::WsMessage, serde::de::DeJson};
+use barter_integration::{
+    protocol::websocket::WsMessage, serde::de::DeJson, stream::data::DataStream,
+};
 use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
 use futures_util::Stream;
 use serde_json::json;
-use std::future::Future;
 use url::Url;
 
 /// Defines the type that translates a Barter [`Subscription`]
@@ -122,26 +126,17 @@ impl Connector for Bitfinex {
     }
 }
 
-impl<Instrument> StreamSelector<Instrument, PublicTrades> for Bitfinex
+impl<Instrument> DataStream<LiveMarketDataArgs<Self, Instrument, PublicTrades>> for Bitfinex
 where
-    Instrument: InstrumentData,
-    Subscription<Self, Instrument, PublicTrades>:
-        Identifier<BitfinexChannel> + Identifier<BitfinexMarket>,
+    Instrument: InstrumentData + 'static,
+    Subscription<Self, Instrument, PublicTrades>: Identifier<BitfinexMarket>,
 {
-    fn init(
-        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, PublicTrades>>> + Send,
-        stream_timeout: std::time::Duration,
-    ) -> impl Future<
-        Output = Result<
-            impl Stream<
-                Item = Result<
-                    MarketEvent<Instrument::Key, <PublicTrades as SubscriptionKind>::Event>,
-                    DataError,
-                >,
-            >,
-            DataError,
-        >,
-    > {
+    type Item = Result<MarketEvent<Instrument::Key, PublicTrade>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, PublicTrades>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
         init_ws_exchange_stream::<
             Self,
             Instrument,
@@ -149,6 +144,7 @@ where
             DeJson,
             StatelessTransformer<Self, Instrument::Key, PublicTrades, BitfinexMessage>,
             NoInitialSnapshots,
-        >(subscriptions, stream_timeout)
+        >(args)
+        .await
     }
 }

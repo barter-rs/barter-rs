@@ -1,4 +1,5 @@
 use barter_data::{
+    ServerConfig, StreamConfig,
     exchange::{
         binance::{futures::BinanceFuturesUsd, spot::BinanceSpot},
         bitmex::Bitmex,
@@ -23,7 +24,13 @@ use chrono::{TimeZone, Utc};
 use futures::StreamExt;
 use tracing::{info, warn};
 
-const STREAM_TIMEOUT: std::time::Duration = std::time::Duration::from_mins(1);
+const STREAM_CONFIG: StreamConfig = StreamConfig {
+    server: ServerConfig {
+        credentials: None,
+        base_url_custom: None,
+    },
+    timeout_stream: std::time::Duration::from_mins(1),
+};
 
 #[rustfmt::skip]
 #[tokio::main]
@@ -34,49 +41,49 @@ async fn main() {
     // Initialise PublicTrades Streams for various exchanges
     // '--> each call to StreamBuilder::subscribe() creates a separate WebSocket connection
     let streams = Streams::<PublicTrades>::builder()
-        .subscribe(STREAM_TIMEOUT, [
+        .subscribe(STREAM_CONFIG, [
             (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
             (BinanceSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
         ])
 
-        .subscribe(STREAM_TIMEOUT, [
+        .subscribe(STREAM_CONFIG, [
             (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
             (BinanceFuturesUsd::default(), "eth", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
         ])
 
-        .subscribe(STREAM_TIMEOUT, [
+        .subscribe(STREAM_CONFIG, [
             (GateioSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
         ])
 
-        .subscribe(STREAM_TIMEOUT, [
+        .subscribe(STREAM_CONFIG, [
             (GateioPerpetualsUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
         ])
 
-        .subscribe(STREAM_TIMEOUT, [
+        .subscribe(STREAM_CONFIG, [
             (GateioPerpetualsBtc::default(), "btc", "usd", MarketDataInstrumentKind::Perpetual, PublicTrades),
         ])
 
-        .subscribe(STREAM_TIMEOUT, [
+        .subscribe(STREAM_CONFIG, [
             (GateioOptions::default(), "btc", "usdt", MarketDataInstrumentKind::Option(put_contract()), PublicTrades),
         ])
 
-        .subscribe(STREAM_TIMEOUT, [
+        .subscribe(STREAM_CONFIG, [
             (Okx, "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
             (Okx, "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
             (Okx, "btc", "usd", MarketDataInstrumentKind::Future(future_contract_expiry()), PublicTrades),
             (Okx, "btc", "usd", MarketDataInstrumentKind::Option(call_contract()), PublicTrades),
         ])
 
-        .subscribe(STREAM_TIMEOUT, [
+        .subscribe(STREAM_CONFIG, [
             (BybitSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
             (BybitSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
         ])
 
-        .subscribe(STREAM_TIMEOUT, [
+        .subscribe(STREAM_CONFIG, [
             (BybitPerpetualsUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
         ])
 
-        .subscribe(STREAM_TIMEOUT, [
+        .subscribe(STREAM_CONFIG, [
             (Bitmex, "xbt", "usd", MarketDataInstrumentKind::Perpetual, PublicTrades)
         ])
 

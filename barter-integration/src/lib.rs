@@ -121,3 +121,21 @@ pub enum Admin<P, A> {
     Protocol(P),
     Application(A),
 }
+
+/// API Credentials.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+pub struct Credentials {
+    key: Secret<String>,
+    secret: Secret<String>,
+    passphrase: Option<Secret<String>>,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct Secret<T>(pub T);
+
+impl<T> std::fmt::Debug for Secret<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("<secret redacted>")
+    }
+}

@@ -35,6 +35,7 @@
 //! ### Multi Exchange Public Trades
 //! ```rust,no_run
 //! use barter_data::{
+//!     StreamConfig, ServerConfig,
 //!     exchange::{
 //!         gateio::spot::GateioSpot,
 //!         binance::{futures::BinanceFuturesUsd, spot::BinanceSpot},
@@ -48,7 +49,10 @@
 //! use futures::StreamExt;
 //! use tracing::warn;
 //!
-//! const STREAM_TIMEOUT: std::time::Duration = std::time::Duration::from_mins(1);
+//! const STREAM_CONFIG: StreamConfig = StreamConfig {
+//!     server: ServerConfig { credentials: None, base_url_custom: None },
+//!     timeout_stream: std::time::Duration::from_mins(1),
+//! };
 //!
 //! #[tokio::main]
 //! async fn main() {
@@ -56,23 +60,23 @@
 //!     // '--> each call to StreamBuilder::subscribe() initialises a separate WebSocket connection
 //!
 //!     let streams = Streams::<PublicTrades>::builder()
-//!         .subscribe(STREAM_TIMEOUT, [
+//!         .subscribe(STREAM_CONFIG, [
 //!             (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!             (BinanceSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!         ])
-//!         .subscribe(STREAM_TIMEOUT, [
+//!         .subscribe(STREAM_CONFIG, [
 //!             (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
 //!             (BinanceFuturesUsd::default(), "eth", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
 //!         ])
-//!         .subscribe(STREAM_TIMEOUT, [
+//!         .subscribe(STREAM_CONFIG, [
 //!             (Coinbase, "btc", "usd", MarketDataInstrumentKind::Spot, PublicTrades),
 //!             (Coinbase, "eth", "usd", MarketDataInstrumentKind::Spot, PublicTrades),
 //!         ])
-//!         .subscribe(STREAM_TIMEOUT, [
+//!         .subscribe(STREAM_CONFIG, [
 //!             (GateioSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!             (GateioSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!         ])
-//!         .subscribe(STREAM_TIMEOUT, [
+//!         .subscribe(STREAM_CONFIG, [
 //!             (Okx, "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!             (Okx, "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!             (Okx, "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
@@ -104,15 +108,19 @@ use crate::{
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
-    Message, Transformer,
+    Credentials, Message, Transformer,
     error::SocketError,
     protocol::websocket::{AdminWs, WsMessage, WsParser, WsSink, process_admin_ws},
     serde::de::{Deserialiser, error::DeBinaryError},
-    stream::ext::BarterStreamExt,
+    stream::{
+        data::{DataArgs, Live},
+        ext::BarterStreamExt,
+    },
 };
 use bytes::Bytes;
 use futures::{SinkExt, Stream, StreamExt};
-use std::future::Future;
+use serde::{Deserialize, Serialize};
+use std::{future::Future, sync::Arc};
 use tokio::sync::mpsc;
 use tracing::{debug, error, warn};
 
@@ -162,6 +170,9 @@ pub mod books;
 /// [`futures_usd`](exchange::binance::futures::l2::BinanceFuturesUsdOrderBooksL2Transformer).
 pub mod transformer;
 
+type LiveMarketDataArgs<Exchange, Instrument, Kind> =
+    Arc<DataArgs<Live, Vec<Subscription<Exchange, Instrument, Kind>>, StreamConfig>>;
+
 /// Defines a generic identification type for the implementor.
 pub trait Identifier<T> {
     fn id(&self) -> T;
@@ -170,24 +181,6 @@ pub trait Identifier<T> {
 /// Defines a generic identification type for the implementor that is not dependent on state.
 pub trait IdentifierStatic<T> {
     fn id() -> T;
-}
-
-/// Defines how to initialise a `Stream` of [`MarketEvent`] for the given subscriptions.
-pub trait StreamSelector<Instrument, Kind>
-where
-    Self: Sized,
-    Instrument: InstrumentData,
-    Kind: SubscriptionKind,
-{
-    fn init(
-        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, Kind>>> + Send,
-        stream_timeout: std::time::Duration,
-    ) -> impl Future<
-        Output = Result<
-            impl Stream<Item = Result<MarketEvent<Instrument::Key, Kind::Event>, DataError>> + Send,
-            DataError,
-        >,
-    > + Send;
 }
 
 /// Defines how to fetch market data snapshots for a collection of [`Subscription`]s.
@@ -226,17 +219,34 @@ where
     }
 }
 
+/// Live market `DataStream` configuration.
+///
+/// Includes the `ServerConfig` a stream consecutive event timeout `Duration`.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Deserialize, Serialize)]
+pub struct StreamConfig {
+    pub server: ServerConfig,
+    pub timeout_stream: std::time::Duration,
+}
+
+/// API server configuration.
+///
+/// Includes optional `Credentials` and custom base url.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Deserialize, Serialize)]
+pub struct ServerConfig {
+    pub credentials: Option<Credentials>,
+    pub base_url_custom: Option<String>,
+}
+
 pub async fn init_ws_exchange_stream<Exchange, Instrument, Kind, De, Transformer, SnapFetcher>(
-    subscriptions: impl AsRef<Vec<Subscription<Exchange, Instrument, Kind>>>,
-    timeout_stream: std::time::Duration,
+    args: LiveMarketDataArgs<Exchange, Instrument, Kind>,
 ) -> Result<
     impl Stream<Item = Result<MarketEvent<Instrument::Key, Kind::Event>, DataError>>,
     DataError,
 >
 where
-    Exchange: Connector + IdentifierStatic<ExchangeId> + Send + Sync,
-    Instrument: InstrumentData,
-    Kind: SubscriptionKind + Send + Sync,
+    Exchange: Connector + IdentifierStatic<ExchangeId> + Send + Sync + 'static,
+    Instrument: InstrumentData + 'static,
+    Kind: SubscriptionKind + Send + Sync + 'static,
     Kind::Event: Send,
     De: Deserialiser<Bytes, Transformer::Input, Error = DeBinaryError>,
     Transformer: ExchangeTransformer<Exchange, Instrument::Key, Kind>,
@@ -245,12 +255,13 @@ where
         Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
 {
     // Connect & subscribe
-    let subscriptions = subscriptions.as_ref().as_slice();
+    let base_url_custom = args.as_ref().config.server.base_url_custom.as_ref();
+    let subscriptions = args.as_ref().subscriptions.as_slice();
     let Subscribed {
         websocket,
         map: instrument_map,
         buffered_websocket_events,
-    } = Exchange::Subscriber::subscribe(subscriptions).await?;
+    } = Exchange::Subscriber::subscribe(base_url_custom, subscriptions).await?;
 
     // Fetch any required initial MarketEvent snapshots
     let initial_snapshots = SnapFetcher::fetch_snapshots(subscriptions).await?;
@@ -292,9 +303,9 @@ where
     // Define Stream Pipeline
     let ws_stream = ws_stream
         // Apply Stream timeout
-        .with_timeout(timeout_stream, move || {
+        .with_timeout(args.config.timeout_stream, move || {
             warn!(
-                timeout = ?timeout_stream,
+                timeout = ?args.config.timeout_stream,
                 "stream ended due to consecutive event timeout"
             )
         })

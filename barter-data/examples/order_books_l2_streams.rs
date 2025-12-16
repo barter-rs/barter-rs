@@ -1,4 +1,5 @@
 use barter_data::{
+    ServerConfig, StreamConfig,
     exchange::binance::spot::BinanceSpot,
     streams::{Streams, reconnect::stream::ReconnectingStream},
     subscription::book::OrderBooksL2,
@@ -9,7 +10,13 @@ use barter_instrument::{
 use futures_util::StreamExt;
 use tracing::{info, warn};
 
-const STREAM_TIMEOUT: std::time::Duration = std::time::Duration::from_mins(1);
+const STREAM_CONFIG: StreamConfig = StreamConfig {
+    server: ServerConfig {
+        credentials: None,
+        base_url_custom: None,
+    },
+    timeout_stream: std::time::Duration::from_mins(1),
+};
 
 #[rustfmt::skip]
 #[tokio::main]
@@ -22,17 +29,17 @@ async fn main() {
     let mut streams = Streams::<OrderBooksL2>::builder()
 
         // Separate WebSocket connection for BTC_USDT stream since it's very high volume
-        .subscribe(STREAM_TIMEOUT, [
+        .subscribe(STREAM_CONFIG, [
             (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
         ])
 
         // Separate WebSocket connection for ETH_USDT stream since it's very high volume
-        .subscribe(STREAM_TIMEOUT, [
+        .subscribe(STREAM_CONFIG, [
             (BinanceSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
         ])
 
         // Lower volume Instruments can share a WebSocket connection
-        .subscribe(STREAM_TIMEOUT, [
+        .subscribe(STREAM_CONFIG, [
             (BinanceSpot::default(), "xrp", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
             (BinanceSpot::default(), "sol", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),
             (BinanceSpot::default(), "avax", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL2),

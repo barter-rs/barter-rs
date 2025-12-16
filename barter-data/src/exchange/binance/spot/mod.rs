@@ -1,24 +1,23 @@
 use super::{Binance, ExchangeServer};
 use crate::{
-    Identifier, StreamSelector,
+    Identifier, LiveMarketDataArgs,
     error::DataError,
     event::MarketEvent,
     exchange::binance::{
-        channel::BinanceChannel,
         market::BinanceMarket,
         spot::l2::{BinanceSpotOrderBooksL2SnapshotFetcher, BinanceSpotOrderBooksL2Transformer},
     },
     init_ws_exchange_stream,
     instrument::InstrumentData,
-    subscription::{Subscription, SubscriptionKind, book::OrderBooksL2},
+    subscription::{
+        Subscription,
+        book::{OrderBookEvent, OrderBooksL2},
+    },
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::serde::de::DeJson;
+use barter_integration::{serde::de::DeJson, stream::data::DataStream};
 use futures::Stream;
-use std::{
-    fmt::{Display, Formatter},
-    future::Future,
-};
+use std::fmt::{Display, Formatter};
 
 /// Level 2 OrderBook types.
 pub mod l2;
@@ -43,26 +42,17 @@ impl ExchangeServer for BinanceServerSpot {
     }
 }
 
-impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for BinanceSpot
+impl<Instrument> DataStream<LiveMarketDataArgs<Self, Instrument, OrderBooksL2>> for BinanceSpot
 where
-    Instrument: InstrumentData,
-    Subscription<Self, Instrument, OrderBooksL2>:
-        Identifier<BinanceChannel> + Identifier<BinanceMarket>,
+    Instrument: InstrumentData + 'static,
+    Subscription<Self, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
 {
-    fn init(
-        subscriptions: impl AsRef<Vec<Subscription<Self, Instrument, OrderBooksL2>>>,
-        stream_timeout: std::time::Duration,
-    ) -> impl Future<
-        Output = Result<
-            impl Stream<
-                Item = Result<
-                    MarketEvent<Instrument::Key, <OrderBooksL2 as SubscriptionKind>::Event>,
-                    DataError,
-                >,
-            >,
-            DataError,
-        >,
-    > {
+    type Item = Result<MarketEvent<Instrument::Key, OrderBookEvent>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, OrderBooksL2>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
         init_ws_exchange_stream::<
             Self,
             Instrument,
@@ -70,7 +60,8 @@ where
             DeJson,
             BinanceSpotOrderBooksL2Transformer<Instrument::Key>,
             BinanceSpotOrderBooksL2SnapshotFetcher,
-        >(subscriptions, stream_timeout)
+        >(args)
+        .await
     }
 }
 

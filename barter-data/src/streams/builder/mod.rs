@@ -1,7 +1,8 @@
 use super::Streams;
 use crate::{
-    IdentifierStatic, StreamSelector,
+    IdentifierStatic, LiveMarketDataArgs, StreamConfig,
     error::DataError,
+    event::MarketEvent,
     instrument::InstrumentData,
     streams::{
         consumer::{MarketStreamResult, STREAM_RECONNECTION_POLICY, init_market_stream},
@@ -10,7 +11,11 @@ use crate::{
     subscription::{Subscription, SubscriptionKind},
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{Validator, channel::Channel};
+use barter_integration::{
+    Validator,
+    channel::Channel,
+    stream::data::{DataArgs, DataStream},
+};
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},
@@ -76,14 +81,17 @@ where
     /// [`init()`](StreamBuilder::init()) method is invoked.
     pub fn subscribe<SubIter, Sub, Exchange, Instrument>(
         mut self,
-        stream_timeout: std::time::Duration,
+        config: StreamConfig,
         subscriptions: SubIter,
     ) -> Self
     where
         SubIter: IntoIterator<Item = Sub>,
         Sub: Into<Subscription<Exchange, Instrument, Kind>>,
-        Exchange: StreamSelector<Instrument, Kind>
-            + IdentifierStatic<ExchangeId>
+        Exchange: DataStream<
+                LiveMarketDataArgs<Exchange, Instrument, Kind>,
+                Item = Result<MarketEvent<Instrument::Key, Kind::Event>, DataError>,
+                Error = DataError,
+            > + IdentifierStatic<ExchangeId>
             + Ord
             + Send
             + Sync
@@ -92,8 +100,6 @@ where
         Instrument::Key: Debug + Clone + Send + 'static,
         Kind: Ord + Display + Send + Sync + 'static,
         Kind::Event: Clone + Send,
-        // Subscription<Exchange, Instrument, Kind>:
-        //     Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
     {
         // Construct Vec<Subscriptions> from input SubIter
         let subscriptions = subscriptions.into_iter().map(Sub::into).collect::<Vec<_>>();
@@ -114,13 +120,10 @@ where
             subscriptions.sort();
             subscriptions.dedup();
 
+            let args = Arc::new(DataArgs::live(subscriptions, config));
+
             // Initialise a MarketEvent `ReconnectingStream`
-            let stream = init_market_stream(
-                STREAM_RECONNECTION_POLICY,
-                Arc::new(subscriptions),
-                stream_timeout,
-            )
-            .await?;
+            let stream = init_market_stream(STREAM_RECONNECTION_POLICY, args).await?;
 
             // Forward MarketEvents to ExchangeTx
             tokio::spawn(stream.forward_to(exchange_tx));

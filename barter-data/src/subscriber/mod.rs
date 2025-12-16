@@ -33,6 +33,7 @@ pub trait Subscriber {
     type SubMapper: SubscriptionMapper;
 
     async fn subscribe<Exchange, Instrument, Kind>(
+        base_url_custom: Option<&String>,
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
     ) -> Result<Subscribed<Instrument::Key>, SocketError>
     where
@@ -59,6 +60,7 @@ impl Subscriber for WebSocketSubscriber {
     type SubMapper = WebSocketSubMapper;
 
     async fn subscribe<Exchange, Instrument, Kind>(
+        base_url_custom: Option<&String>,
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
     ) -> Result<Subscribed<Instrument::Key>, SocketError>
     where
@@ -68,9 +70,13 @@ impl Subscriber for WebSocketSubscriber {
         Subscription<Exchange, Instrument, Kind>:
             Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
     {
-        // Define variables for logging ergonomics
         let exchange = Exchange::id();
-        let url = Exchange::url()?;
+
+        // Determine Url (custom or default)
+        let url = base_url_custom
+            .as_ref()
+            .map_or_else(Exchange::url, |custom| url::Url::parse(custom))?;
+
         debug!(%exchange, %url, ?subscriptions, "subscribing to WebSocket");
 
         // Connect to exchange

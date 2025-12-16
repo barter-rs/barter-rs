@@ -38,7 +38,7 @@ pub struct BinanceSpotOrderBooksL2SnapshotFetcher;
 impl<Instrument> SnapshotFetcher<BinanceSpot, Instrument, OrderBooksL2>
     for BinanceSpotOrderBooksL2SnapshotFetcher
 where
-    Instrument: InstrumentData,
+    Instrument: InstrumentData + 'static,
     Subscription<BinanceSpot, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
 {
     fn fetch_snapshots(
