@@ -6,10 +6,10 @@ use crate::stream::ext::{
 use futures::Stream;
 
 pub mod forward_by;
-mod forward_clone_by;
+pub mod forward_clone_by;
 pub mod indexed;
 
-pub trait StreamExt
+pub trait BarterStreamExt
 where
     Self: Stream,
 {
@@ -68,3 +68,5 @@ where
         ForwardCloneBy::new(self, predicate, forward)
     }
 }
+
+impl<S> BarterStreamExt for S where S: Stream {}
