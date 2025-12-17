@@ -45,7 +45,7 @@ pub struct BinanceOrderBookL1 {
     pub subscription_id: SubscriptionId,
     #[serde(
         alias = "T",
-        deserialize_with = "barter_integration::de::de_u64_epoch_ms_as_datetime_utc",
+        deserialize_with = "barter_integration::serde::de::util::de_u64_epoch_ms_as_datetime_utc",
         default = "Utc::now"
     )]
     pub time: DateTime<Utc>,

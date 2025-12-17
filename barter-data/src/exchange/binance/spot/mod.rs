@@ -1,18 +1,22 @@
 use super::{Binance, ExchangeServer};
 use crate::{
-    exchange::{
-        StreamSelector,
-        binance::{
-            BinanceWsStream,
-            spot::l2::{
-                BinanceSpotOrderBooksL2SnapshotFetcher, BinanceSpotOrderBooksL2Transformer,
-            },
-        },
+    Identifier, LiveMarketDataArgs,
+    error::DataError,
+    event::MarketEvent,
+    exchange::binance::{
+        market::BinanceMarket,
+        spot::l2::{BinanceSpotOrderBooksL2SnapshotFetcher, BinanceSpotOrderBooksL2Transformer},
     },
+    init_ws_exchange_stream,
     instrument::InstrumentData,
-    subscription::book::OrderBooksL2,
+    subscription::{
+        Subscription,
+        book::{OrderBookEvent, OrderBooksL2},
+    },
 };
 use barter_instrument::exchange::ExchangeId;
+use barter_integration::{serde::de::DeJson, stream::data::DataStream};
+use futures::Stream;
 use std::fmt::{Display, Formatter};
 
 /// Level 2 OrderBook types.
@@ -38,12 +42,27 @@ impl ExchangeServer for BinanceServerSpot {
     }
 }
 
-impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for BinanceSpot
+impl<Instrument> DataStream<LiveMarketDataArgs<Self, Instrument, OrderBooksL2>> for BinanceSpot
 where
-    Instrument: InstrumentData,
+    Instrument: InstrumentData + 'static,
+    Subscription<Self, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
 {
-    type SnapFetcher = BinanceSpotOrderBooksL2SnapshotFetcher;
-    type Stream = BinanceWsStream<BinanceSpotOrderBooksL2Transformer<Instrument::Key>>;
+    type Item = Result<MarketEvent<Instrument::Key, OrderBookEvent>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, OrderBooksL2>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
+        init_ws_exchange_stream::<
+            Self,
+            Instrument,
+            OrderBooksL2,
+            DeJson,
+            BinanceSpotOrderBooksL2Transformer<Instrument::Key>,
+            BinanceSpotOrderBooksL2SnapshotFetcher,
+        >(args)
+        .await
+    }
 }
 
 impl Display for BinanceSpot {

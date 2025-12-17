@@ -1,4 +1,5 @@
 use barter_data::{
+    ServerConfig, StreamConfig,
     exchange::binance::{futures::BinanceFuturesUsd, spot::BinanceSpot},
     streams::{Streams, reconnect::stream::ReconnectingStream},
     subscription::book::OrderBooksL1,
@@ -6,6 +7,14 @@ use barter_data::{
 use barter_instrument::instrument::market_data::kind::MarketDataInstrumentKind;
 use futures::StreamExt;
 use tracing::{info, warn};
+
+const STREAM_CONFIG: StreamConfig = StreamConfig {
+    server: ServerConfig {
+        credentials: None,
+        base_url_custom: None,
+    },
+    timeout_stream: std::time::Duration::from_mins(1),
+};
 
 #[rustfmt::skip]
 #[tokio::main]
@@ -16,11 +25,11 @@ async fn main() {
     // Initialise OrderBooksL1 Streams for various exchanges
     // '--> each call to StreamBuilder::subscribe() initialises a separate WebSocket connection
     let streams = Streams::<OrderBooksL1>::builder()
-        .subscribe([
+        .subscribe(STREAM_CONFIG, [
             (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, OrderBooksL1),
             (BinanceSpot::default(), "eth", "usd", MarketDataInstrumentKind::Spot, OrderBooksL1),
         ])
-        .subscribe([
+        .subscribe(STREAM_CONFIG, [
             (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, OrderBooksL1),
             (BinanceFuturesUsd::default(), "eth", "usd", MarketDataInstrumentKind::Perpetual, OrderBooksL1),
         ])

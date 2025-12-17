@@ -1,4 +1,6 @@
-use crate::subscription::SubscriptionId;
+use crate::{
+    protocol::websocket::WsError, serde::de::error::DeBinaryError, subscription::SubscriptionId,
+};
 use prost::DecodeError;
 use reqwest::Error;
 use thiserror::Error;
@@ -8,6 +10,9 @@ use thiserror::Error;
 pub enum SocketError {
     #[error("Sink error")]
     Sink,
+
+    #[error("{0}")]
+    DeBinary(#[from] DeBinaryError),
 
     #[error("Deserialising JSON error: {error} for payload: {payload}")]
     Deserialise {
@@ -74,5 +79,11 @@ impl From<reqwest::Error> for SocketError {
             error if error.is_timeout() => SocketError::HttpTimeout(error),
             error => SocketError::Http(error),
         }
+    }
+}
+
+impl From<WsError> for SocketError {
+    fn from(error: WsError) -> Self {
+        Self::WebSocket(Box::new(error))
     }
 }

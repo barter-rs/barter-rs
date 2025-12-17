@@ -1,8 +1,7 @@
 use crate::{
-    Identifier, MarketStream,
+    IdentifierStatic, LiveMarketDataArgs,
     error::DataError,
     event::MarketEvent,
-    exchange::StreamSelector,
     instrument::InstrumentData,
     streams::{
         reconnect,
@@ -10,13 +9,14 @@ use crate::{
             ReconnectingStream, ReconnectionBackoffPolicy, init_reconnecting_stream,
         },
     },
-    subscription::{Subscription, SubscriptionKind, display_subscriptions_without_exchange},
+    subscription::{SubscriptionKind, display_subscriptions_without_exchange},
 };
 use barter_instrument::exchange::ExchangeId;
+use barter_integration::stream::data::DataStream;
 use derive_more::Constructor;
 use futures::Stream;
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 use tracing::info;
 
 /// Default [`ReconnectionBackoffPolicy`] for a [`reconnecting`](`ReconnectingStream`) [`MarketStream`].
@@ -43,35 +43,41 @@ pub type MarketStreamEvent<InstrumentKey, Kind> =
 /// between reconnections.
 pub async fn init_market_stream<Exchange, Instrument, Kind>(
     policy: ReconnectionBackoffPolicy,
-    subscriptions: Vec<Subscription<Exchange, Instrument, Kind>>,
-) -> Result<impl Stream<Item = MarketStreamResult<Instrument::Key, Kind::Event>>, DataError>
+    args: LiveMarketDataArgs<Exchange, Instrument, Kind>,
+) -> Result<impl Stream<Item = MarketStreamResult<Instrument::Key, Kind::Event>> + Send, DataError>
 where
-    Exchange: StreamSelector<Instrument, Kind>,
+    Exchange: DataStream<
+            LiveMarketDataArgs<Exchange, Instrument, Kind>,
+            Item = Result<MarketEvent<Instrument::Key, Kind::Event>, DataError>,
+            Error = DataError,
+        > + IdentifierStatic<ExchangeId>
+        + Send
+        + Sync,
     Instrument: InstrumentData + Display,
-    Kind: SubscriptionKind + Display,
-    Subscription<Exchange, Instrument, Kind>:
-        Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
+    Kind: SubscriptionKind + Display + Send + Sync,
+    Kind::Event: Send,
 {
     // Determine ExchangeId associated with these Subscriptions
-    let exchange = Exchange::ID;
+    let exchange = Exchange::id();
 
     // Determine StreamKey for use in logging
-    let stream_key = subscriptions
+    let stream_key = args
+        .subscriptions
         .first()
         .map(|sub| StreamKey::new("market_stream", exchange, Some(sub.kind.as_str())))
         .ok_or(DataError::SubscriptionsEmpty)?;
 
     info!(
         %exchange,
-        subscriptions = %display_subscriptions_without_exchange(&subscriptions),
+        subscriptions = %display_subscriptions_without_exchange(&args.subscriptions),
         ?policy,
         ?stream_key,
         "MarketStream with auto reconnect initialising"
     );
 
     Ok(init_reconnecting_stream(move || {
-        let subscriptions = subscriptions.clone();
-        async move { Exchange::Stream::init::<Exchange::SnapFetcher>(&subscriptions).await }
+        let args = Arc::clone(&args);
+        async move { Exchange::init(args).await }
     })
     .await?
     .with_reconnect_backoff(policy, stream_key)

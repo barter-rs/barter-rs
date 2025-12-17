@@ -1,4 +1,4 @@
-use crate::SocketError;
+use crate::error::SocketError;
 use futures::Stream;
 
 /// Contains useful `WebSocket` type aliases and a default `WebSocket` implementation of a

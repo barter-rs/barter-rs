@@ -21,7 +21,7 @@ use barter_instrument::{
     exchange::ExchangeId,
     instrument::{Instrument, name::InstrumentNameExchange},
 };
-use barter_integration::snapshot::Snapshot;
+use barter_integration::collection::snapshot::Snapshot;
 use chrono::{DateTime, TimeDelta, Utc};
 use fnv::FnvHashMap;
 use futures::stream::BoxStream;

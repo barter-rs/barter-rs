@@ -40,7 +40,7 @@ pub struct BybitPayload<T> {
 
     #[serde(
         alias = "ts",
-        deserialize_with = "barter_integration::de::de_u64_epoch_ms_as_datetime_utc"
+        deserialize_with = "barter_integration::serde::de::util::de_u64_epoch_ms_as_datetime_utc"
     )]
     pub time: DateTime<Utc>,
 

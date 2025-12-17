@@ -1,9 +1,7 @@
 use self::subscription::ExchangeSub;
 use crate::{
-    MarketStream, SnapshotFetcher,
-    instrument::InstrumentData,
     subscriber::{Subscriber, validator::SubscriptionValidator},
-    subscription::{Map, SubscriptionKind},
+    subscription::Map,
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{Validator, error::SocketError, protocol::websocket::WsMessage};
@@ -44,34 +42,12 @@ pub mod subscription;
 /// `Subscription` requests.
 pub const DEFAULT_SUBSCRIPTION_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Defines the [`MarketStream`] kind associated with an exchange
-/// `Subscription` [`SubscriptionKind`].
-///
-/// ### Notes
-/// Must be implemented by an exchange [`Connector`] if it supports a specific
-/// [`SubscriptionKind`].
-pub trait StreamSelector<Instrument, Kind>
-where
-    Self: Connector,
-    Instrument: InstrumentData,
-    Kind: SubscriptionKind,
-{
-    type SnapFetcher: SnapshotFetcher<Self, Kind>;
-    type Stream: MarketStream<Self, Instrument, Kind>;
-}
-
 /// Primary exchange abstraction. Defines how to translate Barter types into exchange specific
 /// types, as well as connecting, subscribing, and interacting with the exchange server.
-///
-/// ### Notes
-/// This must be implemented for a new exchange integration!
 pub trait Connector
 where
     Self: Clone + Default + Debug + for<'de> Deserialize<'de> + Serialize + Sized,
 {
-    /// Unique identifier for the exchange server being connected with.
-    const ID: ExchangeId;
-
     /// Type that defines how to translate a Barter `Subscription` into an exchange specific
     /// channel to be subscribed to.
     ///
@@ -103,10 +79,10 @@ where
     /// sent over the [`WebSocket`](barter_integration::protocol::websocket::WebSocket). Implements
     /// [`Validator`] in order to determine if [`Self`]
     /// communicates a successful `Subscription` outcome.
-    type SubResponse: Validator + Debug + DeserializeOwned;
+    type SubResponse: Validator<Error = SocketError> + Debug + DeserializeOwned;
 
     /// Base [`Url`] of the exchange server being connected with.
-    fn url() -> Result<Url, SocketError>;
+    fn url() -> Result<Url, url::ParseError>;
 
     /// Defines [`PingInterval`] of custom application-level
     /// [`WebSocket`](barter_integration::protocol::websocket::WebSocket) pings for the exchange

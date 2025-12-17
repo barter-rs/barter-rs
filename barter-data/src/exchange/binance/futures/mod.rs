@@ -1,22 +1,28 @@
 use self::liquidation::BinanceLiquidation;
 use super::{Binance, ExchangeServer};
 use crate::{
-    NoInitialSnapshots,
-    exchange::{
-        StreamSelector,
-        binance::{
-            BinanceWsStream,
-            futures::l2::{
-                BinanceFuturesUsdOrderBooksL2SnapshotFetcher,
-                BinanceFuturesUsdOrderBooksL2Transformer,
-            },
+    Identifier, LiveMarketDataArgs, NoInitialSnapshots,
+    error::DataError,
+    event::MarketEvent,
+    exchange::binance::{
+        channel::BinanceChannel,
+        futures::l2::{
+            BinanceFuturesUsdOrderBooksL2SnapshotFetcher, BinanceFuturesUsdOrderBooksL2Transformer,
         },
+        market::BinanceMarket,
     },
+    init_ws_exchange_stream,
     instrument::InstrumentData,
-    subscription::{book::OrderBooksL2, liquidation::Liquidations},
+    subscription::{
+        Subscription,
+        book::{OrderBookEvent, OrderBooksL2},
+        liquidation::{Liquidation, Liquidations},
+    },
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
+use barter_integration::{serde::de::DeJson, stream::data::DataStream};
+use futures::Stream;
 use std::fmt::{Display, Formatter};
 
 /// Level 2 OrderBook types.
@@ -45,22 +51,54 @@ impl ExchangeServer for BinanceServerFuturesUsd {
     }
 }
 
-impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for BinanceFuturesUsd
+impl<Instrument> DataStream<LiveMarketDataArgs<Self, Instrument, OrderBooksL2>>
+    for BinanceFuturesUsd
 where
-    Instrument: InstrumentData,
+    Instrument: InstrumentData + 'static,
+    Subscription<Self, Instrument, OrderBooksL2>:
+        Identifier<BinanceChannel> + Identifier<BinanceMarket>,
 {
-    type SnapFetcher = BinanceFuturesUsdOrderBooksL2SnapshotFetcher;
-    type Stream = BinanceWsStream<BinanceFuturesUsdOrderBooksL2Transformer<Instrument::Key>>;
+    type Item = Result<MarketEvent<Instrument::Key, OrderBookEvent>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, OrderBooksL2>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
+        init_ws_exchange_stream::<
+            Self,
+            Instrument,
+            OrderBooksL2,
+            DeJson,
+            BinanceFuturesUsdOrderBooksL2Transformer<Instrument::Key>,
+            BinanceFuturesUsdOrderBooksL2SnapshotFetcher,
+        >(args)
+        .await
+    }
 }
 
-impl<Instrument> StreamSelector<Instrument, Liquidations> for BinanceFuturesUsd
+impl<Instrument> DataStream<LiveMarketDataArgs<Self, Instrument, Liquidations>>
+    for BinanceFuturesUsd
 where
-    Instrument: InstrumentData,
+    Instrument: InstrumentData + 'static,
+    Subscription<Self, Instrument, Liquidations>:
+        Identifier<BinanceChannel> + Identifier<BinanceMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream = BinanceWsStream<
-        StatelessTransformer<Self, Instrument::Key, Liquidations, BinanceLiquidation>,
-    >;
+    type Item = Result<MarketEvent<Instrument::Key, Liquidation>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, Liquidations>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
+        init_ws_exchange_stream::<
+            Self,
+            Instrument,
+            Liquidations,
+            DeJson,
+            StatelessTransformer<Self, Instrument::Key, Liquidations, BinanceLiquidation>,
+            NoInitialSnapshots,
+        >(args)
+        .await
+    }
 }
 
 impl Display for BinanceFuturesUsd {

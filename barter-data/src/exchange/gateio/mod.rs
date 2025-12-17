@@ -1,14 +1,11 @@
 use self::{channel::GateioChannel, market::GateioMarket, subscription::GateioSubResponse};
 use crate::{
-    ExchangeWsStream,
+    IdentifierStatic,
     exchange::{Connector, ExchangeServer, subscription::ExchangeSub},
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{
-    error::SocketError,
-    protocol::websocket::{WebSocketSerdeParser, WsMessage},
-};
+use barter_integration::protocol::websocket::WsMessage;
 use serde_json::json;
 use std::{fmt::Debug, marker::PhantomData};
 use url::Url;
@@ -50,9 +47,6 @@ pub mod message;
 /// [`GateioPerpetualBtc`](perpetual::GateioPerpetualsBtc).
 pub mod subscription;
 
-/// Convenient type alias using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
-pub type GateiotWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
-
 /// Generic [`Gateio<Server>`](Gateio) exchange.
 ///
 /// ### Notes
@@ -64,19 +58,27 @@ pub struct Gateio<Server> {
     server: PhantomData<Server>,
 }
 
+impl<Server> IdentifierStatic<ExchangeId> for Gateio<Server>
+where
+    Server: ExchangeServer,
+{
+    fn id() -> ExchangeId {
+        Server::ID
+    }
+}
+
 impl<Server> Connector for Gateio<Server>
 where
     Server: ExchangeServer,
 {
-    const ID: ExchangeId = Server::ID;
     type Channel = GateioChannel;
     type Market = GateioMarket;
     type Subscriber = WebSocketSubscriber;
     type SubValidator = WebSocketSubValidator;
     type SubResponse = GateioSubResponse;
 
-    fn url() -> Result<Url, SocketError> {
-        Url::parse(Server::websocket_url()).map_err(SocketError::UrlParse)
+    fn url() -> Result<Url, url::ParseError> {
+        Url::parse(Server::websocket_url())
     }
 
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
@@ -106,12 +108,12 @@ where
         D: serde::de::Deserializer<'de>,
     {
         let input = <String as serde::Deserialize>::deserialize(deserializer)?;
-        if input.as_str() == Self::ID.as_str() {
+        if input.as_str() == Self::id().as_str() {
             Ok(Self::default())
         } else {
             Err(serde::de::Error::invalid_value(
                 serde::de::Unexpected::Str(input.as_str()),
-                &Self::ID.as_str(),
+                &Self::id().as_str(),
             ))
         }
     }
@@ -125,6 +127,6 @@ where
     where
         S: serde::ser::Serializer,
     {
-        serializer.serialize_str(Self::ID.as_str())
+        serializer.serialize_str(Self::id().as_str())
     }
 }

@@ -3,7 +3,7 @@ use crate::{
     subscription::trade::PublicTrade,
 };
 use barter_instrument::{Side, exchange::ExchangeId};
-use barter_integration::de::{datetime_utc_from_epoch_duration, extract_next};
+use barter_integration::serde::de::util::{datetime_utc_from_epoch_duration, extract_next};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 

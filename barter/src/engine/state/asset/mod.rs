@@ -10,7 +10,7 @@ use barter_instrument::{
     },
     index::IndexedInstruments,
 };
-use barter_integration::{collection::FnvIndexMap, snapshot::Snapshot};
+use barter_integration::collection::{FnvIndexMap, snapshot::Snapshot};
 use chrono::Utc;
 use derive_more::Constructor;
 use itertools::Either;

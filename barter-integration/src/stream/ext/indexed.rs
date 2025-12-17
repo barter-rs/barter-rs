@@ -15,16 +15,16 @@ pub trait Indexer {
 
 #[derive(Debug, Constructor)]
 #[pin_project]
-pub struct IndexedStream<Indexer, Stream> {
+pub struct IndexedStream<Stream, Indexer> {
     #[pin]
     pub stream: Stream,
     pub indexer: Indexer,
 }
 
-impl<Index, St> Stream for IndexedStream<Index, St>
+impl<St, Index> Stream for IndexedStream<St, Index>
 where
-    Index: Indexer<Unindexed = St::Item>,
     St: Stream,
+    Index: Indexer<Unindexed = St::Item>,
 {
     type Item = Result<Index::Indexed, IndexError>;
 

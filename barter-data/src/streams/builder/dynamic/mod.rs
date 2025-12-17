@@ -1,5 +1,5 @@
 use crate::{
-    Identifier,
+    Identifier, IdentifierStatic, ServerConfig, StreamConfig,
     error::DataError,
     exchange::{
         binance::{futures::BinanceFuturesUsd, market::BinanceMarket, spot::BinanceSpot},
@@ -34,6 +34,7 @@ use barter_integration::{
     Validator,
     channel::{UnboundedRx, UnboundedTx, mpsc_unbounded},
     error::SocketError,
+    stream::data::DataArgs,
 };
 use fnv::FnvHashMap;
 use futures::{Stream, stream::SelectAll};
@@ -73,6 +74,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
     /// Please see barter-data-rs/examples/dynamic_multi_stream_multi_exchange.rs for a
     /// comprehensive example of how to use this market data stream initialiser.
     pub async fn init<SubBatchIter, SubIter, Sub, Instrument>(
+        timeout_stream: std::time::Duration,
         subscription_batches: SubBatchIter,
     ) -> Result<Self, DataError>
     where
@@ -81,30 +83,45 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         Sub: Into<Subscription<ExchangeId, Instrument, SubKind>>,
         Instrument: InstrumentData<Key = InstrumentKey> + Ord + Display + 'static,
         InstrumentKey: Debug + Clone + Send + 'static,
+        BinanceSpot: IdentifierStatic<ExchangeId>,
         Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
         Subscription<BinanceSpot, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
         Subscription<BinanceSpot, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
+        BinanceFuturesUsd: IdentifierStatic<ExchangeId>,
         Subscription<BinanceFuturesUsd, Instrument, PublicTrades>: Identifier<BinanceMarket>,
         Subscription<BinanceFuturesUsd, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
         Subscription<BinanceFuturesUsd, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
         Subscription<BinanceFuturesUsd, Instrument, Liquidations>: Identifier<BinanceMarket>,
+        Bitfinex: IdentifierStatic<ExchangeId>,
         Subscription<Bitfinex, Instrument, PublicTrades>: Identifier<BitfinexMarket>,
+        Bitmex: IdentifierStatic<ExchangeId>,
         Subscription<Bitmex, Instrument, PublicTrades>: Identifier<BitmexMarket>,
+        BybitSpot: IdentifierStatic<ExchangeId>,
         Subscription<BybitSpot, Instrument, PublicTrades>: Identifier<BybitMarket>,
         Subscription<BybitSpot, Instrument, OrderBooksL1>: Identifier<BybitMarket>,
         Subscription<BybitSpot, Instrument, OrderBooksL2>: Identifier<BybitMarket>,
+        BybitPerpetualsUsd: IdentifierStatic<ExchangeId>,
         Subscription<BybitPerpetualsUsd, Instrument, PublicTrades>: Identifier<BybitMarket>,
         Subscription<BybitPerpetualsUsd, Instrument, OrderBooksL1>: Identifier<BybitMarket>,
         Subscription<BybitPerpetualsUsd, Instrument, OrderBooksL2>: Identifier<BybitMarket>,
+        Coinbase: IdentifierStatic<ExchangeId>,
         Subscription<Coinbase, Instrument, PublicTrades>: Identifier<CoinbaseMarket>,
+        GateioSpot: IdentifierStatic<ExchangeId>,
         Subscription<GateioSpot, Instrument, PublicTrades>: Identifier<GateioMarket>,
+        GateioFuturesUsd: IdentifierStatic<ExchangeId>,
         Subscription<GateioFuturesUsd, Instrument, PublicTrades>: Identifier<GateioMarket>,
+        GateioFuturesBtc: IdentifierStatic<ExchangeId>,
         Subscription<GateioFuturesBtc, Instrument, PublicTrades>: Identifier<GateioMarket>,
+        GateioPerpetualsUsd: IdentifierStatic<ExchangeId>,
         Subscription<GateioPerpetualsUsd, Instrument, PublicTrades>: Identifier<GateioMarket>,
+        GateioPerpetualsBtc: IdentifierStatic<ExchangeId>,
         Subscription<GateioPerpetualsBtc, Instrument, PublicTrades>: Identifier<GateioMarket>,
+        GateioOptions: IdentifierStatic<ExchangeId>,
         Subscription<GateioOptions, Instrument, PublicTrades>: Identifier<GateioMarket>,
+        Kraken: IdentifierStatic<ExchangeId>,
         Subscription<Kraken, Instrument, PublicTrades>: Identifier<KrakenMarket>,
         Subscription<Kraken, Instrument, OrderBooksL1>: Identifier<KrakenMarket>,
+        Okx: IdentifierStatic<ExchangeId>,
         Subscription<Okx, Instrument, PublicTrades>: Identifier<OkxMarket>,
     {
         // Validate & dedup Subscription batches
@@ -130,15 +147,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BinanceSpot, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BinanceSpot::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BinanceSpot::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -150,15 +173,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BinanceSpot, SubKind::OrderBooksL1) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BinanceSpot::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL1,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BinanceSpot::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL1,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -170,15 +199,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BinanceSpot, SubKind::OrderBooksL2) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BinanceSpot::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL2,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BinanceSpot::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL2,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -190,15 +225,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BinanceFuturesUsd, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BinanceFuturesUsd::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BinanceFuturesUsd::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -210,15 +251,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BinanceFuturesUsd, SubKind::OrderBooksL1) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::<_, Instrument, _>::new(
-                                                        BinanceFuturesUsd::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL1,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::<_, Instrument, _>::new(
+                                                            BinanceFuturesUsd::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL1,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -230,15 +277,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BinanceFuturesUsd, SubKind::OrderBooksL2) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::<_, Instrument, _>::new(
-                                                        BinanceFuturesUsd::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL2,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::<_, Instrument, _>::new(
+                                                            BinanceFuturesUsd::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL2,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -250,15 +303,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BinanceFuturesUsd, SubKind::Liquidations) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::<_, Instrument, _>::new(
-                                                        BinanceFuturesUsd::default(),
-                                                        sub.instrument,
-                                                        Liquidations,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::<_, Instrument, _>::new(
+                                                            BinanceFuturesUsd::default(),
+                                                            sub.instrument,
+                                                            Liquidations,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -270,15 +329,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::Bitfinex, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        Bitfinex,
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            Bitfinex,
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -290,15 +355,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::Bitmex, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        Bitmex,
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            Bitmex,
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -310,15 +381,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BybitSpot, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BybitSpot::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BybitSpot::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -330,15 +407,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BybitSpot, SubKind::OrderBooksL1) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BybitSpot::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL1,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BybitSpot::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL1,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -350,15 +433,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BybitSpot, SubKind::OrderBooksL2) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BybitSpot::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL2,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BybitSpot::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL2,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -370,15 +459,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BybitPerpetualsUsd, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BybitPerpetualsUsd::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BybitPerpetualsUsd::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -390,15 +485,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BybitPerpetualsUsd, SubKind::OrderBooksL1) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BybitSpot::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL1,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BybitPerpetualsUsd::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL1,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -410,15 +511,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::BybitPerpetualsUsd, SubKind::OrderBooksL2) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        BybitSpot::default(),
-                                                        sub.instrument,
-                                                        OrderBooksL2,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            BybitPerpetualsUsd::default(),
+                                                            sub.instrument,
+                                                            OrderBooksL2,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -430,15 +537,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::Coinbase, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        Coinbase,
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            Coinbase,
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -450,15 +563,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::GateioSpot, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        GateioSpot::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            GateioSpot::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -470,15 +589,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::GateioFuturesUsd, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        GateioFuturesUsd::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            GateioFuturesUsd::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -490,15 +615,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::GateioFuturesBtc, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        GateioFuturesBtc::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            GateioFuturesBtc::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -510,15 +641,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::GateioPerpetualsUsd, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        GateioPerpetualsUsd::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            GateioPerpetualsUsd::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -530,15 +667,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::GateioPerpetualsBtc, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        GateioPerpetualsBtc::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            GateioPerpetualsBtc::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -550,15 +693,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::GateioOptions, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        GateioOptions::default(),
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            GateioOptions::default(),
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -570,15 +719,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::Kraken, SubKind::PublicTrades) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        Kraken,
-                                                        sub.instrument,
-                                                        PublicTrades,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            Kraken,
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -590,15 +745,21 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                     (ExchangeId::Kraken, SubKind::OrderBooksL1) => {
                                         init_market_stream(
                                             STREAM_RECONNECTION_POLICY,
-                                            subs.into_iter()
-                                                .map(|sub| {
-                                                    Subscription::new(
-                                                        Kraken,
-                                                        sub.instrument,
-                                                        OrderBooksL1,
-                                                    )
-                                                })
-                                                .collect(),
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            Kraken,
+                                                            sub.instrument,
+                                                            OrderBooksL1,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
                                         .await
                                         .map(|stream| {
@@ -607,22 +768,32 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                             ))
                                         })
                                     }
-                                    (ExchangeId::Okx, SubKind::PublicTrades) => init_market_stream(
-                                        STREAM_RECONNECTION_POLICY,
-                                        subs.into_iter()
-                                            .map(|sub| {
-                                                Subscription::new(Okx, sub.instrument, PublicTrades)
-                                            })
-                                            .collect(),
-                                    )
-                                    .await
-                                    .map(|stream| {
-                                        tokio::spawn(
-                                            stream.forward_to(
-                                                txs.trades.get(&exchange).unwrap().clone(),
-                                            ),
+                                    (ExchangeId::Okx, SubKind::PublicTrades) => {
+                                        init_market_stream(
+                                            STREAM_RECONNECTION_POLICY,
+                                            Arc::new(DataArgs::live(
+                                                subs.into_iter()
+                                                    .map(|sub| {
+                                                        Subscription::new(
+                                                            Okx,
+                                                            sub.instrument,
+                                                            PublicTrades,
+                                                        )
+                                                    })
+                                                    .collect(),
+                                                StreamConfig {
+                                                    server: ServerConfig::default(),
+                                                    timeout_stream,
+                                                },
+                                            )),
                                         )
-                                    }),
+                                        .await
+                                        .map(|stream| {
+                                            tokio::spawn(stream.forward_to(
+                                                txs.trades.get(&exchange).unwrap().clone(),
+                                            ))
+                                        })
+                                    }
                                     (exchange, sub_kind) => {
                                         Err(DataError::Unsupported { exchange, sub_kind })
                                     }

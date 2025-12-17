@@ -23,10 +23,12 @@ use barter_data::{
     subscription::SubKind,
 };
 use barter_instrument::index::IndexedInstruments;
-use barter_integration::snapshot::SnapUpdates;
+use barter_integration::collection::snapshot::SnapUpdates;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use std::{fs::File, io::BufReader, time::Duration};
+
+const STREAM_TIMEOUT: Duration = Duration::from_mins(5);
 
 const FILE_PATH_SYSTEM_CONFIG: &str = "barter/examples/config/system_config.json";
 
@@ -51,6 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let market_stream = init_indexed_multi_exchange_market_stream(
         &instruments,
         &[SubKind::PublicTrades, SubKind::OrderBooksL1],
+        STREAM_TIMEOUT,
     )
     .await?;
 

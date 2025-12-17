@@ -26,45 +26,55 @@
 //!
 //! Both core abstractions provide the robust glue you need to conveniently translate between server & client data models.
 
-use crate::error::SocketError;
-use serde::{Deserialize, Serialize};
+use ::serde::{Deserialize, Serialize};
 
 /// All [`Error`](std::error::Error)s generated in Barter-Integration.
+#[cfg(feature = "error")]
 pub mod error;
 
 /// Contains `StreamParser` implementations for transforming communication protocol specific
 /// messages into a generic output data structure.
+#[cfg(feature = "protocol")]
 pub mod protocol;
 
 /// Contains the flexible `Metric` type used for representing real-time metrics generically.
+#[cfg(feature = "metric")]
 pub mod metric;
-
-/// Utilities to assist deserialisation.
-pub mod de;
 
 /// Defines a [`SubscriptionId`](subscription::SubscriptionId) new type representing a unique
 /// `SmolStr` identifier for a data stream (market data, account data) that has been
 /// subscribed to.
+#[cfg(feature = "subscription")]
 pub mod subscription;
 
 /// Defines a trait [`Tx`](channel::Tx) abstraction over different channel kinds, as well as
 /// other channel utilities.
 ///
 /// eg/ `UnboundedTx`, `ChannelTxDroppable`, etc.
+#[cfg(feature = "channel")]
 pub mod channel;
 
+#[cfg(feature = "collection")]
 pub mod collection;
 
-/// Stream utilities.
+/// Barter flavour `StreamExt` and other `Stream` utilities.
+#[cfg(feature = "socket")]
 pub mod stream;
 
-pub mod snapshot;
+#[cfg(feature = "socket")]
+pub mod socket;
+
+/// SerDe transformer and other utilities.
+#[cfg(feature = "serde")]
+pub mod serde;
 
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.
 pub trait Validator {
+    type Error;
+
     /// Check if `Self` is valid for some use case.
-    fn validate(self) -> Result<Self, SocketError>
+    fn validate(self) -> Result<Self, Self::Error>
     where
         Self: Sized;
 }
@@ -97,3 +107,35 @@ pub trait Terminal {
     Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Deserialize, Serialize,
 )]
 pub struct FeedEnded;
+
+/// Either an "Admin" or a "Payload" message.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+pub enum Message<A, T> {
+    Admin(A),
+    Payload(T),
+}
+
+/// Admin message that's either a "Protocol", "Deserialisation" or "Application" level event.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+pub enum Admin<P, A> {
+    Protocol(P),
+    Application(A),
+}
+
+/// API Credentials.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+pub struct Credentials {
+    key: Secret<String>,
+    secret: Secret<String>,
+    passphrase: Option<Secret<String>>,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct Secret<T>(pub T);
+
+impl<T> std::fmt::Debug for Secret<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("<secret redacted>")
+    }
+}

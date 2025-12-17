@@ -22,8 +22,8 @@
 //! * **Extensible**: Barter-Data is highly extensible, and therefore easy to contribute to with coding new integrations!
 //!
 //! ## User API
-//! - [`StreamBuilder`](streams::builder::StreamBuilder) for initialising [`MarketStream`]s of specific data kinds.
-//! - [`DynamicStreams`](streams::builder::dynamic::DynamicStreams) for initialising [`MarketStream`]s of every supported data kind at once.
+//! - [`StreamBuilder`](streams::builder::StreamBuilder) for initialising market data streams of specific data kinds.
+//! - [`DynamicStreams`](streams::builder::dynamic::DynamicStreams) for initialising market data streams of every supported data kind at once.
 //! - Define what exchange market data you want to stream using the [`Subscription`] type.
 //! - Pass [`Subscription`]s to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) or [`DynamicStreams::init`](streams::builder::dynamic::DynamicStreams::init) methods.
 //! - Each call to the [`StreamBuilder::subscribe`](streams::builder::StreamBuilder::subscribe) (or each batch passed to the [`DynamicStreams::init`](streams::builder::dynamic::DynamicStreams::init))
@@ -35,6 +35,7 @@
 //! ### Multi Exchange Public Trades
 //! ```rust,no_run
 //! use barter_data::{
+//!     StreamConfig, ServerConfig,
 //!     exchange::{
 //!         gateio::spot::GateioSpot,
 //!         binance::{futures::BinanceFuturesUsd, spot::BinanceSpot},
@@ -48,29 +49,34 @@
 //! use futures::StreamExt;
 //! use tracing::warn;
 //!
+//! const STREAM_CONFIG: StreamConfig = StreamConfig {
+//!     server: ServerConfig { credentials: None, base_url_custom: None },
+//!     timeout_stream: std::time::Duration::from_mins(1),
+//! };
+//!
 //! #[tokio::main]
 //! async fn main() {
 //!     // Initialise PublicTrades Streams for various exchanges
 //!     // '--> each call to StreamBuilder::subscribe() initialises a separate WebSocket connection
 //!
 //!     let streams = Streams::<PublicTrades>::builder()
-//!         .subscribe([
+//!         .subscribe(STREAM_CONFIG, [
 //!             (BinanceSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!             (BinanceSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!         ])
-//!         .subscribe([
+//!         .subscribe(STREAM_CONFIG, [
 //!             (BinanceFuturesUsd::default(), "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
 //!             (BinanceFuturesUsd::default(), "eth", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
 //!         ])
-//!         .subscribe([
+//!         .subscribe(STREAM_CONFIG, [
 //!             (Coinbase, "btc", "usd", MarketDataInstrumentKind::Spot, PublicTrades),
 //!             (Coinbase, "eth", "usd", MarketDataInstrumentKind::Spot, PublicTrades),
 //!         ])
-//!         .subscribe([
+//!         .subscribe(STREAM_CONFIG, [
 //!             (GateioSpot::default(), "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!             (GateioSpot::default(), "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!         ])
-//!         .subscribe([
+//!         .subscribe(STREAM_CONFIG, [
 //!             (Okx, "btc", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!             (Okx, "eth", "usdt", MarketDataInstrumentKind::Spot, PublicTrades),
 //!             (Okx, "btc", "usdt", MarketDataInstrumentKind::Perpetual, PublicTrades),
@@ -84,7 +90,7 @@
 //!     // Note: use `Streams.select(ExchangeId)` to interact with individual exchange streams!
 //!     let mut joined_stream = streams
 //!         .select_all()
-//!         .with_error_handler(|error| warn!(?error, "MarketStream generated error"));
+//!         .with_error_handler(|error| warn!(?error, "stream generated error"));
 //!
 //!     while let Some(event) = joined_stream.next().await {
 //!         println!("{event:?}");
@@ -100,44 +106,45 @@ use crate::{
     subscription::{Subscription, SubscriptionKind},
     transformer::ExchangeTransformer,
 };
-use async_trait::async_trait;
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
-    Transformer,
+    Credentials, Message, Transformer,
     error::SocketError,
-    protocol::{
-        StreamParser,
-        websocket::{WsError, WsMessage, WsSink, WsStream},
+    protocol::websocket::{AdminWs, WsMessage, WsParser, WsSink, process_admin_ws},
+    serde::de::{Deserialiser, error::DeBinaryError},
+    stream::{
+        data::{DataArgs, Live},
+        ext::BarterStreamExt,
     },
-    stream::ExchangeStream,
 };
+use bytes::Bytes;
 use futures::{SinkExt, Stream, StreamExt};
-
-use std::{collections::VecDeque, future::Future};
+use serde::{Deserialize, Serialize};
+use std::{future::Future, sync::Arc};
 use tokio::sync::mpsc;
 use tracing::{debug, error, warn};
 
 /// All [`Error`](std::error::Error)s generated in Barter-Data.
 pub mod error;
 
-/// Defines the generic [`MarketEvent<T>`](MarketEvent) used in every [`MarketStream`].
+/// Defines the generic [`MarketEvent<T>`](MarketEvent) used in every market data stream.
 pub mod event;
 
 /// [`Connector`] implementations for each exchange.
 pub mod exchange;
 
-/// High-level API types used for building [`MarketStream`]s from collections
+/// High-level API types used for building market data streams from collections
 /// of Barter [`Subscription`]s.
 pub mod streams;
 
 /// [`Subscriber`], [`SubscriptionMapper`](subscriber::mapper::SubscriptionMapper) and
 /// [`SubscriptionValidator`](subscriber::validator::SubscriptionValidator)  traits that define how a
-/// [`Connector`] will subscribe to exchange [`MarketStream`]s.
+/// [`Connector`] will subscribe to exchange market data streams.
 ///
-/// Standard implementations for subscribing to WebSocket [`MarketStream`]s are included.
+/// Standard implementations for subscribing to WebSocket market data streams are included.
 pub mod subscriber;
 
-/// Types that communicate the type of each [`MarketStream`] to initialise, and what normalised
+/// Types that communicate the type of each market data stream to initialise, and what normalised
 /// Barter output type the exchange will be transformed into.
 pub mod subscription;
 
@@ -148,7 +155,7 @@ pub mod instrument;
 /// a collection of sorted local Instrument [`OrderBook`](books::OrderBook)s
 pub mod books;
 
-/// Generic [`ExchangeTransformer`] implementations used by [`MarketStream`]s to translate exchange
+/// Generic [`ExchangeTransformer`] implementations used by market data streams to translate exchange
 /// specific types to normalised Barter types.
 ///
 /// A standard [`StatelessTransformer`](transformer::stateless::StatelessTransformer) implementation
@@ -163,164 +170,204 @@ pub mod books;
 /// [`futures_usd`](exchange::binance::futures::l2::BinanceFuturesUsdOrderBooksL2Transformer).
 pub mod transformer;
 
-/// Convenient type alias for an [`ExchangeStream`] utilizing a tungstenite
-/// [`WebSocket`](barter_integration::protocol::websocket::WebSocket).
-pub type ExchangeWsStream<Parser, Transformer> = ExchangeStream<Parser, WsStream, Transformer>;
+type LiveMarketDataArgs<Exchange, Instrument, Kind> =
+    Arc<DataArgs<Live, Vec<Subscription<Exchange, Instrument, Kind>>, StreamConfig>>;
 
 /// Defines a generic identification type for the implementor.
 pub trait Identifier<T> {
     fn id(&self) -> T;
 }
 
-/// [`Stream`] that yields [`Market<Kind>`](MarketEvent) events. The type of [`Market<Kind>`](MarketEvent)
-/// depends on the provided [`SubscriptionKind`] of the passed [`Subscription`]s.
-#[async_trait]
-pub trait MarketStream<Exchange, Instrument, Kind>
-where
-    Self: Stream<Item = Result<MarketEvent<Instrument::Key, Kind::Event>, DataError>>
-        + Send
-        + Sized
-        + Unpin,
-    Exchange: Connector,
-    Instrument: InstrumentData,
-    Kind: SubscriptionKind,
-{
-    async fn init<SnapFetcher>(
-        subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> Result<Self, DataError>
-    where
-        SnapFetcher: SnapshotFetcher<Exchange, Kind>,
-        Subscription<Exchange, Instrument, Kind>:
-            Identifier<Exchange::Channel> + Identifier<Exchange::Market>;
+/// Defines a generic identification type for the implementor that is not dependent on state.
+pub trait IdentifierStatic<T> {
+    fn id() -> T;
 }
 
 /// Defines how to fetch market data snapshots for a collection of [`Subscription`]s.
 ///
-/// Useful when a [`MarketStream`] requires an initial snapshot on start-up.
+/// Useful when a market data stream requires an initial snapshot on start-up.
 ///
 /// See examples such as Binance OrderBooksL2: <br>
 /// - [`BinanceSpotOrderBooksL2SnapshotFetcher`](exchange::binance::spot::l2::BinanceSpotOrderBooksL2SnapshotFetcher)
 /// - [`BinanceFuturesUsdOrderBooksL2SnapshotFetcher`](exchange::binance::futures::l2::BinanceFuturesUsdOrderBooksL2SnapshotFetcher)
-pub trait SnapshotFetcher<Exchange, Kind> {
-    fn fetch_snapshots<Instrument>(
-        subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> impl Future<Output = Result<Vec<MarketEvent<Instrument::Key, Kind::Event>>, SocketError>> + Send
-    where
-        Exchange: Connector,
-        Instrument: InstrumentData,
-        Kind: SubscriptionKind,
-        Kind::Event: Send,
-        Subscription<Exchange, Instrument, Kind>: Identifier<Exchange::Market>;
-}
-
-#[async_trait]
-impl<Exchange, Instrument, Kind, Transformer, Parser> MarketStream<Exchange, Instrument, Kind>
-    for ExchangeWsStream<Parser, Transformer>
+pub trait SnapshotFetcher<Exchange, Instrument, Kind>
 where
-    Exchange: Connector + Send + Sync,
     Instrument: InstrumentData,
-    Kind: SubscriptionKind + Send + Sync,
-    Transformer: ExchangeTransformer<Exchange, Instrument::Key, Kind> + Send,
-    Kind::Event: Send,
-    Parser: StreamParser<Transformer::Input, Message = WsMessage, Error = WsError> + Send,
+    Kind: SubscriptionKind,
 {
-    async fn init<SnapFetcher>(
+    fn fetch_snapshots(
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> Result<Self, DataError>
-    where
-        SnapFetcher: SnapshotFetcher<Exchange, Kind>,
-        Subscription<Exchange, Instrument, Kind>:
-            Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
-    {
-        // Connect & subscribe
-        let Subscribed {
-            websocket,
-            map: instrument_map,
-            buffered_websocket_events,
-        } = Exchange::Subscriber::subscribe(subscriptions).await?;
-
-        // Fetch any required initial MarketEvent snapshots
-        let initial_snapshots = SnapFetcher::fetch_snapshots(subscriptions).await?;
-
-        // Split WebSocket into WsStream & WsSink components
-        let (ws_sink, ws_stream) = websocket.split();
-
-        // Spawn task to distribute Transformer messages (eg/ custom pongs) to the exchange
-        let (ws_sink_tx, ws_sink_rx) = mpsc::unbounded_channel();
-        tokio::spawn(distribute_messages_to_exchange(
-            Exchange::ID,
-            ws_sink,
-            ws_sink_rx,
-        ));
-
-        // Spawn optional task to distribute custom application-level pings to the exchange
-        if let Some(ping_interval) = Exchange::ping_interval() {
-            tokio::spawn(schedule_pings_to_exchange(
-                Exchange::ID,
-                ws_sink_tx.clone(),
-                ping_interval,
-            ));
-        }
-
-        // Initialise Transformer associated with this Exchange and SubscriptionKind
-        let mut transformer =
-            Transformer::init(instrument_map, &initial_snapshots, ws_sink_tx).await?;
-
-        // Process any buffered active subscription events received during Subscription validation
-        let mut processed = process_buffered_events::<Parser, Transformer>(
-            &mut transformer,
-            buffered_websocket_events,
-        );
-
-        // Extend buffered events with any initial snapshot events
-        processed.extend(initial_snapshots.into_iter().map(Ok));
-
-        Ok(ExchangeWsStream::new(ws_stream, transformer, processed))
-    }
+    ) -> impl Future<Output = Result<Vec<MarketEvent<Instrument::Key, Kind::Event>>, SocketError>> + Send;
 }
 
 /// Implementation of [`SnapshotFetcher`] that does not fetch any initial market data snapshots.
-/// Often used for stateless [`MarketStream`]s, such as public trades.
+/// Often used for stateless market data streams, such as public trades.
 #[derive(Debug)]
 pub struct NoInitialSnapshots;
 
-impl<Exchange, Kind> SnapshotFetcher<Exchange, Kind> for NoInitialSnapshots {
-    fn fetch_snapshots<Instrument>(
+impl<Exchange, Instrument, Kind> SnapshotFetcher<Exchange, Instrument, Kind> for NoInitialSnapshots
+where
+    Instrument: InstrumentData,
+    Kind: SubscriptionKind,
+    Kind::Event: Send,
+{
+    fn fetch_snapshots(
         _: &[Subscription<Exchange, Instrument, Kind>],
     ) -> impl Future<Output = Result<Vec<MarketEvent<Instrument::Key, Kind::Event>>, SocketError>> + Send
-    where
-        Exchange: Connector,
-        Instrument: InstrumentData,
-        Kind: SubscriptionKind,
-        Kind::Event: Send,
-        Subscription<Exchange, Instrument, Kind>: Identifier<Exchange::Market>,
     {
         std::future::ready(Ok(vec![]))
     }
 }
 
-pub fn process_buffered_events<Parser, StreamTransformer>(
-    transformer: &mut StreamTransformer,
-    events: Vec<Parser::Message>,
-) -> VecDeque<Result<StreamTransformer::Output, StreamTransformer::Error>>
+/// Live market `DataStream` configuration.
+///
+/// Includes the `ServerConfig` a stream consecutive event timeout `Duration`.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Deserialize, Serialize)]
+pub struct StreamConfig {
+    pub server: ServerConfig,
+    pub timeout_stream: std::time::Duration,
+}
+
+/// API server configuration.
+///
+/// Includes optional `Credentials` and custom base url.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Deserialize, Serialize)]
+pub struct ServerConfig {
+    pub credentials: Option<Credentials>,
+    pub base_url_custom: Option<String>,
+}
+
+pub async fn init_ws_exchange_stream<Exchange, Instrument, Kind, De, Transformer, SnapFetcher>(
+    args: LiveMarketDataArgs<Exchange, Instrument, Kind>,
+) -> Result<
+    impl Stream<Item = Result<MarketEvent<Instrument::Key, Kind::Event>, DataError>>,
+    DataError,
+>
 where
-    Parser: StreamParser<StreamTransformer::Input>,
+    Exchange: Connector + IdentifierStatic<ExchangeId> + Send + Sync + 'static,
+    Instrument: InstrumentData + 'static,
+    Kind: SubscriptionKind + Send + Sync + 'static,
+    Kind::Event: Send,
+    De: Deserialiser<Bytes, Transformer::Input, Error = DeBinaryError>,
+    Transformer: ExchangeTransformer<Exchange, Instrument::Key, Kind>,
+    SnapFetcher: SnapshotFetcher<Exchange, Instrument, Kind>,
+    Subscription<Exchange, Instrument, Kind>:
+        Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
+{
+    // Connect & subscribe
+    let base_url_custom = args.as_ref().config.server.base_url_custom.as_ref();
+    let subscriptions = args.as_ref().subscriptions.as_slice();
+    let Subscribed {
+        websocket,
+        map: instrument_map,
+        buffered_websocket_events,
+    } = Exchange::Subscriber::subscribe(base_url_custom, subscriptions).await?;
+
+    // Fetch any required initial MarketEvent snapshots
+    let initial_snapshots = SnapFetcher::fetch_snapshots(subscriptions).await?;
+
+    // Construct channel to distribute Transformer messages (eg/ custom pongs) to the exchange
+    let (ws_sink_tx, ws_sink_rx) = mpsc::unbounded_channel();
+
+    // Split WebSocket into WsStream & WsSink components
+    let (ws_sink, ws_stream) = websocket.split();
+
+    // Spawn task to distribute Transformer messages (eg/ custom pongs) to the exchange
+    tokio::spawn(distribute_messages_to_exchange(
+        Exchange::id(),
+        ws_sink,
+        ws_sink_rx,
+    ));
+
+    // Spawn optional task to distribute custom application-level pings to the exchange
+    if let Some(ping_interval) = Exchange::ping_interval() {
+        tokio::spawn(schedule_pings_to_exchange(
+            Exchange::id(),
+            ws_sink_tx.clone(),
+            ping_interval,
+        ));
+    }
+
+    // Initialise Transformer associated with this Exchange and SubscriptionKind
+    let mut transformer = Transformer::init(instrument_map, &initial_snapshots, ws_sink_tx).await?;
+
+    // Process any buffered active subscription events received during Subscription validation
+    let initial_updates = process_buffered_events::<De, _>(
+        &mut transformer,
+        buffered_websocket_events
+            .into_iter()
+            .map(WsMessage::into_data),
+    )
+    .collect::<Vec<_>>();
+
+    // Define Stream Pipeline
+    let ws_stream = ws_stream
+        // Apply Stream timeout
+        .with_timeout(args.config.timeout_stream, move || {
+            warn!(
+                timeout = ?args.config.timeout_stream,
+                "stream ended due to consecutive event timeout"
+            )
+        })
+        // Parse Result<WsMessage, WsError> -> Message<AdminWs, ExchangeTransformer::Input>
+        .map(|ws_result| match WsParser::parse(ws_result) {
+            Message::Admin(admin) => Message::Admin(admin),
+            Message::Payload(payload) => De::deserialise(payload)
+                .map(Message::Payload)
+                .unwrap_or_else(|error| Message::Admin(AdminWs::DeError(error))),
+        })
+        // Apply ExchangeTransformer & flatten OutputIter
+        .scan(transformer, |transformer, message| {
+            use itertools::Either::*;
+
+            let output = match message {
+                Message::Admin(admin_ws) => match process_admin_ws(admin_ws) {
+                    Ok(()) => None,
+                    Err(error) => Some(Left(std::iter::once(Err(DataError::from(error))))),
+                },
+                Message::Payload(payload) => {
+                    Some(Right(transformer.transform(payload).into_iter()))
+                }
+            };
+
+            std::future::ready(Some(output))
+        })
+        .filter_map(std::future::ready)
+        .flat_map(futures::stream::iter);
+
+    let stream = futures::stream::iter(initial_updates)
+        .chain(futures::stream::iter(initial_snapshots.into_iter().map(Ok)))
+        .chain(ws_stream);
+
+    Ok(stream)
+}
+
+pub fn process_buffered_events<De, StreamTransformer>(
+    transformer: &mut StreamTransformer,
+    events: impl IntoIterator<Item = Bytes>,
+) -> impl Iterator<Item = Result<StreamTransformer::Output, StreamTransformer::Error>>
+where
+    De: Deserialiser<Bytes, StreamTransformer::Input>,
+    De::Error: std::fmt::Debug,
     StreamTransformer: Transformer,
 {
     events
         .into_iter()
-        .filter_map(|event| {
-            Parser::parse(Ok(event))?
-                .inspect_err(|error| {
-                    warn!(
-                        ?error,
-                        "failed to parse message buffered during Subscription validation"
-                    )
-                })
-                .ok()
+        .filter_map(|input| match De::deserialise(input.clone()) {
+            Ok(output) => Some(output),
+            Err(error) => {
+                let input_str =
+                    String::from_utf8(input.to_vec()).unwrap_or_else(|error| error.to_string());
+                warn!(
+                    ?input,
+                    %input_str,
+                    ?error,
+                    "failed to parse message buffered during Subscription validation"
+                );
+                None
+            }
         })
         .flat_map(|parsed| transformer.transform(parsed))
-        .collect()
 }
 
 /// Transmit [`WsMessage`]s sent from the [`ExchangeTransformer`] to the exchange via

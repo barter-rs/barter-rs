@@ -27,7 +27,7 @@ use barter_instrument::{
 use barter_integration::{
     FeedEnded, Terminal,
     channel::{Channel, ChannelTxDroppable, mpsc_unbounded},
-    snapshot::SnapUpdates,
+    collection::snapshot::SnapUpdates,
 };
 use derive_more::Constructor;
 use fnv::FnvHashMap;

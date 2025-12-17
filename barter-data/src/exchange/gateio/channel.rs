@@ -34,7 +34,7 @@ impl GateioChannel {
 impl<GateioExchange, Instrument> Identifier<GateioChannel>
     for Subscription<GateioExchange, Instrument, PublicTrades>
 where
-    Instrument: InstrumentData,
+    Instrument: InstrumentData + 'static,
 {
     fn id(&self) -> GateioChannel {
         match self.instrument.kind() {

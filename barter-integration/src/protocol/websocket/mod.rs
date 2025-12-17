@@ -1,5 +1,4 @@
-use crate::{error::SocketError, protocol::StreamParser};
-use bytes::Bytes;
+use crate::{Message, error::SocketError, protocol::StreamParser, serde::de::error::DeBinaryError};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tokio::net::TcpStream;
@@ -28,6 +27,86 @@ pub type WsMessage = tokio_tungstenite::tungstenite::Message;
 
 /// Communicative type alias for a tungstenite [`WebSocket`] `Error`.
 pub type WsError = tokio_tungstenite::tungstenite::Error;
+
+/// [`WebSocket`] parser.
+///
+/// Translates a `Result<WsMessage, WsError>` to a `Message<AdminWs, bytes::Bytes>`.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+pub struct WsParser;
+
+impl WsParser {
+    pub fn parse(ws_result: Result<WsMessage, WsError>) -> Message<AdminWs, bytes::Bytes> {
+        match ws_result {
+            Ok(WsMessage::Text(utf8)) => Message::Payload(bytes::Bytes::from(utf8)),
+            Ok(WsMessage::Binary(bytes)) => Message::Payload(bytes),
+            Ok(WsMessage::Frame(frame)) => Message::Payload(frame.into_payload()),
+            Ok(WsMessage::Ping(bytes)) => Message::Admin(AdminWs::Ping(bytes)),
+            Ok(WsMessage::Pong(bytes)) => Message::Admin(AdminWs::Pong(bytes)),
+            Ok(WsMessage::Close(close)) => Message::Admin(AdminWs::Close(close)),
+            Err(error) => Message::Admin(AdminWs::WsError(error)),
+        }
+    }
+}
+
+/// [`WebSocket`] administration message variants.
+#[derive(Debug)]
+pub enum AdminWs {
+    Ping(bytes::Bytes),
+    Pong(bytes::Bytes),
+    Close(Option<CloseFrame>),
+    WsError(WsError),
+    DeError(DeBinaryError),
+}
+
+/// Process an `AdminWs`.
+pub fn process_admin_ws(admin_ws: AdminWs) -> Result<(), SocketError> {
+    match admin_ws {
+        AdminWs::Ping(ping) => {
+            debug!(input = ?ping, "received Ping WebSocket message");
+            Ok(())
+        }
+        AdminWs::Pong(pong) => {
+            debug!(input = ?pong, "received Pong WebSocket message");
+            Ok(())
+        }
+        AdminWs::Close(close_frame) => {
+            let close_frame = format!("{close_frame:?}");
+            debug!(input = %close_frame, "received CloseFrame WebSocket message");
+            Err(SocketError::Terminated(close_frame))
+        }
+        AdminWs::WsError(ws_error) => {
+            debug!(error = %ws_error, "received WsError WebSocket message");
+            Err(SocketError::from(ws_error))
+        }
+        AdminWs::DeError(de_error) => {
+            debug!(error = %de_error, "received DeBinaryError");
+            Err(SocketError::from(de_error))
+        }
+    }
+}
+
+/// Connect asynchronously to a [`WebSocket`] server.
+pub async fn connect<R>(request: R) -> Result<WebSocket, SocketError>
+where
+    R: IntoClientRequest + Unpin + Debug,
+{
+    debug!(?request, "attempting to establish WebSocket connection");
+    connect_async(request)
+        .await
+        .map(|(websocket, _)| websocket)
+        .map_err(|error| SocketError::WebSocket(Box::new(error)))
+}
+
+/// Determine whether a [`WsError`] indicates the [`WebSocket`] has disconnected.
+pub fn is_websocket_disconnected(error: &WsError) -> bool {
+    matches!(
+        error,
+        WsError::ConnectionClosed
+            | WsError::AlreadyClosed
+            | WsError::Io(_)
+            | WsError::Protocol(ProtocolError::SendAfterClosing)
+    )
+}
 
 /// Default [`StreamParser`] implementation for a [`WebSocket`].
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
@@ -119,7 +198,7 @@ where
 
 /// Process a payload of `Vec<u8>` bytes by deserialising into an `ExchangeMessage`.
 pub fn process_binary<ExchangeMessage>(
-    payload: Bytes,
+    payload: bytes::Bytes,
 ) -> Option<Result<ExchangeMessage, SocketError>>
 where
     ExchangeMessage: for<'de> Deserialize<'de>,
@@ -141,13 +220,17 @@ where
 }
 
 /// Basic process for a [`WebSocket`] ping message. Logs the payload at `trace` level.
-pub fn process_ping<ExchangeMessage>(ping: Bytes) -> Option<Result<ExchangeMessage, SocketError>> {
+pub fn process_ping<ExchangeMessage>(
+    ping: bytes::Bytes,
+) -> Option<Result<ExchangeMessage, SocketError>> {
     debug!(payload = ?ping, "received Ping WebSocket message");
     None
 }
 
 /// Basic process for a [`WebSocket`] pong message. Logs the payload at `trace` level.
-pub fn process_pong<ExchangeMessage>(pong: Bytes) -> Option<Result<ExchangeMessage, SocketError>> {
+pub fn process_pong<ExchangeMessage>(
+    pong: bytes::Bytes,
+) -> Option<Result<ExchangeMessage, SocketError>> {
     debug!(payload = ?pong, "received Pong WebSocket message");
     None
 }
@@ -168,27 +251,4 @@ pub fn process_frame<ExchangeMessage>(
     let frame = format!("{frame:?}");
     debug!(payload = %frame, "received unexpected Frame WebSocket message");
     None
-}
-
-/// Connect asynchronously to a [`WebSocket`] server.
-pub async fn connect<R>(request: R) -> Result<WebSocket, SocketError>
-where
-    R: IntoClientRequest + Unpin + Debug,
-{
-    debug!(?request, "attempting to establish WebSocket connection");
-    connect_async(request)
-        .await
-        .map(|(websocket, _)| websocket)
-        .map_err(|error| SocketError::WebSocket(Box::new(error)))
-}
-
-/// Determine whether a [`WsError`] indicates the [`WebSocket`] has disconnected.
-pub fn is_websocket_disconnected(error: &WsError) -> bool {
-    matches!(
-        error,
-        WsError::ConnectionClosed
-            | WsError::AlreadyClosed
-            | WsError::Io(_)
-            | WsError::Protocol(ProtocolError::SendAfterClosing)
-    )
 }

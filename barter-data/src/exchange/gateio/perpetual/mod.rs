@@ -1,13 +1,21 @@
 use self::trade::GateioFuturesTrades;
 use super::Gateio;
 use crate::{
-    NoInitialSnapshots,
-    exchange::{ExchangeServer, StreamSelector, gateio::GateiotWsStream},
+    Identifier, LiveMarketDataArgs, NoInitialSnapshots,
+    error::DataError,
+    event::MarketEvent,
+    exchange::{ExchangeServer, gateio::market::GateioMarket},
+    init_ws_exchange_stream,
     instrument::InstrumentData,
-    subscription::trade::PublicTrades,
+    subscription::{
+        Subscription,
+        trade::{PublicTrade, PublicTrades},
+    },
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
+use barter_integration::{serde::de::DeJson, stream::data::DataStream};
+use futures_util::Stream;
 use std::fmt::Display;
 
 /// Public trades types.
@@ -33,14 +41,28 @@ impl ExchangeServer for GateioServerPerpetualsUsd {
     }
 }
 
-impl<Instrument> StreamSelector<Instrument, PublicTrades> for GateioPerpetualsUsd
+impl<Instrument> DataStream<LiveMarketDataArgs<Self, Instrument, PublicTrades>>
+    for GateioPerpetualsUsd
 where
-    Instrument: InstrumentData,
+    Instrument: InstrumentData + 'static,
+    Subscription<Self, Instrument, PublicTrades>: Identifier<GateioMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream = GateiotWsStream<
-        StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
-    >;
+    type Item = Result<MarketEvent<Instrument::Key, PublicTrade>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, PublicTrades>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
+        init_ws_exchange_stream::<
+            Self,
+            Instrument,
+            PublicTrades,
+            DeJson,
+            StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
+            NoInitialSnapshots,
+        >(args)
+        .await
+    }
 }
 
 impl Display for GateioPerpetualsUsd {
@@ -69,14 +91,28 @@ impl ExchangeServer for GateioServerPerpetualsBtc {
     }
 }
 
-impl<Instrument> StreamSelector<Instrument, PublicTrades> for GateioPerpetualsBtc
+impl<Instrument> DataStream<LiveMarketDataArgs<Self, Instrument, PublicTrades>>
+    for GateioPerpetualsBtc
 where
-    Instrument: InstrumentData,
+    Instrument: InstrumentData + 'static,
+    Subscription<Self, Instrument, PublicTrades>: Identifier<GateioMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream = GateiotWsStream<
-        StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
-    >;
+    type Item = Result<MarketEvent<Instrument::Key, PublicTrade>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, PublicTrades>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
+        init_ws_exchange_stream::<
+            Self,
+            Instrument,
+            PublicTrades,
+            DeJson,
+            StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
+            NoInitialSnapshots,
+        >(args)
+        .await
+    }
 }
 
 impl Display for GateioPerpetualsBtc {

@@ -1,13 +1,10 @@
 use std::vec;
 
 use crate::{
-    Identifier,
+    Identifier, IdentifierStatic,
     error::DataError,
     event::{MarketEvent, MarketIter},
-    exchange::{
-        Connector,
-        bybit::{Bybit, message::BybitPayloadKind, spot::BybitSpot},
-    },
+    exchange::bybit::{Bybit, message::BybitPayloadKind, spot::BybitSpot},
     subscription::{
         Map,
         book::{OrderBookEvent, OrderBooksL2},
@@ -86,7 +83,7 @@ where
             });
 
             return MarketIter::<InstrumentKey, OrderBookEvent>::from((
-                BybitSpot::ID,
+                BybitSpot::id(),
                 instrument.key.clone(),
                 input,
             ))
@@ -107,7 +104,7 @@ where
         };
 
         MarketIter::<InstrumentKey, OrderBookEvent>::from((
-            BybitSpot::ID,
+            BybitSpot::id(),
             instrument.key.clone(),
             valid_update,
         ))

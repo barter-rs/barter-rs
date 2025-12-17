@@ -1,16 +1,13 @@
 use super::super::book::BinanceLevel;
 use crate::{
-    Identifier, SnapshotFetcher,
+    Identifier, IdentifierStatic, SnapshotFetcher,
     books::OrderBook,
     error::DataError,
     event::{MarketEvent, MarketIter},
-    exchange::{
-        Connector,
-        binance::{
-            book::l2::{BinanceOrderBookL2Meta, BinanceOrderBookL2Snapshot},
-            futures::BinanceFuturesUsd,
-            market::BinanceMarket,
-        },
+    exchange::binance::{
+        book::l2::{BinanceOrderBookL2Meta, BinanceOrderBookL2Snapshot},
+        futures::BinanceFuturesUsd,
+        market::BinanceMarket,
     },
     instrument::InstrumentData,
     subscription::{
@@ -39,17 +36,16 @@ pub const HTTP_BOOK_L2_SNAPSHOT_URL_BINANCE_FUTURES_USD: &str =
 #[derive(Debug)]
 pub struct BinanceFuturesUsdOrderBooksL2SnapshotFetcher;
 
-impl SnapshotFetcher<BinanceFuturesUsd, OrderBooksL2>
+impl<Instrument> SnapshotFetcher<BinanceFuturesUsd, Instrument, OrderBooksL2>
     for BinanceFuturesUsdOrderBooksL2SnapshotFetcher
+where
+    Instrument: InstrumentData + 'static,
+    Subscription<BinanceFuturesUsd, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
 {
-    fn fetch_snapshots<Instrument>(
+    fn fetch_snapshots(
         subscriptions: &[Subscription<BinanceFuturesUsd, Instrument, OrderBooksL2>],
     ) -> impl Future<Output = Result<Vec<MarketEvent<Instrument::Key, OrderBookEvent>>, SocketError>>
-    + Send
-    where
-        Instrument: InstrumentData,
-        Subscription<BinanceFuturesUsd, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
-    {
+    + Send {
         let l2_snapshot_futures = subscriptions.iter().map(|sub| {
             // Construct initial OrderBook snapshot GET url
             let market = sub.id();
@@ -158,7 +154,7 @@ where
         };
 
         MarketIter::<InstrumentKey, OrderBookEvent>::from((
-            BinanceFuturesUsd::ID,
+            BinanceFuturesUsd::id(),
             instrument.key.clone(),
             valid_update,
         ))
@@ -311,12 +307,12 @@ pub struct BinanceFuturesOrderBookL2Update {
     pub subscription_id: SubscriptionId,
     #[serde(
         alias = "E",
-        deserialize_with = "barter_integration::de::de_u64_epoch_ms_as_datetime_utc"
+        deserialize_with = "barter_integration::serde::de::util::de_u64_epoch_ms_as_datetime_utc"
     )]
     pub time_exchange: DateTime<Utc>,
     #[serde(
         alias = "T",
-        deserialize_with = "barter_integration::de::de_u64_epoch_ms_as_datetime_utc"
+        deserialize_with = "barter_integration::serde::de::util::de_u64_epoch_ms_as_datetime_utc"
     )]
     pub time_engine: DateTime<Utc>,
     #[serde(alias = "U")]

@@ -37,12 +37,13 @@ use tracing::warn;
 pub async fn init_indexed_multi_exchange_market_stream(
     instruments: &IndexedInstruments,
     sub_kinds: &[SubKind],
+    stream_timeout: std::time::Duration,
 ) -> Result<impl Stream<Item = MarketStreamEvent<InstrumentIndex, DataKind>> + use<>, DataError> {
     // Generate indexed market data Subscriptions
     let subscriptions = generate_indexed_market_data_subscription_batches(instruments, sub_kinds);
 
     // Initialise an indexed MarketStream via DynamicStreams
-    let stream = DynamicStreams::init(subscriptions)
+    let stream = DynamicStreams::init(stream_timeout, subscriptions)
         .await?
         .select_all::<MarketStreamResult<InstrumentIndex, DataKind>>()
         .with_error_handler(|error| warn!(?error, "MarketStream generated error"));

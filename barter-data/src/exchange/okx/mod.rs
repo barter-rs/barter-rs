@@ -2,33 +2,39 @@ use self::{
     channel::OkxChannel, market::OkxMarket, subscription::OkxSubResponse, trade::OkxTrades,
 };
 use crate::{
-    ExchangeWsStream, NoInitialSnapshots,
-    exchange::{Connector, ExchangeSub, PingInterval, StreamSelector},
+    Identifier, IdentifierStatic, LiveMarketDataArgs, NoInitialSnapshots,
+    error::DataError,
+    event::MarketEvent,
+    exchange::{Connector, ExchangeSub, PingInterval},
+    init_ws_exchange_stream,
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
-    subscription::trade::PublicTrades,
+    subscription::{
+        Subscription,
+        trade::{PublicTrade, PublicTrades},
+    },
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
-    error::SocketError,
-    protocol::websocket::{WebSocketSerdeParser, WsMessage},
+    protocol::websocket::WsMessage, serde::de::DeJson, stream::data::DataStream,
 };
 use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
+use futures_util::Stream;
 use serde_json::json;
 use std::time::Duration;
 use url::Url;
 
-/// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
+/// Defines the type that translates a Barter [`Subscription`]
 /// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
-/// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
+/// Defines the type that translates a Barter [`Subscription`]
 /// into an exchange [`Connector`] specific market used for generating [`Connector::requests`].
 pub mod market;
 
-/// [`Subscription`](crate::subscription::Subscription) response type and response
+/// [`Subscription`] response type and response
 /// [`Validator`](barter_integration::Validator) for [`Okx`].
 pub mod subscription;
 
@@ -44,9 +50,6 @@ pub const BASE_URL_OKX: &str = "wss://ws.okx.com:8443/ws/v5/public";
 ///
 /// See docs: <https://www.okx.com/docs-v5/en/#websocket-api-connect>
 pub const PING_INTERVAL_OKX: Duration = Duration::from_secs(29);
-
-/// Convenient type alias for an Okx [`ExchangeWsStream`] using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
-pub type OkxWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
 
 /// [`Okx`] exchange.
 ///
@@ -67,16 +70,21 @@ pub type OkxWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Trans
 )]
 pub struct Okx;
 
+impl IdentifierStatic<ExchangeId> for Okx {
+    fn id() -> ExchangeId {
+        ExchangeId::Okx
+    }
+}
+
 impl Connector for Okx {
-    const ID: ExchangeId = ExchangeId::Okx;
     type Channel = OkxChannel;
     type Market = OkxMarket;
     type Subscriber = WebSocketSubscriber;
     type SubValidator = WebSocketSubValidator;
     type SubResponse = OkxSubResponse;
 
-    fn url() -> Result<Url, SocketError> {
-        Url::parse(BASE_URL_OKX).map_err(SocketError::UrlParse)
+    fn url() -> Result<Url, url::ParseError> {
+        Url::parse(BASE_URL_OKX)
     }
 
     fn ping_interval() -> Option<PingInterval> {
@@ -97,10 +105,25 @@ impl Connector for Okx {
     }
 }
 
-impl<Instrument> StreamSelector<Instrument, PublicTrades> for Okx
+impl<Instrument> DataStream<LiveMarketDataArgs<Self, Instrument, PublicTrades>> for Okx
 where
-    Instrument: InstrumentData,
+    Instrument: InstrumentData + 'static,
+    Subscription<Self, Instrument, PublicTrades>: Identifier<OkxMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream = OkxWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, OkxTrades>>;
+    type Item = Result<MarketEvent<Instrument::Key, PublicTrade>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, PublicTrades>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
+        init_ws_exchange_stream::<
+            Self,
+            Instrument,
+            PublicTrades,
+            DeJson,
+            StatelessTransformer<Self, Instrument::Key, PublicTrades, OkxTrades>,
+            NoInitialSnapshots,
+        >(args)
+        .await
+    }
 }

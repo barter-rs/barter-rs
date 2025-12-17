@@ -1,14 +1,22 @@
 use crate::{
-    NoInitialSnapshots,
+    Identifier, LiveMarketDataArgs, NoInitialSnapshots,
+    error::DataError,
+    event::MarketEvent,
     exchange::{
-        ExchangeServer, StreamSelector,
-        gateio::{Gateio, GateiotWsStream, perpetual::trade::GateioFuturesTrades},
+        ExchangeServer,
+        gateio::{Gateio, market::GateioMarket, perpetual::trade::GateioFuturesTrades},
     },
+    init_ws_exchange_stream,
     instrument::InstrumentData,
-    subscription::trade::PublicTrades,
+    subscription::{
+        Subscription,
+        trade::{PublicTrade, PublicTrades},
+    },
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
+use barter_integration::{serde::de::DeJson, stream::data::DataStream};
+use futures_util::Stream;
 use std::fmt::Display;
 
 /// [`GateioOptions`] WebSocket server base url.
@@ -31,14 +39,27 @@ impl ExchangeServer for GateioServerOptions {
     }
 }
 
-impl<Instrument> StreamSelector<Instrument, PublicTrades> for GateioOptions
+impl<Instrument> DataStream<LiveMarketDataArgs<Self, Instrument, PublicTrades>> for GateioOptions
 where
-    Instrument: InstrumentData,
+    Instrument: InstrumentData + 'static,
+    Subscription<Self, Instrument, PublicTrades>: Identifier<GateioMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream = GateiotWsStream<
-        StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
-    >;
+    type Item = Result<MarketEvent<Instrument::Key, PublicTrade>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, PublicTrades>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
+        init_ws_exchange_stream::<
+            Self,
+            Instrument,
+            PublicTrades,
+            DeJson,
+            StatelessTransformer<Self, Instrument::Key, PublicTrades, GateioFuturesTrades>,
+            NoInitialSnapshots,
+        >(args)
+        .await
+    }
 }
 
 impl Display for GateioOptions {

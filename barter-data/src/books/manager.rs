@@ -1,11 +1,11 @@
 use crate::{
-    Identifier,
+    IdentifierStatic, LiveMarketDataArgs, StreamConfig,
     books::{
         OrderBook,
         map::{OrderBookMap, OrderBookMapMulti},
     },
     error::DataError,
-    exchange::StreamSelector,
+    event::MarketEvent,
     instrument::InstrumentData,
     streams::{Streams, consumer::MarketStreamEvent, reconnect::stream::ReconnectingStream},
     subscription::{
@@ -13,6 +13,8 @@ use crate::{
         book::{OrderBookEvent, OrderBooksL2},
     },
 };
+use barter_instrument::exchange::ExchangeId;
+use barter_integration::stream::data::DataStream;
 use fnv::FnvHashMap;
 use futures::Stream;
 use futures_util::StreamExt;
@@ -70,6 +72,7 @@ where
 ///
 /// See `examples/order_books_l2_manager` for how to use this initialisation paradigm.
 pub async fn init_multi_order_book_l2_manager<SubBatchIter, SubIter, Sub, Exchange, Instrument>(
+    config: StreamConfig,
     subscription_batches: SubBatchIter,
 ) -> Result<
     OrderBookL2Manager<
@@ -82,11 +85,18 @@ where
     SubBatchIter: IntoIterator<Item = SubIter>,
     SubIter: IntoIterator<Item = Sub>,
     Sub: Into<Subscription<Exchange, Instrument, OrderBooksL2>>,
-    Exchange: StreamSelector<Instrument, OrderBooksL2> + Ord + Display + Send + Sync + 'static,
+    Exchange: DataStream<
+            LiveMarketDataArgs<Exchange, Instrument, OrderBooksL2>,
+            Item = Result<MarketEvent<Instrument::Key, OrderBookEvent>, DataError>,
+            Error = DataError,
+        > + IdentifierStatic<ExchangeId>
+        + Ord
+        + Display
+        + Send
+        + Sync
+        + 'static,
     Instrument: InstrumentData + Ord + Display + 'static,
     Instrument::Key: Eq + Hash + Send + 'static,
-    Subscription<Exchange, Instrument, OrderBooksL2>:
-        Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
 {
     // Generate Streams from provided OrderBooksL2 Subscription batches
     let (stream_builder, books) = subscription_batches.into_iter().fold(
@@ -102,7 +112,7 @@ where
                 subscription
             });
 
-            let builder = builder.subscribe(batch);
+            let builder = builder.subscribe(config.clone(), batch);
             (builder, books)
         },
     );

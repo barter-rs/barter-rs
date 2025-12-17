@@ -58,8 +58,10 @@ use std::{fs::File, io::BufReader, time::Duration};
 use tracing::debug;
 
 const FILE_PATH_SYSTEM_CONFIG: &str = "barter/examples/config/system_config.json";
+const STREAM_TIMEOUT: Duration = Duration::from_mins(1);
 const RISK_FREE_RETURN: Decimal = dec!(0.05);
 
+#[allow(dead_code)]
 struct MultiStrategy {
     strategy_a: StrategyA,
     strategy_b: StrategyB,
@@ -327,6 +329,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let market_stream = init_indexed_multi_exchange_market_stream(
         &instruments,
         &[SubKind::PublicTrades, SubKind::OrderBooksL1],
+        STREAM_TIMEOUT,
     )
     .await?;
 

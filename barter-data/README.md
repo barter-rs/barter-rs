@@ -34,12 +34,12 @@ comprehensive documentation of other Barter libraries.**
 [Chat]: https://discord.gg/wE7RqhnQMV
 
 ## Overview
-Barter-Data is a high-performance WebSocket integration library for streaming public market data from leading cryptocurrency 
+Barter-Data is a high-performance WebSocket integration library for streaming public market data from leading cryptocurrency
 exchanges. It presents an easy-to-use and extensible set of interfaces that can deliver normalised exchange data in real-time.
 
-From a user perspective, the major component is the `StreamBuilder` structures that assists in initialising an 
-arbitrary number of exchange `MarketStream`s using input `Subscription`s. Simply build your dream set of 
-`MarketStreams` and `Barter-Data` will do the rest!
+From a user perspective, the major component is the `StreamBuilder` structures that assists in initialising an
+arbitrary number of exchange market data streams using input `Subscription`s. Simply build your dream set of
+market data streams and `Barter-Data` will do the rest!
 
 ### Supported Exchange Subscriptions
 
@@ -89,49 +89,51 @@ use barter_integration::model::instrument::kind::{
 use chrono::{TimeZone, Utc};
 use futures::StreamExt;
 
+const STREAM_TIMEOUT: std::time::Duration = std::time::Duration::from_mins(1);
+
 #[tokio::main]
 async fn main() {
     // Initialise PublicTrades Streams for various exchanges
     // '--> each call to StreamBuilder::subscribe() creates a separate WebSocket connection
     let streams = Streams::<PublicTrades>::builder()
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (BinanceSpot::default(), "btc", "usdt", InstrumentKind::Spot, PublicTrades),
             (BinanceSpot::default(), "eth", "usdt", InstrumentKind::Spot, PublicTrades),
         ])
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (BinanceFuturesUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
             (BinanceFuturesUsd::default(), "eth", "usdt", InstrumentKind::Perpetual, PublicTrades),
         ])
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (Coinbase, "btc", "usd", InstrumentKind::Spot, PublicTrades),
             (Coinbase, "eth", "usd", InstrumentKind::Spot, PublicTrades),
         ])
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (GateioSpot::default(), "btc", "usdt", InstrumentKind::Spot, PublicTrades),
         ])
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (GateioPerpetualsUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
         ])
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (GateioPerpetualsBtc::default(), "btc", "usd", InstrumentKind::Perpetual, PublicTrades),
         ])
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (GateioOptions::default(), "btc", "usdt", InstrumentKind::Option(put_contract()), PublicTrades),
         ])
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (Okx, "btc", "usdt", InstrumentKind::Spot, PublicTrades),
             (Okx, "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
             (Okx, "btc", "usd", InstrumentKind::Future(future_contract()), PublicTrades),
             (Okx, "btc", "usd", InstrumentKind::Option(call_contract()), PublicTrades),
         ])
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (BybitSpot::default(), "btc", "usdt", InstrumentKind::Spot, PublicTrades),
             (BybitSpot::default(), "eth", "usdt", InstrumentKind::Spot, PublicTrades),
         ])
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (BybitPerpetualsUsd::default(), "btc", "usdt", InstrumentKind::Perpetual, PublicTrades),
         ])
-        .subscribe([
+        .subscribe(STREAM_TIMEOUT, [
             (Bitmex, "xbt", "usd", InstrumentKind::Perpetual, PublicTrades)
         ])
         .init()
@@ -142,7 +144,7 @@ async fn main() {
     // Note: use `Streams.select(ExchangeId)` to interact with individual exchange streams!
     let mut joined_stream = streams
         .select_all()
-        .with_error_handler(|error| println!(format!("MarketStream generated error: {error:?}")));
+        .with_error_handler(|error| println!(format!("stream generated error: {error:?}")));
 
     while let Some(event) = joined_stream.next().await {
         println!("{event:?}");
@@ -174,8 +176,8 @@ Thanks in advance for helping to develop the Barter ecosystem! Please do get hes
 ### Adding A New SubscriptionKind For An Existing Exchange Connector
 1. Add a new `SubscriptionKind` trait implementation in src/subscription/<sub_kind_name>.rs (eg/ see subscription::trade::PublicTrades).
 2. Define the `SubscriptionKind::Event` data model (eg/ see subscription::trade::PublicTrade).
-3. Define the `MarketStream` type the exchange `Connector` will initialise for the new `SubscriptionKind`: <br>
-   ie/ `impl StreamSelector<SubscriptionKind> for <ExistingExchangeConnector> { ... }`
+3. Implement `StreamSelector::init()` for the exchange `Connector` to return a market data stream for the new `SubscriptionKind`: <br>
+   ie/ `impl StreamSelector<SubscriptionKind> for <ExistingExchangeConnector> { fn init(...) -> impl Stream { ... } }`
 4. Try to compile and follow the remaining steps!
 5. Add a barter-data-rs/examples/<sub_kind_name>_streams.rs example in the standard format :)
 

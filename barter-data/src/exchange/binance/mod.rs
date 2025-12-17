@@ -3,18 +3,25 @@ use self::{
     subscription::BinanceSubResponse, trade::BinanceTrade,
 };
 use crate::{
-    ExchangeWsStream, NoInitialSnapshots,
-    exchange::{Connector, ExchangeServer, ExchangeSub, StreamSelector},
+    Identifier, IdentifierStatic, LiveMarketDataArgs, NoInitialSnapshots,
+    error::DataError,
+    event::MarketEvent,
+    exchange::{Connector, ExchangeServer, ExchangeSub},
+    init_ws_exchange_stream,
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
-    subscription::{Map, book::OrderBooksL1, trade::PublicTrades},
+    subscription::{
+        Map, Subscription,
+        book::{OrderBookL1, OrderBooksL1},
+        trade::{PublicTrade, PublicTrades},
+    },
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
-    error::SocketError,
-    protocol::websocket::{WebSocketSerdeParser, WsMessage},
+    protocol::websocket::WsMessage, serde::de::DeJson, stream::data::DataStream,
 };
+use futures_util::Stream;
 use std::{fmt::Debug, marker::PhantomData};
 use url::Url;
 
@@ -22,7 +29,7 @@ use url::Url;
 /// [`BinanceFuturesUsd`](futures::BinanceFuturesUsd).
 pub mod book;
 
-/// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
+/// Defines the type that translates a Barter [`Subscription`]
 /// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
 
@@ -30,7 +37,7 @@ pub mod channel;
 /// [`BinanceFuturesUsd`](futures::BinanceFuturesUsd).
 pub mod futures;
 
-/// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
+/// Defines the type that translates a Barter [`Subscription`]
 /// into an exchange [`Connector`] specific market used for generating [`Connector::requests`].
 pub mod market;
 
@@ -38,7 +45,7 @@ pub mod market;
 /// [`BinanceSpot`](spot::BinanceSpot).
 pub mod spot;
 
-/// [`Subscription`](crate::subscription::Subscription) response type and response
+/// [`Subscription`] response type and response
 /// [`Validator`](barter_integration::Validator) common to both [`BinanceSpot`](spot::BinanceSpot)
 /// and [`BinanceFuturesUsd`](futures::BinanceFuturesUsd).
 pub mod subscription;
@@ -46,9 +53,6 @@ pub mod subscription;
 /// Public trade types common to both [`BinanceSpot`](spot::BinanceSpot) and
 /// [`BinanceFuturesUsd`](futures::BinanceFuturesUsd).
 pub mod trade;
-
-/// Convenient type alias for a Binance [`ExchangeWsStream`] using [`WebSocketSerdeParser`].
-pub type BinanceWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
 
 /// Generic [`Binance<Server>`](Binance) exchange.
 ///
@@ -60,19 +64,27 @@ pub struct Binance<Server> {
     server: PhantomData<Server>,
 }
 
+impl<Server> IdentifierStatic<ExchangeId> for Binance<Server>
+where
+    Server: ExchangeServer,
+{
+    fn id() -> ExchangeId {
+        Server::ID
+    }
+}
+
 impl<Server> Connector for Binance<Server>
 where
     Server: ExchangeServer,
 {
-    const ID: ExchangeId = Server::ID;
     type Channel = BinanceChannel;
     type Market = BinanceMarket;
     type Subscriber = WebSocketSubscriber;
     type SubValidator = WebSocketSubValidator;
     type SubResponse = BinanceSubResponse;
 
-    fn url() -> Result<Url, SocketError> {
-        Url::parse(Server::websocket_url()).map_err(SocketError::UrlParse)
+    fn url() -> Result<Url, url::ParseError> {
+        Url::parse(Server::websocket_url())
     }
 
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
@@ -105,25 +117,54 @@ where
     }
 }
 
-impl<Instrument, Server> StreamSelector<Instrument, PublicTrades> for Binance<Server>
+impl<Instrument, Server> DataStream<LiveMarketDataArgs<Self, Instrument, PublicTrades>>
+    for Binance<Server>
 where
-    Instrument: InstrumentData,
-    Server: ExchangeServer + Debug + Send + Sync,
+    Instrument: InstrumentData + 'static,
+    Server: ExchangeServer + Sync + 'static,
+    Subscription<Self, Instrument, PublicTrades>: Identifier<BinanceMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream =
-        BinanceWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, BinanceTrade>>;
+    type Item = Result<MarketEvent<Instrument::Key, PublicTrade>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, PublicTrades>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
+        init_ws_exchange_stream::<
+            Self,
+            Instrument,
+            PublicTrades,
+            DeJson,
+            StatelessTransformer<Self, Instrument::Key, PublicTrades, BinanceTrade>,
+            NoInitialSnapshots,
+        >(args)
+        .await
+    }
 }
 
-impl<Instrument, Server> StreamSelector<Instrument, OrderBooksL1> for Binance<Server>
+impl<Instrument, Server> DataStream<LiveMarketDataArgs<Self, Instrument, OrderBooksL1>>
+    for Binance<Server>
 where
-    Instrument: InstrumentData,
-    Server: ExchangeServer + Debug + Send + Sync,
+    Instrument: InstrumentData + 'static,
+    Server: ExchangeServer + Sync + 'static,
+    Subscription<Self, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream = BinanceWsStream<
-        StatelessTransformer<Self, Instrument::Key, OrderBooksL1, BinanceOrderBookL1>,
-    >;
+    type Item = Result<MarketEvent<Instrument::Key, OrderBookL1>, DataError>;
+    type Error = DataError;
+
+    async fn init(
+        args: LiveMarketDataArgs<Self, Instrument, OrderBooksL1>,
+    ) -> Result<impl Stream<Item = Self::Item>, Self::Error> {
+        init_ws_exchange_stream::<
+            Self,
+            Instrument,
+            OrderBooksL1,
+            DeJson,
+            StatelessTransformer<Self, Instrument::Key, OrderBooksL1, BinanceOrderBookL1>,
+            NoInitialSnapshots,
+        >(args)
+        .await
+    }
 }
 
 impl<'de, Server> serde::Deserialize<'de> for Binance<Server>
@@ -136,12 +177,12 @@ where
     {
         let input = <String as serde::Deserialize>::deserialize(deserializer)?;
 
-        if input.as_str() == Self::ID.as_str() {
+        if input.as_str() == Self::id().as_str() {
             Ok(Self::default())
         } else {
             Err(serde::de::Error::invalid_value(
                 serde::de::Unexpected::Str(input.as_str()),
-                &Self::ID.as_str(),
+                &Self::id().as_str(),
             ))
         }
     }
@@ -155,6 +196,6 @@ where
     where
         S: serde::ser::Serializer,
     {
-        serializer.serialize_str(Self::ID.as_str())
+        serializer.serialize_str(Self::id().as_str())
     }
 }

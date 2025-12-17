@@ -3,12 +3,13 @@ use self::{
     validator::SubscriptionValidator,
 };
 use crate::{
-    Identifier,
+    Identifier, IdentifierStatic,
     exchange::Connector,
     instrument::InstrumentData,
     subscription::{Map, Subscription, SubscriptionKind, SubscriptionMeta},
 };
 use async_trait::async_trait;
+use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
     error::SocketError,
     protocol::websocket::{WebSocket, WsMessage, connect},
@@ -32,10 +33,11 @@ pub trait Subscriber {
     type SubMapper: SubscriptionMapper;
 
     async fn subscribe<Exchange, Instrument, Kind>(
+        base_url_custom: Option<&String>,
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
     ) -> Result<Subscribed<Instrument::Key>, SocketError>
     where
-        Exchange: Connector + Send + Sync,
+        Exchange: Connector + IdentifierStatic<ExchangeId> + Send + Sync,
         Kind: SubscriptionKind + Send + Sync,
         Instrument: InstrumentData,
         Subscription<Exchange, Instrument, Kind>:
@@ -58,18 +60,23 @@ impl Subscriber for WebSocketSubscriber {
     type SubMapper = WebSocketSubMapper;
 
     async fn subscribe<Exchange, Instrument, Kind>(
+        base_url_custom: Option<&String>,
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
     ) -> Result<Subscribed<Instrument::Key>, SocketError>
     where
-        Exchange: Connector + Send + Sync,
+        Exchange: Connector + IdentifierStatic<ExchangeId> + Send + Sync,
         Kind: SubscriptionKind + Send + Sync,
         Instrument: InstrumentData,
         Subscription<Exchange, Instrument, Kind>:
             Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
     {
-        // Define variables for logging ergonomics
-        let exchange = Exchange::ID;
-        let url = Exchange::url()?;
+        let exchange = Exchange::id();
+
+        // Determine Url (custom or default)
+        let url = base_url_custom
+            .as_ref()
+            .map_or_else(Exchange::url, |custom| url::Url::parse(custom))?;
+
         debug!(%exchange, %url, ?subscriptions, "subscribing to WebSocket");
 
         // Connect to exchange
