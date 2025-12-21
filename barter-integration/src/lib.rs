@@ -62,9 +62,13 @@ pub mod collection;
 #[cfg(feature = "serde")]
 pub mod serde;
 
-/// Barter flavour `StreamExt` and other `Stream` utilities.
+/// `Stream` extensions and utilities.
 #[cfg(feature = "stream")]
 pub mod stream;
+
+/// `ReconnectingSocket` extension and utilities.
+#[cfg(feature = "socket")]
+pub mod socket;
 
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.
