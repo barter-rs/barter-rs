@@ -6,7 +6,7 @@ use crate::{
 };
 use barter_instrument::{Side, exchange::ExchangeId};
 use barter_integration::{
-    de::{datetime_utc_from_epoch_duration, extract_next},
+    serde::de::{datetime_utc_from_epoch_duration, extract_next},
     subscription::SubscriptionId,
 };
 use chrono::{DateTime, Utc};
@@ -212,7 +212,8 @@ mod tests {
         use super::*;
         use barter_instrument::Side;
         use barter_integration::{
-            de::datetime_utc_from_epoch_duration, error::SocketError, subscription::SubscriptionId,
+            error::SocketError, serde::de::datetime_utc_from_epoch_duration,
+            subscription::SubscriptionId,
         };
 
         #[test]
