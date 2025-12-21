@@ -21,6 +21,7 @@ metric = []
 protocol = ["error", "metric", "serde", "dep:tokio-tungstenite", "dep:reqwest", "dep:hmac", "dep:hex", "dep:base64"]
 serde = ["dep:serde_json", "dep:prost"]
 subscription = []
+socket = []
 stream = []
 
 [dev-dependencies]

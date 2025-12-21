@@ -8,8 +8,14 @@ use std::{
     task::{Context, Poll},
 };
 
-pub mod indexed;
-pub mod merge;
+/// Data stream abstractions and configuration.
+pub mod data;
+
+/// Stream extension traits.
+pub mod ext;
+
+/// Stream utility functions.
+pub mod util;
 
 /// An [`ExchangeStream`] is a communication protocol agnostic [`Stream`]. It polls protocol
 /// messages from the inner [`Stream`], and transforms them into the desired output data structure.

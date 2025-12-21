@@ -22,8 +22,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::channel::{Tx, mpsc_unbounded};
     use futures::StreamExt;
+    use tokio::sync::mpsc;
+    use tokio_stream::wrappers::UnboundedReceiverStream;
     use tokio_test::{assert_pending, assert_ready, assert_ready_eq};
 
     #[tokio::test]
@@ -31,10 +32,12 @@ mod tests {
         let waker = futures::task::noop_waker_ref();
         let mut cx = std::task::Context::from_waker(waker);
 
-        let (left_tx, left_rx) = mpsc_unbounded::<&'static str>();
-        let (right_tx, right_rx) = mpsc_unbounded::<&'static str>();
+        let (left_tx, left_rx) = mpsc::unbounded_channel::<&'static str>();
+        let (right_tx, right_rx) = mpsc::unbounded_channel::<&'static str>();
+        let left_rx = UnboundedReceiverStream::new(left_rx);
+        let right_rx = UnboundedReceiverStream::new(right_rx);
 
-        let mut stream = merge(left_rx.into_stream(), right_rx.into_stream());
+        let mut stream = merge(left_rx, right_rx);
 
         assert_pending!(stream.poll_next_unpin(&mut cx));
 

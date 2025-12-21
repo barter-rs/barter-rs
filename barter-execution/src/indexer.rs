@@ -22,12 +22,12 @@ use barter_instrument::{
 };
 use barter_integration::{
     collection::snapshot::Snapshot,
-    stream::indexed::{IndexedStream, Indexer},
+    stream::ext::indexed::{IndexedStream, Indexer},
 };
 use derive_more::Constructor;
 use std::sync::Arc;
 
-pub type IndexedAccountStream<St> = IndexedStream<AccountEventIndexer, St>;
+pub type IndexedAccountStream<St> = IndexedStream<St, AccountEventIndexer>;
 
 #[derive(Debug, Clone, Constructor)]
 pub struct AccountEventIndexer {
