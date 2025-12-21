@@ -53,12 +53,11 @@ pub mod subscription;
 /// eg/ `UnboundedTx`, `ChannelTxDroppable`, etc.
 pub mod channel;
 
+/// Collections of useful data structures not found in the standard library.
 pub mod collection;
 
 /// Stream utilities.
 pub mod stream;
-
-pub mod snapshot;
 
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.

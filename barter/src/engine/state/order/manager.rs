@@ -4,7 +4,7 @@ use barter_execution::order::{
     request::OrderResponseCancel,
     state::{ActiveOrderState, OrderState},
 };
-use barter_integration::snapshot::Snapshot;
+use barter_integration::collection::snapshot::Snapshot;
 use std::fmt::Debug;
 
 /// Synchronous order manager that tracks the lifecycle of active exchange orders.
