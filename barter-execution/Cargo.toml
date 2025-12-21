@@ -14,7 +14,7 @@ categories = ["accessibility", "simulation"]
 
 [dependencies]
 # Barter Ecosystem
-barter-integration = { workspace = true }
+barter-integration = { workspace = true, features = ["collection", "error", "stream"] }
 barter-instrument = { workspace = true }
 
 # Logging
