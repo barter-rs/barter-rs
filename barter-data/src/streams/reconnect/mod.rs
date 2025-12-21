@@ -6,7 +6,7 @@ pub mod stream;
 /// `Stream` is currently reconnecting.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub enum Event<Origin, T> {
-    /// [`ReconnectingStream`](stream::ReconnectingStream) has disconnecting and is
+    /// [`ReconnectingStream`](stream::ReconnectingStream) has disconnected and is
     /// attempting to reconnect.
     Reconnecting(Origin),
     Item(T),
