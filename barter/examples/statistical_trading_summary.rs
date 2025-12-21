@@ -16,7 +16,7 @@ use barter_instrument::{
     index::IndexedInstruments,
     instrument::{Instrument, InstrumentIndex},
 };
-use barter_integration::snapshot::Snapshot;
+use barter_integration::collection::snapshot::Snapshot;
 use chrono::{DateTime, Days, Utc};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;

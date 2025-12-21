@@ -21,7 +21,7 @@ use barter_instrument::{
     instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
 use barter_integration::{
-    snapshot::Snapshot,
+    collection::snapshot::Snapshot,
     stream::indexed::{IndexedStream, Indexer},
 };
 use derive_more::Constructor;
