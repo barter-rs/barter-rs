@@ -23,7 +23,7 @@ use barter_data::{
     subscription::SubKind,
 };
 use barter_instrument::index::IndexedInstruments;
-use barter_integration::snapshot::SnapUpdates;
+use barter_integration::collection::snapshot::SnapUpdates;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use std::{fs::File, io::BufReader, time::Duration};

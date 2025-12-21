@@ -13,7 +13,7 @@ use barter_instrument::{
     asset::{AssetIndex, ExchangeAsset, name::AssetNameInternal},
     instrument::{InstrumentIndex, name::InstrumentNameInternal},
 };
-use barter_integration::{collection::FnvIndexMap, snapshot::Snapshot};
+use barter_integration::collection::{FnvIndexMap, snapshot::Snapshot};
 use chrono::{DateTime, TimeDelta, Utc};
 use derive_more::Constructor;
 use rust_decimal::Decimal;

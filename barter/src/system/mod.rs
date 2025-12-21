@@ -17,8 +17,7 @@ use crate::{
 use barter_execution::order::request::{OrderRequestCancel, OrderRequestOpen};
 use barter_integration::{
     channel::{Tx, UnboundedRx, UnboundedTx},
-    collection::one_or_many::OneOrMany,
-    snapshot::SnapUpdates,
+    collection::{one_or_many::OneOrMany, snapshot::SnapUpdates},
 };
 use std::fmt::Debug;
 use tokio::task::{JoinError, JoinHandle};
