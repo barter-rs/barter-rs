@@ -11,6 +11,18 @@ description = "Low-level framework for composing flexible web integrations, espe
 keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
+[features]
+default = ["collection", "error", "protocol", "serde", "subscription", "stream"]
+full = ["collection", "channel", "error", "metric", "protocol", "serde", "subscription", "stream"]
+collection = []
+channel = []
+error = []
+metric = []
+protocol = ["error", "metric"]
+serde = []
+subscription = []
+stream = []
+
 [dev-dependencies]
 tokio-test = { workspace = true }
 sha2 = { workspace = true }
