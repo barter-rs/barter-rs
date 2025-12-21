@@ -5,7 +5,7 @@ pub fn datetime_utc_from_epoch_duration(
     chrono::DateTime::<chrono::Utc>::from(std::time::UNIX_EPOCH + duration)
 }
 
-/// Deserialize a `String` as the desired type.
+/// Deserialise a `String` as the desired type.
 pub fn de_str<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 where
     D: serde::de::Deserializer<'de>,
@@ -16,7 +16,7 @@ where
     data.parse::<T>().map_err(serde::de::Error::custom)
 }
 
-/// Deserialize a `u64` milliseconds value as `DateTime<Utc>`.
+/// Deserialise a `u64` milliseconds value as `DateTime<Utc>`.
 pub fn de_u64_epoch_ms_as_datetime_utc<'de, D>(
     deserializer: D,
 ) -> Result<chrono::DateTime<chrono::Utc>, D::Error>
@@ -28,7 +28,7 @@ where
     })
 }
 
-/// Deserialize a &str "u64" milliseconds value as `DateTime<Utc>`.
+/// Deserialise a &str "u64" milliseconds value as `DateTime<Utc>`.
 pub fn de_str_u64_epoch_ms_as_datetime_utc<'de, D>(
     deserializer: D,
 ) -> Result<chrono::DateTime<chrono::Utc>, D::Error>
@@ -40,7 +40,7 @@ where
     })
 }
 
-/// Deserialize a &str "f64" milliseconds value as `DateTime<Utc>`.
+/// Deserialise a &str "f64" milliseconds value as `DateTime<Utc>`.
 pub fn de_str_f64_epoch_ms_as_datetime_utc<'de, D>(
     deserializer: D,
 ) -> Result<chrono::DateTime<chrono::Utc>, D::Error>
@@ -52,7 +52,7 @@ where
     })
 }
 
-/// Deserialize a &str "f64" seconds value as `DateTime<Utc>`.
+/// Deserialise a &str "f64" seconds value as `DateTime<Utc>`.
 pub fn de_str_f64_epoch_s_as_datetime_utc<'de, D>(
     deserializer: D,
 ) -> Result<chrono::DateTime<chrono::Utc>, D::Error>
@@ -68,7 +68,7 @@ where
 /// provided sequence.
 ///
 /// A [`serde::de::Error`] is returned if the element does not exist, or it cannot
-/// be deserialized into the `Target` type inferred.
+/// be deserialised into the `Target` type inferred.
 ///
 /// Example sequence: ["20180.30000","0.00010000","1661978265.280067","s","l",""]
 pub fn extract_next<'de, SeqAccessor, Target>(
@@ -82,17 +82,4 @@ where
     sequence
         .next_element::<Target>()?
         .ok_or_else(|| serde::de::Error::missing_field(name))
-}
-
-/// Serialize a generic element T as a `Vec<T>`.
-pub fn se_element_to_vector<T, S>(element: T, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-    T: serde::Serialize,
-{
-    use serde::ser::SerializeSeq;
-
-    let mut sequence = serializer.serialize_seq(Some(1))?;
-    sequence.serialize_element(&element)?;
-    sequence.end()
 }

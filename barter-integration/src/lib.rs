@@ -27,7 +27,7 @@
 //! Both core abstractions provide the robust glue you need to conveniently translate between server & client data models.
 
 use crate::error::SocketError;
-use serde::{Deserialize, Serialize};
+use ::serde::{Deserialize, Serialize};
 
 /// All [`Error`](std::error::Error)s generated in Barter-Integration.
 pub mod error;
@@ -38,9 +38,6 @@ pub mod protocol;
 
 /// Contains the flexible `Metric` type used for representing real-time metrics generically.
 pub mod metric;
-
-/// Utilities to assist deserialisation.
-pub mod de;
 
 /// Defines a [`SubscriptionId`](subscription::SubscriptionId) new type representing a unique
 /// `SmolStr` identifier for a data stream (market data, account data) that has been
@@ -55,6 +52,9 @@ pub mod channel;
 
 /// Collections of useful data structures not found in the standard library.
 pub mod collection;
+
+/// Serialisation and deserialisation transformers and other utilities.
+pub mod serde;
 
 /// Stream utilities.
 pub mod stream;
