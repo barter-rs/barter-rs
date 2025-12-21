@@ -79,7 +79,7 @@ impl SeJsonBytes {
     }
 
     /// Serialises the input type into the valid JSON byte writer.
-    pub fn se_bytes_writer<T>(writer: impl std::fmt::Write, input: &T) -> Result<(), SeError>
+    pub fn se_bytes_writer<T>(writer: impl std::io::Write, input: &T) -> Result<(), SeError>
     where
         T: std::fmt::Debug + serde::Serialize,
     {
@@ -87,7 +87,7 @@ impl SeJsonBytes {
             .map(|_| {
                 debug!(
                     payload = ?input,
-                    target_type = "std::fmt::Write",
+                    target_type = "std::io::Write",
                     input_type = %std::any::type_name::<T>(),
                     "successfully serialised to writer via Serde"
                 );

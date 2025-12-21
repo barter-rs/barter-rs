@@ -26,41 +26,50 @@
 //!
 //! Both core abstractions provide the robust glue you need to conveniently translate between server & client data models.
 
+#[cfg(feature = "error")]
 use crate::error::SocketError;
 use ::serde::{Deserialize, Serialize};
 
 /// All [`Error`](std::error::Error)s generated in Barter-Integration.
+#[cfg(feature = "error")]
 pub mod error;
 
 /// Contains `StreamParser` implementations for transforming communication protocol specific
 /// messages into a generic output data structure.
+#[cfg(feature = "protocol")]
 pub mod protocol;
 
 /// Contains the flexible `Metric` type used for representing real-time metrics generically.
+#[cfg(feature = "metric")]
 pub mod metric;
 
 /// Defines a [`SubscriptionId`](subscription::SubscriptionId) new type representing a unique
 /// `SmolStr` identifier for a data stream (market data, account data) that has been
 /// subscribed to.
+#[cfg(feature = "subscription")]
 pub mod subscription;
 
 /// Defines a trait [`Tx`](channel::Tx) abstraction over different channel kinds, as well as
 /// other channel utilities.
 ///
 /// eg/ `UnboundedTx`, `ChannelTxDroppable`, etc.
+#[cfg(feature = "channel")]
 pub mod channel;
 
-/// Collections of useful data structures not found in the standard library.
+#[cfg(feature = "collection")]
 pub mod collection;
 
 /// Serialisation and deserialisation transformers and other utilities.
+#[cfg(feature = "serde")]
 pub mod serde;
 
-/// Stream utilities.
+/// Barter flavour `StreamExt` and other `Stream` utilities.
+#[cfg(feature = "stream")]
 pub mod stream;
 
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.
+#[cfg(feature = "error")]
 pub trait Validator {
     /// Check if `Self` is valid for some use case.
     fn validate(self) -> Result<Self, SocketError>

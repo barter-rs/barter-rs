@@ -11,6 +11,18 @@ description = "Low-level framework for composing flexible web integrations, espe
 keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
+[features]
+default = ["channel", "collection", "error", "protocol", "serde", "subscription", "socket", "stream"]
+full = ["collection", "channel", "error", "metric", "protocol", "serde", "subscription", "socket", "stream"]
+collection = ["dep:indexmap", "dep:fnv"]
+channel = []
+error = ["dep:url", "dep:serde_qs", "dep:serde_urlencoded"]
+metric = []
+protocol = ["error", "metric", "serde", "dep:tokio-tungstenite", "dep:reqwest", "dep:hmac", "dep:hex", "dep:base64"]
+serde = ["dep:serde_json", "dep:prost"]
+subscription = []
+stream = []
+
 [dev-dependencies]
 tokio-test = { workspace = true }
 sha2 = { workspace = true }
@@ -24,9 +36,9 @@ tracing = { workspace = true }
 
 # SerDe
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-serde_qs = { workspace = true }
-serde_urlencoded = { workspace = true }
+serde_json = { workspace = true, optional = true }
+serde_qs = { workspace = true, optional = true }
+serde_urlencoded = { workspace = true, optional = true }
 
 # Error
 thiserror = { workspace = true }
@@ -43,23 +55,23 @@ futures = { workspace = true }
 pin-project = { workspace = true }
 
 # Data Structures
-indexmap = { workspace = true }
-fnv = { workspace = true }
+indexmap = { workspace = true, optional = true }
+fnv = { workspace = true, optional = true }
 smol_str = { workspace = true, features = ["serde"]}
 
 # Protocol
-tokio-tungstenite = { workspace = true }
-reqwest = { workspace = true }
-url = { workspace = true }
+tokio-tungstenite = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
+url = { workspace = true, optional = true }
 
 # Cryptographic Signatures
-hmac = { workspace = true }
-hex = { workspace = true }
-base64 = { workspace = true }
+hmac = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
 
 # Misc
 chrono = { workspace = true, features = ["serde"] }
 itertools = { workspace = true }
 bytes = { workspace = true }
 derive_more = { workspace = true, features = ["display", "constructor"] }
-prost = { workspace = true }
+prost = { workspace = true, optional = true }
