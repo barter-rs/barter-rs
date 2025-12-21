@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use futures::Stream;
 use serde::{Deserialize, Serialize};
+use std::hash::Hash;
 
 /// Generic `DataStream`.
 ///
@@ -71,7 +72,7 @@ pub enum StreamKind {
     /// Real-time data stream providing events as they occur.
     Live(Live),
 
-    /// Historical data stream replaying events from a past time range.
+    /// Historical data stream replaying events from a time range.
     Historical(Historical),
 }
 

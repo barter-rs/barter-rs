@@ -32,8 +32,8 @@ pub type WsError = tokio_tungstenite::tungstenite::Error;
 /// [`WebSocket`] administration message variants.
 #[derive(Debug)]
 pub enum AdminWs {
-    Ping(bytes::Bytes),
-    Pong(bytes::Bytes),
+    Ping(Bytes),
+    Pong(Bytes),
     Close(Option<CloseFrame>),
     WsError(WsError),
     DeError(DeBinaryError),
@@ -46,9 +46,9 @@ pub enum AdminWs {
 pub struct WsParser;
 
 impl WsParser {
-    fn parse(ws_result: Result<WsMessage, WsError>) -> Message<AdminWs, bytes::Bytes> {
+    fn parse(ws_result: Result<WsMessage, WsError>) -> Message<AdminWs, Bytes> {
         match ws_result {
-            Ok(WsMessage::Text(utf8)) => Message::Payload(bytes::Bytes::from(utf8)),
+            Ok(WsMessage::Text(utf8)) => Message::Payload(Bytes::from(utf8)),
             Ok(WsMessage::Binary(bytes)) => Message::Payload(bytes),
             Ok(WsMessage::Frame(frame)) => Message::Payload(frame.into_payload()),
             Ok(WsMessage::Ping(bytes)) => Message::Admin(AdminWs::Ping(bytes)),

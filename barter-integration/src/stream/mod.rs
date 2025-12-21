@@ -17,6 +17,9 @@ pub mod ext;
 /// Stream utility functions.
 pub mod util;
 
+/// `StreamManager` and `RoutingStreamManager` for managing the lifecycle of multiple streams.
+pub mod manager;
+
 /// An [`ExchangeStream`] is a communication protocol agnostic [`Stream`]. It polls protocol
 /// messages from the inner [`Stream`], and transforms them into the desired output data structure.
 #[derive(Debug)]
