@@ -1,7 +1,7 @@
 use crate::{
     UnindexedAccountEvent, UnindexedAccountSnapshot,
     balance::AssetBalance,
-    client::ExecutionClient,
+    client::{AccountStream, ClientRequests, ExecutionClient},
     error::{ConnectivityError, UnindexedClientError, UnindexedOrderError},
     exchange::mock::request::MockExchangeRequest,
     order::{
@@ -88,22 +88,11 @@ where
     }
 }
 
-impl<FnTime> ExecutionClient for MockExecution<FnTime>
+impl<FnTime> ClientRequests for MockExecution<FnTime>
 where
     FnTime: Fn() -> DateTime<Utc> + Clone + Sync,
 {
     const EXCHANGE: ExchangeId = ExchangeId::Mock;
-    type Config = MockExecutionClientConfig<FnTime>;
-    type AccountStream = BoxStream<'static, UnindexedAccountEvent>;
-
-    fn new(config: Self::Config) -> Self {
-        Self {
-            mocked_exchange: config.mocked_exchange,
-            clock: config.clock,
-            request_tx: config.request_tx,
-            event_rx: config.event_rx,
-        }
-    }
 
     async fn account_snapshot(
         &self,
@@ -128,25 +117,6 @@ where
                 self.mocked_exchange,
             ))
         })
-    }
-
-    async fn account_stream(
-        &self,
-        _: &[AssetNameExchange],
-        _: &[InstrumentNameExchange],
-    ) -> Result<Self::AccountStream, UnindexedClientError> {
-        Ok(futures::StreamExt::boxed(
-            BroadcastStream::new(self.event_rx.resubscribe()).map_while(|result| match result {
-                Ok(event) => Some(event),
-                Err(error) => {
-                    error!(
-                        ?error,
-                        "MockExchange Broadcast AccountStream lagged - terminating"
-                    );
-                    None
-                }
-            }),
-        ))
     }
 
     async fn cancel_order(
@@ -309,6 +279,48 @@ where
                 self.mocked_exchange,
             ))
         })
+    }
+}
+
+impl<FnTime> AccountStream for MockExecution<FnTime>
+where
+    FnTime: Fn() -> DateTime<Utc> + Clone + Sync,
+{
+    type AccountStream = BoxStream<'static, UnindexedAccountEvent>;
+
+    async fn account_stream(
+        &self,
+        _: &[AssetNameExchange],
+        _: &[InstrumentNameExchange],
+    ) -> Result<Self::AccountStream, UnindexedClientError> {
+        Ok(futures::StreamExt::boxed(
+            BroadcastStream::new(self.event_rx.resubscribe()).map_while(|result| match result {
+                Ok(event) => Some(event),
+                Err(error) => {
+                    error!(
+                        ?error,
+                        "MockExchange Broadcast AccountStream lagged - terminating"
+                    );
+                    None
+                }
+            }),
+        ))
+    }
+}
+
+impl<FnTime> ExecutionClient for MockExecution<FnTime>
+where
+    FnTime: Fn() -> DateTime<Utc> + Clone + Sync,
+{
+    type Config = MockExecutionClientConfig<FnTime>;
+
+    fn new(config: Self::Config) -> Self {
+        Self {
+            mocked_exchange: config.mocked_exchange,
+            clock: config.clock,
+            request_tx: config.request_tx,
+            event_rx: config.event_rx,
+        }
     }
 }
 
