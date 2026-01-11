@@ -1,9 +1,11 @@
 use self::builder::{StreamBuilder, multi::MultiStreamBuilder};
+use self::consumer::MarketStreamResult;
 use crate::subscription::SubscriptionKind;
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::channel::UnboundedRx;
 use fnv::FnvHashMap;
 use futures::Stream;
+use std::pin::Pin;
 
 /// Defines the [`StreamBuilder`] and [`MultiStreamBuilder`] APIs for ergonomically initialising
 /// [`MarketStream`](super::MarketStream) [`Streams`].
@@ -16,6 +18,10 @@ pub mod consumer;
 /// Defines a [`ReconnectingStream`](reconnect::stream::ReconnectingStream) and associated logic
 /// for generating an auto reconnecting `Stream`.
 pub mod reconnect;
+
+/// Type alias for a boxed [`Stream`] of [`MarketStreamResult`]s.
+pub type BoxedMarketStream<InstrumentKey, Kind> =
+    Pin<Box<dyn Stream<Item = MarketStreamResult<InstrumentKey, Kind>> + Send>>;
 
 /// Ergonomic collection of exchange market event receivers.
 #[derive(Debug)]
