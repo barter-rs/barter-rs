@@ -11,6 +11,10 @@ use tokio::sync::mpsc;
 /// [`PublicTrades`](crate::subscription::trade::PublicTrades) streams.
 pub mod stateless;
 
+/// Generic sequenced [`ExchangeTransformer`] often used for transforming
+/// [`OrderBooksL2`](crate::subscription::book::OrderBooksL2) streams.
+pub mod sequenced;
+
 /// Defines how to construct a [`Transformer`] used by [`MarketStream`](super::MarketStream)s to
 /// translate exchange specific types to normalised Barter types.
 pub trait ExchangeTransformer<Exchange, InstrumentKey, Kind>

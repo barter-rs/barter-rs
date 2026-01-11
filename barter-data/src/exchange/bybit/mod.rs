@@ -19,7 +19,8 @@ use barter_integration::{
     error::SocketError,
     protocol::websocket::{WebSocketSerdeParser, WsMessage},
 };
-use book::{BybitOrderBookMessage, l2::BybitOrderBooksL2Transformer};
+use book::{BybitOrderBookMessage, l2::BybitOrderBookL2Sequencer};
+use crate::transformer::sequenced::SequencedOrderBookL2Transformer;
 use serde::de::{Error, Unexpected};
 use std::{fmt::Debug, marker::PhantomData, time::Duration};
 use tokio::time;
@@ -148,7 +149,13 @@ where
     Server: ExchangeServer + Debug + Send + Sync,
 {
     type SnapFetcher = NoInitialSnapshots;
-    type Stream = BybitWsStream<BybitOrderBooksL2Transformer<Instrument::Key>>;
+    type Stream = BybitWsStream<
+        SequencedOrderBookL2Transformer<
+            Bybit<Server>,
+            Instrument::Key,
+            BybitOrderBookL2Sequencer,
+        >,
+    >;
 }
 
 impl<'de, Server> serde::Deserialize<'de> for Bybit<Server>

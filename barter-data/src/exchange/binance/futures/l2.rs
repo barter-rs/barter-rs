@@ -5,29 +5,27 @@ use crate::{
     error::DataError,
     event::{MarketEvent, MarketIter},
     exchange::{
-        Connector,
         binance::{
-            book::l2::{BinanceOrderBookL2Meta, BinanceOrderBookL2Snapshot},
+            book::l2::BinanceOrderBookL2Snapshot,
             futures::BinanceFuturesUsd,
             market::BinanceMarket,
         },
     },
     instrument::InstrumentData,
     subscription::{
-        Map, Subscription,
+        Subscription,
         book::{OrderBookEvent, OrderBooksL2},
     },
-    transformer::ExchangeTransformer,
+    transformer::sequenced::{OrderBookL2Sequencer, SequencedOrderBookL2Transformer},
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
-    Transformer, error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId,
+    error::SocketError, subscription::SubscriptionId,
 };
 use chrono::{DateTime, Utc};
 use futures_util::future::try_join_all;
 use serde::{Deserialize, Serialize};
 use std::future::Future;
-use tokio::sync::mpsc::UnboundedSender;
 
 /// [`BinanceFuturesUsd`] HTTP OrderBook L2 snapshot url.
 ///
@@ -79,92 +77,8 @@ impl SnapshotFetcher<BinanceFuturesUsd, OrderBooksL2>
     }
 }
 
-#[derive(Debug)]
-pub struct BinanceFuturesUsdOrderBooksL2Transformer<InstrumentKey> {
-    instrument_map:
-        Map<BinanceOrderBookL2Meta<InstrumentKey, BinanceFuturesUsdOrderBookL2Sequencer>>,
-}
-
-impl<InstrumentKey> ExchangeTransformer<BinanceFuturesUsd, InstrumentKey, OrderBooksL2>
-    for BinanceFuturesUsdOrderBooksL2Transformer<InstrumentKey>
-where
-    InstrumentKey: Clone + PartialEq + Send + Sync,
-{
-    fn init(
-        instrument_map: Map<InstrumentKey>,
-        initial_snapshots: &[MarketEvent<InstrumentKey, OrderBookEvent>],
-        _: UnboundedSender<WsMessage>,
-    ) -> impl Future<Output = Result<Self, DataError>> + Send {
-        async move {
-            let instrument_map = instrument_map
-                .0
-                .into_iter()
-                .map(|(sub_id, instrument_key)| {
-                    let snapshot = initial_snapshots
-                        .iter()
-                        .find(|snapshot| snapshot.instrument == instrument_key)
-                        .ok_or_else(|| DataError::InitialSnapshotMissing(sub_id.clone()))?;
-
-                    let OrderBookEvent::Snapshot(snapshot) = &snapshot.kind else {
-                        return Err(DataError::InitialSnapshotInvalid(String::from(
-                            "expected OrderBookEvent::Snapshot but found OrderBookEvent::Update",
-                        )));
-                    };
-
-                    let sequencer = BinanceFuturesUsdOrderBookL2Sequencer {
-                        updates_processed: 0,
-                        last_update_id: snapshot.sequence(),
-                    };
-
-                    Ok((
-                        sub_id,
-                        BinanceOrderBookL2Meta::new(instrument_key, sequencer),
-                    ))
-                })
-                .collect::<Result<Map<_>, _>>()?;
-
-            Ok(Self { instrument_map })
-        }
-    }
-}
-
-impl<InstrumentKey> Transformer for BinanceFuturesUsdOrderBooksL2Transformer<InstrumentKey>
-where
-    InstrumentKey: Clone,
-{
-    type Error = DataError;
-    type Input = BinanceFuturesOrderBookL2Update;
-    type Output = MarketEvent<InstrumentKey, OrderBookEvent>;
-    type OutputIter = Vec<Result<Self::Output, Self::Error>>;
-
-    fn transform(&mut self, input: Self::Input) -> Self::OutputIter {
-        // Determine if the message has an identifiable SubscriptionId
-        let subscription_id = match input.id() {
-            Some(subscription_id) => subscription_id,
-            None => return vec![],
-        };
-
-        // Find Instrument associated with Input and transform
-        let instrument = match self.instrument_map.find_mut(&subscription_id) {
-            Ok(instrument) => instrument,
-            Err(unidentifiable) => return vec![Err(DataError::from(unidentifiable))],
-        };
-
-        // Drop any outdated updates & validate sequence for relevant updates
-        let valid_update = match instrument.sequencer.validate_sequence(input) {
-            Ok(Some(valid_update)) => valid_update,
-            Ok(None) => return vec![],
-            Err(error) => return vec![Err(error)],
-        };
-
-        MarketIter::<InstrumentKey, OrderBookEvent>::from((
-            BinanceFuturesUsd::ID,
-            instrument.key.clone(),
-            valid_update,
-        ))
-        .0
-    }
-}
+pub type BinanceFuturesUsdOrderBooksL2Transformer<InstrumentKey> =
+    SequencedOrderBookL2Transformer<BinanceFuturesUsd, InstrumentKey, BinanceFuturesUsdOrderBookL2Sequencer>;
 
 /// [`Binance`](super::Binance) [`BinanceServerFuturesUsd`](super::BinanceServerFuturesUsd)
 /// [`BinanceFuturesUsdOrderBookL2Sequencer`].
@@ -278,6 +192,27 @@ impl BinanceFuturesUsdOrderBookL2Sequencer {
                 first_update_id: update.first_update_id,
             })
         }
+    }
+}
+
+impl OrderBookL2Sequencer for BinanceFuturesUsdOrderBookL2Sequencer {
+    type Update = BinanceFuturesOrderBookL2Update;
+
+    fn new(snapshot: Option<&OrderBookEvent>, sub_id: SubscriptionId) -> Result<Self, DataError> {
+        let snapshot = snapshot.ok_or_else(|| DataError::InitialSnapshotMissing(sub_id))?;
+        let last_update_id = match snapshot {
+            OrderBookEvent::Snapshot(ob) => ob.sequence(),
+            _ => return Err(DataError::InitialSnapshotInvalid("Expected Snapshot".to_string())),
+        };
+
+        Ok(Self {
+            updates_processed: 0,
+            last_update_id,
+        })
+    }
+
+    fn validate(&mut self, update: Self::Update) -> Result<Option<Self::Update>, DataError> {
+        self.validate_sequence(update)
     }
 }
 
