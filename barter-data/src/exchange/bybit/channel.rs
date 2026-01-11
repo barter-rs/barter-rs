@@ -1,8 +1,7 @@
 use crate::{
-    Identifier,
     exchange::bybit::Bybit,
+    impl_channel_identifier,
     subscription::{
-        Subscription,
         book::{OrderBooksL1, OrderBooksL2},
         trade::PublicTrades,
     },
@@ -33,29 +32,9 @@ impl BybitChannel {
     pub const ORDER_BOOK_L2: Self = Self("orderbook.50");
 }
 
-impl<Server, Instrument> Identifier<BybitChannel>
-    for Subscription<Bybit<Server>, Instrument, PublicTrades>
-{
-    fn id(&self) -> BybitChannel {
-        BybitChannel::TRADES
-    }
-}
-
-impl<Server, Instrument> Identifier<BybitChannel>
-    for Subscription<Bybit<Server>, Instrument, OrderBooksL1>
-{
-    fn id(&self) -> BybitChannel {
-        BybitChannel::ORDER_BOOK_L1
-    }
-}
-
-impl<Server, Instrument> Identifier<BybitChannel>
-    for Subscription<Bybit<Server>, Instrument, OrderBooksL2>
-{
-    fn id(&self) -> BybitChannel {
-        BybitChannel::ORDER_BOOK_L2
-    }
-}
+impl_channel_identifier!(Bybit<Server>, Instrument => BybitChannel, PublicTrades => BybitChannel::TRADES);
+impl_channel_identifier!(Bybit<Server>, Instrument => BybitChannel, OrderBooksL1 => BybitChannel::ORDER_BOOK_L1);
+impl_channel_identifier!(Bybit<Server>, Instrument => BybitChannel, OrderBooksL2 => BybitChannel::ORDER_BOOK_L2);
 
 impl AsRef<str> for BybitChannel {
     fn as_ref(&self) -> &str {

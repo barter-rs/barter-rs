@@ -1,8 +1,4 @@
-use crate::{
-    Identifier,
-    exchange::bitmex::Bitmex,
-    subscription::{Subscription, trade::PublicTrades},
-};
+use crate::{exchange::bitmex::Bitmex, impl_channel_identifier, subscription::trade::PublicTrades};
 use serde::Serialize;
 
 /// Type that defines how to translate a Barter [`Subscription`] into a [`Bitmex`]
@@ -19,11 +15,7 @@ impl BitmexChannel {
     pub const TRADES: Self = Self("trade");
 }
 
-impl<Instrument> Identifier<BitmexChannel> for Subscription<Bitmex, Instrument, PublicTrades> {
-    fn id(&self) -> BitmexChannel {
-        BitmexChannel::TRADES
-    }
-}
+impl_channel_identifier!(Bitmex, Instrument => BitmexChannel, PublicTrades => BitmexChannel::TRADES);
 
 impl AsRef<str> for BitmexChannel {
     fn as_ref(&self) -> &str {

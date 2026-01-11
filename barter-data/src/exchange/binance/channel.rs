@@ -1,8 +1,7 @@
 use super::{Binance, futures::BinanceFuturesUsd};
 use crate::{
-    Identifier,
+    impl_channel_identifier,
     subscription::{
-        Subscription,
         book::{OrderBooksL1, OrderBooksL2},
         liquidation::Liquidations,
         trade::PublicTrades,
@@ -48,37 +47,10 @@ impl BinanceChannel {
     pub const LIQUIDATIONS: Self = Self("@forceOrder");
 }
 
-impl<Server, Instrument> Identifier<BinanceChannel>
-    for Subscription<Binance<Server>, Instrument, PublicTrades>
-{
-    fn id(&self) -> BinanceChannel {
-        BinanceChannel::TRADES
-    }
-}
-
-impl<Server, Instrument> Identifier<BinanceChannel>
-    for Subscription<Binance<Server>, Instrument, OrderBooksL1>
-{
-    fn id(&self) -> BinanceChannel {
-        BinanceChannel::ORDER_BOOK_L1
-    }
-}
-
-impl<Server, Instrument> Identifier<BinanceChannel>
-    for Subscription<Binance<Server>, Instrument, OrderBooksL2>
-{
-    fn id(&self) -> BinanceChannel {
-        BinanceChannel::ORDER_BOOK_L2
-    }
-}
-
-impl<Instrument> Identifier<BinanceChannel>
-    for Subscription<BinanceFuturesUsd, Instrument, Liquidations>
-{
-    fn id(&self) -> BinanceChannel {
-        BinanceChannel::LIQUIDATIONS
-    }
-}
+impl_channel_identifier!(Binance<Server>, Instrument => BinanceChannel, PublicTrades => BinanceChannel::TRADES);
+impl_channel_identifier!(Binance<Server>, Instrument => BinanceChannel, OrderBooksL1 => BinanceChannel::ORDER_BOOK_L1);
+impl_channel_identifier!(Binance<Server>, Instrument => BinanceChannel, OrderBooksL2 => BinanceChannel::ORDER_BOOK_L2);
+impl_channel_identifier!(BinanceFuturesUsd, Instrument => BinanceChannel, Liquidations => BinanceChannel::LIQUIDATIONS);
 
 impl AsRef<str> for BinanceChannel {
     fn as_ref(&self) -> &str {

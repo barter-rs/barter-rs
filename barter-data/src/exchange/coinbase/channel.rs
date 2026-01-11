@@ -1,8 +1,5 @@
 use super::Coinbase;
-use crate::{
-    Identifier,
-    subscription::{Subscription, trade::PublicTrades},
-};
+use crate::{impl_channel_identifier, subscription::trade::PublicTrades};
 use serde::Serialize;
 
 /// Type that defines how to translate a Barter [`Subscription`] into a
@@ -19,11 +16,7 @@ impl CoinbaseChannel {
     pub const TRADES: Self = Self("matches");
 }
 
-impl<Instrument> Identifier<CoinbaseChannel> for Subscription<Coinbase, Instrument, PublicTrades> {
-    fn id(&self) -> CoinbaseChannel {
-        CoinbaseChannel::TRADES
-    }
-}
+impl_channel_identifier!(Coinbase, Instrument => CoinbaseChannel, PublicTrades => CoinbaseChannel::TRADES);
 
 impl AsRef<str> for CoinbaseChannel {
     fn as_ref(&self) -> &str {

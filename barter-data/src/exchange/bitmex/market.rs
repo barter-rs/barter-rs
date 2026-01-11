@@ -1,10 +1,5 @@
-use crate::{
-    Identifier, exchange::bitmex::Bitmex, instrument::MarketInstrumentData,
-    subscription::Subscription,
-};
-use barter_instrument::{
-    Keyed, asset::name::AssetNameInternal, instrument::market_data::MarketDataInstrument,
-};
+use crate::{exchange::bitmex::Bitmex, impl_market_identifier};
+use barter_instrument::asset::name::AssetNameInternal;
 use serde::{Deserialize, Serialize};
 use smol_str::{SmolStr, StrExt, format_smolstr};
 
@@ -15,27 +10,7 @@ use smol_str::{SmolStr, StrExt, format_smolstr};
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub struct BitmexMarket(pub SmolStr);
 
-impl<Kind> Identifier<BitmexMarket> for Subscription<Bitmex, MarketDataInstrument, Kind> {
-    fn id(&self) -> BitmexMarket {
-        bitmex_market(&self.instrument.base, &self.instrument.quote)
-    }
-}
-
-impl<InstrumentKey, Kind> Identifier<BitmexMarket>
-    for Subscription<Bitmex, Keyed<InstrumentKey, MarketDataInstrument>, Kind>
-{
-    fn id(&self) -> BitmexMarket {
-        bitmex_market(&self.instrument.value.base, &self.instrument.value.quote)
-    }
-}
-
-impl<InstrumentKey, Kind> Identifier<BitmexMarket>
-    for Subscription<Bitmex, MarketInstrumentData<InstrumentKey>, Kind>
-{
-    fn id(&self) -> BitmexMarket {
-        BitmexMarket(self.instrument.name_exchange.name().clone())
-    }
-}
+impl_market_identifier!(Bitmex => BitmexMarket, bitmex_market);
 
 impl AsRef<str> for BitmexMarket {
     fn as_ref(&self) -> &str {

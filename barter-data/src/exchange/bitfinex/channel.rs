@@ -1,8 +1,5 @@
 use super::Bitfinex;
-use crate::{
-    Identifier,
-    subscription::{Subscription, trade::PublicTrades},
-};
+use crate::{impl_channel_identifier, subscription::trade::PublicTrades};
 use serde::Serialize;
 
 /// Type that defines how to translate a Barter [`Subscription`] into a
@@ -19,11 +16,7 @@ impl BitfinexChannel {
     pub const TRADES: Self = Self("trades");
 }
 
-impl<Instrument> Identifier<BitfinexChannel> for Subscription<Bitfinex, Instrument, PublicTrades> {
-    fn id(&self) -> BitfinexChannel {
-        BitfinexChannel::TRADES
-    }
-}
+impl_channel_identifier!(Bitfinex, Instrument => BitfinexChannel, PublicTrades => BitfinexChannel::TRADES);
 
 impl AsRef<str> for BitfinexChannel {
     fn as_ref(&self) -> &str {

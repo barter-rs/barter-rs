@@ -1,11 +1,8 @@
 use super::Okx;
-use crate::{Identifier, instrument::MarketInstrumentData, subscription::Subscription};
-use barter_instrument::{
-    Keyed,
-    instrument::{
-        kind::option::OptionKind,
-        market_data::{MarketDataInstrument, kind::MarketDataInstrumentKind::*},
-    },
+use crate::impl_market_identifier_for_instrument;
+use barter_instrument::instrument::{
+    kind::option::OptionKind,
+    market_data::{MarketDataInstrument, kind::MarketDataInstrumentKind::*},
 };
 use chrono::{
     DateTime, Utc,
@@ -21,27 +18,7 @@ use smol_str::{SmolStr, StrExt, format_smolstr};
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub struct OkxMarket(pub SmolStr);
 
-impl<Kind> Identifier<OkxMarket> for Subscription<Okx, MarketDataInstrument, Kind> {
-    fn id(&self) -> OkxMarket {
-        okx_market(&self.instrument)
-    }
-}
-
-impl<InstrumentKey, Kind> Identifier<OkxMarket>
-    for Subscription<Okx, Keyed<InstrumentKey, MarketDataInstrument>, Kind>
-{
-    fn id(&self) -> OkxMarket {
-        okx_market(&self.instrument.value)
-    }
-}
-
-impl<InstrumentKey, Kind> Identifier<OkxMarket>
-    for Subscription<Okx, MarketInstrumentData<InstrumentKey>, Kind>
-{
-    fn id(&self) -> OkxMarket {
-        OkxMarket(self.instrument.name_exchange.name().clone())
-    }
-}
+impl_market_identifier_for_instrument!(Okx => OkxMarket, okx_market);
 
 impl AsRef<str> for OkxMarket {
     fn as_ref(&self) -> &str {

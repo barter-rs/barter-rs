@@ -1,10 +1,8 @@
 use super::Bitfinex;
-use crate::{Identifier, instrument::MarketInstrumentData, subscription::Subscription};
-use barter_instrument::{
-    Keyed, asset::name::AssetNameInternal, instrument::market_data::MarketDataInstrument,
-};
+use crate::impl_market_identifier;
+use barter_instrument::asset::name::AssetNameInternal;
 use serde::{Deserialize, Serialize};
-use smol_str::{SmolStr, ToSmolStr, format_smolstr};
+use smol_str::{SmolStr, format_smolstr};
 
 /// Type that defines how to translate a Barter [`Subscription`] into a
 /// [`Bitfinex`] market that can be subscribed to.
@@ -13,27 +11,7 @@ use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub struct BitfinexMarket(pub SmolStr);
 
-impl<Kind> Identifier<BitfinexMarket> for Subscription<Bitfinex, MarketDataInstrument, Kind> {
-    fn id(&self) -> BitfinexMarket {
-        bitfinex_market(&self.instrument.base, &self.instrument.quote)
-    }
-}
-
-impl<InstrumentKey, Kind> Identifier<BitfinexMarket>
-    for Subscription<Bitfinex, Keyed<InstrumentKey, MarketDataInstrument>, Kind>
-{
-    fn id(&self) -> BitfinexMarket {
-        bitfinex_market(&self.instrument.value.base, &self.instrument.value.quote)
-    }
-}
-
-impl<InstrumentKey, Kind> Identifier<BitfinexMarket>
-    for Subscription<Bitfinex, MarketInstrumentData<InstrumentKey>, Kind>
-{
-    fn id(&self) -> BitfinexMarket {
-        BitfinexMarket(self.instrument.name_exchange.to_smolstr())
-    }
-}
+impl_market_identifier!(Bitfinex => BitfinexMarket, bitfinex_market);
 
 impl AsRef<str> for BitfinexMarket {
     fn as_ref(&self) -> &str {

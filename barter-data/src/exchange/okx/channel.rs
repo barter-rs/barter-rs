@@ -1,8 +1,5 @@
 use super::Okx;
-use crate::{
-    Identifier,
-    subscription::{Subscription, trade::PublicTrades},
-};
+use crate::{impl_channel_identifier, subscription::trade::PublicTrades};
 use serde::Serialize;
 
 /// Type that defines how to translate a Barter [`Subscription`] into a
@@ -19,11 +16,7 @@ impl OkxChannel {
     pub const TRADES: Self = Self("trades");
 }
 
-impl<Instrument> Identifier<OkxChannel> for Subscription<Okx, Instrument, PublicTrades> {
-    fn id(&self) -> OkxChannel {
-        OkxChannel::TRADES
-    }
-}
+impl_channel_identifier!(Okx, Instrument => OkxChannel, PublicTrades => OkxChannel::TRADES);
 
 impl AsRef<str> for OkxChannel {
     fn as_ref(&self) -> &str {
