@@ -29,11 +29,10 @@ tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
 tokio-stream = { workspace = true, features = ["sync"] }
 futures = { workspace = true }
 futures-util = { workspace = true }
-async-trait = { workspace = true }
 
 # Protocol
 url = { workspace = true }
-reqwest = { workspace = true}
+reqwest = { workspace = true }
 
 # Error
 thiserror = { workspace = true }

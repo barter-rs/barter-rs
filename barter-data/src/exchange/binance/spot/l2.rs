@@ -19,7 +19,6 @@ use crate::{
     },
     transformer::ExchangeTransformer,
 };
-use async_trait::async_trait;
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
     Transformer, error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId,
@@ -81,42 +80,43 @@ pub struct BinanceSpotOrderBooksL2Transformer<InstrumentKey> {
     instrument_map: Map<BinanceOrderBookL2Meta<InstrumentKey, BinanceSpotOrderBookL2Sequencer>>,
 }
 
-#[async_trait]
 impl<InstrumentKey> ExchangeTransformer<BinanceSpot, InstrumentKey, OrderBooksL2>
     for BinanceSpotOrderBooksL2Transformer<InstrumentKey>
 where
     InstrumentKey: Clone + PartialEq + Send + Sync,
 {
-    async fn init(
+    fn init(
         instrument_map: Map<InstrumentKey>,
         initial_snapshots: &[MarketEvent<InstrumentKey, OrderBookEvent>],
         _: UnboundedSender<WsMessage>,
-    ) -> Result<Self, DataError> {
-        let instrument_map = instrument_map
-            .0
-            .into_iter()
-            .map(|(sub_id, instrument_key)| {
-                let snapshot = initial_snapshots
-                    .iter()
-                    .find(|snapshot| snapshot.instrument == instrument_key)
-                    .ok_or_else(|| DataError::InitialSnapshotMissing(sub_id.clone()))?;
+    ) -> impl Future<Output = Result<Self, DataError>> + Send {
+        async move {
+            let instrument_map = instrument_map
+                .0
+                .into_iter()
+                .map(|(sub_id, instrument_key)| {
+                    let snapshot = initial_snapshots
+                        .iter()
+                        .find(|snapshot| snapshot.instrument == instrument_key)
+                        .ok_or_else(|| DataError::InitialSnapshotMissing(sub_id.clone()))?;
 
-                let OrderBookEvent::Snapshot(snapshot) = &snapshot.kind else {
-                    return Err(DataError::InitialSnapshotInvalid(String::from(
-                        "expected OrderBookEvent::Snapshot but found OrderBookEvent::Update",
-                    )));
-                };
+                    let OrderBookEvent::Snapshot(snapshot) = &snapshot.kind else {
+                        return Err(DataError::InitialSnapshotInvalid(String::from(
+                            "expected OrderBookEvent::Snapshot but found OrderBookEvent::Update",
+                        )));
+                    };
 
-                let book_meta = BinanceOrderBookL2Meta::new(
-                    instrument_key,
-                    BinanceSpotOrderBookL2Sequencer::new(snapshot.sequence()),
-                );
+                    let book_meta = BinanceOrderBookL2Meta::new(
+                        instrument_key,
+                        BinanceSpotOrderBookL2Sequencer::new(snapshot.sequence()),
+                    );
 
-                Ok((sub_id, book_meta))
-            })
-            .collect::<Result<Map<_>, _>>()?;
+                    Ok((sub_id, book_meta))
+                })
+                .collect::<Result<Map<_>, _>>()?;
 
-        Ok(Self { instrument_map })
+            Ok(Self { instrument_map })
+        }
     }
 }
 

@@ -8,14 +8,13 @@ use crate::{
     instrument::InstrumentData,
     subscription::{Map, Subscription, SubscriptionKind, SubscriptionMeta},
 };
-use async_trait::async_trait;
 use barter_integration::{
     error::SocketError,
     protocol::websocket::{WebSocket, WsMessage, connect},
 };
 use futures::SinkExt;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
+use std::{fmt::Debug, future::Future};
 use tracing::debug;
 
 /// [`SubscriptionMapper`] implementations defining how to map a
@@ -27,13 +26,12 @@ pub mod mapper;
 pub mod validator;
 
 /// Defines how to connect to a socket and subscribe to market data streams.
-#[async_trait]
 pub trait Subscriber {
     type SubMapper: SubscriptionMapper;
 
-    async fn subscribe<Exchange, Instrument, Kind>(
+    fn subscribe<Exchange, Instrument, Kind>(
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> Result<Subscribed<Instrument::Key>, SocketError>
+    ) -> impl Future<Output = Result<Subscribed<Instrument::Key>, SocketError>> + Send
     where
         Exchange: Connector + Send + Sync,
         Kind: SubscriptionKind + Send + Sync,
@@ -53,13 +51,12 @@ pub struct Subscribed<InstrumentKey> {
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
 pub struct WebSocketSubscriber;
 
-#[async_trait]
 impl Subscriber for WebSocketSubscriber {
     type SubMapper = WebSocketSubMapper;
 
-    async fn subscribe<Exchange, Instrument, Kind>(
+    fn subscribe<Exchange, Instrument, Kind>(
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> Result<Subscribed<Instrument::Key>, SocketError>
+    ) -> impl Future<Output = Result<Subscribed<Instrument::Key>, SocketError>> + Send
     where
         Exchange: Connector + Send + Sync,
         Kind: SubscriptionKind + Send + Sync,
@@ -67,43 +64,45 @@ impl Subscriber for WebSocketSubscriber {
         Subscription<Exchange, Instrument, Kind>:
             Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
     {
-        // Define variables for logging ergonomics
-        let exchange = Exchange::ID;
-        let url = Exchange::url()?;
-        debug!(%exchange, %url, ?subscriptions, "subscribing to WebSocket");
+        async move {
+            // Define variables for logging ergonomics
+            let exchange = Exchange::ID;
+            let url = Exchange::url()?;
+            debug!(%exchange, %url, ?subscriptions, "subscribing to WebSocket");
 
-        // Connect to exchange
-        let mut websocket = connect(url).await?;
-        debug!(%exchange, ?subscriptions, "connected to WebSocket");
+            // Connect to exchange
+            let mut websocket = connect(url).await?;
+            debug!(%exchange, ?subscriptions, "connected to WebSocket");
 
-        // Map &[Subscription<Exchange, Kind>] to SubscriptionMeta
-        let SubscriptionMeta {
-            instrument_map,
-            ws_subscriptions,
-        } = Self::SubMapper::map::<Exchange, Instrument, Kind>(subscriptions);
+            // Map &[Subscription<Exchange, Kind>] to SubscriptionMeta
+            let SubscriptionMeta {
+                instrument_map,
+                ws_subscriptions,
+            } = Self::SubMapper::map::<Exchange, Instrument, Kind>(subscriptions);
 
-        // Send Subscriptions over WebSocket
-        for subscription in ws_subscriptions {
-            debug!(%exchange, payload = ?subscription, "sending exchange subscription");
-            websocket
-                .send(subscription)
-                .await
-                .map_err(|error| SocketError::WebSocket(Box::new(error)))?;
+            // Send Subscriptions over WebSocket
+            for subscription in ws_subscriptions {
+                debug!(%exchange, payload = ?subscription, "sending exchange subscription");
+                websocket
+                    .send(subscription)
+                    .await
+                    .map_err(|error| SocketError::WebSocket(Box::new(error)))?;
+            }
+
+            // Validate Subscription responses
+            let (map, buffered_websocket_events) = Exchange::SubValidator::validate::<
+                Exchange,
+                Instrument::Key,
+                Kind,
+            >(instrument_map, &mut websocket)
+            .await?;
+
+            debug!(%exchange, "successfully initialised WebSocket stream with confirmed Subscriptions");
+            Ok(Subscribed {
+                websocket,
+                map,
+                buffered_websocket_events,
+            })
         }
-
-        // Validate Subscription responses
-        let (map, buffered_websocket_events) = Exchange::SubValidator::validate::<
-            Exchange,
-            Instrument::Key,
-            Kind,
-        >(instrument_map, &mut websocket)
-        .await?;
-
-        debug!(%exchange, "successfully initialised WebSocket stream with confirmed Subscriptions");
-        Ok(Subscribed {
-            websocket,
-            map,
-            buffered_websocket_events,
-        })
     }
 }

@@ -80,7 +80,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         SubIter: IntoIterator<Item = Sub>,
         Sub: Into<Subscription<ExchangeId, Instrument, SubKind>>,
         Instrument: InstrumentData<Key = InstrumentKey> + Ord + Display + 'static,
-        InstrumentKey: Debug + Clone + Send + 'static,
+        InstrumentKey: Debug + Clone + PartialEq + Send + Sync + 'static,
         Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
         Subscription<BinanceSpot, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
         Subscription<BinanceSpot, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,

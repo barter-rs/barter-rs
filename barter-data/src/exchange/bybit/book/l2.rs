@@ -1,4 +1,4 @@
-use std::vec;
+use std::{future::Future, vec};
 
 use crate::{
     Identifier,
@@ -14,7 +14,6 @@ use crate::{
     },
     transformer::ExchangeTransformer,
 };
-use async_trait::async_trait;
 use barter_integration::{Transformer, protocol::websocket::WsMessage};
 use derive_more::Constructor;
 use tokio::sync::mpsc::UnboundedSender;
@@ -33,26 +32,27 @@ pub struct BybitOrderBooksL2Transformer<InstrumentKey> {
     instrument_map: Map<BybitOrderBookL2Meta<InstrumentKey, BybitOrderBookL2Sequencer>>,
 }
 
-#[async_trait]
 impl<InstrumentKey, Server> ExchangeTransformer<Bybit<Server>, InstrumentKey, OrderBooksL2>
     for BybitOrderBooksL2Transformer<InstrumentKey>
 where
     InstrumentKey: Clone + PartialEq + Send + Sync,
 {
-    async fn init(
+    fn init(
         instrument_map: Map<InstrumentKey>,
         _: &[MarketEvent<InstrumentKey, OrderBookEvent>],
         _: UnboundedSender<WsMessage>,
-    ) -> Result<Self, DataError> {
-        let instrument_map = instrument_map
-            .0
-            .into_iter()
-            .map(|(sub_id, instrument_key)| {
-                (sub_id, BybitOrderBookL2Meta::new(instrument_key, None))
-            })
-            .collect();
+    ) -> impl Future<Output = Result<Self, DataError>> + Send {
+        async move {
+            let instrument_map = instrument_map
+                .0
+                .into_iter()
+                .map(|(sub_id, instrument_key)| {
+                    (sub_id, BybitOrderBookL2Meta::new(instrument_key, None))
+                })
+                .collect();
 
-        Ok(Self { instrument_map })
+            Ok(Self { instrument_map })
+        }
     }
 }
 
