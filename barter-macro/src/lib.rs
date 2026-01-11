@@ -124,3 +124,48 @@ pub fn ser_sub_kind_derive(input: TokenStream) -> TokenStream {
 
     TokenStream::from(generated)
 }
+
+mod stream_registry;
+use stream_registry::StreamConnectorsInput;
+
+/// Generates stream connector dispatch code for `DynamicStreams`.
+///
+/// This macro takes a declarative list of connector types and their supported
+/// subscription kinds, then generates:
+/// - Import statements for all connector and market types
+/// - Match arms dispatching `(ExchangeId, SubKind)` to connector initialization
+/// - Where clause bounds for the `init` function
+///
+/// # Example
+///
+/// ```rust,ignore
+/// define_stream_connectors! {
+///     BinanceSpot => [PublicTrades, OrderBooksL1, OrderBooksL2],
+///     Coinbase => [PublicTrades],
+/// }
+/// ```
+///
+/// # Naming Conventions
+///
+/// The macro derives associated types from connector names:
+/// - `BinanceSpot` -> `ExchangeId::BinanceSpot`, `BinanceMarket`
+/// - `BybitPerpetualsUsd` -> `ExchangeId::BybitPerpetualsUsd`, `BybitMarket`
+///
+/// # Errors
+///
+/// Compile-time errors are emitted for:
+/// - Duplicate `(Connector, Kind)` registrations
+/// - Unknown subscription kinds
+/// - Unknown connector types
+#[proc_macro]
+pub fn define_stream_connectors(input: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(input as StreamConnectorsInput);
+
+    if let Err(err) = input.validate() {
+        return err.to_compile_error().into();
+    }
+
+    // Code generation will be implemented in Phase 3
+    TokenStream::new()
+}
+
