@@ -1,9 +1,8 @@
-use super::super::KrakenMessage;
 use crate::{
     Identifier,
     books::Level,
     event::{MarketEvent, MarketIter},
-    exchange::{kraken::channel::KrakenChannel, subscription::ExchangeSub},
+    exchange::{kraken::{channel::KrakenChannel, message::KrakenMessage}, subscription::ExchangeSub},
     subscription::book::OrderBookL1,
 };
 use barter_instrument::exchange::ExchangeId;
@@ -12,11 +11,11 @@ use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-/// Terse type alias for an [`Kraken`](super::super::Kraken) real-time OrderBook Level1
+/// Terse type alias for an [`Kraken`](crate::exchange::kraken::KrakenSpot) real-time OrderBook Level1
 /// (top of books) WebSocket message.
 pub type KrakenOrderBookL1 = KrakenMessage<KrakenOrderBookL1Inner>;
 
-/// [`Kraken`](super::super::Kraken) real-time OrderBook Level1 (top of books) data and the
+/// [`Kraken`](crate::exchange::kraken::KrakenSpot) real-time OrderBook Level1 (top of books) data and the
 /// associated [`SubscriptionId`].
 ///
 /// See [`KrakenMessage`] for full raw payload examples.
@@ -28,7 +27,7 @@ pub struct KrakenOrderBookL1Inner {
     pub spread: KrakenSpread,
 }
 
-/// [`Kraken`](super::super::Kraken) best bid and ask.
+/// [`Kraken`](crate::exchange::kraken::KrakenSpot) best bid and ask.
 ///
 /// See [`KrakenMessage`] for full raw payload examples.
 ///

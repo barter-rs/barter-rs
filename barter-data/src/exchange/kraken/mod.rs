@@ -1,31 +1,28 @@
 use self::{
-    book::l1::KrakenOrderBookL1, channel::KrakenChannel, market::KrakenMarket,
-    message::KrakenMessage, subscription::KrakenSubResponse, trade::KrakenTrades,
+    channel::KrakenChannel, market::KrakenMarket, subscription::KrakenSubResponse,
 };
 use crate::{
-    ExchangeWsStream, NoInitialSnapshots,
-    exchange::{Connector, ExchangeSub, StreamSelector},
-    instrument::InstrumentData,
+    ExchangeWsStream,
+    exchange::{Connector, ExchangeServer, ExchangeSub},
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
-    subscription::{book::OrderBooksL1, trade::PublicTrades},
-    transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
     error::SocketError,
     protocol::websocket::{WebSocketSerdeParser, WsMessage},
 };
-use barter_macro::{DeExchange, SerExchange};
 use derive_more::Display;
 use serde_json::json;
+use std::marker::PhantomData;
 use url::Url;
-
-/// OrderBook types for [`Kraken`].
-pub mod book;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
 /// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
 pub mod channel;
+
+/// [`ExchangeServer`] and [`StreamSelector`] implementations for
+/// [`KrakenFuturesUsd`](futures::KrakenFuturesUsd).
+pub mod futures;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
 /// into an exchange [`Connector`]  specific market used for generating [`Connector::requests`].
@@ -34,17 +31,13 @@ pub mod market;
 /// [`KrakenMessage`] type for [`Kraken`].
 pub mod message;
 
+/// [`ExchangeServer`] and [`StreamSelector`] implementations for
+/// [`KrakenSpot`](spot::KrakenSpot).
+pub mod spot;
+
 /// [`Subscription`](crate::subscription::Subscription) response type and response
 /// [`Validator`](barter_integration) for [`Kraken`].
 pub mod subscription;
-
-/// Public trade types for [`Kraken`].
-pub mod trade;
-
-/// [`Kraken`] server base url.
-///
-/// See docs: <https://docs.kraken.com/websockets/#overview>
-pub const BASE_URL_KRAKEN: &str = "wss://ws.kraken.com/";
 
 /// Convenient type alias for a Kraken [`ExchangeWsStream`] using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
 pub type KrakenWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
@@ -63,13 +56,20 @@ pub type KrakenWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Tr
     Debug,
     Default,
     Display,
-    DeExchange,
-    SerExchange,
 )]
-pub struct Kraken;
+pub struct KrakenExchange<Server> {
+    server: PhantomData<Server>,
+}
 
-impl Connector for Kraken {
-    const ID: ExchangeId = ExchangeId::Kraken;
+pub type Kraken = KrakenExchange<spot::KrakenServerSpot>;
+pub type KrakenSpot = Kraken;
+pub type KrakenFuturesUsd = KrakenExchange<futures::KrakenServerFuturesUsd>;
+
+impl<Server> Connector for KrakenExchange<Server>
+where
+    Server: ExchangeServer,
+{
+    const ID: ExchangeId = Server::ID;
     type Channel = KrakenChannel;
     type Market = KrakenMarket;
     type Subscriber = WebSocketSubscriber;
@@ -77,7 +77,7 @@ impl Connector for Kraken {
     type SubResponse = KrakenSubResponse;
 
     fn url() -> Result<Url, SocketError> {
-        Url::parse(BASE_URL_KRAKEN).map_err(SocketError::UrlParse)
+        Url::parse(Server::websocket_url()).map_err(SocketError::UrlParse)
     }
 
     fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
@@ -99,21 +99,36 @@ impl Connector for Kraken {
     }
 }
 
-impl<Instrument> StreamSelector<Instrument, PublicTrades> for Kraken
+impl<'de, Server> serde::Deserialize<'de> for KrakenExchange<Server>
 where
-    Instrument: InstrumentData,
+    Server: ExchangeServer,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream =
-        KrakenWsStream<StatelessTransformer<Self, Instrument::Key, PublicTrades, KrakenTrades>>;
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        let input = <String as serde::Deserialize>::deserialize(deserializer)?;
+        let expected = Self::ID.as_str();
+
+        if input.as_str() == expected {
+            Ok(Self::default())
+        } else {
+            Err(serde::de::Error::invalid_value(
+                serde::de::Unexpected::Str(input.as_str()),
+                &expected,
+            ))
+        }
+    }
 }
 
-impl<Instrument> StreamSelector<Instrument, OrderBooksL1> for Kraken
+impl<Server> serde::Serialize for KrakenExchange<Server>
 where
-    Instrument: InstrumentData,
+    Server: ExchangeServer,
 {
-    type SnapFetcher = NoInitialSnapshots;
-    type Stream = KrakenWsStream<
-        StatelessTransformer<Self, Instrument::Key, OrderBooksL1, KrakenOrderBookL1>,
-    >;
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        serializer.serialize_str(Self::ID.as_str())
+    }
 }

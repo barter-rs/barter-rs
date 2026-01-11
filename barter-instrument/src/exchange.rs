@@ -69,6 +69,7 @@ pub enum ExchangeId {
     #[serde(alias = "huobi")]
     Htx,
     Kraken,
+    KrakenFuturesUsd,
     Kucoin,
     Liquid,
     Mexc,
@@ -117,6 +118,7 @@ impl ExchangeId {
             ExchangeId::Hitbtc => "hitbtc",
             ExchangeId::Htx => "htx", // huobi alias
             ExchangeId::Kraken => "kraken",
+            ExchangeId::KrakenFuturesUsd => "kraken_futures_usd",
             ExchangeId::Kucoin => "kucoin",
             ExchangeId::Liquid => "liquid",
             ExchangeId::Mexc => "mexc",

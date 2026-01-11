@@ -195,19 +195,19 @@ pub fn exchange_supports_instrument_kind(
         // Spot
         (
             BinanceFuturesUsd | Bitmex | BybitPerpetualsUsd | GateioPerpetualsUsd
-            | GateioPerpetualsBtc,
+            | GateioPerpetualsBtc | KrakenFuturesUsd,
             Spot,
         ) => false,
         (_, Spot) => true,
 
         // Future
-        (GateioFuturesUsd | GateioFuturesBtc | Okx, Future { .. }) => true,
+        (GateioFuturesUsd | GateioFuturesBtc | Okx | KrakenFuturesUsd, Future { .. }) => true,
         (_, Future { .. }) => false,
 
         // Perpetual
         (
             BinanceFuturesUsd | Bitmex | Okx | BybitPerpetualsUsd | GateioPerpetualsUsd
-            | GateioPerpetualsBtc,
+            | GateioPerpetualsBtc | KrakenFuturesUsd,
             Perpetual,
         ) => true,
         (_, Perpetual) => false,

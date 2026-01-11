@@ -1,8 +1,8 @@
-use super::KrakenMessage;
 use crate::{
     Identifier,
     event::{MarketEvent, MarketIter},
     subscription::trade::PublicTrade,
+    exchange::kraken::message::KrakenMessage,
 };
 use barter_instrument::{Side, exchange::ExchangeId};
 use barter_integration::{
@@ -12,7 +12,7 @@ use barter_integration::{
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-/// Terse type alias for an [`Kraken`](super::Kraken) real-time trades WebSocket message.
+/// Terse type alias for an [`Kraken`](super::KrakenSpot) real-time trades WebSocket message.
 pub type KrakenTrades = KrakenMessage<KrakenTradesInner>;
 
 /// Collection of [`KrakenTrade`] items with an associated [`SubscriptionId`] (eg/ "trade|XBT/USD").
@@ -26,7 +26,7 @@ pub struct KrakenTradesInner {
     pub trades: Vec<KrakenTrade>,
 }
 
-/// [`Kraken`](super::Kraken) trade.
+/// [`Kraken`](super::KrakenSpot) trade.
 ///
 /// See [`KrakenMessage`] for full raw payload examples.
 ///
@@ -46,7 +46,7 @@ impl Identifier<Option<SubscriptionId>> for KrakenTradesInner {
     }
 }
 
-/// Generate a custom [`Kraken`](super::Kraken) trade identifier since it is not provided in the
+/// Generate a custom [`Kraken`](super::KrakenSpot) trade identifier since it is not provided in the
 /// [`KrakenTrade`] model.
 fn custom_kraken_trade_id(trade: &KrakenTrade) -> String {
     format!(
