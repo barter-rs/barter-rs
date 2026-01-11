@@ -4,6 +4,7 @@ use syn::{bracketed, Ident, Result, Token, Error};
 use syn::punctuated::Punctuated;
 use quote::{quote, format_ident};
 use proc_macro2::TokenStream;
+use convert_case::{Case, Casing};
 
 /// A single connector registration entry.
 ///
@@ -96,6 +97,7 @@ struct ConnectorMetadata {
     exchange_root: String,
     sub_module: Option<String>,
     market: Ident,
+    channel: Ident,
 }
 
 impl ConnectorMetadata {
@@ -123,17 +125,20 @@ impl ConnectorMetadata {
             _ => return Err(Error::new(span, format!("Unknown connector type: {}", s))),
         };
 
+        let channel_name = format!("{}Channel", exchange_root.to_case(Case::Pascal));
+
         Ok(Self {
             exchange_root: exchange_root.to_string(),
             sub_module: sub_module.map(|s| s.to_string()),
             market: Ident::new(market_name, span),
+            channel: Ident::new(&channel_name, span),
         })
     }
 }
 
 impl StreamConnectorsInput {
     pub fn generate(&self) -> Result<TokenStream> {
-        let mut imports_map: BTreeMap<String, (String, BTreeMap<Option<String>, Vec<Ident>>)> = BTreeMap::new();
+        let mut imports_map: BTreeMap<String, (String, String, BTreeMap<Option<String>, Vec<Ident>>)> = BTreeMap::new();
         let mut match_arms = TokenStream::new();
         let mut where_bounds = TokenStream::new();
 
@@ -142,15 +147,16 @@ impl StreamConnectorsInput {
 
             // Collect imports
             let exchange_entry = imports_map.entry(meta.exchange_root.clone())
-                .or_insert_with(|| (meta.market.to_string(), BTreeMap::new()));
+                .or_insert_with(|| (meta.market.to_string(), meta.channel.to_string(), BTreeMap::new()));
             
-            exchange_entry.1.entry(meta.sub_module.clone())
+            exchange_entry.2.entry(meta.sub_module.clone())
                 .or_insert_with(Vec::new)
                 .push(entry.connector.clone());
 
 
             let exchange_id = format_ident!("{}", entry.connector);
             let market = &meta.market;
+            let channel = &meta.channel;
             let connector = &entry.connector;
 
             for kind in &entry.kinds {
@@ -165,14 +171,19 @@ impl StreamConnectorsInput {
                 // Match Arm
                 let match_arm = quote! {
                     (ExchangeId::#exchange_id, SubKind::#kind) => {
-                        init_and_forward::<_, _, #kind>(#connector::default(), subs, txs.#channel_field.clone()).await
+                        init_and_forward::<_, _, #kind>(
+                            #connector::default(),
+                            subs,
+                            txs.#channel_field.get(&ExchangeId::#exchange_id).expect("channel must exist").clone(),
+                            #kind
+                        ).await
                     }
                 };
                 match_arms.extend(match_arm);
 
                 // Where Bound
                 let where_bound = quote! {
-                    Subscription<#connector, Instrument, #kind>: Identifier<#market>,
+                    Subscription<#connector, Instrument, #kind>: Identifier<#market> + Identifier<#channel>,
                 };
                 where_bounds.extend(where_bound);
             }
@@ -180,12 +191,13 @@ impl StreamConnectorsInput {
 
         // Generate Imports
         let mut imports = TokenStream::new();
-        for (root, (market_name, sub_modules)) in imports_map {
+        for (root, (market_name, channel_name, sub_modules)) in imports_map {
              let root_ident = format_ident!("{}", root);
              let market_ident = format_ident!("{}", market_name);
+             let channel_ident = format_ident!("{}", channel_name);
              
              let mut sub_imports = TokenStream::new();
-             sub_imports.extend(quote! { market::#market_ident, });
+             sub_imports.extend(quote! { market::#market_ident, channel::#channel_ident, });
 
              for (sub_mod, connectors) in sub_modules {
                  if let Some(sub) = sub_mod {
@@ -236,9 +248,9 @@ impl StreamConnectorsInput {
                                         async move {
                                             match (exchange, sub_kind) {
                                                 #match_arms
-                                                (exchange, kind) => Err(DataError::Unsupported { 
-                                                    entity: format!("{exchange}"), 
-                                                    item: format!("{kind}") 
+                                                (exchange, sub_kind) => Err(DataError::Unsupported { 
+                                                    exchange, 
+                                                    sub_kind 
                                                 }),
                                             }
                                         }
@@ -250,7 +262,30 @@ impl StreamConnectorsInput {
                     try_join_all(futures).await?;
 
                     Ok(Self {
-                        streams: UnboundedReceiverStream::new(channels.rx),
+                        trades: channels
+                            .rxs
+                            .trades
+                            .into_iter()
+                            .map(|(exchange, rx)| (exchange, rx.into_stream()))
+                            .collect(),
+                        l1s: channels
+                            .rxs
+                            .l1s
+                            .into_iter()
+                            .map(|(exchange, rx)| (exchange, rx.into_stream()))
+                            .collect(),
+                        l2s: channels
+                            .rxs
+                            .l2s
+                            .into_iter()
+                            .map(|(exchange, rx)| (exchange, rx.into_stream()))
+                            .collect(),
+                        liquidations: channels
+                            .rxs
+                            .liquidations
+                            .into_iter()
+                            .map(|(exchange, rx)| (exchange, rx.into_stream()))
+                            .collect(),
                     })
                  }
              }

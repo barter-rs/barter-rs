@@ -2,22 +2,6 @@ use crate::{
     Identifier,
     error::DataError,
     exchange::StreamSelector,
-    exchange::{
-        binance::{futures::BinanceFuturesUsd, market::BinanceMarket, spot::BinanceSpot},
-        bitfinex::{Bitfinex, market::BitfinexMarket},
-        bitmex::{Bitmex, market::BitmexMarket},
-        bybit::{futures::BybitPerpetualsUsd, market::BybitMarket, spot::BybitSpot},
-        coinbase::{Coinbase, market::CoinbaseMarket},
-        gateio::{
-            future::{GateioFuturesBtc, GateioFuturesUsd},
-            market::GateioMarket,
-            option::GateioOptions,
-            perpetual::{GateioPerpetualsBtc, GateioPerpetualsUsd},
-            spot::GateioSpot,
-        },
-        kraken::{Kraken, market::KrakenMarket},
-        okx::{Okx, market::OkxMarket},
-    },
     instrument::InstrumentData,
     streams::{
         BoxedMarketStream,
@@ -31,6 +15,8 @@ use crate::{
         trade::{PublicTrade, PublicTrades},
     },
 };
+use barter_macro::define_stream_connectors;
+
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
     Validator,
@@ -51,30 +37,22 @@ use vecmap::VecMap;
 
 pub mod indexed;
 
-/// Macro to generate the `match` statement for `DynamicStreams::init` that dispatches
-/// to the appropriate `init_and_forward` call based on `(ExchangeId, SubKind)`.
-macro_rules! stream_match {
-    (
-        ($exchange_id:expr, $sub_kind:expr, $subscriptions:expr, $txs:expr),
-        {
-            $((($Id:path, $KindVariant:path) => ($Connector:expr, $KindType:path, $TxField:ident)),)*
-            $(,)?
-        }
-    ) => {
-        match ($exchange_id, $sub_kind) {
-            $(
-                ($Id, $KindVariant) => {
-                    init_and_forward(
-                        $Connector,
-                        $subscriptions,
-                        $txs.$TxField.get(&$exchange_id).expect("channel must exist").clone(),
-                        $KindType
-                    ).await
-                }
-            )*
-            (exchange, sub_kind) => Err(DataError::Unsupported { exchange, sub_kind }),
-        }
-    }
+define_stream_connectors! {
+    BinanceSpot => [PublicTrades, OrderBooksL1, OrderBooksL2],
+    BinanceFuturesUsd => [PublicTrades, OrderBooksL1, OrderBooksL2, Liquidations],
+    Bitfinex => [PublicTrades],
+    Bitmex => [PublicTrades],
+    BybitSpot => [PublicTrades, OrderBooksL1, OrderBooksL2],
+    BybitPerpetualsUsd => [PublicTrades, OrderBooksL1, OrderBooksL2],
+    Coinbase => [PublicTrades],
+    GateioSpot => [PublicTrades],
+    GateioFuturesUsd => [PublicTrades],
+    GateioFuturesBtc => [PublicTrades],
+    GateioPerpetualsUsd => [PublicTrades],
+    GateioPerpetualsBtc => [PublicTrades],
+    GateioOptions => [PublicTrades],
+    Kraken => [PublicTrades, OrderBooksL1],
+    Okx => [PublicTrades],
 }
 
 /// Generic helper to initialise a `MarketStream` and forward it to a channel.
@@ -148,134 +126,6 @@ pub struct DynamicStreams<InstrumentKey> {
 }
 
 impl<InstrumentKey> DynamicStreams<InstrumentKey> {
-    /// Initialise a set of `Streams` by providing one or more [`Subscription`] batches.
-    ///
-    /// Each batch (ie/ `impl Iterator<Item = Subscription>`) will initialise at-least-one
-    /// WebSocket `Stream` under the hood. If the batch contains more-than-one [`ExchangeId`] and/or
-    /// [`SubKind`], it will be further split under the hood for compile-time reasons.
-    ///
-    /// ## Examples
-    /// Please see barter-data-rs/examples/dynamic_multi_stream_multi_exchange.rs for a
-    /// comprehensive example of how to use this market data stream initialiser.
-    pub async fn init<SubBatchIter, SubIter, Sub, Instrument>(
-        subscription_batches: SubBatchIter,
-    ) -> Result<Self, DataError>
-    where
-        SubBatchIter: IntoIterator<Item = SubIter>,
-        SubIter: IntoIterator<Item = Sub>,
-        Sub: Into<Subscription<ExchangeId, Instrument, SubKind>>,
-        Instrument: InstrumentData<Key = InstrumentKey> + Ord + Display + 'static,
-        InstrumentKey: Debug + Clone + PartialEq + Send + Sync + 'static,
-        Subscription<BinanceSpot, Instrument, PublicTrades>: Identifier<BinanceMarket>,
-        Subscription<BinanceSpot, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
-        Subscription<BinanceSpot, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
-        Subscription<BinanceFuturesUsd, Instrument, PublicTrades>: Identifier<BinanceMarket>,
-        Subscription<BinanceFuturesUsd, Instrument, OrderBooksL1>: Identifier<BinanceMarket>,
-        Subscription<BinanceFuturesUsd, Instrument, OrderBooksL2>: Identifier<BinanceMarket>,
-        Subscription<BinanceFuturesUsd, Instrument, Liquidations>: Identifier<BinanceMarket>,
-        Subscription<Bitfinex, Instrument, PublicTrades>: Identifier<BitfinexMarket>,
-        Subscription<Bitmex, Instrument, PublicTrades>: Identifier<BitmexMarket>,
-        Subscription<BybitSpot, Instrument, PublicTrades>: Identifier<BybitMarket>,
-        Subscription<BybitSpot, Instrument, OrderBooksL1>: Identifier<BybitMarket>,
-        Subscription<BybitSpot, Instrument, OrderBooksL2>: Identifier<BybitMarket>,
-        Subscription<BybitPerpetualsUsd, Instrument, PublicTrades>: Identifier<BybitMarket>,
-        Subscription<BybitPerpetualsUsd, Instrument, OrderBooksL1>: Identifier<BybitMarket>,
-        Subscription<BybitPerpetualsUsd, Instrument, OrderBooksL2>: Identifier<BybitMarket>,
-        Subscription<Coinbase, Instrument, PublicTrades>: Identifier<CoinbaseMarket>,
-        Subscription<GateioSpot, Instrument, PublicTrades>: Identifier<GateioMarket>,
-        Subscription<GateioFuturesUsd, Instrument, PublicTrades>: Identifier<GateioMarket>,
-        Subscription<GateioFuturesBtc, Instrument, PublicTrades>: Identifier<GateioMarket>,
-        Subscription<GateioPerpetualsUsd, Instrument, PublicTrades>: Identifier<GateioMarket>,
-        Subscription<GateioPerpetualsBtc, Instrument, PublicTrades>: Identifier<GateioMarket>,
-        Subscription<GateioOptions, Instrument, PublicTrades>: Identifier<GateioMarket>,
-        Subscription<Kraken, Instrument, PublicTrades>: Identifier<KrakenMarket>,
-        Subscription<Kraken, Instrument, OrderBooksL1>: Identifier<KrakenMarket>,
-        Subscription<Okx, Instrument, PublicTrades>: Identifier<OkxMarket>,
-    {
-        // Validate & dedup Subscription batches
-        let batches = validate_batches(subscription_batches)?;
-
-        // Generate required Channels from Subscription batches
-        let channels = Channels::try_from(&batches)?;
-
-        let futures =
-            batches.into_iter().map(|mut batch| {
-                batch.sort_unstable_by_key(|sub| (sub.exchange, sub.kind));
-                let by_exchange_by_sub_kind =
-                    batch.into_iter().chunk_by(|sub| (sub.exchange, sub.kind));
-
-                let batch_futures =
-                    by_exchange_by_sub_kind
-                        .into_iter()
-                        .map(|((exchange, sub_kind), subs)| {
-                            let subs = subs.into_iter().collect::<Vec<_>>();
-                            let txs = Arc::clone(&channels.txs);
-                            async move {
-                                stream_match!(
-                                    (exchange, sub_kind, subs, txs),
-                                    {
-                                        ((ExchangeId::BinanceSpot, SubKind::PublicTrades) => (BinanceSpot::default(), PublicTrades, trades)),
-                                        ((ExchangeId::BinanceSpot, SubKind::OrderBooksL1) => (BinanceSpot::default(), OrderBooksL1, l1s)),
-                                        ((ExchangeId::BinanceSpot, SubKind::OrderBooksL2) => (BinanceSpot::default(), OrderBooksL2, l2s)),
-                                        ((ExchangeId::BinanceFuturesUsd, SubKind::PublicTrades) => (BinanceFuturesUsd::default(), PublicTrades, trades)),
-                                        ((ExchangeId::BinanceFuturesUsd, SubKind::OrderBooksL1) => (BinanceFuturesUsd::default(), OrderBooksL1, l1s)),
-                                        ((ExchangeId::BinanceFuturesUsd, SubKind::OrderBooksL2) => (BinanceFuturesUsd::default(), OrderBooksL2, l2s)),
-                                        ((ExchangeId::BinanceFuturesUsd, SubKind::Liquidations) => (BinanceFuturesUsd::default(), Liquidations, liquidations)),
-                                        ((ExchangeId::Bitfinex, SubKind::PublicTrades) => (Bitfinex, PublicTrades, trades)),
-                                        ((ExchangeId::Bitmex, SubKind::PublicTrades) => (Bitmex, PublicTrades, trades)),
-                                        ((ExchangeId::BybitSpot, SubKind::PublicTrades) => (BybitSpot::default(), PublicTrades, trades)),
-                                        ((ExchangeId::BybitSpot, SubKind::OrderBooksL1) => (BybitSpot::default(), OrderBooksL1, l1s)),
-                                        ((ExchangeId::BybitSpot, SubKind::OrderBooksL2) => (BybitSpot::default(), OrderBooksL2, l2s)),
-                                        ((ExchangeId::BybitPerpetualsUsd, SubKind::PublicTrades) => (BybitPerpetualsUsd::default(), PublicTrades, trades)),
-                                        ((ExchangeId::BybitPerpetualsUsd, SubKind::OrderBooksL1) => (BybitSpot::default(), OrderBooksL1, l1s)),
-                                        ((ExchangeId::BybitPerpetualsUsd, SubKind::OrderBooksL2) => (BybitSpot::default(), OrderBooksL2, l2s)),
-                                        ((ExchangeId::Coinbase, SubKind::PublicTrades) => (Coinbase, PublicTrades, trades)),
-                                        ((ExchangeId::GateioSpot, SubKind::PublicTrades) => (GateioSpot::default(), PublicTrades, trades)),
-                                        ((ExchangeId::GateioFuturesUsd, SubKind::PublicTrades) => (GateioFuturesUsd::default(), PublicTrades, trades)),
-                                        ((ExchangeId::GateioFuturesBtc, SubKind::PublicTrades) => (GateioFuturesBtc::default(), PublicTrades, trades)),
-                                        ((ExchangeId::GateioPerpetualsUsd, SubKind::PublicTrades) => (GateioPerpetualsUsd::default(), PublicTrades, trades)),
-                                        ((ExchangeId::GateioPerpetualsBtc, SubKind::PublicTrades) => (GateioPerpetualsBtc::default(), PublicTrades, trades)),
-                                        ((ExchangeId::GateioOptions, SubKind::PublicTrades) => (GateioOptions::default(), PublicTrades, trades)),
-                                        ((ExchangeId::Kraken, SubKind::PublicTrades) => (Kraken, PublicTrades, trades)),
-                                        ((ExchangeId::Kraken, SubKind::OrderBooksL1) => (Kraken, OrderBooksL1, l1s)),
-                                        ((ExchangeId::Okx, SubKind::PublicTrades) => (Okx, PublicTrades, trades)),
-                                    }
-                                )
-                            }
-                        });
-
-                try_join_all(batch_futures)
-            });
-
-        try_join_all(futures).await?;
-
-        Ok(Self {
-            trades: channels
-                .rxs
-                .trades
-                .into_iter()
-                .map(|(exchange, rx)| (exchange, rx.into_stream()))
-                .collect(),
-            l1s: channels
-                .rxs
-                .l1s
-                .into_iter()
-                .map(|(exchange, rx)| (exchange, rx.into_stream()))
-                .collect(),
-            l2s: channels
-                .rxs
-                .l2s
-                .into_iter()
-                .map(|(exchange, rx)| (exchange, rx.into_stream()))
-                .collect(),
-            liquidations: channels
-                .rxs
-                .liquidations
-                .into_iter()
-                .map(|(exchange, rx)| (exchange, rx.into_stream()))
-                .collect(),
-        })
-    }
 
     /// Remove an exchange [`PublicTrade`] `Stream` from the [`DynamicStreams`] collection.
     ///
