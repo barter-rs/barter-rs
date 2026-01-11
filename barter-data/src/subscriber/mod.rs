@@ -54,9 +54,9 @@ pub struct WebSocketSubscriber;
 impl Subscriber for WebSocketSubscriber {
     type SubMapper = WebSocketSubMapper;
 
-    fn subscribe<Exchange, Instrument, Kind>(
+    async fn subscribe<Exchange, Instrument, Kind>(
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> impl Future<Output = Result<Subscribed<Instrument::Key>, SocketError>> + Send
+    ) -> Result<Subscribed<Instrument::Key>, SocketError>
     where
         Exchange: Connector + Send + Sync,
         Kind: SubscriptionKind + Send + Sync,
@@ -64,45 +64,43 @@ impl Subscriber for WebSocketSubscriber {
         Subscription<Exchange, Instrument, Kind>:
             Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
     {
-        async move {
-            // Define variables for logging ergonomics
-            let exchange = Exchange::ID;
-            let url = Exchange::url()?;
-            debug!(%exchange, %url, ?subscriptions, "subscribing to WebSocket");
+        // Define variables for logging ergonomics
+        let exchange = Exchange::ID;
+        let url = Exchange::url()?;
+        debug!(%exchange, %url, ?subscriptions, "subscribing to WebSocket");
 
-            // Connect to exchange
-            let mut websocket = connect(url).await?;
-            debug!(%exchange, ?subscriptions, "connected to WebSocket");
+        // Connect to exchange
+        let mut websocket = connect(url).await?;
+        debug!(%exchange, ?subscriptions, "connected to WebSocket");
 
-            // Map &[Subscription<Exchange, Kind>] to SubscriptionMeta
-            let SubscriptionMeta {
-                instrument_map,
-                ws_subscriptions,
-            } = Self::SubMapper::map::<Exchange, Instrument, Kind>(subscriptions);
+        // Map &[Subscription<Exchange, Kind>] to SubscriptionMeta
+        let SubscriptionMeta {
+            instrument_map,
+            ws_subscriptions,
+        } = Self::SubMapper::map::<Exchange, Instrument, Kind>(subscriptions);
 
-            // Send Subscriptions over WebSocket
-            for subscription in ws_subscriptions {
-                debug!(%exchange, payload = ?subscription, "sending exchange subscription");
-                websocket
-                    .send(subscription)
-                    .await
-                    .map_err(|error| SocketError::WebSocket(Box::new(error)))?;
-            }
-
-            // Validate Subscription responses
-            let (map, buffered_websocket_events) = Exchange::SubValidator::validate::<
-                Exchange,
-                Instrument::Key,
-                Kind,
-            >(instrument_map, &mut websocket)
-            .await?;
-
-            debug!(%exchange, "successfully initialised WebSocket stream with confirmed Subscriptions");
-            Ok(Subscribed {
-                websocket,
-                map,
-                buffered_websocket_events,
-            })
+        // Send Subscriptions over WebSocket
+        for subscription in ws_subscriptions {
+            debug!(%exchange, payload = ?subscription, "sending exchange subscription");
+            websocket
+                .send(subscription)
+                .await
+                .map_err(|error| SocketError::WebSocket(Box::new(error)))?;
         }
+
+        // Validate Subscription responses
+        let (map, buffered_websocket_events) = Exchange::SubValidator::validate::<
+            Exchange,
+            Instrument::Key,
+            Kind,
+        >(instrument_map, &mut websocket)
+        .await?;
+
+        debug!(%exchange, "successfully initialised WebSocket stream with confirmed Subscriptions");
+        Ok(Subscribed {
+            websocket,
+            map,
+            buffered_websocket_events,
+        })
     }
 }

@@ -34,6 +34,7 @@ where
     Input: Identifier<Option<SubscriptionId>> + for<'de> Deserialize<'de>,
     MarketIter<InstrumentKey, Kind::Event>: From<(ExchangeId, InstrumentKey, Input)>,
 {
+    #[allow(clippy::manual_async_fn)]
     fn init(
         instrument_map: Map<InstrumentKey>,
         _: &[MarketEvent<InstrumentKey, Kind::Event>],

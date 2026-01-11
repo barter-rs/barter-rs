@@ -6,19 +6,14 @@ use std::fmt::{Display, Formatter};
 
 /// Defines the type of [`MarketDataInstrument`](super::MarketDataInstrument) which is being
 /// traded on a given `base_quote` market.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize, Default, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
 pub enum MarketDataInstrumentKind {
+    #[default]
     Spot,
     Perpetual,
     Future(MarketDataFutureContract),
     Option(MarketDataOptionContract),
-}
-
-impl Default for MarketDataInstrumentKind {
-    fn default() -> Self {
-        Self::Spot
-    }
 }
 
 impl Display for MarketDataInstrumentKind {

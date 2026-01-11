@@ -4,12 +4,8 @@ use crate::{
     books::OrderBook,
     error::DataError,
     event::{MarketEvent, MarketIter},
-    exchange::{
-        binance::{
-            book::l2::BinanceOrderBookL2Snapshot,
-            market::BinanceMarket,
-            spot::BinanceSpot,
-        },
+    exchange::binance::{
+        book::l2::BinanceOrderBookL2Snapshot, market::BinanceMarket, spot::BinanceSpot,
     },
     instrument::InstrumentData,
     subscription::{
@@ -19,9 +15,7 @@ use crate::{
     transformer::sequenced::{OrderBookL2Sequencer, SequencedOrderBookL2Transformer},
 };
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{
-    error::SocketError, subscription::SubscriptionId,
-};
+use barter_integration::{error::SocketError, subscription::SubscriptionId};
 use chrono::{DateTime, Utc};
 use futures_util::future::try_join_all;
 use serde::{Deserialize, Serialize};
@@ -197,12 +191,15 @@ impl OrderBookL2Sequencer for BinanceSpotOrderBookL2Sequencer {
     type Update = BinanceSpotOrderBookL2Update;
 
     fn new(snapshot: Option<&OrderBookEvent>, sub_id: SubscriptionId) -> Result<Self, DataError> {
-        let snapshot = snapshot
-            .ok_or_else(|| DataError::InitialSnapshotMissing(sub_id))?;
+        let snapshot = snapshot.ok_or(DataError::InitialSnapshotMissing(sub_id))?;
 
         let last_update_id = match snapshot {
             OrderBookEvent::Snapshot(ob) => ob.sequence(),
-            _ => return Err(DataError::InitialSnapshotInvalid("Expected Snapshot".to_string())),
+            _ => {
+                return Err(DataError::InitialSnapshotInvalid(
+                    "Expected Snapshot".to_string(),
+                ));
+            }
         };
 
         Ok(Self::new(last_update_id))

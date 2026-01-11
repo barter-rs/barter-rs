@@ -221,60 +221,58 @@ where
     Kind::Event: Send,
     Parser: StreamParser<Transformer::Input, Message = WsMessage, Error = WsError> + Send,
 {
-    fn init<SnapFetcher>(
+    async fn init<SnapFetcher>(
         subscriptions: &[Subscription<Exchange, Instrument, Kind>],
-    ) -> impl Future<Output = Result<Self, DataError>> + Send
+    ) -> Result<Self, DataError>
     where
         SnapFetcher: SnapshotFetcher<Exchange, Kind>,
         Subscription<Exchange, Instrument, Kind>:
             Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
     {
-        async move {
-            // Connect & subscribe
-            let Subscribed {
-                websocket,
-                map: instrument_map,
-                buffered_websocket_events,
-            } = Exchange::Subscriber::subscribe(subscriptions).await?;
+        // Connect & subscribe
+        let Subscribed {
+            websocket,
+            map: instrument_map,
+            buffered_websocket_events,
+        } = Exchange::Subscriber::subscribe(subscriptions).await?;
 
-            // Fetch any required initial MarketEvent snapshots
-            let initial_snapshots = SnapFetcher::fetch_snapshots(subscriptions).await?;
+        // Fetch any required initial MarketEvent snapshots
+        let initial_snapshots = SnapFetcher::fetch_snapshots(subscriptions).await?;
 
-            // Split WebSocket into WsStream & WsSink components
-            let (ws_sink, ws_stream) = websocket.split();
+        // Split WebSocket into WsStream & WsSink components
+        let (ws_sink, ws_stream) = websocket.split();
 
-            // Spawn task to distribute Transformer messages (eg/ custom pongs) to the exchange
-            let (ws_sink_tx, ws_sink_rx) = mpsc::unbounded_channel();
-            tokio::spawn(distribute_messages_to_exchange(
+        // Spawn task to distribute Transformer messages (eg/ custom pongs) to the exchange
+        let (ws_sink_tx, ws_sink_rx) = mpsc::unbounded_channel();
+        tokio::spawn(distribute_messages_to_exchange(
+            Exchange::ID,
+            ws_sink,
+            ws_sink_rx,
+        ));
+
+        // Spawn optional task to distribute custom application-level pings to the exchange
+        if let Some(ping_interval) = Exchange::ping_interval() {
+            tokio::spawn(schedule_pings_to_exchange(
                 Exchange::ID,
-                ws_sink,
-                ws_sink_rx,
+                ws_sink_tx.clone(),
+                ping_interval,
             ));
-
-            // Spawn optional task to distribute custom application-level pings to the exchange
-            if let Some(ping_interval) = Exchange::ping_interval() {
-                tokio::spawn(schedule_pings_to_exchange(
-                    Exchange::ID,
-                    ws_sink_tx.clone(),
-                    ping_interval,
-                ));
-            }
-
-            // Initialise Transformer associated with this Exchange and SubscriptionKind
-            let mut transformer =
-                Transformer::init(instrument_map, &initial_snapshots, ws_sink_tx).await?;
-
-            // Process any buffered active subscription events received during Subscription validation
-            let mut processed = process_buffered_events::<Parser, Transformer>(
-                &mut transformer,
-                buffered_websocket_events,
-            );
-
-            // Extend buffered events with any initial snapshot events
-            processed.extend(initial_snapshots.into_iter().map(Ok));
-
-            Ok(ExchangeWsStream::new(ws_stream, transformer, processed))
         }
+
+        // Initialise Transformer associated with this Exchange and SubscriptionKind
+        let mut transformer =
+            Transformer::init(instrument_map, &initial_snapshots, ws_sink_tx).await?;
+
+        // Process any buffered active subscription events received during Subscription validation
+        let mut processed = process_buffered_events::<Parser, Transformer>(
+            &mut transformer,
+            buffered_websocket_events,
+        );
+
+        // Extend buffered events with any initial snapshot events
+        processed.extend(initial_snapshots.into_iter().map(Ok));
+
+        Ok(ExchangeWsStream::new(ws_stream, transformer, processed))
     }
 }
 

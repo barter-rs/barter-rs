@@ -1,11 +1,9 @@
+use super::BybitOrderBookMessage;
 use crate::{
-    error::DataError,
-    exchange::bybit::message::BybitPayloadKind,
-    subscription::book::OrderBookEvent,
-    transformer::sequenced::OrderBookL2Sequencer,
+    error::DataError, exchange::bybit::message::BybitPayloadKind,
+    subscription::book::OrderBookEvent, transformer::sequenced::OrderBookL2Sequencer,
 };
 use barter_integration::subscription::SubscriptionId;
-use super::BybitOrderBookMessage;
 use tracing::debug;
 
 #[derive(Debug)]
@@ -17,7 +15,9 @@ impl OrderBookL2Sequencer for BybitOrderBookL2Sequencer {
     type Update = BybitOrderBookMessage;
 
     fn new(_: Option<&OrderBookEvent>, _: SubscriptionId) -> Result<Self, DataError> {
-        Ok(Self { last_update_id: None })
+        Ok(Self {
+            last_update_id: None,
+        })
     }
 
     fn validate(&mut self, update: Self::Update) -> Result<Option<Self::Update>, DataError> {

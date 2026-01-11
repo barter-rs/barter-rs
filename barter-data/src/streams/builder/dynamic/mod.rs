@@ -1,6 +1,7 @@
 use crate::{
     Identifier,
     error::DataError,
+    exchange::StreamSelector,
     exchange::{
         binance::{futures::BinanceFuturesUsd, market::BinanceMarket, spot::BinanceSpot},
         bitfinex::{Bitfinex, market::BitfinexMarket},
@@ -29,7 +30,6 @@ use crate::{
         liquidation::{Liquidation, Liquidations},
         trade::{PublicTrade, PublicTrades},
     },
-    exchange::StreamSelector,
 };
 use barter_instrument::exchange::ExchangeId;
 use barter_integration::{
@@ -90,7 +90,8 @@ where
     Instrument::Key: Send + Sync + Debug + Clone,
     Kind: SubscriptionKind + Display + Copy + Send + Sync + 'static,
     Kind::Event: Send + Clone + Debug,
-    Subscription<Exchange, Instrument, Kind>: Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
+    Subscription<Exchange, Instrument, Kind>:
+        Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
 {
     let stream = init_boxed_stream(exchange, subscriptions, kind).await?;
     Ok(spawn_forward(stream, sender))
@@ -107,7 +108,8 @@ where
     Instrument::Key: Send + Sync + Debug + Clone,
     Kind: SubscriptionKind + Display + Copy + Send + Sync + 'static,
     Kind::Event: Send + Clone + Debug,
-    Subscription<Exchange, Instrument, Kind>: Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
+    Subscription<Exchange, Instrument, Kind>:
+        Identifier<Exchange::Channel> + Identifier<Exchange::Market>,
 {
     init_market_stream(
         STREAM_RECONNECTION_POLICY,

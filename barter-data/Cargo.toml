@@ -2,6 +2,7 @@
 name = "barter-data"
 version = "0.10.2"
 edition = "2024"
+rust-version = "1.85"
 authors = ["JustAStream <justastream.code@gmail.com>"]
 license = "MIT"
 documentation = "https://docs.rs/barter-data"
@@ -52,4 +53,3 @@ derive_more = { workspace = true }
 itertools = { workspace = true }
 vecmap-rs = { workspace = true }
 fnv = { workspace = true }
-prost = { workspace = true }

@@ -1,3 +1,4 @@
+use crate::transformer::sequenced::SequencedOrderBookL2Transformer;
 use crate::{
     ExchangeWsStream, NoInitialSnapshots,
     exchange::{
@@ -20,7 +21,6 @@ use barter_integration::{
     protocol::websocket::{WebSocketSerdeParser, WsMessage},
 };
 use book::{BybitOrderBookMessage, l2::BybitOrderBookL2Sequencer};
-use crate::transformer::sequenced::SequencedOrderBookL2Transformer;
 use serde::de::{Error, Unexpected};
 use std::{fmt::Debug, marker::PhantomData, time::Duration};
 use tokio::time;
@@ -150,11 +150,7 @@ where
 {
     type SnapFetcher = NoInitialSnapshots;
     type Stream = BybitWsStream<
-        SequencedOrderBookL2Transformer<
-            Bybit<Server>,
-            Instrument::Key,
-            BybitOrderBookL2Sequencer,
-        >,
+        SequencedOrderBookL2Transformer<Bybit<Server>, Instrument::Key, BybitOrderBookL2Sequencer>,
     >;
 }
 

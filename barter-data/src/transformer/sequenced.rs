@@ -1,14 +1,19 @@
+use crate::exchange::Connector;
 use crate::{
     Identifier,
     error::DataError,
     event::{MarketEvent, MarketIter},
-    subscription::{Map, book::{OrderBookEvent, OrderBooksL2}},
+    subscription::{
+        Map,
+        book::{OrderBookEvent, OrderBooksL2},
+    },
     transformer::ExchangeTransformer,
 };
-use crate::exchange::Connector;
 use barter_instrument::exchange::ExchangeId;
-use barter_integration::{Transformer, protocol::websocket::WsMessage, subscription::SubscriptionId};
-use std::{future::Future, marker::PhantomData};
+use barter_integration::{
+    Transformer, protocol::websocket::WsMessage, subscription::SubscriptionId,
+};
+use std::marker::PhantomData;
 use tokio::sync::mpsc;
 
 /// Trait defining the logic for sequencing OrderBook L2 updates.
@@ -43,49 +48,57 @@ where
     Sequencer: OrderBookL2Sequencer,
     MarketIter<InstrumentKey, OrderBookEvent>: From<(ExchangeId, InstrumentKey, Sequencer::Update)>,
 {
-    fn init(
+    async fn init(
         instrument_map: Map<InstrumentKey>,
         initial_snapshots: &[MarketEvent<InstrumentKey, OrderBookEvent>],
         _: mpsc::UnboundedSender<WsMessage>,
-    ) -> impl Future<Output = Result<Self, DataError>> + Send {
-        async move {
-            let instrument_map = instrument_map
-                .0
-                .into_iter()
-                .map(|(sub_id, instrument_key)| {
-                    // Find initial snapshot if it exists
-                    let snapshot_event = initial_snapshots
-                        .iter()
-                        .find(|event| event.instrument == instrument_key)
-                        .map(|event| &event.kind);
+    ) -> Result<Self, DataError> {
+        let instrument_map = instrument_map
+            .0
+            .into_iter()
+            .map(|(sub_id, instrument_key)| {
+                // Find initial snapshot if it exists
+                let snapshot_event = initial_snapshots
+                    .iter()
+                    .find(|event| event.instrument == instrument_key)
+                    .map(|event| &event.kind);
 
-                    // If snapshot found, ensure it's a Snapshot event (not Update)
-                    let snapshot = match snapshot_event {
-                        Some(OrderBookEvent::Snapshot(_)) => snapshot_event,
-                        Some(OrderBookEvent::Update(_)) => return Err(DataError::InitialSnapshotInvalid(
-                            "expected OrderBookEvent::Snapshot but found OrderBookEvent::Update".to_string(),
-                        )),
-                        None => None,
-                    };
-                    
-                    let sequencer = Sequencer::new(snapshot, sub_id.clone())?;
-                    
-                    Ok((sub_id, SequencedInstrument { key: instrument_key, sequencer }))
-                })
-                .collect::<Result<Map<_>, _>>()?;
+                // If snapshot found, ensure it's a Snapshot event (not Update)
+                let snapshot = match snapshot_event {
+                    Some(OrderBookEvent::Snapshot(_)) => snapshot_event,
+                    Some(OrderBookEvent::Update(_)) => {
+                        return Err(DataError::InitialSnapshotInvalid(
+                            "expected OrderBookEvent::Snapshot but found OrderBookEvent::Update"
+                                .to_string(),
+                        ));
+                    }
+                    None => None,
+                };
 
-            Ok(Self {
-                exchange_id: Exchange::ID,
-                instrument_map,
-                phantom: PhantomData,
+                let sequencer = Sequencer::new(snapshot, sub_id.clone())?;
+
+                Ok((
+                    sub_id,
+                    SequencedInstrument {
+                        key: instrument_key,
+                        sequencer,
+                    },
+                ))
             })
-        }
+            .collect::<Result<Map<_>, _>>()?;
+
+        Ok(Self {
+            exchange_id: Exchange::ID,
+            instrument_map,
+            phantom: PhantomData,
+        })
     }
 }
 
-impl<Exchange, InstrumentKey, Sequencer> Transformer for SequencedOrderBookL2Transformer<Exchange, InstrumentKey, Sequencer>
+impl<Exchange, InstrumentKey, Sequencer> Transformer
+    for SequencedOrderBookL2Transformer<Exchange, InstrumentKey, Sequencer>
 where
-    Exchange: Connector, 
+    Exchange: Connector,
     InstrumentKey: Clone,
     Sequencer: OrderBookL2Sequencer,
     MarketIter<InstrumentKey, OrderBookEvent>: From<(ExchangeId, InstrumentKey, Sequencer::Update)>,

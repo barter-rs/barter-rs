@@ -37,6 +37,8 @@ comprehensive documentation of other Barter libraries.**
 Barter-Data is a high-performance WebSocket integration library for streaming public market data from leading cryptocurrency 
 exchanges. It presents an easy-to-use and extensible set of interfaces that can deliver normalised exchange data in real-time.
 
+**Requires Rust 1.85+**
+
 From a user perspective, the major component is the `StreamBuilder` structures that assists in initialising an 
 arbitrary number of exchange `MarketStream`s using input `Subscription`s. Simply build your dream set of 
 `MarketStreams` and `Barter-Data` will do the rest!
@@ -44,7 +46,7 @@ arbitrary number of exchange `MarketStream`s using input `Subscription`s. Simply
 ### Supported Exchange Subscriptions
 
 |        Exchange         |         Constructor Code         |               InstrumentKinds               |                SubscriptionKinds                 |
-|:-----------------------:|:--------------------------------:|:-------------------------------------------:|:------------------------------------------------:|
+| :---------------------: | :------------------------------: | :-----------------------------------------: | :----------------------------------------------: |
 |     **BinanceSpot**     |     `BinanceSpot::default()`     |                    Spot                     | PublicTrades <br> OrderBooksL1 <br> OrderBooksL2 |
 |  **BinanceFuturesUsd**  |  `BinanceFuturesUsd::default()`  |                  Perpetual                  | PublicTrades <br> OrderBooksL1 <br> OrderBooksL2 |
 |      **Bitfinex**       |            `Bitfinex`            |                    Spot                     |                   PublicTrades                   |
