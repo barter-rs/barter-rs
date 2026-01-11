@@ -165,7 +165,9 @@ pub fn define_stream_connectors(input: TokenStream) -> TokenStream {
         return err.to_compile_error().into();
     }
 
-    // Code generation will be implemented in Phase 3
-    TokenStream::new()
+    match input.generate() {
+        Ok(expanded) => expanded.into(),
+        Err(err) => err.to_compile_error().into(),
+    }
 }
 
