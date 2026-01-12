@@ -2,13 +2,13 @@ use crate::{
     NoInitialSnapshots,
     exchange::{ExchangeServer, StreamSelector},
     instrument::InstrumentData,
-    subscription::{book::OrderBooksL1, trade::PublicTrades},
+    subscription::{book::{OrderBooksL1, OrderBooksL2}, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
 use super::{KrakenExchange, KrakenWsStream};
 use self::{
-    book::l1::KrakenOrderBookL1, trade::KrakenTrades,
+    book::{l1::KrakenOrderBookL1, l2::KrakenOrderBookL2}, trade::KrakenTrades,
 };
 
 pub mod book;
@@ -45,5 +45,15 @@ where
     type SnapFetcher = NoInitialSnapshots;
     type Stream = KrakenWsStream<
         StatelessTransformer<Self, Instrument::Key, OrderBooksL1, KrakenOrderBookL1>,
+    >;
+}
+
+impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for KrakenSpot
+where
+    Instrument: InstrumentData,
+{
+    type SnapFetcher = NoInitialSnapshots;
+    type Stream = KrakenWsStream<
+        StatelessTransformer<Self, Instrument::Key, OrderBooksL2, KrakenOrderBookL2>,
     >;
 }

@@ -20,7 +20,7 @@ impl AsRef<str> for KrakenMarket {
 }
 
 fn kraken_market(base: &AssetNameInternal, quote: &AssetNameInternal) -> KrakenMarket {
-    KrakenMarket(format_smolstr!("{base}/{quote}").to_lowercase_smolstr())
+    KrakenMarket(format_smolstr!("{base}/{quote}").to_uppercase_smolstr())
 }
 
 #[cfg(test)]

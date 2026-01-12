@@ -1,7 +1,7 @@
 use super::KrakenSpot;
 use crate::{
     impl_channel_identifier,
-    subscription::{book::OrderBooksL1, trade::PublicTrades},
+    subscription::{book::{OrderBooksL1, OrderBooksL2}, trade::PublicTrades},
 };
 use serde::Serialize;
 
@@ -10,26 +10,26 @@ use serde::Serialize;
 ///
 /// See docs: <https://docs.kraken.com/websockets/#message-subscribe>
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize)]
-pub struct KrakenChannel(pub &'static str);
-
-impl KrakenChannel {
-    /// [`Kraken`](super::spot::KrakenSpot) real-time trades channel name.
-    ///
-    /// See docs: <https://docs.kraken.com/websockets/#message-subscribe>
-    pub const TRADES: Self = Self("trade");
-
-    /// [`Kraken`](super::spot::KrakenSpot) real-time OrderBook Level1 (top of books) channel name.
-    ///
-    /// See docs: <https://docs.kraken.com/websockets/#message-subscribe>
-    pub const ORDER_BOOK_L1: Self = Self("spread");
+pub enum KrakenChannel {
+    /// [`Kraken`](super::spot::KrakenSpot) real-time trades channel.
+    Trades,
+    /// [`Kraken`](super::spot::KrakenSpot) real-time OrderBook Level1 (top of books) channel.
+    OrderBookL1,
+    /// [`Kraken`](super::spot::KrakenSpot) real-time OrderBook Level2 (full depth) channel.
+    OrderBookL2,
 }
 
-impl_channel_identifier!(KrakenSpot, Instrument => KrakenChannel, PublicTrades => KrakenChannel::TRADES);
-impl_channel_identifier!(KrakenSpot, Instrument => KrakenChannel, OrderBooksL1 => KrakenChannel::ORDER_BOOK_L1);
+impl_channel_identifier!(KrakenSpot, Instrument => KrakenChannel, PublicTrades => KrakenChannel::Trades);
+impl_channel_identifier!(KrakenSpot, Instrument => KrakenChannel, OrderBooksL1 => KrakenChannel::OrderBookL1);
+impl_channel_identifier!(KrakenSpot, Instrument => KrakenChannel, OrderBooksL2 => KrakenChannel::OrderBookL2);
 
 impl AsRef<str> for KrakenChannel {
     fn as_ref(&self) -> &str {
-        self.0
+        match self {
+            KrakenChannel::Trades => "trade",
+            KrakenChannel::OrderBookL1 => "spread",
+            KrakenChannel::OrderBookL2 => "book",
+        }
     }
 }
 
@@ -39,13 +39,13 @@ mod tests {
 
     #[test]
     fn test_kraken_channel_serialize_trades() {
-        let channel = KrakenChannel::TRADES;
+        let channel = KrakenChannel::Trades;
         assert_eq!(channel.as_ref(), "trade");
     }
 
     #[test]
     fn test_kraken_channel_serialize_l1() {
-        let channel = KrakenChannel::ORDER_BOOK_L1;
+        let channel = KrakenChannel::OrderBookL1;
         assert_eq!(channel.as_ref(), "spread");
     }
 }

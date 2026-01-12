@@ -84,13 +84,21 @@ where
         exchange_subs
             .into_iter()
             .map(|ExchangeSub { channel, market }| {
+                let subscription = match channel {
+                    KrakenChannel::OrderBookL2 => json!({
+                        "name": channel.as_ref(),
+                        "depth": 100
+                    }),
+                    _ => json!({
+                        "name": channel.as_ref()
+                    }),
+                };
+
                 WsMessage::text(
                     json!({
                         "event": "subscribe",
                         "pair": [market.as_ref()],
-                        "subscription": {
-                            "name": channel.as_ref()
-                        }
+                        "subscription": subscription
                     })
                     .to_string(),
                 )

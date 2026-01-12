@@ -131,7 +131,7 @@ impl<'de> serde::de::Deserialize<'de> for KrakenOrderBookL1Inner {
 
                 // Extract pair (eg/ "XBT/USD") & map to SubscriptionId (ie/ "spread|{pair}")
                 let subscription_id = extract_next::<SeqAccessor, String>(&mut seq, "pair")
-                    .map(|market| ExchangeSub::from((KrakenChannel::ORDER_BOOK_L1, market)).id())?;
+                    .map(|market| ExchangeSub::from((KrakenChannel::OrderBookL1, market)).id())?;
 
                 // Ignore any additional elements or SerDe will fail
                 //  '--> Exchange may add fields without warning
