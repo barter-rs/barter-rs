@@ -65,47 +65,7 @@ pub type Kraken = KrakenExchange<spot::KrakenServerSpot>;
 pub type KrakenSpot = Kraken;
 pub type KrakenFuturesUsd = KrakenExchange<futures::KrakenServerFuturesUsd>;
 
-impl<Server> Connector for KrakenExchange<Server>
-where
-    Server: ExchangeServer,
-{
-    const ID: ExchangeId = Server::ID;
-    type Channel = KrakenChannel;
-    type Market = KrakenMarket;
-    type Subscriber = WebSocketSubscriber;
-    type SubValidator = WebSocketSubValidator;
-    type SubResponse = KrakenSubResponse;
 
-    fn url() -> Result<Url, SocketError> {
-        Url::parse(Server::websocket_url()).map_err(SocketError::UrlParse)
-    }
-
-    fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
-        exchange_subs
-            .into_iter()
-            .map(|ExchangeSub { channel, market }| {
-                let subscription = match channel {
-                    KrakenChannel::OrderBookL2 => json!({
-                        "name": channel.as_ref(),
-                        "depth": 100
-                    }),
-                    _ => json!({
-                        "name": channel.as_ref()
-                    }),
-                };
-
-                WsMessage::text(
-                    json!({
-                        "event": "subscribe",
-                        "pair": [market.as_ref()],
-                        "subscription": subscription
-                    })
-                    .to_string(),
-                )
-            })
-            .collect()
-    }
-}
 
 impl<'de, Server> serde::Deserialize<'de> for KrakenExchange<Server>
 where

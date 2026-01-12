@@ -1,12 +1,16 @@
 use crate::{
     NoInitialSnapshots,
-    exchange::{ExchangeServer, StreamSelector},
+    exchange::{ExchangeServer, StreamSelector, Connector, ExchangeSub},
     instrument::InstrumentData,
     subscription::{book::{OrderBooksL1, OrderBooksL2}, trade::PublicTrades},
     transformer::stateless::StatelessTransformer,
+    subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
 };
+use barter_integration::{error::SocketError, protocol::websocket::WsMessage};
 use barter_instrument::exchange::ExchangeId;
-use super::{KrakenExchange, KrakenWsStream};
+use url::Url;
+use serde_json::json;
+use super::{KrakenExchange, KrakenWsStream, channel::KrakenChannel, market::KrakenMarket, subscription::KrakenSubResponse};
 use self::{
     book::{l1::KrakenOrderBookL1, l2::KrakenOrderBookL2}, trade::KrakenTrades,
 };
@@ -28,6 +32,45 @@ impl ExchangeServer for KrakenServerSpot {
 
 /// Type alias for [`Kraken`](super::Kraken) Spot exchange configuration.
 pub type KrakenSpot = KrakenExchange<KrakenServerSpot>;
+
+impl Connector for KrakenSpot {
+    const ID: ExchangeId = KrakenServerSpot::ID;
+    type Channel = KrakenChannel;
+    type Market = KrakenMarket;
+    type Subscriber = WebSocketSubscriber;
+    type SubValidator = WebSocketSubValidator;
+    type SubResponse = KrakenSubResponse;
+
+    fn url() -> Result<Url, SocketError> {
+        Url::parse(KrakenServerSpot::websocket_url()).map_err(SocketError::UrlParse)
+    }
+
+    fn requests(exchange_subs: Vec<ExchangeSub<Self::Channel, Self::Market>>) -> Vec<WsMessage> {
+        exchange_subs
+            .into_iter()
+            .map(|ExchangeSub { channel, market }| {
+                let subscription = match channel {
+                    KrakenChannel::OrderBookL2 => json!({
+                        "name": channel.as_ref(), // "book"
+                        "depth": 100
+                    }),
+                    _ => json!({
+                        "name": channel.as_ref()
+                    }),
+                };
+
+                WsMessage::text(
+                    json!({
+                        "event": "subscribe",
+                        "pair": [market.as_ref()],
+                        "subscription": subscription
+                    })
+                    .to_string(),
+                )
+            })
+            .collect()
+    }
+}
 
 impl<Instrument> StreamSelector<Instrument, PublicTrades> for KrakenSpot
 where
