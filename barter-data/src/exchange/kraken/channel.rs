@@ -48,4 +48,10 @@ mod tests {
         let channel = KrakenChannel::OrderBookL1;
         assert_eq!(channel.as_ref(), "spread");
     }
+
+    #[test]
+    fn test_kraken_channel_serialize_l2() {
+        let channel = KrakenChannel::OrderBookL2;
+        assert_eq!(channel.as_ref(), "book");
+    }
 }

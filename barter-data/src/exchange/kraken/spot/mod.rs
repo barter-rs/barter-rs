@@ -100,3 +100,87 @@ where
         StatelessTransformer<Self, Instrument::Key, OrderBooksL2, KrakenOrderBookL2>,
     >;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_kraken_spot_connector_id() {
+        assert_eq!(<KrakenSpot as Connector>::ID, ExchangeId::Kraken);
+    }
+
+    #[test]
+    fn test_kraken_spot_websocket_url() {
+        let url = KrakenServerSpot::websocket_url();
+        assert_eq!(url, "wss://ws.kraken.com/");
+    }
+
+    #[test]
+    fn test_kraken_spot_url_parsing() {
+        let url = KrakenSpot::url().expect("Failed to parse URL");
+        assert_eq!(url.scheme(), "wss");
+        assert_eq!(url.host_str(), Some("ws.kraken.com"));
+    }
+
+    #[test]
+    fn test_kraken_spot_requests_trades() {
+        use crate::exchange::kraken::channel::KrakenChannel;
+        use crate::exchange::kraken::market::KrakenMarket;
+        use smol_str::SmolStr;
+
+        let exchange_subs = vec![ExchangeSub {
+            channel: KrakenChannel::Trades,
+            market: KrakenMarket(SmolStr::new("XBT/USD")),
+        }];
+
+        let requests = KrakenSpot::requests(exchange_subs);
+        assert_eq!(requests.len(), 1);
+
+        let expected = serde_json::json!({
+            "event": "subscribe",
+            "pair": ["XBT/USD"],
+            "subscription": {
+                "name": "trade"
+            }
+        });
+        
+        if let WsMessage::Text(text) = &requests[0] {
+            let actual: serde_json::Value = serde_json::from_str(text).unwrap();
+            assert_eq!(actual, expected);
+        } else {
+            panic!("Expected WsMessage::Text");
+        }
+    }
+
+    #[test]
+    fn test_kraken_spot_requests_book_l2_includes_depth() {
+        use crate::exchange::kraken::channel::KrakenChannel;
+        use crate::exchange::kraken::market::KrakenMarket;
+        use smol_str::SmolStr;
+
+        let exchange_subs = vec![ExchangeSub {
+            channel: KrakenChannel::OrderBookL2,
+            market: KrakenMarket(SmolStr::new("XBT/USD")),
+        }];
+
+        let requests = KrakenSpot::requests(exchange_subs);
+        assert_eq!(requests.len(), 1);
+
+        let expected = serde_json::json!({
+            "event": "subscribe",
+            "pair": ["XBT/USD"],
+            "subscription": {
+                "name": "book",
+                "depth": 100
+            }
+        });
+        
+        if let WsMessage::Text(text) = &requests[0] {
+            let actual: serde_json::Value = serde_json::from_str(text).unwrap();
+            assert_eq!(actual, expected);
+        } else {
+            panic!("Expected WsMessage::Text");
+        }
+    }
+}

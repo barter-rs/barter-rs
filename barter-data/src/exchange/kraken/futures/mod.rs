@@ -1,27 +1,32 @@
 use crate::{
+    Identifier,
     exchange::{ExchangeServer, StreamSelector, Connector, ExchangeSub},
     instrument::InstrumentData,
-    subscription::{book::{OrderBooksL1, OrderBooksL2, OrderBookEvent, OrderBookL1}, trade::{PublicTrades, Liquidations, PublicTrade}},
+    subscription::{
+        book::{OrderBooksL1, OrderBooksL2, OrderBookEvent, OrderBookL1}, 
+        trade::{PublicTrades, PublicTrade},
+        liquidation::{Liquidations, Liquidation},
+    },
     transformer::stateless::StatelessTransformer,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
     NoInitialSnapshots,
     event::{MarketEvent, MarketIter},
     books::{Level, OrderBook},
 };
-use barter_integration::{error::SocketError, protocol::websocket::WsMessage, model::Side};
+use barter_integration::{error::SocketError, protocol::websocket::WsMessage, subscription::SubscriptionId};
 use barter_instrument::exchange::ExchangeId;
 use url::Url;
 use serde_json::json;
 use crate::exchange::kraken::{KrakenExchange, KrakenWsStream};
-use serde::Deserialize;
+use chrono::Utc;
 
 use self::{
     channel::KrakenFuturesChannel,
     market::KrakenFuturesMarket,
     subscription::KrakenFuturesSubResponse,
-    trade::{KrakenFuturesTrade, KrakenFuturesTradeType},
+    trade::KrakenFuturesTrade,
     message::KrakenFuturesMessage,
-    book::{l2::KrakenFuturesBook, l1::KrakenFuturesOrderBookL1, KrakenFuturesLevel},
+    book::{l2::KrakenFuturesBook, l1::KrakenFuturesOrderBookL1},
 };
 
 pub mod book;
@@ -106,104 +111,259 @@ where
     type Stream = KrakenWsStream<StatelessTransformer<Self, Instrument::Key, OrderBooksL2, KrakenFuturesMessage<KrakenFuturesBook>>>;
 }
 
-// Transformer Implementations
+// ============================================================================
+// Identifier implementations for StatelessTransformer to work
+// ============================================================================
 
-impl<InstrumentKey> From<(KrakenFuturesMessage<KrakenFuturesTrade>, InstrumentKey)> for MarketEvent<PublicTrade>
-where
-    InstrumentKey: Clone,
+impl<T> Identifier<Option<SubscriptionId>> for KrakenFuturesMessage<T> {
+    fn id(&self) -> Option<SubscriptionId> {
+        // Create subscription ID from feed and product_id
+        Some(SubscriptionId::from(format!("{}|{}", self.feed, self.product_id)))
+    }
+}
+
+// ============================================================================
+// From implementations for StatelessTransformer (3-tuple pattern)
+// ============================================================================
+
+impl<InstrumentKey> From<(ExchangeId, InstrumentKey, KrakenFuturesMessage<KrakenFuturesTrade>)>
+    for MarketIter<InstrumentKey, PublicTrade>
 {
-    fn from((msg, instrument): (KrakenFuturesMessage<KrakenFuturesTrade>, InstrumentKey)) -> Self {
+    fn from(
+        (exchange_id, instrument, msg): (ExchangeId, InstrumentKey, KrakenFuturesMessage<KrakenFuturesTrade>),
+    ) -> Self {
         let trade = msg.payload;
-        MarketEvent {
-            exchange_time: trade.time,
-            received_time: chrono::Utc::now(),
-            exchange: ExchangeId::KrakenFuturesUsd,
+        Self(vec![Ok(MarketEvent {
+            time_exchange: trade.time,
+            time_received: Utc::now(),
+            exchange: exchange_id,
             instrument,
             kind: PublicTrade {
                 id: trade.uid,
-                price: trade.price,
-                amount: trade.qty,
+                price: trade.price.to_string().parse().unwrap_or(0.0),
+                amount: trade.qty.to_string().parse().unwrap_or(0.0),
                 side: trade.side,
             },
-        }
+        })])
     }
 }
 
-impl<InstrumentKey> From<(KrakenFuturesMessage<KrakenFuturesTrade>, InstrumentKey)> for MarketEvent<barter_integration::model::Liquidation>
-where
-    InstrumentKey: Clone,
+impl<InstrumentKey> From<(ExchangeId, InstrumentKey, KrakenFuturesMessage<KrakenFuturesTrade>)>
+    for MarketIter<InstrumentKey, Liquidation>
 {
-    fn from((msg, instrument): (KrakenFuturesMessage<KrakenFuturesTrade>, InstrumentKey)) -> Self {
+    fn from(
+        (exchange_id, instrument, msg): (ExchangeId, InstrumentKey, KrakenFuturesMessage<KrakenFuturesTrade>),
+    ) -> Self {
         let trade = msg.payload;
         
-        // Note: Filtering logic limitation of StatelessTransformer.
-        // Assuming user handles all trades or we need custom logic.
+        // Note: Kraken Futures sends all trades on the same feed.
+        // Only trades with type "liquidation" are actual liquidations.
+        // The StatelessTransformer doesn't filter, so downstream consumers
+        // may need to check trade_type if using the trade feed for liquidations.
         
-        MarketEvent {
-            exchange_time: trade.time,
-            received_time: chrono::Utc::now(),
-            exchange: ExchangeId::KrakenFuturesUsd,
+        Self(vec![Ok(MarketEvent {
+            time_exchange: trade.time,
+            time_received: Utc::now(),
+            exchange: exchange_id,
             instrument,
-            kind: barter_integration::model::Liquidation {
-                price: trade.price,
-                amount: trade.qty,
+            kind: Liquidation {
                 side: trade.side,
+                price: trade.price.to_string().parse().unwrap_or(0.0),
+                quantity: trade.qty.to_string().parse().unwrap_or(0.0),
                 time: trade.time,
             },
-        }
+        })])
     }
 }
 
-impl<InstrumentKey> From<(KrakenFuturesMessage<KrakenFuturesOrderBookL1>, InstrumentKey)> for MarketEvent<OrderBookL1>
-where
-    InstrumentKey: Clone,
+impl<InstrumentKey> From<(ExchangeId, InstrumentKey, KrakenFuturesMessage<KrakenFuturesOrderBookL1>)>
+    for MarketIter<InstrumentKey, OrderBookL1>
 {
-    fn from((msg, instrument): (KrakenFuturesMessage<KrakenFuturesOrderBookL1>, InstrumentKey)) -> Self {
+    fn from(
+        (exchange_id, instrument, msg): (ExchangeId, InstrumentKey, KrakenFuturesMessage<KrakenFuturesOrderBookL1>),
+    ) -> Self {
         let l1 = msg.payload;
-        // Placeholder time - ticker message usually contains time?
-        let time = chrono::Utc::now(); 
+        let time = Utc::now();
         
-        MarketEvent {
-            exchange_time: time,
-            received_time: time,
-            exchange: ExchangeId::KrakenFuturesUsd,
+        Self(vec![Ok(MarketEvent {
+            time_exchange: time,
+            time_received: time,
+            exchange: exchange_id,
             instrument,
             kind: OrderBookL1 {
                 last_update_time: time,
-                best_bid: Some(Level { price: l1.bid, amount: l1.bid_size }),
-                best_ask: Some(Level { price: l1.ask, amount: l1.ask_size }),
+                best_bid: Some(Level { 
+                    price: l1.bid, 
+                    amount: l1.bid_size 
+                }),
+                best_ask: Some(Level { 
+                    price: l1.ask, 
+                    amount: l1.ask_size 
+                }),
             },
-        }
+        })])
     }
 }
 
-impl<InstrumentKey> From<(KrakenFuturesMessage<KrakenFuturesBook>, InstrumentKey)> for MarketEvent<OrderBookEvent>
-where
-    InstrumentKey: Clone,
+impl<InstrumentKey> From<(ExchangeId, InstrumentKey, KrakenFuturesMessage<KrakenFuturesBook>)>
+    for MarketIter<InstrumentKey, OrderBookEvent>
 {
-    fn from((msg, instrument): (KrakenFuturesMessage<KrakenFuturesBook>, InstrumentKey)) -> Self {
+    fn from(
+        (exchange_id, instrument, msg): (ExchangeId, InstrumentKey, KrakenFuturesMessage<KrakenFuturesBook>),
+    ) -> Self {
         let book = msg.payload;
         
-        let update = if msg.feed.contains("snapshot") {
-            OrderBookEvent::Snapshot(OrderBook {
-                last_update_time: book.time,
-                bids: book.bids.into_iter().map(|l| Level { price: l.price, amount: l.qty }).collect(),
-                asks: book.asks.into_iter().map(|l| Level { price: l.price, amount: l.qty }).collect(),
-            })
+        let event = if msg.feed.contains("snapshot") {
+            OrderBookEvent::Snapshot(OrderBook::new(
+                book.seq,
+                Some(book.time),
+                book.bids.into_iter().map(|l| Level { price: l.price, amount: l.qty }),
+                book.asks.into_iter().map(|l| Level { price: l.price, amount: l.qty }),
+            ))
         } else {
-             OrderBookEvent::Update(OrderBook {
-                last_update_time: book.time,
-                bids: book.bids.into_iter().map(|l| Level { price: l.price, amount: l.qty }).collect(),
-                asks: book.asks.into_iter().map(|l| Level { price: l.price, amount: l.qty }).collect(),
-            })
+            OrderBookEvent::Update(OrderBook::new(
+                book.seq,
+                Some(book.time),
+                book.bids.into_iter().map(|l| Level { price: l.price, amount: l.qty }),
+                book.asks.into_iter().map(|l| Level { price: l.price, amount: l.qty }),
+            ))
         };
 
-        MarketEvent {
-            exchange_time: book.time,
-            received_time: chrono::Utc::now(),
-            exchange: ExchangeId::KrakenFuturesUsd,
+        Self(vec![Ok(MarketEvent {
+            time_exchange: Utc::now(),
+            time_received: Utc::now(),
+            exchange: exchange_id,
             instrument,
-            kind: update,
+            kind: event,
+        })])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use smol_str::SmolStr;
+
+    #[test]
+    fn test_kraken_futures_connector_id() {
+        assert_eq!(<KrakenFuturesUsd as Connector>::ID, ExchangeId::KrakenFuturesUsd);
+    }
+
+    #[test]
+    fn test_kraken_futures_websocket_url() {
+        let url = KrakenServerFuturesUsd::websocket_url();
+        assert_eq!(url, "wss://futures.kraken.com/ws/v1");
+    }
+
+    #[test]
+    fn test_kraken_futures_url_parsing() {
+        let url = KrakenFuturesUsd::url().expect("Failed to parse URL");
+        assert_eq!(url.scheme(), "wss");
+        assert_eq!(url.host_str(), Some("futures.kraken.com"));
+        assert_eq!(url.path(), "/ws/v1");
+    }
+
+    #[test]
+    fn test_kraken_futures_requests_trade() {
+        let exchange_subs = vec![ExchangeSub {
+            channel: KrakenFuturesChannel::Trade,
+            market: KrakenFuturesMarket(SmolStr::new("PI_XBTUSD")),
+        }];
+
+        let requests = KrakenFuturesUsd::requests(exchange_subs);
+        assert_eq!(requests.len(), 1);
+
+        let expected = serde_json::json!({
+            "event": "subscribe",
+            "feed": "trade",
+            "product_ids": ["PI_XBTUSD"]
+        });
+        
+        if let WsMessage::Text(text) = &requests[0] {
+            let actual: serde_json::Value = serde_json::from_str(text).unwrap();
+            assert_eq!(actual, expected);
+        } else {
+            panic!("Expected WsMessage::Text");
         }
+    }
+
+    #[test]
+    fn test_kraken_futures_requests_ticker() {
+        let exchange_subs = vec![ExchangeSub {
+            channel: KrakenFuturesChannel::Ticker,
+            market: KrakenFuturesMarket(SmolStr::new("PI_ETHUSD")),
+        }];
+
+        let requests = KrakenFuturesUsd::requests(exchange_subs);
+        assert_eq!(requests.len(), 1);
+
+        let expected = serde_json::json!({
+            "event": "subscribe",
+            "feed": "ticker",
+            "product_ids": ["PI_ETHUSD"]
+        });
+        
+        if let WsMessage::Text(text) = &requests[0] {
+            let actual: serde_json::Value = serde_json::from_str(text).unwrap();
+            assert_eq!(actual, expected);
+        } else {
+            panic!("Expected WsMessage::Text");
+        }
+    }
+
+    #[test]
+    fn test_kraken_futures_requests_book() {
+        let exchange_subs = vec![ExchangeSub {
+            channel: KrakenFuturesChannel::Book,
+            market: KrakenFuturesMarket(SmolStr::new("PI_XBTUSD")),
+        }];
+
+        let requests = KrakenFuturesUsd::requests(exchange_subs);
+        assert_eq!(requests.len(), 1);
+
+        let expected = serde_json::json!({
+            "event": "subscribe",
+            "feed": "book",
+            "product_ids": ["PI_XBTUSD"]
+        });
+        
+        if let WsMessage::Text(text) = &requests[0] {
+            let actual: serde_json::Value = serde_json::from_str(text).unwrap();
+            assert_eq!(actual, expected);
+        } else {
+            panic!("Expected WsMessage::Text");
+        }
+    }
+
+    #[test]
+    fn test_kraken_futures_multiple_subscriptions() {
+        let exchange_subs = vec![
+            ExchangeSub {
+                channel: KrakenFuturesChannel::Trade,
+                market: KrakenFuturesMarket(SmolStr::new("PI_XBTUSD")),
+            },
+            ExchangeSub {
+                channel: KrakenFuturesChannel::Trade,
+                market: KrakenFuturesMarket(SmolStr::new("PI_ETHUSD")),
+            },
+        ];
+
+        let requests = KrakenFuturesUsd::requests(exchange_subs);
+        // Each subscription creates a separate request
+        assert_eq!(requests.len(), 2);
+    }
+
+    #[test]
+    fn test_kraken_futures_message_identifier() {
+        let msg = KrakenFuturesMessage {
+            feed: "trade".to_string(),
+            product_id: "PI_XBTUSD".to_string(),
+            payload: (),
+        };
+        
+        let id = msg.id();
+        assert!(id.is_some());
+        // SubscriptionId contains the string in .0 field
+        assert_eq!(id.unwrap().0.as_str(), "trade|PI_XBTUSD");
     }
 }

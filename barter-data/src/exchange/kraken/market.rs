@@ -32,4 +32,29 @@ mod tests {
         let market = KrakenMarket(smol_str::SmolStr::new("xbt/usd"));
         assert_eq!(market.as_ref(), "xbt/usd");
     }
+
+    #[test]
+    fn test_kraken_market_from_function() {
+        let base = AssetNameInternal::from("btc");
+        let quote = AssetNameInternal::from("usd");
+        let market = kraken_market(&base, &quote);
+        // Kraken uses uppercase format with slash separator
+        assert_eq!(market.as_ref(), "BTC/USD");
+    }
+
+    #[test]
+    fn test_kraken_market_uppercase_normalization() {
+        let base = AssetNameInternal::from("xbt");
+        let quote = AssetNameInternal::from("eur");
+        let market = kraken_market(&base, &quote);
+        assert_eq!(market.as_ref(), "XBT/EUR");
+    }
+
+    #[test]
+    fn test_kraken_market_serde_roundtrip() {
+        let market = KrakenMarket(smol_str::SmolStr::new("ETH/USD"));
+        let serialized = serde_json::to_string(&market).unwrap();
+        let deserialized: KrakenMarket = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(market, deserialized);
+    }
 }

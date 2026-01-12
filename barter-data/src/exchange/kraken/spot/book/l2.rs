@@ -199,3 +199,153 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, KrakenOrderBookL2)>
         })])
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rust_decimal_macros::dec;
+
+    mod de {
+        use super::*;
+        use crate::exchange::kraken::message::KrakenMessage;
+        use barter_integration::{error::SocketError, subscription::SubscriptionId};
+
+        #[test]
+        fn test_kraken_order_book_l2_snapshot() {
+            struct TestCase {
+                input: &'static str,
+                expected: Result<KrakenOrderBookL2, SocketError>,
+            }
+
+            let tests = vec![TestCase {
+                // TC0: valid KrakenOrderBookL2 snapshot
+                input: r#"
+                    [
+                        0,
+                        {
+                            "as": [
+                                ["5541.30000", "2.50700000", "1534614248.123456"],
+                                ["5541.80000", "0.33000000", "1534614248.123457"]
+                            ],
+                            "bs": [
+                                ["5541.20000", "1.52900000", "1534614248.123458"],
+                                ["5541.10000", "0.50000000", "1534614248.123459"]
+                            ]
+                        },
+                        "book-100",
+                        "XBT/USD"
+                    ]
+                "#,
+                expected: Ok(KrakenMessage::Data(KrakenOrderBookL2Inner {
+                    subscription_id: SubscriptionId::from("book|XBT/USD"),
+                    data: KrakenOrderBookL2Data::Snapshot(KrakenBookSnapshot {
+                        asks: vec![
+                            KrakenBookLevel { price: dec!(5541.30000), amount: dec!(2.50700000) },
+                            KrakenBookLevel { price: dec!(5541.80000), amount: dec!(0.33000000) },
+                        ],
+                        bids: vec![
+                            KrakenBookLevel { price: dec!(5541.20000), amount: dec!(1.52900000) },
+                            KrakenBookLevel { price: dec!(5541.10000), amount: dec!(0.50000000) },
+                        ],
+                    }),
+                })),
+            }];
+
+            for (index, test) in tests.into_iter().enumerate() {
+                let actual = serde_json::from_str::<KrakenOrderBookL2>(test.input);
+                match (actual, test.expected) {
+                    (Ok(actual), Ok(expected)) => {
+                        assert_eq!(actual, expected, "TC{} failed", index)
+                    }
+                    (Err(_), Err(_)) => {
+                        // Test passed
+                    }
+                    (actual, expected) => {
+                        panic!(
+                            "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                        );
+                    }
+                }
+            }
+        }
+
+        #[test]
+        fn test_kraken_order_book_l2_update() {
+            struct TestCase {
+                input: &'static str,
+                expected: Result<KrakenOrderBookL2, SocketError>,
+            }
+
+            let tests = vec![TestCase {
+                // TC0: valid KrakenOrderBookL2 update
+                input: r#"
+                    [
+                        0,
+                        {
+                            "a": [
+                                ["5541.30000", "1.00000000", "1534614335.345678"]
+                            ],
+                            "b": [
+                                ["5541.20000", "0.00000000", "1534614335.345679"]
+                            ],
+                            "c": "974942666"
+                        },
+                        "book-100",
+                        "XBT/USD"
+                    ]
+                "#,
+                expected: Ok(KrakenMessage::Data(KrakenOrderBookL2Inner {
+                    subscription_id: SubscriptionId::from("book|XBT/USD"),
+                    data: KrakenOrderBookL2Data::Update(KrakenBookUpdate {
+                        asks: vec![
+                            KrakenBookLevel { price: dec!(5541.30000), amount: dec!(1.00000000) },
+                        ],
+                        bids: vec![
+                            KrakenBookLevel { price: dec!(5541.20000), amount: dec!(0.00000000) },
+                        ],
+                        checksum: Some("974942666".to_string()),
+                    }),
+                })),
+            }];
+
+            for (index, test) in tests.into_iter().enumerate() {
+                let actual = serde_json::from_str::<KrakenOrderBookL2>(test.input);
+                match (actual, test.expected) {
+                    (Ok(actual), Ok(expected)) => {
+                        assert_eq!(actual, expected, "TC{} failed", index)
+                    }
+                    (Err(_), Err(_)) => {
+                        // Test passed
+                    }
+                    (actual, expected) => {
+                        panic!(
+                            "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                        );
+                    }
+                }
+            }
+        }
+
+        #[test]
+        fn test_kraken_book_level_from_conversion() {
+            let kraken_level = KrakenBookLevel {
+                price: dec!(5541.20000),
+                amount: dec!(1.52900000),
+            };
+            let level: Level = kraken_level.into();
+            assert_eq!(level.price, dec!(5541.20000));
+            assert_eq!(level.amount, dec!(1.52900000));
+        }
+
+        #[test]
+        fn test_kraken_book_level_zero_amount() {
+            // Zero amount indicates removal of the price level
+            let kraken_level = KrakenBookLevel {
+                price: dec!(5541.20000),
+                amount: dec!(0),
+            };
+            let level: Level = kraken_level.into();
+            assert_eq!(level.amount, dec!(0));
+        }
+    }
+}

@@ -1,20 +1,10 @@
-use self::{
-    channel::KrakenChannel, market::KrakenMarket, subscription::KrakenSubResponse,
-};
 use crate::{
     ExchangeWsStream,
-    exchange::{Connector, ExchangeServer, ExchangeSub},
-    subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
+    exchange::ExchangeServer,
 };
-use barter_instrument::exchange::ExchangeId;
-use barter_integration::{
-    error::SocketError,
-    protocol::websocket::{WebSocketSerdeParser, WsMessage},
-};
+use barter_integration::protocol::websocket::WebSocketSerdeParser;
 use derive_more::Display;
-use serde_json::json;
 use std::marker::PhantomData;
-use url::Url;
 
 /// Defines the type that translates a Barter [`Subscription`](crate::subscription::Subscription)
 /// into an exchange [`Connector`] specific channel used for generating [`Connector::requests`].
@@ -61,8 +51,30 @@ pub struct KrakenExchange<Server> {
     server: PhantomData<Server>,
 }
 
+/// **Deprecated**: Use [`KrakenSpot`] instead for clarity.
+/// 
+/// This type alias will be removed in a future version.
+/// 
+/// # Migration
+/// Replace `Kraken` with `KrakenSpot`:
+/// ```rust,ignore
+/// // Before
+/// use barter_data::exchange::kraken::Kraken;
+/// 
+/// // After
+/// use barter_data::exchange::kraken::KrakenSpot;
+/// ```
+#[deprecated(since = "0.10.3", note = "Use `KrakenSpot` instead for consistency with other exchanges")]
 pub type Kraken = KrakenExchange<spot::KrakenServerSpot>;
-pub type KrakenSpot = Kraken;
+
+/// Kraken Spot exchange connector.
+/// 
+/// Supports: `PublicTrades`, `OrderBooksL1`, `OrderBooksL2`
+pub type KrakenSpot = KrakenExchange<spot::KrakenServerSpot>;
+
+/// Kraken Futures (USD-margined) exchange connector.
+/// 
+/// Supports: `PublicTrades`, `Liquidations`, `OrderBooksL1`, `OrderBooksL2`
 pub type KrakenFuturesUsd = KrakenExchange<futures::KrakenServerFuturesUsd>;
 
 
@@ -76,7 +88,7 @@ where
         D: serde::de::Deserializer<'de>,
     {
         let input = <String as serde::Deserialize>::deserialize(deserializer)?;
-        let expected = Self::ID.as_str();
+        let expected = Server::ID.as_str();
 
         if input.as_str() == expected {
             Ok(Self::default())
@@ -97,6 +109,6 @@ where
     where
         S: serde::ser::Serializer,
     {
-        serializer.serialize_str(Self::ID.as_str())
+        serializer.serialize_str(Server::ID.as_str())
     }
 }

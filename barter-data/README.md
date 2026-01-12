@@ -45,23 +45,24 @@ arbitrary number of exchange `MarketStream`s using input `Subscription`s. Simply
 
 ### Supported Exchange Subscriptions
 
-|        Exchange         |         Constructor Code         |               InstrumentKinds               |                SubscriptionKinds                 |
-| :---------------------: | :------------------------------: | :-----------------------------------------: | :----------------------------------------------: |
-|     **BinanceSpot**     |     `BinanceSpot::default()`     |                    Spot                     | PublicTrades <br> OrderBooksL1 <br> OrderBooksL2 |
-|  **BinanceFuturesUsd**  |  `BinanceFuturesUsd::default()`  |                  Perpetual                  | PublicTrades <br> OrderBooksL1 <br> OrderBooksL2 |
-|      **Bitfinex**       |            `Bitfinex`            |                    Spot                     |                   PublicTrades                   |
-|       **Bitmex**        |             `Bitmex`             |                  Perpetual                  |                   PublicTrades                   |
-|      **BybitSpot**      |      `BybitSpot::default()`      |                    Spot                     |                   PublicTrades                   |
-| **BybitPerpetualsUsd**  | `BybitPerpetualsUsd::default()`  |                  Perpetual                  |                   PublicTrades                   |
-|      **Coinbase**       |            `Coinbase`            |                    Spot                     |                   PublicTrades                   |
-|     **GateioSpot**      |     `GateioSpot::default()`      |                    Spot                     |                   PublicTrades                   |
-|  **GateioFuturesUsd**   |  `GateioFuturesUsd::default()`   |                   Future                    |                   PublicTrades                   |
-|  **GateioFuturesBtc**   |  `GateioFuturesBtc::default()`   |                   Future                    |                   PublicTrades                   |
-| **GateioPerpetualsUsd** | `GateioPerpetualsUsd::default()` |                  Perpetual                  |                   PublicTrades                   |
-| **GateioPerpetualsBtc** | `GateioPerpetualsBtc::default()` |                  Perpetual                  |                   PublicTrades                   |
-|  **GateioOptionsBtc**   |    `GateioOptions::default()`    |                   Option                    |                   PublicTrades                   |
-|       **Kraken**        |             `Kraken`             |                    Spot                     |          PublicTrades <br> OrderBooksL1          |
-|         **Okx**         |              `Okx`               | Spot <br> Future <br> Perpetual <br> Option |                   PublicTrades                   |
+|        Exchange         |         Constructor Code         |               InstrumentKinds               |                         SubscriptionKinds                          |
+| :---------------------: | :------------------------------: | :-----------------------------------------: | :----------------------------------------------------------------: |
+|     **BinanceSpot**     |     `BinanceSpot::default()`     |                    Spot                     |          PublicTrades <br> OrderBooksL1 <br> OrderBooksL2          |
+|  **BinanceFuturesUsd**  |  `BinanceFuturesUsd::default()`  |                  Perpetual                  |          PublicTrades <br> OrderBooksL1 <br> OrderBooksL2          |
+|      **Bitfinex**       |            `Bitfinex`            |                    Spot                     |                            PublicTrades                            |
+|       **Bitmex**        |             `Bitmex`             |                  Perpetual                  |                            PublicTrades                            |
+|      **BybitSpot**      |      `BybitSpot::default()`      |                    Spot                     |                            PublicTrades                            |
+| **BybitPerpetualsUsd**  | `BybitPerpetualsUsd::default()`  |                  Perpetual                  |                            PublicTrades                            |
+|      **Coinbase**       |            `Coinbase`            |                    Spot                     |                            PublicTrades                            |
+|     **GateioSpot**      |     `GateioSpot::default()`      |                    Spot                     |                            PublicTrades                            |
+|  **GateioFuturesUsd**   |  `GateioFuturesUsd::default()`   |                   Future                    |                            PublicTrades                            |
+|  **GateioFuturesBtc**   |  `GateioFuturesBtc::default()`   |                   Future                    |                            PublicTrades                            |
+| **GateioPerpetualsUsd** | `GateioPerpetualsUsd::default()` |                  Perpetual                  |                            PublicTrades                            |
+| **GateioPerpetualsBtc** | `GateioPerpetualsBtc::default()` |                  Perpetual                  |                            PublicTrades                            |
+|  **GateioOptionsBtc**   |    `GateioOptions::default()`    |                   Option                    |                            PublicTrades                            |
+|     **KrakenSpot**      |     `KrakenSpot::default()`      |                    Spot                     |          PublicTrades <br> OrderBooksL1 <br> OrderBooksL2          |
+|  **KrakenFuturesUsd**   |  `KrakenFuturesUsd::default()`   |            Perpetual <br> Future            | PublicTrades <br> Liquidations <br> OrderBooksL1 <br> OrderBooksL2 |
+|         **Okx**         |              `Okx`               | Spot <br> Future <br> Perpetual <br> Option |                            PublicTrades                            |
 
 
 ## Examples
