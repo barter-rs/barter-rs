@@ -216,14 +216,14 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, KrakenFuturesMessage<Kraken
         let event = if msg.feed.contains("snapshot") {
             OrderBookEvent::Snapshot(OrderBook::new(
                 book.seq,
-                Some(book.time),
+                Some(book.timestamp),
                 book.bids.into_iter().map(|l| Level { price: l.price, amount: l.qty }),
                 book.asks.into_iter().map(|l| Level { price: l.price, amount: l.qty }),
             ))
         } else {
             OrderBookEvent::Update(OrderBook::new(
                 book.seq,
-                Some(book.time),
+                Some(book.timestamp),
                 book.bids.into_iter().map(|l| Level { price: l.price, amount: l.qty }),
                 book.asks.into_iter().map(|l| Level { price: l.price, amount: l.qty }),
             ))

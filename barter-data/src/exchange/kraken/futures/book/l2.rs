@@ -10,7 +10,7 @@ pub struct KrakenFuturesBook {
     #[serde(default)]
     pub asks: Vec<KrakenFuturesLevel>,
     #[serde(with = "chrono::serde::ts_milliseconds")]
-    pub time: DateTime<Utc>,
+    pub timestamp: DateTime<Utc>,
 }
 
 pub type KrakenFuturesBookSnapshot = KrakenFuturesBook;
@@ -27,7 +27,7 @@ mod tests {
             "seq": 12345,
             "bids": [[50000.50, 10.5], [49999.00, 20.3]],
             "asks": [[50001.00, 15.2], [50002.00, 25.1]],
-            "time": 1234567890123
+            "timestamp": 1234567890123
         }"#;
 
         let book: KrakenFuturesBook = serde_json::from_str(json).unwrap();
@@ -46,7 +46,7 @@ mod tests {
             "seq": 12346,
             "bids": [[50000.50, 5.0]],
             "asks": [],
-            "time": 1234567890124
+            "timestamp": 1234567890124
         }"#;
 
         let book: KrakenFuturesBook = serde_json::from_str(json).unwrap();
@@ -61,7 +61,7 @@ mod tests {
             "seq": 12347,
             "bids": [],
             "asks": [],
-            "time": 1234567890125
+            "timestamp": 1234567890125
         }"#;
 
         let book: KrakenFuturesBook = serde_json::from_str(json).unwrap();
@@ -77,7 +77,7 @@ mod tests {
             "seq": 12348,
             "bids": [[50000.50, 0]],
             "asks": [[50001.00, 0]],
-            "time": 1234567890126
+            "timestamp": 1234567890126
         }"#;
 
         let book: KrakenFuturesBook = serde_json::from_str(json).unwrap();
@@ -88,8 +88,8 @@ mod tests {
     #[test]
     fn test_kraken_futures_book_sequence_ordering() {
         // Verify sequence numbers are correctly parsed for delta ordering
-        let json1 = r#"{"seq": 1, "bids": [], "asks": [], "time": 1234567890001}"#;
-        let json2 = r#"{"seq": 2, "bids": [], "asks": [], "time": 1234567890002}"#;
+        let json1 = r#"{"seq": 1, "bids": [], "asks": [], "timestamp": 1234567890001}"#;
+        let json2 = r#"{"seq": 2, "bids": [], "asks": [], "timestamp": 1234567890002}"#;
 
         let book1: KrakenFuturesBook = serde_json::from_str(json1).unwrap();
         let book2: KrakenFuturesBook = serde_json::from_str(json2).unwrap();
@@ -102,7 +102,7 @@ mod tests {
         // Test default values when sides are missing
         let json = r#"{
             "seq": 12349,
-            "time": 1234567890127
+            "timestamp": 1234567890127
         }"#;
 
         let book: KrakenFuturesBook = serde_json::from_str(json).unwrap();
@@ -117,7 +117,7 @@ mod tests {
             "seq": 12350,
             "bids": [[50000.00, 1.0]],
             "asks": [[50001.00, 1.0]],
-            "time": 1234567890128
+            "timestamp": 1234567890128
         }"#;
 
         let snapshot: KrakenFuturesBookSnapshot = serde_json::from_str(json).unwrap();
