@@ -1,0 +1,19 @@
+[package]
+name = "barter-engine"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Barter Ecosystem
+
+# Async
+futures = { workspace = true }
+
+# SerDe
+serde = { workspace = true, features = ["derive"] }
+
+# Logging
+tracing = { workspace = true }
+
+# Magic
+derive_more = { workspace = true, features = ["constructor"]}
