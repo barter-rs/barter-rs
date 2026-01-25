@@ -6,6 +6,11 @@ use crate::{
 use futures::{Stream, StreamExt};
 use tracing::info;
 
+// Todo: consider constraining "Processor" to produce (Audit, SideEffects)
+//   --> enables type driven decoupling from State to enable ReadReplica more easily
+//
+
+
 pub struct Replica<Process, Context> {
     processor: Process,
     context: Sequenced<Context>,
@@ -57,6 +62,18 @@ impl<Process, Context> Replica<Process, Context> {
         }
     }
 }
+
+// Todo: General query:
+//  - How would this lack of "output" paradigm work with Barter StateReplicaManager?
+//    '--> eg/ output orders etc, do we need a different pipeline for that?
+//    '--> current Barter one just has "State" to update, and it's all hard-coded
+
+// Todo: Idea:
+//  - What if the Engine had zero side-affects, and instead returns:
+//  ->> (Audit + SideEffects)
+//  ->>> Then some other components puts the Engines SideEffects into action
+//  ->>>> That way Input + Engine is all we need to replicate state, with no side effects
+//  ->>>>> may simplify Engine audit flow too!
 
 // Todo:
 //  - this is too much link regular async_run -> that's good it's just a different Procesor
