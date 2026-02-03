@@ -6,6 +6,7 @@ use barter_integration::{
 use bytes::Bytes;
 use futures::{Stream, future::try_join_all, StreamExt};
 use barter_instrument::Keyed;
+use barter_integration::task::{TokioTaskHandle, TokioTaskManager};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum StreamKey {
@@ -26,7 +27,7 @@ impl StreamArgs {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let stream_args = [
+    let entries = [
         (
             StreamKey::Binance,
             StreamArgs::new("wss://stream.binance.com:9443/ws"),
@@ -37,7 +38,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ),
     ];
 
-    let runtime = tokio::runtime::Handle::current();
+    let task_manager = TokioTaskManager::init(
+        entries,
+        |key: &StreamKey, args: &StreamArgs| async {
+
+            let stream = init_stream(key, args).await?;
+
+
+
+
+
+
+
+            Ok(TokioTaskHandle {
+                handle: (),
+                shutdown_tx: (),
+            })
+        }
+    ).await?;
+
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
 
     let consumer_task = tokio::spawn(async move {
@@ -76,12 +95,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 async fn init_stream(
     key: &StreamKey,
     args: &StreamArgs,
-) -> Result<Box<dyn Stream<Item = Message<AdminWs, Bytes>> + Send + Unpin>, String> {
+) -> Result<impl Stream<Item = Message<AdminWs, Bytes>>, String> {
     connect(args.url.as_str())
         .await
         .map(|socket| {
-            let stream = Box::pin(socket.map(WsParser::parse));
-            Box::new(stream) as Box<dyn Stream<Item = Message<AdminWs, Bytes>> + Send + Unpin>
+            socket.map(WsParser::parse)
         })
         .map_err(|error| format!("{key:?}: {error}"))
 }

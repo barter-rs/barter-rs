@@ -70,6 +70,9 @@ pub mod stream;
 #[cfg(feature = "socket")]
 pub mod socket;
 
+/// Todo: feature
+pub mod task;
+
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.
 pub trait Validator {
