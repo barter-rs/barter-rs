@@ -89,24 +89,25 @@ impl<StKey, StArgs, St, FnStInit> StreamManager<StKey, StArgs, St, FnStInit> {
     /// # Arguments
     /// * `runtime` - Tokio runtime handle on which to spawn the background tasks
     /// * `route_factory` - Factory function that creates a routing handler for each stream key
-    pub fn route_streams<RouteFactory, FnRoute, Err>(
+    pub fn route_streams<RouteFactory, FnRoute, StInitErr, RouteErr>(
         self,
         runtime: tokio::runtime::Handle,
         route_factory: RouteFactory,
     ) -> RoutingStreamManager<
         StKey,
         StArgs,
-        impl AsyncFn(&StKey, &StArgs) -> Result<RoutingStreamHandle, Err> + Clone,
+        impl AsyncFn(&StKey, &StArgs) -> Result<RoutingStreamHandle, StInitErr> + Clone,
     >
     where
         StKey: Clone + Eq + Hash + Send + 'static,
         StArgs: Clone,
-        FnStInit: AsyncFn(&StKey, &StArgs) -> Result<St, Err> + Clone + 'static,
+        FnStInit: AsyncFn(&StKey, &StArgs) -> Result<St, StInitErr> + Clone + 'static,
         St: Stream + Send + 'static,
         St::Item: Send,
         RouteFactory: Fn(&StKey) -> FnRoute + Clone + 'static,
-        FnRoute: FnMut(&StKey, St::Item) -> Result<(), Err> + Send + 'static,
-        Err: Send + 'static,
+        FnRoute: FnMut(&StKey, St::Item) -> Result<(), RouteErr> + Send + 'static,
+        StInitErr: Send + 'static,
+        RouteErr: Send + 'static,
     {
         let Self {
             map:
