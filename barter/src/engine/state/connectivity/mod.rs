@@ -153,12 +153,15 @@ impl ConnectivityStates {
 /// Used to track both market data and account connections in a [`ConnectivityState`].
 ///
 /// Default implementation is [`Health::Reconnecting`].
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize,
+)]
 pub enum Health {
     /// Connection is established and functioning normally.
     Healthy,
 
     /// Connection is currently attempting to re-establish after a disconnect or failure.
+    #[default]
     Reconnecting,
 }
 
@@ -180,12 +183,6 @@ impl ConnectivityState {
     /// Returns true if both market data and account connections are [`Health::Healthy`].
     pub fn all_healthy(&self) -> bool {
         self.market_data == Health::Healthy && self.account == Health::Healthy
-    }
-}
-
-impl Default for Health {
-    fn default() -> Self {
-        Self::Reconnecting
     }
 }
 

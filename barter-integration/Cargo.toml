@@ -1,6 +1,6 @@
 [package]
 name = "barter-integration"
-version = "0.9.2"
+version = "0.10.0"
 edition = "2024"
 authors = ["JustAStream <justastream.code@gmail.com>"]
 license = "MIT"
@@ -10,6 +10,19 @@ readme = "README.md"
 description = "Low-level framework for composing flexible web integrations, especially with financial exchanges"
 keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
+
+[features]
+default = ["collection", "error", "protocol", "serde", "subscription", "socket", "stream"]
+full = ["collection", "channel", "error", "metric", "protocol", "serde", "subscription", "socket", "stream"]
+collection = []
+channel = []
+error = []
+metric = []
+protocol = ["error", "metric"]
+serde = []
+subscription = []
+socket = []
+stream = []
 
 [dev-dependencies]
 tokio-test = { workspace = true }
@@ -43,6 +56,7 @@ futures = { workspace = true }
 pin-project = { workspace = true }
 
 # Data Structures
+component-map = { workspace = true }
 indexmap = { workspace = true }
 fnv = { workspace = true }
 smol_str = { workspace = true, features = ["serde"]}

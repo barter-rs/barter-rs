@@ -7,7 +7,7 @@ use crate::{
     },
 };
 use barter_execution::balance::{AssetBalance, Balance};
-use barter_integration::snapshot::Snapshot;
+use barter_integration::collection::snapshot::Snapshot;
 use serde::{Deserialize, Serialize};
 
 /// TearSheet summarising the trading session changes for an Asset.

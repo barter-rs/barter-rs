@@ -1,6 +1,6 @@
 [package]
 name = "barter"
-version = "0.12.3"
+version = "0.12.4"
 edition = "2024"
 authors = ["JustAStream <justastream.code@gmail.com>"]
 license = "MIT"
