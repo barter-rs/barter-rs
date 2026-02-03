@@ -1,12 +1,11 @@
 use barter_integration::{
     Message,
-    error::SocketError,
     protocol::websocket::{AdminWs, WsParser, connect},
     stream::manager::StreamManager,
 };
 use bytes::Bytes;
-use futures::{Stream, future::try_join_all};
-use tokio_stream::StreamExt;
+use futures::{Stream, future::try_join_all, StreamExt};
+use barter_instrument::Keyed;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum StreamKey {
@@ -25,12 +24,15 @@ impl StreamArgs {
     }
 }
 
+// Todo: Need to make a way to create the RoutingStreamManager w/o StreamManager, since SM requires
+//   Box to hold in map
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let stream_args = [
         (
             StreamKey::Binance,
-            StreamArgs::new("wss://fstream.binance.com"),
+            StreamArgs::new("wss://stream.binance.com:9443/ws"),
         ),
         (
             StreamKey::Bitstamp,
@@ -51,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?
         .route_streams(runtime, move |_stream_key| {
             let tx = tx.clone();
-            move |_stream_key, item| tx.send(item)
+            move |stream_key, item| tx.send(Keyed::new(stream_key.clone(), item))
         });
 
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
@@ -69,15 +71,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|(_stream_key, value)| value.component);
 
     let _ = try_join_all(shutdown_futures).await?;
+    consumer_task.await?;
 
     Ok(())
 }
 
 async fn init_stream(
-    _: &StreamKey,
+    key: &StreamKey,
     args: &StreamArgs,
-) -> Result<impl Stream<Item = Message<AdminWs, Bytes>>, SocketError> {
+) -> Result<Box<dyn Stream<Item = Message<AdminWs, Bytes>> + Send + Unpin>, String> {
     connect(args.url.as_str())
         .await
-        .map(|socket| socket.map(WsParser::parse))
+        .map(|socket| {
+            let stream = Box::pin(socket.map(WsParser::parse));
+            Box::new(stream) as Box<dyn Stream<Item = Message<AdminWs, Bytes>> + Send + Unpin>
+        })
+        .map_err(|error| format!("{key:?}: {error}"))
 }
