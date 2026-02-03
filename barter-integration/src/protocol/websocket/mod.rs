@@ -46,7 +46,7 @@ pub enum AdminWs {
 pub struct WsParser;
 
 impl WsParser {
-    fn parse(ws_result: Result<WsMessage, WsError>) -> Message<AdminWs, Bytes> {
+    pub fn parse(ws_result: Result<WsMessage, WsError>) -> Message<AdminWs, Bytes> {
         match ws_result {
             Ok(WsMessage::Text(utf8)) => Message::Payload(Bytes::from(utf8)),
             Ok(WsMessage::Binary(bytes)) => Message::Payload(bytes),
