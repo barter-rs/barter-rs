@@ -1,11 +1,11 @@
+use barter_instrument::Keyed;
 use barter_integration::{
     Message,
     protocol::websocket::{AdminWs, WsParser, connect},
     stream::manager::StreamManager,
 };
 use bytes::Bytes;
-use futures::{Stream, future::try_join_all, StreamExt};
-use barter_instrument::Keyed;
+use futures::{Stream, StreamExt, future::try_join_all};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum StreamKey {

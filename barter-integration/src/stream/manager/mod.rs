@@ -2,12 +2,11 @@ use crate::stream::manager::routing::route_stream;
 use component_map::{ComponentMap, WithArgs};
 use futures::Stream;
 use std::{fmt::Debug, hash::Hash};
-use tokio::sync::oneshot;
+
 // Re-exports
 pub use routing::{RoutingStreamHandle, RoutingStreamManager};
 
 mod routing;
-mod task;
 
 /// Manages a collection of streams keyed by a unique identifier.
 ///
@@ -55,10 +54,6 @@ mod task;
 pub struct StreamManager<StKey, StArgs, St, FnStInit> {
     pub map: ComponentMap<StKey, StArgs, St, FnStInit>,
 }
-
-
-
-
 
 impl<StKey, StArgs, St, FnStInit> StreamManager<StKey, StArgs, St, FnStInit> {
     /// Initialises a [`StreamManager`] with the provided keyed stream arguments.

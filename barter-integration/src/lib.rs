@@ -72,6 +72,7 @@ pub mod socket;
 
 /// Todo: feature
 pub mod task;
+mod task_new;
 
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.
