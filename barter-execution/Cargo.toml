@@ -41,4 +41,5 @@ rand = { workspace = true }
 chrono = { workspace = true, features = ["serde"]}
 itertools = { workspace = true }
 derive_more = { workspace = true, features = ["constructor", "from", "display"]}
+reqwest = { workspace = true, features = ["json", "rustls-tls"] }
 
