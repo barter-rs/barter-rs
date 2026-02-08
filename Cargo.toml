@@ -45,7 +45,7 @@ reqwest = { version = "0.12.9",default-features = false, features = ["rustls-tls
 tokio-tungstenite = { version = "0.26.0", features = ["url","rustls-tls-webpki-roots"] }
 
 # Data Structures
-component-map = { version = "0.3.0" }
+component-map = { version = "0.3" }
 vecmap-rs = { version = "0.2.2" }
 parking_lot = { version = "0.12.3" }
 rust_decimal = { version = "1.36.0", features = ["maths"] }
