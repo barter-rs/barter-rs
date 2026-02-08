@@ -1,11 +1,15 @@
 use component_map::{ComponentMap, Keyed, WithArgs};
-use std::{collections::HashMap, future::Future, hash::Hash};
+use std::{future::Future, hash::Hash};
 
-/// Todo: rust docs explaining what this is. One sentence is fine. Max three if required. Might want to
-///   At the end mention it uses ComponentMap under the hood to manage the Key + Arg -> Update mechanics
+/// Manages a collection of Tokio tasks keyed by a unique identifier.
+///
+/// Provides lifecycle management for multiple tasks, allowing them to be initialised, reinitialised,
+/// and updated with new arguments. Uses [`ComponentMap`] under the hood to manage the mapping between
+/// keys, arguments, and task handles.
 #[derive(Debug)]
 pub struct TokioTaskManager<Key, Args, FnInitFut, FnInitTask> {
     tasks: ComponentMap<Key, TaskArgs<Args, FnInitFut>, tokio::task::JoinHandle<()>, FnInitTask>,
+    init_future: FnInitFut,
 }
 
 #[derive(Clone, Debug)]
@@ -15,16 +19,9 @@ struct TaskArgs<Args, FnInitFut> {
 }
 
 impl<Key, Args, FnInitFut, FnInitTask> TokioTaskManager<Key, Args, FnInitFut, FnInitTask> {
-    /// Todo: rust docs explaining what this is. One sentence is fine. Max two if required.
-    pub fn tasks(
-        &self,
-    ) -> &HashMap<Key, WithArgs<TaskArgs<Args, FnInitFut>, tokio::task::JoinHandle<()>>> {
-        &self.tasks.map
-    }
-
     /// Reinitialise all Tokio tasks using their associated Args.
     ///
-    /// Returns an iterator of results for each task reinitialisation. // Todo: does this return the previous "components", if so make it more obvious in the docs
+    /// Replaces each existing task handle with a newly spawned task and returns the previous task handles.
     pub async fn reinit_all<Err>(
         &mut self,
     ) -> impl Iterator<Item = Keyed<&Key, Result<tokio::task::JoinHandle<()>, Err>>>
@@ -35,10 +32,10 @@ impl<Key, Args, FnInitFut, FnInitTask> TokioTaskManager<Key, Args, FnInitFut, Fn
         self.tasks.try_reinit_all_async().await
     }
 
-    /// Reinitialise a Tokio task using it's associated Args.
+    /// Reinitialise specific Tokio tasks using their associated Args.
     ///
-    /// Returns an iterator of results for each requested key. If a key doesn't exist,
-    /// the result will be `None`. // Todo: does this return the previous "components", if so make it more obvious in the docs
+    /// Replaces existing task handles with newly spawned tasks, and returns the previous task handles.
+    /// If a requested key doesn't exist, the result will be `None`.
     pub async fn reinit<Err>(
         &mut self,
         keys: impl IntoIterator<Item = Key>,
@@ -53,7 +50,10 @@ impl<Key, Args, FnInitFut, FnInitTask> TokioTaskManager<Key, Args, FnInitFut, Fn
 
     /// Update Tokio task Args and then reinitialise the tasks.
     ///
-    /// // Todo: explain the return type in a simple one sentence.
+    /// Replaces existing task handles with the newly spawned tasks, and returns the previous task
+    /// handles.
+    ///
+    /// If an update key didn't previously exist, the returned previous task will be `None`.
     pub async fn update<Err>(
         &mut self,
         updates: impl IntoIterator<Item = (Key, Args)>,
@@ -64,27 +64,20 @@ impl<Key, Args, FnInitFut, FnInitTask> TokioTaskManager<Key, Args, FnInitFut, Fn
         FnInitTask: AsyncFn(&Key, &TaskArgs<Args, FnInitFut>) -> Result<tokio::task::JoinHandle<()>, Err>
             + Clone,
     {
-        // Get a reference to the init_future from any existing entry
-        // All entries should have the same init_future
-        let init_future = self
-            .tasks
-            .map
-            .values()
-            .next()
-            .map(|with_args| with_args.args.init_future.clone());
+        let init_future = self.init_future.clone();
 
-        // Wrap user args with TokioTaskArgs
-        let wrapped_updates = updates.into_iter().map(move |(key, args)| {
-            let init_future = init_future
-                .as_ref()
-                .expect("Cannot update: no existing tasks to get init_future from")
-                .clone();
-            (key, TaskArgs { args, init_future })
+        let updates = updates.into_iter().map(move |(key, args)| {
+            (
+                key,
+                TaskArgs {
+                    args,
+                    init_future: init_future.clone(),
+                },
+            )
         });
 
-        // Use ComponentMap's try_update_async and unwrap the user args
         self.tasks
-            .try_update_async(wrapped_updates)
+            .try_update_async(updates)
             .await
             .map(|Keyed { key, value }| {
                 Keyed::new(
@@ -143,5 +136,5 @@ where
 
     let tasks = ComponentMap::try_init_async(entries, init_task).await?;
 
-    Ok(TokioTaskManager { tasks })
+    Ok(TokioTaskManager { tasks, init_future })
 }
