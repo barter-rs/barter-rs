@@ -8,7 +8,7 @@ use crate::{
             generate_algo_orders::{GenerateAlgoOrders, GenerateAlgoOrdersOutput},
             send_requests::SendRequests,
         },
-        audit::{AuditTick, Auditor, EngineAudit, ProcessAudit, context::EngineContext},
+        audit::{AuditTick, Auditor, context::EngineContext},
         clock::EngineClock,
         command::Command,
         execution_tx::ExecutionTxMap,
@@ -30,7 +30,7 @@ use crate::{
 use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
 use barter_execution::AccountEvent;
 use barter_instrument::{asset::QuoteAsset, exchange::ExchangeIndex, instrument::InstrumentIndex};
-use barter_integration::channel::Tx;
+use barter_integration::{Terminal, channel::Tx};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -136,54 +136,53 @@ where
         + ClosePositionsStrategy<State = EngineState<GlobalData, InstrumentData>>,
     Risk: RiskManager<State = EngineState<GlobalData, InstrumentData>>,
 {
-    type Output = EngineAudit<
-        EngineEvent<InstrumentData::MarketEventKind>,
-        EngineOutput<Strategy::OnTradingDisabled, Strategy::OnDisconnect>,
-    >;
+    type Output = EngineOutput<Strategy::OnTradingDisabled, Strategy::OnDisconnect>;
 
     fn process(&mut self, event: &EngineEvent<InstrumentData::MarketEventKind>) -> Self::Output {
         // Todo: consider making EngineMeta<Clock> to reduce field count and impl Processor
         self.clock.process(&event);
         self.meta.sequence.increment();
 
-        let process_audit = match &event {
-            EngineEvent::Shutdown(_) => return EngineAudit::process(event),
+        let event_output = match event {
+            EngineEvent::Shutdown(_) => return EngineOutput::Shutdown,
             EngineEvent::Command(command) => {
                 let output = self.action(command);
-
-                if let Some(unrecoverable) = output.unrecoverable_errors() {
-                    return EngineAudit::process_with_output_and_errs(event, unrecoverable, output);
-                } else {
-                    ProcessAudit::with_output(event, output)
-                }
+                EngineOutput::Commanded(output)
             }
             EngineEvent::TradingStateUpdate(trading_state) => {
-                let trading_disabled = self.update_from_trading_state_update(*trading_state);
-                ProcessAudit::with_trading_state_update(event, trading_disabled)
+                if let Some(disabled) = self.update_from_trading_state_update(*trading_state) {
+                    EngineOutput::OnTradingDisabled(disabled)
+                } else {
+                    EngineOutput::None
+                }
             }
-            EngineEvent::Account(account) => {
-                let output = self.update_from_account_stream(account);
-                ProcessAudit::with_account_update(event, output)
-            }
-            EngineEvent::Market(market) => {
-                let output = self.update_from_market_stream(market);
-                ProcessAudit::with_market_update(event, output)
-            }
+            EngineEvent::Account(account) => match self.update_from_account_stream(account) {
+                UpdateFromAccountOutput::None => EngineOutput::None,
+                UpdateFromAccountOutput::OnDisconnect(disconnect) => {
+                    EngineOutput::AccountDisconnect(disconnect)
+                }
+                UpdateFromAccountOutput::PositionExit(position) => {
+                    EngineOutput::PositionExit(position)
+                }
+            },
+            EngineEvent::Market(market) => match self.update_from_market_stream(market) {
+                UpdateFromMarketOutput::None => EngineOutput::None,
+                UpdateFromMarketOutput::OnDisconnect(disconnect) => {
+                    EngineOutput::MarketDisconnect(disconnect)
+                }
+            },
         };
 
+        // If trading is enabled, try to generate algo orders
+        // If algo orders are generated, return those instead of the event output
         if let TradingState::Enabled = self.state.trading {
-            let output = self.generate_algo_orders();
-
-            if output.is_empty() {
-                EngineAudit::from(process_audit)
-            } else if let Some(unrecoverable) = output.unrecoverable_errors() {
-                EngineAudit::Process(process_audit.add_errors(unrecoverable))
-            } else {
-                EngineAudit::from(process_audit.add_output(output))
+            let algo_output = self.generate_algo_orders();
+            if !algo_output.is_empty() {
+                return EngineOutput::AlgoOrders(algo_output);
             }
-        } else {
-            EngineAudit::from(process_audit)
         }
+
+        event_output
     }
 }
 
@@ -378,6 +377,8 @@ pub enum EngineOutput<
     ExchangeKey = ExchangeIndex,
     InstrumentKey = InstrumentIndex,
 > {
+    None,
+    Shutdown,
     Commanded(ActionOutput<ExchangeKey, InstrumentKey>),
     OnTradingDisabled(OnTradingDisabled),
     AccountDisconnect(OnDisconnect),
@@ -435,5 +436,13 @@ impl<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
 {
     fn from(value: GenerateAlgoOrdersOutput<ExchangeKey, InstrumentKey>) -> Self {
         Self::AlgoOrders(value)
+    }
+}
+
+impl<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey> Terminal
+    for EngineOutput<OnTradingDisabled, OnDisconnect, ExchangeKey, InstrumentKey>
+{
+    fn is_terminal(&self) -> bool {
+        matches!(self, EngineOutput::Shutdown)
     }
 }
