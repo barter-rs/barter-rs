@@ -71,19 +71,19 @@ pub mod state;
 /// eg/ `fn sync_run`, `fn sync_run_with_audit`, `fn async_run`, `fn async_run_with_audit`,
 pub mod run;
 
-/// Defines how a component processing an input Event and generates an appropriate Audit.
-pub trait Processor<Event> {
-    type Audit;
-    fn process(&mut self, event: Event) -> Self::Audit;
+/// Defines how a component processes an Input and generates an Output.
+pub trait Processor<Input> {
+    type Output;
+    fn process(&mut self, input: Input) -> Self::Output;
 }
 
 /// Process and `Event` with the `Engine` and product an [`AuditTick`] of work done.
 pub fn process_with_audit<Event, Engine>(
     engine: &mut Engine,
     event: Event,
-) -> AuditTick<Engine::Audit, EngineContext>
+) -> AuditTick<Engine::Output, EngineContext>
 where
-    Engine: Processor<Event> + Auditor<Engine::Audit, Context = EngineContext>,
+    Engine: Processor<Event> + Auditor<Engine::Output, Context = EngineContext>,
 {
     let output = engine.process(event);
     engine.audit(output)
@@ -122,7 +122,7 @@ pub struct EngineMeta {
 }
 
 impl<Clock, GlobalData, InstrumentData, ExecutionTxs, Strategy, Risk>
-    Processor<EngineEvent<InstrumentData::MarketEventKind>>
+    Processor<&EngineEvent<InstrumentData::MarketEventKind>>
     for Engine<Clock, EngineState<GlobalData, InstrumentData>, ExecutionTxs, Strategy, Risk>
 where
     Clock: EngineClock + for<'a> Processor<&'a EngineEvent<InstrumentData::MarketEventKind>>,
@@ -136,13 +136,15 @@ where
         + ClosePositionsStrategy<State = EngineState<GlobalData, InstrumentData>>,
     Risk: RiskManager<State = EngineState<GlobalData, InstrumentData>>,
 {
-    type Audit = EngineAudit<
+    type Output = EngineAudit<
         EngineEvent<InstrumentData::MarketEventKind>,
         EngineOutput<Strategy::OnTradingDisabled, Strategy::OnDisconnect>,
     >;
 
-    fn process(&mut self, event: EngineEvent<InstrumentData::MarketEventKind>) -> Self::Audit {
+    fn process(&mut self, event: &EngineEvent<InstrumentData::MarketEventKind>) -> Self::Output {
+        // Todo: consider making EngineMeta<Clock> to reduce field count and impl Processor
         self.clock.process(&event);
+        self.meta.sequence.increment();
 
         let process_audit = match &event {
             EngineEvent::Shutdown(_) => return EngineAudit::process(event),

@@ -422,9 +422,9 @@ impl InstrumentDataState for LoseMoneyInstrumentData {
 }
 
 impl Processor<&MarketEvent<InstrumentIndex>> for LoseMoneyInstrumentData {
-    type Audit = ();
+    type Output = ();
 
-    fn process(&mut self, event: &MarketEvent<InstrumentIndex>) -> Self::Audit {
+    fn process(&mut self, event: &MarketEvent<InstrumentIndex>) -> Self::Output {
         if let DataKind::Trade(trade) = &event.kind {
             self.last_trade = Some(trade.clone())
         } else {
@@ -434,9 +434,9 @@ impl Processor<&MarketEvent<InstrumentIndex>> for LoseMoneyInstrumentData {
 }
 
 impl Processor<&AccountEvent> for LoseMoneyInstrumentData {
-    type Audit = ();
+    type Output = ();
 
-    fn process(&mut self, _: &AccountEvent) -> Self::Audit {}
+    fn process(&mut self, _: &AccountEvent) -> Self::Output {}
 }
 
 impl InFlightRequestRecorder for LoseMoneyInstrumentData {

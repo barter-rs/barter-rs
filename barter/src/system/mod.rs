@@ -38,10 +38,10 @@ pub mod config;
 #[allow(missing_debug_implementations)]
 pub struct System<Engine, Event>
 where
-    Engine: Processor<Event> + Auditor<Engine::Audit, Context = EngineContext>,
+    Engine: Processor<Event> + Auditor<Engine::Output, Context = EngineContext>,
 {
     /// Task handle for the running `Engine`.
-    pub engine: JoinHandle<(Engine, Engine::Audit)>,
+    pub engine: JoinHandle<(Engine, Engine::Output)>,
 
     /// Handles to auxiliary system components (execution components, event forwarding, etc.).
     pub handles: SystemAuxillaryHandles,
@@ -51,16 +51,16 @@ where
 
     /// Optional audit snapshot with updates (present when audit sending is enabled).
     pub audit:
-        Option<SnapUpdates<AuditTick<Engine::Snapshot>, UnboundedRx<AuditTick<Engine::Audit>>>>,
+        Option<SnapUpdates<AuditTick<Engine::Snapshot>, UnboundedRx<AuditTick<Engine::Output>>>>,
 }
 
 impl<Engine, Event> System<Engine, Event>
 where
-    Engine: Processor<Event> + Auditor<Engine::Audit, Context = EngineContext>,
+    Engine: Processor<Event> + Auditor<Engine::Output, Context = EngineContext>,
     Event: Debug + Clone + Send,
 {
     /// Shutdown the `System` gracefully.
-    pub async fn shutdown(mut self) -> Result<(Engine, Engine::Audit), JoinError>
+    pub async fn shutdown(mut self) -> Result<(Engine, Engine::Output), JoinError>
     where
         Event: From<Shutdown>,
     {
@@ -74,7 +74,7 @@ where
     }
 
     /// Shutdown the `System` ungracefully.
-    pub async fn abort(self) -> Result<(Engine, Engine::Audit), JoinError>
+    pub async fn abort(self) -> Result<(Engine, Engine::Output), JoinError>
     where
         Event: From<Shutdown>,
     {
@@ -92,7 +92,7 @@ where
     ///
     /// **Note that for live & paper-trading this market stream will never end, so use
     /// System::shutdown() for that use case**.
-    pub async fn shutdown_after_backtest(self) -> Result<(Engine, Engine::Audit), JoinError>
+    pub async fn shutdown_after_backtest(self) -> Result<(Engine, Engine::Output), JoinError>
     where
         Event: From<Shutdown>,
     {
@@ -174,7 +174,7 @@ where
     /// [`AuditMode::Disabled`](builder::AuditMode) (default).
     pub fn take_audit(
         &mut self,
-    ) -> Option<SnapUpdates<AuditTick<Engine::Snapshot>, UnboundedRx<AuditTick<Engine::Audit>>>>
+    ) -> Option<SnapUpdates<AuditTick<Engine::Snapshot>, UnboundedRx<AuditTick<Engine::Output>>>>
     {
         self.audit.take()
     }

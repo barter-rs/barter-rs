@@ -172,6 +172,10 @@ impl Sequence {
         self.0
     }
 
+    pub fn increment(&mut self) {
+        self.0 += 1;
+    }
+
     pub fn fetch_add(&mut self) -> Sequence {
         let sequence = *self;
         self.0 += 1;

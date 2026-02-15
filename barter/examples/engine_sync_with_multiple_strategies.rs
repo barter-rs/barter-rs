@@ -263,17 +263,17 @@ impl InstrumentDataState for MultiStrategyCustomInstrumentData {
 impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>>
     for MultiStrategyCustomInstrumentData
 {
-    type Audit = ();
+    type Output = ();
 
-    fn process(&mut self, event: &MarketEvent<InstrumentKey, DataKind>) -> Self::Audit {
+    fn process(&mut self, event: &MarketEvent<InstrumentKey, DataKind>) -> Self::Output {
         self.market_data.process(event)
     }
 }
 
 impl Processor<&AccountEvent> for MultiStrategyCustomInstrumentData {
-    type Audit = ();
+    type Output = ();
 
-    fn process(&mut self, event: &AccountEvent) -> Self::Audit {
+    fn process(&mut self, event: &AccountEvent) -> Self::Output {
         let AccountEventKind::Trade(trade) = &event.kind else {
             return;
         };

@@ -292,11 +292,11 @@ pub struct SystemBuild<Engine, Event, MarketStream> {
 impl<Engine, Event, MarketStream> SystemBuild<Engine, Event, MarketStream>
 where
     Engine: Processor<Event>
-        + Auditor<Engine::Audit, Context = EngineContext>
+        + Auditor<Engine::Output, Context = EngineContext>
         + SyncShutdown
         + Send
         + 'static,
-    Engine::Audit: From<FeedEnded> + Terminal + Debug + Clone + Send + 'static,
+    Engine::Output: From<FeedEnded> + Terminal + Debug + Clone + Send + 'static,
     Event: From<MarketStream::Item> + From<AccountStreamEvent> + Debug + Clone + Send + 'static,
     MarketStream: Stream + Send + 'static,
 {

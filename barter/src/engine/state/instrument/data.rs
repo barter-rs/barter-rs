@@ -78,9 +78,9 @@ impl InstrumentDataState for DefaultInstrumentMarketData {
 impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>>
     for DefaultInstrumentMarketData
 {
-    type Audit = ();
+    type Output = ();
 
-    fn process(&mut self, event: &MarketEvent<InstrumentKey, DataKind>) -> Self::Audit {
+    fn process(&mut self, event: &MarketEvent<InstrumentKey, DataKind>) -> Self::Output {
         match &event.kind {
             DataKind::Trade(trade) => {
                 if self
@@ -106,9 +106,9 @@ impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>>
 impl<ExchangeKey, AssetKey, InstrumentKey>
     Processor<&AccountEvent<ExchangeKey, AssetKey, InstrumentKey>> for DefaultInstrumentMarketData
 {
-    type Audit = ();
+    type Output = ();
 
-    fn process(&mut self, _: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) -> Self::Audit {}
+    fn process(&mut self, _: &AccountEvent<ExchangeKey, AssetKey, InstrumentKey>) -> Self::Output {}
 }
 
 impl<ExchangeKey, InstrumentKey> InFlightRequestRecorder<ExchangeKey, InstrumentKey>
