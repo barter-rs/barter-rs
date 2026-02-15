@@ -1,6 +1,46 @@
 use component_map::{ComponentMap, Keyed, WithArgs};
 use std::{future::Future, hash::Hash};
 
+trait Processor {}
+
+// impl Processor<Update>
+
+// Todo: Create a Future which can manage the updating of all threads
+//        similar be run_sync and run_async, etc
+//         perhaps a run_sync cna be with std::threads
+
+struct Update<Key, Args> {
+    key: Key, // TaskFilter
+    kind:  ComponentUpdateKind<Args>
+}
+
+enum ComponentUpdateKind<Args> {
+    Upsert(Args),
+    Remove,
+    Shutdown,
+}
+
+enum TaskFilter {
+
+}
+
+// Todo: aside: generalise "filter" for any State (ie/ InstrumentFilter, etc)
+trait Filterable<Filter> {
+    type State;
+    fn filtered(&self, filter: &Filter) -> impl Iterator<Item = &Self::State>;
+    fn filtered_mut(&mut self, filter: &Filter) -> impl Iterator<Item = &mut Self::State>;
+}
+
+struct HigherAbstractionThanTokioTaskManager {
+
+}
+
+impl Filterable for HigherAbstractionThanTokioTaskManager {
+
+}
+
+
+
 /// Manages a collection of Tokio tasks keyed by a unique identifier.
 ///
 /// Provides lifecycle management for multiple tasks, allowing them to be initialised, reinitialised,
