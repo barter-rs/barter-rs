@@ -1,4 +1,4 @@
-use crate::{error::SocketError, protocol::StreamParser};
+use crate::{Message, error::SocketError, protocol::StreamParser, serde::de::error::DeBinaryError};
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -28,6 +28,36 @@ pub type WsMessage = tokio_tungstenite::tungstenite::Message;
 
 /// Communicative type alias for a tungstenite [`WebSocket`] `Error`.
 pub type WsError = tokio_tungstenite::tungstenite::Error;
+
+/// [`WebSocket`] administration message variants.
+#[derive(Debug)]
+pub enum AdminWs {
+    Ping(bytes::Bytes),
+    Pong(bytes::Bytes),
+    Close(Option<CloseFrame>),
+    WsError(WsError),
+    DeError(DeBinaryError),
+}
+
+/// [`WebSocket`] parser.
+///
+/// Translates a `Result<WsMessage, WsError>` to a `Message<AdminWs, bytes::Bytes>`.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]
+pub struct WsParser;
+
+impl WsParser {
+    fn parse(ws_result: Result<WsMessage, WsError>) -> Message<AdminWs, bytes::Bytes> {
+        match ws_result {
+            Ok(WsMessage::Text(utf8)) => Message::Payload(bytes::Bytes::from(utf8)),
+            Ok(WsMessage::Binary(bytes)) => Message::Payload(bytes),
+            Ok(WsMessage::Frame(frame)) => Message::Payload(frame.into_payload()),
+            Ok(WsMessage::Ping(bytes)) => Message::Admin(AdminWs::Ping(bytes)),
+            Ok(WsMessage::Pong(bytes)) => Message::Admin(AdminWs::Pong(bytes)),
+            Ok(WsMessage::Close(close)) => Message::Admin(AdminWs::Close(close)),
+            Err(error) => Message::Admin(AdminWs::WsError(error)),
+        }
+    }
+}
 
 /// Default [`StreamParser`] implementation for a [`WebSocket`].
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Deserialize, Serialize)]

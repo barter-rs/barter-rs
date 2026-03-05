@@ -109,10 +109,10 @@ use barter_integration::{
         StreamParser,
         websocket::{WsError, WsMessage, WsSink, WsStream},
     },
-    stream::ExchangeStream,
 };
 use futures::{SinkExt, Stream, StreamExt};
 
+use barter_integration::stream::ExchangeStream;
 use std::{collections::VecDeque, future::Future};
 use tokio::sync::mpsc;
 use tracing::{debug, error, warn};

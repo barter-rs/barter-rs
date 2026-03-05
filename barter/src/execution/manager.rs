@@ -29,8 +29,8 @@ use barter_instrument::{
 };
 use barter_integration::{
     channel::{Tx, UnboundedTx, mpsc_unbounded},
-    snapshot::Snapshot,
-    stream::merge::merge,
+    collection::snapshot::Snapshot,
+    stream::util::merge::merge,
 };
 use derive_more::Constructor;
 use futures::{Stream, StreamExt, future::Either, stream::FuturesUnordered};

@@ -23,7 +23,7 @@ use barter_instrument::{
     index::IndexedInstruments,
     instrument::{Instrument, InstrumentIndex},
 };
-use barter_integration::{collection::one_or_many::OneOrMany, snapshot::Snapshot};
+use barter_integration::collection::{one_or_many::OneOrMany, snapshot::Snapshot};
 use derive_more::Constructor;
 use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};

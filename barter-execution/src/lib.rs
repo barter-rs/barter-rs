@@ -33,7 +33,7 @@ use barter_instrument::{
     exchange::{ExchangeId, ExchangeIndex},
     instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
-use barter_integration::snapshot::Snapshot;
+use barter_integration::collection::snapshot::Snapshot;
 use chrono::{DateTime, Utc};
 use derive_more::{Constructor, From};
 use order::state::OrderState;
