@@ -45,7 +45,9 @@ pub enum BybitReturnMessage {
 }
 
 impl Validator for BybitResponse {
-    fn validate(self) -> Result<Self, SocketError>
+    type Error = SocketError;
+
+    fn validate(self) -> Result<Self, Self::Error>
     where
         Self: Sized,
     {

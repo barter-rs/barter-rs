@@ -26,8 +26,6 @@
 //!
 //! Both core abstractions provide the robust glue you need to conveniently translate between server & client data models.
 
-#[cfg(feature = "error")]
-use crate::error::SocketError;
 use ::serde::{Deserialize, Serialize};
 
 /// All [`Error`](std::error::Error)s generated in Barter-Integration.
@@ -73,10 +71,11 @@ pub mod socket;
 
 /// [`Validator`]s are capable of determining if their internal state is satisfactory to fulfill
 /// some use case defined by the implementor.
-#[cfg(feature = "error")]
 pub trait Validator {
+    type Error;
+
     /// Check if `Self` is valid for some use case.
-    fn validate(self) -> Result<Self, SocketError>
+    fn validate(self) -> Result<Self, Self::Error>
     where
         Self: Sized;
 }

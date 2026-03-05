@@ -12,17 +12,17 @@ keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
 categories = ["accessibility", "simulation"]
 
 [features]
-default = ["channel", "collection", "error", "protocol", "serde", "subscription", "socket", "stream"]
+default = ["collection", "error", "protocol", "serde", "subscription", "socket", "stream"]
 full = ["collection", "channel", "error", "metric", "protocol", "serde", "subscription", "socket", "stream"]
-collection = ["dep:indexmap", "dep:fnv"]
-channel = []
-error = ["dep:url", "dep:serde_qs", "dep:serde_urlencoded"]
+collection = ["dep:indexmap", "dep:fnv", "dep:itertools", "dep:derive_more"]
+channel = ["dep:tokio", "dep:tokio-stream", "dep:derive_more", "dep:tracing"]
+error = ["dep:url", "dep:serde_qs", "dep:serde_urlencoded", "dep:thiserror"]
 metric = []
-protocol = ["error", "metric", "serde", "dep:tokio-tungstenite", "dep:reqwest", "dep:hmac", "dep:hex", "dep:base64"]
-serde = ["dep:serde_json", "dep:prost"]
-subscription = []
-socket = []
-stream = []
+protocol = ["error", "metric", "serde", "dep:tokio-tungstenite", "dep:reqwest", "dep:hmac", "dep:hex", "dep:base64", "dep:tokio", "dep:chrono", "dep:bytes", "dep:tracing"]
+serde = ["dep:serde_json", "dep:prost", "dep:bytes", "dep:thiserror", "dep:tracing", "dep:chrono"]
+subscription = ["dep:smol_str"]
+socket = ["dep:tokio", "dep:pin-project", "dep:futures"]
+stream = ["dep:tokio-stream", "dep:pin-project", "dep:futures", "dep:barter-instrument", "dep:chrono", "dep:derive_more"]
 
 [dev-dependencies]
 tokio-test = { workspace = true }
@@ -30,10 +30,10 @@ sha2 = { workspace = true }
 
 [dependencies]
 # Barter Ecosystem
-barter-instrument = { workspace = true }
+barter-instrument = { workspace = true, optional = true }
 
 # Logging
-tracing = { workspace = true }
+tracing = { workspace = true, optional = true }
 
 # SerDe
 serde = { workspace = true, features = ["derive"] }
@@ -42,23 +42,23 @@ serde_qs = { workspace = true, optional = true }
 serde_urlencoded = { workspace = true, optional = true }
 
 # Error
-thiserror = { workspace = true }
+thiserror = { workspace = true, optional = true }
 
 # Async
-tokio = { workspace = true, features = [
+tokio = { workspace = true, optional = true, features = [
     "net",
     "sync",
     "macros",
     "rt-multi-thread",
 ] }
-tokio-stream = { workspace = true }
-futures = { workspace = true }
-pin-project = { workspace = true }
+tokio-stream = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
+pin-project = { workspace = true, optional = true }
 
 # Data Structures
 indexmap = { workspace = true, optional = true }
 fnv = { workspace = true, optional = true }
-smol_str = { workspace = true, features = ["serde"]}
+smol_str = { workspace = true, optional = true, features = ["serde"] }
 
 # Protocol
 tokio-tungstenite = { workspace = true, optional = true }
@@ -71,8 +71,8 @@ hex = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 
 # Misc
-chrono = { workspace = true, features = ["serde"] }
-itertools = { workspace = true }
-bytes = { workspace = true }
-derive_more = { workspace = true, features = ["display", "constructor"] }
+chrono = { workspace = true, optional = true, features = ["serde"] }
+itertools = { workspace = true, optional = true }
+bytes = { workspace = true, optional = true }
+derive_more = { workspace = true, optional = true, features = ["display", "constructor"] }
 prost = { workspace = true, optional = true }
