@@ -45,6 +45,8 @@ pub enum BitfinexPlatformEvent {
 }
 
 impl Validator for BitfinexPlatformEvent {
+    type Error = SocketError;
+
     fn validate(self) -> Result<Self, SocketError>
     where
         Self: Sized,

@@ -46,6 +46,8 @@ pub enum KrakenSubResponse {
 }
 
 impl Validator for KrakenSubResponse {
+    type Error = SocketError;
+
     fn validate(self) -> Result<Self, SocketError>
     where
         Self: Sized,

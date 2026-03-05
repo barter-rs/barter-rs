@@ -18,7 +18,9 @@ pub struct GateioSubResult {
 }
 
 impl Validator for GateioSubResponse {
-    fn validate(self) -> Result<Self, SocketError>
+    type Error = SocketError;
+
+    fn validate(self) -> Result<Self, Self::Error>
     where
         Self: Sized,
     {

@@ -53,6 +53,8 @@ pub enum OkxSubResponse {
 }
 
 impl Validator for OkxSubResponse {
+    type Error = SocketError;
+
     fn validate(self) -> Result<Self, SocketError>
     where
         Self: Sized,
