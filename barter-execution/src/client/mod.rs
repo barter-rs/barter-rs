@@ -21,28 +21,17 @@ use std::future::Future;
 mod binance;
 pub mod mock;
 
-pub trait ExecutionClient
+pub trait ClientRequests
 where
     Self: Clone,
 {
     const EXCHANGE: ExchangeId;
-
-    type Config: Clone;
-    type AccountStream: Stream<Item = UnindexedAccountEvent>;
-
-    fn new(config: Self::Config) -> Self;
 
     fn account_snapshot(
         &self,
         assets: &[AssetNameExchange],
         instruments: &[InstrumentNameExchange],
     ) -> impl Future<Output = Result<UnindexedAccountSnapshot, UnindexedClientError>> + Send;
-
-    fn account_stream(
-        &self,
-        assets: &[AssetNameExchange],
-        instruments: &[InstrumentNameExchange],
-    ) -> impl Future<Output = Result<Self::AccountStream, UnindexedClientError>> + Send;
 
     fn cancel_order(
         &self,
@@ -96,4 +85,23 @@ where
         &self,
         time_since: DateTime<Utc>,
     ) -> impl Future<Output = Result<Vec<Trade<QuoteAsset, InstrumentNameExchange>>, UnindexedClientError>>;
+}
+
+pub trait AccountStream
+where
+    Self: Clone,
+{
+    type AccountStream: Stream<Item = UnindexedAccountEvent>;
+
+    fn account_stream(
+        &self,
+        assets: &[AssetNameExchange],
+        instruments: &[InstrumentNameExchange],
+    ) -> impl Future<Output = Result<Self::AccountStream, UnindexedClientError>> + Send;
+}
+
+pub trait ExecutionClient: ClientRequests + AccountStream {
+    type Config: Clone;
+
+    fn new(config: Self::Config) -> Self;
 }
