@@ -20,4 +20,4 @@ syn = "1.0.107"
 quote = "1.0.23"
 
 # Misc
-convert_case = "0.6.0"
+convert_case = "0.10.0"
