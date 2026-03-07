@@ -14,6 +14,8 @@ categories = ["accessibility", "simulation"]
 [dev-dependencies]
 rust_decimal_macros = { workspace = true }
 serde_json = { workspace = true }
+indexmap = { workspace = true }
+fnv = { workspace = true }
 
 [dependencies]
 # SerDe
