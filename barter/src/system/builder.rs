@@ -13,10 +13,16 @@ use crate::{
         builder::{ExecutionBuildFutures, ExecutionBuilder},
     },
     shutdown::SyncShutdown,
-    system::{System, SystemAuxillaryHandles, config::ExecutionConfig},
+    system::{
+        System, SystemAuxillaryHandles,
+        config::{ExecutionConfig, ExecutionConfigKind},
+    },
 };
 use barter_data::streams::reconnect::stream::ReconnectingStream;
-use barter_execution::balance::Balance;
+use barter_execution::{
+    balance::Balance,
+    client::bybit::{BybitFuturesUsd, BybitSpot},
+};
 use barter_instrument::{
     Keyed,
     asset::{AssetIndex, ExchangeAsset, name::AssetNameInternal},
@@ -33,7 +39,10 @@ use derive_more::Constructor;
 use fnv::FnvHashMap;
 use futures::Stream;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, marker::PhantomData, time::Duration};
+
+/// Default execution request timeout
+const EXECUTION_REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Defines how the `Engine` processes input events.
 ///
@@ -229,10 +238,22 @@ impl<'a, Clock, Strategy, Risk, MarketStream, GlobalData, FnInstrumentData>
             .into_iter()
             .try_fold(
                 ExecutionBuilder::new(instruments),
-                |builder, config| match config {
-                    ExecutionConfig::Mock(mock_config) => {
-                        builder.add_mock(mock_config, clock.clone())
+                |builder, config| match config.kind {
+                    ExecutionConfigKind::Mock(mock_execution_config) => {
+                        builder.add_mock(mock_execution_config, clock.clone())
                     }
+                    ExecutionConfigKind::Live(api_credentials) => match config.exchange {
+                        ExchangeId::BybitSpot => builder
+                            .add_live::<BybitSpot>(api_credentials, EXECUTION_REQUEST_TIMEOUT),
+                        ExchangeId::BybitPerpetualsUsd => builder.add_live::<BybitFuturesUsd>(
+                            api_credentials,
+                            EXECUTION_REQUEST_TIMEOUT,
+                        ),
+                        _ => Err(BarterError::ExecutionBuilder(format!(
+                            "`{}` execution unsupported",
+                            config.exchange
+                        ))),
+                    },
                 },
             )?
             .build();

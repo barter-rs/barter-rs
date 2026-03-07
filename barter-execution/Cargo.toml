@@ -23,7 +23,13 @@ tracing = { workspace = true }
 # Async
 tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
 tokio-stream = { workspace = true, features = ["sync"] }
+pin-project = { workspace = true }
 futures = { workspace = true }
+
+# Protocol
+url = { workspace = true }
+tokio-tungstenite = { workspace = true }
+reqwest = { workspace = true, features = ["rustls-tls", "json"] }
 
 # Data Structures
 smol_str = { workspace = true }
@@ -35,10 +41,24 @@ thiserror = { workspace = true }
 
 # SerDe
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, features = ["raw_value"] }
+serde_with = { version = "3.12.0", features = ["chrono"] }
+serde_repr = { version = "0.1.19" }
+serde_urlencoded = { workspace = true }
+
+# Cryptographic Signatures
+hmac = { workspace = true }
+sha2 = { workspace = true }
 
 # Misc
 rand = { workspace = true }
-chrono = { workspace = true, features = ["serde"]}
+chrono = { workspace = true, features = ["serde"] }
 itertools = { workspace = true }
-derive_more = { workspace = true, features = ["constructor", "from", "display"]}
+derive_more = { workspace = true, features = [
+    "constructor",
+    "from",
+    "display",
+] }
 
+[dev-dependencies]
+rust_decimal_macros = { workspace = true }

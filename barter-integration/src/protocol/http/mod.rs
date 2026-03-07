@@ -2,7 +2,7 @@ use self::rest::RestRequest;
 use crate::error::SocketError;
 use reqwest::StatusCode;
 use serde::de::DeserializeOwned;
-use tracing::error;
+use tracing::{error, warn};
 
 /// Defines an abstract [`RestRequest`] that can be executed by a fully
 /// configurable [`RestClient`](rest::client::RestClient).
@@ -57,7 +57,10 @@ pub trait HttpParser {
         // Attempt to deserialise reqwest::Response bytes into Ok(Response)
         let parse_ok_error = match serde_json::from_slice::<Response>(payload) {
             Ok(response) => return Ok(response),
-            Err(serde_error) => serde_error,
+            Err(serde_error) => {
+                warn!(?serde_error, "error deserializing HTTP OK response");
+                serde_error
+            }
         };
 
         // Attempt to deserialise API Error if Ok(Response) deserialisation failed

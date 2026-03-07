@@ -20,7 +20,10 @@ use crate::{
         algo::AlgoStrategy, close_positions::ClosePositionsStrategy,
         on_disconnect::OnDisconnectStrategy, on_trading_disabled::OnTradingDisabled,
     },
-    system::{builder::EngineFeedMode, config::ExecutionConfig},
+    system::{
+        builder::EngineFeedMode,
+        config::{ExecutionConfig, ExecutionConfigKind},
+    },
 };
 use crate::{
     engine::Engine,
@@ -211,8 +214,11 @@ where
         .into_iter()
         .try_fold(
             ExecutionBuilder::new(&args_constant.instruments),
-            |builder, config| match config {
-                ExecutionConfig::Mock(mock_config) => builder.add_mock(mock_config, clock.clone()),
+            |builder, config| match config.kind {
+                ExecutionConfigKind::Mock(mock_config) => {
+                    builder.add_mock(mock_config, clock.clone())
+                }
+                _ => panic!("Backtest should not use real execution client"),
             },
         )?
         .build();
