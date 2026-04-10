@@ -49,7 +49,7 @@ impl<'de> Deserialize<'de> for AssetStates {
         impl<'de> Visitor<'de> for AssetStatesVisitor {
             type Value = AssetStates;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(f, "a sequence of (ExchangeAsset, AssetState) pairs")
             }
 

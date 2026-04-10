@@ -22,6 +22,7 @@ use barter_instrument::{
     exchange::{ExchangeId, ExchangeIndex},
     instrument::InstrumentIndex,
 };
+use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 /// Defines a strategy interface for generating algorithmic open and cancel order requests based
@@ -49,7 +50,7 @@ pub mod on_trading_disabled;
 /// - Closes positions via the naive [`close_open_positions_with_market_orders`] logic (ClosePositionsStrategy).
 /// - Does nothing when an exchange disconnects (OnDisconnectStrategy).
 /// - Does nothing when trading state is set to disabled (OnDisconnectStrategy).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DefaultStrategy<State> {
     pub id: StrategyId,
     phantom: PhantomData<State>,

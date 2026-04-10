@@ -96,7 +96,7 @@ where
 /// risk checks*.
 ///
 /// *THIS IS FOR DEMONSTRATION PURPOSES ONLY, NEVER USE FOR REAL TRADING OR IN PRODUCTION*.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DefaultRiskManager<State> {
     phantom: PhantomData<State>,
 }
