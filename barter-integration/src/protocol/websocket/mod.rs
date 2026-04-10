@@ -238,21 +238,27 @@ mod tests {
     fn test_ws_parser_binary_message() {
         let msg = Ok(WsMessage::Binary(Bytes::from_static(b"\x01\x02")));
         let result = WsParser::parse(msg);
-        assert!(matches!(result, Message::Payload(bytes) if bytes == Bytes::from_static(b"\x01\x02")));
+        assert!(
+            matches!(result, Message::Payload(bytes) if bytes == Bytes::from_static(b"\x01\x02"))
+        );
     }
 
     #[test]
     fn test_ws_parser_ping() {
         let msg = Ok(WsMessage::Ping(Bytes::from_static(b"ping")));
         let result = WsParser::parse(msg);
-        assert!(matches!(result, Message::Admin(AdminWs::Ping(bytes)) if bytes == Bytes::from_static(b"ping")));
+        assert!(
+            matches!(result, Message::Admin(AdminWs::Ping(bytes)) if bytes == Bytes::from_static(b"ping"))
+        );
     }
 
     #[test]
     fn test_ws_parser_pong() {
         let msg = Ok(WsMessage::Pong(Bytes::from_static(b"pong")));
         let result = WsParser::parse(msg);
-        assert!(matches!(result, Message::Admin(AdminWs::Pong(bytes)) if bytes == Bytes::from_static(b"pong")));
+        assert!(
+            matches!(result, Message::Admin(AdminWs::Pong(bytes)) if bytes == Bytes::from_static(b"pong"))
+        );
     }
 
     #[test]

@@ -14,7 +14,7 @@ use barter::{
     },
     logging::init_logging,
     risk::{
-        DefaultRiskManager, RiskApproved, RiskManager, RiskRefused,
+        RiskApproved, RiskManager, RiskRefused,
         check::{
             CheckHigherThan, RiskCheck,
             util::{calculate_abs_percent_difference, calculate_quote_notional},
@@ -40,7 +40,7 @@ use derive_more::Constructor;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, fs::File, io::BufReader, marker::PhantomData, time::Duration};
+use std::{fmt::Debug, fs::File, io::BufReader, time::Duration};
 use tracing::warn;
 
 const FILE_PATH_SYSTEM_CONFIG: &str = "barter/examples/config/system_config.json";
@@ -57,25 +57,21 @@ const MAX_USDT_NOTIONAL_PER_ORDER: CheckHigherThan<Decimal> = CheckHigherThan {
 
 /// Custom risk manager that implements risk checks for orders
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, Constructor)]
-pub struct CustomRiskManager<State> {
+pub struct CustomRiskManager {
     pub max_notional_per_order: CheckHigherThan<Decimal>,
     pub max_market_order_price_percent_from_market: CheckHigherThan<Decimal>,
-    phantom: PhantomData<State>,
 }
 
-impl<State> Default for CustomRiskManager<State> {
+impl Default for CustomRiskManager {
     fn default() -> Self {
         Self {
             max_notional_per_order: MAX_USDT_NOTIONAL_PER_ORDER,
             max_market_order_price_percent_from_market: MAX_MARKET_ORDER_PRICE_PERCENT_FROM_MARKET,
-            phantom: PhantomData::default(),
         }
     }
 }
 
-impl RiskManager
-    for CustomRiskManager<EngineState<DefaultGlobalData, DefaultInstrumentMarketData>>
-{
+impl RiskManager for CustomRiskManager {
     type State = EngineState<DefaultGlobalData, DefaultInstrumentMarketData>;
 
     fn check(
@@ -217,7 +213,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         executions,
         LiveClock,
         DefaultStrategy::default(),
-        DefaultRiskManager::default(),
+        CustomRiskManager::default(),
         market_stream,
         DefaultGlobalData::default(),
         |_| DefaultInstrumentMarketData::default(),

@@ -101,10 +101,7 @@ mod tests {
     #[test]
     fn test_data_args_historical() {
         let start = Utc::now();
-        let historical = Historical {
-            start,
-            end: None,
-        };
+        let historical = Historical { start, end: None };
         let args = DataArgs::historical(historical, vec!["sub"], "cfg");
         assert_eq!(args.mode.start, start);
         assert!(args.mode.end.is_none());
