@@ -5,12 +5,15 @@ members = [
     "barter-data",
     "barter-execution",
     "barter-integration",
-    "barter-macro", 
-    "barter-instrument"
+    "barter-macro",
+    "barter-instrument",
+    "barter-python",
+    "barter-joshi",
 ]
 
 [workspace.dependencies]
 # Barter Ecosystem
+barter = { path = "./barter", version = "0.12" }
 barter-integration = { path = "./barter-integration", version = "0.10" }
 barter-instrument = { path = "./barter-instrument", version = "0.3" }
 barter-data = { path = "./barter-data", version = "0.11" }

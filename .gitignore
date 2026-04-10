@@ -5,3 +5,4 @@ Cargo.lock
 # IDE
 .idea/
 *.iml
+.codex
