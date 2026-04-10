@@ -1,0 +1,37 @@
+[package]
+name = "barter-python"
+version = "0.1.0"
+edition = "2024"
+authors = ["JustAStream <justastream.code@gmail.com>"]
+license = "MIT"
+description = "Python bindings for the Barter algorithmic trading framework"
+
+[lib]
+name = "_barter"
+crate-type = ["cdylib"]
+
+[dependencies]
+# Barter Ecosystem
+barter = { workspace = true }
+barter-data = { workspace = true }
+barter-execution = { workspace = true }
+barter-instrument = { workspace = true }
+barter-integration = { workspace = true }
+
+# Python
+pyo3 = { version = "0.23", features = ["extension-module"] }
+pyo3-async-runtimes = { version = "0.23", features = ["tokio-runtime"] }
+
+# Async
+tokio = { workspace = true, features = ["sync", "rt-multi-thread"] }
+tokio-stream = { workspace = true }
+futures = { workspace = true }
+futures-util = { workspace = true }
+
+# Data
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+smol_str = { workspace = true }

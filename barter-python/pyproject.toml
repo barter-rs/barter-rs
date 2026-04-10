@@ -1,0 +1,25 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "barter"
+version = "0.1.0"
+description = "Python bindings for the Barter algorithmic trading framework"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["trading", "backtesting", "crypto", "algorithmic-trading"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "barter._barter"

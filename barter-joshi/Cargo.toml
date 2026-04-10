@@ -1,0 +1,18 @@
+[package]
+name = "barter-joshi"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Rust implementations of the C++ examples from 'The Concepts and Practice of Mathematical Finance' by Mark S. Joshi"
+keywords = ["quant", "finance", "options", "monte-carlo", "black-scholes"]
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = "0.5"
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
