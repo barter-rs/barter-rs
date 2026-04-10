@@ -14,8 +14,12 @@ use barter_integration::collection::{FnvIndexMap, snapshot::Snapshot};
 use chrono::Utc;
 use derive_more::Constructor;
 use itertools::Either;
-use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
+use serde::{
+    Deserialize, Deserializer, Serialize, Serializer,
+    de::{SeqAccess, Visitor},
+    ser::SerializeSeq,
+};
+use std::fmt::{self, Debug};
 
 /// Defines an `AssetFilter`, used to filter asset-centric data structures.
 pub mod filter;
@@ -23,8 +27,46 @@ pub mod filter;
 /// Collection of exchange [`AssetState`]s indexed by [`AssetIndex`].
 ///
 /// Note that the same named assets on different exchanges will have their own [`AssetState`].
-#[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct AssetStates(pub FnvIndexMap<ExchangeAsset<AssetNameInternal>, AssetState>);
+
+impl Serialize for AssetStates {
+    fn serialize<S: Serializer>(&self, serialiser: S) -> Result<S::Ok, S::Error> {
+        // serde_json cannot use struct keys in JSON objects, so serialise as a sequence of pairs.
+        // Stream directly from the map iterator — no intermediate Vec allocation.
+        let mut seq = serialiser.serialize_seq(Some(self.0.len()))?;
+        for pair in &self.0 {
+            seq.serialize_element(&pair)?;
+        }
+        seq.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for AssetStates {
+    fn deserialize<D: Deserializer<'de>>(deserialiser: D) -> Result<Self, D::Error> {
+        struct AssetStatesVisitor;
+
+        impl<'de> Visitor<'de> for AssetStatesVisitor {
+            type Value = AssetStates;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "a sequence of (ExchangeAsset, AssetState) pairs")
+            }
+
+            fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+                // Pre-allocate with the size hint to avoid rehashing, then populate in one pass.
+                let mut map = FnvIndexMap::default();
+                map.reserve(seq.size_hint().unwrap_or(0));
+                while let Some((k, v)) = seq.next_element()? {
+                    map.insert(k, v);
+                }
+                Ok(AssetStates(map))
+            }
+        }
+
+        deserialiser.deserialize_seq(AssetStatesVisitor)
+    }
+}
 
 impl AssetStates {
     /// Return a reference to the `AssetState` associated with an `AssetIndex`.
@@ -177,7 +219,7 @@ pub fn generate_empty_indexed_asset_states(instruments: &IndexedInstruments) -> 
 mod tests {
     use super::*;
     use crate::test_utils::asset_state;
-    use barter_instrument::asset::name::AssetNameExchange;
+    use barter_instrument::{asset::name::AssetNameExchange, exchange::ExchangeId};
     use chrono::{DateTime, TimeZone, Utc};
     use rust_decimal_macros::dec;
 
@@ -258,6 +300,41 @@ mod tests {
         assert_eq!(state.balance.unwrap().value.total, dec!(1000.0));
         assert_eq!(state.balance.unwrap().value.free, dec!(800.0));
         assert_eq!(state.balance.unwrap().time, time);
+    }
+
+    #[test]
+    fn test_asset_states_serde_round_trip_preserves_index_and_key_lookup() {
+        // Build AssetStates with two assets inserted in a known order so that insertion-order
+        // index access (AssetIndex) is deterministic.
+        let btc_key = ExchangeAsset::new(ExchangeId::BinanceSpot, AssetNameInternal::new("btc"));
+        let usdt_key = ExchangeAsset::new(ExchangeId::BinanceSpot, AssetNameInternal::new("usdt"));
+
+        let btc_state = asset_state("btc", 1.0, 0.5, DateTime::<Utc>::MIN_UTC);
+        let usdt_state = asset_state("usdt", 1000.0, 1000.0, DateTime::<Utc>::MIN_UTC);
+
+        let original = AssetStates(
+            [
+                (btc_key.clone(), btc_state.clone()),
+                (usdt_key.clone(), usdt_state.clone()),
+            ]
+            .into_iter()
+            .collect(),
+        );
+
+        // Serialise → deserialise round-trip.
+        let json = serde_json::to_string(&original).expect("serialisation failed");
+        let restored: AssetStates = serde_json::from_str(&json).expect("deserialisation failed");
+
+        // Full equality check — sequence is preserved.
+        assert_eq!(original, restored);
+
+        // Index lookup: BTC was inserted first → AssetIndex(0), USDT second → AssetIndex(1).
+        assert_eq!(restored.asset_index(&AssetIndex(0)), &btc_state);
+        assert_eq!(restored.asset_index(&AssetIndex(1)), &usdt_state);
+
+        // Key lookup.
+        assert_eq!(restored.asset(&btc_key), &btc_state);
+        assert_eq!(restored.asset(&usdt_key), &usdt_state);
     }
 
     #[test]
