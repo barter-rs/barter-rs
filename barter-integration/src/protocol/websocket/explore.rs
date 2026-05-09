@@ -62,7 +62,7 @@ where
 }
 
 pub fn with_serde<De, AppMessage>(
-    socket: impl Sink<WsMessage> + Stream<Item = Message<AdminWs, Bytes>>,
+    socket: impl Sink<WsMessage, Error = WsError> + Stream<Item = Message<AdminWs, Bytes>>,
 ) -> impl Sink<AppMessage> + Stream<Item = Result<Message<AdminWs, AppMessage>, De::Error>>
 where
     De: Deserialiser<Bytes, AppMessage>,
