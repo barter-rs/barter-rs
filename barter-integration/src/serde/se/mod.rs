@@ -4,20 +4,38 @@ use tracing::debug;
 
 pub mod error;
 
-/// Serialise a generic element T as a `Vec<T>`.
-pub fn se_element_to_vector<T, S>(element: T, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-    T: serde::Serialize,
-{
-    let mut sequence = serializer.serialize_seq(Some(1))?;
-    sequence.serialize_element(&element)?;
-    sequence.end()
+// Notes:
+// Ws seems the odd one out, fix is all 'app message' level. Http doesn't have "admin" either.
+// Perhaps the split is like so then:
+// 1. Socket<Item = WsMessage OR FixMessage>
+
+// We basically need an efficient way to go from Stream<Item = WsMessage> to
+// Stream<Item = AppMessage> where all the "protocol admin" is done.
+
+// This seems specific to WebSocket then, so maybe just make a hard-coded 'websocket' admin
+// management stream processor it?
+
+
+pub trait Serialiser<Input, Output> {
+    type Error;
+
+    fn serialise(input: Input) -> Result<Output, Self::Error>;
 }
 
 /// JSON String serialiser.
 #[derive(Debug, Default)]
 pub struct SeJsonString;
+
+impl<Input> Serialiser<&Input, String> for SeJsonString
+where
+    Input: std::fmt::Debug + serde::Serialize,
+{
+    type Error = SeError;
+
+    fn serialise(input: &Input) -> Result<String, Self::Error> {
+        Self::se_string(input)
+    }
+}
 
 impl SeJsonString {
     /// Serialises the input type into a valid JSON string.
@@ -50,6 +68,17 @@ impl SeJsonString {
 /// JSON bytes serialiser.
 #[derive(Debug, Default)]
 pub struct SeJsonBytes;
+
+impl<Input> Serialiser<&Input, bytes::Bytes> for SeJsonBytes
+where
+    Input: std::fmt::Debug + serde::Serialize,
+{
+    type Error = SeError;
+
+    fn serialise(input: &Input) -> Result<bytes::Bytes, Self::Error> {
+        Self::se_bytes(input)
+    }
+}
 
 impl SeJsonBytes {
     /// Serialises the input type into valid JSON bytes.
@@ -102,6 +131,17 @@ impl SeJsonBytes {
                 SeError::Serde(error)
             })
     }
+}
+
+/// Serialise a generic element T as a `Vec<T>`.
+pub fn se_element_to_vector<T, S>(element: T, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+    T: serde::Serialize,
+{
+    let mut sequence = serializer.serialize_seq(Some(1))?;
+    sequence.serialize_element(&element)?;
+    sequence.end()
 }
 
 #[cfg(test)]

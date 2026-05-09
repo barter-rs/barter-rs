@@ -16,6 +16,7 @@ use tracing::debug;
 
 mod explore;
 mod use_explore;
+mod use_explore_protocol_layer;
 
 
 /// Convenient type alias for a tungstenite `WebSocketStream`.

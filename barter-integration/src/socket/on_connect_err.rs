@@ -21,6 +21,8 @@ where
     }
 }
 
+
+
 /// Connection error with reconnection attempt count.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct ConnectError<ErrConnect> {
