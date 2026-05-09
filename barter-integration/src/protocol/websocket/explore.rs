@@ -17,6 +17,7 @@ use crate::{
 use bytes::Bytes;
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 pub trait AdminWsStrategy {}
 pub trait AdminAppStrategy {}
@@ -31,7 +32,7 @@ fn init_reconnecting_websocket<De, AppMessage, FnOnConnectErr>(
 >
 where
     De: Deserialiser<Bytes, AppMessage>,
-    AppMessage: Serialize + for<'de> Deserialize<'de>,
+    AppMessage: Serialize + for<'de> Deserialize<'de> + Debug,
     FnOnConnectErr: ConnectErrorHandler<WsError>,
 {
     let connect = move || {
@@ -51,10 +52,13 @@ where
 
 pub async fn init_websocket_serde<De, AppMessage>(
     url: &str,
-) -> Result<impl Sink<AppMessage> + Stream<Item = Message<AdminWs, AppMessage>>, WsError>
+) -> Result<
+    impl Sink<AppMessage> + Stream<Item = Result<Message<AdminWs, AppMessage>, De::Error>> + use<De, AppMessage>,
+    WsError,
+>
 where
     De: Deserialiser<Bytes, AppMessage>,
-    AppMessage: Serialize + for<'de> Deserialize<'de>,
+    AppMessage: Serialize + for<'de> Deserialize<'de> + Debug,
 {
     let socket = connect(url).await?.map(WsParser::parse);
 
@@ -66,10 +70,8 @@ pub fn with_serde<De, AppMessage>(
 ) -> impl Sink<AppMessage> + Stream<Item = Result<Message<AdminWs, AppMessage>, De::Error>>
 where
     De: Deserialiser<Bytes, AppMessage>,
-    AppMessage: Serialize + for<'de> Deserialize<'de>,
+    AppMessage: Serialize + for<'de> Deserialize<'de> + Debug,
 {
-    use futures::{SinkExt, StreamExt};
-
     socket
         .with(|message: AppMessage| async move {
             SeJsonString::se_string(&message)
