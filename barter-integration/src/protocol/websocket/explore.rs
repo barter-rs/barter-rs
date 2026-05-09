@@ -21,15 +21,17 @@ use serde::{Deserialize, Serialize};
 pub trait AdminWsStrategy {}
 pub trait AdminAppStrategy {}
 
-fn init_reconnecting_websocket<FnOnConnectErr, AppMessage>(
+fn init_reconnecting_websocket<De, AppMessage, FnOnConnectErr>(
     url: String,
     timeout_connect: std::time::Duration,
     on_connect_err: FnOnConnectErr,
 ) -> Result<
-    impl Stream<Item = impl Sink<WsMessage> + Stream<Item = Message<AdminWs, bytes::Bytes>>>,
+    impl Stream<Item = impl Sink<AppMessage> + Stream<Item = Result<Message<AdminWs, AppMessage>, De::Error>>>,
     WsError,
 >
 where
+    De: Deserialiser<Bytes, AppMessage>,
+    AppMessage: Serialize + for<'de> Deserialize<'de>,
     FnOnConnectErr: ConnectErrorHandler<WsError>,
 {
     let connect = move || {
@@ -37,7 +39,7 @@ where
         async move {
             // Todo: need to find say way to apply a 'next event timeout' before flattening
             //       or don't flatten and let API caller handle
-            init_websocket_serde(&url).await
+            init_websocket_serde::<De, AppMessage>(&url).await
         }
     };
 
@@ -61,7 +63,7 @@ where
 
 pub fn with_serde<De, AppMessage>(
     socket: impl Sink<WsMessage> + Stream<Item = Message<AdminWs, Bytes>>,
-) -> impl Sink<AppMessage> + Stream<Item = Result<Message<AdminWs, AppMessage>, DeBinaryError>>
+) -> impl Sink<AppMessage> + Stream<Item = Result<Message<AdminWs, AppMessage>, De::Error>>
 where
     De: Deserialiser<Bytes, AppMessage>,
     AppMessage: Serialize + for<'de> Deserialize<'de>,
@@ -81,12 +83,12 @@ where
 }
 
 pub enum WsSinkError<SeErr> {
-    Sink(WsSink),
+    Sink(WsError),
     Serialise(SeErr),
 }
 
-impl<SeError> From<WsSink> for WsSinkError<SeError> {
-    fn from(value: WsSink) -> Self {
+impl<SeError> From<WsError> for WsSinkError<SeError> {
+    fn from(value: WsError) -> Self {
         Self::Sink(value)
     }
 }
