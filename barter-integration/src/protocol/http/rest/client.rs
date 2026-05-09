@@ -5,7 +5,6 @@ use crate::{
 };
 use bytes::Bytes;
 use chrono::Utc;
-use std::borrow::Cow;
 
 /// Configurable REST client capable of executing signed [`RestRequest`]s. Use this when
 /// integrating APIs that require Http in order to interact with resources. Each API will require
@@ -13,12 +12,12 @@ use std::borrow::Cow;
 /// signature [`Encoder`](super::super::private::encoder::Encoder), and
 /// [`HttpParser`].
 #[derive(Debug)]
-pub struct RestClient<'a, Strategy, Parser> {
+pub struct RestClient<Strategy, Parser> {
     /// HTTP [`reqwest::Client`] for executing signed [`reqwest::Request`]s.
     pub http_client: reqwest::Client,
 
     /// Base Url of the API being interacted with.
-    pub base_url: Cow<'a, str>,
+    pub base_url: Box<str>,
 
     /// [`RestRequest`] build strategy for the API being interacted with that implements
     /// [`BuildStrategy`].
@@ -34,7 +33,7 @@ pub struct RestClient<'a, Strategy, Parser> {
     pub parser: Parser,
 }
 
-impl<Strategy, Parser> RestClient<'_, Strategy, Parser>
+impl<Strategy, Parser> RestClient<Strategy, Parser>
 where
     Strategy: BuildStrategy,
     Parser: HttpParser,
@@ -128,9 +127,9 @@ where
     }
 }
 
-impl<'a, Strategy, Parser> RestClient<'a, Strategy, Parser> {
+impl<Strategy, Parser> RestClient<Strategy, Parser> {
     /// Construct a new [`Self`] using the provided configuration.
-    pub fn new<Url: Into<Cow<'a, str>>>(base_url: Url, strategy: Strategy, parser: Parser) -> Self {
+    pub fn new(base_url: impl Into<Box<str>>, strategy: Strategy, parser: Parser) -> Self {
         Self {
             http_client: reqwest::Client::new(),
             base_url: base_url.into(),
