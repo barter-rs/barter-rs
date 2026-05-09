@@ -1,5 +1,3 @@
-mod explore;
-
 use crate::{Message, error::SocketError, protocol::StreamParser};
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
@@ -15,6 +13,10 @@ use tokio_tungstenite::{
     },
 };
 use tracing::debug;
+
+mod explore;
+mod use_explore;
+
 
 /// Convenient type alias for a tungstenite `WebSocketStream`.
 pub type WebSocket = tokio_tungstenite::WebSocketStream<MaybeTlsStream<TcpStream>>;
