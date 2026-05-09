@@ -23,7 +23,7 @@ use std::fmt::Debug;
 pub trait AdminWsStrategy {}
 pub trait AdminAppStrategy {}
 
-fn init_reconnecting_websocket<De, AppMessage, FnOnConnectErr, FnOnStreamErr>(
+pub fn init_reconnecting_websocket<De, AppMessage, FnOnConnectErr, FnOnStreamErr>(
     url: String,
     timeout_connect: std::time::Duration,
     on_connect_err: FnOnConnectErr,
