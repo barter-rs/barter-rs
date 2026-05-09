@@ -1,4 +1,4 @@
-use crate::subscription::SubscriptionId;
+use crate::{protocol::websocket::WsError, subscription::SubscriptionId};
 use prost::DecodeError;
 use reqwest::Error;
 use thiserror::Error;
@@ -74,5 +74,11 @@ impl From<reqwest::Error> for SocketError {
             error if error.is_timeout() => SocketError::HttpTimeout(error),
             error => SocketError::Http(error),
         }
+    }
+}
+
+impl From<WsError> for SocketError {
+    fn from(value: WsError) -> Self {
+        Self::WebSocket(Box::new(value))
     }
 }

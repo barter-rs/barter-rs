@@ -1,3 +1,5 @@
+mod explore;
+
 use crate::{Message, error::SocketError, protocol::StreamParser};
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
@@ -29,7 +31,7 @@ pub type WsMessage = tokio_tungstenite::tungstenite::Message;
 /// Communicative type alias for a tungstenite [`WebSocket`] `Error`.
 pub type WsError = tokio_tungstenite::tungstenite::Error;
 
-/// [`WebSocket`] administration message variants.
+/// [`WebSocket`] administration message variants.AdminApp
 #[derive(Debug)]
 pub enum AdminWs {
     Ping(Bytes),
@@ -200,15 +202,12 @@ pub fn process_frame<ExchangeMessage>(
 }
 
 /// Connect asynchronously to a [`WebSocket`] server.
-pub async fn connect<R>(request: R) -> Result<WebSocket, SocketError>
+pub async fn connect<R>(request: R) -> Result<WebSocket, WsError>
 where
     R: IntoClientRequest + Unpin + Debug,
 {
     debug!(?request, "attempting to establish WebSocket connection");
-    connect_async(request)
-        .await
-        .map(|(websocket, _)| websocket)
-        .map_err(|error| SocketError::WebSocket(Box::new(error)))
+    connect_async(request).await.map(|(websocket, _)| websocket)
 }
 
 /// Determine whether a [`WsError`] indicates the [`WebSocket`] has disconnected.
