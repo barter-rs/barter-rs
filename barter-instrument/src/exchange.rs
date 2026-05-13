@@ -1,6 +1,7 @@
 use derive_more::{Constructor, Display};
 use serde::{Deserialize, Serialize};
 
+/// Unique index for each [`ExchangeId`] used in the Engine.
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
