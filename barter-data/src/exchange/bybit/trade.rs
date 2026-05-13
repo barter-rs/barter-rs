@@ -1,14 +1,14 @@
 use crate::{
     event::{MarketEvent, MarketIter},
-    exchange::bybit::message::BybitPayload,
+    exchange::bybit::message::{BybitWsMessage},
     subscription::trade::PublicTrade,
 };
 use barter_instrument::{Side, exchange::ExchangeId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Terse type alias for an [`BybitTrade`](BybitTradeInner) real-time trades WebSocket message.
-pub type BybitTrade = BybitPayload<Vec<BybitTradeInner>>;
+/// Terse type alias for a Bybit real-time trades WebSocket message.
+pub type BybitTrade = BybitWsMessage<Vec<BybitTradeInner>>;
 
 /// ### Raw Payload Examples
 /// See docs: <https://bybit-exchange.github.io/docs/v5/websocket/public/trade>
@@ -58,7 +58,10 @@ pub struct BybitTradeInner {
 impl<InstrumentKey: Clone> From<(ExchangeId, InstrumentKey, BybitTrade)>
     for MarketIter<InstrumentKey, PublicTrade>
 {
-    fn from((exchange, instrument, trades): (ExchangeId, InstrumentKey, BybitTrade)) -> Self {
+    fn from((exchange, instrument, msg): (ExchangeId, InstrumentKey, BybitTrade)) -> Self {
+        let BybitWsMessage::Payload(trades) = msg else {
+            return Self(vec![]);
+        };
         Self(
             trades
                 .data
@@ -87,7 +90,7 @@ mod tests {
     use super::*;
 
     mod de {
-        use crate::exchange::bybit::message::BybitPayloadKind;
+        use crate::exchange::bybit::message::{BybitPayload, BybitPayloadKind, BybitWsMessage};
 
         use super::*;
         use barter_integration::{
@@ -234,7 +237,7 @@ mod tests {
                             ]
                         }
                     "#,
-                    expected: Ok(BybitTrade {
+                    expected: Ok(BybitWsMessage::Payload(BybitPayload {
                         subscription_id: SubscriptionId("publicTrade|BTCUSDT".to_smolstr()),
                         kind: BybitPayloadKind::Snapshot,
                         time: datetime_utc_from_epoch_duration(Duration::from_millis(
@@ -262,7 +265,7 @@ mod tests {
                                 id: "20f43950-d8dd-5b31-9112-a178eb6023af".to_string(),
                             },
                         ],
-                    }),
+                    })),
                 },
                 // TC1: input BybitTrade is invalid w/ no subscription_id
                 TestCase {
