@@ -9,8 +9,7 @@ use crate::{
     map::ExecutionInstrumentMap,
     order::{
         Order, OrderEvent, OrderKey, OrderSnapshot, UnindexedOrderKey, UnindexedOrderSnapshot,
-        request::OrderResponseCancel,
-        state::{InactiveOrderState, OrderState, UnindexedOrderState},
+        request::OrderResponseCancel, state::OrderState,
     },
     trade::Trade,
 };
@@ -143,20 +142,17 @@ impl AccountEventIndexer {
         let key = self.order_key(key)?;
 
         let state = match state {
-            UnindexedOrderState::Active(active) => OrderState::Active(active),
-            UnindexedOrderState::Inactive(inactive) => match inactive {
-                InactiveOrderState::OpenFailed(failed) => match failed {
-                    OrderError::Rejected(rejected) => {
-                        OrderState::inactive(OrderError::Rejected(self.api_error(rejected)?))
-                    }
-                    OrderError::Connectivity(error) => {
-                        OrderState::inactive(OrderError::Connectivity(error))
-                    }
-                },
-                InactiveOrderState::Cancelled(cancelled) => OrderState::inactive(cancelled),
-                InactiveOrderState::FullyFilled => OrderState::fully_filled(),
-                InactiveOrderState::Expired => OrderState::expired(),
-            },
+            OrderState::OpenInFlight(open_in_flight) => OrderState::OpenInFlight(open_in_flight),
+            OrderState::Open(open) => OrderState::Open(open),
+            OrderState::CancelInFlight(cancel_in_flight) => {
+                OrderState::CancelInFlight(cancel_in_flight)
+            }
+            OrderState::Cancelled(cancelled) => OrderState::Cancelled(cancelled),
+            OrderState::FullyFilled(fully_filled) => OrderState::FullyFilled(fully_filled),
+            OrderState::OpenFailed(open_failed) => {
+                OrderState::OpenFailed(self.order_error(open_failed)?)
+            }
+            OrderState::Expired(expired) => OrderState::Expired(expired),
         };
 
         Ok(Order {

@@ -1,11 +1,11 @@
 use crate::order::{
     id::StrategyId,
     request::{OrderRequestCancel, OrderRequestOpen, RequestCancel, RequestOpen},
-    state::UnindexedOrderState,
+    state::{OrderState, UnindexedOrderState},
 };
 use barter_instrument::{
     Side,
-    asset::{AssetIndex, name::AssetNameExchange},
+    asset::AssetIndex,
     exchange::{ExchangeId, ExchangeIndex},
     instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
@@ -13,7 +13,7 @@ use derive_more::{Constructor, Display};
 use id::ClientOrderId;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use state::{ActiveOrderState, Cancelled, InactiveOrderState, Open, OpenInFlight, OrderState};
+use state::OpenInFlight;
 
 /// `Order` related identifiers.
 pub mod id;
@@ -37,11 +37,7 @@ pub type UnindexedOrderKey = OrderKey<ExchangeId, InstrumentNameExchange>;
 
 /// Convenient type alias for an [`OrderSnapshot`] keyed with [`ExchangeId`], [`AssetNameExchange`],
 /// and [`InstrumentNameExchange`].
-pub type UnindexedOrderSnapshot = Order<
-    ExchangeId,
-    InstrumentNameExchange,
-    OrderState<AssetNameExchange, InstrumentNameExchange>,
->;
+pub type UnindexedOrderSnapshot = Order<ExchangeId, InstrumentNameExchange, UnindexedOrderState>;
 
 /// Convenient type alias for an [`Order`] [`OrderState`] snapshot.
 pub type OrderSnapshot<
@@ -82,54 +78,7 @@ pub struct Order<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex, S
     pub state: State,
 }
 
-impl<ExchangeKey, AssetKey, InstrumentKey>
-    Order<ExchangeKey, InstrumentKey, OrderState<AssetKey, InstrumentKey>>
-{
-    pub fn to_active(&self) -> Option<Order<ExchangeKey, InstrumentKey, ActiveOrderState>>
-    where
-        ExchangeKey: Clone,
-        InstrumentKey: Clone,
-    {
-        let OrderState::Active(state) = &self.state else {
-            return None;
-        };
-
-        Some(Order {
-            key: self.key.clone(),
-            side: self.side,
-            price: self.price,
-            quantity: self.quantity,
-            kind: self.kind,
-            time_in_force: self.time_in_force,
-            state: state.clone(),
-        })
-    }
-
-    pub fn to_inactive(
-        &self,
-    ) -> Option<Order<ExchangeKey, InstrumentKey, InactiveOrderState<AssetKey, InstrumentKey>>>
-    where
-        ExchangeKey: Clone,
-        AssetKey: Clone,
-        InstrumentKey: Clone,
-    {
-        let OrderState::Inactive(state) = &self.state else {
-            return None;
-        };
-
-        Some(Order {
-            key: self.key.clone(),
-            side: self.side,
-            price: self.price,
-            quantity: self.quantity,
-            kind: self.kind,
-            time_in_force: self.time_in_force,
-            state: state.clone(),
-        })
-    }
-}
-
-impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, ActiveOrderState>
+impl<ExchangeKey, InstrumentKey> Order<ExchangeKey, InstrumentKey, OrderState>
 where
     ExchangeKey: Clone,
     InstrumentKey: Clone,
@@ -138,9 +87,12 @@ where
         let Order { key, state, .. } = self;
 
         let request_cancel = match state {
-            ActiveOrderState::OpenInFlight(_) => RequestCancel { id: None },
-            ActiveOrderState::Open(open) => RequestCancel {
+            OrderState::OpenInFlight(_) => RequestCancel { id: None },
+            OrderState::Open(open) => RequestCancel {
                 id: Some(open.id.clone()),
+            },
+            OrderState::CancelInFlight(cancel_in_flight) => RequestCancel {
+                id: cancel_in_flight.order.as_ref().map(|o| o.id.clone()),
             },
             _ => return None,
         };
@@ -170,8 +122,22 @@ pub enum TimeInForce {
     ImmediateOrCancel,
 }
 
+impl<ExchangeKey, InstrumentKey, State> Order<ExchangeKey, InstrumentKey, State> {
+    pub fn map_state<S>(self, f: impl FnOnce(State) -> S) -> Order<ExchangeKey, InstrumentKey, S> {
+        Order {
+            key: self.key,
+            side: self.side,
+            price: self.price,
+            quantity: self.quantity,
+            kind: self.kind,
+            time_in_force: self.time_in_force,
+            state: f(self.state),
+        }
+    }
+}
+
 impl<ExchangeKey, InstrumentKey> From<&OrderRequestOpen<ExchangeKey, InstrumentKey>>
-    for Order<ExchangeKey, InstrumentKey, ActiveOrderState>
+    for Order<ExchangeKey, InstrumentKey, OrderState>
 where
     ExchangeKey: Clone,
     InstrumentKey: Clone,
@@ -196,85 +162,7 @@ where
             quantity: *quantity,
             kind: *kind,
             time_in_force: *time_in_force,
-            state: ActiveOrderState::OpenInFlight(OpenInFlight),
-        }
-    }
-}
-
-impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
-    for Order<ExchangeKey, InstrumentKey, ActiveOrderState>
-{
-    fn from(value: Order<ExchangeKey, InstrumentKey, Open>) -> Self {
-        let Order {
-            key,
-            side,
-            price,
-            quantity,
-            kind,
-            time_in_force,
-            state,
-        } = value;
-
-        Self {
-            key,
-            side,
-            price,
-            quantity,
-            kind,
-            time_in_force,
-            state: ActiveOrderState::Open(state),
-        }
-    }
-}
-
-impl<ExchangeKey, AssetKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
-    for Order<ExchangeKey, InstrumentKey, OrderState<AssetKey, InstrumentKey>>
-{
-    fn from(value: Order<ExchangeKey, InstrumentKey, Open>) -> Self {
-        let Order {
-            key,
-            side,
-            price,
-            quantity,
-            kind,
-            time_in_force,
-            state,
-        } = value;
-
-        Self {
-            key,
-            side,
-            price,
-            quantity,
-            kind,
-            time_in_force,
-            state: OrderState::Active(ActiveOrderState::Open(state)),
-        }
-    }
-}
-
-impl<ExchangeKey, AssetKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Cancelled>>
-    for Order<ExchangeKey, InstrumentKey, OrderState<AssetKey, InstrumentKey>>
-{
-    fn from(value: Order<ExchangeKey, InstrumentKey, Cancelled>) -> Self {
-        let Order {
-            key,
-            side,
-            price,
-            quantity,
-            kind,
-            time_in_force,
-            state,
-        } = value;
-
-        Self {
-            key,
-            side,
-            price,
-            quantity,
-            kind,
-            time_in_force,
-            state: OrderState::Inactive(InactiveOrderState::Cancelled(state)),
+            state: OrderState::OpenInFlight(OpenInFlight),
         }
     }
 }

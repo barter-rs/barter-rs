@@ -18,7 +18,7 @@ use barter_execution::{
         request::{
             OrderRequestCancel, OrderRequestOpen, OrderResponseCancel, UnindexedOrderResponseCancel,
         },
-        state::{Open, OrderState},
+        state::{FullyFilled, Open, OrderState},
     },
 };
 use barter_instrument::{
@@ -390,9 +390,11 @@ where
         let key = self.indexer.order_key(key)?;
 
         let state = match state {
-            Ok(open) if open.quantity_remaining(quantity).is_zero() => OrderState::fully_filled(),
-            Ok(open) => OrderState::active(open),
-            Err(error) => OrderState::inactive(self.indexer.order_error(error)?),
+            Ok(open) if open.quantity_remaining(quantity).is_zero() => {
+                OrderState::FullyFilled(FullyFilled)
+            }
+            Ok(open) => OrderState::Open(open),
+            Err(error) => OrderState::OpenFailed(self.indexer.order_error(error)?),
         };
 
         Ok(AccountStreamEvent::Item(AccountEvent {
@@ -423,7 +425,7 @@ where
                 quantity: state.quantity,
                 kind: state.kind,
                 time_in_force: state.time_in_force,
-                state: OrderState::inactive(OrderError::Connectivity(ConnectivityError::Timeout)),
+                state: OrderState::OpenFailed(OrderError::Connectivity(ConnectivityError::Timeout)),
             })),
         })
     }

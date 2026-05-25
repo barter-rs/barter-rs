@@ -9,11 +9,7 @@ use crate::{
 use barter_data::event::MarketEvent;
 use barter_execution::{
     InstrumentAccountSnapshot,
-    order::{
-        Order, OrderKey,
-        request::OrderResponseCancel,
-        state::{ActiveOrderState, OrderState},
-    },
+    order::{Order, OrderKey, request::OrderResponseCancel, state::OrderState},
     trade::Trade,
 };
 use barter_instrument::{
@@ -391,7 +387,7 @@ where
                     quantity,
                     kind,
                     time_in_force,
-                    state: ActiveOrderState::Open(open),
+                    state: OrderState::Open(open),
                 } = order
                 else {
                     return None;
@@ -409,7 +405,7 @@ where
                     quantity: *quantity,
                     kind: *kind,
                     time_in_force: *time_in_force,
-                    state: OrderState::active(open.clone()),
+                    state: OrderState::Open(open.clone()),
                 })
             })
             .collect(),

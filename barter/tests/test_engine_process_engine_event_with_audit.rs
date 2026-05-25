@@ -47,7 +47,7 @@ use barter_execution::{
         Order, OrderKey, OrderKind, TimeInForce,
         id::{ClientOrderId, OrderId, StrategyId},
         request::{OrderRequestCancel, OrderRequestOpen, RequestOpen},
-        state::{ActiveOrderState, Open, OrderState},
+        state::{FullyFilled, Open, OrderState},
     },
     trade::{AssetFees, Trade, TradeId},
 };
@@ -531,7 +531,7 @@ fn test_engine_process_engine_event_with_audit() {
             quantity: dec!(1),
             kind: OrderKind::Limit,
             time_in_force: TimeInForce::GoodUntilCancelled { post_only: true },
-            state: ActiveOrderState::Open(Open {
+            state: OrderState::Open(Open {
                 id: gen_order_id(1),
                 time_exchange: time_plus_days(STARTING_TIMESTAMP, 4),
                 filled_quantity: dec!(0),
@@ -572,7 +572,7 @@ fn test_engine_process_engine_event_with_audit() {
             quantity: dec!(1),
             kind: OrderKind::Limit,
             time_in_force: TimeInForce::GoodUntilCancelled { post_only: true },
-            state: OrderState::fully_filled(),
+            state: OrderState::FullyFilled(FullyFilled),
         })),
     }));
     let audit = process_with_audit(&mut engine, event.clone());
@@ -915,7 +915,7 @@ fn account_event_order_response(
             quantity: Decimal::try_from(quantity).unwrap(),
             kind: OrderKind::Market,
             time_in_force: TimeInForce::GoodUntilCancelled { post_only: true },
-            state: OrderState::active(Open {
+            state: OrderState::Open(Open {
                 id: gen_order_id(instrument),
                 time_exchange: time_plus_days(STARTING_TIMESTAMP, time_plus),
                 filled_quantity: Decimal::try_from(filled).unwrap(),

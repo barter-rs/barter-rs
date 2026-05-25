@@ -8,10 +8,10 @@ use crate::{
         request::{MockExchangeRequest, MockExchangeRequestKind},
     },
     order::{
-        Order, OrderKind, UnindexedOrder,
+        Order, OrderKind,
         id::OrderId,
         request::{OrderRequestCancel, OrderRequestOpen},
-        state::{Cancelled, Open},
+        state::{Cancelled, Open, UnindexedOrderState},
     },
     trade::{AssetFees, Trade, TradeId},
 };
@@ -158,13 +158,13 @@ impl MockExchange {
             .account
             .orders_open()
             .cloned()
-            .map(UnindexedOrder::from);
+            .map(|order| order.map_state(UnindexedOrderState::Open));
 
         let orders_cancelled = self
             .account
             .orders_cancelled()
             .cloned()
-            .map(UnindexedOrder::from);
+            .map(|order| order.map_state(UnindexedOrderState::Cancelled));
 
         let orders_all = orders_open.chain(orders_cancelled);
         let orders_all = orders_all.sorted_unstable_by_key(|order| order.key.instrument.clone());

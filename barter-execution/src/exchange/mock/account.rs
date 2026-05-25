@@ -4,7 +4,7 @@ use crate::{
     order::{
         Order,
         id::ClientOrderId,
-        state::{ActiveOrderState, Cancelled, InactiveOrderState, Open, OrderState},
+        state::{Cancelled, Open, OrderState},
     },
     trade::Trade,
 };
@@ -92,7 +92,7 @@ impl From<UnindexedAccountSnapshot> for AccountState {
             |(mut orders_open, mut orders_cancelled), snapshot| {
                 for order in snapshot.orders {
                     match order.state {
-                        OrderState::Active(ActiveOrderState::Open(open)) => {
+                        OrderState::Open(open) => {
                             orders_open.insert(
                                 order.key.cid.clone(),
                                 Order {
@@ -106,7 +106,7 @@ impl From<UnindexedAccountSnapshot> for AccountState {
                                 },
                             );
                         }
-                        OrderState::Inactive(InactiveOrderState::Cancelled(cancelled)) => {
+                        OrderState::Cancelled(cancelled) => {
                             orders_cancelled.insert(
                                 order.key.cid.clone(),
                                 Order {

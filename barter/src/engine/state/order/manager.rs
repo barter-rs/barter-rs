@@ -1,9 +1,5 @@
 use crate::engine::state::order::in_flight_recorder::InFlightRequestRecorder;
-use barter_execution::order::{
-    Order,
-    request::OrderResponseCancel,
-    state::{ActiveOrderState, OrderState},
-};
+use barter_execution::order::{Order, request::OrderResponseCancel, state::OrderState};
 use barter_integration::collection::snapshot::Snapshot;
 use std::fmt::Debug;
 
@@ -16,7 +12,7 @@ where
 {
     fn orders<'a>(
         &'a self,
-    ) -> impl Iterator<Item = &'a Order<ExchangeKey, InstrumentKey, ActiveOrderState>>
+    ) -> impl Iterator<Item = &'a Order<ExchangeKey, InstrumentKey, OrderState>>
     where
         ExchangeKey: 'a,
         InstrumentKey: 'a;
