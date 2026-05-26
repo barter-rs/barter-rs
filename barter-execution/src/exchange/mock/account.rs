@@ -4,7 +4,7 @@ use crate::{
     order::{
         Order,
         id::ClientOrderId,
-        state::{Cancelled, Open, OrderState},
+        state::{Cancelled, Open},
     },
     trade::Trade,
 };
@@ -76,62 +76,17 @@ impl AccountState {
 
 impl From<UnindexedAccountSnapshot> for AccountState {
     fn from(value: UnindexedAccountSnapshot) -> Self {
-        let UnindexedAccountSnapshot {
-            exchange: _,
-            balances,
-            instruments,
-        } = value;
+        let UnindexedAccountSnapshot { exchange: _, balances } = value;
 
         let balances = balances
             .into_iter()
             .map(|asset_balance| (asset_balance.asset.clone(), asset_balance))
             .collect();
 
-        let (orders_open, orders_cancelled) = instruments.into_iter().fold(
-            (FnvHashMap::default(), FnvHashMap::default()),
-            |(mut orders_open, mut orders_cancelled), snapshot| {
-                for order in snapshot.orders {
-                    match order.state {
-                        OrderState::Open(open) => {
-                            orders_open.insert(
-                                order.key.cid.clone(),
-                                Order {
-                                    key: order.key,
-                                    side: order.side,
-                                    price: order.price,
-                                    quantity: order.quantity,
-                                    kind: order.kind,
-                                    time_in_force: order.time_in_force,
-                                    state: open,
-                                },
-                            );
-                        }
-                        OrderState::Cancelled(cancelled) => {
-                            orders_cancelled.insert(
-                                order.key.cid.clone(),
-                                Order {
-                                    key: order.key,
-                                    side: order.side,
-                                    price: order.price,
-                                    quantity: order.quantity,
-                                    kind: order.kind,
-                                    time_in_force: order.time_in_force,
-                                    state: cancelled,
-                                },
-                            );
-                        }
-                        _ => {}
-                    }
-                }
-
-                (orders_open, orders_cancelled)
-            },
-        );
-
         Self {
             balances,
-            orders_open,
-            orders_cancelled,
+            orders_open: FnvHashMap::default(),
+            orders_cancelled: FnvHashMap::default(),
             trades: vec![],
         }
     }

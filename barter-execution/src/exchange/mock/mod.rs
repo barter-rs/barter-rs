@@ -1,5 +1,5 @@
 use crate::{
-    AccountEventKind, InstrumentAccountSnapshot, UnindexedAccountEvent, UnindexedAccountSnapshot,
+    AccountEventKind, UnindexedAccountEvent, UnindexedAccountSnapshot,
     balance::AssetBalance,
     client::mock::MockExecutionConfig,
     error::{ApiError, UnindexedApiError, UnindexedOrderError},
@@ -11,7 +11,7 @@ use crate::{
         Order, OrderKind,
         id::OrderId,
         request::{OrderRequestCancel, OrderRequestOpen},
-        state::{Cancelled, Open, UnindexedOrderState},
+        state::{Cancelled, Open},
     },
     trade::{AssetFees, Trade, TradeId},
 };
@@ -25,7 +25,6 @@ use barter_integration::collection::snapshot::Snapshot;
 use chrono::{DateTime, TimeDelta, Utc};
 use fnv::FnvHashMap;
 use futures::stream::BoxStream;
-use itertools::Itertools;
 use rust_decimal::Decimal;
 use smol_str::ToSmolStr;
 use std::fmt::Debug;
@@ -152,36 +151,9 @@ impl MockExchange {
     }
 
     pub fn account_snapshot(&self) -> UnindexedAccountSnapshot {
-        let balances = self.account.balances().cloned().collect();
-
-        let orders_open = self
-            .account
-            .orders_open()
-            .cloned()
-            .map(|order| order.map_state(UnindexedOrderState::Open));
-
-        let orders_cancelled = self
-            .account
-            .orders_cancelled()
-            .cloned()
-            .map(|order| order.map_state(UnindexedOrderState::Cancelled));
-
-        let orders_all = orders_open.chain(orders_cancelled);
-        let orders_all = orders_all.sorted_unstable_by_key(|order| order.key.instrument.clone());
-        let orders_by_instrument = orders_all.chunk_by(|order| order.key.instrument.clone());
-
-        let instruments = orders_by_instrument
-            .into_iter()
-            .map(|(instrument, orders)| InstrumentAccountSnapshot {
-                instrument,
-                orders: orders.into_iter().collect(),
-            })
-            .collect();
-
         UnindexedAccountSnapshot {
             exchange: self.exchange,
-            balances,
-            instruments,
+            balances: self.account.balances().cloned().collect(),
         }
     }
 

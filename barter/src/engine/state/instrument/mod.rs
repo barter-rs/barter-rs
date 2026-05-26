@@ -8,19 +8,15 @@ use crate::{
 };
 use barter_data::event::MarketEvent;
 use barter_execution::{
-    InstrumentAccountSnapshot,
-    order::{Order, OrderKey, request::OrderResponseCancel, state::OrderState},
+    order::{Order, request::OrderResponseCancel, state::OrderState},
     trade::Trade,
 };
 use barter_instrument::{
     Keyed,
-    asset::{AssetIndex, QuoteAsset, name::AssetNameExchange},
+    asset::{AssetIndex, QuoteAsset},
     exchange::{ExchangeId, ExchangeIndex},
     index::IndexedInstruments,
-    instrument::{
-        Instrument, InstrumentIndex,
-        name::{InstrumentNameExchange, InstrumentNameInternal},
-    },
+    instrument::{Instrument, InstrumentIndex, name::InstrumentNameInternal},
 };
 use barter_integration::collection::{FnvIndexMap, snapshot::Snapshot};
 use chrono::{DateTime, Utc};
@@ -269,23 +265,6 @@ pub struct InstrumentState<
 impl<InstrumentData, ExchangeKey, AssetKey, InstrumentKey>
     InstrumentState<InstrumentData, ExchangeKey, AssetKey, InstrumentKey>
 {
-    /// Updates the instrument state using an account snapshot from the exchange.
-    ///
-    /// This updates active orders for the instrument, using timestamps where relevant to ensure
-    /// the most recent order state is applied.
-    pub fn update_from_account_snapshot(
-        &mut self,
-        snapshot: &InstrumentAccountSnapshot<ExchangeKey, AssetKey, InstrumentKey>,
-    ) where
-        ExchangeKey: Debug + Clone,
-        InstrumentKey: Debug + Clone,
-        AssetKey: Debug + Clone,
-    {
-        for order in &snapshot.orders {
-            self.update_from_order_snapshot(Snapshot(order))
-        }
-    }
-
     /// Updates the instrument state from an [`Order`] snapshot.
     pub fn update_from_order_snapshot(
         &mut self,
@@ -350,65 +329,6 @@ impl<InstrumentData, ExchangeKey, AssetKey, InstrumentKey>
         };
 
         position.update_pnl_unrealised(price);
-    }
-}
-
-pub fn generate_unindexed_instrument_account_snapshot<
-    InstrumentData,
-    ExchangeKey,
-    AssetKey,
-    InstrumentKey,
->(
-    exchange: ExchangeId,
-    state: &InstrumentState<InstrumentData, ExchangeKey, AssetKey, InstrumentKey>,
-) -> InstrumentAccountSnapshot<ExchangeId, AssetNameExchange, InstrumentNameExchange>
-where
-    ExchangeKey: Debug + Clone,
-    InstrumentKey: Debug + Clone,
-{
-    let InstrumentState {
-        key: _,
-        instrument,
-        tear_sheet: _,
-        position: _,
-        orders,
-        data: _,
-    } = state;
-
-    InstrumentAccountSnapshot {
-        instrument: instrument.name_exchange.clone(),
-        orders: orders
-            .orders()
-            .filter_map(|order| {
-                let Order {
-                    key,
-                    side,
-                    price,
-                    quantity,
-                    kind,
-                    time_in_force,
-                    state: OrderState::Open(open),
-                } = order
-                else {
-                    return None;
-                };
-
-                Some(Order {
-                    key: OrderKey {
-                        exchange,
-                        instrument: instrument.name_exchange.clone(),
-                        strategy: key.strategy.clone(),
-                        cid: key.cid.clone(),
-                    },
-                    side: *side,
-                    price: *price,
-                    quantity: *quantity,
-                    kind: *kind,
-                    time_in_force: *time_in_force,
-                    state: OrderState::Open(open.clone()),
-                })
-            })
-            .collect(),
     }
 }
 

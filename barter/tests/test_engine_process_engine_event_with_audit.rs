@@ -873,7 +873,6 @@ fn account_event_snapshot(assets: &AssetStates) -> EngineEvent<DataKind> {
                     time_exchange: state.balance.unwrap().time,
                 })
                 .collect(),
-            instruments: vec![],
         }),
     }))
 }

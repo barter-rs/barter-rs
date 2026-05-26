@@ -1,5 +1,5 @@
 use crate::{
-    AccountEvent, AccountEventKind, AccountSnapshot, InstrumentAccountSnapshot,
+    AccountEvent, AccountEventKind, AccountSnapshot,
     UnindexedAccountEvent, UnindexedAccountSnapshot,
     balance::AssetBalance,
     error::{
@@ -71,11 +71,7 @@ impl AccountEventIndexer {
         &self,
         snapshot: UnindexedAccountSnapshot,
     ) -> Result<AccountSnapshot, IndexError> {
-        let UnindexedAccountSnapshot {
-            exchange,
-            balances,
-            instruments,
-        } = snapshot;
+        let UnindexedAccountSnapshot { exchange, balances } = snapshot;
 
         let exchange = self.map.find_exchange_index(exchange)?;
 
@@ -84,27 +80,7 @@ impl AccountEventIndexer {
             .map(|balance| self.asset_balance(balance))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let instruments = instruments
-            .into_iter()
-            .map(|snapshot| {
-                let InstrumentAccountSnapshot { instrument, orders } = snapshot;
-
-                let instrument = self.map.find_instrument_index(&instrument)?;
-
-                let orders = orders
-                    .into_iter()
-                    .map(|order| self.order_snapshot(order))
-                    .collect::<Result<Vec<_>, _>>()?;
-
-                Ok(InstrumentAccountSnapshot { instrument, orders })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(AccountSnapshot {
-            exchange,
-            balances,
-            instruments,
-        })
+        Ok(AccountSnapshot { exchange, balances })
     }
 
     pub fn asset_balance(

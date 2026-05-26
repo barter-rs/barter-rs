@@ -4,18 +4,13 @@ use crate::engine::{
         asset::{AssetStates, filter::AssetFilter},
         builder::EngineStateBuilder,
         connectivity::ConnectivityStates,
-        instrument::{
-            InstrumentStates, data::InstrumentDataState, filter::InstrumentFilter,
-            generate_unindexed_instrument_account_snapshot,
-        },
+        instrument::{InstrumentStates, data::InstrumentDataState},
         position::PositionExited,
         trading::TradingState,
     },
 };
 use barter_data::event::MarketEvent;
-use barter_execution::{
-    AccountEvent, AccountEventKind, UnindexedAccountSnapshot, balance::AssetBalance,
-};
+use barter_execution::{AccountEvent, AccountEventKind, UnindexedAccountSnapshot, balance::AssetBalance};
 use barter_instrument::{
     Keyed,
     asset::{AssetIndex, QuoteAsset},
@@ -24,8 +19,8 @@ use barter_instrument::{
     instrument::{Instrument, InstrumentIndex},
 };
 use barter_integration::collection::{one_or_many::OneOrMany, snapshot::Snapshot};
-use derive_more::Constructor;
 use fnv::FnvHashMap;
+use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -119,14 +114,6 @@ impl<GlobalData, InstrumentData> EngineState<GlobalData, InstrumentData> {
                         .asset_index_mut(&balance.asset)
                         .update_from_balance(Snapshot(balance))
                 }
-                for instrument in &snapshot.instruments {
-                    let instrument_state = self
-                        .instruments
-                        .instrument_index_mut(&instrument.instrument);
-
-                    instrument_state.update_from_account_snapshot(instrument);
-                    instrument_state.data.process(event);
-                }
                 None
             }
             AccountEventKind::BalanceSnapshot(balance) => {
@@ -201,15 +188,13 @@ impl<GlobalData, InstrumentData> From<&EngineState<GlobalData, InstrumentData>>
             global: _,
             connectivity,
             assets,
-            instruments,
+            instruments: _,
         } = value;
 
-        // Allocate appropriately
         let mut snapshots =
             FnvHashMap::with_capacity_and_hasher(connectivity.exchanges.len(), Default::default());
 
-        // Insert UnindexedAccountSnapshot for each exchange
-        for (index, exchange) in connectivity.exchange_ids().enumerate() {
+        for exchange in connectivity.exchange_ids() {
             snapshots.insert(
                 *exchange,
                 UnindexedAccountSnapshot {
@@ -218,14 +203,6 @@ impl<GlobalData, InstrumentData> From<&EngineState<GlobalData, InstrumentData>>
                         .filtered(&AssetFilter::Exchanges(OneOrMany::One(*exchange)))
                         .map(AssetBalance::from)
                         .collect(),
-                    instruments: instruments
-                        .instruments(&InstrumentFilter::Exchanges(OneOrMany::One(ExchangeIndex(
-                            index,
-                        ))))
-                        .map(|snapshot| {
-                            generate_unindexed_instrument_account_snapshot(*exchange, snapshot)
-                        })
-                        .collect::<Vec<_>>(),
                 },
             );
         }
