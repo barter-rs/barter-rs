@@ -13,8 +13,10 @@ use crate::{
         command::Command,
         execution_tx::ExecutionTxMap,
         state::{
-            EngineState, instrument::data::InstrumentDataState,
-            order::in_flight_recorder::InFlightRequestRecorder, position::PositionExited,
+            EngineState,
+            instrument::data::InstrumentDataState,
+            order::{in_flight_recorder::InFlightRequestRecorder, manager::OrderManager},
+            position::PositionExited,
             trading::TradingState,
         },
     },
@@ -28,14 +30,17 @@ use crate::{
     },
 };
 use barter_data::{event::MarketEvent, streams::consumer::MarketStreamEvent};
-use barter_execution::AccountEvent;
+use barter_execution::{
+    AccountEvent, AccountEventKind,
+    order::request::{OrderRequestSnapshot, RequestSnapshot},
+};
 use barter_instrument::{asset::QuoteAsset, exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::channel::Tx;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use tracing::info;
+use tracing::{info, warn};
 
 /// Defines how the [`Engine`] actions a [`Command`], and the associated outputs.
 pub mod action;
@@ -268,6 +273,7 @@ impl<Clock, GlobalData, InstrumentData, ExecutionTxs, Strategy, Risk>
         InstrumentData: for<'a> Processor<&'a AccountEvent>,
         GlobalData: for<'a> Processor<&'a AccountEvent>,
         Strategy: OnDisconnectStrategy<Clock, EngineState<GlobalData, InstrumentData>, ExecutionTxs, Risk>,
+        ExecutionTxs: ExecutionTxMap<ExchangeIndex, InstrumentIndex>,
     {
         match event {
             AccountStreamEvent::Reconnecting(exchange) => {
@@ -277,12 +283,70 @@ impl<Clock, GlobalData, InstrumentData, ExecutionTxs, Strategy, Risk>
 
                 UpdateFromAccountOutput::OnDisconnect(Strategy::on_disconnect(self, *exchange))
             }
-            AccountStreamEvent::Item(event) => self
-                .state
-                .update_from_account(event)
-                .map(UpdateFromAccountOutput::PositionExit)
-                .unwrap_or(UpdateFromAccountOutput::None),
+            AccountStreamEvent::Item(account_event) => {
+                // TODO: This is here temporarily. The ExecutionManager currently
+                // doesn't know which orders it is managing on the exchange. This is going
+                // to change when the ExecutionManager will hold actual order states.
+                let snapshot_requests =
+                    self.order_snapshot_requests_on_account_snapshot(account_event);
+
+                let result = self
+                    .state
+                    .update_from_account(account_event)
+                    .map(UpdateFromAccountOutput::PositionExit)
+                    .unwrap_or(UpdateFromAccountOutput::None);
+
+                if let Some(exchange) = snapshot_requests.first().map(|r| r.key.exchange) {
+                    match self.execution_txs.find(&exchange) {
+                        Ok(tx) => {
+                            if tx
+                                .send(ExecutionRequest::Snapshots(snapshot_requests))
+                                .is_err()
+                            {
+                                warn!(
+                                    "ExecutionManager channel closed while sending ExecutionRequest::Snapshots"
+                                );
+                            }
+                        }
+                        Err(error) => {
+                            warn!(
+                                ?error,
+                                "Failed to find ExecutionTx for order snapshot requests"
+                            );
+                        }
+                    }
+                }
+
+                result
+            }
         }
+    }
+
+    /// Returns [`OrderRequestSnapshot`]s for all active orders tracked by the engine for the
+    /// snapshot's exchange, so the engine can reconcile their states.
+    fn order_snapshot_requests_on_account_snapshot(
+        &self,
+        event: &AccountEvent,
+    ) -> Vec<OrderRequestSnapshot<ExchangeIndex, InstrumentIndex>> {
+        if !matches!(event.kind, AccountEventKind::Snapshot(_)) {
+            return vec![];
+        }
+
+        self.state
+            .instruments
+            .0
+            .values()
+            .filter(|ins_state| ins_state.instrument.exchange == event.exchange)
+            .flat_map(|ins_state| ins_state.orders.orders())
+            .filter(|order| order.state.is_active())
+            .flat_map(|order| {
+                let order_id = order.state.order_id()?.clone();
+                Some(OrderRequestSnapshot {
+                    key: order.key.clone(),
+                    state: RequestSnapshot { id: order_id },
+                })
+            })
+            .collect()
     }
 
     /// Update the [`Engine`] from a [`MarketStreamEvent`].

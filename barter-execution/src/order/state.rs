@@ -24,6 +24,18 @@ pub enum OrderState<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
 }
 
 impl<AssetKey, InstrumentKey> OrderState<AssetKey, InstrumentKey> {
+    pub fn order_id(&self) -> Option<&OrderId> {
+        match self {
+            OrderState::Open(open) => Some(&open.id),
+            OrderState::CancelInFlight(cancel) => cancel.order.as_ref().map(|o| &o.id),
+            OrderState::Cancelled(cancelled) => Some(&cancelled.id),
+            OrderState::OpenInFlight(_)
+            | OrderState::FullyFilled(_)
+            | OrderState::OpenFailed(_)
+            | OrderState::Expired(_) => None,
+        }
+    }
+
     pub fn time_exchange(&self) -> Option<DateTime<Utc>> {
         match self {
             OrderState::Open(open) => Some(open.time_exchange),
@@ -37,6 +49,18 @@ impl<AssetKey, InstrumentKey> OrderState<AssetKey, InstrumentKey> {
             OrderState::Open(open) => Some(open),
             OrderState::CancelInFlight(cancel) => cancel.order.as_ref(),
             _ => None,
+        }
+    }
+
+    pub fn is_active(&self) -> bool {
+        match self {
+            OrderState::OpenInFlight(_) | OrderState::Open(_) | OrderState::CancelInFlight(_) => {
+                true
+            }
+            OrderState::Cancelled(_)
+            | OrderState::FullyFilled(_)
+            | OrderState::OpenFailed(_)
+            | OrderState::Expired(_) => false,
         }
     }
 }

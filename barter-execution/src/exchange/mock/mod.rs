@@ -8,10 +8,10 @@ use crate::{
         request::{MockExchangeRequest, MockExchangeRequestKind},
     },
     order::{
-        Order, OrderKind,
+        Order, OrderKind, TimeInForce,
         id::OrderId,
         request::{OrderRequestCancel, OrderRequestOpen},
-        state::{Cancelled, Open},
+        state::{Cancelled, FullyFilled, Open, UnindexedOrderState},
     },
     trade::{AssetFees, Trade, TradeId},
 };
@@ -89,18 +89,6 @@ impl MockExchange {
                         .collect();
                     self.respond_with_latency(response_tx, balances);
                 }
-                MockExchangeRequestKind::FetchOrdersOpen {
-                    response_tx,
-                    instruments,
-                } => {
-                    let orders_open = self
-                        .account
-                        .orders_open()
-                        .filter(|order| instruments.contains(&order.key.instrument))
-                        .cloned()
-                        .collect();
-                    self.respond_with_latency(response_tx, orders_open);
-                }
                 MockExchangeRequestKind::FetchTrades {
                     response_tx,
                     time_since,
@@ -129,6 +117,21 @@ impl MockExchange {
                         self.account.ack_trade(notifications.trade.clone());
                         self.send_notifications_with_latency(notifications);
                     }
+                }
+                MockExchangeRequestKind::FetchOrderSnapshot { response_tx, request } => {
+                    let response = self.account.find_order(&request.key.cid).unwrap_or_else(|| {
+                        // Order not found - assume FullyFilled (mock fills market orders immediately)
+                        Order {
+                            key: request.key,
+                            side: Side::Buy,
+                            price: Decimal::ZERO,
+                            quantity: Decimal::ZERO,
+                            kind: OrderKind::Market,
+                            time_in_force: TimeInForce::GoodUntilCancelled { post_only: false },
+                            state: UnindexedOrderState::FullyFilled(FullyFilled),
+                        }
+                    });
+                    self.respond_with_latency(response_tx, response);
                 }
             }
         }

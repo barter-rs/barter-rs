@@ -49,10 +49,25 @@ pub type OrderSnapshot<
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
-
 pub struct OrderEvent<State, ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> {
     pub key: OrderKey<ExchangeKey, InstrumentKey>,
     pub state: State,
+}
+
+impl<'a, State: Clone, ExchangeKey: Copy>
+    OrderEvent<State, ExchangeKey, &'a InstrumentNameExchange>
+{
+    pub fn cloned_instrument(self) -> OrderEvent<State, ExchangeKey, InstrumentNameExchange> {
+        OrderEvent {
+            key: OrderKey {
+                exchange: self.key.exchange,
+                instrument: self.key.instrument.clone(),
+                strategy: self.key.strategy,
+                cid: self.key.cid,
+            },
+            state: self.state,
+        }
+    }
 }
 
 #[derive(

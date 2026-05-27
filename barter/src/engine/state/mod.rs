@@ -10,7 +10,9 @@ use crate::engine::{
     },
 };
 use barter_data::event::MarketEvent;
-use barter_execution::{AccountEvent, AccountEventKind, UnindexedAccountSnapshot, balance::AssetBalance};
+use barter_execution::{
+    AccountEvent, AccountEventKind, UnindexedAccountSnapshot, balance::AssetBalance,
+};
 use barter_instrument::{
     Keyed,
     asset::{AssetIndex, QuoteAsset},
@@ -19,8 +21,8 @@ use barter_instrument::{
     instrument::{Instrument, InstrumentIndex},
 };
 use barter_integration::collection::{one_or_many::OneOrMany, snapshot::Snapshot};
-use fnv::FnvHashMap;
 use derive_more::Constructor;
+use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 

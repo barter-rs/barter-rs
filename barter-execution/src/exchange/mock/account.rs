@@ -4,7 +4,7 @@ use crate::{
     order::{
         Order,
         id::ClientOrderId,
-        state::{Cancelled, Open},
+        state::{Cancelled, Open, UnindexedOrderState},
     },
     trade::Trade,
 };
@@ -60,6 +60,20 @@ impl AccountState {
         self.trades
             .iter()
             .filter(move |trade| trade.time_exchange >= time_since)
+    }
+
+    pub fn find_order(
+        &self,
+        cid: &ClientOrderId,
+    ) -> Option<Order<ExchangeId, InstrumentNameExchange, UnindexedOrderState>> {
+        self.orders_open
+            .get(cid)
+            .map(|o| o.clone().map_state(UnindexedOrderState::Open))
+            .or_else(|| {
+                self.orders_cancelled
+                    .get(cid)
+                    .map(|o| o.clone().map_state(UnindexedOrderState::Cancelled))
+            })
     }
 
     pub fn balance_mut(
