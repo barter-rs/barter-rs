@@ -15,60 +15,56 @@ barter-integration = { path = "./barter-integration", version = "0.11" }
 barter-instrument = { path = "./barter-instrument", version = "0.3" }
 barter-data = { path = "./barter-data", version = "0.11" }
 barter-execution = { path = "./barter-execution", version = "0.7" }
-barter-macro = { path = "./barter-macro", version = "0.2.0" }
+barter-macro = { path = "./barter-macro", version = "0.2" }
 
 # Logging
-tracing = { version = "0.1.41" }
-tracing-subscriber = { version = "0.3.19" }
+tracing = { version = "0.1", default-features = false }
+tracing-subscriber = { version = "0.3", default-features = false }
 
 # Async
-tokio = { version = "1.42", default-features = false, features = ["macros", "net", "rt-multi-thread", "signal", "time"] }
-tokio-stream = { version = "0.1.17" }
-tokio-test = { version = "0.4.4" }
-futures = { version = "0.3.31" }
-futures-util = { version = "0.3.31" }
-async-trait = { version = "0.1.83" }
-pin-project = { version = "1.1.7" }
+tokio = { version = "1.42", default-features = false }
+tokio-stream = { version = "0.1", default-features = false }
+tokio-test = { version = "0.4" , default-features = false }
+futures = { version = "0.3", default-features = false }
+futures-util = { version = "0.3", default-features = false }
+async-trait = { version = "0.1" , default-features = false }
+pin-project = { version = "1.1" , default-features = false }
 
 # Error
-thiserror = { version = "2.0.8" }
+thiserror = { version = "2.0", default-features = false }
 
 # SerDe
-serde = { version = "1.0.216", features = ["derive"] }
-serde_json = { version = "1.0.133" }
-serde_qs = { version = "0.13.0" }
-serde_urlencoded = { version = "0.7.1" }
+serde = { version = "1.0", default-features = false }
+serde_json = { version = "1.0", default-features = false }
+serde_qs = { version = "1.1", default-features = false }
+serde_urlencoded = { version = "0.7" , default-features = false }
 
 # Protocol
-url = { version = "2.5.4" }
-reqwest = { version = "0.12.9",default-features = false, features = ["rustls-tls", "json"] }
-tokio-tungstenite = { version = "0.26.0", features = ["url","rustls-tls-webpki-roots"] }
+url = { version = "2.5", default-features = false }
+reqwest = { version = "0.13", default-features = false }
+tokio-tungstenite = { version = "0.29", default-features = false }
 
 # Data Structures
-vecmap-rs = { version = "0.2.2" }
-parking_lot = { version = "0.12.3" }
-rust_decimal = { version = "1.36.0", features = ["maths"] }
-smol_str = { version = "0.3.2" }
-fnv = { version = "1.0.7" }
-indexmap = { version = "2.6.0" }
+vecmap-rs = { version = "0.2", default-features = false }
+parking_lot = { version = "0.12" , default-features = false }
+rust_decimal = { version = "1.36", default-features = false }
+smol_str = { version = "0.3" , default-features = false }
+fnv = { version = "1.0" , default-features = false }
+indexmap = { version = "2.14" , default-features = false }
 
 # Crytographic Signatures
-hmac = { version = "0.12.1" }
-sha2 = { version = "0.10.8" }
-hex = { version = "0.4.3" }
-base64 = { version = "0.22.1" }
+hmac = { version = "0.13" , default-features = false }
+sha2 = { version = "0.11" , default-features = false }
+hex = { version = "0.4", default-features = false }
+base64 = { version = "0.22", default-features = false }
 
 # Misc
-rand = { version = "0.9.0" }
-chrono = { version = "0.4.39", features = ["serde"] }
-derive_more = { version = "2.0.1", features = [
-    "constructor",
-    "display",
-    "from",
-] }
-itertools = { version = "0.14.0" }
-rust_decimal_macros = { version = "1.29.1" }
-bytes = { version = "1.5.0" }
-spin_sleep = { version = "1.3.0 "}
-criterion = { version = "0.5.1" }
-prost = { version = "0.12.4" }
+rand = { version = "0.10", default-features = false }
+chrono = { version = "0.4", default-features = false }
+derive_more = { version = "2.1", default-features = false }
+itertools = { version = "0.14" , default-features = false }
+rust_decimal_macros = { version = "1.40" , default-features = false }
+bytes = { version = "1.11" , default-features = false }
+spin_sleep = { version = "1.3", default-features = false }
+criterion = { version = "0.8" , default-features = false }
+prost = { version = "0.14" , default-features = false }

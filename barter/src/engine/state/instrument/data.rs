@@ -93,10 +93,8 @@ impl<InstrumentKey> Processor<&MarketEvent<InstrumentKey, DataKind>>
                         .replace(Timed::new(price, event.time_exchange));
                 }
             }
-            DataKind::OrderBookL1(l1) => {
-                if self.l1.last_update_time < event.time_exchange {
-                    self.l1 = l1.clone()
-                }
+            DataKind::OrderBookL1(l1) if self.l1.last_update_time < event.time_exchange => {
+                self.l1 = l1.clone()
             }
             _ => {}
         }

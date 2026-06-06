@@ -51,7 +51,7 @@ tokio = { workspace = true, optional = true, features = [
     "macros",
     "rt-multi-thread",
 ] }
-tokio-stream = { workspace = true, optional = true }
+tokio-stream = { workspace = true, optional = true, features = ["time"] }
 futures = { workspace = true, optional = true }
 pin-project = { workspace = true, optional = true }
 
@@ -61,18 +61,18 @@ fnv = { workspace = true, optional = true }
 smol_str = { workspace = true, optional = true, features = ["serde"] }
 
 # Protocol
-tokio-tungstenite = { workspace = true, optional = true }
-reqwest = { workspace = true, optional = true }
+tokio-tungstenite = { workspace = true, optional = true, features = ["connect", "url"] }
+reqwest = { workspace = true, optional = true, features = ["query", "json"] }
 url = { workspace = true, optional = true }
 
 # Cryptographic Signatures
 hmac = { workspace = true, optional = true }
-hex = { workspace = true, optional = true }
+hex = { workspace = true, optional = true, features = ["alloc"] }
 base64 = { workspace = true, optional = true }
 
 # Misc
-chrono = { workspace = true, optional = true, features = ["serde"] }
+chrono = { workspace = true, optional = true, features = ["now", "serde"] }
 itertools = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
-derive_more = { workspace = true, optional = true, features = ["display", "constructor"] }
+derive_more = { workspace = true, optional = true, features = ["from", "display", "constructor"] }
 prost = { workspace = true, optional = true }

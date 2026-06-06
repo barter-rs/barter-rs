@@ -20,10 +20,10 @@ serde_json = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 
 # Data Structures
-smol_str = { workspace = true, features = ["serde"]}
-rust_decimal = { workspace = true }
+smol_str = { workspace = true, features = ["std", "serde"] }
+rust_decimal = { workspace = true, features = ["serde"] }
 
 # Misc
 chrono = { workspace = true, features = ["serde"] }
-derive_more = { workspace = true, features = ["display"] }
+derive_more = { workspace = true, features = ["constructor", "display"] }
 thiserror = { workspace = true }

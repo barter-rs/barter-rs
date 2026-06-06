@@ -27,7 +27,7 @@ futures = { workspace = true }
 
 # Data Structures
 smol_str = { workspace = true }
-fnv = { workspace = true }
+fnv = { workspace = true, features = ["std"] }
 rust_decimal = { workspace = true }
 
 # Error
@@ -37,8 +37,8 @@ thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 
 # Misc
-rand = { workspace = true }
+rand = { workspace = true, features = ["thread_rng"] }
 chrono = { workspace = true, features = ["serde"]}
-itertools = { workspace = true }
+itertools = { workspace = true, features = ["use_alloc"] }
 derive_more = { workspace = true, features = ["constructor", "from", "display"]}
 

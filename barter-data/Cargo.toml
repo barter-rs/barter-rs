@@ -33,7 +33,7 @@ async-trait = { workspace = true }
 
 # Protocol
 url = { workspace = true }
-reqwest = { workspace = true}
+reqwest = { workspace = true, features = ["rustls"] }
 
 # Error
 thiserror = { workspace = true }
@@ -50,6 +50,6 @@ smol_str = { workspace = true, features = ["serde"] }
 # Misc
 chrono = { workspace = true, features = ["serde"] }
 derive_more = { workspace = true }
-itertools = { workspace = true }
+itertools = { workspace = true, features = ["use_alloc"] }
 vecmap-rs = { workspace = true }
-fnv = { workspace = true }
+fnv = { workspace = true, features = ["std"] }

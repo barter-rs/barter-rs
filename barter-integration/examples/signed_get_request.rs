@@ -8,7 +8,7 @@ use barter_integration::{
     },
 };
 use chrono::{DateTime, Utc};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use reqwest::{RequestBuilder, StatusCode};
 use serde::Deserialize;
 use std::borrow::Cow;

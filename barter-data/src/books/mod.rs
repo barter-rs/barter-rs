@@ -179,7 +179,7 @@ impl OrderBookSide<Asks> {
         L: Into<Level>,
     {
         let mut levels = levels.into_iter().map(L::into).collect::<Vec<_>>();
-        levels.sort_unstable_by(|a, b| a.price.cmp(&b.price));
+        levels.sort_unstable_by_key(|a| a.price);
 
         Self { side: Asks, levels }
     }

@@ -32,7 +32,7 @@ barter-execution = { workspace = true }
 
 # Logging
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter", "json", "registry"]}
+tracing-subscriber = { workspace = true, features = ["fmt", "env-filter", "json", "registry"]}
 
 # Async
 tokio = { workspace = true, features = ["sync"] }
@@ -47,14 +47,14 @@ serde = { workspace = true, features = ["derive"] }
 
 # Data Structures
 smol_str = { workspace = true }
-rust_decimal = { workspace = true }
+rust_decimal = { workspace = true, features = ["maths"] }
 fnv = { workspace = true }
-indexmap = { workspace = true, features = ["serde"]}
+indexmap = { workspace = true, features = ["std", "serde"]}
 
 # Misc
 chrono = { workspace = true, features = ["serde"]}
 derive_more = { workspace = true, features = ["constructor", "from", "display"]}
-prettytable-rs = "0.10.0"
+prettytable-rs = "0.10"
 itertools = { workspace = true }
 parking_lot = { workspace = true }
 
