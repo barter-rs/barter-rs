@@ -1,13 +1,20 @@
 use self::{
-    book::l1::KrakenOrderBookL1, channel::KrakenChannel, market::KrakenMarket,
-    message::KrakenMessage, subscription::KrakenSubResponse, trade::KrakenTrades,
+    book::{l1::KrakenOrderBookL1, l2::KrakenOrderBooksL2Transformer},
+    channel::KrakenChannel,
+    market::KrakenMarket,
+    message::KrakenMessage,
+    subscription::KrakenSubResponse,
+    trade::KrakenTrades,
 };
 use crate::{
     ExchangeWsStream, NoInitialSnapshots,
     exchange::{Connector, ExchangeSub, StreamSelector},
     instrument::InstrumentData,
     subscriber::{WebSocketSubscriber, validator::WebSocketSubValidator},
-    subscription::{book::OrderBooksL1, trade::PublicTrades},
+    subscription::{
+        book::{OrderBooksL1, OrderBooksL2},
+        trade::PublicTrades,
+    },
     transformer::stateless::StatelessTransformer,
 };
 use barter_instrument::exchange::ExchangeId;
@@ -42,6 +49,14 @@ pub mod trade;
 ///
 /// See docs: <https://docs.kraken.com/websockets/#overview>
 pub const BASE_URL_KRAKEN: &str = "wss://ws.kraken.com/";
+
+/// [`Kraken`] OrderBook Level2 subscription depth.
+///
+/// The CRC32 checksum sent with every book update is defined over the top ten levels of each
+/// side, so the book is subscribed to at the matching depth.
+///
+/// See docs: <https://docs.kraken.com/api/docs/guides/spot-ws-book-v1>
+pub const KRAKEN_ORDER_BOOK_L2_DEPTH: u8 = 10;
 
 /// Convenient type alias for a Kraken [`ExchangeWsStream`] using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
 pub type KrakenWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
@@ -81,13 +96,18 @@ impl Connector for Kraken {
         exchange_subs
             .into_iter()
             .map(|ExchangeSub { channel, market }| {
+                let mut subscription = json!({
+                    "name": channel.as_ref()
+                });
+                if channel == KrakenChannel::ORDER_BOOK_L2 {
+                    subscription["depth"] = json!(KRAKEN_ORDER_BOOK_L2_DEPTH);
+                }
+
                 WsMessage::text(
                     json!({
                         "event": "subscribe",
                         "pair": [market.as_ref()],
-                        "subscription": {
-                            "name": channel.as_ref()
-                        }
+                        "subscription": subscription
                     })
                     .to_string(),
                 )
@@ -113,4 +133,12 @@ where
     type Stream = KrakenWsStream<
         StatelessTransformer<Self, Instrument::Key, OrderBooksL1, KrakenOrderBookL1>,
     >;
+}
+
+impl<Instrument> StreamSelector<Instrument, OrderBooksL2> for Kraken
+where
+    Instrument: InstrumentData,
+{
+    type SnapFetcher = NoInitialSnapshots;
+    type Stream = KrakenWsStream<KrakenOrderBooksL2Transformer<Instrument::Key>>;
 }

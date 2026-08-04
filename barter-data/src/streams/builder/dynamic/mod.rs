@@ -105,6 +105,7 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
         Subscription<GateioOptions, Instrument, PublicTrades>: Identifier<GateioMarket>,
         Subscription<Kraken, Instrument, PublicTrades>: Identifier<KrakenMarket>,
         Subscription<Kraken, Instrument, OrderBooksL1>: Identifier<KrakenMarket>,
+        Subscription<Kraken, Instrument, OrderBooksL2>: Identifier<KrakenMarket>,
         Subscription<Okx, Instrument, PublicTrades>: Identifier<OkxMarket>,
     {
         // Validate & dedup Subscription batches
@@ -604,6 +605,26 @@ impl<InstrumentKey> DynamicStreams<InstrumentKey> {
                                         .map(|stream| {
                                             tokio::spawn(stream.forward_to(
                                                 txs.l1s.get(&exchange).unwrap().clone(),
+                                            ))
+                                        })
+                                    }
+                                    (ExchangeId::Kraken, SubKind::OrderBooksL2) => {
+                                        init_market_stream(
+                                            STREAM_RECONNECTION_POLICY,
+                                            subs.into_iter()
+                                                .map(|sub| {
+                                                    Subscription::new(
+                                                        Kraken,
+                                                        sub.instrument,
+                                                        OrderBooksL2,
+                                                    )
+                                                })
+                                                .collect(),
+                                        )
+                                        .await
+                                        .map(|stream| {
+                                            tokio::spawn(stream.forward_to(
+                                                txs.l2s.get(&exchange).unwrap().clone(),
                                             ))
                                         })
                                     }
