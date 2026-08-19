@@ -18,7 +18,7 @@ collection = ["dep:indexmap", "dep:fnv", "dep:itertools", "dep:derive_more"]
 channel = ["dep:tokio", "dep:tokio-stream", "dep:derive_more", "dep:tracing"]
 error = ["dep:url", "dep:serde_qs", "dep:serde_urlencoded", "dep:thiserror"]
 metric = []
-protocol = ["error", "metric", "serde", "dep:tokio-tungstenite", "dep:reqwest", "dep:hmac", "dep:hex", "dep:base64", "dep:tokio", "dep:chrono", "dep:bytes", "dep:tracing"]
+protocol = ["error", "metric", "serde", "dep:tokio-tungstenite", "dep:reqwest", "dep:hmac", "dep:hex", "dep:base64", "dep:tokio", "dep:chrono", "dep:bytes", "dep:tracing", "dep:fix-codec", "dep:tokio-rustls", "dep:webpki-roots", "dep:futures"]
 serde = ["dep:serde_json", "dep:prost", "dep:bytes", "dep:thiserror", "dep:tracing", "dep:chrono"]
 subscription = ["dep:smol_str"]
 socket = ["dep:tokio", "dep:pin-project", "dep:futures"]
@@ -64,6 +64,9 @@ smol_str = { workspace = true, optional = true, features = ["serde"] }
 tokio-tungstenite = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
 url = { workspace = true, optional = true }
+fix-codec = { workspace = true, optional = true }
+tokio-rustls = { workspace = true, optional = true }
+webpki-roots = { workspace = true, optional = true }
 
 # Cryptographic Signatures
 hmac = { workspace = true, optional = true }
