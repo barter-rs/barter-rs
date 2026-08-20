@@ -1,6 +1,6 @@
 [package]
 name = "barter-macro"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["JustAStream"]
 edition = "2024"
 license = "MIT"
