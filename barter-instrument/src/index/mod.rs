@@ -137,7 +137,7 @@ impl IndexedInstruments {
     /// * `name` - The `InstrumentNameInternal` associated with the instrument (eg/ binance_spot_btc_usdt).
     ///
     /// # Returns
-    /// * `Ok(AssetIndex)` - instrument found.
+    /// * `Ok(InstrumentIndex)` - instrument found.
     /// * `Err(IndexError)` - instrument not found.
     pub fn find_instrument_index(
         &self,
@@ -150,9 +150,9 @@ impl IndexedInstruments {
                 (indexed.value.exchange.value == exchange && indexed.value.name_internal == *name)
                     .then_some(indexed.key)
             })
-            .ok_or(IndexError::AssetIndex(format!(
-                "Asset: ({}, {}) is not present in indexed instrument assets: {:?}",
-                exchange, name, self.assets
+            .ok_or(IndexError::InstrumentIndex(format!(
+                "Instrument: ({}, {}) is not present in indexed instruments: {:?}",
+                exchange, name, self.instruments
             )))
     }
 
@@ -372,14 +372,14 @@ mod tests {
         let err = indexed
             .find_instrument_index(ExchangeId::Kraken, &btc_usdt)
             .unwrap_err();
-        assert!(matches!(err, IndexError::AssetIndex(_)));
+        assert!(matches!(err, IndexError::InstrumentIndex(_)));
 
         // Test finding non-existent instrument
         let nonexistent = InstrumentNameInternal::from("nonexistent");
         let err = indexed
             .find_instrument_index(ExchangeId::BinanceSpot, &nonexistent)
             .unwrap_err();
-        assert!(matches!(err, IndexError::AssetIndex(_)));
+        assert!(matches!(err, IndexError::InstrumentIndex(_)));
     }
 
     #[test]
