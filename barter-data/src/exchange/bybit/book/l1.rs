@@ -4,6 +4,7 @@ use chrono::Utc;
 use crate::{
     books::Level,
     event::{MarketEvent, MarketIter},
+    exchange::bybit::message::BybitWsMessage,
     subscription::book::OrderBookL1,
 };
 
@@ -15,8 +16,12 @@ where
     InstrumentKey: Clone,
 {
     fn from(
-        (exchange, instrument, book): (ExchangeId, InstrumentKey, BybitOrderBookMessage),
+        (exchange, instrument, msg): (ExchangeId, InstrumentKey, BybitOrderBookMessage),
     ) -> Self {
+        let BybitWsMessage::Payload(book) = msg else {
+            return Self(vec![]);
+        };
+
         let best_ask = book.data.asks.first().copied().map(Level::from);
         let best_bid = book.data.bids.first().copied().map(Level::from);
 

@@ -6,7 +6,11 @@ use crate::{
     event::{MarketEvent, MarketIter},
     exchange::{
         Connector,
-        bybit::{Bybit, message::BybitPayloadKind, spot::BybitSpot},
+        bybit::{
+            Bybit,
+            message::{BybitPayload, BybitPayloadKind, BybitWsMessage},
+            spot::BybitSpot,
+        },
     },
     subscription::{
         Map,
@@ -66,6 +70,11 @@ where
     type OutputIter = Vec<Result<Self::Output, Self::Error>>;
 
     fn transform(&mut self, input: Self::Input) -> Self::OutputIter {
+        // Silently discard control messages (pong, subscribe ack) — they carry no market data.
+        let BybitWsMessage::Payload(input) = input else {
+            return vec![];
+        };
+
         // Determine if the message has an identifiable SubscriptionId
         let subscription_id = match input.id() {
             Some(subscription_id) => subscription_id,
@@ -88,7 +97,7 @@ where
             return MarketIter::<InstrumentKey, OrderBookEvent>::from((
                 BybitSpot::ID,
                 instrument.key.clone(),
-                input,
+                BybitWsMessage::Payload(input),
             ))
             .0;
         }
@@ -109,7 +118,7 @@ where
         MarketIter::<InstrumentKey, OrderBookEvent>::from((
             BybitSpot::ID,
             instrument.key.clone(),
-            valid_update,
+            BybitWsMessage::Payload(valid_update),
         ))
         .0
     }
@@ -123,8 +132,8 @@ struct BybitOrderBookL2Sequencer {
 impl BybitOrderBookL2Sequencer {
     pub fn validate_sequence(
         &mut self,
-        update: BybitOrderBookMessage,
-    ) -> Result<Option<BybitOrderBookMessage>, DataError> {
+        update: BybitPayload<super::BybitOrderBookInner>,
+    ) -> Result<Option<BybitPayload<super::BybitOrderBookInner>>, DataError> {
         // Each new update_id should be `last_update_id + 1`
         if update.data.update_id != self.last_update_id + 1 {
             return Err(DataError::InvalidSequence {

@@ -8,7 +8,7 @@ use chrono::Utc;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use super::message::{BybitPayload, BybitPayloadKind};
+use super::message::{BybitPayloadKind, BybitWsMessage};
 
 /// Level 1 OrderBook types.
 pub mod l1;
@@ -16,8 +16,8 @@ pub mod l1;
 /// Level 2 OrderBook types.
 pub mod l2;
 
-/// Terse type alias for an [`BybitOrderBookMessage`] OrderBook WebSocket message.
-pub type BybitOrderBookMessage = BybitPayload<BybitOrderBookInner>;
+/// Terse type alias for a Bybit OrderBook WebSocket message.
+pub type BybitOrderBookMessage = BybitWsMessage<BybitOrderBookInner>;
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
 pub struct BybitOrderBookInner {
@@ -38,8 +38,12 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BybitOrderBookMessage)>
     for MarketIter<InstrumentKey, OrderBookEvent>
 {
     fn from(
-        (exchange, instrument, message): (ExchangeId, InstrumentKey, BybitOrderBookMessage),
+        (exchange, instrument, msg): (ExchangeId, InstrumentKey, BybitOrderBookMessage),
     ) -> Self {
+        let BybitWsMessage::Payload(message) = msg else {
+            return Self(vec![]);
+        };
+
         let orderbook = OrderBook::new(
             message.data.sequence,
             Some(message.time),

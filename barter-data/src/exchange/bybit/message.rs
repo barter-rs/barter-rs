@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{Identifier, exchange::bybit::channel::BybitChannel};
+use crate::{Identifier, exchange::bybit::{channel::BybitChannel, subscription::BybitResponse}};
 use barter_integration::subscription::SubscriptionId;
 use chrono::{DateTime, Utc};
 use serde::{
@@ -92,12 +92,42 @@ impl<T> Identifier<Option<SubscriptionId>> for BybitPayload<T> {
     }
 }
 
+/// Wraps either a market data [`BybitPayload<T>`] or a control message [`BybitResponse`]
+/// (pong, subscribe acknowledgement).
+///
+/// Bybit responds to application-level pings with a text frame:
+/// `{"success":true,"ret_msg":"pong","conn_id":"...","op":"ping"}`
+///
+/// Without this wrapper the parser would attempt to deserialise that response as
+/// `BybitPayload<T>`, fail (no `topic` field), and propagate a stream error every 5 seconds.
+/// By using `#[serde(untagged)]` the pong is captured as `Control` and silently discarded by
+/// returning `None` from [`Identifier::id`].
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum BybitWsMessage<T> {
+    Payload(BybitPayload<T>),
+    Control(BybitResponse),
+}
+
+impl<T> Identifier<Option<SubscriptionId>> for BybitWsMessage<T> {
+    fn id(&self) -> Option<SubscriptionId> {
+        match self {
+            BybitWsMessage::Payload(payload) => payload.id(),
+            BybitWsMessage::Control(_) => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
     mod de {
-        use crate::exchange::bybit::subscription::{BybitResponse, BybitReturnMessage};
-        use barter_integration::error::SocketError;
+        use crate::exchange::bybit::{
+            message::{BybitPayload, BybitPayloadKind, BybitWsMessage},
+            subscription::{BybitResponse, BybitReturnMessage},
+        };
+        use barter_integration::{error::SocketError, subscription::SubscriptionId};
+        use smol_str::ToSmolStr;
 
         #[test]
         fn test_bybit_pong() {
@@ -130,11 +160,62 @@ mod tests {
                     (Ok(actual), Ok(expected)) => {
                         assert_eq!(actual, expected, "TC{} failed", index)
                     }
-                    (Err(_), Err(_)) => {
-                        // Test passed
-                    }
+                    (Err(_), Err(_)) => {}
                     (actual, expected) => {
-                        // Test failed
+                        panic!(
+                            "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
+                        );
+                    }
+                }
+            }
+        }
+
+        #[test]
+        fn test_bybit_ws_message_pong_deserialises_as_control() {
+            struct TestCase {
+                input: &'static str,
+                expected: Result<BybitWsMessage<()>, SocketError>,
+            }
+
+            let tests = vec![
+                // TC0: pong deserialises as Control, not as a parse error
+                TestCase {
+                    input: r#"{"success":true,"ret_msg":"pong","conn_id":"abc","op":"ping"}"#,
+                    expected: Ok(BybitWsMessage::Control(BybitResponse {
+                        success: true,
+                        ret_msg: BybitReturnMessage::Pong,
+                    })),
+                },
+                // TC1: subscribe ack deserialises as Control
+                TestCase {
+                    input: r#"{"success":true,"ret_msg":"subscribe","conn_id":"abc","op":"subscribe"}"#,
+                    expected: Ok(BybitWsMessage::Control(BybitResponse {
+                        success: true,
+                        ret_msg: BybitReturnMessage::Subscribe,
+                    })),
+                },
+                // TC2: market data payload deserialises as Payload
+                TestCase {
+                    input: r#"{"topic":"publicTrade.BTCUSDT","type":"snapshot","ts":1672304486868,"data":null}"#,
+                    expected: Ok(BybitWsMessage::Payload(BybitPayload {
+                        subscription_id: SubscriptionId("publicTrade|BTCUSDT".to_smolstr()),
+                        kind: BybitPayloadKind::Snapshot,
+                        time: barter_integration::serde::de::datetime_utc_from_epoch_duration(
+                            std::time::Duration::from_millis(1672304486868),
+                        ),
+                        data: (),
+                    })),
+                },
+            ];
+
+            for (index, test) in tests.into_iter().enumerate() {
+                let actual = serde_json::from_str::<BybitWsMessage<()>>(test.input);
+                match (actual, test.expected) {
+                    (Ok(actual), Ok(expected)) => {
+                        assert_eq!(actual, expected, "TC{index} failed")
+                    }
+                    (Err(_), Err(_)) => {}
+                    (actual, expected) => {
                         panic!(
                             "TC{index} failed because actual != expected. \nActual: {actual:?}\nExpected: {expected:?}\n"
                         );
