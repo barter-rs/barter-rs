@@ -163,11 +163,14 @@ impl<T> From<Vec<T>> for NoneOneOrMany<T> {
 // Create NoneOneOrMany from an iterator
 impl<T> FromIterator<T> for NoneOneOrMany<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let mut collection = iter.into_iter().collect::<Vec<_>>();
-        match collection.len() {
-            0 => Self::None,
-            1 => Self::One(collection.swap_remove(0)),
-            _ => Self::Many(collection),
+        let mut iter = iter.into_iter();
+
+        match (iter.next(), iter.next()) {
+            (None, _) => Self::None,
+            (Some(first), None) => Self::One(first),
+            (Some(first), Some(second)) => {
+                Self::Many(once(first).chain(once(second)).chain(iter).collect())
+            }
         }
     }
 }
@@ -293,6 +296,24 @@ mod tests {
         assert!(NoneOneOrMany::One(1).extend([2]).into_vec().capacity() <= 2);
         assert!(NoneOneOrMany::None.extend([1, 2]).into_vec().capacity() <= 2);
         assert!(NoneOneOrMany::One(1).extend([2, 3]).into_vec().capacity() <= 3);
+    }
+
+    #[test]
+    fn collecting_lands_in_the_smallest_variant_that_fits() {
+        assert_eq!(
+            NoneOneOrMany::from_iter(std::iter::empty::<u8>()),
+            NoneOneOrMany::None
+        );
+        assert_eq!(NoneOneOrMany::from_iter([1]), NoneOneOrMany::One(1));
+        assert_eq!(
+            NoneOneOrMany::from_iter([1, 2]),
+            NoneOneOrMany::Many(vec![1, 2])
+        );
+        assert_eq!(
+            NoneOneOrMany::from_iter([1, 2, 3]).into_vec(),
+            vec![1, 2, 3],
+            "collecting preserves order"
+        );
     }
 
     #[test]
