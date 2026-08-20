@@ -124,12 +124,20 @@ where
 }
 
 /// Process a payload of `String` by deserialising into an `ExchangeMessage`.
+///
+/// Application-level text `ping`/`pong` (e.g. OKX) is skipped, matching protocol Ping/Pong.
 pub fn process_text<ExchangeMessage>(
     payload: Utf8Bytes,
 ) -> Option<Result<ExchangeMessage, SocketError>>
 where
     ExchangeMessage: for<'de> Deserialize<'de>,
 {
+    let trimmed = payload.trim();
+    if trimmed.eq_ignore_ascii_case("ping") || trimmed.eq_ignore_ascii_case("pong") {
+        debug!(?payload, "received ping/pong WebSocket text");
+        return None;
+    }
+
     Some(
         serde_json::from_str::<ExchangeMessage>(&payload).map_err(|error| {
             debug!(
@@ -277,5 +285,35 @@ mod tests {
         let msg = Err(WsError::ConnectionClosed);
         let result = WsParser::parse(msg);
         assert!(matches!(result, Message::Admin(AdminWs::WsError(_))));
+    }
+
+    #[test]
+    fn test_process_text_skips_application_ping_pong() {
+        for payload in ["pong", "ping", "PONG", " pong "] {
+            let result = process_text::<serde_json::Value>(payload.into());
+            assert!(
+                result.is_none(),
+                "expected None for application-level ping/pong {payload:?}, got {result:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_process_text_deserialises_json_object() {
+        let result = process_text::<serde_json::Value>(r#"{"ok":true}"#.into());
+        assert!(matches!(result, Some(Ok(value)) if value == serde_json::json!({"ok": true})));
+    }
+
+    #[test]
+    fn test_websocket_serde_parser_skips_text_pong() {
+        let result: Option<Result<serde_json::Value, SocketError>> =
+            WebSocketSerdeParser::parse(Ok(WsMessage::Text("pong".into())));
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_process_text_invalid_json_still_errors() {
+        let result = process_text::<serde_json::Value>("not-json".into());
+        assert!(matches!(result, Some(Err(SocketError::Deserialise { .. }))));
     }
 }
