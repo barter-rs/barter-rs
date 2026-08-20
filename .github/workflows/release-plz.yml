@@ -61,12 +61,22 @@ jobs:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
     steps:
+      # The default GITHUB_TOKEN may not create pull requests (403), and PRs it
+      # creates would not trigger CI - so the bump PR is opened as the
+      # barter-release-bot GitHub App instead.
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_PLZ_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLZ_APP_KEY }}
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           # `fetch-depth: 0` is needed to clone all the git history, which is necessary to
           # determine the next version and build the changelog.
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Run release-plz
@@ -75,6 +85,6 @@ jobs:
           # Run `release-plz release-pr` command.
           command: release-pr
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           # In `release-plz-pr` this is only required if you are using a private registry.
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
