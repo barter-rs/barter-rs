@@ -66,9 +66,9 @@ jobs:
       # barter-release-bot GitHub App instead.
       - name: Generate GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.RELEASE_PLZ_APP_ID }}
+          client-id: ${{ vars.RELEASE_PLZ_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_PLZ_APP_KEY }}
       - name: Checkout repository
         uses: actions/checkout@v4
