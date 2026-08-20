@@ -150,10 +150,14 @@ impl<T> From<NoneOneOrMany<T>> for Option<OneOrMany<T>> {
 // FromIterator implementation
 impl<T> FromIterator<T> for OneOrMany<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let mut collection = iter.into_iter().collect::<Vec<_>>();
-        match collection.len() {
-            1 => Self::One(collection.swap_remove(0)),
-            _ => Self::Many(collection),
+        let mut iter = iter.into_iter();
+
+        match (iter.next(), iter.next()) {
+            (None, _) => Self::Many(Vec::new()),
+            (Some(first), None) => Self::One(first),
+            (Some(first), Some(second)) => {
+                Self::Many(once(first).chain(once(second)).chain(iter).collect())
+            }
         }
     }
 }
@@ -272,6 +276,31 @@ mod tests {
     fn extend_buys_one_vec_of_the_size_it_needs() {
         assert!(OneOrMany::One(1).extend([2]).into_vec().capacity() <= 2);
         assert!(OneOrMany::One(1).extend([2, 3]).into_vec().capacity() <= 3);
+    }
+
+    #[test]
+    fn collecting_one_item_carries_no_vec() {
+        let one = OneOrMany::from_iter([1]);
+
+        assert_eq!(one, OneOrMany::One(1));
+        assert!(one.is_one());
+    }
+
+    #[test]
+    fn collecting_lands_in_the_variant_the_count_calls_for() {
+        assert_eq!(OneOrMany::from_iter([1, 2]), OneOrMany::Many(vec![1, 2]));
+        assert_eq!(
+            OneOrMany::from_iter([1, 2, 3]).into_vec(),
+            vec![1, 2, 3],
+            "collecting preserves order"
+        );
+        // Undecided: the type says non-empty, but From<Vec<T>> panics on empty
+        // while this door returns an empty Many. Pinned so it cannot drift
+        // silently before that is settled.
+        assert_eq!(
+            OneOrMany::from_iter(std::iter::empty::<u8>()),
+            OneOrMany::Many(vec![])
+        );
     }
 
     #[test]
