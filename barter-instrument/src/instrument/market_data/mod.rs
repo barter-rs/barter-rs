@@ -114,7 +114,7 @@ mod tests {
                             "kind": "CALL",
                             "exercise": "American",
                             "expiry": 1703980800000,
-                            "strike": 50000
+                            "strike": "50000"
                         }
                     }
                 }"#,
@@ -139,7 +139,7 @@ mod tests {
                             "kind": "Put",
                             "exercise": "BERMUDAN",
                             "expiry": 1703980800000,
-                            "strike": 50000
+                            "strike": "50000"
                         }
                     }
                 }"#,

@@ -72,9 +72,7 @@ impl<InstrumentKey> From<(ExchangeId, InstrumentKey, BybitOrderBookMessage)>
 /// ```
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug, Deserialize, Serialize)]
 pub struct BybitLevel {
-    #[serde(with = "rust_decimal::serde::str")]
     pub price: Decimal,
-    #[serde(with = "rust_decimal::serde::str")]
     pub amount: Decimal,
 }
 
