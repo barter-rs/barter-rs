@@ -4,9 +4,9 @@ on:
   push:
     paths-ignore:
       - "**.md"
-    branches: ["develop"]
+    branches: ["main"]
   pull_request:
-    branches: ["develop"]
+    branches: ["main"]
     paths-ignore:
       - "**.md"
 
@@ -50,6 +50,10 @@ jobs:
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
+        env:
+          # dev-profile debug info overflows DWARF32 linking the large
+          # examples under rust-lld on CI runners
+          CARGO_PROFILE_DEV_DEBUG: "0"
         with:
           command: test
 
