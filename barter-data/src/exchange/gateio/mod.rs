@@ -48,7 +48,7 @@ pub mod message;
 pub mod subscription;
 
 /// Convenient type alias using [`WebSocketSerdeParser`](barter_integration::protocol::websocket::WebSocketSerdeParser).
-pub type GateiotWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
+pub type GateioWsStream<Transformer> = ExchangeWsStream<WebSocketSerdeParser, Transformer>;
 
 /// Generic [`Gateio<Server>`](Gateio) exchange.
 ///
