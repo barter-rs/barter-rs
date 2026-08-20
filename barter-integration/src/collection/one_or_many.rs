@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::{Borrow, BorrowMut},
     convert::AsRef,
+    iter::once,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
@@ -24,28 +25,27 @@ impl<T> OneOrMany<T> {
         }
     }
 
+    #[must_use]
     pub fn extend<Iter>(self, other: Iter) -> Self
     where
         Iter: IntoIterator<Item = T>,
     {
-        let other = Self::from_iter(other);
+        let mut other = other.into_iter();
 
-        use OneOrMany::*;
-        match (self, other) {
-            (One(left), One(right)) => Many(vec![left, right]),
-            (One(left), Many(mut right)) => {
-                right.push(left);
-                Many(right)
+        let Some(first) = other.next() else {
+            return self;
+        };
+
+        // Chained so the Vec is sized once from the whole sequence: growing a One
+        // through into_vec would take a Vec of one and immediately reallocate
+        // for the second item.
+        Self::Many(match self {
+            Self::One(item) => once(item).chain(once(first)).chain(other).collect(),
+            Self::Many(mut items) => {
+                items.extend(once(first).chain(other));
+                items
             }
-            (Many(mut left), One(right)) => {
-                left.push(right);
-                Many(left)
-            }
-            (Many(mut left), Many(right)) => {
-                left.extend(right);
-                Many(left)
-            }
-        }
+        })
     }
 
     pub fn contains(&self, item: &T) -> bool
@@ -194,5 +194,93 @@ impl<'a, T> IntoIterator for &'a mut OneOrMany<T> {
             OneOrMany::One(item) => Either::Left(std::iter::once(item)),
             OneOrMany::Many(items) => Either::Right(items.iter_mut()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extend_appends_the_right_side_after_the_left() {
+        assert_eq!(
+            OneOrMany::One(1).extend([2, 3]),
+            OneOrMany::Many(vec![1, 2, 3])
+        );
+        assert_eq!(
+            OneOrMany::Many(vec![1, 2]).extend([3]),
+            OneOrMany::Many(vec![1, 2, 3])
+        );
+        assert_eq!(
+            OneOrMany::Many(vec![1, 2]).extend([3, 4]),
+            OneOrMany::Many(vec![1, 2, 3, 4])
+        );
+        assert_eq!(OneOrMany::One(1).extend([2]), OneOrMany::Many(vec![1, 2]));
+    }
+
+    #[test]
+    fn extend_with_nothing_leaves_the_left_side_untouched() {
+        assert_eq!(OneOrMany::One(1).extend([]), OneOrMany::One(1));
+        assert_eq!(
+            OneOrMany::Many(vec![1, 2]).extend([]),
+            OneOrMany::Many(vec![1, 2])
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot create OneOrMany from empty Vec")]
+    fn from_an_empty_vec_panics_where_from_iter_answers_with_an_empty_many() {
+        // The two doors into the type disagree, and only the from_iter side was
+        // pinned. Both are now held still while which one is right is undecided.
+        let _ = OneOrMany::<u8>::from(Vec::new());
+    }
+
+    #[test]
+    fn extend_leaves_an_empty_many_on_the_left_where_it_found_it() {
+        // {"Many":[]} arrives by deserialisation, and extend does not normalise
+        // it away. The derived PartialEq, Ord and Hash all read the variant, so
+        // Many([1]) and One(1) are different values.
+        assert_eq!(
+            OneOrMany::Many(Vec::new()).extend([1]),
+            OneOrMany::Many(vec![1])
+        );
+        assert_ne!(OneOrMany::Many(vec![1]), OneOrMany::One(1));
+    }
+
+    #[test]
+    fn extend_sizes_correctly_when_the_iterator_under_reports() {
+        // Every other test feeds an ExactSizeIterator. A filter reports a lower
+        // bound of zero, so the Vec cannot be sized from the hint alone.
+        let under_reporting = vec![2, 3].into_iter().filter(|_| true);
+
+        assert_eq!(
+            OneOrMany::One(1).extend(under_reporting),
+            OneOrMany::Many(vec![1, 2, 3])
+        );
+    }
+
+    #[test]
+    fn extend_stepwise_matches_extend_at_once() {
+        let stepwise = OneOrMany::One(1).extend([2]).extend([3]);
+        let at_once = OneOrMany::One(1).extend([2, 3]);
+
+        assert_eq!(stepwise, at_once);
+        assert_eq!(stepwise.into_vec(), vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn extend_buys_one_vec_of_the_size_it_needs() {
+        assert!(OneOrMany::One(1).extend([2]).into_vec().capacity() <= 2);
+        assert!(OneOrMany::One(1).extend([2, 3]).into_vec().capacity() <= 3);
+    }
+
+    #[test]
+    fn a_single_item_round_trips_through_the_iterator() {
+        let one = OneOrMany::One(1);
+
+        assert_eq!(one.len(), 1);
+        assert!(one.is_one());
+        assert_eq!(one.as_ref(), &[1]);
+        assert_eq!(one.into_iter().collect::<Vec<_>>(), vec![1]);
     }
 }

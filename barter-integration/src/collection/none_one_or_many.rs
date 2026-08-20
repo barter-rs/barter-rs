@@ -3,7 +3,7 @@ use itertools::Either;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::{Borrow, BorrowMut},
-    iter::{FromIterator, IntoIterator},
+    iter::{FromIterator, IntoIterator, once},
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize)]
@@ -27,30 +27,31 @@ impl<T> NoneOneOrMany<T> {
         }
     }
 
+    #[must_use]
     pub fn extend<Iter>(self, other: Iter) -> Self
     where
         Iter: IntoIterator<Item = T>,
     {
-        let other = Self::from_iter(other);
+        let mut other = other.into_iter();
 
-        use NoneOneOrMany::*;
-        match (self, other) {
-            (None, right) => right,
-            (left, None) => left,
-            (One(left), One(right)) => Many(vec![left, right]),
-            (One(left), Many(mut right)) => {
-                right.push(left);
-                Many(right)
+        let Some(first) = other.next() else {
+            return self;
+        };
+
+        // Chained so the Vec is sized once from the whole sequence: growing a One
+        // through into_vec would take a Vec of one and immediately reallocate
+        // for the second item.
+        Self::Many(match self {
+            Self::None => match other.next() {
+                None => return Self::One(first),
+                Some(second) => once(first).chain(once(second)).chain(other).collect(),
+            },
+            Self::One(item) => once(item).chain(once(first)).chain(other).collect(),
+            Self::Many(mut items) => {
+                items.extend(once(first).chain(other));
+                items
             }
-            (Many(mut left), One(right)) => {
-                left.push(right);
-                Many(left)
-            }
-            (Many(mut left), Many(right)) => {
-                left.extend(right);
-                Many(left)
-            }
-        }
+        })
     }
 
     pub fn contains(&self, item: &T) -> bool
@@ -208,5 +209,99 @@ impl<'a, T> IntoIterator for &'a mut NoneOneOrMany<T> {
             NoneOneOrMany::One(item) => Either::Right(Either::Left(std::iter::once(item))),
             NoneOneOrMany::Many(items) => Either::Right(Either::Right(items.iter_mut())),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extend_appends_the_right_side_after_the_left() {
+        assert_eq!(
+            NoneOneOrMany::One(1).extend([2, 3]),
+            NoneOneOrMany::Many(vec![1, 2, 3])
+        );
+        assert_eq!(
+            NoneOneOrMany::Many(vec![1, 2]).extend([3]),
+            NoneOneOrMany::Many(vec![1, 2, 3])
+        );
+        assert_eq!(
+            NoneOneOrMany::Many(vec![1, 2]).extend([3, 4]),
+            NoneOneOrMany::Many(vec![1, 2, 3, 4])
+        );
+        assert_eq!(
+            NoneOneOrMany::One(1).extend([2]),
+            NoneOneOrMany::Many(vec![1, 2])
+        );
+    }
+
+    #[test]
+    fn extend_with_nothing_leaves_the_left_side_untouched() {
+        assert_eq!(NoneOneOrMany::<u8>::None.extend([]), NoneOneOrMany::None);
+        assert_eq!(NoneOneOrMany::One(1).extend([]), NoneOneOrMany::One(1));
+        assert_eq!(
+            NoneOneOrMany::Many(vec![1, 2]).extend([]),
+            NoneOneOrMany::Many(vec![1, 2])
+        );
+    }
+
+    #[test]
+    fn extending_none_lands_in_the_smallest_variant_that_fits() {
+        assert_eq!(NoneOneOrMany::None.extend([1]), NoneOneOrMany::One(1));
+        assert_eq!(
+            NoneOneOrMany::None.extend([1, 2]),
+            NoneOneOrMany::Many(vec![1, 2])
+        );
+    }
+
+    #[test]
+    fn extend_leaves_an_empty_many_on_the_left_where_it_found_it() {
+        // {"Many":[]} arrives by deserialisation, and extend does not normalise
+        // it away. The derived PartialEq, Ord and Hash all read the variant, so
+        // Many([1]) and One(1) are different values.
+        assert_eq!(
+            NoneOneOrMany::Many(Vec::new()).extend([1]),
+            NoneOneOrMany::Many(vec![1])
+        );
+        assert_ne!(NoneOneOrMany::Many(vec![1]), NoneOneOrMany::One(1));
+    }
+
+    #[test]
+    fn extend_sizes_correctly_when_the_iterator_under_reports() {
+        // Every other test feeds an ExactSizeIterator. A filter reports a lower
+        // bound of zero, so the Vec cannot be sized from the hint alone.
+        let under_reporting = vec![2, 3].into_iter().filter(|_| true);
+
+        assert_eq!(
+            NoneOneOrMany::One(1).extend(under_reporting),
+            NoneOneOrMany::Many(vec![1, 2, 3])
+        );
+    }
+
+    #[test]
+    fn extend_stepwise_matches_extend_at_once() {
+        let stepwise = NoneOneOrMany::None.extend([1]).extend([2]).extend([3]);
+        let at_once = NoneOneOrMany::None.extend([1, 2, 3]);
+
+        assert_eq!(stepwise, at_once);
+        assert_eq!(stepwise.into_vec(), vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn extend_buys_one_vec_of_the_size_it_needs() {
+        assert!(NoneOneOrMany::One(1).extend([2]).into_vec().capacity() <= 2);
+        assert!(NoneOneOrMany::None.extend([1, 2]).into_vec().capacity() <= 2);
+        assert!(NoneOneOrMany::One(1).extend([2, 3]).into_vec().capacity() <= 3);
+    }
+
+    #[test]
+    fn an_empty_collection_answers_for_itself() {
+        let none = NoneOneOrMany::<u8>::None;
+
+        assert_eq!(none.len(), 0);
+        assert!(none.is_empty());
+        assert_eq!(none.as_ref(), &[] as &[u8]);
+        assert_eq!(none.into_option(), None);
     }
 }

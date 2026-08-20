@@ -190,3 +190,84 @@ impl<ExchangeKey, InstrumentKey, Kind> Default
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use barter_execution::order::{
+        OrderKey, OrderKind, TimeInForce,
+        id::{ClientOrderId, StrategyId},
+    };
+    use barter_instrument::Side;
+    use rust_decimal::Decimal;
+
+    fn key() -> OrderKey<ExchangeIndex, InstrumentIndex> {
+        OrderKey::new(
+            ExchangeIndex(0),
+            InstrumentIndex(0),
+            StrategyId::unknown(),
+            ClientOrderId::default(),
+        )
+    }
+
+    fn unrecoverable(reason: &str) -> EngineError {
+        EngineError::Unrecoverable(UnrecoverableEngineError::Custom(reason.to_string()))
+    }
+
+    fn cancels_failing(reasons: [&str; 1]) -> SendRequestsOutput<RequestCancel> {
+        SendRequestsOutput::new(
+            NoneOneOrMany::None,
+            reasons
+                .into_iter()
+                .map(|reason| {
+                    (
+                        OrderEvent::new(key(), RequestCancel::default()),
+                        unrecoverable(reason),
+                    )
+                })
+                .collect(),
+        )
+    }
+
+    fn opens_failing(reasons: [&str; 2]) -> SendRequestsOutput<RequestOpen> {
+        let request = RequestOpen::new(
+            Side::Buy,
+            Decimal::ONE,
+            Decimal::ONE,
+            OrderKind::Market,
+            TimeInForce::GoodUntilCancelled { post_only: false },
+        );
+
+        SendRequestsOutput::new(
+            NoneOneOrMany::None,
+            reasons
+                .into_iter()
+                .map(|reason| {
+                    (
+                        OrderEvent::new(key(), request.clone()),
+                        unrecoverable(reason),
+                    )
+                })
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn unrecoverable_errors_reports_the_cancel_failure_before_the_open_failures() {
+        // One cancel error and two open errors is the One-left / Many-right
+        // window, the only shape in which extend used to reverse its arguments.
+        let output = SendCancelsAndOpensOutput::new(
+            cancels_failing(["cancel failed"]),
+            opens_failing(["first open failed", "second open failed"]),
+        );
+
+        assert_eq!(
+            output.unrecoverable_errors().into_vec(),
+            vec![
+                UnrecoverableEngineError::Custom("cancel failed".to_string()),
+                UnrecoverableEngineError::Custom("first open failed".to_string()),
+                UnrecoverableEngineError::Custom("second open failed".to_string()),
+            ]
+        );
+    }
+}
