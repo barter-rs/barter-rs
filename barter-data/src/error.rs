@@ -41,6 +41,9 @@ pub enum DataError {
         prev_last_update_id: u64,
         first_update_id: u64,
     },
+
+    #[error("InvalidChecksum: expected {expected} but computed {computed} from the local book")]
+    InvalidChecksum { expected: u32, computed: u32 },
 }
 
 impl DataError {
@@ -49,6 +52,7 @@ impl DataError {
     pub fn is_terminal(&self) -> bool {
         match self {
             DataError::InvalidSequence { .. } => true,
+            DataError::InvalidChecksum { .. } => true,
             _ => false,
         }
     }
