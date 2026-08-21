@@ -66,6 +66,11 @@ pub enum SocketError {
 
     #[error("consumed error message from execution: {0}")]
     Exchange(String),
+
+    /// FIX protocol error: frame boundary, transport, or codec integrity failure.
+    #[cfg(feature = "protocol")]
+    #[error("FIX error: {0}")]
+    Fix(Box<crate::protocol::fix::FixError>),
 }
 
 impl From<reqwest::Error> for SocketError {

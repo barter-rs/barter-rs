@@ -9,6 +9,10 @@ pub mod websocket;
 /// execution oriented HTTP request.
 pub mod http;
 
+/// Contains FIX (Financial Information eXchange) framing, a default [`StreamParser`]
+/// implementation, and raw TCP/TLS transports.
+pub mod fix;
+
 /// `StreamParser`s are capable of parsing the input messages from a given stream protocol
 /// (eg/ WebSocket, Financial Information eXchange (FIX), etc.) and deserialising into an `Output`.
 pub trait StreamParser<Output> {
