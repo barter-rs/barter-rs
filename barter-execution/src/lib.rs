@@ -25,7 +25,7 @@
 
 use crate::{
     balance::AssetBalance,
-    order::{Order, OrderSnapshot, request::OrderResponseCancel},
+    order::{Order, request::OrderResponseCancel},
     trade::Trade,
 };
 use barter_instrument::{
@@ -53,10 +53,9 @@ pub mod trade;
 pub type UnindexedAccountEvent =
     AccountEvent<ExchangeId, AssetNameExchange, InstrumentNameExchange>;
 
-/// Convenient type alias for an [`AccountSnapshot`] keyed with [`ExchangeId`],
-/// [`AssetNameExchange`], and [`InstrumentNameExchange`].
-pub type UnindexedAccountSnapshot =
-    AccountSnapshot<ExchangeId, AssetNameExchange, InstrumentNameExchange>;
+/// Convenient type alias for an [`AccountSnapshot`] keyed with [`ExchangeId`]
+/// and [`AssetNameExchange`].
+pub type UnindexedAccountSnapshot = AccountSnapshot<ExchangeId, AssetNameExchange>;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct AccountEvent<
@@ -83,7 +82,7 @@ impl<ExchangeKey, AssetKey, InstrumentKey> AccountEvent<ExchangeKey, AssetKey, I
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, From)]
 pub enum AccountEventKind<ExchangeKey, AssetKey, InstrumentKey> {
     /// Full [`AccountSnapshot`] - replaces all existing state.
-    Snapshot(AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey>),
+    Snapshot(AccountSnapshot<ExchangeKey, AssetKey>),
 
     /// Single [`AssetBalance`] snapshot - replaces existing balance state.
     BalanceSnapshot(Snapshot<AssetBalance<AssetKey>>),
@@ -105,7 +104,7 @@ where
     AssetKey: Eq,
     InstrumentKey: Eq,
 {
-    pub fn snapshot(self) -> Option<AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey>> {
+    pub fn snapshot(self) -> Option<AccountSnapshot<ExchangeKey, AssetKey>> {
         match self.kind {
             AccountEventKind::Snapshot(snapshot) => Some(snapshot),
             _ => None,
@@ -116,47 +115,20 @@ where
 #[derive(
     Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize, Constructor,
 )]
-pub struct AccountSnapshot<
-    ExchangeKey = ExchangeIndex,
-    AssetKey = AssetIndex,
-    InstrumentKey = InstrumentIndex,
-> {
+pub struct AccountSnapshot<ExchangeKey = ExchangeIndex, AssetKey = AssetIndex> {
     pub exchange: ExchangeKey,
     pub balances: Vec<AssetBalance<AssetKey>>,
-    pub instruments: Vec<InstrumentAccountSnapshot<ExchangeKey, AssetKey, InstrumentKey>>,
 }
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize, Constructor,
-)]
-pub struct InstrumentAccountSnapshot<
-    ExchangeKey = ExchangeIndex,
-    AssetKey = AssetIndex,
-    InstrumentKey = InstrumentIndex,
-> {
-    pub instrument: InstrumentKey,
-    #[serde(default = "Vec::new")]
-    pub orders: Vec<OrderSnapshot<ExchangeKey, AssetKey, InstrumentKey>>,
-}
-
-impl<ExchangeKey, AssetKey, InstrumentKey> AccountSnapshot<ExchangeKey, AssetKey, InstrumentKey> {
+impl<ExchangeKey, AssetKey> AccountSnapshot<ExchangeKey, AssetKey> {
     pub fn time_most_recent(&self) -> Option<DateTime<Utc>> {
-        let order_times = self.instruments.iter().flat_map(|instrument| {
-            instrument
-                .orders
-                .iter()
-                .filter_map(|order| order.state.time_exchange())
-        });
-        let balance_times = self.balances.iter().map(|balance| balance.time_exchange);
-
-        order_times.chain(balance_times).max()
+        self.balances
+            .iter()
+            .map(|balance| balance.time_exchange)
+            .max()
     }
 
     pub fn assets(&self) -> impl Iterator<Item = &AssetKey> {
         self.balances.iter().map(|balance| &balance.asset)
-    }
-
-    pub fn instruments(&self) -> impl Iterator<Item = &InstrumentKey> {
-        self.instruments.iter().map(|snapshot| &snapshot.instrument)
     }
 }

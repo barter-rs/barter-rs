@@ -5,8 +5,11 @@ use crate::{
     error::{ConnectivityError, UnindexedClientError, UnindexedOrderError},
     exchange::mock::request::MockExchangeRequest,
     order::{
-        Order, OrderEvent, OrderKey,
-        request::{OrderRequestCancel, OrderRequestOpen, UnindexedOrderResponseCancel},
+        Order, OrderEvent, OrderKey, UnindexedOrderSnapshot,
+        request::{
+            OrderRequestCancel, OrderRequestOpen, OrderRequestSnapshot,
+            UnindexedOrderResponseCancel,
+        },
         state::Open,
     },
     trade::Trade,
@@ -90,7 +93,7 @@ where
 
 impl<FnTime> ExecutionClient for MockExecution<FnTime>
 where
-    FnTime: Fn() -> DateTime<Utc> + Clone + Sync,
+    FnTime: Fn() -> DateTime<Utc> + Clone + Send + Sync,
 {
     const EXCHANGE: ExchangeId = ExchangeId::Mock;
     type Config = MockExecutionClientConfig<FnTime>;
@@ -261,17 +264,17 @@ where
         })
     }
 
-    async fn fetch_open_orders(
+    async fn fetch_order_snapshot(
         &self,
-        instruments: &[InstrumentNameExchange],
-    ) -> Result<Vec<Order<ExchangeId, InstrumentNameExchange, Open>>, UnindexedClientError> {
+        request: OrderRequestSnapshot<ExchangeId, InstrumentNameExchange>,
+    ) -> Result<UnindexedOrderSnapshot, UnindexedClientError> {
         let (response_tx, response_rx) = oneshot::channel();
 
         self.request_tx
-            .send(MockExchangeRequest::fetch_orders_open(
+            .send(MockExchangeRequest::fetch_order_snapshot(
                 self.time_request(),
-                instruments.to_vec(),
                 response_tx,
+                request.clone(),
             ))
             .map_err(|_| {
                 UnindexedClientError::Connectivity(ConnectivityError::ExchangeOffline(

@@ -3,8 +3,11 @@ use crate::{
     balance::AssetBalance,
     error::{UnindexedClientError, UnindexedOrderError},
     order::{
-        Order,
-        request::{OrderRequestCancel, OrderRequestOpen, UnindexedOrderResponseCancel},
+        Order, UnindexedOrderSnapshot,
+        request::{
+            OrderRequestCancel, OrderRequestOpen, OrderRequestSnapshot,
+            UnindexedOrderResponseCancel,
+        },
         state::Open,
     },
     trade::Trade,
@@ -15,7 +18,7 @@ use barter_instrument::{
     instrument::name::InstrumentNameExchange,
 };
 use chrono::{DateTime, Utc};
-use futures::Stream;
+use futures::{FutureExt, Stream, future::BoxFuture};
 use std::future::Future;
 
 mod binance;
@@ -80,17 +83,30 @@ where
         )
     }
 
+    fn fetch_order_snapshot(
+        &self,
+        request: OrderRequestSnapshot<ExchangeId, InstrumentNameExchange>,
+    ) -> impl Future<Output = Result<UnindexedOrderSnapshot, UnindexedClientError>> + Send;
+
+    /// Futures should be returned in the same order as the requests.
+    fn fetch_order_snapshots(
+        &self,
+        requests: impl IntoIterator<Item = OrderRequestSnapshot<ExchangeId, InstrumentNameExchange>>,
+    ) -> impl Iterator<Item = BoxFuture<'_, Result<UnindexedOrderSnapshot, UnindexedClientError>>>
+    where
+        Self: Send,
+    {
+        let client = self.clone();
+        requests.into_iter().map(move |request| {
+            let client = client.clone();
+            async move { client.fetch_order_snapshot(request).await }.boxed()
+        })
+    }
+
     fn fetch_balances(
         &self,
         assets: &[AssetNameExchange],
     ) -> impl Future<Output = Result<Vec<AssetBalance<AssetNameExchange>>, UnindexedClientError>>;
-
-    fn fetch_open_orders(
-        &self,
-        instruments: &[InstrumentNameExchange],
-    ) -> impl Future<
-        Output = Result<Vec<Order<ExchangeId, InstrumentNameExchange, Open>>, UnindexedClientError>,
-    >;
 
     fn fetch_trades(
         &self,

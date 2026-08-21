@@ -4,8 +4,11 @@ use crate::{
     error::UnindexedOrderError,
     order::{
         Order,
-        request::{OrderRequestCancel, OrderRequestOpen, UnindexedOrderResponseCancel},
-        state::Open,
+        request::{
+            OrderRequestCancel, OrderRequestOpen, UnindexedOrderRequestSnapshot,
+            UnindexedOrderResponseCancel,
+        },
+        state::{Open, UnindexedOrderState},
     },
     trade::Trade,
 };
@@ -48,20 +51,6 @@ impl MockExchangeRequest {
             MockExchangeRequestKind::FetchBalances {
                 response_tx,
                 assets,
-            },
-        )
-    }
-
-    pub fn fetch_orders_open(
-        time_request: DateTime<Utc>,
-        instruments: Vec<InstrumentNameExchange>,
-        response_tx: oneshot::Sender<Vec<Order<ExchangeId, InstrumentNameExchange, Open>>>,
-    ) -> Self {
-        Self::new(
-            time_request,
-            MockExchangeRequestKind::FetchOrdersOpen {
-                response_tx,
-                instruments,
             },
         )
     }
@@ -109,6 +98,22 @@ impl MockExchangeRequest {
             },
         )
     }
+
+    pub fn fetch_order_snapshot(
+        time_request: DateTime<Utc>,
+        response_tx: oneshot::Sender<
+            Order<ExchangeId, InstrumentNameExchange, UnindexedOrderState>,
+        >,
+        request: UnindexedOrderRequestSnapshot,
+    ) -> Self {
+        Self::new(
+            time_request,
+            MockExchangeRequestKind::FetchOrderSnapshot {
+                response_tx,
+                request,
+            },
+        )
+    }
 }
 
 #[derive(Debug)]
@@ -119,10 +124,6 @@ pub enum MockExchangeRequestKind {
     FetchBalances {
         assets: Vec<AssetNameExchange>,
         response_tx: oneshot::Sender<Vec<AssetBalance<AssetNameExchange>>>,
-    },
-    FetchOrdersOpen {
-        instruments: Vec<InstrumentNameExchange>,
-        response_tx: oneshot::Sender<Vec<Order<ExchangeId, InstrumentNameExchange, Open>>>,
     },
     FetchTrades {
         response_tx: oneshot::Sender<Vec<Trade<QuoteAsset, InstrumentNameExchange>>>,
@@ -137,5 +138,10 @@ pub enum MockExchangeRequestKind {
             Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>,
         >,
         request: OrderRequestOpen<ExchangeId, InstrumentNameExchange>,
+    },
+    FetchOrderSnapshot {
+        response_tx:
+            oneshot::Sender<Order<ExchangeId, InstrumentNameExchange, UnindexedOrderState>>,
+        request: UnindexedOrderRequestSnapshot,
     },
 }

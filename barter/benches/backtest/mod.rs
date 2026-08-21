@@ -106,20 +106,6 @@ const CONFIG: &str = r#"
               },
               "time_exchange": "2025-03-24T21:30:00Z"
             }
-          ],
-          "instruments": [
-            {
-              "instrument": "BTCUSDT",
-              "orders": []
-            },
-            {
-              "instrument": "ETHUSDT",
-              "orders": []
-            },
-            {
-              "instrument": "SOLUSDT",
-              "orders": []
-            }
           ]
         }
       }

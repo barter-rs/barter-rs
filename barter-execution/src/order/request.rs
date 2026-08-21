@@ -12,6 +12,9 @@ use derive_more::Constructor;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+pub type OrderRequestSnapshot<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> =
+    OrderEvent<RequestSnapshot, ExchangeKey, InstrumentKey>;
+
 pub type OrderRequestOpen<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex> =
     OrderEvent<RequestOpen, ExchangeKey, InstrumentKey>;
 
@@ -26,6 +29,15 @@ pub type OrderResponseCancel<
 
 pub type UnindexedOrderResponseCancel =
     OrderResponseCancel<ExchangeId, AssetNameExchange, InstrumentNameExchange>;
+
+pub type UnindexedOrderRequestSnapshot = OrderRequestSnapshot<ExchangeId, InstrumentNameExchange>;
+
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+)]
+pub struct RequestSnapshot {
+    pub id: OrderId,
+}
 
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,

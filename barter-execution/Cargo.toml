@@ -39,6 +39,5 @@ serde = { workspace = true, features = ["derive"] }
 # Misc
 rand = { workspace = true }
 chrono = { workspace = true, features = ["serde"]}
-itertools = { workspace = true }
 derive_more = { workspace = true, features = ["constructor", "from", "display"]}
 

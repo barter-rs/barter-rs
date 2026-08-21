@@ -14,11 +14,11 @@ use barter_execution::{
     indexer::{AccountEventIndexer, IndexedAccountStream},
     map::ExecutionInstrumentMap,
     order::{
-        Order,
+        Order, UnindexedOrderSnapshot,
         request::{
             OrderRequestCancel, OrderRequestOpen, OrderResponseCancel, UnindexedOrderResponseCancel,
         },
-        state::{Open, OrderState},
+        state::{FullyFilled, Open, OrderState},
     },
 };
 use barter_instrument::{
@@ -91,6 +91,10 @@ where
             "AccountStream with auto reconnect initialising"
         );
 
+        // TODO: Would it be possible for us to fetch the snapshots of known orders after the reconnect?
+        // Not requesting them from the engine. But initialize the fetch from here.
+        // We could probably be subscribed to account_stream and react on the reconnect event.
+
         // Initialise reconnecting IndexedAccountStream (snapshot + updates)
         let client_clone = Arc::clone(&client);
         let indexer_clone = indexer.clone();
@@ -145,6 +149,8 @@ where
                 client,
                 indexer,
             ),
+            // TODO: Do not return the merged account stream. The ExecutionManager should sanitize
+            // the events received before returning them to the subscriber
             merged_account_stream,
         ))
     }
@@ -221,6 +227,7 @@ where
     pub async fn run(mut self) {
         let mut in_flight_cancels = FuturesUnordered::new();
         let mut in_flight_opens = FuturesUnordered::new();
+        let mut in_flight_snapshots = FuturesUnordered::new();
 
         loop {
             let next_cancel_response = if in_flight_cancels.is_empty() {
@@ -235,10 +242,18 @@ where
                 Either::Right(in_flight_opens.select_next_some())
             };
 
+            let next_snapshot_response = if in_flight_snapshots.is_empty() {
+                Either::Left(std::future::pending())
+            } else {
+                Either::Right(in_flight_snapshots.select_next_some())
+            };
+
             tokio::select! {
                 // Process Engine ExecutionRequests
                 request = self.request_stream.next() => match request {
                     Some(ExecutionRequest::Shutdown) | None => {
+                        // TODO: The ExecutionManager should not shutdown until
+                        // we processed all in flight requests.
                         break;
                     }
                     Some(ExecutionRequest::Cancel(request)) => {
@@ -271,12 +286,37 @@ where
                             request,
                         ))
                     }
+                    Some(ExecutionRequest::Snapshots(requests)) => {
+                        let client_requests = requests.iter().map(|request| {
+                            // Panic since the system is set up incorrectly, so it's foolish to continue
+                            self.indexer
+                                .order_request(request)
+                                .unwrap_or_else(|error| panic!(
+                                    "ExecutionManager received snapshot request for non-configured key: {error}"
+                                ))
+                                .cloned_instrument()
+                        }).collect::<Vec<_>>();
+
+                        let futures = requests.into_iter()
+                            .zip(self.client.fetch_order_snapshots(client_requests))
+                            .map(|(request, response_fut)| RequestFuture::new(
+                                response_fut,
+                                self.request_timeout,
+                                request,
+                            ));
+
+                        in_flight_snapshots.extend(futures);
+                    }
                 },
 
                 // Process next ExecutionRequest::Cancel response
                 response_cancel = next_cancel_response => {
-                    match response_cancel {
+                    let (request, result) = response_cancel;
+                    match result {
                         Ok(Some(response)) => {
+                            // TODO: The response here doesn't definitively prove that the order
+                            // was cancelled. It's only an cancellation acknowledgment. The order can
+                            // still be filled while in process of being cancelled.
                             let event = match self.process_cancel_response(response) {
                                 Ok(indexed_event) => indexed_event,
                                 Err(error) => {
@@ -293,7 +333,11 @@ where
                                 break;
                             }
                         }
-                        Err(request) => {
+                        Err(_elapsed) => {
+                            // TODO: We should try again. The timeout happens
+                            // when we don't receive any response from the exchange.
+                            // That can mean anything. It doesn't mean that the order
+                            // was not cancelled.
                             let event = Self::process_cancel_timeout(request);
 
                             if self.response_tx.send(event).is_err() {
@@ -301,15 +345,21 @@ where
                             }
                         }
                         Ok(None) => {
-                            // Do nothing
+                            // TODO: Remove the Option return value. This was a temporary
+                            // hack indicating that the response result shouldn't be used
+                            // as an acknowledgment of the final status. This should be
+                            // removed and solved differently.
                         }
                     };
                 },
 
                 // Process next ExecutionRequest::Open response
                 response_open = next_open_response => {
-                    match response_open {
+                    let (request, result) = response_open;
+                    match result {
                         Ok(Some(response)) => {
+                            // TODO: The response here doesn't mean the order was actually opened. It's only an acknowledgment.
+                            // We should listen to the events received from the account stream.
                             let event = match self.process_open_response(response) {
                                 Ok(indexed_event) => indexed_event,
                                 Err(error) => {
@@ -326,7 +376,10 @@ where
                                 break;
                             }
                         }
-                        Err(request) => {
+                        Err(_elapsed) => {
+                            // TODO: We should check if the order was opened or not. In some cases
+                            // the request can timeout but the order was still opened. We should check
+                            // the status of the order on the exchange before publishing the order event.
                             let event = Self::process_open_timeout(request);
 
                             if self.response_tx.send(event).is_err() {
@@ -334,7 +387,57 @@ where
                             }
                         }
                         Ok(None) => {
-                            // Do nothing
+                            // TODO: Remove the Option return value. This was a temporary
+                            // hack indicating that the response result shouldn't be used
+                            // as an acknowledgment of the final status. This should be
+                            // solved differently.
+                        }
+                    }
+                }
+
+                // Process next ExecutionRequest::Snapshots response
+                response_snapshot = next_snapshot_response => {
+                    let (request, result) = response_snapshot;
+                    match result {
+                        Ok(Ok(response)) => {
+                            // TODO: The current snapshot was received from the exchange.
+                            // We should use this snapshot and check if the state on our side
+                            // corresponds to the state on the exchange.
+                            let event = match self.process_snapshot_response(response) {
+                                Ok(indexed_event) => indexed_event,
+                                Err(error) => {
+                                    warn!(
+                                        exchange = %self.indexer.map.exchange.value,
+                                        ?error,
+                                        "ExecutionManager filtering snapshot response due to unrecognised index"
+                                    );
+                                    continue
+                                }
+                            };
+
+                            if self.response_tx.send(event).is_err() {
+                                break;
+                            }
+                        }
+                        Ok(Err(error)) => {
+                            // TODO: It depends on the error. In some cases we should try again.
+                            // In other we can say that the order does not exist.
+                            warn!(
+                                exchange = %self.indexer.map.exchange.value,
+                                ?request,
+                                ?error,
+                                "ExecutionManager fetch_order_snapshot failed"
+                            );
+                        }
+                        Err(_elapsed) => {
+                            // TODO: We should always try again. The timeout happens
+                            // when we don't receive any response from the exchange.
+                            // That can mean anything. We should try again
+                            warn!(
+                                exchange = %self.indexer.map.exchange.value,
+                                ?request,
+                                "ExecutionManager fetch_order_snapshot timed out"
+                            );
                         }
                     }
                 }
@@ -373,6 +476,18 @@ where
         })
     }
 
+    fn process_snapshot_response(
+        &self,
+        order: UnindexedOrderSnapshot,
+    ) -> Result<AccountStreamEvent, IndexError> {
+        let order = self.indexer.order_snapshot(order)?;
+
+        Ok(AccountStreamEvent::Item(AccountEvent {
+            exchange: order.key.exchange,
+            kind: AccountEventKind::OrderSnapshot(Snapshot(order)),
+        }))
+    }
+
     fn process_open_response(
         &self,
         order: Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>,
@@ -390,9 +505,11 @@ where
         let key = self.indexer.order_key(key)?;
 
         let state = match state {
-            Ok(open) if open.quantity_remaining(quantity).is_zero() => OrderState::fully_filled(),
-            Ok(open) => OrderState::active(open),
-            Err(error) => OrderState::inactive(self.indexer.order_error(error)?),
+            Ok(open) if open.quantity_remaining(quantity).is_zero() => {
+                OrderState::FullyFilled(FullyFilled)
+            }
+            Ok(open) => OrderState::Open(open),
+            Err(error) => OrderState::OpenFailed(self.indexer.order_error(error)?),
         };
 
         Ok(AccountStreamEvent::Item(AccountEvent {
@@ -423,7 +540,7 @@ where
                 quantity: state.quantity,
                 kind: state.kind,
                 time_in_force: state.time_in_force,
-                state: OrderState::inactive(OrderError::Connectivity(ConnectivityError::Timeout)),
+                state: OrderState::OpenFailed(OrderError::Connectivity(ConnectivityError::Timeout)),
             })),
         })
     }

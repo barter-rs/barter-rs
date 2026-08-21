@@ -1,5 +1,5 @@
 use crate::{
-    AccountEventKind, InstrumentAccountSnapshot, UnindexedAccountEvent, UnindexedAccountSnapshot,
+    AccountEventKind, UnindexedAccountEvent, UnindexedAccountSnapshot,
     balance::AssetBalance,
     client::mock::MockExecutionConfig,
     error::{ApiError, UnindexedApiError, UnindexedOrderError},
@@ -8,10 +8,10 @@ use crate::{
         request::{MockExchangeRequest, MockExchangeRequestKind},
     },
     order::{
-        Order, OrderKind, UnindexedOrder,
+        Order, OrderKind, TimeInForce,
         id::OrderId,
         request::{OrderRequestCancel, OrderRequestOpen},
-        state::{Cancelled, Open},
+        state::{Cancelled, FullyFilled, Open, UnindexedOrderState},
     },
     trade::{AssetFees, Trade, TradeId},
 };
@@ -25,7 +25,6 @@ use barter_integration::collection::snapshot::Snapshot;
 use chrono::{DateTime, TimeDelta, Utc};
 use fnv::FnvHashMap;
 use futures::stream::BoxStream;
-use itertools::Itertools;
 use rust_decimal::Decimal;
 use smol_str::ToSmolStr;
 use std::fmt::Debug;
@@ -90,18 +89,6 @@ impl MockExchange {
                         .collect();
                     self.respond_with_latency(response_tx, balances);
                 }
-                MockExchangeRequestKind::FetchOrdersOpen {
-                    response_tx,
-                    instruments,
-                } => {
-                    let orders_open = self
-                        .account
-                        .orders_open()
-                        .filter(|order| instruments.contains(&order.key.instrument))
-                        .cloned()
-                        .collect();
-                    self.respond_with_latency(response_tx, orders_open);
-                }
                 MockExchangeRequestKind::FetchTrades {
                     response_tx,
                     time_since,
@@ -131,6 +118,21 @@ impl MockExchange {
                         self.send_notifications_with_latency(notifications);
                     }
                 }
+                MockExchangeRequestKind::FetchOrderSnapshot { response_tx, request } => {
+                    let response = self.account.find_order(&request.key.cid).unwrap_or_else(|| {
+                        // Order not found - assume FullyFilled (mock fills market orders immediately)
+                        Order {
+                            key: request.key,
+                            side: Side::Buy,
+                            price: Decimal::ZERO,
+                            quantity: Decimal::ZERO,
+                            kind: OrderKind::Market,
+                            time_in_force: TimeInForce::GoodUntilCancelled { post_only: false },
+                            state: UnindexedOrderState::FullyFilled(FullyFilled),
+                        }
+                    });
+                    self.respond_with_latency(response_tx, response);
+                }
             }
         }
 
@@ -152,36 +154,9 @@ impl MockExchange {
     }
 
     pub fn account_snapshot(&self) -> UnindexedAccountSnapshot {
-        let balances = self.account.balances().cloned().collect();
-
-        let orders_open = self
-            .account
-            .orders_open()
-            .cloned()
-            .map(UnindexedOrder::from);
-
-        let orders_cancelled = self
-            .account
-            .orders_cancelled()
-            .cloned()
-            .map(UnindexedOrder::from);
-
-        let orders_all = orders_open.chain(orders_cancelled);
-        let orders_all = orders_all.sorted_unstable_by_key(|order| order.key.instrument.clone());
-        let orders_by_instrument = orders_all.chunk_by(|order| order.key.instrument.clone());
-
-        let instruments = orders_by_instrument
-            .into_iter()
-            .map(|(instrument, orders)| InstrumentAccountSnapshot {
-                instrument,
-                orders: orders.into_iter().collect(),
-            })
-            .collect();
-
         UnindexedAccountSnapshot {
             exchange: self.exchange,
-            balances,
-            instruments,
+            balances: self.account.balances().cloned().collect(),
         }
     }
 

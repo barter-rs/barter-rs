@@ -4,7 +4,7 @@ use barter_instrument::{
     instrument::{InstrumentIndex, name::InstrumentNameExchange},
 };
 use chrono::{DateTime, Utc};
-use derive_more::{Constructor, From};
+use derive_more::Constructor;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -12,65 +12,55 @@ use serde::{Deserialize, Serialize};
 /// and [`InstrumentNameExchange`].
 pub type UnindexedOrderState = OrderState<AssetNameExchange, InstrumentNameExchange>;
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub enum OrderState<AssetKey = AssetIndex, InstrumentKey = InstrumentIndex> {
-    Active(ActiveOrderState),
-    Inactive(InactiveOrderState<AssetKey, InstrumentKey>),
+    OpenInFlight(OpenInFlight),
+    Open(Open),
+    CancelInFlight(CancelInFlight),
+    Cancelled(Cancelled),
+    FullyFilled(FullyFilled),
+    OpenFailed(OrderError<AssetKey, InstrumentKey>),
+    Expired(Expired),
 }
 
 impl<AssetKey, InstrumentKey> OrderState<AssetKey, InstrumentKey> {
-    pub fn active<S>(state: S) -> Self
-    where
-        S: Into<ActiveOrderState>,
-    {
-        OrderState::Active(state.into())
-    }
-
-    pub fn inactive<S>(state: S) -> Self
-    where
-        S: Into<InactiveOrderState<AssetKey, InstrumentKey>>,
-    {
-        OrderState::Inactive(state.into())
-    }
-
-    pub fn fully_filled() -> Self {
-        Self::Inactive(InactiveOrderState::FullyFilled)
-    }
-
-    pub fn expired() -> Self {
-        Self::Inactive(InactiveOrderState::Expired)
+    pub fn order_id(&self) -> Option<&OrderId> {
+        match self {
+            OrderState::Open(open) => Some(&open.id),
+            OrderState::CancelInFlight(cancel) => cancel.order.as_ref().map(|o| &o.id),
+            OrderState::Cancelled(cancelled) => Some(&cancelled.id),
+            OrderState::OpenInFlight(_)
+            | OrderState::FullyFilled(_)
+            | OrderState::OpenFailed(_)
+            | OrderState::Expired(_) => None,
+        }
     }
 
     pub fn time_exchange(&self) -> Option<DateTime<Utc>> {
         match self {
-            Self::Active(active) => match active {
-                ActiveOrderState::OpenInFlight(_) => None,
-                ActiveOrderState::Open(state) => Some(state.time_exchange),
-                ActiveOrderState::CancelInFlight(state) => {
-                    state.order.as_ref().map(|order| order.time_exchange)
-                }
-            },
-            Self::Inactive(inactive) => match inactive {
-                InactiveOrderState::Cancelled(state) => Some(state.time_exchange),
-                _ => None,
-            },
+            OrderState::Open(open) => Some(open.time_exchange),
+            OrderState::Cancelled(cancelled) => Some(cancelled.time_exchange),
+            _ => None,
         }
     }
-}
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
-pub enum ActiveOrderState {
-    OpenInFlight(OpenInFlight),
-    Open(Open),
-    CancelInFlight(CancelInFlight),
-}
-
-impl ActiveOrderState {
     pub fn open_meta(&self) -> Option<&Open> {
         match self {
-            Self::OpenInFlight(_) => None,
-            Self::Open(open) => Some(open),
-            Self::CancelInFlight(cancel) => cancel.order.as_ref(),
+            OrderState::Open(open) => Some(open),
+            OrderState::CancelInFlight(cancel) => cancel.order.as_ref(),
+            _ => None,
+        }
+    }
+
+    pub fn is_active(&self) -> bool {
+        match self {
+            OrderState::OpenInFlight(_) | OrderState::Open(_) | OrderState::CancelInFlight(_) => {
+                true
+            }
+            OrderState::Cancelled(_)
+            | OrderState::FullyFilled(_)
+            | OrderState::OpenFailed(_)
+            | OrderState::Expired(_) => false,
         }
     }
 }
@@ -100,14 +90,6 @@ pub struct CancelInFlight {
     pub order: Option<Open>,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
-pub enum InactiveOrderState<AssetKey, InstrumentKey> {
-    Cancelled(Cancelled),
-    FullyFilled,
-    OpenFailed(OrderError<AssetKey, InstrumentKey>),
-    Expired,
-}
-
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
@@ -115,3 +97,9 @@ pub struct Cancelled {
     pub id: OrderId,
     pub time_exchange: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub struct FullyFilled;
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+pub struct Expired;

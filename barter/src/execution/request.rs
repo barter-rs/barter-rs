@@ -1,4 +1,6 @@
-use barter_execution::order::request::{OrderRequestCancel, OrderRequestOpen};
+use barter_execution::order::request::{
+    OrderRequestCancel, OrderRequestOpen, OrderRequestSnapshot,
+};
 use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
@@ -17,40 +19,47 @@ pub enum ExecutionRequest<ExchangeKey = ExchangeIndex, InstrumentKey = Instrumen
     /// Request to cancel an existing `Order`.
     Cancel(OrderRequestCancel<ExchangeKey, InstrumentKey>),
 
-    /// Request to open an new `Order`.
+    /// Request to open a new `Order`.
     Open(OrderRequestOpen<ExchangeKey, InstrumentKey>),
+
+    /// Request the current state of `Order`s.
+    Snapshots(Vec<OrderRequestSnapshot<ExchangeKey, InstrumentKey>>),
 }
 
 #[derive(Debug)]
 #[pin_project::pin_project]
-pub(super) struct RequestFuture<Request, ResponseFut> {
-    request: Request,
+pub struct RequestFuture<Request, ResponseFut> {
+    /// Returned paired with the response when this future resolves. Stored as `Option` to move out
+    /// on completion rather than clone.
+    request: Option<Request>,
     #[pin]
-    response_future: tokio::time::Timeout<ResponseFut>,
+    response_future: ResponseFut,
 }
 
 impl<Request, ResponseFut> Future for RequestFuture<Request, ResponseFut>
 where
-    Request: Clone,
     ResponseFut: Future,
 {
-    type Output = Result<ResponseFut::Output, Request>;
+    type Output = (Request, ResponseFut::Output);
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        this.response_future
-            .poll(cx)
-            .map(|result| result.map_err(|_| this.request.clone()))
+        this.response_future.poll(cx).map(|result| {
+            (
+                this.request.take().expect("the request is always set"),
+                result,
+            )
+        })
     }
 }
 
-impl<Request, ResponseFut> RequestFuture<Request, ResponseFut>
+impl<Request, F> RequestFuture<Request, tokio::time::Timeout<F>>
 where
-    ResponseFut: Future,
+    F: Future,
 {
-    pub fn new(future: ResponseFut, timeout: std::time::Duration, request: Request) -> Self {
+    pub fn new(future: F, timeout: std::time::Duration, request: Request) -> Self {
         Self {
-            request,
+            request: Some(request),
             response_future: tokio::time::timeout(timeout, future),
         }
     }

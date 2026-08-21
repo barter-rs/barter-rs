@@ -1,5 +1,5 @@
 use crate::{
-    AccountEvent, AccountEventKind, AccountSnapshot, InstrumentAccountSnapshot,
+    AccountEvent, AccountEventKind, AccountSnapshot,
     UnindexedAccountEvent, UnindexedAccountSnapshot,
     balance::AssetBalance,
     error::{
@@ -9,8 +9,7 @@ use crate::{
     map::ExecutionInstrumentMap,
     order::{
         Order, OrderEvent, OrderKey, OrderSnapshot, UnindexedOrderKey, UnindexedOrderSnapshot,
-        request::OrderResponseCancel,
-        state::{InactiveOrderState, OrderState, UnindexedOrderState},
+        request::OrderResponseCancel, state::OrderState,
     },
     trade::Trade,
 };
@@ -72,11 +71,7 @@ impl AccountEventIndexer {
         &self,
         snapshot: UnindexedAccountSnapshot,
     ) -> Result<AccountSnapshot, IndexError> {
-        let UnindexedAccountSnapshot {
-            exchange,
-            balances,
-            instruments,
-        } = snapshot;
+        let UnindexedAccountSnapshot { exchange, balances } = snapshot;
 
         let exchange = self.map.find_exchange_index(exchange)?;
 
@@ -85,27 +80,7 @@ impl AccountEventIndexer {
             .map(|balance| self.asset_balance(balance))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let instruments = instruments
-            .into_iter()
-            .map(|snapshot| {
-                let InstrumentAccountSnapshot { instrument, orders } = snapshot;
-
-                let instrument = self.map.find_instrument_index(&instrument)?;
-
-                let orders = orders
-                    .into_iter()
-                    .map(|order| self.order_snapshot(order))
-                    .collect::<Result<Vec<_>, _>>()?;
-
-                Ok(InstrumentAccountSnapshot { instrument, orders })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(AccountSnapshot {
-            exchange,
-            balances,
-            instruments,
-        })
+        Ok(AccountSnapshot { exchange, balances })
     }
 
     pub fn asset_balance(
@@ -143,20 +118,17 @@ impl AccountEventIndexer {
         let key = self.order_key(key)?;
 
         let state = match state {
-            UnindexedOrderState::Active(active) => OrderState::Active(active),
-            UnindexedOrderState::Inactive(inactive) => match inactive {
-                InactiveOrderState::OpenFailed(failed) => match failed {
-                    OrderError::Rejected(rejected) => {
-                        OrderState::inactive(OrderError::Rejected(self.api_error(rejected)?))
-                    }
-                    OrderError::Connectivity(error) => {
-                        OrderState::inactive(OrderError::Connectivity(error))
-                    }
-                },
-                InactiveOrderState::Cancelled(cancelled) => OrderState::inactive(cancelled),
-                InactiveOrderState::FullyFilled => OrderState::fully_filled(),
-                InactiveOrderState::Expired => OrderState::expired(),
-            },
+            OrderState::OpenInFlight(open_in_flight) => OrderState::OpenInFlight(open_in_flight),
+            OrderState::Open(open) => OrderState::Open(open),
+            OrderState::CancelInFlight(cancel_in_flight) => {
+                OrderState::CancelInFlight(cancel_in_flight)
+            }
+            OrderState::Cancelled(cancelled) => OrderState::Cancelled(cancelled),
+            OrderState::FullyFilled(fully_filled) => OrderState::FullyFilled(fully_filled),
+            OrderState::OpenFailed(open_failed) => {
+                OrderState::OpenFailed(self.order_error(open_failed)?)
+            }
+            OrderState::Expired(expired) => OrderState::Expired(expired),
         };
 
         Ok(Order {
