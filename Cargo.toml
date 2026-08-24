@@ -56,7 +56,7 @@ indexmap = { version = "2.6.0" }
 hmac = { version = "0.12.1" }
 sha2 = { version = "0.10.8" }
 hex = { version = "0.4.3" }
-base64 = { version = "0.22.1" }
+base64 = { version = "0.23.1" }
 
 # Misc
 rand = { version = "0.9.0" }
