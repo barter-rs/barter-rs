@@ -44,7 +44,7 @@ serde_json = { workspace = true }
 
 # Data Structures
 parking_lot = { workspace = true }
-rust_decimal = { workspace = true, features = ["serde-with-str"] }
+rust_decimal = { workspace = true, features = ["serde-str"] }
 smol_str = { workspace = true, features = ["serde"] }
 
 # Misc
