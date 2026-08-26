@@ -29,7 +29,7 @@ impl CalendarEvent {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let url = "https://fxmacrodata.com/api/v1/calendar/USD?start_date=2026-07-01&end_date=2026-07-20";
+    let url = "https://api.fxmacrodata.com/v1/calendar/USD?start_date=2026-07-01&end_date=2026-07-20";
     let calendar = reqwest::get(url)
         .await?
         .error_for_status()?
