@@ -402,7 +402,7 @@ mod tests {
             Order, OrderKey, OrderKind, TimeInForce,
             id::{ClientOrderId, OrderId, StrategyId},
             request::{RequestCancel, RequestOpen},
-            state::{ActiveOrderState, CancelInFlight, Cancelled, Open, OpenInFlight},
+            state::{ActiveOrderState, CancelInFlight, Cancelled, FullyFilled, Open, OpenInFlight},
         },
     };
     use barter_instrument::{Side, exchange::ExchangeId};
@@ -482,7 +482,7 @@ mod tests {
             quantity: Default::default(),
             kind: OrderKind::Market,
             time_in_force: TimeInForce::GoodUntilEndOfDay,
-            state: OrderState::fully_filled(),
+            state: OrderState::inactive(FullyFilled::new(DateTime::<Utc>::MIN_UTC)),
         })
     }
 

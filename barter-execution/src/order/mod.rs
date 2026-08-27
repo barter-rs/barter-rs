@@ -13,7 +13,9 @@ use derive_more::{Constructor, Display};
 use id::ClientOrderId;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use state::{ActiveOrderState, Cancelled, InactiveOrderState, Open, OpenInFlight, OrderState};
+use state::{
+    ActiveOrderState, Cancelled, FullyFilled, InactiveOrderState, Open, OpenInFlight, OrderState,
+};
 
 /// `Order` related identifiers.
 pub mod id;
@@ -275,6 +277,32 @@ impl<ExchangeKey, AssetKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey
             kind,
             time_in_force,
             state: OrderState::Inactive(InactiveOrderState::Cancelled(state)),
+        }
+    }
+}
+
+impl<ExchangeKey, AssetKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, FullyFilled>>
+    for Order<ExchangeKey, InstrumentKey, OrderState<AssetKey, InstrumentKey>>
+{
+    fn from(value: Order<ExchangeKey, InstrumentKey, FullyFilled>) -> Self {
+        let Order {
+            key,
+            side,
+            price,
+            quantity,
+            kind,
+            time_in_force,
+            state,
+        } = value;
+
+        Self {
+            key,
+            side,
+            price,
+            quantity,
+            kind,
+            time_in_force,
+            state: OrderState::Inactive(InactiveOrderState::FullyFilled(state)),
         }
     }
 }
