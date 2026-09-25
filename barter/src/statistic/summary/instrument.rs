@@ -111,7 +111,7 @@ impl TearSheetGenerator {
         let sortino_ratio = SortinoRatio::calculate(
             risk_free_return,
             self.pnl_returns.total.mean,
-            self.pnl_returns.losses.dispersion.std_dev,
+            self.pnl_returns.downside_deviation(),
             trading_period,
         )
         .scale(interval);
@@ -140,11 +140,15 @@ impl TearSheetGenerator {
         let pnl_return =
             RateOfReturn::calculate(self.pnl_returns.total.mean, trading_period).scale(interval);
 
-        let win_rate =
-            WinRate::calculate(self.pnl_returns.losses.count, self.pnl_returns.total.count);
+        let win_rate = WinRate::calculate(
+            self.pnl_returns.total.count - self.pnl_returns.losses.count,
+            self.pnl_returns.total.count,
+        );
 
-        let profit_factor =
-            ProfitFactor::calculate(self.pnl_returns.total.sum, self.pnl_returns.losses.sum);
+        let profit_factor = ProfitFactor::calculate(
+            self.pnl_returns.total.sum - self.pnl_returns.losses.sum,
+            self.pnl_returns.losses.sum,
+        );
 
         TearSheet {
             sharpe_ratio,
@@ -163,5 +167,106 @@ impl TearSheetGenerator {
     /// Reset the internal state, using a new starting `DateTime<Utc>` as seed.
     pub fn reset(&mut self, time_engine_start: DateTime<Utc>) {
         *self = Self::init(time_engine_start);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{statistic::time::Daily, test_utils::time_plus_days};
+    use barter_execution::trade::{AssetFees, TradeId};
+    use barter_instrument::{Side, asset::QuoteAsset, instrument::name::InstrumentNameInternal};
+    use rust_decimal::MathematicalOps;
+    use rust_decimal_macros::dec;
+
+    fn exited(
+        pnl_realised: Decimal,
+        day: u64,
+    ) -> PositionExited<QuoteAsset, InstrumentNameInternal> {
+        let base_time = DateTime::<Utc>::MIN_UTC;
+        PositionExited {
+            instrument: InstrumentNameInternal::new("instrument"),
+            side: Side::Buy,
+            price_entry_average: dec!(100.0),
+            quantity_abs_max: dec!(1.0),
+            pnl_realised,
+            fees_enter: AssetFees {
+                asset: QuoteAsset,
+                fees: dec!(0.0),
+            },
+            fees_exit: AssetFees {
+                asset: QuoteAsset,
+                fees: dec!(0.0),
+            },
+            time_enter: time_plus_days(base_time, day),
+            time_exit: time_plus_days(base_time, day + 1),
+            trades: vec![TradeId::new("trade_id")],
+        }
+    }
+
+    fn tear_sheet(pnls: &[Decimal]) -> TearSheet<Daily> {
+        let mut generator = TearSheetGenerator::init(DateTime::<Utc>::MIN_UTC);
+        for (day, pnl) in pnls.iter().enumerate() {
+            generator.update_from_position(&exited(*pnl, day as u64));
+        }
+        generator.generate(Decimal::ZERO, Daily)
+    }
+
+    /// 7 wins of +10 and 3 losses of -5 on a notional of 100.
+    fn seven_wins_three_losses() -> Vec<Decimal> {
+        let mut pnls = vec![dec!(10.0); 7];
+        pnls.extend([dec!(-5.0); 3]);
+        pnls
+    }
+
+    #[test]
+    fn test_tear_sheet_win_rate_counts_wins() {
+        let tear = tear_sheet(&seven_wins_three_losses());
+        let win_rate = tear.win_rate.unwrap().value;
+        assert_eq!(
+            win_rate,
+            dec!(0.7),
+            "7 of 10 positions won, win_rate reported {win_rate}"
+        );
+    }
+
+    #[test]
+    fn test_tear_sheet_profit_factor_is_gross_profit_over_gross_loss() {
+        let tear = tear_sheet(&seven_wins_three_losses());
+        let profit_factor = tear.profit_factor.unwrap().value;
+        // gross profit 0.70 / gross loss 0.15
+        let expected = dec!(0.70) / dec!(0.15);
+        assert!(
+            (profit_factor - expected).abs() < dec!(0.0001),
+            "expected {expected}, profit_factor reported {profit_factor}"
+        );
+    }
+
+    #[test]
+    fn test_tear_sheet_profit_factor_of_only_losses_is_worst() {
+        // ProfitFactor documents Decimal::MIN for losses with no profits.
+        let tear = tear_sheet(&[dec!(-5.0), dec!(-5.0), dec!(-5.0)]);
+        let profit_factor = tear.profit_factor.map(|pf| pf.value);
+        assert_eq!(
+            profit_factor,
+            Some(Decimal::MIN),
+            "no winning positions, profit_factor reported {profit_factor:?}"
+        );
+    }
+
+    #[test]
+    fn test_tear_sheet_sortino_uses_downside_deviation_over_all_positions() {
+        let tear = tear_sheet(&seven_wins_three_losses());
+        let sortino = tear.sortino_ratio.value;
+        // Downside deviation about a zero target over all 10 returns: sqrt(3 * 0.05^2 / 10).
+        // The losses are equal, so their own standard deviation is zero.
+        let downside_deviation = (dec!(3) * dec!(0.0025) / dec!(10)).sqrt().unwrap();
+        let mean = dec!(0.055);
+        // 10 days of trading, scaled to Daily.
+        let expected = mean / downside_deviation * (dec!(1) / dec!(10)).sqrt().unwrap();
+        assert!(
+            (sortino - expected).abs() < dec!(0.0001),
+            "expected {expected}, sortino reported {sortino}"
+        );
     }
 }

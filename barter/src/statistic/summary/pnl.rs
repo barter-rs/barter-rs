@@ -2,7 +2,7 @@ use crate::{
     engine::state::position::{PositionExited, calculate_pnl_return},
     statistic::summary::dataset::DataSetSummary,
 };
-use rust_decimal::Decimal;
+use rust_decimal::{Decimal, MathematicalOps};
 use serde::{Deserialize, Serialize};
 
 /// Records Profit and Loss (PnL) data.
@@ -57,5 +57,21 @@ impl PnLReturns {
         if pnl_return.is_sign_negative() {
             self.losses.update(pnl_return)
         }
+    }
+
+    /// Downside deviation of the PnL returns about zero, `sqrt(sum(min(r, 0)^2) / n)` over all
+    /// returns. The sum of squared losses comes from the population variance and mean of the losses.
+    pub fn downside_deviation(&self) -> Decimal {
+        if self.total.count.is_zero() {
+            return Decimal::ZERO;
+        }
+
+        let losses = &self.losses;
+        let sum_squared_losses =
+            losses.count * (losses.dispersion.variance + losses.mean * losses.mean);
+
+        (sum_squared_losses / self.total.count)
+            .sqrt()
+            .unwrap_or(Decimal::ZERO)
     }
 }
