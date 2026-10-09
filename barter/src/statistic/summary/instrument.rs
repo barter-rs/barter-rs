@@ -269,4 +269,36 @@ mod tests {
             "expected {expected}, sortino reported {sortino}"
         );
     }
+
+    #[test]
+    fn test_pnl_returns_downside_deviation_matches_direct_sum_of_squared_losses() {
+        // Losses of different sizes exercise the variance term, a single loss has zero variance.
+        let cases = [
+            vec![dec!(10.0), dec!(-2.0), dec!(-8.0), dec!(-3.5), dec!(4.0)],
+            vec![dec!(10.0), dec!(-7.0)],
+        ];
+
+        for pnls in cases {
+            let mut generator = TearSheetGenerator::init(DateTime::<Utc>::MIN_UTC);
+            for (day, pnl) in pnls.iter().enumerate() {
+                generator.update_from_position(&exited(*pnl, day as u64));
+            }
+
+            // Returns on a notional of 100, sqrt(sum(min(r, 0)^2) / n) over all of them.
+            let sum_squared_losses: Decimal = pnls
+                .iter()
+                .map(|pnl| (*pnl / dec!(100.0)).min(Decimal::ZERO))
+                .map(|loss| loss * loss)
+                .sum();
+            let expected = (sum_squared_losses / Decimal::from(pnls.len()))
+                .sqrt()
+                .unwrap();
+
+            let downside_deviation = generator.pnl_returns.downside_deviation();
+            assert!(
+                (downside_deviation - expected).abs() < dec!(0.0000000001),
+                "pnls {pnls:?}: expected {expected}, downside_deviation reported {downside_deviation}"
+            );
+        }
+    }
 }
