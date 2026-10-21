@@ -19,6 +19,7 @@ harness = false
 [dev-dependencies]
 rust_decimal_macros = { workspace = true }
 serde_json = { workspace = true }
+reqwest = { workspace = true }
 spin_sleep = { workspace = true }
 tokio = { workspace = true, features = ["fs"]}
 criterion = { workspace = true }
