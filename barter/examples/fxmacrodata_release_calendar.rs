@@ -3,8 +3,36 @@ use serde::Deserialize;
 use std::time::Duration as RequestTimeout;
 
 #[derive(Debug, Deserialize)]
+#[serde(try_from = "CalendarResponseBody")]
 struct CalendarResponse {
     data: Vec<CalendarEvent>,
+}
+
+#[derive(Deserialize)]
+struct CalendarResponseBody {
+    data: Vec<CalendarEvent>,
+    error: Option<serde_json::Value>,
+    detail: Option<serde_json::Value>,
+}
+
+impl TryFrom<CalendarResponseBody> for CalendarResponse {
+    type Error = &'static str;
+
+    fn try_from(body: CalendarResponseBody) -> Result<Self, Self::Error> {
+        if body.error.is_some() || body.detail.is_some() {
+            return Err("Calendar response contains an error");
+        }
+        Ok(Self { data: body.data })
+    }
+}
+
+async fn parse_calendar(
+    response: reqwest::Response,
+) -> Result<CalendarResponse, Box<dyn std::error::Error>> {
+    if !response.status().is_success() {
+        return Err(format!("Calendar request failed with HTTP {}", response.status().as_u16()).into());
+    }
+    Ok(response.json::<CalendarResponse>().await?)
 }
 
 #[derive(Debug, Deserialize)]
@@ -52,14 +80,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .timeout(RequestTimeout::from_secs(30))
         .redirect(reqwest::redirect::Policy::none())
         .build()?;
-    let calendar = client
+    let response = client
         .get("https://api.fxmacrodata.com/v1/calendar/usd")
         .query(&[("start_date", start.to_string()), ("end_date", end.to_string())])
         .send()
-        .await?
-        .error_for_status()?
-        .json::<CalendarResponse>()
         .await?;
+    let calendar = parse_calendar(response).await?;
 
     println!("Top-tier USD macro blackout dates (UTC):");
     for event in calendar.data.iter().filter(|event| event.is_top_tier()) {
@@ -115,5 +141,89 @@ mod tests {
         .unwrap();
         assert_eq!(event.display_name(), "日本語");
         assert!(event.is_top_tier());
+    }
+}
+
+#[cfg(test)]
+mod envelope_tests {
+    use super::CalendarResponse;
+
+    fn rejects(payload: &str) {
+        let error = serde_json::from_str::<CalendarResponse>(payload).unwrap_err();
+        assert!(error.to_string().contains("Calendar response contains an error"));
+        assert!(!error.to_string().contains("private-provider-marker"));
+    }
+
+    #[test]
+    fn rejects_string_error_with_empty_data() {
+        rejects(r#"{"data":[],"error":"private-provider-marker"}"#);
+    }
+
+    #[test]
+    fn rejects_object_error_with_empty_data() {
+        rejects(r#"{"data":[],"error":{"message":"private-provider-marker"}}"#);
+    }
+
+    #[test]
+    fn rejects_detail_string_with_empty_data() {
+        rejects(r#"{"data":[],"detail":"private-provider-marker"}"#);
+    }
+
+    #[test]
+    fn rejects_detail_object_with_empty_data() {
+        rejects(r#"{"data":[],"detail":{"message":"private-provider-marker"}}"#);
+    }
+
+    #[test]
+    fn rejects_error_even_with_calendar_rows() {
+        rejects(r#"{"data":[{"release":"synthetic","announcement_datetime":0}],"error":"private-provider-marker"}"#);
+    }
+
+    #[test]
+    fn preserves_genuine_empty_success() {
+        assert!(serde_json::from_str::<CalendarResponse>(r#"{"data":[]}"#).unwrap().data.is_empty());
+    }
+
+    #[test]
+    fn preserves_null_error_metadata() {
+        assert!(serde_json::from_str::<CalendarResponse>(r#"{"data":[],"error":null,"detail":null}"#).unwrap().data.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod response_status_tests {
+    use super::parse_calendar;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread;
+
+    async fn response(status: u16) -> reqwest::Response {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0; 4096];
+            assert!(stream.read(&mut request).unwrap() > 0);
+            let body = r#"{"data":[]}"#;
+            let output = format!("HTTP/1.1 {status} Test\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}", body.len());
+            stream.write_all(output.as_bytes()).unwrap();
+        });
+        reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(std::time::Duration::from_secs(5))
+            .build().unwrap()
+            .get(format!("http://{address}/calendar"))
+            .send().await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn rejects_redirect_even_when_body_is_valid_calendar_json() {
+        let error = parse_calendar(response(303).await).await.unwrap_err();
+        assert_eq!(error.to_string(), "Calendar request failed with HTTP 303");
+    }
+
+    #[tokio::test]
+    async fn accepts_successful_http_calendar() {
+        assert!(parse_calendar(response(200).await).await.unwrap().data.is_empty());
     }
 }
