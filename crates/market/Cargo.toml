@@ -1,0 +1,53 @@
+[package]
+name = "trading-bot-market"
+version = "0.13.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/trapilot/rust-trading-bot"
+readme = "README.md"
+description = "High performance & normalised WebSocket intergration for leading cryptocurrency exchanges - batteries included."
+keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
+categories = ["accessibility", "simulation"]
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+rust_decimal_macros = { workspace = true }
+
+[dependencies]
+# Trading Bot Ecosystem
+trading-bot-integration = { workspace = true, features = ["channel", "collection", "error", "protocol", "serde", "subscription", "stream"] }
+trading-bot-instrument = { workspace = true }
+trading-bot-macro = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Async
+tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
+tokio-stream = { workspace = true, features = ["sync"] }
+futures = { workspace = true }
+futures-util = { workspace = true }
+async-trait = { workspace = true }
+
+# Protocol
+url = { workspace = true }
+reqwest = { workspace = true}
+
+# Error
+thiserror = { workspace = true }
+
+# SerDe
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+# Data Structures
+parking_lot = { workspace = true }
+rust_decimal = { workspace = true, features = ["serde-with-str"] }
+smol_str = { workspace = true, features = ["serde"] }
+
+# Misc
+chrono = { workspace = true, features = ["serde"] }
+derive_more = { workspace = true }
+itertools = { workspace = true }
+vecmap-rs = { workspace = true }
+fnv = { workspace = true }

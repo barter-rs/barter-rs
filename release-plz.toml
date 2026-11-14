@@ -7,25 +7,25 @@ changelog_update = false
 
 # Individual package configurations
 [[package]]
-name = "barter"
-changelog_path = "barter/CHANGELOG.md"
+name = "trading-bot-runtime"
+changelog_path = "crates/runtime/CHANGELOG.md"
 
 [[package]]
-name = "barter-data"
-changelog_path = "barter-data/CHANGELOG.md"
+name = "trading-bot-market"
+changelog_path = "crates/market/CHANGELOG.md"
 
 [[package]]
-name = "barter-execution"
-changelog_path = "barter-execution/CHANGELOG.md"
+name = "trading-bot-execution"
+changelog_path = "crates/execution/CHANGELOG.md"
 
 [[package]]
-name = "barter-instrument"
-changelog_path = "barter-instrument/CHANGELOG.md"
+name = "trading-bot-instrument"
+changelog_path = "crates/instrument/CHANGELOG.md"
 
 [[package]]
-name = "barter-integration"
-changelog_path = "barter-integration/CHANGELOG.md"
+name = "trading-bot-integration"
+changelog_path = "crates/integration/CHANGELOG.md"
 
 [[package]]
-name = "barter-macro"
-changelog_path = "barter-macro/CHANGELOG.md"
+name = "trading-bot-macro"
+changelog_path = "crates/macro/CHANGELOG.md"

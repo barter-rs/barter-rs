@@ -1,72 +1,47 @@
-# Barter
-Barter is an algorithmic trading ecosystem of Rust libraries for building high-performance live-trading, paper-trading 
+# Trading Bot
+Trading Bot is an algorithmic trading ecosystem of Rust libraries for building high-performance live-trading, paper-trading 
 and back-testing systems.
 * **Fast**: Written in native Rust. Minimal allocations. Data-oriented state management system with direct index lookups.
 * **Robust**: Strongly typed. Thread safe. Extensive test coverage.
 * **Customisable**: Plug and play Strategy and RiskManager components that facilitates most trading strategies (MarketMaking, StatArb, HFT, etc.).
 * **Scalable**: Multithreaded architecture with modular design. Leverages Tokio for I/O. Memory efficient data structures.  
 
-**See: [`Barter`], [`Barter-Data`], [`Barter-Instrument`], [`Barter-Execution`] & [`Barter-Integration`] for 
+**See: [`Trading-Bot-Runtime`](crates/runtime), [`Trading-Bot-Market`](crates/market), [`Trading-Bot-Instrument`](crates/instrument), [`Trading-Bot-Execution`](crates/execution) & [`Trading-Bot-Integration`](crates/integration) for 
 comprehensive documentation and examples for each library.**
 
-[![Crates.io][crates-badge]][crates-url]
-[![MIT licensed][mit-badge]][mit-url]
-[![Discord chat][discord-badge]][discord-url]
-[![DeepWiki][deepwiki-badge]][deepwiki-url]
-
-[crates-badge]: https://img.shields.io/crates/v/barter.svg
-[crates-url]: https://crates.io/crates/barter
-
-[mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
-[mit-url]: https://github.com/barter-rs/barter-rs/blob/develop/LICENSE
-
-[discord-badge]: https://img.shields.io/discord/910237311332151317.svg?logo=discord&style=flat-square
-[discord-url]: https://discord.gg/wE7RqhnQMV
-
-[deepwiki-badge]: https://deepwiki.com/badge.svg
-[deepwiki-url]: https://deepwiki.com/barter-rs/barter-rs
-
-[`Barter`]: https://crates.io/crates/barter
-[`Barter-Instrument`]: https://crates.io/crates/barter-instrument
-[`Barter-Data`]: https://crates.io/crates/barter-data
-[`Barter-Execution`]: https://crates.io/crates/barter-execution
-[`Barter-Integration`]: https://crates.io/crates/barter-integration
-[API Documentation]: https://docs.rs/barter/latest/barter/
-[Chat]: https://discord.gg/wE7RqhnQMV
-
 ## Overview
-Barter is an algorithmic trading ecosystem of Rust libraries for building high-performance live-trading, paper-trading 
+Trading Bot is an algorithmic trading ecosystem of Rust libraries for building high-performance live-trading, paper-trading 
 and back-testing systems. It is made up of several easy-to-use, extensible crates:
-* **Barter**: Algorithmic trading Engine with feature rich state management system.
-* **Barter-Instrument**: Exchange, Instrument and Asset data structures and utilities. 
-* **Barter-Data**: Stream public market data from financial venues. Easily extensible via the MarketStream interface.
-* **Barter-Execution**: Stream private account data and execute orders. Easily extensible via the ExecutionClient interface. 
-* **Barter-Integration**: Low-level frameworks for flexible REST/WebSocket integrations.
+* **Trading-Bot-Runtime**: Algorithmic trading Engine with feature rich state management system.
+* **Trading-Bot-Instrument**: Exchange, Instrument and Asset data structures and utilities. 
+* **Trading-Bot-Market**: Stream public market data from financial venues. Easily extensible via the MarketStream interface.
+* **Trading-Bot-Execution**: Stream private account data and execute orders. Easily extensible via the ExecutionClient interface. 
+* **Trading-Bot-Integration**: Low-level frameworks for flexible REST/WebSocket integrations.
 
 ## Notable Features
-- Stream public market data from financial venues via the [`Barter-Data`] library. 
-- Stream private account data, execute orders (live or mock)** via the [`Barter-Execution`] library.
+- Stream public market data from financial venues via the `Trading-Bot-Market` library. 
+- Stream private account data, execute orders (live or mock)** via the `Trading-Bot-Execution` library.
 - Plug and play Strategy and RiskManager components that facilitate most trading strategies. 
 - Backtest utilities for efficiently running thousands of concurrent backtests.
 - Flexible Engine that facilitates trading strategies that execute on many exchanges simultaneously.
 - Use mock MarketStream or Execution components to enable back-testing on a near-identical trading system as live-trading.  
 - Centralised cache friendly state management system with O(1) constant lookups using indexed data structures.
-- Robust Order management system - use stand-alone or with Barter. 
+- Robust Order management system - use stand-alone or with Trading Bot. 
 - Trading summaries with comprehensive performance metrics (PnL, Sharpe, Sortino, Drawdown, etc.).
 - Turn on/off algorithmic trading from an external process (eg/ UI, Telegram, etc.) whilst still processing market/account data. 
 - Issue Engine Commands from an external process (eg/ UI, Telegram, etc.) to initiate actions (CloseAllPositions, OpenOrders, CancelOrders, etc.).
 - EngineState replica manager that processes the Engine AuditStream to facilitate non-hot path monitoring components (eg/ UI, Telegram, etc.).
 
-[barter-examples]: https://github.com/barter-rs/barter-rs/tree/develop/barter/examples
+[examples]: apps/src/bin
 
 ## Examples
-* See [here][barter-examples] for the compilable example including imports.
+* See [here][examples] for the compilable example including imports.
 * See sub-crates for further examples of each library.
 
 #### Paper Trading With Live Market Data & Mock Execution
 
 ```rust,no_run
-const FILE_PATH_SYSTEM_CONFIG: &str = "barter/examples/config/system_config.json";
+const FILE_PATH_SYSTEM_CONFIG: &str = "apps/config/system_config.json";
 const RISK_FREE_RETURN: Decimal = dec!(0.05);
 
 #[tokio::main]
@@ -169,42 +144,14 @@ fn load_config() -> Result<SystemConfig, Box<dyn std::error::Error>> {
 }
 ```
 
-## Getting Help
-Firstly, see if the answer to your question can be found in the [API Documentation]. If the answer is not there, I'd be
-happy to help via [Chat] and try answer your question via Discord.
-
-## Support Barter Development
-Help us advance Barter's capabilities by becoming a sponsor (or supporting me with a tip!).
-
-Your contribution will allow me to dedicate more time to Barter, accelerating feature development and improvements.
-
-**Please email *justastream.code@gmail.com* for all inquiries**
-
-### Sponsorship Tiers
-* 🥇 **Sponsor** - Your name, logo, and website link will be displayed below.
-* 🥈 **Supporter** - Your name listed as supporter.
-
-### Current Sponsors
-*Your name, logo and website link could be here*
-
-### Current Supporters
-*Your name could be here*
-
----
-**Thank you to all our sponsors and supporters! 🫶**
-
-## Contributing
-Thanks in advance for helping to develop the Barter ecosystem! Please do not hesitate to get touch via the Discord [Chat] to discuss development,
-new features, and the future roadmap.
-
-### Licence
+## Licence
 This project is licensed under the [MIT license].
 
-[MIT license]: https://github.com/barter-rs/barter-rs/blob/develop/LICENSE
+[MIT license]: LICENSE
 
-### Contribution License Agreement
+## Contribution License Agreement
 
-Any contribution you intentionally submit for inclusion in Barter workspace crates shall be:
+Any contribution you intentionally submit for inclusion in Trading Bot workspace crates shall be:
 1. Licensed under MIT
 2. Subject to all disclaimers and limitations of liability stated below
 3. Provided without any additional terms or conditions

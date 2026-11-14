@@ -1,0 +1,52 @@
+[package]
+name = "trading-bot-runtime"
+version = "0.14.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/trapilot/rust-trading-bot"
+readme = "README.md"
+description = "Framework for building high-performance live-trading, paper-trading and back-testing systems"
+keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
+categories = ["accessibility", "simulation"]
+
+[dev-dependencies]
+rust_decimal_macros = { workspace = true }
+serde_json = { workspace = true }
+spin_sleep = { workspace = true }
+tokio = { workspace = true, features = ["fs"]}
+
+[dependencies]
+# Trading Bot Ecosystem
+trading-bot-integration = { workspace = true }
+trading-bot-instrument = { workspace = true }
+trading-bot-market = { workspace = true }
+trading-bot-execution = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json", "registry"]}
+
+# Async
+tokio = { workspace = true, features = ["sync"] }
+futures = { workspace = true }
+pin-project = { workspace = true }
+
+# Error
+thiserror = { workspace = true }
+
+# SerDe
+serde = { workspace = true, features = ["derive"] }
+
+# Data Structures
+smol_str = { workspace = true }
+rust_decimal = { workspace = true }
+fnv = { workspace = true }
+indexmap = { workspace = true, features = ["serde"]}
+
+# Misc
+chrono = { workspace = true, features = ["serde"]}
+derive_more = { workspace = true, features = ["constructor", "from", "display"]}
+prettytable-rs = "0.10.0"
+itertools = { workspace = true }
+parking_lot = { workspace = true }
+

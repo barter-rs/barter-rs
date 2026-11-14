@@ -1,4 +1,4 @@
-name: "Barter CI"
+name: "Trading Bot CI"
 
 on:
   push:

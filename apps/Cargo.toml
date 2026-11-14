@@ -1,0 +1,45 @@
+[package]
+name = "trading-bot-apps"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/trapilot/rust-trading-bot"
+description = "Runnable trading-bot applications: backtests, paper trading and engine demos"
+publish = false
+
+[[bench]]
+name = "backtest"
+path = "benches/backtest/mod.rs"
+harness = false
+
+[dependencies]
+# Trading Bot Ecosystem
+trading-bot-runtime = { workspace = true }
+trading-bot-market = { workspace = true }
+trading-bot-execution = { workspace = true }
+trading-bot-instrument = { workspace = true }
+trading-bot-integration = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Async
+tokio = { workspace = true, features = ["fs", "sync"] }
+futures = { workspace = true }
+
+# SerDe
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Data Structures
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+smol_str = { workspace = true }
+
+# Misc
+chrono = { workspace = true }
+derive_more = { workspace = true }
+itertools = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }

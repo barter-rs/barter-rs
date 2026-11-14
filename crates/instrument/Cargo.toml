@@ -1,0 +1,27 @@
+[package]
+name = "trading-bot-instrument"
+version = "0.3.3"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/trapilot/rust-trading-bot"
+readme = "README.md"
+description = "Core Trading Bot Exchange, Instrument and Asset data structures and associated utilities."
+keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
+categories = ["accessibility", "simulation"]
+
+[dev-dependencies]
+rust_decimal_macros = { workspace = true }
+serde_json = { workspace = true }
+
+[dependencies]
+# SerDe
+serde = { workspace = true, features = ["derive"] }
+
+# Data Structures
+smol_str = { workspace = true, features = ["serde"]}
+rust_decimal = { workspace = true }
+
+# Misc
+chrono = { workspace = true, features = ["serde"] }
+derive_more = { workspace = true, features = ["display"] }
+thiserror = { workspace = true }

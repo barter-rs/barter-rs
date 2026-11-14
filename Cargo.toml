@@ -1,21 +1,23 @@
 [workspace]
 resolver = "3"
 members = [
-    "barter",
-    "barter-data",
-    "barter-execution",
-    "barter-integration",
-    "barter-macro", 
-    "barter-instrument"
+    "apps",
+    "crates/runtime",
+    "crates/market",
+    "crates/execution",
+    "crates/integration",
+    "crates/macro", 
+    "crates/instrument"
 ]
 
 [workspace.dependencies]
-# Barter Ecosystem
-barter-integration = { path = "./barter-integration", version = "0.12" }
-barter-instrument = { path = "./barter-instrument", version = "0.3" }
-barter-data = { path = "./barter-data", version = "0.13" }
-barter-execution = { path = "./barter-execution", version = "0.9" }
-barter-macro = { path = "./barter-macro", version = "0.2.1" }
+# Trading Bot Ecosystem
+trading-bot-runtime = { path = "./crates/runtime", version = "0.14" }
+trading-bot-integration = { path = "./crates/integration", version = "0.12" }
+trading-bot-instrument = { path = "./crates/instrument", version = "0.3" }
+trading-bot-market = { path = "./crates/market", version = "0.13" }
+trading-bot-execution = { path = "./crates/execution", version = "0.9" }
+trading-bot-macro = { path = "./crates/macro", version = "0.2.1" }
 
 # Logging
 tracing = { version = "0.1.41" }
