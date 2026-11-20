@@ -43,6 +43,8 @@ pub struct CoinbaseTrade {
     pub amount: f64,
     #[serde(deserialize_with = "barter_integration::serde::de::de_str")]
     pub price: f64,
+    /// Taker [`Side`] of the trade.
+    #[serde(deserialize_with = "de_side_from_maker_side")]
     pub side: Side,
 }
 
@@ -79,6 +81,24 @@ where
 {
     <&str as Deserialize>::deserialize(deserializer)
         .map(|product_id| ExchangeSub::from((CoinbaseChannel::TRADES, product_id)).id())
+}
+
+/// Deserialize a [`CoinbaseTrade`] "side" field as the taker [`Side`] of the trade.
+///
+/// Coinbase reports the maker order side: "sell" means a resting sell order was hit by a buyer
+/// (an uptick), and "buy" means a resting buy order was hit by a seller (a downtick).
+///
+/// Variants:
+/// "sell" => Side::Buy
+/// "buy" => Side::Sell
+pub fn de_side_from_maker_side<'de, D>(deserializer: D) -> Result<Side, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    Side::deserialize(deserializer).map(|maker_side| match maker_side {
+        Side::Buy => Side::Sell,
+        Side::Sell => Side::Buy,
+    })
 }
 
 #[cfg(test)]
@@ -120,8 +140,31 @@ mod tests {
                     id: 10,
                     price: 400.23,
                     amount: 5.23512,
-                    side: Side::Sell,
+                    // maker side "sell" => taker bought
+                    side: Side::Buy,
                     time: NaiveDateTime::from_str("2014-11-07T08:19:27.028459")
+                        .unwrap()
+                        .and_utc(),
+                }),
+            },
+            TestCase {
+                // TC2: valid Spot CoinbaseTrade w/ maker side "buy"
+                input: r#"
+                {
+                    "type": "match","trade_id": 11,"sequence": 51,
+                    "maker_order_id": "ac928c66-ca53-498f-9c13-a110027a60e8",
+                    "taker_order_id": "132fb6ae-456b-4654-b4e0-d681ac05cea1",
+                    "time": "2014-11-07T08:19:28.028459Z",
+                    "product_id": "BTC-USD", "size": "1.5", "price": "400.22", "side": "buy"
+                }"#,
+                expected: Ok(CoinbaseTrade {
+                    subscription_id: SubscriptionId::from("matches|BTC-USD"),
+                    id: 11,
+                    price: 400.22,
+                    amount: 1.5,
+                    // maker side "buy" => taker sold
+                    side: Side::Sell,
+                    time: NaiveDateTime::from_str("2014-11-07T08:19:28.028459")
                         .unwrap()
                         .and_utc(),
                 }),
